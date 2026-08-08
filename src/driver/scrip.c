@@ -892,6 +892,11 @@ int main(int argc, char **argv)
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
+            /* PL-FR-4 NAME PRE-PASS: for Prolog files, register all graph names in ZLS BEFORE any graph is compiled,
+             * so that zls_g_resume_by_name(callee_name) resolves correctly even when the callee is compiled AFTER
+             * the caller in the emission order.  Icon/SN4 do this inline (line 913); Prolog needs a pre-pass because
+             * multi-clause predicates mutually reference each other via call_proc_staged. */
+            if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -910,7 +915,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally); s112: RECORD the structural exclusion so the startup bake mirrors it — the bake predicate must equal the arming predicate or it references stubs that were never emitted (treebank m4 link regression) */
-                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: name the graph in the zls registry BEFORE emit_chain so zls_g_resume_by_name(callee_name) works at later call sites in bb_call_proc_staged.  Mirrors dump_ir path. Harmless for non-generators (resume_off stays -1). */
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: name the graph in the zls registry BEFORE emit_chain so zls_g_resume_by_name(callee_name) works at later call sites in bb_call_proc_staged.  Mirrors dump_ir path. Harmless for non-generators (resume_off stays -1). PL-FR-4: added is_prolog so Prolog generator callee names resolve for pl_zf_resume cursor_off lookup. */
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }   /* SN4-FLAT-PROC (s176): bb_proc_entry, NOT ->entry -- a shared-graph proc (LBL__/DEFINE entry) must bind its α at proc_entry_node; binding at main's entry made the stub's transfer re-run the whole program inside the call (the m4 recursion SEGV) */
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1380,7 +1385,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && _pg->entry->op == IR_SAVE_RESTORE && IR_LIT(_pg->entry).ival == 3) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs carve a fresh MAIN-layout frame -- floor their region at main's (see emit_jmp_entry_arm_region); cleared by emit_jmp_entry_clear */
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — proc_entry_node path */
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — proc_entry_node path. PL-FR-4: added is_prolog. */
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl) emit_textf("  .globl %s_\xce\xb1\n", _pfx); if (scrip_symmap()) emit_textf("  .type %s_\xce\xb1, @function\n", _pfx); emit_chain(s2->proc_table[_pi].proc_entry_node, _out, _pfx); if (scrip_symmap()) emit_textf("  .size %s_\xce\xb1, .-%s_\xce\xb1\n", _pfx, _pfx); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1556,6 +1561,8 @@ int main(int argc, char **argv)
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
+            /* PL-FR-4 NAME PRE-PASS (mode 3): register all Prolog graph names in ZLS before any graph is compiled. */
+            if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1580,7 +1587,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }   /* PL-DC s108: m3 twin of the m4 arming (pat blobs excluded structurally) */
-                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — m3 proc loop */
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — m3 proc loop. PL-FR-4: added is_prolog. */
                 bb_box_fn pfn = emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }

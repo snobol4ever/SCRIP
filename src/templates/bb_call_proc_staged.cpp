@@ -29,6 +29,8 @@ void   *rt_gen_get_cont(void); /* ICN-FR-4 L3: returns saved continuation ptr fr
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: callee's icn_zframe_gen flag by name — 1 = Icon zframe generator; 0 = Prolog or non-generator (zeta_storage.c) */
 int  rt_proc_is_generator(const char *name);
+void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);   /* PL-FR-4 ZFRAME: pop {trail_mark_lo, trail_mark_hi, cont_addr} triple; 0 = exhausted = omega. */
+void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);   /* PL-FR-4 ZFRAME RESUME: set pending-resume globals. */
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" DESCR_t g_call_args[];
@@ -551,6 +553,33 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t getfb_fp; { void *(*fp)(void) = rt_gen_get_fb; getfb_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    /* PL-FR-4 ZFRAME β RESUME — emitted for Prolog zframe generators (zframe_graph=1, !icn_zframe_gen, resume_slot>0).
+     * The non-zframe β path (mov rsp,FRQ(act+8); jmp[rsp]) jumps into a DEAD C frame after the callee's γ-epilogue
+     * unwound it — causing hangs, wrong output, or SEGV (FR-4 root cause, fully diagnosed in GOAL-PL-ZFRAME-RESTORE).
+     * The fix: pop {tm_lo, tm_hi, cursor_cont} triple from g_pl_cp_stack (pushed by bb_suspend at each yield),
+     * call rt_pl_zf_resume_set to register the cursor+trail for the new activation, re-stage args, re-call
+     * rt_proc_call_open_det to open a fresh pcall, and jmp into the callee α AGAIN.  The callee's α runs:
+     * rt_jmp_frame_lexprep2 (which applies the pending cursor+trail override into the fresh frame),
+     * then α_body (which re-writes the cursor — same value as our override), then n0 ($trail_mark = CURRENT
+     * trail top), then the body runs clause 1 again.  At n15_suspend_α (clause 1 γ-exit), before the
+     * xa_flat_zframe_epilogue_γ unwinds the frame, the epilogue checks g_pl_zf_pending_cursor:
+     *   - if set (our resume_set was still pending), write cursor to [rbp+resume_slot] and jmp there directly
+     *     → SKIPS clause 1's result, jumps straight to n15_suspend_β (clause 2 entry)
+     *   - if cleared (normal path), γ-exit proceeds to L(3) with clause 1's result
+     * Wait: rt_jmp_frame_lexprep2 calls rt_pl_zf_resume_clear() — so by n15_suspend_α time, the pending flag
+     * is already cleared.  The epilogue check fires BEFORE lexprep2 in the α prologue... no, lexprep2 is called
+     * IN α before the body.  The epilogue fires AFTER the full clause-1 execution.  The intercept must detect
+     * that this was a β-resume re-entry by a DIFFERENT mechanism.
+     * REVISED: use a call-count sentinel: save g_pl_cp_top value at β-resume time into FRQ(act+32). At L(7)
+     * landing, check if g_pl_cp_top > FRQ(act+32) (a new triple was pushed by n15_suspend_α during this re-entry).
+     * If so: the new top is clause 2's triple; pop it and re-resume (jmp cursor = n15_suspend_β, WITHIN the
+     * still-live callee frame... but the frame is DEAD at L(7)).
+     * FINAL CORRECT APPROACH: set g_pl_zf_pending_cursor BEFORE re-calling open_det. rt_jmp_frame_lexprep2
+     * writes cursor+trail. α_body overwrites cursor with n15_suspend_β (SAME VALUE). n0 sets fresh trail top.
+     * At n15_suspend_α (yields clause 1), bb_suspend emits rt_pl_cp_push3 BEFORE the yield.  The push3 call
+     * checks g_pl_zf_pending_cursor: if still set, SKIP the push3 (don't push clause 1 again; caller already
+     * has what it needs). Instead, jmp cursor = n15_suspend_β directly WITHIN the live frame.
+     * THIS IS THE FIX: bb_suspend gates the push3 on !g_pl_zf_pending_cursor, and if pending: jmp cursor. */
     /* ICN-FR-4 ZFRAME GENERATOR RESUME — emit-time callee resume-slot lookup.
      * Under the zframe model (g_emit.zframe_graph=1), the generator's γ epilogue absolutely unwinds the
      * deep stack (lea rsp,[rbp+kt]).  The non-zframe resume record ({res-landing, callee_rbp} at the FORTH
@@ -564,6 +593,8 @@ static std::string bcps_spine_gen_arm() {
      * original push/jmp[rsp] protocol unchanged (byte-identical). */
     int  zf_cont_off = (g_emit.zframe_graph && _.op_sval) ? ([]() { extern int zls_g_resume_by_name(const char *); return zls_g_resume_by_name(_.op_sval); })() : -1;
     bool zf_resume   = g_emit.zframe_graph && (zf_cont_off >= 0) && zls_g_icn_zframe_gen_by_name(_.op_sval);   /* ICN-FR-5 BUG1 FIX: was g_emit_cfg->icn_zframe_gen (CALLER graph's flag), which is 0 for main() and every non-generator caller — so zf_resume was always false and the non-zframe push/jmp[rsp] path was taken even for Icon zframe generator calls, looping back to L(7) instead of advancing the generator.  The correct discriminator is the CALLEE's icn_zframe_gen, looked up by name: lower_icon.c stamps icn_zframe_gen=1 on the generator proc's own graph (ONE AUTHORITY, line 1424); Prolog graphs also reach bcps_spine_gen_arm (lower_prolog emits IR_SUSPEND, giving them a resume_off >= 0 via zls_g_resume_by_name) but lower_prolog NEVER sets icn_zframe_gen, so zls_g_icn_zframe_gen_by_name returns 0 for them → correct non-zframe Prolog path preserved.  PL-ZD-WINDOW2-FIX intent (gate Prolog flat_gen=1 out of the icn-zframe rt_gen_get_cont path) is still honored by the callee-lookup. */
+    bool pl_zf_resume = g_emit.zframe_graph && !zf_resume && g_emit_cfg && g_emit_cfg->resume_slot > 0 && !g_emit_cfg->icn_zframe_gen;   /* PL-FR-4: Prolog zframe generator β-resume arm — fires when callee has resume_slot (multi-clause pred) and is NOT an ICN zframe gen. */
+    int  pl_tm_off = pl_zf_resume ? (g_emit_cfg->pl_zf_trail_mark_off) : 0;   /* PL-FR-4: callee's trail-mark frame slot offset (0 = unset/not-applicable). */
     /* PL-GENIDX-1 (2026-07-25) — EMIT-TIME-RESOLVED CALLEE FOR THE *GENERATOR* SITE.  PL-REGAIN-1 slice A (s100) gave the DET arm an index-based open (no FNV hash, no strcmp, and the fused leaf returns
      * the fn pointer so the separate rt_proc_open_fn crossing dies).  THE GENERATOR ARM NEVER GOT IT — and every nondet Prolog predicate (`app/3`, `nrev/2`, every multi-clause pred) is dispatched HERE,
      * so the whole Prolog hot corpus was re-hashing its callee's NAME STRING on every one of ~10M calls.  Measured: 6/6 nrev call sites emitted the name path, 0 the index path; rt_proc_fnv +
@@ -661,6 +692,94 @@ static std::string bcps_spine_gen_arm() {
                      + x86("mov", "rbp", "rax")                 /* pin generator frame base */
                      + x86("mov", "rsp", "rax")                 /* set FORTH base to generator_rbp */
                      + x86("jmp", "r11");                       /* jmp to stored continuation */
+              })()
+            : pl_zf_resume
+            ? ( [&]() -> std::string {
+                /* PL-FR-4 ZFRAME β RESUME:
+                 * 1. Pop triple {tm_lo, tm_hi, cursor_cont} from g_pl_cp_stack.
+                 * 2. If exhausted (cursor_cont=0), jmp omega.
+                 * 3. Call rt_pl_zf_resume_set(cursor_cont, tm_lo, tm_hi, pl_tm_off) to register pending resume.
+                 * 4. Re-stage args (still live in caller's FRQ arg slots from the original call).
+                 * 5. Re-call rt_proc_call_open_det → rax=fn; push L(7); jmp fn.
+                 * Inside the callee α: rt_jmp_frame_lexprep2 finds g_pl_zf_pending_cursor set and writes
+                 * cursor+trail into the fresh frame.  α_body re-writes cursor (same value).  n0 ($trail_mark)
+                 * sets a fresh trail checkpoint.  n15_suspend_α: bb_suspend checks g_pl_zf_pending_cursor —
+                 * if still set (it was cleared by rt_pl_zf_resume_clear in rt_jmp_frame_lexprep2... wait,
+                 * rt_jmp_frame_lexprep2 calls rt_pl_zf_resume_clear.  So by n15_suspend_α time it's cleared.
+                 * The epilogue-γ check fires BEFORE lexprep2 clears it — no, lexprep2 is IN the PROLOGUE
+                 * which runs BEFORE the body and before n15_suspend_α.
+                 * CORRECT FLOW: rt_jmp_frame_lexprep2 writes cursor+trail and CLEARS pending.  n0 overwrites
+                 * trail.  n15_suspend_α fires — pending is clear — bb_suspend's gate says NOT pending, so
+                 * push3 fires normally (pushes clause-1's triple).  Callee γ-exits to L(3).  L(3) saves rsp.
+                 * At L(7): we have clause 1's result.  BUT FRQ(act+8) holds the rsp pointing at L(7) in the
+                 * caller's frame — exactly the non-zframe state.  So the NEXT β fires the legacy path...
+                 * which is still broken.
+                 * THE PENDING CURSOR MUST NOT BE CLEARED BY LEXPREP2 — it must survive until γ-exit so the
+                 * epilogue intercept can fire.  Move the clear OUT of rt_jmp_frame_lexprep2 and into the
+                 * epilogue intercept (which already calls rt_pl_zf_resume_clear).  The α_body's cursor
+                 * re-write (lea rax,[rip+n15_suspend_β]; mov [rbp+1120],rax) happens AFTER lexprep2 and
+                 * sets [rbp+1120] = n15_suspend_β — same as our pending cursor, no conflict.
+                 * n15_suspend_α at γ-time: g_pl_zf_pending_cursor is still set (not cleared by lexprep2).
+                 * bb_suspend checks it — pending=set → jmp r11 (cursor = n15_suspend_β, in live frame).
+                 * n15_suspend_β → n16_call_builtin_prolog_α → trail unwind → clause 2 body → ...
+                 * THIS IS CORRECT if we DON'T clear in lexprep2. */
+                uint64_t _pop3_fp; { void *(*_f)(long *, long *) = rt_pl_cp_pop3; _pop3_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                uint64_t _set_fp; { void (*_f)(void *, long, long, int, int) = rt_pl_zf_resume_set; _set_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                /* pop3: returns cont in rax; we pass stack addrs for tm_lo/tm_hi using scratch slots */
+                return x86("comment", "PL-FR-4 zframe β: pop triple, set pending resume, re-enter callee α")
+                     /* reset FRQ(act) to 0 so L(3) calls rt_proc_call_epilogue_γ (not rt_gen_spine_pass_γ) — the fresh open_det pushes a new pcall that must be popped at γ */
+                     + x86("mov", FRQ(act), 0L)
+                     /* save two scratch slots for tm_lo/tm_hi output from pop3 */
+                     + x86("lea", "rdi", FRQ(act + 16))    /* &tm_lo → rdi (scratch FRQ slot) */
+                     + x86("lea", "rsi", FRQ(act + 24))    /* &tm_hi → rsi */
+                     + x86("call", "rt_pl_cp_pop3", _pop3_fp)   /* rax = cursor_cont (0 = exhausted) */
+                     + x86("test", "rax", "rax")
+                     + x86_omega("je")                      /* exhausted = fail */
+                     /* set pending resume: rdi=cursor, rsi=tm_lo, rdx=tm_hi, ecx=tm_off, r8d=cursor_off */
+                     + x86("mov", "rdi", "rax")             /* cursor_cont */
+                     + x86("mov", "rsi", FRQ(act + 16))    /* tm_lo */
+                     + x86("mov", "rdx", FRQ(act + 24))    /* tm_hi */
+                     + x86("mov32", "ecx", (long)pl_tm_off) /* tm_off (baked immediate) */
+                     + x86("mov32", "r8d", (long)zf_cont_off) /* cursor_off = resume_slot */
+                     + x86("call", "rt_pl_zf_resume_set", _set_fp)
+                     /* re-stage args for the fresh α call — use plain rt_arg_stage (not inline) to avoid L(20+) collision with α's stage calls */
+                     + FOR(0, (int)_.op_ival, [&](int i) {
+                         int slot = bcps_arg_slot(_.node, argblks, i);
+                         return x86("mov32", "edi", (long)i)
+                              + x86("mov", "rsi", FRQ(slot))
+                              + x86("mov", "rdx", FRQ(slot + 8))
+                              + x86("call", "rt_arg_stage", stage_fp);
+                     })
+                     /* re-open callee (fresh pcall + fn ptr); set wires and enter — must push L(7) landing word BEFORE jmp so L(3) landing finds it on stack */
+                     + (gi_idx >= 0
+                        ? x86("mov32", "edi", (long)gi_idx)
+                        + x86("mov32", "esi", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open_det", (uint64_t)gidet_fp)
+                        : x86_ro_load_q("rdi", 0)
+                        + x86("mov32", "esi", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open", open_fp))
+                     + x86("test", "rax", "rax")
+                     + x86_omega("je")
+                     + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
+                     /* push L(7) landing word FIRST (matches what α-path does before open_det; L(3) landing does add rsp,8 to pop it) */
+                     + x86_lea_id("r11", 7)
+                     + x86("push", "r11")
+                     /* set γ/ω wires and enter callee — equivalent to bb_glue_pass_wires(3,4) but with L(7) already on stack */
+                     + x86_lea_id("rcx", 3)
+                     + x86_lea_id("rdx", 4)
+                     + x86("jmp", "rax")
+                     /* L(7): bb_suspend's pending-cursor check intercepts BEFORE γ-exit and jmps to clause 2.
+                      * We should not reach L(7) in the pl_zf_resume path — if we do, clause 2 was also exhausted
+                      * (the callee γ-exited normally) and we have a fresh result to pass through. */
+                     + x86("def", L(7))
+                     + x86("add", "rsp", 8L)
+                     + x86_anchor_leave()
+                     + x86_scan_sync_in_rr()
+                     + x86("mov", FRQ(off), "rax")
+                     + x86("mov", FRQ(off + 8), "rdx")
+                     + x86("cmp", "eax", (long)DT_FAIL)
+                     + x86_omega("je")
+                     + x86_gamma();
               })()
             : x86("mov", "rsp", FRQ(act + 8))
             + x86_jmp_mem("rsp", 0)

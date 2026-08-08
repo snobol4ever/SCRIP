@@ -21,7 +21,7 @@ typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; } z
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;   /* anchor: SN4-FLAT-PROC (s176) -- the label's statement anchor by pointer, orphan-proof emission root (see zls_group_mark_anchor) */
-typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; } zls_graph_t;
+typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; int pl_trail_mark_off; } zls_graph_t;   /* PL-FR-4: pl_trail_mark_off is the frame slot of the first $trail_mark call's result (set in zls_assign_flat_prolog by scanning for the first IR_CALL_BUILTIN_PROLOG with sval==$trail_mark; -1 if absent). Baked by bcps_spine_gen_arm via zls_g_pl_trail_mark_by_name() to know where to restore the trail mark in a fresh callee zframe during β-resume. */
 static zls_entry_t  ze[ZLS_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[ZLS_MAX_FIELDS];   static int zf_n = 0;
 static zls_scope_t  zs[ZLS_MAX_SCOPES];   static int zs_n = 0;
@@ -62,7 +62,7 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
     zls_graph_t * r = zls_g_find(g);
     if (r) { r->name = name; if (r->first_scope >= 0 && r->first_scope < zs_n) zs[r->first_scope].name = name; return; }
     if (zg_n >= ZLS_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", ZLS_MAX_GRAPHS); abort(); }
-    zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0 };
+    zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, -1 };
     zg_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -488,7 +488,7 @@ void zls_build(IR_graph_t * g) {
     if (r && r->first_scope >= 0) return;
     if (!r) {
         if (zg_n >= ZLS_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", ZLS_MAX_GRAPHS); abort(); }
-        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0 }; r = &zg[zg_n]; zg_n++;
+        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, -1 }; r = &zg[zg_n]; zg_n++;
     }
     static char anon[ZLS_MAX_GRAPHS][8]; int gi = (int)(r - zg);
     if (!r->name) { snprintf(anon[gi], sizeof anon[gi], "g%d", gi); r->name = anon[gi]; }
@@ -942,6 +942,11 @@ int zls_g_resume_by_name(const char *name) {
     return -1;
 }
 int zls_g_icn_zframe_gen_by_name(const char *name) { if (!name) return 0; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].g ? zg[i].g->icn_zframe_gen : 0; return 0; }   /* ICN-FR-5 (77aa7119): callee icn_zframe_gen lookup by name -- referenced in bb_call_proc_staged.cpp:566; defined here to fix the undefined-reference build error after M-3 merge. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 TRAIL MARK SLOT — setter called by ir_drive_slot_assign after zls_build runs (so zls_off(nd) is valid); lookup used by bcps_spine_gen_arm in bb_call_proc_staged.cpp to know the callee's trail-mark frame offset for β-resume frame population. */
+void zls_g_set_pl_trail_mark(const IR_graph_t *g, int off) { if (!g) return; for (int i = 0; i < zg_n; i++) if (zg[i].g == g) { zg[i].pl_trail_mark_off = off; return; } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zls_g_pl_trail_mark_by_name(const char *name) { if (!name) return -1; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].pl_trail_mark_off; return -1; }   /* PL-FR-4: callee trail-mark frame slot offset by name; -1 = not a Prolog zframe pred or no $trail_mark node. */
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
