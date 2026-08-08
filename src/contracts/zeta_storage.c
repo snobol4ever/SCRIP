@@ -912,13 +912,7 @@ int zls_g_resume_by_name(const char *name) {
             return zg[i].resume_off;
     return -1;
 }
-int zls_g_icn_zframe_gen_by_name(const char *name) {
-    if (!name) return 0;
-    for (int i = 0; i < zg_n; i++)
-        if (zg[i].name && strcmp(zg[i].name, name) == 0)
-            return zg[i].g ? zg[i].g->icn_zframe_gen : 0;
-    return 0;
-}
+int zls_g_icn_zframe_gen_by_name(const char *name) { if (!name) return 0; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].g ? zg[i].g->icn_zframe_gen : 0; return 0; }   /* ICN-FR-5 (77aa7119): callee icn_zframe_gen lookup by name -- referenced in bb_call_proc_staged.cpp:566; defined here to fix the undefined-reference build error after M-3 merge. */
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
