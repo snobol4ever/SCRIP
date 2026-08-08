@@ -49,10 +49,12 @@ void rtcc_coexpr_restore(const uint64_t *src_256);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* C-side crossing helpers (used by inbound stubs: bb_glue, rt_chain_enter glue, proc prologues).                                                                                                    */
 /* These are NO-OPs when g_rtcc_on == 0 (the killswitch path).                                                                                                                                        */
-/* rtcc_load_scratch: LOAD block→{R10,R11,R8,R9} at C→generated boundaries.  Inline asm clobbers all four.   */
-/* Called just before jmp into generated code so the scratch tier arrives with block-consistent values.       */
-/* At RC-2 the block values are zero (no VM global assigned yet — RC-5); zero regs are safe (scratch only).  */
+/* rtcc_load_scratch: RC-2 LOAD block→{R10,R11,R8,R9} at C→generated boundaries (scratch tier only).        */
+/* Retained for RC-2/RC-3 inbound stubs that have not yet been converted to rtcc_load_all.                   */
 void rtcc_load_scratch(void);
+/* rtcc_load_all: RC-4 LOAD block→{RAX,RCX,RDX,RSI,RDI,R8,R9,R10,R11} at C→generated boundaries.          */
+/* The full 9-GPR set.  Clobbers all nine.  Gate: g_rtcc_on==0 → no-op (killswitch law).                    */
+void rtcc_load_all(void);
 #ifdef __cplusplus
 }
 #endif

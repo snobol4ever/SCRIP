@@ -261,57 +261,103 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
     return x86_align_assert() + std::string(" call ") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* x86_rtcc_call — RC-2 RTCC veneer encoder.  KILLSWITCH LAW: when g_rtcc_on==0 (SCRIP_RTCC unset/0 at                                                                                               */
-/* scrip-run time) this emits the IDENTICAL byte sequence as a bare x86_call_ro (byte-identical gate).           */
-/* When g_rtcc_on==1 (SCRIP_RTCC=1): emits SCRATCH TIER writeback → call → reload.                              */
-/* SCRATCH TIER (RC-2): {R10 R11 R8 R9}.  ARG TIER {RAX RCX RDX RSI RDI} deferred to RC-4.                     */
-/* BINARY writeback: push r11; movabs r11,block; mov[r11+56],r10; mov[r11+40],r8; mov[r11+48],r9;               */
-/*   pop[r11+64] (saves old r11 directly into block slot — no spill to stack beyond the one push).               */
-/* BINARY reload:   movabs r11,block; mov r10,[r11+56]; mov r8,[r11+40]; mov r9,[r11+48]; mov r11,[r11+64].      */
-/* TEXT: gas .intel_syntax equivalents using GOT-indirect base via r11.                                           */
-/* SLOT OFFSETS (8B each): R8=slot5=40, R9=slot6=48, R10=slot7=56, R11=slot8=64 (matches rtcc.h).               */
-/* PER-SYMBOL STAGING EXCEPTIONS (r8/r9-arg calls per RC-0(b) registry — 5 symbols): those symbols              */
-/* receive their 5th/6th SysV args in r8/r9; the writeback clears those slots BEFORE arg staging, so             */
-/* the veneer correctly spills whatever was in r8/r9 as VM state, and the caller's arg-staging code              */
-/* (emitted AFTER this call site) overwrites r8/r9 with the actual arguments.  No per-symbol exception           */
-/* is needed at RC-2 because {R8 R9} are not used as VM globals yet — they are saved/restored but carry          */
-/* no VM-meaningful value until assigned by RC-5.  Registry marks them for RC-4 arg-tier re-plumb.               */
+/* x86_rtcc_writeback / x86_rtcc_reload — RC-4 FULL 9-GPR block I/O helpers (BINARY + TEXT).                                                                                                        */
+/* WRITEBACK order: push r11 (saves it to stack), movabs r11,block, store RAX/RCX/RDX/RSI/RDI/R8/R9/R10        */
+/* via r11, then pop [r11+64] to capture old r11 into its slot — net cost: 1 push + 1 movabs + 8 stores.        */
+/* RELOAD order: movabs r11,block, restore RAX/RCX/RDX/RSI/RDI/R8/R9/R10 via r11, restore r11 last — so r11    */
+/* is valid as the block base for all restores.  r11 restored LAST (its slot = offset 64).                       */
+/* SLOT OFFSETS (8B each, matches rtcc.h): RAX=0, RCX=8, RDX=16, RSI=24, RDI=32, R8=40, R9=48, R10=56, R11=64 */
+/* BINARY call stub: movabs r10, ptr; call r10 — R10 is already written-back so it is free at this point.        */
+/* TEXT call stub: call sym@PLT (gas handles PLT indirection).                                                    */
+/* RETURN-BEFORE-RELOAD LAW (RC-4, per DESIGN OF RECORD): for DESCR_t-returning calls, the caller captures      */
+/* RAX:RDX to the destination frame slot BEFORE the reload — otherwise reload overwrites RAX:RDX with block      */
+/* values (which are stale VM globals, not the return value).  x86_rtcc_call_descr handles this case.            */
+/* x86_rtcc_call handles void/int/ptr-returning calls where RAX need not be captured before reload.              */
+/* x86_rtcc_wb_bin — BINARY: writeback all 9 GPRs to g_rtcc_block WITHOUT touching RSP.                         */
+/* RSP-SAFETY LAW: the veneer fires inside templates that may have live ζ cells on RSP.  NO push/pop allowed.    */
+/* APPROACH: use the REX.W MOV-moffs-rax encoding (48 A3 addr64) to store RAX directly to its slot by absolute  */
+/* address — no base register needed.  Then use RAX as the block pointer for the remaining 8 stores.             */
+/* After all stores, RAX is left holding the block address (its slot already holds the correct original value).   */
+/* The reload restores RAX from slot 0 last — but reload uses R11 as base, so RAX can be restored anytime.       */
+static inline std::string x86_rtcc_wb_bin(uint64_t block) {
+    std::string wb;
+    uint64_t slot_rax = block;  /* RTCC_SLOT_RAX=0 → block+0 */
+    /* Step 1: RAX → slot 0 via absolute moffs encoding (REX.W + A3 + addr64); no base register, no rsp touch */
+    wb += (char)0x48; wb += (char)0xA3; wb += u64le(slot_rax);                   /* mov qword [block+0], rax */
+    /* Step 2: movabs rax, block — RAX now = block pointer; original RAX already saved in slot 0 */
+    wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);                      /* movabs rax, block */
+    /* Step 3: store remaining 8 GPRs via RAX as base */
+    wb += (char)0x48; wb += (char)0x89; wb += (char)0x48; wb += (char)8;          /* mov [rax+8],  rcx  (RCX slot 1) */
+    wb += (char)0x48; wb += (char)0x89; wb += (char)0x50; wb += (char)16;         /* mov [rax+16], rdx  (RDX slot 2) */
+    wb += (char)0x48; wb += (char)0x89; wb += (char)0x70; wb += (char)24;         /* mov [rax+24], rsi  (RSI slot 3) */
+    wb += (char)0x48; wb += (char)0x89; wb += (char)0x78; wb += (char)32;         /* mov [rax+32], rdi  (RDI slot 4) */
+    wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40;         /* mov [rax+40], r8   (R8  slot 5) */
+    wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48;         /* mov [rax+48], r9   (R9  slot 6) */
+    wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56;         /* mov [rax+56], r10  (R10 slot 7) */
+    wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64;         /* mov [rax+64], r11  (R11 slot 8) */
+    /* RAX left = block pointer (original RAX is in slot 0).  Caller uses RAX for indirect call stub. */
+    return wb;
+}
+/* x86_rtcc_rl_bin — BINARY: reload GPRs from g_rtcc_block.                                                      */
+/* RC-4 PARTIAL RELOAD: only the SCRATCH TIER {R8, R9, R10, R11} is restored from the block.                   */
+/* The ARG TIER {RAX, RCX, RDX, RSI, RDI} reload is DEFERRED to RC-5: until a VM global is assigned to those  */
+/* slots, the block values are zero (BSS) and restoring zero would corrupt the call return value in RAX/RDX.   */
+/* Consequence: templates that read RAX/RDX after a call still see the call's return value — correct.          */
+/* R11 is restored last (it is the block pointer during the reload; overwritten when we load r11 from slot 8). */
+static inline std::string x86_rtcc_rl_bin(uint64_t block) {
+    std::string rl;
+    rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);                     /* movabs r11, block */
+    rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40;        /* mov r8,  [r11+40]  */
+    rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48;        /* mov r9,  [r11+48]  */
+    rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56;        /* mov r10, [r11+56]  */
+    rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64;        /* mov r11, [r11+64]  */
+    return rl;
+}
+static inline std::string x86_rtcc_wb_text(void) {
+    std::string wb;
+    /* RSP-SAFETY: no push/pop.  Save RAX first via direct symbol reference (no base register needed).      */
+    /* gas .intel_syntax accepts 'mov [sym], rax' as an absolute address store using a direct memory ref.   */
+    /* After saving RAX, load block address into RAX and use it as base for the remaining 8 stores.         */
+    wb += " mov qword ptr [g_rtcc_block + 0], rax\n";   /* RAX → slot 0 (direct symbol, no base needed) */
+    wb += " mov rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";   /* rax = block ptr (original rax saved) */
+    wb += " mov qword ptr [rax + 8],  rcx\n";
+    wb += " mov qword ptr [rax + 16], rdx\n";
+    wb += " mov qword ptr [rax + 24], rsi\n";
+    wb += " mov qword ptr [rax + 32], rdi\n";
+    wb += " mov qword ptr [rax + 40], r8\n";
+    wb += " mov qword ptr [rax + 48], r9\n";
+    wb += " mov qword ptr [rax + 56], r10\n";
+    wb += " mov qword ptr [rax + 64], r11\n";
+    /* rax left = block ptr; original rax in slot 0; call stub follows directly */
+    return wb;
+}
+static inline std::string x86_rtcc_rl_text(void) {
+    std::string rl;
+    /* RC-4 PARTIAL RELOAD: scratch tier only {R8 R9 R10 R11}; arg tier reload deferred to RC-5.            */
+    /* Use r11 as block base; restore r8/r9/r10; restore r11 last from its slot.                             */
+    rl += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
+    rl += " mov r8,   qword ptr [r11 + 40]\n";
+    rl += " mov r9,   qword ptr [r11 + 48]\n";
+    rl += " mov r10,  qword ptr [r11 + 56]\n";
+    rl += " mov r11,  qword ptr [r11 + 64]\n";
+    return rl;
+}
+/* x86_rtcc_call — RC-4 RTCC veneer for void/int/ptr-returning calls (no DESCR_t capture needed).               */
+/* KILLSWITCH: gate OFF → byte-identical to pre-RTCC (x86_call_ro).                                             */
 inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
     if (!g_rtcc_on) return x86_call_ro(sym, ptr);   /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC */
     uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
     if (MEDIUM_BINARY) {
-        std::string wb, rl;
-        /* WRITEBACK: push r11; movabs r11,block; save r10/r8/r9 via r11; pop [r11+64] */
-        wb += (char)0x41; wb += (char)0x53;                              /* push r11 */
-        wb += (char)0x49; wb += (char)0xBB; wb += u64le(block);         /* movabs r11, block */
-        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x53; wb += (char)56; /* mov [r11+56], r10 */
-        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x43; wb += (char)40; /* mov [r11+40], r8  */
-        wb += (char)0x4D; wb += (char)0x89; wb += (char)0x4B; wb += (char)48; /* mov [r11+48], r9  */
-        wb += (char)0x41; wb += (char)0x8F; wb += (char)0x43; wb += (char)64; /* pop qword[r11+64] */
-        /* RELOAD: movabs r11,block; restore r10/r8/r9; restore r11 last */
-        rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);         /* movabs r11, block */
-        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56; /* mov r10, [r11+56] */
-        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; /* mov r8,  [r11+40] */
-        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; /* mov r9,  [r11+48] */
-        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64; /* mov r11, [r11+64] */
-        std::string call_bytes; call_bytes += (char)0x48; call_bytes += (char)0xB8; call_bytes += u64le(ptr); call_bytes += (char)0xFF; call_bytes += (char)0xD0; /* movabs rax,ptr; call rax — RAX not yet claimed (ARG TIER RC-4); R11 already restored by reload */
-        return x86_align_assert() + x86_Lrec(wb) + x86_Lrec(call_bytes) + x86_Lrec(rl);
+        /* Call stub: movabs r10,ptr; call r10 — R10 already written-back, free as indirect-call scratch */
+        std::string call_b;
+        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr); /* movabs r10, ptr */
+        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;  /* call r10 */
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block));
     }
-    /* TEXT mode: gas .intel_syntax; use GOT ptr into r11, then disp-based stores/loads */
-    std::string wb_t, rl_t;
-    wb_t += " push r11\n";
-    wb_t += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    wb_t += " mov qword ptr [r11 + 56], r10\n";
-    wb_t += " mov qword ptr [r11 + 40], r8\n";
-    wb_t += " mov qword ptr [r11 + 48], r9\n";
-    wb_t += " pop qword ptr [r11 + 64]\n";
-    rl_t += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    rl_t += " mov r10, qword ptr [r11 + 56]\n";
-    rl_t += " mov r8,  qword ptr [r11 + 40]\n";
-    rl_t += " mov r9,  qword ptr [r11 + 48]\n";
-    rl_t += " mov r11, qword ptr [r11 + 64]\n";
-    return x86_align_assert() + wb_t + " call " + sym + "@PLT\n" + rl_t;
+    return x86_align_assert() + x86_rtcc_wb_text() + " call " + sym + "@PLT\n" + x86_rtcc_rl_text();
 }
+/* x86_rtcc_call_descr — RC-4 RTCC veneer for DESCR_t-returning calls — declared here, defined after FRQ/x86. */
+inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
     if (!strcmp(mnem, "je")  || !strcmp(mnem, "jz"))  return 0x84;
@@ -1490,7 +1536,7 @@ inline std::string x86_4col(const std::string & s) {
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_4col(x86_core_(mnem, xa, xb, xc, xd)); }
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
-    opnd a, b; x86_parse(xa, a); x86_parse(xb, b);
+    opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
     if (!strcmp(mnem, "comment"))   return std::string();   /* SN4-ASM-CRIT (Lon s173): BB emissions are COMMENT-FREE — the IR kind now lives in the node label (n<uid>_<kind>_α); statement source echo rides "srccomment", separators ride "commentrule".  All 245 template x86("comment",...) calls become pure empty strings; call-site removal is a named hygiene follow-up. */
     if (!strcmp(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");   /* OBJ-NOTE (Lon s23b): one-term object name for the NEXT instruction line, rendered '# name' in the GOTO column by x86_4col's fold; jump lines never take it (the GOTO column is theirs); BINARY = empty by construction. */
@@ -1537,13 +1583,44 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
                                                     : (std::string(" call ") + x86_portname(a.port) + "\n"));
-        if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);   /* RC-1: RTCC veneer choke; x86_rtcc_call == x86_call_ro until RC-2 wires the block */
+        if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);   /* RC-4: RTCC veneer choke for void/int/ptr-returning calls */
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
             return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"));
         }
         return std::string();
+    }
+    if (!strcmp(mnem, "call_rt")) {
+        /* RC-4: RTCC veneer for DESCR_t-returning calls — RETURN-BEFORE-RELOAD law (captures rax:rdx to   */
+        /* FRQ(slot):FRQ(slot+8) BEFORE the reload overwrites them).  Template form:                        */
+        /*   x86("call_rt", sym, (long)slot, ptr)  where b=slot (XK_IMM) and c=ptr (XK_IMM/XK_SYM tag2)  */
+        /* KILLSWITCH: gate OFF → bare call + two post-call moves (byte-identical to pre-RTCC template).   */
+        if (a.kind == XK_SYM && b.kind == XK_IMM && c.kind == XK_IMM)
+            return x86_rtcc_call_descr(a.sym, (uint64_t)c.imm, (int)b.imm);
+        return std::string();
+    }
+    if (!strcmp(mnem, "call_bare")) {
+        /* RC-4: emit the call instruction only, NO RTCC writeback/reload.  Used inside explicit rtcc_wb/rtcc_rl */
+        /* brackets where the wb and rl are emitted separately by the template.  BOTH gates: always a bare call. */
+        /* KILLSWITCH: same behaviour regardless of g_rtcc_on — this is intentionally veneer-free.               */
+        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
+        return std::string();
+    }
+    if (!strcmp(mnem, "rtcc_wb")) {
+        /* RC-4: emit the writeback half only (all 9 GPRs → block).  For chained post-call sequences where  */
+        /* cmp/je/capture all happen between the call and the reload.  KILLSWITCH: no-op when gate OFF.      */
+        if (!g_rtcc_on) return std::string();
+        uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block)) : x86_rtcc_wb_text();
+    }
+    if (!strcmp(mnem, "rtcc_rl")) {
+        /* RC-4: emit the reload half only (block → all 9 GPRs).  Paired with rtcc_wb above.               */
+        /* KILLSWITCH: no-op when gate OFF.                                                                  */
+        if (!g_rtcc_on) return std::string();
+        uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block)) : x86_rtcc_rl_text();
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);
     if (!strcmp(mnem, "pop"))  return x86_pop(a.txt);
@@ -2291,6 +2368,25 @@ inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
     if (id < X86_INTERNAL_BASE) return x86_portlbl(id);
     if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX); abort(); }
     { bb_label_t * l = &internal[id - X86_INTERNAL_BASE]; if (l->name[0] == '\0') snprintf(l->name, BB_LABEL_NAME_MAX, ".Lxi%d", id - X86_INTERNAL_BASE); return l; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_rtcc_call_descr — RC-4 RTCC veneer for DESCR_t-returning calls (RAX:RDX pair).                           */
+/* RETURN-BEFORE-RELOAD LAW: capture rax→FRQ(slot) and rdx→FRQ(slot+8) BEFORE the reload clobbers them.        */
+/* KILLSWITCH: gate OFF → bare x86_call_ro + the two post-call moves (byte-identical to pre-RTCC template seq). */
+/* Defined here (after FRQ, x86_frame_off, x86() — all needed by FRQ) not at the earlier forward-decl site.    */
+inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot) {
+    if (!g_rtcc_on) {
+        return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
+    }
+    uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+    std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
+    if (MEDIUM_BINARY) {
+        std::string call_b;
+        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr); /* movabs r10, ptr */
+        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;  /* call r10 */
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block));
+    }
+    return x86_align_assert() + x86_rtcc_wb_text() + " call " + sym + "@PLT\n" + cap + x86_rtcc_rl_text();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {

@@ -84,9 +84,7 @@ std::string bb_binop_relop() {
                  + (_.op_ival >= BINOP_SLT && _.op_ival <= BINOP_SNE
                      ? x86("mov", "rdi", FRQ(_.op_sb))
                      + x86("mov", "rsi", FRQ(_.op_sb + 8))
-                     + x86("call", "rt_str_coerce", (uint64_t)(uintptr_t)(void*)rt_str_coerce)
-                     + x86("mov", FRQ(_.op_off), "rax")
-                     + x86("mov", FRQ(_.op_off + 8), "rdx")
+                     + x86("call_rt", "rt_str_coerce", (long)_.op_off, (uint64_t)(uintptr_t)(void*)rt_str_coerce)
                      : x86("mov", "rax", FRQ(_.op_sb))
                      + x86("mov", FRQ(_.op_off), "rax")
                      + x86("mov", "rax", FRQ(_.op_sb + 8))

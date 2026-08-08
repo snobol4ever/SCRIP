@@ -21,9 +21,7 @@ std::string bb_binop_xrep_slot() {
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("mov", "rdx", FRQ(_.op_sb))
          + x86("mov", "rcx", FRQ(_.op_sb + 8))
-         + x86("call", "str_repeat_d", (uint64_t)(uintptr_t)(void*)str_repeat_d)
-         + x86("mov", FRQ(_.op_off),     "rax")
-         + x86("mov", FRQ(_.op_off + 8), "rdx")
+         + x86("call_rt", "str_repeat_d", (long)_.op_off, (uint64_t)(uintptr_t)(void*)str_repeat_d)
          + x86_gamma()
          + x86_beta_trampoline());
 }

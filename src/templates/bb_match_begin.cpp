@@ -55,9 +55,11 @@ std::string bb_match_begin() {
                       + x86("mov", "rsi", RDQ("rsp", _.op_sa + 8))
                       : x86("mov", "rdi", FRQ(_.op_sa))
                       + x86("mov", "rsi", FRQ(_.op_sa + 8)))   /* legacy flat-slot subject read -- the arm the SUBJECT-CELL rung retires; under subjc the DESCR already rides rdi/rsi from the TOS pop above.  REPL-PIN (this session): under the widened pin the raw flat op_sa is the deleted-carve coordinate (256 against a 176B claim on tB, exactly the hoffb comment's 066 shape) while the subject producer WROTE through zvo to the claim slot -- so the pinned read resolves through the SAME owner table, base-relative off the pinned rbp; the unpinned arm keeps the legacy spelling byte-identical. */
-         + x86("call", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
+         + x86("rtcc_wb")
+         + x86("call_bare", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
+         + x86("rtcc_rl")
          + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("mov", RDQ("r12", 16), (long)0) + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-SENTINEL-CLEAN: [+0]=tag0,[+8]=rsp_mark,[+16]=0(was patstk,dead pad); CAS-MARKER (Lon s8): tag-0 sentinel at match start; RELEASE/fail scan to it depth-free. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
