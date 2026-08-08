@@ -25,6 +25,7 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
+void   *rt_gen_get_cont(void); /* ICN-FR-4 L3: returns saved continuation ptr from pcall.save_Σ (heap-safe) */
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int  rt_proc_is_generator(const char *name);
 int  rt_proc_dyn_scope(const char *name);
@@ -642,18 +643,24 @@ static std::string bcps_spine_gen_arm() {
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
          /* ICN-FR-4 β RESUME — TWO PATHS:
-          * ZFRAME (zf_resume=true): FRQ(act+8) = generator_rbp (saved at L(3) from epilogue's rax).
-          *   Load it WITHOUT touching the stack at generator_entry_rsp (which would clobber [entry_rsp-8] =
-          *   generator's saved old_rbp header slot). mov rbp,rax + mov rsp,rax re-establish the generator's
-          *   frame; jmp [rax+zf_cont_off] enters the stored β continuation. The xa_flat_zframe_epilogue_γ
-          *   restores caller_rbp from [generator_rbp+kt-8] and fires L(3) again on the next yield. k_level
-          *   was bumped by resume_enter above (while rsp was still in the caller's zone — safe).
+          * ZFRAME (zf_resume=true): FRQ(act+8) = generator_rbp (saved at L(3) from epilogue's rax=r11).
+          *   1. call rt_gen_get_cont → rax = continuation ptr (saved in pcall.save_Σ by bb_suspend).
+          *      The in-frame slot [generator_rbp+zf_cont_off] is CLOBBERED by the caller's C-calls between
+          *      yields (the caller's call stack expands downward into the generator's frame). pcall.save_Σ
+          *      is heap-allocated and immune. rsen_fp was already called above; rax is clobbered here.
+          *   2. Save cont to r11 (ABI scratch); load generator_rbp from FRQ(act+8) into rax.
+          *   3. mov rbp=rsp=rax (generator_rbp); jmp r11 (continuation).
           * NON-ZFRAME: mov rsp,FRQ(act+8) restores frontier where [rsp]=landing word; jmp[rsp]→L(7). */
          + (zf_resume
-            ? x86("mov", "rax", FRQ(act + 8))   /* generator_rbp: call-free, avoids header-clobber */
-            + x86("mov", "rbp", "rax")           /* pin generator frame base */
-            + x86("mov", "rsp", "rax")           /* set FORTH base to generator_rbp */
-            + x86_jmp_mem("rax", zf_cont_off)    /* jmp to stored β continuation */
+            ? ( [&]() -> std::string {
+                uint64_t _gc_fp; { void *(*_f)(void) = rt_gen_get_cont; _gc_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                return x86("call", "rt_gen_get_cont", _gc_fp)  /* rax = continuation ptr from pcall.save_Σ */
+                     + x86("mov", "r11", "rax")                 /* save cont in r11 (ABI scratch) */
+                     + x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp from caller frame */
+                     + x86("mov", "rbp", "rax")                 /* pin generator frame base */
+                     + x86("mov", "rsp", "rax")                 /* set FORTH base to generator_rbp */
+                     + x86("jmp", "r11");                       /* jmp to stored continuation */
+              })()
             : x86("mov", "rsp", FRQ(act + 8))
             + x86_jmp_mem("rsp", 0)
             + x86("def", L(7))
