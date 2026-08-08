@@ -1619,6 +1619,29 @@ void *rt_pl_retry_pop(void)
     return g_pl_retry[--g_pl_retry_top];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PL-FR-4 ZFRAME RETRY CONTINUATION STACK — the β-resume address store for the ζ-frame regime.  Separate from g_pl_retry (cells track, PL-ZK-4) so the two embodiments are independent.  bb_move_label's zframe arm pushes the lbl_t0 (β) resume address here instead of writing FRQ(op_off+16); bb_indirect_goto's zframe arm pops and jumps here instead of jmp FRQ(op_off+16).  LIFO is sound: backtrack is stack-disciplined (WAM B-stack law); cut discards the contiguous top segment.  Killswitch: both emitter arms gate on g_emit.zframe_graph, so unflagged (SN4/Icon/non-zframe Prolog) graphs never call these — byte-identical by construction. */
+__attribute__((visibility("default"))) void **g_pl_cp_stack;
+__attribute__((visibility("default"))) int    g_pl_cp_top;
+__attribute__((visibility("default"))) int    g_pl_cp_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_cp_push(void *addr)
+{
+    if (g_pl_cp_top >= g_pl_cp_cap) {
+        int nc = g_pl_cp_cap ? g_pl_cp_cap * 2 : 1024;
+        void **np = (void **)rt_ws_realloc(g_pl_cp_stack, (size_t)nc * sizeof(void *));
+        if (!np) return;
+        g_pl_cp_stack = np; g_pl_cp_cap = nc;
+    }
+    g_pl_cp_stack[g_pl_cp_top++] = addr;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PEEK-AND-POP: consumed by the jmp.  Returns 0 on empty — exhausted choice point = failure, caller jumps to omega. */
+void *rt_pl_cp_pop(void)
+{
+    if (g_pl_cp_top <= 0) return (void *)0;
+    return g_pl_cp_stack[--g_pl_cp_top];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FRAME-PREP LEAF — the site has just made fbytes of frame available at fb (an rsp bump, once the call site is
  * emitted; an alloca while it is still C).  Fill it per the open protocol, record it, and hand back the entry
  * to transfer to.  Returning fn is what lets the site do a single medium-symmetric `call rax` — no proc-symbol
