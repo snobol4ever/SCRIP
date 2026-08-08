@@ -2041,7 +2041,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
              * authority composing, no hand-counted pops. */
             for (int r = 0; r < rl; r++) { int i = run[r];
                 int K = zd_k(nodes[i]);   /* ZD-8 (b1) sink -- K comes from zd_k, THE ONE AUTHORITY (defined beside zd_nops).  Do not re-spell the rule here. */
-                zon[i] = 1; zout[i] = zd + K;
+                zon[i] = 1; zout[i] = zd + K; zd = zd + K;
                 IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
                 int gin = 0; int oin = 0;
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { if (nodes[k] == gt) gin = 1; if (nodes[k] == ot) oin = 1; } }
