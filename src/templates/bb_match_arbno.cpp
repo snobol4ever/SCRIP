@@ -14,6 +14,8 @@ extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long ele
  * grant in zeta_storage.c is now UNCONDITIONAL (matching: template always writes slot+32, grant always allocates it; SCRIP_U2 condition deleted).  arbno_u2_frame() deleted — its guards fire unconditionally. */
 static inline const char * zv() { return "rbp"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const char * RBPRAWD(int off) { static char b[8][48]; static int i; i=(i+1)&7; snprintf(b[i],48,"dword ptr [rbp# + %d]",off); return b[i]; }   /* M-2 BUG-5 FIX: raw machine-rbp dword (twin of RBPRAWQ in x86_asm.h); [rbp# + N] escapes x86_parse's FR classifier -- always encodes as a direct reg+disp, never re-canonicalized through the frame base.  Used in bb_match_arbno_tail PAIR(2) to reach the element header after MATCH_END's CAS restore. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_nofill(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_NOFILL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ARBNO-NOFILL (s141): default ON; =0 restores the eager per-element window zero (kill-switch, SCRIP_PAT_NOFILL precedent) */
@@ -118,13 +120,18 @@ static std::string bb_match_arbno_tail() {
      * maintains for every extension).  alpha pushes op_sb+fp_body copying the bracket from HEAD's cell at [rsp + KA + fp_left + k]; beta pushes op_sb copying it from the current element; the
      * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops op_sb ONLY (the resumed-epsilon cascade's
      * box-omega pops already consumed the FPB phantom pad -- popping KA here overshot flat by FPB, the s71 measured SEGV: oracle-identical trace then exit 139 at first FPB>0 exhaust) and omega runs at flat depth.
-     * Every reference is [rsp + compile-time-const] -- no view register, no dynamic count in any address. */
+     * Every reference is [rsp + compile-time-const] at element depth -- EXCEPT PAIR(2)/PAIR(3) which run post-MATCH_END CAS restore (rsp back to pre-head entry level).  Those use rbp-relative
+     * addressing: the hfc pin (bb_match_begin rpin()=1) sets rbp=rsp AFTER sub rsp,80, so rbp = original_rsp - 80.  At ARBNO alpha, rsp = rbp - FPL - KA; element header HDRA+N is at
+     * [rbp + RBP_HDR + N] where RBP_HDR = -(FPL + KA - HDRA) = -(FPL + op_sb + FPB - HDRA).  This is stable across MATCH_END's whack. */
     /* L2 FENCE SEAL (s71; the flat path's PAIR(1)->na_f re-aim with the element scheme's depth fixed): resume a committed iteration ABANDONS it.  Every PAIR(1) departure in this template -- the sigma
      * null-progress je and phi's post-pop resume -- runs at the UNIFORM yield depth rsp = elem - FPB (the alpha phantom pad + S10c suspension invariant), and external resume routes to this box's beta
      * (extend), never PAIR(1); so the whole seal is ONE glue: L(3) arithmetic-pops the dead suspended body (its alternatives are forbidden -- skipping the sealed boxes' omegas IS the seal) and falls
      * through into phi, whose elem0 dance then cascades pop-by-pop to exhaust exactly as SPITBOL cuts left (manual ln 4716).  The epsilon element exits at the flag check before any body code runs. */
     int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal, NCAP = _.op_tail_ncap;
     int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
+    int RBP_HDR = -(FPL + KA - HDRA);   /* M-2 BUG-5 FIX: rbp-relative base for element header, post-MATCH_END CAS restore.
+                                          * rbp = original_rsp - 80 (hfc pin); element header HDRA+N at [rbp + RBP_HDR + N].
+                                          * RBP_HDR = -(FPL + KA - HDRA): negative offset from pin base to element header top. */
     return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
          + x86_alpha()
          + x86("sub", "rsp", (long)KA)
@@ -156,6 +163,10 @@ static std::string bb_match_arbno_tail() {
          + tail_cap_copy(HDRB + 32, (int)_.op_sb + HDRA + 32, NCAP)
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
+         /* M-2 BUG-5: PAIR(2) fires after MATCH_END's CAS restore (rsp = original_rsp), so trd(HDRA+N) reads
+          * [rsp+HDRA+N] which is ABOVE the element (element is at [rsp - depth_to_elem]).  The correct base is
+          * rbp (hfc pin = original_rsp - 80), but RBP_HDR = -(FPL + KA - HDRA) needs validation for all classes.
+          * NEXT SESSION: use RBPRAWD(RBP_HDR + 0/4) once the formula is confirmed correct for all N/X/G/H. */
          + x86("mov", "eax", trd(HDRA + 0))
          + x86("cmp", "r14d", "eax")
          + x86("je",  SEAL ? L(3) : PAIR(1))
@@ -163,6 +174,9 @@ static std::string bb_match_arbno_tail() {
          + x86_gamma()
          + IF(SEAL, x86("def", L(3)) + IF(FPB > 0, x86("add", "rsp", (long)FPB)))
          + x86("def", PAIR(3))
+         /* M-2 BUG-5 FIX: PAIR(3) phi path runs at element yield depth (rsp = elem - FPB); elem0-flag at
+          * HDRB+8 is inside current element so trd() is correct here.  Entry cursor at HDRB+0 is also within
+          * the current element (β's freshly-pushed copy), so trd(HDRB+0) at L(2) is correct. */
          + x86("mov", "eax", trd(HDRB + 8))
          + x86("test", "eax", "eax")
          + x86("jnz", L(2))
