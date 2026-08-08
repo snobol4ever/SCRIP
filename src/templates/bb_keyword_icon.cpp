@@ -14,8 +14,49 @@ DESCR_t rt_keyword_gen(const char *sval, long idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_icon() {
     if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword: no slot");
+    if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");   /* ZK-2: op_zres writes ZRES(0/8), does not use op_off; suppress bomb for ZD-armed nodes. */
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
+    /* ZK-2 (s220): Icon cells-arm ZD dispatch. op_zres=1 iff admitted by zd_wl_kind + planned by zd_plan.
+     * Generator keywords split to IR_KEYWORD_ICON_GEN (lower_icon.c:319) -- never reach here.
+     * &fail goes straight to omega (no result); op_zres path omitted (topology drives no ZRES write).
+     * R13/R14 reads are read-only -- not scratching the scan registers per REGISTER CONTRACT.
+     * ONE AUTHORITY: only this arm writes ZRES for IR_KEYWORD_ICON on the cells arm.
+     * SN4 watermark: icn_cells_graph=0 -> op_zres never staged -> arm invisible by construction.
+     * BOTH MEDIA: x86() encoders handle binary and text. */
+    if (_.op_zres) {
+        if (!strcmp(kw, "subject")) {
+            if (g_scan_regs_live)
+                return x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2)")
+                     + x86_alpha()
+                     + x86("mov", ZRES(0), (long)DT_S)
+                     + x86("note", ZRESN()) + x86("mov", ZRES(8), "r13")
+                     + x86_gamma() + x86_beta_trampoline();
+            return x86("comment", "KEYWORD_subject_call->ZRES (ZK-2)")
+                 + x86_alpha()
+                 + x86("call", "rt_keyword_subject", (uint64_t)(uintptr_t)(void *)rt_keyword_subject)
+                 + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+                 + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+                 + x86_gamma() + x86_beta_trampoline();
+        }
+        if (!strcmp(kw, "pos"))
+            return x86("comment", "KEYWORD_pos->ZRES (ZK-2) [r14+1: scan-reg truth]")
+                 + x86_alpha()
+                 + x86("mov", ZRES(0), (long)DT_I)
+                 + x86("mov", "rax", "r14")
+                 + x86("add", "rax", (long)1)
+                 + x86("note", ZRESN()) + x86("mov", ZRES(8), "rax")
+                 + x86_gamma() + x86_beta_trampoline();
+        if (!strcmp(kw, "null"))
+            return x86("comment", "KEYWORD_null->ZRES (ZK-2)")
+                 + x86_alpha()
+                 + x86("mov", ZRES(0), (long)DT_SNUL)
+                 + x86("mov", ZRES(8), (long)0)
+                 + x86_gamma() + x86_beta_trampoline();
+        /* Any other keyword in the ZD arm is a whitelist error -- zd_wl_kind restricts
+         * admission to &null/&pos/&subject only (see emit.cpp ONE AUTHORITY).  If this bomb
+         * fires, widen the whitelist AND add a matching ZRES arm above. */
+        return x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm");
+    }
     std::string tail = x86_gamma() + x86_beta() + x86_omega();
     if (!strcmp(kw, "subject")) {
         if (g_scan_regs_live)
