@@ -2327,9 +2327,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         /* blocker histogram: count first-blocker op per declined run (simple: per undeclined node in a run that was not armed) */
         int _blocker_op[512]; int _blocker_cnt[512]; int _n_blockers = 0;
         /* scan armed nodes */
-        for (int _i = 0; _i < n; _i++) {
-            if (zd_on[_i]) { _k_total += zd_k(nodes[_i]); _armed++; }
-        }
+        int _globals_on_stack = 0;   /* ZK-5 ASSERTION COUNTER: IR_VAR/IR_ASSIGN globals that erroneously landed on the ZD spine -- must stay 0; zd_wl_kind's !_icn_cells conjunct is the ONE guard */
+        { extern int is_global(const char *); for (int _i = 0; _i < n; _i++) { if (zd_on[_i]) { _k_total += zd_k(nodes[_i]); _armed++; int _op5 = (int)nodes[_i]->op; if ((_op5 == IR_VAR || _op5 == IR_ASSIGN) && IR_LIT(nodes[_i]).sval && is_global(IR_LIT(nodes[_i]).sval) && !graph_has_local(g_emit_cfg, IR_LIT(nodes[_i]).sval)) _globals_on_stack++; } } }
         /* scan declined runs: a run that starts at a non-armed node whose zd_wl_kind returns 1 but zd_plan declined it -- first non-admitted node is the blocker */
         for (int _i = 0; _i < n; _i++) {
             if (zd_on[_i]) continue;
@@ -2343,8 +2342,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         /* .bss arena bytes = jcon_value_region (the WHOLE-GRAPH slot reservation, the residual bss-backed pre-carve) */
         int _bss_bytes = g_emit_cfg->jcon_value_region;
-        fprintf(stderr, "[ZK-CENSUS] graph=%s icn_cells=1 n=%d armed=%d K_total=%ld declined_nodes=%d bss_arena=%d\n",
-                prefix ? prefix : "?", n, _armed, _k_total, _declined_runs, _bss_bytes);
+        fprintf(stderr, "[ZK-CENSUS] graph=%s icn_cells=1 n=%d armed=%d K_total=%ld declined_nodes=%d bss_arena=%d globals_on_stack=%d\n",
+                prefix ? prefix : "?", n, _armed, _k_total, _declined_runs, _bss_bytes, _globals_on_stack);   /* ZK-5: globals_on_stack must be 0 -- asserted by test_gate_icn_zk5_gva.sh */
         for (int _b = 0; _b < _n_blockers && _b < 8; _b++) {
             const char * _nm = bb_op_name((IR_e)_blocker_op[_b]);
             fprintf(stderr, "[ZK-CENSUS-BLOCKER]   %-30s count=%d\n", _nm ? _nm : "<unknown>", _blocker_cnt[_b]);
