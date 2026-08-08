@@ -1346,11 +1346,10 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_LEN: {
         IR_t * nd = lc_build(g, IR_MATCH_LEN, succ, NULL);
         sno_ω_to(nd, fail);
-        long long n = 0;
-        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) n = t->c[0]->v.ival;
-        else if (t->n > 0 && t->c[0] && (t->c[0]->t != TT_DEFER || t->c[0]->n > 0)) sno_pre_req(cx, t, nd);
-        else sno_fatal("LEN with a deferred or missing count is outside the operand-edge subset", NULL);
-        IR_LIT(nd).ival = n;
+        if (t->n <= 0 || !t->c[0]) sno_fatal("LEN requires a count argument", NULL);
+        if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
+        sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_CAPT_COND_ASGN: {
