@@ -116,6 +116,8 @@ void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals);   /* IC
 void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals);   /* ICN-FR-2: ζ-frame variant — reads g_call_args[0..nparams-1] directly (no pcall-nargs clamp); correct for both dc-stub path (no pcall record) and jmp-entry C path. */
 void  rt_pl_retry_push(void *addr);   /* PL-FR-4: push retry continuation onto the choice-point stack (WAM ALTB write; frame-independent — rt.c). */
 void *rt_pl_retry_pop(void);          /* PL-FR-4: pop retry continuation (WAM `return ALTB(B)` read); 0 = exhausted = fail. */
+void  rt_pl_cp_push(void *addr);      /* PL-FR-4 ZFRAME: push β-resume addr onto zframe retry stack (separate from cells g_pl_retry — rt.c). */
+void *rt_pl_cp_pop(void);             /* PL-FR-4 ZFRAME: pop β-resume addr; 0 = exhausted = fail, jump to omega. */
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_c2b_arm_trap(void);

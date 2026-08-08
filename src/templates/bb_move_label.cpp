@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 void rt_pl_retry_push(void *addr);
+void rt_pl_cp_push(void *addr);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -28,6 +29,20 @@ std::string bb_move_label() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
+    /* PL-FR-4 ZFRAME DESIGN NOTE (s10, 2026-08-08): the frame-independent retry stack (g_pl_cp_stack,
+     * rt_pl_cp_push/pop, rt.c) is the correct mechanism.  The address to push is NOT the callee α
+     * (re-entering α resets the generator frame and always retries clause 1).  It is NOT the β-resume
+     * (the frame that β lives in is torn down by the ζ epilogue).
+     * The correct source is the GENERATOR SUSPEND β label INSIDE the disjunction proc — the same address
+     * the working non-zframe (ZD/cells, op_zres=1) path pushes (observed: "n51_suspend_β" in bt6.pl output).
+     * BUT that address is usable only if the disjunction proc's ζ-frame is still live at jump time.
+     * Under ζ-frames, the disjunction proc's frame is torn down after each yield.
+     * FULL RESOLUTION: store the suspend-β address in the PLJ heap choice-point record (allocated outside
+     * the frame) at suspend time; push the heap CP record pointer to g_pl_cp_stack at move_label time;
+     * at bb_indirect_goto, pop the CP pointer and read the stored suspend-β to jump there AFTER re-allocating
+     * a fresh disjunction proc frame (via rt_proc_call_open_det).  This is the rt_pl_cp_set_retry/get_retry
+     * design the FR-4 cursor names.  Multi-rung work: (A) PLJ heap CP record for clause cursor; (B) save
+     * suspend-β to heap CP at n14_suspend_α; (C) restore and jump at indirect_goto.  DEFERRED to next session. */
     return x86("comment", "IR_MOVE_LABEL")
          + x86_alpha()
          + IF(_.op_sa >= 0 && _.op_sa != _.op_off,
