@@ -145,9 +145,6 @@ n11_match_begin_α:
                         mov              qword ptr [rsp + 192], r13                     # outer_Σ
                         mov              qword ptr [rsp + 200], r14                     # outer_δ
                         mov              qword ptr [rsp + 208], r15                     # outer_Δ
-                        lea              rcx, [rip + g_cap_gen]
-                        mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rsp + 216], rax                     # cap_gen
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -181,7 +178,6 @@ n11_match_begin_af:
                         mov              r15, qword ptr [rsp + 208]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 216]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 16
                                                                                         jmp   n35_statement_begin_α
@@ -257,7 +253,6 @@ n13_match_end_α:
                         mov              r15, qword ptr [rsp + 208]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 216]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                                                                                         jmp   n14_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -320,9 +315,6 @@ n21_match_begin_α:
                         mov              qword ptr [rsp + 320], r13                     # outer_Σ
                         mov              qword ptr [rsp + 328], r14                     # outer_δ
                         mov              qword ptr [rsp + 336], r15                     # outer_Δ
-                        lea              rcx, [rip + g_cap_gen]
-                        mov              eax, dword ptr [rcx + 0]
-                        mov              qword ptr [rsp + 344], rax                     # cap_gen
                         call             rt_match_enter@PLT
                         mov              r13, rax
                         mov              r15, rdx
@@ -356,7 +348,6 @@ n21_match_begin_af:
                         mov              r15, qword ptr [rsp + 336]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 344]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         add              rsp, 16
                                                                                         jmp   n31_statement_begin_α
@@ -432,7 +423,6 @@ n23_match_end_α:
                         mov              r15, qword ptr [rsp + 336]                     # outer_Δ
                         mov              rdi, r13                                       # sig
                         mov              rsi, r15                                       # len
-                        mov              rdx, qword ptr [rsp + 344]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                                                                                         jmp   n24_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
