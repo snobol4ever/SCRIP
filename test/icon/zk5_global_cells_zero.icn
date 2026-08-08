@@ -1,0 +1,2 @@
+global g_count, g_name
+procedure main(); g_count := 0; g_name := "hello"; g_count := g_count + 1; g_count := g_count + 1; write(g_count); write(g_name); end
