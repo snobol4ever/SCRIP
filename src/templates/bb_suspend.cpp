@@ -40,6 +40,17 @@ std::string bb_suspend() {
              + x86_gamma()
              + x86_beta()
              + x86_scan_sync_in_rr()
+             /* ICN-FR-5 SUSPEND-DO RECARVE: when lbl_t0 (the do-body) is present, the γ-exit above freed
+              * the statement's uclaim (add rsp, K via the X86H_JMP/X86P_GAMMA port hook).  The β re-entry
+              * lands AFTER that free; the do-body runs inside the same statement, and the loop-back to the
+              * while head re-enters this suspend's α which does the matching add rsp K again.
+              * Without re-carving here, each iteration drifts rsp upward by the claim size, eventually
+              * clobbering the zframe wire header and causing an infinite loop or SEGV (upto() witness).
+              * op_suspend_stmt_uclaim = zd_uk[head_i] staged by the drive loop; 0 for non-zframe or
+              * suspend-without-body, so this sub rsp emits only when needed (byte-identical otherwise).
+              * The zero-init from the original α carve is NOT repeated — frame slots retain their live
+              * values across the yield; the re-carve only re-establishes rsp parity. */
+             + (_.lbl_t0 && _.op_suspend_stmt_uclaim > 0 ? x86_sub("rsp", _.op_suspend_stmt_uclaim) : std::string())
              + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega());
     }
     return std::string();
