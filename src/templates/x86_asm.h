@@ -259,6 +259,19 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
     return x86_align_assert() + std::string(" call ") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_rtcc_call — RC-1 RTCC veneer encoder.  KILLSWITCH LAW: when SCRIP_RTCC=0 (default) this emits the                                                                                             */
+/* IDENTICAL byte sequence as a bare x86_call_ro — the branch on g_rtcc_on is a RUNTIME test, not compile-time,                                                                                       */
+/* so the BINARY emitted is byte-identical to the pre-RTCC tree at gate OFF (md5 identity holds).                                                                                                      */
+/* When SCRIP_RTCC=1: emits WRITEBACK (push 9 GPR slots to g_rtcc_block) → call → RELOAD (pop).                                                                                                       */
+/* RC-1 emits the block address as a RIP-relative lea; the writeback/reload asm is in rtcc_veneer.h (inc).                                                                                             */
+/* RC-2 will promote the SCRATCH TIER regs; RC-4 the ARG TIER.  At RC-1 the block exists and the arm is live                                                                                           */
+/* but carries ZERO claimed registers — a poisoned block under SCRIP_RTCC=1 crashes the RC-1 witness.            */
+inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
+    /* RC-1: gate is a RUNTIME byte, not a template branch — binary is identical in both gate states.            */
+    /* The veneer asm is NOT YET WIRED (RC-2 wires it); for RC-1 this is structurally x86_call_ro.              */
+    return x86_call_ro(sym, ptr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
     if (!strcmp(mnem, "je")  || !strcmp(mnem, "jz"))  return 0x84;
     if (!strcmp(mnem, "jne") || !strcmp(mnem, "jnz")) return 0x85;
@@ -1482,7 +1495,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
                                                     : (std::string(" call ") + x86_portname(a.port) + "\n"));
-        if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
+        if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);   /* RC-1: RTCC veneer choke; x86_rtcc_call == x86_call_ro until RC-2 wires the block */
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;

@@ -77,9 +77,11 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
     }
     __asm__ volatile ("mov %%rbx,0(%0)\n\tmov %%rbp,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "memory");
+    { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }   /* RTCC Option-B: writeback block→spill before yielding; no-op when SCRIP_RTCC=0 */
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
     if (!old->alive) pthread_exit(NULL);
+    { extern void rtcc_coexpr_restore(const uint64_t *); rtcc_coexpr_restore(old->rtcc_spill); }   /* RTCC Option-B: reload spill→block on resume; no-op when SCRIP_RTCC=0 */
     { extern void rt_scan_state_apply(void *); rt_scan_state_apply(old->scan_state); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
