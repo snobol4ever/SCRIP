@@ -3103,7 +3103,6 @@ n366_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$3_scanhit
 n366_match_assign_cond_β:
                         sub              r12, 24
@@ -3209,7 +3208,6 @@ n377_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$4_scanhit
 n377_match_assign_cond_β:
                         sub              r12, 24
@@ -7195,7 +7193,7 @@ n612_match_end_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n613_statement_end_α:
                         mov              rbp, qword ptr [rbp + 2520]                    # old_rbp
-                        add              rsp, 2624
+                        add              rsp, 2592
                                                                                         jmp   n614_statement_begin_α
 #=======================================================================================================================
 #          OUTPUT   =  Pop()                         :(loop)

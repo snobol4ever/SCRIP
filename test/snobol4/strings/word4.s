@@ -389,7 +389,6 @@ n14_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 144
                                                                                         jmp   proc_PAT$0_scanhit
 n14_match_assign_cond_β:
                         sub              r12, 24
