@@ -200,22 +200,37 @@ static eval_chain_fn eval_build_chain(const char *s)
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t eval_chain_run_capture(eval_chain_fn fn) {
-    DESCR_t saved = NV_GET_fn(EVAL_TMP);
+/* EVAL-CHAIN-RET (this session): CLASS C chains (EVAL/CODE JIT fragments) exit via bb_glue_outer_γ/ω which
+ * does mov rsp,rbp; pop rbp; ret.  The ret lands in eval_string_transient (the caller of THIS function)
+ * after "call eval_chain_run_capture" — skipping this function's NV_GET_fn(EVAL_TMP) call entirely.
+ * The chain's γ return value is eax=DT_S, rdx=garbage — unusable as a DESCR.
+ * FIX: eval_string_transient reads ZZEVALZZ directly after calling eval_chain_run_capture.
+ * THIS function now only exists to correctly set up rbp as the eval_chain_run_capture frame base
+ * so the chain's "mov rsp,rbp; pop rbp; ret" correctly unwinds to eval_string_transient.
+ * __attribute__((noinline)) ensures a real call frame with its own rbp. */
+__attribute__((noinline))
+static void eval_chain_enter_only(eval_chain_fn fn) {
     rt_chain_enter(fn);
-    DESCR_t result = NV_GET_fn(EVAL_TMP);
-    NV_SET_fn(EVAL_TMP, saved);
-    return result;
+    /* chain ret lands in eval_string_transient; this line is never reached */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
-    if (cached) return eval_chain_run_capture(cached);
+    if (cached) {
+        DESCR_t saved = NV_GET_fn(EVAL_TMP);
+        eval_chain_enter_only(cached);
+        DESCR_t result = NV_GET_fn(EVAL_TMP);
+        NV_SET_fn(EVAL_TMP, saved);
+        return result;
+    }
     size_t mark = bb_pool_mark();
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) { bb_pool_release(mark); return FAILDESCR; }
-    DESCR_t result = eval_chain_run_capture(fn);
+    DESCR_t saved = NV_GET_fn(EVAL_TMP);
+    eval_chain_enter_only(fn);
+    DESCR_t result = NV_GET_fn(EVAL_TMP);
+    NV_SET_fn(EVAL_TMP, saved);
     if (mark < EVAL_RETAIN_BUDGET) eval_cache_put(s, fn);
     else bb_pool_release(mark);
     return result;
