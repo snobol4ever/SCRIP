@@ -14,6 +14,7 @@ extern "C" void rt_dcap_end_ok_close(void);
 extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
+extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
 #define stfh() (_.flat_stmt_frame)
@@ -222,5 +223,6 @@ std::string bb_match_end() {
          + (rfc() ? x86("mov", "rsp", RDQ("r10", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
             : x86_zls2_release_to_call(_.op_off + 16))
          + x86_align_leave()
+         + IF(_.op_stmt_pin > 0 && _.op_uhead >= 0 && !rfc() && !_.flat_layout_unknown && x86_port_cstack(), [&]() -> std::string { long _od = zvo_owner_dout(_.op_uhead); long _bc = (long)_.op_udout - _od; return (_bc > 0) ? x86_sub("rsp", _bc) : std::string(); }())
          + release_pump();
 }
