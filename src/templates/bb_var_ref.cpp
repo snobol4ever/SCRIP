@@ -24,6 +24,15 @@ std::string bb_var_ref() {
                  + x86_gamma()
                  + x86_beta_trampoline();
         }
+        if (_.op_zres && _.op_sa >= 0)
+            return x86("comment", "IR_VAR_REF icn cells zd: NAMETRAP{DT_N,slen=1,&rbp_slot} -> ZRES")
+                 + x86_alpha()
+                 + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))   /* ZK-2 ICN-CELLS ZD ARM: {slen=1,v=DT_N} NAMETRAP pointing at the pinned frame-local cell.  x86_fb_pinned() guarantees rbp is locked at activation entry (flat_lcl_proc prologue: push rbp;mov rbp,rsp;sub rsp,frame_sz); FRQ(op_sa)=[rbp+op_sa] is depth-immune across subsequent RSP carves.  Consumed by IR_DEREF ZD arm (bb_deref.cpp op_zres: call rt_deref({DT_N,slen=1,ptr}) -> *ptr).  Killswitch SCRIP_ZD_ICN_VR=0 at the zd_wl_kind admission line disables both. ONE AUTHORITY: only this arm writes the NAMETRAP to ZRES for the icn_cells pinned class. */
+                 + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+                 + x86("lea", "rax", FRQ(_.op_sa))
+                 + x86("note", ZRESN()) + x86("mov", ZRES(8), "rax")
+                 + x86_gamma()
+                 + x86_beta_trampoline();
         return x86("comment", "IR_VAR_REF")
              + x86_alpha()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))   /* PL-FR-2 TAG-FIX: DT_N was renumbered 9→0x28 (40) in TAG-3 commit 03cecd87; emit {v=DT_N, slen=1} so plw_entry's `v==DT_N && slen==1` guard dereferences the frame-cell pointer correctly. */
