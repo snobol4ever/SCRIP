@@ -580,7 +580,7 @@ double_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140173873765772
+                        movabs           rax, 139722273054092
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx85_2
@@ -623,7 +623,7 @@ double_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140173873765772
+                        movabs           rax, 139722273054092
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx85_5
