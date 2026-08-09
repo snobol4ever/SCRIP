@@ -487,7 +487,9 @@ std::string bb_call_fn_str(IR_t * pBB) {
         bool zd_sank = false;
         if (nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
             const char * tm_sym = 0; void * tm_fp = dop_direct_fp(fn, 0, &tm_sym);
-            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0); zd_sank = true; }
+            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0); zd_sank = true;
+                if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): $trail_mark result in ZRES(0/8) must ALSO land in FRQ(op_off+0/8). β-continuation nodes ($unwind_nothrow, $trail_unwind) are NOT on the gamma-chain (zd_on=0, never armed) so they read from FRQ at their own activation depth, not from the FORTH spine. The trail mark integer must survive backtrack at any RSP depth; FRQ(op_off) = [rbp+op_off] is rbp-relative and depth-immune. ONE AUTHORITY. */
+            }
         }
         const char * zdsym = 0; void * zdfp = (nargs > 0) ? dop_direct_fp(fn, (int64_t)nargs, &zdsym) : (void *)0;
         /* PL-ZK-2c: sink dispatch under ZD — args at [rsp+0..], so zd_rsp=0. Mirrors the legacy arm's sink order. SCRIP_NO_SINK / SCRIP_NO_SINK4 honored. */
@@ -526,6 +528,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): copy ZRES to FRQ(op_off) for Prolog cells arm so bcps_spine_gen_arm can read results via FRQ(slot). NOT for trail_mark (handled above). SN4/Icon: pl_cells_graph=0 -- byte-identical. ONE AUTHORITY. */
         if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }   /* ZK-3 EVERY-BODY SUCCESS PATH (s213-cont): success exit also bare-jmps to omega (=TO.beta). Both releases were zeroed above; restore for non-op_sb callers. BOTH-MEDIUM. ONE LINE per s22k law. Root cause: zd_plan stages gpop=K_total=64 at CALL's node (oin=0, omega exits run); without zeroing, x86_omega("je") emitted add rsp,64 before jmp TO.beta, corrupting the live TO counter + two LIT cells (depth=0 at back-edge vs expected 32, ZD-DEPTH WALL measured). */
         s += x86_gamma();
         s += x86_beta_trampoline();

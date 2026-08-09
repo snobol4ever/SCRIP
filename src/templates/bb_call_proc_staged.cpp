@@ -63,14 +63,15 @@ void bb_slot_register(IR_t * nd, int off);
  * which is precisely what SINK-1 solved - the dual-medium RIPSEAL load x86("lea", r, "[rip + __]", &sym, "sym") emits a rip-relative symbol in TEXT and the live address in BINARY.  Two internal labels per
  * staged arg based at 20 (this box uses L(1)..L(7)); capped at 8 args so the pair range stays 20..35.  Kill switch: SCRIP_NO_SINK=1 at emit time. */
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
-    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;   /* PL-ZK-5B: pl_cells_graph needs RBPRAWQ(slot) not FRQ(slot) -- see dual-write fix. */
+    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", plc ? RBPRAWQ(slot) : FRQ(slot)) + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
          + x86("mov", "eax", "dword ptr [r11 + 0]")
          + x86("test", "eax", "eax")
          + x86("jne", L(20 + i * 2))
-         + x86("mov", "rax", FRQ(slot))
-         + x86("mov", "rdx", FRQ(slot + 8))
+         + x86("mov", "rax", plc ? RBPRAWQ(slot) : FRQ(slot))
+         + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8))
          + x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
          + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
          + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
@@ -432,7 +433,7 @@ static std::string bcps_det_arm() {
             + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
          + (dc
-            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
+            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? RBPRAWQ(slot) : FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [rbp+slot] (FRQ(slot) under pinned rbp). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb_rbp=0 — causing all args to LEA [rsp+0] identically. RBPRAWQ(slot) bypasses the refinement and directly names [rbp+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's rbp pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
             + x86_call_dc(dc_name, dc_slot)
             + x86("jmp", L(2))
             : std::string(""))

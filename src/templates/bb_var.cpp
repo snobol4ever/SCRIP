@@ -16,6 +16,7 @@ std::string bb_var() {
                  + x86("mov",  "rdx", FRQ(_.op_sa + 8))
                  + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
                  + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+                 + ((_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? x86("mov", "r10", ZRES(0)) + x86("mov", FRQ(_.op_off), "r10") + x86("mov", "r11", ZRES(8)) + x86("mov", FRQ(_.op_off + 8), "r11") : std::string())   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): copy ZRES to FRQ(op_off) so bcps_spine_gen_arm's stage_arg_inline->FRQ(slot) finds the value. Guard op_off>=0: absent sentinel -1 means no ZLS slot was granted (shouldn't happen for an admitted IR_VAR, but guard defensively). ONE AUTHORITY. */
                  + x86_gamma()
                  + x86_beta_trampoline();
         return _.op_off != -1 && _.op_sa != -1 ?   /* ICN-FR-3/PL-FR-2: both op_off and op_sa may be negative for rbp-relative zframe locals; -1 is the absent sentinel */
