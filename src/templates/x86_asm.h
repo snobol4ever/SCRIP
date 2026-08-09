@@ -2051,21 +2051,21 @@ extern "C" char *g_zls2_cur;
 inline std::string x86_zls2_cur_lea(const char * reg) {
     return x86_load_ro(reg, "g_zls2_cur", (uint64_t)(uintptr_t)(void *)&g_zls2_cur);
 }
-inline std::string x86_zls2_mark_save(int off) {
+inline std::string x86_zls2_mark_save(const char * slot) {   /* ⭐ SLACK-RIDER RE-HOME (this session): the parameter is now the SLOT SPELLING, not an int offset.  The helper never knew which home was correct -- only the caller knows whether its graph took the stfh negative-home arm -- so it baked slot and every caller inherited the positive slack home whether or not that home was backed by anything.  Passing the spelling keeps ONE authority (the caller decides once, both media, every port arm) and makes the mark/release pair incapable of disagreeing about where the mark lives, which is the split-ends failure the HKN(k) table was introduced to prevent on the quartet. */
     if (x86_port_cstack())
-        return x86("note", HKN(5)) + x86("mov", FRQ(off), "rsp");
+        return x86("note", HKN(5)) + x86("mov", slot, "rsp");
     if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
         return x86_zls2_cur_lea("rdi")
              + x86("mov", "rax", RDQ("rdi", 0))
-             + x86("note", HKN(5)) + x86("mov", FRQ(off), "rax");
+             + x86("note", HKN(5)) + x86("mov", slot, "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
     return x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark)
-         + x86("note", HKN(5)) + x86("mov", FRQ(off), "rax");
+         + x86("note", HKN(5)) + x86("mov", slot, "rax");
 }
-inline std::string x86_zls2_release_to_call(int off) {
+inline std::string x86_zls2_release_to_call(const char * slot) {
     /* CSTACK: this helper is spliced INSIDE the caller's open alignment-dance window (both consumers:
      * bb_match_begin fail arm, bb_match_end success arm), with another C call between this fragment and
-     * the caller's dance-leave.  A bare `mov rsp, FRQ(off)` here is (a) clobbered by the caller's leave and
+     * the caller's dance-leave.  A bare `mov rsp, slot` here is (a) clobbered by the caller's leave and
      * (b) worse, leaves the intervening C call pushing its return address just below the MARK — on top of
      * live stack (the first CSTACK cut segfaulted exactly there, 038_pat_literal m4).  So: CLOSE the
      * caller's window, restore rsp to the mark, RE-OPEN a fresh window at the new position — the caller's
@@ -2073,14 +2073,14 @@ inline std::string x86_zls2_release_to_call(int off) {
      * exactly at the mark. */
     if (x86_port_cstack())
         return x86_align_leave()
-             + x86("mov", "rsp", FRQ(off))
+             + x86("mov", "rsp", slot)
              + x86_align_enter();
     if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
         return x86_zls2_cur_lea("rdi")
-             + x86("mov", "rax", FRQ(off))
+             + x86("mov", "rax", slot)
              + x86("mov", RDQ("rdi", 0), "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
-    return x86("note", HKN(5)) + x86("mov",  "rdi", FRQ(off))
+    return x86("note", HKN(5)) + x86("mov",  "rdi", slot)
          + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
 }
 /* x86_zls2_release_to_rspd -- ZB-FC-3d: the CROSS-BOX variant of the cstack arm above, for a consumer (RELEASE) standing at rsp = frontier - fp(pattern) reading the statement mark out of HEAD's
