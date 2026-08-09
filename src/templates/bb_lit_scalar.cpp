@@ -11,6 +11,7 @@ static uint64_t blsc_bits(double d, uint64_t b = 0) { memcpy(&b, &d, 8); return 
 /*-*/
 static inline const char * ls_rq(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }   /* ZD-1 (Lon s21x-v): destination switch -- op_zres lands the literal in the box's own alpha-carved cell (mode 1 of the FOUR modes), consumers read it via staged op_zread differences; legacy = the flat slot.  One body, both regimes. */
 static inline const char * ls_rd(int w) { return _.op_zres ? ZRESD(w) : FR(_.op_off + w); }
+static inline std::string ls_dual(int w) { return (_.op_zres && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? x86("mov", (w == 0) ? "r10" : "r11", ZRES(w)) + x86("mov", FRQ(_.op_off + w), (w == 0) ? "r10" : "r11") : std::string(); }   /* PL-ZK-5B OPTION-C DUAL-WRITE (Bug 4 fix): when op_zres=1 on pl_cells_graph, the producer wrote its result to ZRES(0/8) (RSP-relative FORTH spine) but bcps_spine_gen_arm reads proc call args via stage_arg_inline -> FRQ(slot) (rbp-relative ZLS frame). Dual-write copies ZRES(0) -> FRQ(op_off+0) and ZRES(8) -> FRQ(op_off+8) so both consumers are satisfied. Guard: op_off>=0 ensures a valid ZLS slot was granted; if op_off==-1 the node has no slot and no FRQ reader exists. SN4/Icon watermarks: g_emit_cfg->pl_cells_graph=0 for all non-Prolog graphs -- byte-identical by construction. ONE AUTHORITY: this is the only site encoding the lit-scalar dual-write; bb_var.cpp and bb_var_ref.cpp carry parallel copies. */
 /*-*/
 std::string bb_lit_scalar() {
     return !PLATFORM_X86 ? std::string()
@@ -20,6 +21,7 @@ std::string bb_lit_scalar() {
              + x86("note", ZRESN()) + x86("mov",    ls_rq(0), (long)DT_I)
              + x86("mov",    "rax", ROQ(0))
              + x86("note", ZRESN()) + x86("mov",    ls_rq(8), "rax")
+             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -31,6 +33,7 @@ std::string bb_lit_scalar() {
              + x86("note", ZRESN()) + x86("mov",    ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0))
              + x86("mov",    "rax", ROQ(0))
              + x86("note", ZRESN()) + x86("mov",    ls_rq(8), "rax")
+             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -44,6 +47,7 @@ std::string bb_lit_scalar() {
              + x86("note", ZRESN()) + x86("mov",    ls_rd(4), (long)-1)
              + x86("mov",    "rax", ROQ(0))
              + x86("note", ZRESN()) + x86("mov",    ls_rq(8), "rax")
+             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -56,6 +60,7 @@ std::string bb_lit_scalar() {
              + x86("note", ZRESN()) + x86("mov",    ls_rq(0), (long)DT_R)
              + x86("mov",    "rax", ROQ(0))
              + x86("note", ZRESN()) + x86("mov",    ls_rq(8), "rax")
+             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
