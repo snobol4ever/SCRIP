@@ -132,6 +132,11 @@ static std::string bb_match_arbno_tail() {
     int RBP_HDR = -(FPL + KA - HDRA);   /* M-2 BUG-5 FIX: rbp-relative base for element header, post-MATCH_END CAS restore.
                                           * rbp = original_rsp - 80 (hfc pin); element header HDRA+N at [rbp + RBP_HDR + N].
                                           * RBP_HDR = -(FPL + KA - HDRA): negative offset from pin base to element header top. */
+    int FPR_RSP = _.op_tail_fpr_rsp;   /* ⭐ N02-FIX: actual rsp-push depth of right-spine nodes -- same BUG-5 law as FPL.
+                                         * Right-spine flat-allocated nodes (LIT_INTEGER for RPOS/POS arg) push K=16 rsp cells
+                                         * before gamma; on failure those cells stay on the stack and beta arrives with
+                                         * rsp = element_base - FPR_RSP instead of element_base.  Beta pops FPR_RSP before
+                                         * reading element header slots.  N01 (empty right-spine) FPR_RSP=0, byte-identical. */
     return x86("comment", "IR_MATCH_ARBNO_TAIL (R12-EXIT-1 carry-the-tail rsp elements)")
          + x86_alpha()
          + x86("sub", "rsp", (long)KA)
@@ -148,6 +153,7 @@ static std::string bb_match_arbno_tail() {
          + tail_cap_copy(HDRA + 32, KA, NCAP)
          + x86_gamma()
          + x86_beta()
+         + IF(FPR_RSP > 0, x86("add", "rsp", (long)FPR_RSP))   /* ⭐ N02-FIX: pop right-spine cells before reading element header -- right-spine failure (RPOS/POS literal arg) leaves FPR_RSP bytes on the stack displacing element_base; add restores the invariant rsp==element_base so trd(HDRA+N) addresses correctly.  N01 FPR_RSP=0, IF gate is dead, byte-identical. */
          + x86("mov", "r14d", trd(HDRA + 4))
          + x86("mov", "rax", trq(HDRA + 16))
          + x86("mov", "rcx", trq(HDRA + 24))
@@ -163,15 +169,19 @@ static std::string bb_match_arbno_tail() {
          + tail_cap_copy(HDRB + 32, (int)_.op_sb + HDRA + 32, NCAP)
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         /* M-2 BUG-5 FIX: PAIR(2) fires after MATCH_END's CAS restore (rsp = original_rsp).
-          * trd(HDRA+N) would read [rsp+HDRA+N] = ABOVE the element frame → crash.
-          * rbp = hfc pin = original_rsp-80, stable across MATCH_END's whack.
-          * RBP_HDR = -(FPL+KA-HDRA): negative offset from rbp to element header top.
-          * Verified N01: FPL=16 KA=48 HDRA=16 → RBP_HDR=-48; [rbp-48]=element α-start. */
-         + x86("mov", "eax", RBPRAWD(RBP_HDR + 0))
+         /* N02-FIX: PAIR(2) is a body-success handler — rsp = current_element_base at every entry.
+          * The BUG-5 RBPRAWD fix assumed "PAIR(2) fires post-MATCH_END CAS restore" but that is
+          * wrong: MATCH_END success jumps to STATEMENT_END, never through PAIR(2).  PAIR(2) is
+          * reached ONLY from body γ (rsp = current_element_base), so trd() = [rsp+HDRA+N] is the
+          * correct addressing for any element (ε or extended).  RBPRAWD(RBP_HDR+N) only matches
+          * [element_base+N] for the ε element (element_base = rbp-FPL-KA); for the Nth extension
+          * element_base shifts by -(N-1)*op_sb, making RBPRAWD read ε's slot instead of the current
+          * element's — null-progress false positive → cursor clobbered → SIGSEGV.
+          * trd(HDRA+0) = [rsp+HDRA] = [current_element_base+HDRA] ← always correct. */
+         + x86("mov", "eax", trd(HDRA + 0))
          + x86("cmp", "r14d", "eax")
          + x86("je",  SEAL ? L(3) : PAIR(1))
-         + x86("mov", RBPRAWD(RBP_HDR + 4), "r14d")
+         + x86("mov", trd(HDRA + 4), "r14d")
          + x86_gamma()
          + IF(SEAL, x86("def", L(3)) + IF(FPB > 0, x86("add", "rsp", (long)FPB)))
          + x86("def", PAIR(3))

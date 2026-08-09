@@ -31,7 +31,7 @@ static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
 typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;   /* zq/nzq (s141 ARBNO-NOFILL): ζ offsets of body IR_MATCH_ASSIGN_SAVE cells — the implicit-zero citizens (rt_cap head cells, empty==zero BY DESIGN, s139 class) the chain-β must still zero per element */
 static zls_ageom_t  za[1024];             static int za_n = 0;
-static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
+static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
 static int fct_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 0; zx_n = 0; za_n = 0; }
@@ -632,8 +632,8 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
           if (hd && !late) continue; }   /* pending until the registry is fed */
         int b0 = fct[c].b0, b1 = fct[c].b1, i0 = fct[c].i0, ia = fct[c].ia, r1 = fct[c].r1; long k1 = 0;
         int bmn = 0x7fffffff, bmx = 0, rmn = 0x7fffffff, rmx = 0;
-        for (int j = b0; j <= b1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < bmn) bmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > bmx) bmx = zf[f].off + zf[f].size; }
-        for (int j = b1 + 1; j < r1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; if (e->off < rmn) rmn = e->off; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j] && zf[f].off + zf[f].size > rmx) rmx = zf[f].off + zf[f].size; }
+        for (int j = b0; j <= b1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; int _bfmx = 0; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j]) { if (zf[f].off + zf[f].size > _bfmx) _bfmx = zf[f].off + zf[f].size; if (zf[f].off < bmn) bmn = zf[f].off; } if (_bfmx > bmx) bmx = _bfmx; }   /* ⭐ N02-FIX: gate bmn on pfield presence (same criterion as bmx) -- a node with a zls_entry but zero pfields (K=0 ZLS-granted scanner like RPOS) has e->off=0 which pollutes bmn with a spurious 0, blowing span to rmx-0=full-frame-size.  Use the field-level min/max consistently. */
+        for (int j = b1 + 1; j < r1 && j < g->n; j++) { const zls_entry_t * e = g->all[j] ? zx_find(g->all[j]) : (const zls_entry_t *)0; if (!e) continue; int _rfmx = 0; for (int f = 0; f < zf_n; f++) if (zf[f].nd == g->all[j]) { if (zf[f].off + zf[f].size > _rfmx) _rfmx = zf[f].off + zf[f].size; if (zf[f].off < rmn) rmn = zf[f].off; } if (_rfmx > rmx) rmx = _rfmx; }   /* ⭐ N02-FIX: same gate for rspan -- RPOS(0) in right-spine has e->off=0 but zero pfields; the old `if (e->off < rmn) rmn=e->off` fired unconditionally, setting rmn=0 and inflating rspan to rmx-0=240 instead of the correct 16 (one right-spine node with actual fields). */
         int span = (bmn == 0x7fffffff) ? 0 : bmx - bmn;
         int rspan = (rmn == 0x7fffffff) ? 0 : rmx - rmn;
         /* PS-3 s153 DEFER-AS-KNOWN-FOOTPRINT-LEAF pre-scan: fc_tail_walk admitted seal==2 prologue-bound defers STRUCTURALLY at lower; only HERE is the emit_patzeta registry complete (driver loop
@@ -652,9 +652,10 @@ void zls_fct_finalize(IR_graph_t * g, int late) {
         int fpl = fct_rsp_range(g, i0, ia);   /* M-2 BUG-5: fpl = actual rsp-push depth (zd_k sum), not fc_geom sum -- flat-allocated left-spine nodes (LIT_INTEGER etc.) push rsp but have fc_geom=0 */
         int fpb = fct_fp_range(g, b0, b1 + 1);
         int fpr = fct_fp_range(g, b1 + 1, r1);
+        int fpr_rsp = fct_rsp_range(g, b1 + 1, r1);   /* ⭐ N02-FIX: actual rsp-push depth of right-spine nodes -- the same BUG-5 lesson applied to the right-spine: LIT_INTEGER (arg to RPOS/POS) pushes K=16 rsp cells that fct_fp_range/fc_geom does not see; when right-spine nodes fail, their cells stay and beta arrives displaced; beta must pop fpr_rsp before reading element slots. */
         (void)k1;
         fct_pricing = 0;
-        fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 16 * fct[c].nw + 15) & ~15; fct[c].fin = 1;
+        fct[c].fpl = fpl; fct[c].fpb = fpb; fct[c].fpr = fpr; fct[c].fpr_rsp = fpr_rsp; fct[c].span = span; fct[c].rspan = rspan; fct[c].opsb = (span + rspan + 32 + 16 * fct[c].nw + 15) & ~15; fct[c].fin = 1;
         for (int w = 0; w < fct[c].nw; w++) fc_cond_register(fct[c].wcd[w], fpb + span + rspan + 32 + 16 * w);   /* WRAP-CAPTURE: COND reads its element slot at the uniform yield depth (elem - fpb) */
       }
     }
@@ -1002,7 +1003,7 @@ void zls_dump(FILE * fp) {
 void fc_tail_candidate(const IR_t * head, const IR_t * arbno, int i0, int ia, int b0, int b1, int r1) {
     if (!head || !arbno || fct_n >= 64) return;
     fct[fct_n].head = head; fct[fct_n].arbno = arbno; fct[fct_n].i0 = i0; fct[fct_n].ia = ia; fct[fct_n].b0 = b0; fct[fct_n].b1 = b1; fct[fct_n].r1 = r1;
-    fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct[fct_n].nw = 0; fct_n++;
+    fct[fct_n].fpl = 0; fct[fct_n].fpb = 0; fct[fct_n].fpr = 0; fct[fct_n].fpr_rsp = 0; fct[fct_n].span = 0; fct[fct_n].rspan = 0; fct[fct_n].opsb = 0; fct[fct_n].fin = 0; fct[fct_n].nw = 0; fct_n++;
 }
 /* fc_tail_wrap / fc_tail_ncap -- R12-EXIT-1 WRAP-CAPTURE LIFT (Lon ruling this session, the static-size proof applied to the wrap shape ARBNO(body).V: the SAVE cell is just one more predetermined 16
  * in the element sum).  LOWER's candidacy appends the wrap pairs INNERMOST-FIRST (j=0 = the pair whose COND wraps the ARBNO node itself); flow order therefore pushes the flat SAVE cells outermost-
@@ -1020,6 +1021,10 @@ int fc_tail_ncap(const IR_t * nd) {
 }
 int fc_tail_arbno(const IR_t * nd, int * fpb, int * fpl, int * opsb, int * hdrb) {
     for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) { if (fpb) *fpb = fct[i].fpb; if (fpl) *fpl = fct[i].fpl; if (opsb) *opsb = fct[i].opsb; if (hdrb) *hdrb = fct[i].span + fct[i].rspan; return 1; }
+    return 0;
+}
+int fc_tail_fpr_rsp(const IR_t * nd) {   /* ⭐ N02-FIX: actual rsp-push depth of right-spine -- BUG-5 law applied to right-spine: LIT_INTEGER (RPOS/POS arg) pushes K=16 rsp cells, fpr from fct_fp_range misses them; beta must pop this before reading element slots. */
+    for (int i = 0; i < fct_n; i++) if (fct[i].arbno == nd && fct[i].fin) return fct[i].fpr_rsp;
     return 0;
 }
 int fc_tail_dfr(const IR_t * nd) {   /* PS-3 s153: this finalized candidate carries priced DEFER leaves -> the tail α must ZERO the phantom FPB pad [0,FPB) so the zero-guarded defer β's discriminator
