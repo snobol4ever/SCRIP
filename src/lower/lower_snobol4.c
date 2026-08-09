@@ -1359,6 +1359,18 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("LEN requires a count argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
+            /* D08 FIX (s22 CLIMB): LEN(*var) deferred-integer — fetch var at MATCH TIME, not pre-chain.
+             * pre-chain coerce runs before MATCH_BEGIN; under ζ-cells-on-RSP the coerce result lives on
+             * the FORTH spine, whose depth at LEN read time differs from coerce-write time by exactly the
+             * intervening sub-rsp carves (MATCH_BEGIN +32, SAVE +16, SPAN +16, …). FRQ(slot+8) reads the
+             * wrong address. Fix: store "*varname" in sval; template calls rt_pat_prim_int at match time. */
+            const tree_t * inner = t->c[0]->c[0];
+            const char * vn = inner->v.sval;
+            char pb[128]; snprintf(pb, sizeof pb, "*%s", vn ? vn : "");
+            IR_LIT(nd).sval = lp_strdup(pb);
+            return nd;
+        }
         sno_pre_req(cx, t, nd);                                    /* TT_DEFER (*var or *(arith)): sno_pre_req unwraps one * level (line 1006) → runtime integer fetch; SNO$MKEXPR route (RTX 55c045eb) wrongly built a PAT DESCR instead */
         return nd;
     }

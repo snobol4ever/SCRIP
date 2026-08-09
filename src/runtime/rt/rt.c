@@ -325,6 +325,26 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     out->v = DT_I; out->slen = 0; out->i = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* D08 FIX (s22 CLIMB): match-time integer fetch for LEN(*var)/POS(*var)/etc. deferred-integer primitives.
+ * Called from bb_match_len (and future siblings) alpha/beta when op_sval starts with '*'.
+ * Reads the named variable at match time, coerces string→int per manual p.86 type-conversion rules,
+ * returns the integer value (≥0) or -1 on failure (template treats negative as omega→fail). */
+long rt_pat_prim_int(const char *varname) {
+    extern DESCR_t NV_GET_fn(const char *);
+    DESCR_t v = NV_GET_fn(varname ? varname : "");
+    int64_t r = 0;
+    if (v.v == DT_I) { r = v.i; }
+    else if (v.v == DT_R) { double d = v.r; r = (int64_t)d; }
+    else if (v.v == DT_SNUL) { r = 0; }
+    else if (v.v == DT_S && v.s) {
+        if (!v.s[0]) { r = 0; }
+        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
+               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) r = (int64_t)t; else return -1; } else return -1; }
+    } else { return -1; }
+    if (r < 0) return -1;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
