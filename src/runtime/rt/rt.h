@@ -159,7 +159,8 @@ int  rt_limit_inc(int64_t *count_slot);
 int  rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t step_bits, int reset);
 void *  rt_cs_new    (const char *chars);
 void rt_cap_assign(const char *varname, const char *base, int len);
-long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
+long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
+long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm); /* asm in rtx_match.S */
 void rt_cap_finish(DESCR_t fret);
 void rt_cap_match_begin(void);
 void rt_cap_push(void *slot, int delta);

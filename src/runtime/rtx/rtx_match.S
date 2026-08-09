@@ -1039,8 +1039,142 @@ RTX_FUNC(rt_defer_get_pat_fn)
     ret
 RTX_ENDF(rt_defer_get_pat_fn)
 
+/*===================================================================================================================
+ * RTX-8 rt_cap_open — ARM A (plain-name immediate-$ fast path)
+ *
+ * GOAL-SNOBOL4-RTX.md cursor: arm census done (2026-08-09), ARM A is the 100001-call hot path on cap_imm_nret.sno.
+ *
+ * C OF RECORD: src/runtime/pattern_match.c, renamed c_rt_cap_open in this same commit.
+ *
+ * WHAT IS PORTED — ARM A ONLY:
+ *   varname is non-null, non-empty, and varname[0] != '*'  (plain variable name, not computed-name NRETURN)
+ *   Body (faithful transliteration of C ARM A):
+ *     len  = cur_delta - saved_delta   (may go negative -> clamp to 0)
+ *     copy = rt_str_alloc(len)          (returns char*, bumps heap; gates to C when uninitialized)
+ *     if (copy && len > 0) memcpy(copy, Σ + saved_delta, len);
+ *     copy[len] = '\0';
+ *     NV_SET_fn(varname, DESCR_t{.v=DT_S, .slen=len, .s=copy});
+ *     return 0;                         (0 tells template: no proc-call pending, skip rt_cap_finish)
+ *
+ * WHAT IS DELEGATED TO c_rt_cap_open:
+ *   (a) varname == NULL or *varname == '\0'  (early exit, returns 0 — harmless but rare, keep in C)
+ *   (b) varname[0] == '*'                    (computed-name NRETURN path — touches file-static g_capx,
+ *                                             g_capx_top, g_capx_cap, rt_cas_carve; all lowercase b/t,
+ *                                             NOT reachable from a separate .S TU without promotion)
+ *
+ * STEP 0 SUMMARY (all six checks, 2026-08-09):
+ *   0(a) live definition: c_rt_cap_open in pattern_match.c ✅
+ *   0(b) spelling round-trips: nm out/rt_pic/pattern_match.o -> T c_rt_cap_open (after rename) ✅
+ *   0(c) linkage on object files: NV_SET_fn T core.o, rt_str_alloc T rtx_alloc.o,
+ *        Σ B stmt_exec.o, Σlen B stmt_exec.o — all GLOBAL, reachable from .S ✅
+ *        g_capx/g_capx_top/g_capx_cap/rt_cas_carve lowercase b/t in pattern_match.o — NOT reachable;
+ *        ARM B delegates to C, so this rung never reaches them ✅
+ *   0(d) 100001 entries at N=100000, 1001 at N=1000, exact 2.00× ✅
+ *   0(e) zero .S hits before this commit ✅
+ *   0(f) ARM A is straight-line (len compute, alloc, optional memcpy, NV_SET_fn, return 0)
+ *        within the fast path. ARM B and early-exit bail before any mutation (BAIL-BEFORE-MUTATE). ✅
+ *
+ * REGISTER PROTOCOL (SysV in):
+ *   rdi = varname (const char *)
+ *   esi = saved_delta (int)
+ *   edx = cur_delta   (int)
+ *   ecx = is_imm      (int) — IGNORED by both C and asm (comment in C: rbp-dcap arm no longer calls here)
+ *
+ * DESCR_t ABI: 16 bytes, two INTEGER eightbytes.
+ *   For NV_SET_fn(const char *name, DESCR_t val):
+ *     rdi = varname, rsi = first eightbyte {v(int32) | slen(uint32)}, rdx = second eightbyte (.s pointer)
+ *   For rt_str_alloc(long n): rdi = n, returns rax = char*
+ *
+ * RETURN: 0 (xor eax,eax) — ARM B would return fbytes; this path always returns 0.
+ *
+ * SEMANTICS (manual reference, Lon standing directive):
+ *   Ch.7 p.87 — immediate assignment ($) fires WHENEVER a subpattern matches, even on a failing overall match.
+ *   The varname is the LITERAL variable name from the pattern (not a pointer to variable); it is baked as
+ *   a rodata string by the template (e.g. "V" for '$ V'). NV_SET_fn does the store into the symbol table.
+ *   This is distinct from conditional assignment (.) which defers until whole-match success (Ch.6 p.62).
+ *
+ * NO SPEED NUMBER CLAIMED — the 3-arm rail refuses this machine (s224 finding). Grade on kill-switch
+ * byte-identity and correctness only.
+ *===================================================================================================================*/
+RTX_FUNC(rt_cap_open)
+    RTX_GATE(match, c_rt_cap_open)
+    /* EARLY BAIL: null or empty varname -> C (returns 0 — early exit in C body) */
+    test    rdi, rdi
+    jz      c_rt_cap_open
+    cmp     byte ptr [rdi], 0
+    je      c_rt_cap_open
+    /* BAIL: computed-name '*VAR' path -> C (ARM B; touches file-static g_capx / rt_cas_carve) */
+    cmp     byte ptr [rdi], 42                           /* 42 = '*'                        */
+    je      c_rt_cap_open
+    /* ARM A: plain-name fast path.  Nothing above this line writes memory (BAIL-BEFORE-MUTATE). */
+    /* len = cur_delta - saved_delta; clamp to 0 if negative */
+    mov     eax, edx                                     /* eax = cur_delta                 */
+    sub     eax, esi                                     /* eax = len = cur_delta - saved_delta */
+    test    eax, eax
+    jns     .Lcap_len_ok                                 /* len >= 0: skip clamp            */
+    xor     eax, eax                                     /* len = 0 (clamp negative to 0)   */
+.Lcap_len_ok:
+    /* Save rdi (varname) and esi (saved_delta) across the rt_str_alloc call */
+    RTX_CALL_ALIGN                                       /* push rbp; mov rbp,rsp; and rsp,-16 */
+    push    rdi                                          /* save varname                    */
+    push    rsi                                          /* save saved_delta                */
+    push    rax                                          /* save len                        */
+    push    rax                                          /* pad to 32B = maintain 16-alignment */
+    movsxd  rdi, eax                                     /* arg: n = (long)len              */
+    call    rt_str_alloc@PLT                             /* rax = char* copy (or NULL)      */
+    pop     r8                                           /* discard pad                     */
+    pop     rcx                                          /* rcx = len (saved)               */
+    pop     rsi                                          /* rsi = saved_delta               */
+    pop     r11                                          /* r11 = varname                   */
+    RTX_CALL_UNALIGN                                     /* mov rsp,rbp; pop rbp            */
+    /* copy = rax; copy[len] = '\0'; if (copy && len > 0) memcpy(copy, Σ+saved_delta, len) */
+    test    rax, rax
+    jz      .Lcap_nul                                    /* rt_str_alloc returned NULL      */
+    test    ecx, ecx
+    jz      .Lcap_nul                                    /* len == 0: skip memcpy, just NUL */
+    /* memcpy(copy, Σ + saved_delta, len) inline: rax=dest, Σ+rsi=src, ecx=count */
+    mov     r10, qword ptr [rip + Σ@GOTPCREL]           /* &Σ -> r10                       */
+    mov     r10, qword ptr [r10]                         /* r10 = Σ (const char *)          */
+    movsxd  rsi, esi                                     /* sign-extend saved_delta         */
+    add     r10, rsi                                     /* r10 = Σ + saved_delta           */
+    mov     rdi, rax                                     /* rdi = copy (dest)               */
+    mov     r8, rax                                      /* save copy for NUL store below   */
+    push    rcx                                          /* save len                        */
+    mov     rsi, r10                                     /* rsi = src                       */
+    rep movsb                                            /* memcpy(dest, src, rcx)          */
+    pop     rcx                                          /* restore len                     */
+    mov     byte ptr [r8 + rcx], 0                       /* copy[len] = '\0'                */
+    jmp     .Lcap_nv
+.Lcap_nul:
+    /* copy is NULL or len==0: just NUL-terminate if copy is non-null */
+    test    rax, rax
+    jz      .Lcap_nv_null
+    mov     byte ptr [rax], 0                            /* copy[0] = '\0'                  */
+    mov     ecx, 0                                       /* len = 0 for DESCR_t.slen        */
+    mov     r8, rax                                      /* r8 = copy for DESCR_t           */
+    jmp     .Lcap_nv
+.Lcap_nv_null:
+    /* alloc returned NULL: use empty string literal */
+    lea     r8, [rip + .Lcap_empty]                     /* r8 = "" fallback                */
+    mov     ecx, 0
+.Lcap_nv:
+    /* NV_SET_fn(varname, DESCR_t{.v=DT_S, .slen=len, .s=copy}) */
+    /* rsi = first eightbyte: DT_S | (len << 32); rdx = second eightbyte: .s pointer */
+    RTX_CALL_ALIGN
+    mov     rdi, r11                                     /* arg1 = varname                  */
+    mov     esi, 2                                       /* DT_S = 0x02                     */
+    shl     rcx, 32
+    or      rsi, rcx                                     /* rsi = DT_S | ((uint64_t)len<<32) */
+    mov     rdx, r8                                      /* rdx = copy (.s pointer)         */
+    call    NV_SET_fn@PLT
+    RTX_CALL_UNALIGN
+    xor     eax, eax                                     /* return 0 (no proc-call pending) */
+    ret
+RTX_ENDF(rt_cap_open)
+
 .section .rodata
 .Ldfpf_empty: .byte 0                                   /* empty string for NULL varname   */
+.Lcap_empty:  .byte 0                                   /* fallback empty string for NULL alloc */
 .text
 
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */

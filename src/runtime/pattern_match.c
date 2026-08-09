@@ -784,7 +784,7 @@ int c_rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s
  * FAILDESCR behavior of the old path).  The matched DESCR rides a LIFO beside the pcall ctx (the callee may
  * itself capture); rt_g_want_name is set here and captured/cleared by rt_proc_call_open into the ctx. */
 static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
-long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
+long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
     (void)is_imm; /* rbp-dcap: the COND (deferred) arm no longer calls here — bb_match_capture phase 1 records
                    * its entry inline on the rbp stack.  Every remaining caller is the immediate ($) path. */
