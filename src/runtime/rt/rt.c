@@ -451,6 +451,11 @@ int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* LADDER AB (2026-08-09): fn_cell initial stub — fires error 022 "Undefined function called" (manual ch.10 p.140, error table entry 22).  fn_cell$<FN> is initialized to this address at program      */
+/* start; DEFINE's residual runtime action replaces it with &<FN>_act_α.  Reached by jmp [fn_cell] on the AB-3 call path when DEFINE has not yet executed (or never will).  __attribute__((noreturn))  */
+/* because core_runtime_error does not return; absent that, the callee-save discipline of the AB frame's α would leave rsp/rbp intact but the call chain is irrelevant — this function never returns.   */
+__attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "Undefined function called"); __builtin_unreachable(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
     for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }

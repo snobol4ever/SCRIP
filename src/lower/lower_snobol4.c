@@ -1987,20 +1987,19 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
              * SCRIP_AB=0 restores byte-identical pre-AB emission. */
             static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (!_e || *_e != '0') ? 1 : 0; }
             if (_ab) {
-                const tree_t * dfn = lc_stmt_subj(s);
-                const tree_t * pnode = (dfn && dfn->t == TT_DEFINE && dfn->n > 1) ? dfn->c[1] : NULL;
-                if (pnode && pnode->t == TT_QLIT && pnode->v.sval) {
-                    sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
-                    int nsave = 1 + d.nnames;   /* fname + formals + locals */
+                int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
+                const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
+                if (pnode && sno_qlit_fold(pnode)) {
+                    sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
+                    int nsave = 1 + d.nnames;   /* fname + formals + locals; encoded as n_operands by ir_operand_push below */
                     IR_t * ab = lc_build(g, IR_FUNC_ACTIVATE, exitnd, failnd);
-                    IR_LIT(ab).sval = lp_strdup(d.fname);
-                    IR_LIT(ab).ival = (int64_t)nsave;
+                    IR_LIT(ab).sval = lp_strdup(d.fname);   /* fname in the union; n_operands carries nsave via ir_operand_push */
                     /* operands: IR_LIT_STRING nodes carrying the variable names; emit drive calls gva_index_of at emit time */
                     { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.fname); ir_operand_push(ab, nm); }
                     for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
-                    /* park the block off the side of anchor via a dedicated dead-path GOTO so emit_chain reaches it */
-                    IR_t * dead = lc_build(g, IR_GOTO, ab, NULL);
-                    (void)dead;   /* dead is not wired from anywhere live -- the block is jump-target-only until AB-3 */
+                    /* register in g->ab_nodes[] for post-main-chain emission by the driver (jump-target-only dead code until AB-3) */
+                    if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
+                    else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
                 }
             }
             lc_γ_to(anchor[i], sJ); continue;

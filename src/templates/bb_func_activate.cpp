@@ -1,108 +1,181 @@
 #include <string>
 #include <cstdint>
+#include <cstdio>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
+#include "ab_abi.h"
+#include "rt.h"
 extern int64_t kw_fnclevel;
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_FUNC_ACTIVATE — LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack at entry (our RBP frame),
- * restores them on RETURN/FRETURN/NRETURN.  Ch.16: &FNCLEVEL increments at call, decrements at return.  The block is jump-target-only dead code at AB-1 (call sites UNCHANGED); AB-3 flips the sites.
- *
- * FRAME LAYOUT (RBP-relative; RBP = frame base established by push rbp / mov rbp,rsp in α):
- *   [rbp - 0x08]  caller rbp (pushed by push rbp)          <- implicit, below rbp
- *   [rbp - K]     start of frame body (sub rsp,K below rbp)
- *   Frame cells at fixed offsets from rbp (depth-immune — the entire reason for the RBP frame):
- *   AB_OFF_GW      (-0x10): γ wire (caller's success continuation) — AB-2 fills
- *   AB_OFF_WW      (-0x18): ω wire (caller's failure continuation) — AB-2 fills
- *   AB_OFF_ERSP    (-0x20): entry rsp (caller's RSP before the call) — AB-2 fills
- *   AB_OFF_ANCHOR  (-0x28): prev ACT-ANCHOR value — AB-2 fills
- *   AB_OFF_WN      (-0x30): wn / rt_g_want_name snapshot — AB-2 fills
- *   AB_OFF_VTMARK  (-0x38): value-trail mark — AB-2 fills
- *   AB_OFF_SAVE0   (-0x40): save-set[0] type word   (fname)
- *   AB_OFF_SAVE0+8 (-0x38 ... overlaps vtmark? -- AB-1: save-set base = -0x40; nsave*16 bytes below vtmark slot; revisit with ABI freeze at AB-1 contracts/ header)
- *   NOTE: exact offsets and the Sigma/Sigma_len/kl fields finalized at ABI freeze (AB-1 contracts/ header).
- *         AB-1 emits a BOMB STUB β to surface any premature entry; real β lands at AB-2.
- *
- * op_sval = function name (compile-time constant)
- * op_ival = nsave = 1 + nformals + nlocals
- * op_arg_slot[k] = GVA index of save-set member k {fname, formal0..N-1, local0..M-1}; -1 if GVA not active */
+/* IR_FUNC_ACTIVATE — LADDER AB (2026-08-09 AB-1): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
+/* SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack                                                                                                   */
+/* at entry (here: an RBP frame) and restores them on RETURN/FRETURN/NRETURN.  Ch.16: &FNCLEVEL++                                                                                                     */
+/* at call, -- at return.  ABI frozen in contracts/ab_abi.h (ONE AUTHORITY for offsets/argreg/verdict).                                                                                              */
+/*                                                                                                                                                                                                    */
+/* AB-1 DELIVERS:                                                                                                                                                                                     */
+/*   α  = push rbp; mov rbp,rsp; sub rsp,K; save save-set from GVA cells; null GVA cells; FNCLEVEL++;  */
+/*        BOMB stub for body-jmp (AB-2 installs fn_cell + body entry wire).                              */
+/*   β  = BOMB stub (AB-2 installs 3-way dispatch + restore + LEAVE + wire jmp).                        */
+/*   fn_cell$<FN> = .data quad initialised to &rt_ab_undef_fn_stub (AB-3 sites jmp through it).         */
+/*   DEFINE residual: ONE store fn_cell$<FN> ← &<FN>_act_α (also AB-3; site sees live α label).         */
+/*   Killswitch SCRIP_AB=0 → byte-identical legacy (lowerer gate; this template is simply not reached).  */
+/*                                                                                                        */
+/* op_sval = fname (compile-time constant string)                                                         */
+/* op_ival = nsave = 1 + nformals + nlocals                                                               */
+/* op_arg_slot[k] = GVA index of save-set member k {fname, formal0..np-1, local0..nl-1}; -1 = no GVA    */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* AB frame constant offsets from RBP (ALL NEGATIVE -- cells live BELOW the pushed rbp's saved value).
- * Sized to hold 6 meta fields + nsave*16 save-set DESCRs, 16-aligned.
- * AB-1: we size for the meta slots only; the save-set portion is calculated from op_ival.
- * AB-1 ABI NOTE: this is a DRAFT layout.  The contracts/ header (AB-1 deliverable) is the ONE AUTHORITY.
- * Fields listed match the AB-0 census frame ABI block exactly. */
-static const int AB_META_BYTES = 6 * 8;   /* gw + ww + entry_rsp + prev_anchor + wn + vtmark  (8B each) */
-static inline long ab_frame_k(long nsave) {
-    long save_bytes = nsave * 16;   /* nsave DESCRs at 16B each */
-    long total = AB_META_BYTES + save_bytes;
-    return ((total + 8 + 15) & ~15L) - 8;   /* 16-align ACROSS the pushed rbp per bb_glue_framed convention */
-}
-/* RBP-relative offsets for save-set member k (DESCR = 16B: type@+0, value@+8) */
-static inline int ab_save_off(long nsave, int k) { return -(int)(AB_META_BYTES + 16 * (nsave - 1 - k) + 16); }   /* grows downward; member 0 nearest to meta block */
+/* fn_cell storage: one static void* per activation block, indexed by g_flat_node_id uid.                */
+/* Mode-4 TEXT: fn_cell$<FN> .data label; initialised to rt_ab_undef_fn_stub symbol.                     */
+/* Mode-3 BINARY: static void* in g_ab_fn_cells[]; absolute address baked at emit time.                  */
+#define AB_FNCELL_MAX 256
+static void * g_ab_fn_cells[AB_FNCELL_MAX];   /* mode-3: one slot per IR_FUNC_ACTIVATE node this program */
+static int    g_ab_fn_cell_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_func_activate() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    long nsave = (long)_.op_ival;
+    long   nsave = (long)_.op_ival;
     const char * fname = _.op_sval ? _.op_sval : "?";
-    long K = ab_frame_k(nsave);
-    /* ===== α — ENTRY (AB-1: frame + save-set save + null formals + null fname + &FNCLEVEL++ + bomb before body jmp) ===== */
-    std::string s = x86("comment", std::string("IR_FUNC_ACTIVATE α — ") + fname + " (AB-1: frame+save; body-jmp + β = BOMB stubs until AB-2/AB-3)")
-        + x86_alpha()
-        + x86("push", "rbp")
-        + x86("mov",  "rbp", "rsp")
-        + x86("sub",  "rsp", K)
-        /* Save save-set members from their GVA cells into RBP-frame slots (depth-immune [rbp+off] reads).
-         * op_arg_slot[k] = GVA index; -1 means GVA not active for this variable (fall back to null). */
-        + FOR(0, (int)nsave, [&](int k) {
-              int gk = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
-              int off_t = ab_save_off(nsave, k);       /* type word offset from rbp */
-              int off_v = ab_save_off(nsave, k) + 8;  /* value word offset from rbp */
-              if (gk >= 0) {
-                  return x86("note", gva_name(gk))
-                       + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16))
-                       + x86("mov", RDQ("rbp", off_t), "rax")
-                       + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8))
-                       + x86("mov", RDQ("rbp", off_v), "rax");
-              } else {
-                  /* GVA not active: save null DESCR */
-                  return x86("mov", RDQ("rbp", off_t), (long)0)
-                       + x86("mov", RDQ("rbp", off_v), (long)0);
-              }
-          })
-        /* Null the save-set members in their GVA cells (formal slots = null; fname = null).
-         * Caller already staged the actual args before the jmp; AB-3 installs them after this null.
-         * AB-1: we null ALL (args not yet staged through the block), so tests will show null formals until AB-3. */
-        + FOR(0, (int)nsave, [&](int k) {
-              int gk = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
-              if (gk >= 0) {
-                  return x86("note", gva_name(gk))
-                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     (long)0)
-                       + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), (long)0);
-              }
-              return std::string();
-          })
-        /* &FNCLEVEL++ — AB-1: direct absolute store into the legacy kw_fnclevel cell (KW-COORD: after KW-1 this becomes KWQ(FNCLEVEL_IDX)) */
-        + x86("mov", "rax", ABSQ((unsigned long)(uintptr_t)&kw_fnclevel))
-        + x86("mov", "rax", RDQ("rax", 0))
-        + x86("add", "rax", (long)1)
-        + x86("mov", "rcx", ABSQ((unsigned long)(uintptr_t)&kw_fnclevel))
-        + x86("mov", RDQ("rcx", 0), "rax")
-        /* AB-1 BODY-JMP STUB: bomb — no fn_cell and no body-entry wire yet (AB-2/AB-3 fill these).
-         * A premature entry surfaces here rather than silently jumping wild. */
-        + x86("bomb", "IR_FUNC_ACTIVATE α: body-jmp not wired yet (AB-2 installs fn_cell + body entry; AB-3 wires call sites)")
-        + x86_gamma()   /* γ = dead after the bomb; present for correct box structure */
-        /* ===== β — RETURN LANDING STUB (AB-2 replaces with the real 3-way dispatch) ===== */
-        + x86("comment", std::string("IR_FUNC_ACTIVATE β — ") + fname + " (AB-1 stub: bomb)")
-        + x86_beta()
-        + x86("bomb", "IR_FUNC_ACTIVATE β: return landing not wired yet (AB-2 installs real restore + 3-way dispatch)")
-        + x86_omega()   /* ω = dead after the bomb */
-        /* RO label for fname string (used by AB-2 monitor tap: lea rdi,[rip+fname_ro]) */
-        + x86_ro_seal_str(0, fname);
+    long   K     = ab_frame_k(nsave);
+    /* ── fn_cell: allocate storage and record address ── */
+    void ** fn_cell_ptr = (void **)0;
+    std::string fn_cell_lbl = std::string("fn_cell$") + fname;   /* TEXT label */
+    if (MEDIUM_BINARY) {
+        int idx = g_ab_fn_cell_n < AB_FNCELL_MAX ? g_ab_fn_cell_n++ : 0;
+        g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
+        fn_cell_ptr = &g_ab_fn_cells[idx];
+    }
+    /* ── α — entry: frame + save-set save + null GVA cells + FNCLEVEL++ + BOMB body-jmp ── */
+    std::string s =
+        /* fn_cell .data emission (TEXT only; binary: no-op directive) */
+        x86("directive", std::string(".section .data"))
+      + x86("directive", std::string(".align 8"))
+      + x86("directive", fn_cell_lbl + std::string(":"))
+      + x86("directive", std::string(".quad rt_ab_undef_fn_stub"))
+      + x86("directive", std::string(".section .text"))
+      + x86("directive", std::string(".intel_syntax noprefix"))
+        /* α label and frame prologue */
+      + x86_alpha()
+      + x86("push", "rbp")
+      + x86("mov",  "rbp", "rsp")
+      + x86("sub",  "rsp", K)
+        /* save-set: spill each GVA cell into RBP-relative frame slot (depth-immune) */
+      + FOR(0, (int)nsave, [&](int k) -> std::string {
+            int gk  = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
+            int ot  = ab_save_off(nsave, k);       /* type word rbp offset */
+            int ov  = ab_save_off(nsave, k) + 8;   /* value word rbp offset */
+            if (gk >= 0) {
+                return x86("note", gva_name(gk))
+                     + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16))
+                     + x86("mov", RDQ("rbp", ot), "rax")
+                     + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8))
+                     + x86("mov", RDQ("rbp", ov), "rax");
+            }
+            return x86("mov", RDQ("rbp", ot), (long)0)
+                 + x86("mov", RDQ("rbp", ov), (long)0);
+        })
+        /* null GVA cells (fname + all save-set members); actuals staged by call site (AB-3) install after */
+      + (FOR(0, (int)nsave, [&](int k) -> std::string {
+            int gk = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
+            if (gk >= 0) {
+                return x86("note", gva_name(gk))
+                     + x86("xor",  "eax", "eax")
+                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rax")
+                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rax");
+            }
+            return std::string();
+        }))
+        /* &FNCLEVEL++ — movabs for address that may exceed 2GB (SIB no-base ABSQ only safe < 0x7FFFFFFF)
+         * KW-COORD: after KW-1 this becomes KWQ(FNCLEVEL_IDX); until then use movabs indirect. */
+      + x86("movabs", "rcx", (unsigned long)(uintptr_t)&kw_fnclevel)
+      + x86("mov",    "rax", RDQ("rcx", 0))
+      + x86("add",    "rax", (long)1)
+      + x86("mov",    RDQ("rcx", 0), "rax")
+        /* AB-1 BODY-JMP STUB: premature entry surfaces here; AB-2 installs fn_cell + static jmp body-entry */
+      + x86_bomb((std::string("IR_FUNC_ACTIVATE α: body-jmp not wired (AB-2 installs fn_cell + body entry wire; AB-3 flips call sites) — fname=") + fname).c_str())
+      + x86_gamma()   /* γ dead after bomb; present for correct box structure */
+        /* ── β — return landing stub (AB-2 replaces with 3-way dispatch + restore + LEAVE + wire jmp) ── */
+      + x86_beta()
+      + x86_bomb((std::string("IR_FUNC_ACTIVATE β: return landing not wired (AB-2 installs restore + LEAVE + 3-way dispatch) — fname=") + fname).c_str())
+      + x86_omega()   /* ω dead after bomb */
+        /* RO fname string (AB-2 monitor tap: lea rdi,[rip+<internal_0_s>]; call mon_emit_call_bin) */
+      + x86_ro_seal_str(0, fname);
+    /* fn_cell DEFINE residual store (mode-3 only; mode-4 stores via the α body at AB-3 — the TEXT label
+     * fn_cell$<FN> is visible then).  AB-1: store rt_ab_undef_fn_stub address, confirming the cell is live.
+     * This is a no-op in mode-3 when SCRIP_AB=0 (lowerer never emits IR_FUNC_ACTIVATE in that path). */
+    if (MEDIUM_BINARY && fn_cell_ptr) {
+        *fn_cell_ptr = (void *)(uintptr_t)rt_ab_undef_fn_stub;   /* AB-1: already set above; AB-3 sets &act_α */
+    }
     return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* bb_ab_emit_nodes — called by the driver after the main chain to emit all IR_FUNC_ACTIVATE blocks
+ * registered in g->ab_nodes[].  Jump-target-only dead code at AB-1; AB-3 wires sites.             */
+extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active) {
+    if (!g || g->ab_n <= 0) return;
+    extern int g_gva_active;
+    extern int gva_index_of(const char *);
+    int saved_gva = g_gva_active;
+    g_gva_active = gva_active;
+    /* Save/restore g_emit fields we touch so we don't corrupt the caller's state */
+    const char * saved_sval    = g_emit.op_sval;
+    long         saved_ival    = g_emit.op_ival;
+    int *        saved_slot    = g_emit.op_arg_slot;
+    int          saved_cap     = g_emit.op_arg_slot_cap;
+    int          saved_beta    = g_emit.op_beta_dead;
+    int          saved_zdepth  = g_emit.op_zdepth;
+    int          saved_zres    = g_emit.op_zres;
+    /* Use a local slot array so the template's _.op_arg_slot[k] is always valid */
+    int local_slots[64];
+    g_emit.op_arg_slot     = local_slots;
+    g_emit.op_arg_slot_cap = (int)(sizeof local_slots / sizeof *local_slots);
+    g_emit.op_beta_dead    = 1;   /* β bomb stub has no inbound edges at AB-1 */
+    g_emit.op_zdepth       = 0;
+    g_emit.op_zres         = 0;
+    /* AB label name storage: one set per block, kept live until bb_emit_x86 consumes them */
+    char ab_lbl_α[128], ab_lbl_β[128], ab_lbl_γ[128], ab_lbl_ω[128];
+    const char * saved_lbl_α = g_emit.lbl_α;
+    const char * saved_lbl_β = g_emit.lbl_β;
+    const char * saved_lbl_γ = g_emit.lbl_γ;
+    const char * saved_lbl_ω = g_emit.lbl_ω;
+    for (int i = 0; i < g->ab_n; i++) {
+        IR_t *nd = g->ab_nodes[i];
+        if (!nd) continue;
+        g_emit.op_sval = IR_LIT(nd).sval;
+        g_emit.op_ival = (long)nd->n_operands;
+        /* Set unique per-block label names (design name: <FN>_act_α/β/γ/ω) */
+        const char *fn = g_emit.op_sval ? g_emit.op_sval : "unknown";
+        snprintf(ab_lbl_α, sizeof ab_lbl_α, "%s_act_\xce\xb1", fn);
+        snprintf(ab_lbl_β, sizeof ab_lbl_β, "%s_act_\xce\xb2", fn);
+        snprintf(ab_lbl_γ, sizeof ab_lbl_γ, "%s_act_\xce\xb3", fn);
+        snprintf(ab_lbl_ω, sizeof ab_lbl_ω, "%s_act_\xcf\x89", fn);
+        g_emit.lbl_α = ab_lbl_α;
+        g_emit.lbl_β = ab_lbl_β;
+        g_emit.lbl_γ = ab_lbl_γ;
+        g_emit.lbl_ω = ab_lbl_ω;
+        int _ab_n = (int)nd->n_operands < g_emit.op_arg_slot_cap
+                  ? (int)nd->n_operands : g_emit.op_arg_slot_cap;
+        for (int _k = 0; _k < _ab_n; _k++) {
+            const char *_nm = nd->operands[_k] ? IR_LIT(nd->operands[_k]).sval : (const char *)0;
+            g_emit.op_arg_slot[_k] = (_nm && gva_active) ? gva_index_of(_nm) : -1;
+        }
+        bb_emit_x86(bb_func_activate());
+    }
+    g_emit.op_sval         = saved_sval;
+    g_emit.op_ival         = saved_ival;
+    g_emit.op_arg_slot     = saved_slot;
+    g_emit.op_arg_slot_cap = saved_cap;
+    g_emit.op_beta_dead    = saved_beta;
+    g_emit.op_zdepth       = saved_zdepth;
+    g_emit.op_zres         = saved_zres;
+    g_emit.lbl_α           = saved_lbl_α;
+    g_emit.lbl_β           = saved_lbl_β;
+    g_emit.lbl_γ           = saved_lbl_γ;
+    g_emit.lbl_ω           = saved_lbl_ω;
+    g_gva_active = saved_gva;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -88,6 +88,7 @@ typedef struct {
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
+__attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* LADDER AB: fn_cell initial value — fires error 022 */
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
