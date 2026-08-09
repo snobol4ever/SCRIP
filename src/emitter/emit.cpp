@@ -1626,6 +1626,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         drive_arg_slots_reserve(na2);
         for (int i = 0; i < na2; i++) { IR_t * a = nd->operands[i + 1]; g_emit.op_arg_slot[i] = a ? drive_value_slot(a) : -1; }
         g_emit.op_arg_slot_n = na2;
+        g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }

@@ -41,7 +41,7 @@
  */
 #include "rtx_abi.inc"
 
-#define DT_E            11
+#define DT_E            0x38        /* src/contracts/descr.h DT_E = 0x38 (s229 renumber); old layout had 11 -- stale copies caught this session */
 #define PROCVAL_SLEN    0xFFFFFFFE
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
