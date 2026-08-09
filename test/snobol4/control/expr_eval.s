@@ -8664,7 +8664,7 @@ Push_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140548546622112
+                        movabs           rcx, 139644284039904
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -8698,7 +8698,7 @@ Pop_act_α:
                         xor              eax, eax
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rax
-                        movabs           rcx, 140548546622112
+                        movabs           rcx, 139644284039904
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -8741,7 +8741,7 @@ Unary_act_α:
                         xor              eax, eax                                       # arg
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rax
-                        movabs           rcx, 140548546622112
+                        movabs           rcx, 139644284039904
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -8786,7 +8786,7 @@ Binary_act_α:
                         xor              eax, eax                                       # op
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rax
-                        movabs           rcx, 140548546622112
+                        movabs           rcx, 139644284039904
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -8827,8 +8827,8 @@ Binary_act_β:
 .S20:                   .string          "*Binary"
 .S21:                   .string          "PAT$9$V0"
 .S22:                   .string          "PATV$0"
-.S23:                   .string          "A\237\201*"
-.S24:                   .string          "\326\307\201*"
+.S23:                   .string          "!\007\0063"
+.S24:                   .string          "\266_\0063"
                         .text
                         .section         .rodata
 .C0:

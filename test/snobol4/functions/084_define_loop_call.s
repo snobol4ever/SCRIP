@@ -736,7 +736,7 @@ bump_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140492640744096
+                        movabs           rcx, 139705038533344
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -754,7 +754,7 @@ bump_act_β:
 .Lx142_0_s:
                         .string          "bump"
                         .section         .rodata
-.S0:                    .string          "\347\035\001"
-.S1:                    .string          "\340\035\001"
+.S0:                    .string          "\312\370\002"
+.S1:                    .string          "\303\370\002"
                         .text
                         .section         .note.GNU-stack,"",@progbits
