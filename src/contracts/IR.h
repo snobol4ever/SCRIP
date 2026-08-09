@@ -33,6 +33,7 @@ typedef enum {
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
     IR_SAVE_RESTORE,   /* SN4-FLAT-PROC (s176) linkage family — SPITBOL manual Ch.8 save/restore protocol citizens, role in ival: 0 = site OPEN (reserved, next slice), 1 = RETURN floater (peek wires, restore rsp/rbp, jmp γ wire), 2 = FRETURN floater (same, ω wire), 3 = WIRE-ADOPT (stub entry: copy header wires + entry-rsp + caller-rbp into the open pcall record) */
+    IR_FUNC_ACTIVATE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = RBP-framed entry: push rbp; mov rbp,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}. */
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,
