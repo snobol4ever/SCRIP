@@ -42,12 +42,16 @@ std::string bb_suspend() {
             uint64_t _clear_fp; { void (*_f)(void) = rt_pl_zf_resume_clear; _clear_fp = (uint64_t)(uintptr_t)(void *)_f; }
             /* Check g_pl_zf_pending_cursor: if set, we are in a β-resume re-entry — skip push3 and jmp cursor */
             pl_zf_push = x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor")
-                       + x86("mov", "r11", "[r11]")                  /* r11 = pending cursor (0 = normal) */
-                       + x86("test", "r11", "r11")
+                       + x86("mov", "rax", "[r11]")                  /* rax = *g_pl_zf_pending_cursor (0 = normal path; non-0 = pending β-resume cursor) */
+                       + x86("test", "rax", "rax")
                        + x86("je", L(61))                            /* 0 = normal: fall through to push3 */
-                       /* β-resume re-entry: pending cursor = n15_suspend_β; clear it then jmp in live frame */
-                       + x86("call", "rt_pl_zf_resume_clear", _clear_fp)  /* clear BEFORE jmp so inner calls don't inherit */
-                       + x86("jmp", "r11")                           /* jmp cursor = clause-2 entry (rbp still live) */
+                       /* β-resume re-entry: rax = cursor (n15_suspend_β).
+                        * Save cursor to FRQ(op_sb) FIRST (lexprep2 already wrote it; this is idempotent).
+                        * Then call rt_pl_zf_resume_clear (clobbers rax/r11 via PLT — that is fine now; cursor is in frame slot).
+                        * jmp FRQ(op_sb) — frame-indirect through the resume slot (rbp valid; slot holds cursor). */
+                       + x86("mov", FRQ(_.op_sb), "rax")             /* persist cursor to frame slot before the call clobbers rax */
+                       + x86("call", "rt_pl_zf_resume_clear", _clear_fp)   /* clear g_pl_zf_pending_cursor=0; clobbers rax/r11 — tolerated now */
+                       + x86("jmp", FRQ(_.op_sb))                    /* jmp cursor = clause-2 entry (rbp live, slot holds cursor) */
                        + x86("def", L(61))
                        /* normal push3 path (not a β-resume re-entry) */
                        + x86("mov", "rdi", FRQ(_.op_sa))             /* trail_mark_lo */
