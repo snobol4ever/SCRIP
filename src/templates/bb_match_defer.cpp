@@ -84,7 +84,7 @@ std::string bb_match_defer() {
          + x86("def",  L(4))
          + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))
-         + IF(_.op_scan && _.op_scan_head_off >= 0,
+         + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_begin_stfh_k(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
              + x86("mov",  FR(_.op_scan_head_off), "eax"))
