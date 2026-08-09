@@ -394,43 +394,75 @@ static std::string bcps_det_arm() {
             + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
          + (scc && !c2
-            ? x86("sub", "rsp", scc_sb)
-            + FOR(0, scc_nsave, [&](int k) {
-                  return x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
-                       + x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
-            + x86_ro_load_q("rdi", 0)
-            + x86("mov32", "esi", (long)scc_np)
-            + x86("mov32", "edx", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
-            + x86("test", "rax", "rax")
-            + x86("je", L(5))
-            + FOR(0, (int)_.op_ival, [&](int i) {
-                  int slot = bcps_arg_slot(_.node, argblks, i);
-                  return (c2farm() ? x86_rsp_load64("rax", (int)scc_sb) : x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
-                       + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
-                       + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
-                       + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })   /* FLATDISP-LIVE-BUMP: the FRQ fallback now carries the scc_sb the fc_hit arm always had -- FR/FRQ are rsp-relative under the depth-static regime, so the non-window read was 32 short (083: arg staged at [rsp+128] pre-sub, read at [rsp+128] post-sub = zeroed frame -> s=0 -> 2*s=0).  CALL2BB 3b armed arm FIRST: the RESULT window (base=own quad) never covers the arg slot, so fc_hit correctly misses -- the arg CELL is position-known (TOS above the save block, [rsp + scc_sb], v1 nargs==1 by the bomb), read by position not window */
-            + x86("call", "rt_proc_open_fn", openfn_fp)
-            + bb_glue_pass_wires(6, 7)   /* GLUE-SYM (s22x) */
-            + x86("def", L(6))
-            + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
-            + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
-            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
-                  return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
-                       + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
-            + x86("add", "rsp", scc_sb)
-            + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
-            + x86("jmp", L(2))
-            + x86("def", L(7))
-            + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
-                  return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
-                       + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
-            + x86("add", "rsp", scc_sb)
-            + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
-            + x86("jmp", L(2))
-            + x86("def", L(5))
-            + x86("add", "rsp", scc_sb)
-            + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
+            ? [&]() -> std::string {
+                /* AB-3b path: when this program has DEFINE activation blocks (SCRIP_AB on, ab_n>0),
+                 * replace open_slim+open_fn+arg-install with: save-set spill, install actuals into
+                 * formal GVA cells, pass wires rcx/rdx, jmp [fn_cell$FN] → FN_act_α.
+                 * The activation block handles Σ/vtmark/k_level/null-result+locals/body dispatch.
+                 * L(8)=γ wire, L(9)=ω wire: result already in rax:rdx from rt_ab_leave_env.
+                 * Falls back to classic open_slim path when ab_n==0 (SCRIP_AB=0). */
+                bool ab3b = (g_emit_cfg && g_emit_cfg->ab_n > 0 && _.op_sval);
+                if (ab3b) {
+                    std::string fn_cell_lbl = std::string("fn_cell$") + _.op_sval;
+                    void * fn_cell_bin = bb_ab_fn_cell_ptr(_.op_sval);
+                    return x86("sub", "rsp", scc_sb)
+                        + FOR(0, scc_nsave, [&](int k) {
+                              return x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                                   + x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                        + FOR(0, (int)_.op_ival, [&](int i) {
+                              int slot = bcps_arg_slot(_.node, argblks, i);
+                              int gk_i = scc_gk[i < scc_np ? i + 1 : i];
+                              return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
+                                   + x86("note", gva_name(gk_i)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_i, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk_i * 16), "rax")
+                                   + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
+                                   + x86("note", gva_name(gk_i)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_i, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_i * 16 + 8), "rax"); })
+                        + x86("lea", "rcx", L(8))
+                        + x86("lea", "rdx", L(9))
+                        + (MEDIUM_BINARY && fn_cell_bin
+                            ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
+                            : x86("mov",  "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl.c_str()) + x86("jmp", "rax"))
+                        + x86("def", L(8)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2))
+                        + x86("def", L(9)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2));
+                }
+                /* Classic SCC path (SCRIP_AB=0 or no DEFINE in this program) */
+                return x86("sub", "rsp", scc_sb)
+                    + FOR(0, scc_nsave, [&](int k) {
+                          return x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                               + x86("note", gva_name(scc_gk[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                    + x86_ro_load_q("rdi", 0)
+                    + x86("mov32", "esi", (long)scc_np)
+                    + x86("mov32", "edx", (long)_.op_ival)
+                    + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
+                    + x86("test", "rax", "rax")
+                    + x86("je", L(5))
+                    + FOR(0, (int)_.op_ival, [&](int i) {
+                          int slot = bcps_arg_slot(_.node, argblks, i);
+                          return (c2farm() ? x86_rsp_load64("rax", (int)scc_sb) : x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
+                               + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
+                               + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
+                               + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
+                    + x86("call", "rt_proc_open_fn", openfn_fp)
+                    + bb_glue_pass_wires(6, 7)
+                    + x86("def", L(6))
+                    + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
+                    + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
+                    + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                          return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                               + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+                    + x86("add", "rsp", scc_sb)
+                    + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
+                    + x86("jmp", L(2))
+                    + x86("def", L(7))
+                    + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
+                          return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
+                               + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
+                    + x86("add", "rsp", scc_sb)
+                    + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_w)
+                    + x86("jmp", L(2))
+                    + x86("def", L(5))
+                    + x86("add", "rsp", scc_sb)
+                    + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp));
+              }()
             : std::string(""))
          + (dc
             ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? RBPRAWQ(slot) : FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [rbp+slot] (FRQ(slot) under pinned rbp). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb_rbp=0 — causing all args to LEA [rsp+0] identically. RBPRAWQ(slot) bypasses the refinement and directly names [rbp+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's rbp pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
