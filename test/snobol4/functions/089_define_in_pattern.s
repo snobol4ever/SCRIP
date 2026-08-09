@@ -113,6 +113,11 @@ proc_LBL__upcase_β:
                                                                                         jmp   proc_LBL__upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_γ:
+                        call             rt_flat_ret_snap@PLT
+                        mov              rcx, qword ptr [rax + 0]
+                        mov              rbp, qword ptr [rax + 24]
+                        mov              rsp, qword ptr [rax + 16]
+                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_ω:
                         call             rt_flat_ret_snap@PLT
@@ -152,6 +157,11 @@ proc_upcase_β:
                                                                                         jmp   proc_upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_γ:
+                        call             rt_flat_ret_snap@PLT
+                        mov              rcx, qword ptr [rax + 0]
+                        mov              rbp, qword ptr [rax + 24]
+                        mov              rsp, qword ptr [rax + 16]
+                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_ω:
                         call             rt_flat_ret_snap@PLT
@@ -601,6 +611,8 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
+                        xor              edi, edi
+                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              edi, 1
@@ -640,7 +652,7 @@ upcase_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140199748410700
+                        movabs           rax, 140497053269324
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx91_2
@@ -684,7 +696,7 @@ upcase_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140199748410700
+                        movabs           rax, 140497053269324
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx91_5
