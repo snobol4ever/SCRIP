@@ -1931,7 +1931,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
     IR_t ** fail_tgt = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* STMT-BETA (cc39c095, Lon ruling 2026-08-06): parallel array saving each statement's fT so the post-loop STATEMENT_BEGIN wiring pass can set its omega port to fT, making the emitter wire statement_begin_beta -> fT as the named failure landing */
-    IR_t ** match_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* R1 STMT-BETA-LAND: per-statement fB (the dedicated MATCH_BEGIN-exhaust GOTO minted in sno_lower_match) -- the zw5 post-loop below retags each fB.γ to that statement's STATEMENT_BEGIN with the β port tag */
+    IR_t ** match_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));
+    IR_t ** asgn_land = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));   /* fA (this session, finishing STMT-BETA for the ASSIGNMENT class): per-statement dedicated exhaust-only GOTO carrying ONLY value-spine statement failures; the zw5 post-loop beta-tags it exactly as it does fB.  fJ stays SHARED and UNTAGGED (the 067 conviction at the fB comment). */   /* R1 STMT-BETA-LAND: per-statement fB (the dedicated MATCH_BEGIN-exhaust GOTO minted in sno_lower_match) -- the zw5 post-loop below retags each fB.γ to that statement's STATEMENT_BEGIN with the β port tag */
     bb_label_registry_reset();
     for (int i = 0; i < nst; i++) {
         anchor[i] = lc_build(g, IR_GOTO, NULL, NULL);
@@ -1977,7 +1978,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* ZW-5 O-2: stb->ival = stno for per-depth stub label names */   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1): the statement bracket box is minted HERE because these two lines are the ONE derivation point every statement form threads its continuations through -- sT/fT are already resolved (goto field, computed goto, or fallthrough `next`), so one edit reaches every form without touching a single statement arm below.  THE BOX IS A TRAILER, NOT A BRACKET -- measured, not inferred: x86_asm.h:544 x86_alpha() DEFINES the alpha label while x86_asm.h:547 x86_gamma() IS A JMP, so the emitted body `def alpha / jmp gamma / def beta; jmp omega` has exactly ONE entry and control can never return into it; the box is entered once, at alpha, by the statement's SUCCESS wire and falls through to the jmp that carries op_zgpop via the ONE X86H_JMP gamma hook arm (s22k one-authority -- no second whack spelling is created here). */
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);   /* success -> the box's alpha; the box's own gamma carries sT, so the statement's real continuation is unchanged and the ONLY delta is the release's HOME (WHACK CONTRACT clause 4: BB_END_STATEMENT is op_zgpop's home; the 5,923 fused pops are its absence). */
         fail_tgt[i] = fT;   /* STMT-BETA (this session): save fT at its ONE derivation point for the post-loop STATEMENT_BEGIN omega wiring */
-        IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
+        IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);
+        IR_t * fA = lc_build(g, IR_GOTO, fJ, NULL); asgn_land[i] = fA;   /* fA: untagged it chains fA->fJ->fT, byte-equivalent to the direct wire by the same chase-transparency the fB comment records; the post-loop beta-tag makes STATEMENT_BEGIN.beta the named failure landing for the assignment class (STATEMENT-PORT LAWS).  UNWIND clause 2 guarantees claim-base arrival, so the slice-3 per-depth ladder the 1980 comment awaited is DELETED, not built. */   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
         if (is_def && is_def[i]) {
             /* LADDER AB (2026-08-08): mint the per-DEFINE ACTIVATION BLOCK node.  The block is jump-target-only dead code at this
              * position -- nothing in the graph wires to it yet (AB-3 flips the call sites).  We build an IR_FUNC_ACTIVATE node
@@ -2017,8 +2019,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     static int g_pattmp_n = 0;
                     char nmb[24]; snprintf(nmb, sizeof nmb, "PATTMP$%d", g_pattmp_n++);
                     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
-                    IR_t * asn = lc_build(g, IR_ASSIGN, NULL, fJ); IR_LIT(asn).sval = tmpn;
-                    IR_t * vr = NULL; IR_t * ec = sx_lower(&cx, ptt, asn, fJ, &vr);
+                    IR_t * asn = lc_build(g, IR_ASSIGN, NULL, fA); IR_LIT(asn).sval = tmpn;
+                    IR_t * vr = NULL; IR_t * ec = sx_lower(&cx, ptt, asn, fA, &vr);
                     ir_operand_push(asn, vr);
                     tree_t * dv = ast_stmt_new(TT_VAR); dv->v.sval = tmpn;
                     tree_t * dd = ast_stmt_new(TT_DEFER); ast_push(dd, dv);
@@ -2036,7 +2038,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (!subj) { lc_γ_to(anchor[i], sJ); continue; }
         if (!has_eq) {
-            IR_t * r = NULL; IR_t * e = sx_lower(&cx, subj, sJ, fJ, &r);
+            IR_t * r = NULL; IR_t * e = sx_lower(&cx, subj, sJ, fA, &r);
             lc_γ_to(anchor[i], e);
             continue;
         }
@@ -2047,9 +2049,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             const char * bn = NULL;
             for (int fzi = 0; fzi < g_sno_nfz; fzi++) if (g_sno_fz[fzi].pat == repl) { bn = g_sno_fz[fzi].procname; break; }
             if (!bn) bn = sno_pat_collect(repl);
-            IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = subj->v.sval;
-            IR_t * mk = lc_build(g, IR_CALL, asn, fJ); IR_LIT(mk).sval = (char *) "SNO$MKPAT";
-            IR_t * nl = lc_build(g, IR_LIT_STRING, mk, fJ); IR_LIT(nl).sval = (char *) bn;
+            IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fA); IR_LIT(asn).sval = subj->v.sval;
+            IR_t * mk = lc_build(g, IR_CALL, asn, fA); IR_LIT(mk).sval = (char *) "SNO$MKPAT";
+            IR_t * nl = lc_build(g, IR_LIT_STRING, mk, fA); IR_LIT(nl).sval = (char *) bn;
             ir_operand_push(mk, nl);
             ir_operand_push(asn, mk);
             /* PAT-ARG-BIND (s104): args of runtime-arg primitives inside a STORED pattern evaluate HERE, at the
@@ -2067,9 +2069,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 sno_pat_node(&tx, repl, tok, tno);
                 for (int api = 0; api < tx.npre; api++) {
                     char abuf[48]; snprintf(abuf, sizeof abuf, tx.pre[api].snapg ? "%s$V%d" : "%s$A%d", bn, api);   /* PB-1s: $V<i> = plain-ref VALUE-LEAF snapshot (stage-2 fetch at THIS assignment); $A<i> = runtime-arg primitive (PAT-ARG-BIND, unchanged); same api index both walks by the identical-traversal invariant */
-                    IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fJ); IR_LIT(asnA).sval = lp_strdup(abuf);
+                    IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fA); IR_LIT(asnA).sval = lp_strdup(abuf);
                     IR_t * av = NULL;
-                    IR_t * ae = sx_lower(&cx, tx.pre[api].arg, asnA, fJ, &av);
+                    IR_t * ae = sx_lower(&cx, tx.pre[api].arg, asnA, fA, &av);
                     ir_operand_push(asnA, av);
                     pae = ae;
                 }
@@ -2079,27 +2081,27 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (subj->t == TT_VAR) {
             sno_reg_var(subj->v.sval);
-            IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = subj->v.sval;
-            IR_t * vr = NULL; IR_t * e = sx_lower(&cx, repl, asn, fJ, &vr);
+            IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fA); IR_LIT(asn).sval = subj->v.sval;
+            IR_t * vr = NULL; IR_t * e = sx_lower(&cx, repl, asn, fA, &vr);
             ir_operand_push(asn, vr);
             lc_γ_to(anchor[i], e);
             continue;
         }
         if (subj->t == TT_INDIRECT && subj->n > 0) {
-            IR_t * nv = NULL; IR_t * e1 = sx_nameval(&cx, subj->c[0], NULL, fJ, &nv);
-            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            IR_t * nv = NULL; IR_t * e1 = sx_nameval(&cx, subj->c[0], NULL, fA, &nv);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(nv, e2);
-            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
             lc_γ_to(vv, asn);
             ir_operand_push(asn, nv); ir_operand_push(asn, vv);
             lc_γ_to(anchor[i], e1);
             continue;
         }
         if (subj->t == TT_IDX && subj->n >= 2) {
-            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[0], (const tree_t * const *) &subj->c[1], subj->n - 1, fJ, &vr);
-            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[0], (const tree_t * const *) &subj->c[1], subj->n - 1, fA, &vr);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(vr, e2);
-            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
             lc_γ_to(vv, asn);
             ir_operand_push(asn, vr); ir_operand_push(asn, vv);
             lc_γ_to(anchor[i], e1);
@@ -2110,10 +2112,10 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             if (!fname && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR) { fname = subj->c[0]->v.sval; argbase = 1; }
             int fnargs = subj->n - argbase;
             if (fname && !strcmp(fname, "ITEM") && fnargs >= 2) {
-                IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[argbase], (const tree_t * const *) &subj->c[argbase + 1], fnargs - 1, fJ, &vr);
-                IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+                IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[argbase], (const tree_t * const *) &subj->c[argbase + 1], fnargs - 1, fA, &vr);
+                IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
                 lc_γ_to(vr, e2);
-                IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+                IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, vr); ir_operand_push(asn, vv);
                 lc_γ_to(anchor[i], e1);
@@ -2121,13 +2123,13 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             }
             { extern int rt_dat_field_of_any(const char *);
               if (fname && fnargs == 1 && rt_dat_field_of_any(fname)) {
-                  IR_t * br = NULL; IR_t * e1 = sx_lower(&cx, subj->c[argbase], NULL, fJ, &br);
-                  IR_t * fv = lc_build(g, IR_FIELD_VAR, NULL, fJ); IR_LIT(fv).sval = (char *) lp_strdup(fname);
+                  IR_t * br = NULL; IR_t * e1 = sx_lower(&cx, subj->c[argbase], NULL, fA, &br);
+                  IR_t * fv = lc_build(g, IR_FIELD_VAR, NULL, fA); IR_LIT(fv).sval = (char *) lp_strdup(fname);
                   lc_γ_to(br, fv);
                   ir_operand_push(fv, br);
-                  IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+                  IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
                   lc_γ_to(fv, e2);
-                  IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+                  IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
                   lc_γ_to(vv, asn);
                   ir_operand_push(asn, fv); ir_operand_push(asn, vv);
                   lc_γ_to(anchor[i], e1);
@@ -2135,9 +2137,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
               } }
         }
         if (subj->t == TT_KEYWORD && subj->v.sval) {
-            IR_t * mk = lc_build(g, IR_CALL, sJ, fJ); IR_LIT(mk).sval = (char *) "SNO$KWSET";
-            IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, fJ); IR_LIT(nl).sval = subj->v.sval;
-            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            IR_t * mk = lc_build(g, IR_CALL, sJ, fA); IR_LIT(mk).sval = (char *) "SNO$KWSET";
+            IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(nl).sval = subj->v.sval;
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(nl, e2);
             lc_γ_to(vv, mk);
             ir_operand_push(mk, nl); ir_operand_push(mk, vv);
@@ -2145,14 +2147,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             continue;
         }
         if (subj->t == TT_FNC) {
-            IR_t * wl = lc_build(g, IR_LIT_STRING, NULL, fJ); IR_LIT(wl).sval = (char *) "";
-            IR_t * mk = lc_build(g, IR_CALL, sJ, fJ); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
+            IR_t * wl = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(wl).sval = (char *) "";
+            IR_t * mk = lc_build(g, IR_CALL, sJ, fA); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
             lc_γ_to(wl, mk); ir_operand_push(mk, wl);
-            IR_t * cv = NULL; IR_t * e1 = sx_lower(&cx, subj, NULL, fJ, &cv);
+            IR_t * cv = NULL; IR_t * e1 = sx_lower(&cx, subj, NULL, fA, &cv);
             lc_γ_to(mk, e1);
-            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fJ, &vv);
+            IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             lc_γ_to(cv, e2);
-            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fJ);
+            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
             lc_γ_to(vv, asn);
             ir_operand_push(asn, cv); ir_operand_push(asn, vv);
             lc_γ_to(anchor[i], wl);
@@ -2167,7 +2169,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);   /* STMT-BETA (this session, Lon ruling 2026-08-06): omega = fT makes the emitter's DRIVE_PAIR wire statement_begin_beta -> fT; beta is the named failure landing for the statement scope (always-live per flat_beta_used_scan IR_STATEMENT_BEGIN addition in emit.cpp) */
             { int _null_stmt = !lc_stmt_subj(st[i]) && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* MON-NULL-STMT: null stmt (no subj/goto/eq) gets stno=0 → emitter tap skipped (op_stno>0 guard) — matches SPITBOL/CSNOBOL4 which emit no LABEL for blank-line pass-throughs */
             lc_γ_to(anchor[i], sbeg);
-            if (match_land[i]) lc_γ_tag_β(match_land[i]);   /* R1 STMT-BETA-LAND: tag-only -- fB.γ stays = fJ (chain to fT intact for used-scan and all downstream consumers); β tag makes the emitter's chase propagate oib=1 and route to betas[sbeg_k].  lc_γ_to_β would set fB.γ = sbeg, severing the fJ→fT chain and causing the emitter to miss every statement after the scan (the 175 root cause: node 10@ was the GOTO chain to n11@→n12@→n13@ which held the second STATEMENT_BEGIN; redirecting its γ dropped n12@/n13@ from used[]).  MATCH_BEGIN.ω → fB (β-tagged GOTO → fJ → fT) -- the emitter chases, sees the β tag, routes to sbeg.β, AND the used-scan follows γ to fJ and beyond, keeping the full graph reachable. */
+            if (match_land[i]) lc_γ_tag_β(match_land[i]);
+            if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }   /* fA REDIRECT+TAG (this session, measured): fA.γ -> OWN sbeg, single hop, β-tagged.  NOT the fB tag-only shape: bc_chase (optimizer/branch_chain.c:30) propagates tags LAST-HOP-WINS, so a chain fA(β)→fJ(α)→fT arrives at the emitter as sz=α — tag clobbered, arm dead (measured via SCRIP_OPT_TRACE on w_fa: ".ω 0x…(op=28) -> 0x…(op=125) sz=α").  Single-hop sidesteps the clobber AND lands on the OWN statement's begin, so the β label selection (emit.cpp:1888 meaning (a)) picks THIS statement's β — which forwards to fT — instead of the chased-through TARGET statement's β, which would skip the target's body outright.  fT stays reachable via sbeg.ω (minted with fail_tgt[i] above); fJ keeps its match-arm element-retry references.  ⛔ fB (match_land) is left tag-only and is, by the same bc_chase measurement, a DEAD ARM at this HEAD — recorded in the session FINDING; lighting it takes the same redirect treatment and its own gates. */   /* fA joins the beta-tag: same tag-only discipline as fB (gamma stays = fJ; chain to fT intact for the used-scan). */   /* R1 STMT-BETA-LAND: tag-only -- fB.γ stays = fJ (chain to fT intact for used-scan and all downstream consumers); β tag makes the emitter's chase propagate oib=1 and route to betas[sbeg_k].  lc_γ_to_β would set fB.γ = sbeg, severing the fJ→fT chain and causing the emitter to miss every statement after the scan (the 175 root cause: node 10@ was the GOTO chain to n11@→n12@→n13@ which held the second STATEMENT_BEGIN; redirecting its γ dropped n12@/n13@ from used[]).  MATCH_BEGIN.ω → fB (β-tagged GOTO → fJ → fT) -- the emitter chases, sees the β tag, routes to sbeg.β, AND the used-scan follows γ to fJ and beyond, keeping the full graph reachable. */
         }
     }   /* s26 BEGIN shim (Lon directive: IR_STATEMENT_BEGIN/END pair): interpose the statement HEAD bracket between each statement's anchor and its first box, AFTER every statement arm has wired -- the anchor is the ONE entry every path (fallthrough, static goto landing, rt_chain_enter via the s26 entry chase) passes through, so one post-loop pass brackets every statement form without touching a single arm, the exact shape of the g_sno_uses_stmtkw hook pass below.  stno stamped into ival same as the END trailer.  Same zw5_on() regime gate as the trailer: SCRIP_ZW5=0 reverts the whole pair. */
     if (g_sno_uses_stmtkw) {
@@ -2189,7 +2192,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (t) bb_src_note(t, ssrc);
     }
     free(anchor);
-    free(fail_tgt);
+    free(fail_tgt); free(asgn_land);
     free(match_land);
     return g;
 }
