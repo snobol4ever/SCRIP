@@ -2,6 +2,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "keywords.h"
+#include "rtx/rtcc.h"
 #include <time.h>
 #include <unistd.h>
 const char  *cset_canonical(const char *cs);
@@ -285,7 +286,7 @@ void rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
-    if (!strcmp(lk,"anchor"))   { g_anchor = iv; return; }
+    if (!strcmp(lk,"anchor"))   { g_anchor = iv; if (g_rtcc_on) g_rtcc_block[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return; }   /* RC-5: BLOCK-CANONICAL LAW — C write to claimed global must update block slot so reload sees new value */
     if (!strcmp(lk,"trim"))     { g_trim = iv; return; }
     if (!strcmp(lk,"maxlngth")) { g_maxlngth = iv; return; }
     if (!strcmp(lk,"error"))    { g_error = iv; return; }

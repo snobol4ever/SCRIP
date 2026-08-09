@@ -1,4 +1,5 @@
 #include "core.h"
+#include "../rtx/rtcc.h"
 #include "../rt/rt_arena.h"
 #include "sil_macros.h"
 #include "utf8.h"
@@ -2226,7 +2227,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (strcmp(name, "STLIMIT")  == 0) { kw_stlimit  = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "ANCHOR")   == 0) { kw_anchor   = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
+    if (strcmp(name, "ANCHOR")   == 0) { kw_anchor   = (val.v==DT_I)?val.i:(int64_t)to_real(val); if (g_rtcc_on) g_rtcc_block[RTCC_SLOT_R8] = (uint64_t)kw_anchor; return val; }
     if (strcmp(name, "TRIM")     == 0) { kw_trim     = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
     if (strcmp(name, "FULLSCAN") == 0) { kw_fullscan = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
     if (strcmp(name, "CASE")     == 0) {
@@ -2350,7 +2351,7 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     if (!kw_name) return 0;
     int64_t iv = IS_INT(val) ? val.i : (int64_t)to_real(val);
     if (strcmp(kw_name, "STLIMIT")  == 0) { kw_stlimit  = iv; return 1; }
-    if (strcmp(kw_name, "ANCHOR")   == 0) { kw_anchor   = iv; return 1; }
+    if (strcmp(kw_name, "ANCHOR")   == 0) { kw_anchor   = iv; if (g_rtcc_on) g_rtcc_block[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }
     if (strcmp(kw_name, "TRIM")     == 0) { kw_trim     = iv; return 1; }
     if (strcmp(kw_name, "FULLSCAN") == 0) { kw_fullscan = iv; return 1; }
     if (strcmp(kw_name, "CASE")     == 0) {
