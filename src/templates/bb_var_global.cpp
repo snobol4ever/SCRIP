@@ -17,8 +17,8 @@ std::string bb_var_global() {
              : g_gva_active && _.op_gva_k >= 0 ?
                x86("comment", "IR_VAR")
              + x86_alpha()
-             + x86("note", gva_name(_.op_gva_k)) + x86("mov",    "rax", ABSQ(RT_GVA_VA + _.op_gva_k * 16))
-             + x86("note", gva_name(_.op_gva_k)) + x86("mov",    "rdx", ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
+             + x86("note", gva_name(_.op_gva_k)) + x86("mov",    "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
+             + x86("note", gva_name(_.op_gva_k)) + x86("mov",    "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("note", "result") + x86("mov",    vg_res(0), "rax")
              + x86("note", "result") + x86("mov",    vg_res(8), "rdx")
              + x86_gamma()

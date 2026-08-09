@@ -31,7 +31,30 @@ extern int Σlen;
  * from [RT_DCAP_TOP] before entering the graph (the graph assumes r12 live on entry) and save/restore the
  * CALLER's r12 across the call (SysV callee-saved contract).  The sub/add $16 alignment is preserved.
  * 0x70000000 == RT_DCAP_TOP == RT_PIN_BASE+0 (rtx_init.c _Static_assert locks this). */
-__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\nrt_outer_call:\n  push %r12\n  sub $8, %rsp\n  mov %rdi, %rax\n  mov %rsi, %rdi\n  mov %rdx, %rsi\n  mov 0x70000000, %r12\n  call *%rax\n  add $8, %rsp\n  pop %r12\n  ret\n.size rt_outer_call, .-rt_outer_call\n");
+__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
+        "rt_outer_call:\n"
+        "  push %r12\n"
+        "  sub $8, %rsp\n"
+        "  mov %rdi, %rax\n"
+        "  mov %rsi, %rdi\n"
+        "  mov %rdx, %rsi\n"
+        "  mov 0x70000000, %r12\n"
+        /* RTCC RC-5-GVA INBOUND LOAD: same GOT-indirect pattern as rt_proc_enter/rt_chain_enter.   */
+        /* rax=fn-ptr rdi/rsi=wire-args r12=dcap-top are load-bearing; r8/r9/r10/r11 are free.      */
+        "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+        "  cmpb $0, (%r10)\n"
+        "  je 1f\n"
+        "  movq g_rtcc_block@GOTPCREL(%rip), %r10\n"
+        "  movq 64(%r10), %r11\n"
+        "  movq 40(%r10), %r8\n"
+        "  movq 48(%r10), %r9\n"
+        "  movq 56(%r10), %r10\n"
+        "1:\n"
+        "  call *%rax\n"
+        "  add $8, %rsp\n"
+        "  pop %r12\n"
+        "  ret\n"
+        ".size rt_outer_call, .-rt_outer_call\n");
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -1429,6 +1452,20 @@ __asm__(
 "  movq %rdi, %rax\n"
 "  leaq 2f(%rip), %rcx\n"
 "  leaq 3f(%rip), %rdx\n"
+/* RTCC RC-5-GVA INBOUND LOAD (RC-0(d) edge class 2): load VM globals into caller-saved regs before jmp.    */
+/* rax=fn-ptr rcx=γ-wire rdx=ω-wire are load-bearing; rsi/rdi/r8/r9/r10/r11 are free.                      */
+/* Load order: r11=block ptr; rsi/rdi/r8/r9; r10 overwritten last (GOT scratch → r10 slot value).           */
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 4f\n"
+"  movq g_rtcc_block@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"4:\n"
 "  jmp *%rax\n"
 "2:\n"
 "  popq %r15\n"
@@ -1459,6 +1496,19 @@ __asm__(
 "  leaq 2f(%rip), %rcx\n"
 "  leaq 3f(%rip), %rdx\n"
 "  movq %rsp, %r12\n"
+/* RTCC RC-5-GVA INBOUND LOAD (RC-0(d) edge class 2, non-RSP-frame variant): same GOT-indirect load as     */
+/* rt_chain_enter; rax=fn-ptr rcx=γ-wire rdx=ω-wire r12=rsp-anchor are load-bearing; rsi/rdi/r8/r9/r11 free. */
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 4f\n"
+"  movq g_rtcc_block@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"4:\n"
 "  jmp *%rax\n"
 "2:\n"
 "  movq 8(%rsp), %rax\n"

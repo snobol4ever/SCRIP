@@ -8,6 +8,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "rtcc.h"
 #include "gc_heap.h"
+#include "../../contracts/pin_va.h"
 #include <stdlib.h>
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -20,7 +21,7 @@ unsigned char g_rtcc_on = 0;   /* default OFF — killswitch law */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char rtcc_env_on(const char *name) { const char *e = getenv(name); if (!e || !*e) return 0; return (unsigned char)(e[0] != '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((constructor)) static void rtcc_init(void) { g_rtcc_on = rtcc_env_on("SCRIP_RTCC"); if (g_rtcc_on) rtcc_gc_register(); }
+__attribute__((constructor)) static void rtcc_init(void) { g_rtcc_on = rtcc_env_on("SCRIP_RTCC"); if (g_rtcc_on) { rtcc_gc_register(); if (RTCC_GLOBAL_R9_GVA) g_rtcc_block[RTCC_SLOT_R9] = (uint64_t)(uintptr_t)(void *)RT_GVA_VA; } }   /* RC-5-GVA: seed R9 slot with the constant GVA base pointer ONCE — RT_GVA_VA never changes after rt_pin_init; no companion writes needed anywhere in the runtime (BLOCK-CANONICAL EXCEPTION for constant globals). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rtcc_gc_register(void) { rt_gc_root_pin_add((const char *)&g_rtcc_block[0]); }   /* RC-0(d) BLOCK-CANONICAL: at any GC point all claimed-register values sit in the block; registering it is sufficient — no per-register pin needed. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

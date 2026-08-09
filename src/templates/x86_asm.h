@@ -12,7 +12,10 @@ extern "C" {
 extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
 extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 0=OFF(default), 1=ON(SCRIP_RTCC=1) */
 #define RTCC_SLOT_R8 5              /* RC-5: block slot for R8 = rt_anchor_g (&ANCHOR value) */
+#define RTCC_SLOT_R9 6              /* RC-5-GVA: block slot for R9 = RT_GVA_VA (GVA base pointer) */
 #define RTCC_GLOBAL_R8_ANCHOR 1    /* RC-5-ANCHOR killswitch: 0=OFF(byte-identical); 1=ON */
+#define RTCC_GLOBAL_R9_GVA    1    /* RC-5-GVA killswitch: 0=OFF(byte-identical ABSQ); 1=ON(GVARQ) */
+#define RTCC_GVA_REG         "r9"  /* the register that caches RT_GVA_VA inside generated code */
 long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
 #ifndef _
@@ -1053,6 +1056,11 @@ inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }   
 inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }   /* REG-1: pinned-island absolute (SIB no-base, va < 0x7FFFFFFF, identical bytes both mediums) */
+/* GVARQ — RC-5-GVA: GVA-base-register displacement form.  When RTCC_GLOBAL_R9_GVA=1 and g_rtcc_on=1,        */
+/* R9 holds RT_GVA_VA (seeded once in rtcc_init).  Returns "qword ptr [r9 + off]" where off = k*16+w.        */
+/* For k≤7 the offset ≤112+8=120 < 128 → disp8 encoding (4B vs 7B for ABSQ) in the emitted binary.           */
+/* When gate is OFF: caller uses ABSQ(RT_GVA_VA + k*16 + w) — byte-identical to pre-RTCC.                    */
+inline const char * GVARQ(int k, int w) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [" RTCC_GVA_REG " + %d]", k * 16 + w); return b[i]; }
 extern "C" const char * gva_name(int k);
 extern "C" const char * bb_kind_name(int op);   /* OBJ-NOTE name sources: GVA slot k -> variable name (gva_collect.c registry); IR op -> the same lowercase kind spelling the n<uid>_<kind> labels use (emit.cpp flat_label_kind wrapper). */
 inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }   /* OBJ-NOTE ON-2 INTERIM (Lon s23c): operand-a's PRODUCER name -- a ZOPQ(0,.)/ZOPD(0,.) read names the box whose cell it is reading, so a consumer's '[rsp+96]  # binop_arith' says WHOSE result arrived rather than leaving the reader to walk the op_zread differences by hand.  This is the ladder's sanctioned interim for ON-1: operand-a ONLY, via the op_a_node_kind that emit.cpp:867 already stages at the single dispatch point -- operands b..n still await the op_zkind[] ruling on the SHARED params struct.  Guarded on the -1 no-operand sentinel (bb_kind_name would otherwise spell "op-1"); rotating buffer for the same single-static reason as ZRESN. */
