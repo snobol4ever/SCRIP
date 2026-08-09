@@ -37,7 +37,7 @@ std::string bb_match_value() {
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
          + bb_glue_pass_wires(4, 5)   /* GLUE-SYM (s22x): the ONE pass-through spelling -- same wire contract as DEFER, ledger amended: this site was the backlog's unlisted 6th member */
          + x86("def",  L(4))
-         + IF(_.op_scan && _.op_scan_head_off >= 0,
+         + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_begin_stfh_k(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
              + x86("mov",  FR(_.op_scan_head_off), "eax"))
