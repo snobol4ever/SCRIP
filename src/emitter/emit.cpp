@@ -1001,6 +1001,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GOTO:                 { static int _mon = -1; if (_mon < 0) _mon = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; extern void emit_mon_label_tap(int32_t); if (_mon && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto());           return 0;   /* MON-RE (SE-6 session): the GOTO tap emits a LABEL at PURE WIRING nodes, which has no counterpart in SPITBOL's wire (SPITBOL labels statement boundaries only), so every program -- passing ones included -- diverged within 3 steps and the monitor could not bracket ANY bug.  IR_STATEMENT_BEGIN below is the true statement-boundary anchor and stays unconditional.  Set MONITOR_GOTO_TAP=1 to restore the old dense-tap behaviour. */
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_dyn());       return 0;               /* EVAL/CODE runtime label transfer */
     case IR_FUNC_ACTIVATE: {   /* AB-1: fill op_sval=fname, op_ival=nsave; operands carry GVA indices of {fname,formals,locals} minted by the lowerer */
+        if (nd->n_operands == 0) { g_emit.op_sval = IR_LIT(nd).sval;   /* ROLE DISCRIMINATOR = n_operands: IR_LIT is a UNION (sval clobbers ival — measured this session: the ival==2 guard sank every bind into drive_unowned); a role-1 block ALWAYS carries >=1 operand (fname), the bind carries none. */ extern std::string bb_ab_bind(); bb_emit_x86(bb_ab_bind()); return 0; }   /* AB-3a: role 2 = the DEFINE residual bind, a live main-chain box (anchor->bind->sJ); role 1 (blocks) rides g->ab_nodes[] via bb_ab_emit_nodes and never reaches this dispatch in-chain. */
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
         { extern int g_gva_active; int _ab_n = (int)nd->n_operands < (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot) ? (int)nd->n_operands : (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot);
@@ -1551,6 +1552,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUCCEED:
     case IR_CUT:
+        DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    case IR_FUNC_ACTIVATE:   /* AB-3a: role-2 bind in the live chain.  SECOND-DISPATCHER law (the 1560 comment, verbatim mechanism): emit_drive needs its own case or drive_unowned FATALs "op=15 has no template" while the walk case plainly exists — MEASURED on ab_recurse this session, same as ZW-5 SLICE 2 measured on probe1.  Shape = the SUCCEED/CUT trailer contract; the walk case's ival==2 arm supplies bb_ab_bind. */
+        if (nd->n_operands != 0) { drive_unowned(nd); break; }   /* role discriminator = n_operands (IR_LIT union: sval clobbers ival — measured); blocks (>=1 operand) never enter the chain */
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_STATEMENT_BEGIN:
     case IR_STATEMENT_END:

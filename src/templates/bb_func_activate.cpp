@@ -47,6 +47,16 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval);
 #define AB_FNCELL_MAX 256
 static void * g_ab_fn_cells[AB_FNCELL_MAX];
 static int    g_ab_fn_cell_n = 0;
+static char   g_ab_fn_names[AB_FNCELL_MAX][64];
+/* AB-3a: the ONE slot allocator, shared by the block template and the role-2 bind so bind-before-block ordering (main chain emits first, blocks post-chain) is immaterial — first request by fname allocates and initialises to the undef stub. */
+static int bb_ab_slot_for(const char * fname) {
+    for (int i = 0; i < g_ab_fn_cell_n; i++) if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
+    int idx = g_ab_fn_cell_n < AB_FNCELL_MAX ? g_ab_fn_cell_n++ : 0;
+    snprintf(g_ab_fn_names[idx], sizeof g_ab_fn_names[idx], "%s", fname);
+    g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
+    return idx;
+}
+static void * bb_ab_cell_addr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_func_activate() {
     x86_begin();
@@ -57,11 +67,7 @@ std::string bb_func_activate() {
     /* ── fn_cell: allocate/record storage ── */
     void ** fn_cell_ptr = (void **)0;
     std::string fn_cell_lbl = std::string("fn_cell$") + fname;
-    if (MEDIUM_BINARY) {
-        int idx = g_ab_fn_cell_n < AB_FNCELL_MAX ? g_ab_fn_cell_n++ : 0;
-        g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
-        fn_cell_ptr = &g_ab_fn_cells[idx];
-    }
+    if (MEDIUM_BINARY) fn_cell_ptr = (void **)bb_ab_cell_addr(fname);   /* AB-3a: allocation moved into the ONE allocator (bb_ab_slot_for) so the role-2 bind and the block agree on the slot by fname regardless of emission order. */
     /* ── α ────────────────────────────────────────────────────────────────────────────────────── */
     std::string s =
         /* fn_cell .data (TEXT only; binary: runtime static array) */
@@ -217,6 +223,7 @@ std::string bb_func_activate() {
       + x86("jmp", "r10")            /* RETURN / NRETURN → γ */
       + x86("def", L(6))
       + x86("jmp", "r11")            /* FRETURN → ω */
+      + x86_deflabel(X86P_GAMMA)     /* AB-3a FINDING-FIX (pre-existing, measured this session): x86_gamma() above REFERENCES <FN>_act_γ but nothing DEFINED it — every DEFINE-bearing program failed to LINK in m4 at HEAD (undefined reference, ld exit 1; pristine denominator identical), invisible to the matrix (no matrix probe carries a DEFINE) and to the AB gates as run.  Dead structural landing like ω below; AB-3b's site wires are the real continuations. */
       + x86_deflabel(X86P_OMEGA)     /* ω port label define only — never reached; dispatch above is exhaustive */
                 /* RO fname string slot 0 — used by both monitor taps */
       + x86_ro_seal_str(0, fname);
@@ -230,6 +237,22 @@ std::string bb_func_activate() {
 /* bb_ab_emit_nodes — post-main-chain sweep: emit one IR_FUNC_ACTIVATE block per DEFINE fold.                                                                                                         */
 /* Called from scrip.c after both m3 and m4 main-chain emission.  Saves/restores g_emit and related                                                                                                   */
 /* globals so the sweep is side-effect-free from the caller's perspective.                                                                                                                             */
+std::string bb_ab_bind() {
+    /* AB-3a (this session): the DEFINE residual runtime action — ONE store fn_cell$<FN> <- &<FN>_act_α (ladder: "DEFINE residual runtime action = ONE store").  Role-2 IR_FUNC_ACTIVATE minted by the lowerer INSIDE the live chain (anchor -> bind -> sJ), replacing the bare DEFINE skip when SCRIP_AB is armed; SCRIP_AB=0 takes the legacy skip and is byte-identical.  The α label is fname-derived (bb_ab_emit_nodes lbl override: <FN>_act_α), so BOTH MEDIA reference it by NAME — TEXT resolves at assembly time, BINARY through the emit-label table with forward patching (blocks emit post-main-chain, after this store's code).  The CELL splits by medium exactly as the block emission does: TEXT = rip-lea to the .data label; BINARY = the runtime slot via the shared allocator.  K=0 transparent spine box (zd_k AB line); trailer = the bb_goto relay shape (alpha + pair_loop). */
+    x86_begin();
+    if (!PLATFORM_X86) return std::string();
+    const char * fname = _.op_sval ? _.op_sval : "?";
+    std::string albl = std::string(fname) + "_act_\xce\xb1";
+    std::string clbl = std::string("fn_cell$") + fname;
+    return x86_alpha()
+         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())   /* α address by NAME, both media: TEXT renders [rip + <FN>_act_α]; BINARY patches through the emit-label table (the lbl_α override keys the same string), FORWARD — blocks emit post-main-chain.  The bare 3-arg string form is SILENTLY SWALLOWED by the encoder (measured this session: both leas vanished from the .s, r11 garbage, wild store, segv) — the 5-arg __ form is the sanctioned named-symbol spelling (the fn_cell body-jmp arm above is the precedent). */
+         + (MEDIUM_BINARY
+             ? x86("movabs", "r11", (uint64_t)(uintptr_t)bb_ab_cell_addr(fname))   /* BINARY cell = runtime slot via the shared allocator; movabs mirrors the block's own cell idiom */
+             : x86("mov", "r11", std::string("[rip@got + __]"), (uint64_t)0, clbl.c_str()))   /* TEXT cell = &fn_cell$<FN> via the GOT load, the 145-line precedent verbatim */
+         + x86("mov", RDQ("r11", 0), "rax")
+         + x86_pair_loop();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
 {
     if (!g || g->ab_n <= 0) return;
