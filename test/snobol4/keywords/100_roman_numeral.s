@@ -6748,7 +6748,7 @@ roman_act_α:
                         xor              eax, eax                                       # n
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140103736480480
+                        movabs           rcx, 140534768333472
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -6766,7 +6766,7 @@ roman_act_β:
 .Lx1252_0_s:
                         .string          "roman"
                         .section         .rodata
-.S0:                    .string          "\0345.$"
-.S1:                    .string          "\310B\002"
+.S0:                    .string          "\253.\225$"
+.S1:                    .string          "wI\002"
                         .text
                         .section         .note.GNU-stack,"",@progbits
