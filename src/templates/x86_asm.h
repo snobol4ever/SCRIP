@@ -47,6 +47,14 @@ inline int x86_rnum(const char * r) {
     if (!strcmp(r, "r13d") || !strcmp(r, "r13")) return 13;
     if (!strcmp(r, "r14d") || !strcmp(r, "r14")) return 14;
     if (!strcmp(r, "r15d") || !strcmp(r, "r15")) return 15;
+    if (!strcmp(r, "al"))  return 0; if (!strcmp(r, "cl"))  return 1;
+    if (!strcmp(r, "dl"))  return 2; if (!strcmp(r, "bl"))  return 3;
+    if (!strcmp(r, "spl")) return 4; if (!strcmp(r, "bpl")) return 5;
+    if (!strcmp(r, "sil")) return 6; if (!strcmp(r, "dil")) return 7;
+    if (!strcmp(r, "r8b"))  return 8;  if (!strcmp(r, "r9b"))  return 9;
+    if (!strcmp(r, "r10b")) return 10; if (!strcmp(r, "r11b")) return 11;
+    if (!strcmp(r, "r12b")) return 12; if (!strcmp(r, "r13b")) return 13;
+    if (!strcmp(r, "r14b")) return 14; if (!strcmp(r, "r15b")) return 15;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1351,6 +1359,7 @@ inline int x86_port_of(const char * s) {
 inline int x86_is_reg(const char * s) {
     static const char * regs[] = { "rax","rbx","rcx","rdx","rsi","rdi","rsp","rbp","r8","r9","r10","r11","r12","r13","r14","r15",
                                    "eax","ebx","ecx","edx","esi","edi","esp","ebp","r8d","r9d","r10d","r11d","r12d","r13d","r14d","r15d",
+                                   "al","cl","dl","bl","sil","dil","spl","bpl","r8b","r9b","r10b","r11b","r12b","r13b","r14b","r15b",
                                    "xmm0","xmm1" };
     for (size_t i = 0; i < sizeof regs / sizeof *regs; i++) if (!strcmp(s, regs[i])) return 1;
     return 0;
@@ -1785,7 +1794,17 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (!strcmp(mnem, "movzx"))  { if (b.kind == XK_MEMBI) return x86_movzx_bir(a.txt, b.base, b.idx); return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0); }
+    if (!strcmp(mnem, "movzx"))  {
+        if (b.kind == XK_MEMBI)  return x86_movzx_bir(a.txt, b.base, b.idx);
+        if (b.kind == XK_REG) {   /* movzx dst64, src8 — REX.W + 0F B6 /r; R7: new encoder for byte-reg source */
+            int g = x86_rnum(a.txt), m = x86_rnum(b.txt);
+            uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
+            uint8_t modrm = (uint8_t)(0xC0 | ((g & 7) << 3) | (m & 7));
+            if (MEDIUM_BINARY) return x86_Lrec(x86_b4(rex, 0x0F, 0xB6, modrm));
+            return std::string(" movzx ") + a.txt + std::string(", ") + b.txt + std::string("\n");
+        }
+        return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0);
+    }
     if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {

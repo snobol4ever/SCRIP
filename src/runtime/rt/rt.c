@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include "../contracts/pin_va.h"
+#include "../contracts/ab_abi.h"
 #include <alloca.h>
 #include "gc_heap.h"
 #include "core.h"
@@ -491,7 +492,52 @@ __attribute__((constructor)) static void rt_pin_init(void) {
     if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
     void * g = mmap((void *)RT_GVA_VA, RT_GVA_ISLAND_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
+    *(volatile uint64_t *)RT_AB_ANCHOR = 0;   /* AB-2: ACT-ANCHOR init — no active frame */
+    *(volatile uint64_t *)RT_AB_NRET   = 0;   /* AB-2: NRET discriminator init — no pending NRETURN */
     { extern void rt_dcap_lazy_init(void); rt_dcap_lazy_init(); }   /* REG-6 PEND-PROMOTE: the outer-graph prologue SEEDS r12 from [RT_DCAP_TOP] before any match runs, so the island init can no longer ride rt_match_enter's lazy call alone -- chain it here, after the pin map it writes through, deterministic in BOTH modes (this constructor lives in scrip and libscrip_rt.so alike).  rt_match_enter's call stays as an idempotent no-op. */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* AB-2 STRICT LEAVES — C residue of the AB activation/return protocol (frame-setup and teardown owned by the emitted α/β; these carry only the C-world bookkeeping that must run near a C boundary). */
+/* AB-2: forward declarations needed by the strict leaves (defined further down in this file) */
+extern int rt_g_want_name;
+extern int rt_g_ret_by_name;
+__attribute__((visibility("hidden"))) DESCR_t rt_nret_fix(DESCR_t r, int wn);
+int rt_value_trail_mark(void);
+void rt_value_trail_tidy_dead_window(int mark, void *fb, void *top);
+/* rt_ab_enter_env: called from α AFTER the frame is established and the save-set is spilled.                                                                                                          */
+/*   Snapshots Σ/Σlen into the frame (mid-match protection); snapshots wn; marks the value trail;                                                                                                      */
+/*   increments rt_k_level (= &FNCLEVEL; kw_fnclevel is the keyword readable cell, same value).                                                                                                        */
+/*   Returns vtmark so α can store it in AB_OFF_VTMARK without a second C crossing.                                                                                                                     */
+int rt_ab_enter_env(void *rbp_frame)
+{
+    char *fb = (char *)rbp_frame;
+    *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
+    *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
+    *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
+    int vtm = rt_value_trail_mark();
+    *(uint64_t *)(fb + AB_OFF_VTMARK)   = (uint64_t)(int64_t)vtm;
+    rt_k_level++;
+    kw_fnclevel = (int64_t)rt_k_level - 1;   /* &FNCLEVEL counts program-defined depth; rt_k_level starts at 1 (outermost) */
+    return vtm;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_ab_leave_env: called from β BEFORE the frame is torn down (LEAVE not yet executed).                                                                                                              */
+/*   Performs the value-trail dead-window tidy (GC correctness: clears cells that lived only inside                                                                                                     */
+/*   this activation); restores Σ/Σlen; decrements rt_k_level / kw_fnclevel.                                                                                                                           */
+/*   result is the candidate DESCR (rax:rdx on arrival at β, pre-restore); is_fail = 1 for FRETURN.                                                                                                   */
+/*   Returns rt_nret_fix(result, wn) — the caller's rax:rdx after restore.                                                                                                                             */
+DESCR_t rt_ab_leave_env(void *rbp_frame, DESCR_t result, int is_fail)
+{
+    char *fb = (char *)rbp_frame;
+    int vtm  = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_VTMARK);
+    int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
+    rt_value_trail_tidy_dead_window(vtm, (void *)fb, (char *)fb + 16);   /* dead window = [fb, fb+16) = the rbp-push slot; mirrors slim epilogue's RSP-F-2 form */
+    Σ    = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
+    Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
+    rt_k_level--;
+    kw_fnclevel = (int64_t)rt_k_level - 1;
+    if (is_fail) return FAILDESCR;
+    return rt_nret_fix(result, wn);
 }
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > RT_GVA_ISLAND_BYTES) { fprintf(stderr, "rt_gva_island: %d slots exceed the island (raise RT_GVA_ISLAND_BYTES)\n", n); abort(); }
