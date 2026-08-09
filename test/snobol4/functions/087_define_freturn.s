@@ -865,7 +865,7 @@ ispos_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139708803038540
+                        movabs           rax, 140148873608588
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_2
@@ -909,7 +909,7 @@ ispos_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139708803038540
+                        movabs           rax, 140148873608588
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_5

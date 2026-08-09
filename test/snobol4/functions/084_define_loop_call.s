@@ -771,7 +771,7 @@ bump_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140402146655564
+                        movabs           rax, 140696641322380
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx145_2
@@ -815,7 +815,7 @@ bump_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140402146655564
+                        movabs           rax, 140696641322380
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx145_5
