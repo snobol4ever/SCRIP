@@ -59,11 +59,11 @@ n5_statement_end_α:
                                                                                         jmp   n6_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx16_0
                         mov              cl, 0
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx16_0:
                         call             rt_flat_ret_snap@PLT
@@ -411,11 +411,11 @@ n39_statement_end_α:
                                                                                         jmp   n40_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n40_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx70_0
                         mov              cl, 0
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx70_0:
                         call             rt_flat_ret_snap@PLT
@@ -474,7 +474,7 @@ bumpit_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140637088497036
+                        movabs           rax, 140584787623308
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx72_2
@@ -518,7 +518,7 @@ bumpit_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140637088497036
+                        movabs           rax, 140584787623308
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx72_5

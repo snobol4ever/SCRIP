@@ -102,11 +102,11 @@ n6_statement_end_α:
                                                                                         jmp   n7_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx22_0
                         mov              cl, 0
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx22_0:
                         call             rt_flat_ret_snap@PLT
@@ -116,11 +116,11 @@ n7_save_restore_α:
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 n8_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx24_0
                         mov              cl, 2
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx24_0:
                         call             rt_flat_ret_snap@PLT
@@ -763,11 +763,11 @@ n72_statement_end_α:
                                                                                         jmp   n73_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n73_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx152_0
                         mov              cl, 0
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx152_0:
                         call             rt_flat_ret_snap@PLT
@@ -777,11 +777,11 @@ n73_save_restore_α:
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 n74_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
                                                                                         je    .Lx154_0
                         mov              cl, 2
-                        mov              rax, qword ptr [rcx + -64]
+                        mov              rax, qword ptr [r9 + -64]
                                                                                         jmp   rax
 .Lx154_0:
                         call             rt_flat_ret_snap@PLT
@@ -865,7 +865,7 @@ ispos_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140633863077260
+                        movabs           rax, 140422293994892
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_2
@@ -909,7 +909,7 @@ ispos_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140633863077260
+                        movabs           rax, 140422293994892
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_5
