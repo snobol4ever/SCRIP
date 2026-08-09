@@ -52,7 +52,6 @@ static std::string bb_match_arbno_frameless_k() {
      * resume β expects -- when that instance fully retreats its member βs free own K and rsp arrives at the PREVIOUS cell: the invariant self-maintains with zero counters, links, views, or chains.  δ==Δ0
      * at [rsp+0] iff nothing remains committed (σ guarantees every committed instance advanced; the cascade restores δ instance-by-instance), so the Δ-assert at ω holds by construction, as in the K0 arm.
      * Committed growth (kk+16 per instance) is NON-POPPING by THE MODEL -- released only by the bracket whacks (MATCH_END absolute restore / FENCE commit / STATEMENT_END), never by ARBNO. */
-    int FPRK = (int)_.op_tail_fpr_rsp;   /* ⭐ N02-FIX FRAMELESS_K: right-spine RSP displacement (same law as frameless arm). */
     return x86("comment", "IR_MATCH_ARBNO_FRAMELESS_K (ARB-LON-K16: re-homed cell, one-level static offsets)")
          + x86_alpha()
          + x86("sub", "rsp", 16L)
@@ -62,16 +61,16 @@ static std::string bb_match_arbno_frameless_k() {
          + x86_beta()
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         + x86("mov", "eax", RDD("rsp", kkN() + 4 + FPRK))
+         + x86("mov", "eax", RDD("rsp", kkN() + 4))
          + x86("cmp", "r14d", "eax")
          + x86("je",  PAIR(1))
-         + x86("mov", "eax", RDD("rsp", kkN() + FPRK))
+         + x86("mov", "eax", RDD("rsp", kkN()))
          + x86("sub", "rsp", 16L)
          + x86("mov", RDD("rsp", 0), "eax")
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
          + x86("def", PAIR(3))
-         + x86("mov", "eax", RDD("rsp", FPRK))
+         + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
          + x86("jne", L(3))
          + x86("add", "rsp", 16L)
@@ -90,7 +89,6 @@ static std::string bb_match_arbno_frameless() {
      * instance advanced delta, the un-match cascade restores delta instance-by-instance on retract, so delta==DELTA0 iff nothing remains -- and delta arrives at omega already == DELTA0, the Delta-assert
      * by construction.  Gated to the nested-K0 class (op_arbno_framed && op_arbno_body_k0): the frontier never moves inside the activation, so the cell is [rsp+0]/[rsp+4] from EVERY site.  Growth
      * release is the bracket constructs' job (MATCH_END whack / FENCE commit / STATEMENT_END), per the frame census {STATEMENT, FUNCTION, MATCH_BEGIN, FENCE1} -- ARBNO dropped out. */
-    int FPR = (int)_.op_tail_fpr_rsp;   /* ⭐ N02-FIX FRAMELESS: right-spine RSP displacement (LIT_INTEGER K=16 for RPOS/POS arg); zero when right-spine is empty (byte-identical). */
     return x86("comment", "IR_MATCH_ARBNO_FRAMELESS (ARBNO-LON: one cell, two compares, no chain)")
          + x86_alpha()
          + x86("sub", "rsp", 16L)
@@ -100,14 +98,12 @@ static std::string bb_match_arbno_frameless() {
          + x86_beta()
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         + IF(FPR > 0, x86("add", "rsp", (long)FPR))
          + x86("mov", "eax", RDD("rsp", 4))
          + x86("cmp", "r14d", "eax")
          + x86("je",  PAIR(1))
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
          + x86("def", PAIR(3))
-         + IF(FPR > 0, x86("add", "rsp", (long)FPR))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
          + x86("jne", PAIR(1))
