@@ -42,3 +42,4 @@ int fc_seq_active(const IR_t * nd);
 void fc_head_register(const IR_t * nd, int fp);
 int fc_head_fp(const IR_t * nd);
 void fc_tables_reset(void);
+int  fc_frameless_fpr_rsp(const IR_t * nd);   /* OS-2·SLICE-ARBNO-FPR: 1 iff ZC_PORT_FORTH && fc_geom(nd)==0 (flat-allocated, rsp frontier, no ZLS slot); callers gate on g_zd_arm separately */
