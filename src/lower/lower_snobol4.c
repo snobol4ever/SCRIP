@@ -888,6 +888,7 @@ static struct { const char * var; const char * procname; const tree_t * pat; } g
 static int g_sno_nfz = 0;
 static int g_sno_fz_unsafe = 0;
 static int g_sno_in_patproc = 0;
+static int g_sno_pat_match_ctx = 0;   /* PAT-INLINE: 1 only inside sno_lower_match's pattern lowering (the statement's real match-position walk).  The scratch harvest walk (PAT-ARG-BIND, ~2074) and the patproc build walk run with 0 — both must lower bare refs as DEFER so the $V<i>/$A<i> identical-traversal invariant holds and the assignment snapshot chains keep minting. */
 #define SNO_FZW_MAX 256
 static const char * g_sno_fzw_name[SNO_FZW_MAX];
 static int g_sno_fzw_cnt[SNO_FZW_MAX];
@@ -1182,6 +1183,20 @@ static const char * sno_capt_name(const tree_t * tgt) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * sno_fz_tree(const char * nm) { if (!nm || g_sno_in_patproc || !g_sno_pat_match_ctx) return NULL; for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm)) return g_sno_fz[i].pat; return NULL; }   /* PAT-INLINE license = MEMBERSHIP IN THE POST-SWEEP FZ TABLE, the ONE AUTHORITY: a name is there iff its assignment passed the sno_pat_invariant gate (993 — literal leaves, constant primitive args) AND the single-write/fz-safe sweep (1001) — exactly the set whose refs reach a PAT$ blob today, so inline-set ⊆ blob-linkage-set BY CONSTRUCTION (no second predicate to drift; the sno_fz_mark_defer:962 precedent, same table, same !g_sno_in_patproc guard).  fz trees are CLOSED over plain names (the gate's TT_VAR arm admits only REM/ARB/FENCE), so inlining one can never trigger a nested inline — no lower-time cycle exists. */
+static int sno_pat_inline_ok(const tree_t * t) {   /* ⛔ PAT-INLINE SLICE-1 SHAPE GATE (all exclusions MEASURED this session, killswitch-OFF at HEAD — every one is a statement-regime frontier that the blob context happens to survive; inline may not route a passing program onto an open class, per may-only-add-passes): ARBNO → any second iteration SEGVs (minimal witness corpus/probe tmin class `'aa' POS(0) ARBNO('a') RPOS(0)`; z4_arbno rc=139) — the ZETA-MECH statement-ARBNO rung; CAPTURES (`.`/`$`/`@`) + ARB → word1/word2/word3 regressed onto the already-failing 157_pat_cap_arb_alt_keep / 061-065_capture_* classes; FENCE → 116/145/151-family open; BAL → 174-176 open.  ADMITTED = exactly the shapes green in statement position today: literals, cset primitives with FOLDABLE args, integer primitives with ILIT args, REM, and SEQ/CAT/ALT composition.  EACH EXCLUSION DELETES when its statement rung lands and the named witnesses pass inline — claws5-match flips on the ARBNO deletion. */
+    if (!t) return 1;
+    switch (t->t) {
+    case TT_QLIT: return 1;
+    case TT_REM: return 1;
+    case TT_VAR: return t->v.sval && !strcmp(t->v.sval, "REM");
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: return (t->n > 0) && sno_cset_fold(t->c[0]) != NULL;
+    case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: return (t->n > 0) && t->c[0] && t->c[0]->t == TT_ILIT;
+    case TT_SEQ: case TT_CAT: case TT_ALT: { for (int i = 0; i < t->n; i++) if (!sno_pat_inline_ok(t->c[i])) return 0; return 1; }
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -1274,6 +1289,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * see the frozen stage-2 value (manual pp.87-88: 'A' $ X X uses the BUILD snapshot for the second X).
          * IR_MATCH_DEFER owns the NV acquisition path (GVA / rt_defer_get_pat_fn) and is correct for by-name global reads.
          * SCRIP_PB_SNAP killswitch deleted (PB-5): the live-name VAR→MATCH_VALUE fallback is the PATREF-era incorrect path. */
+        { static int _pi = -1; if (_pi < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _pi = (e && *e == '1') ? 1 : 0; }   /* ⭐ PAT-INLINE (Lon directive 2026-08-09): a bare ref whose name is TOTALLY INVARIANT (sno_name_inline) lowers the STORED TREE INLINE into the statement spine — the reference IS pass-thru glue (pure wiring, zero nodes of its own), and the DEFER→PAT$-blob linkage (BLOB-GRANT whole-graph RBP frame, CLASS D suspend protocol) never exists for it.  The elements ride the statement regime — the licensed frame census {STATEMENT·FUNCTION·MATCH_BEGIN·FENCE1} and the modern per-box mechanism — byte-for-byte as if written inline, which is the oracle-green path (and lifts the blob capture-class decline at sno_pat_dfree:BRACKETED for these names: statement-context captures are correct).  SEMANTICS: sound exactly because invariance proves the PB-5 stage-2 snapshot equals the compile-time tree at every execution (single write, fz-safe, constant args) — the snapshot pre-chain is not skipped, it is PROVEN REDUNDANT.  GUARDS: !g_sno_in_patproc (blob-interior lowering keeps its own geometry; also breaks lower-time cycles); ARBNO-bearing trees decline inside an ARBNO body (sno_in_arbno) — inline must not smuggle nesting past the textual sno_pat_contains_arbno fatal (nested ARBNO awaits ZB-ITER).  `*X` (TT_DEFER arm above) is UNTOUCHED — sole recursion form, manual p.122.  ⛔ OPT-IN (SCRIP_PAT_INLINE=1) while the rung is RED — two open defects at flip time (PT-1 cursor in GOAL-PASSTHRU-RBP-ERAD.md: w_pinline1 'miss' = suspected assignment-BUILD-path contamination — the arm may fire while lowering a pattern ASSIGNMENT RHS, splicing match elements into a stage-2 value build; claws5-match m3 SEGV = unattributed, candidate pre-existing ALTERNATE-graph statement frontier).  Default flips ON at PT-1's exit gate (witnesses + probe/xc318 BY SET + killswitch md5 byte-identical), the GLUE-SYM opt-in-first lesson; unset env = byte-identical legacy DEFER mint below. */
+          if (_pi) { const tree_t * p = sno_fz_tree(t->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* shape gate = sno_pat_inline_ok, exclusions + deletion conditions documented there */
         IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
         if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
         return mv;
@@ -1754,7 +1771,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     ir_operand_push(release, head);
     int before_pat = g->n;
     sno_cap_defer_reset();   /* L1b: the deferred in-ARBNO capture list is per-statement — entries from a statement whose candidacy never consumed them (npre/REPLACE/multi-ARBNO early-outs) must not leak into the next statement's promotion scan */
-    IR_t * pat_entry = sno_pat_node(cx, ptt, release, head);
+    IR_t * pat_entry; { int _mcsv = g_sno_pat_match_ctx; g_sno_pat_match_ctx = 1; pat_entry = sno_pat_node(cx, ptt, release, head); g_sno_pat_match_ctx = _mcsv; }   /* PAT-INLINE: the ONE extent where bare-ref inline is licensed */
     lc_γ_to(head, pat_entry);
     {   /* ZB-FC-3d (partition ruling, s49) + ALT-LIFT (the s65 named follow-on, landed): the statement grant.  The shared fc_walk_range over the PATTERN range only ([before_pat, g->n) -- head/release/
          * splice/repl-chain allocate before it, pre-chains and the subject chain after, so the range is pattern-pure by construction).  fp_stmt = the fc_geom range sum PLUS 16+fpmax per granted
