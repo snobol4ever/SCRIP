@@ -101,7 +101,7 @@ n10_lit_string_α:
 n10_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n8_statement_begin_β
 .Lx60_0:
                         .quad            .Lx60_0_s
 .Lx60_0_s:
@@ -234,7 +234,7 @@ n23_var_α:
 n23_var_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n21_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n24_binop_α:
                         sub              rsp, 16

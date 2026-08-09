@@ -342,7 +342,7 @@ n25_lit_integer_α:
 n25_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n29_statement_begin_α
+                                                                                        jmp   n23_statement_begin_β
 .Lx75_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -361,9 +361,6 @@ n26_binop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n27_assign_α
-n26_binop_β:
-                        add              rsp, 16
-                                                                                        jmp   n25_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n27_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # binop

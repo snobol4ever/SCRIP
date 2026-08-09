@@ -44,7 +44,7 @@ n1_lit_string_α:
                                                                                         jmp   n2_assign_α
 n1_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   n4_statement_begin_α
+                                                                                        jmp   n0_statement_begin_β
 .Lx27_0:
                         .quad            .Lx27_0_s
 .Lx27_0_s:
@@ -57,7 +57,7 @@ n2_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n3_statement_end_α
 n2_assign_β:
-                                                                                        jmp   n3_statement_end_α
+                                                                                        jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_statement_end_α:
                         add              rsp, 16
@@ -268,7 +268,7 @@ n13_var_α:
                                                                                         jmp   n14_assign_α
 n13_var_β:
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n12_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
@@ -277,8 +277,7 @@ n14_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n15_statement_end_α
 n14_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n12_statement_begin_β
 .Lx49_0:
                         .quad            .Lx49_0_s
 .Lx49_0_s:
@@ -349,7 +348,7 @@ n19_lit_string_α:
                                                                                         jmp   n20_assign_α
 n19_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   n22_statement_begin_α
+                                                                                        jmp   n18_statement_begin_β
 .Lx58_0:
                         .quad            .Lx58_0_s
 .Lx58_0_s:
@@ -362,7 +361,7 @@ n20_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n21_statement_end_α
 n20_assign_β:
-                                                                                        jmp   n21_statement_end_α
+                                                                                        jmp   n18_statement_begin_β
 .Lx59_0:
                         .quad            .Lx59_0_s
 .Lx59_0_s:

@@ -55,7 +55,7 @@ n2_lit_string_α:
 n2_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n6_statement_begin_α
+                                                                                        jmp   n0_statement_begin_β
 .Lx13_0:
                         .quad            .Lx13_0_s
 .Lx13_0_s:
@@ -71,9 +71,6 @@ n3_binop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n4_assign_α
-n3_binop_β:
-                        add              rsp, 16
-                                                                                        jmp   n2_lit_string_β
 #-----------------------------------------------------------------------------------------------------------------------
 n4_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # binop

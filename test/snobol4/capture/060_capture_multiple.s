@@ -332,7 +332,7 @@ n18_lit_string_α:
 n18_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n16_statement_begin_β
 .Lx61_0:
                         .quad            .Lx61_0_s
 .Lx61_0_s:
@@ -373,9 +373,6 @@ n21_binop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n22_assign_α
-n21_binop_β:
-                        add              rsp, 16
-                                                                                        jmp   n20_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n22_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop

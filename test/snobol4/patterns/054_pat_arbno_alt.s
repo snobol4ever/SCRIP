@@ -29,7 +29,7 @@ main_α:
 main_α_body:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 8
+                        sub              rsp, 88
 #=======================================================================================================================
 #         X = 'abba'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ n1_lit_string_α:
                                                                                         jmp   n2_assign_α
 n1_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   n4_statement_begin_α
+                                                                                        jmp   n0_statement_begin_β
 .Lx33_0:
                         .quad            .Lx33_0_s
 .Lx33_0_s:
@@ -60,7 +60,7 @@ n2_assign_α:
                         mov              qword ptr [1879052296], rdx
                                                                                         jmp   n3_statement_end_α
 n2_assign_β:
-                                                                                        jmp   n3_statement_end_α
+                                                                                        jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_statement_end_α:
                         add              rsp, 16
@@ -160,7 +160,7 @@ n8_match_pos_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rbp + -80], r14d
                                                                                         jmp   n10_match_arbno_α
 n9_match_assign_save_β:
                         add              rsp, 16
@@ -235,7 +235,7 @@ n10_match_arbno_af:
                                                                                         jmp   n9_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 16]
+                        mov              eax, dword ptr [rbp + -80]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -351,7 +351,7 @@ n17_var_α:
                                                                                         jmp   n18_assign_α
 n17_var_β:
                         add              rsp, 16
-                                                                                        jmp   n20_statement_begin_α
+                                                                                        jmp   n16_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # var
@@ -360,7 +360,7 @@ n18_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n19_statement_end_α
 n18_assign_β:
-                                                                                        jmp   n19_statement_end_α
+                                                                                        jmp   n16_statement_begin_β
 .Lx59_0:
                         .quad            .Lx59_0_s
 .Lx59_0_s:
@@ -464,7 +464,7 @@ n26_lit_string_α:
                                                                                         jmp   n27_assign_α
 n26_lit_string_β:
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n25_statement_begin_β
 .Lx74_0:
                         .quad            .Lx74_0_s
 .Lx74_0_s:
@@ -477,8 +477,7 @@ n27_assign_α:
                         call             NV_SET_fn@PLT
                                                                                         jmp   n28_statement_end_α
 n27_assign_β:
-                        add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n25_statement_begin_β
 .Lx75_0:
                         .quad            .Lx75_0_s
 .Lx75_0_s:
