@@ -164,11 +164,11 @@ n19_statement_end_α:
                                                                                         jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_save_restore_α:
-                        mov              r9, qword ptr [1879048216]
-                        test             r9, r9
+                        mov              rcx, qword ptr [1879048216]
+                        test             rcx, rcx
                                                                                         je    .Lx50_0
                         mov              cl, 0
-                        mov              rax, qword ptr [r9 + -64]
+                        mov              rax, qword ptr [rcx + -64]
                                                                                         jmp   rax
 .Lx50_0:
                         call             rt_flat_ret_snap@PLT
@@ -669,11 +669,11 @@ n87_statement_end_α:
                                                                                         jmp   n88_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n88_save_restore_α:
-                        mov              r9, qword ptr [1879048216]
-                        test             r9, r9
+                        mov              rcx, qword ptr [1879048216]
+                        test             rcx, rcx
                                                                                         je    .Lx138_0
                         mov              cl, 0
-                        mov              rax, qword ptr [r9 + -64]
+                        mov              rax, qword ptr [rcx + -64]
                                                                                         jmp   rax
 .Lx138_0:
                         call             rt_flat_ret_snap@PLT
@@ -736,7 +736,7 @@ swap_act_α:
                         xor              eax, eax                                       # a
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140022184656268
+                        movabs           rax, 139985295752588
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx140_2
@@ -780,7 +780,7 @@ swap_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140022184656268
+                        movabs           rax, 139985295752588
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx140_5

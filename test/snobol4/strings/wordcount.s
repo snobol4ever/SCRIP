@@ -94,7 +94,6 @@ n5_match_span_α:
 .Lx15_240:
                         mov              dword ptr [rsp + 0], r14d
                         mov              r14d, eax
-                        add              rsp, 96
                                                                                         jmp   proc_PAT$0_scanhit
 n5_match_span_β:
                         mov              r14d, dword ptr [rsp + 0]
