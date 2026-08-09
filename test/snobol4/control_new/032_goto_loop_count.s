@@ -77,7 +77,7 @@ n6_lit_integer_α:
 n6_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n10_statement_begin_α
+                                                                                        jmp   n4_statement_begin_β
 .Lx34_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -96,9 +96,6 @@ n7_binop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n8_assign_α
-n7_binop_β:
-                        add              rsp, 16
-                                                                                        jmp   n6_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # binop
@@ -135,7 +132,7 @@ n12_lit_integer_α:
 n12_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n21_statement_begin_α
+                                                                                        jmp   n10_statement_begin_β
 .Lx42_0:
                         .quad            5
 #-----------------------------------------------------------------------------------------------------------------------

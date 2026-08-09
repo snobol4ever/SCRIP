@@ -63,7 +63,7 @@ n4_lit_string_α:
 n4_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n2_statement_begin_β
 .Lx72_0:
                         .quad            .Lx72_0_s
 .Lx72_0_s:
@@ -212,7 +212,7 @@ n17_lit_string_α:
 n17_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n15_statement_begin_β
 .Lx91_0:
                         .quad            .Lx91_0_s
 .Lx91_0_s:
@@ -362,7 +362,7 @@ n30_lit_string_α:
 n30_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n39_statement_begin_α
+                                                                                        jmp   n28_statement_begin_β
 .Lx110_0:
                         .quad            .Lx110_0_s
 .Lx110_0_s:
@@ -512,7 +512,7 @@ n43_lit_string_α:
 n43_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n52_statement_begin_α
+                                                                                        jmp   n41_statement_begin_β
 .Lx129_0:
                         .quad            .Lx129_0_s
 .Lx129_0_s:

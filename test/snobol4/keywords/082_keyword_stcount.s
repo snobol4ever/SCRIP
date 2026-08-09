@@ -77,8 +77,6 @@ n3_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx44_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_assign_α
-n3_lit_integer_β:
-                                                                                        jmp   n5_statement_end_α
 .Lx44_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -144,8 +142,6 @@ n9_lit_integer_α:
                         mov              rax, qword ptr [rip + .Lx53_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n10_assign_α
-n9_lit_integer_β:
-                                                                                        jmp   n11_statement_end_α
 .Lx53_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
@@ -226,7 +222,7 @@ n16_lit_integer_α:
 n16_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 48
-                                                                                        jmp   n31_lit_integer_α
+                                                                                        jmp   n14_statement_begin_β
 .Lx63_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -352,8 +348,6 @@ n24_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx77_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n25_assign_α
-n24_lit_string_β:
-                                                                                        jmp   n26_statement_end_α
 .Lx77_0:
                         .quad            .Lx77_0_s
 .Lx77_0_s:
@@ -475,10 +469,6 @@ n34_lit_string_α:
                         mov              rax, qword ptr [rip + .Lx93_0]
                         mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n35_assign_α
-n34_lit_string_β:
-                        add              rsp, 16
-                        add              rsp, 32
-                                                                                        jmp   main_γ
 .Lx93_0:
                         .quad            .Lx93_0_s
 .Lx93_0_s:

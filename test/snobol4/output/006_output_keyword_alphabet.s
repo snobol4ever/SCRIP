@@ -52,7 +52,7 @@ n2_call_α:
                                                                                         jne   .Lx8_240
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 .Lx8_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -60,7 +60,7 @@ n2_call_α:
 n2_call_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call

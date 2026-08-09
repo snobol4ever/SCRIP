@@ -42,7 +42,7 @@ n2_lit_string_α:
 n2_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 .Lx10_0:
                         .quad            .Lx10_0_s
 .Lx10_0_s:

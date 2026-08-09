@@ -59,7 +59,7 @@ n4_lit_integer_α:
 n4_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n2_statement_begin_β
 .Lx44_0:
                         .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
@@ -205,7 +205,7 @@ n17_lit_integer_α:
 n17_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n26_statement_begin_α
+                                                                                        jmp   n15_statement_begin_β
 .Lx63_0:
                         .quad            10
 #-----------------------------------------------------------------------------------------------------------------------

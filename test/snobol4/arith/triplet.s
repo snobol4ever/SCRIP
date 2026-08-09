@@ -64,7 +64,7 @@ n4_lit_integer_α:
 n4_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n7_statement_begin_α
+                                                                                        jmp   n2_statement_begin_β
 .Lx52_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -145,7 +145,7 @@ n12_var_α:
                         cmp              eax, 104
                                                                                         jne   .Lx65_240
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n11_statement_begin_β
 .Lx65_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -194,7 +194,7 @@ n17_lit_integer_α:
 n17_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n28_statement_begin_α
+                                                                                        jmp   n15_statement_begin_β
 .Lx72_0:
                         .quad            80
 #-----------------------------------------------------------------------------------------------------------------------
@@ -340,9 +340,6 @@ n25_binop_α:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n26_assign_α
-n25_binop_β:
-                        add              rsp, 16
-                                                                                        jmp   n24_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n26_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # binop
@@ -383,7 +380,7 @@ n30_lit_integer_α:
 n30_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n36_statement_begin_α
+                                                                                        jmp   n28_statement_begin_β
 .Lx89_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
@@ -485,7 +482,7 @@ n38_lit_integer_α:
 n38_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n11_statement_begin_α
+                                                                                        jmp   n36_statement_begin_β
 .Lx100_0:
                         .quad            0
 #-----------------------------------------------------------------------------------------------------------------------
@@ -556,9 +553,6 @@ n41_cmp_test_α:
                         mov              qword ptr [rsp + 0], 0                         # result
                         mov              qword ptr [rsp + 8], 0
                                                                                         jmp   n42_assign_α
-n41_cmp_test_β:
-                        add              rsp, 16
-                                                                                        jmp   n40_coerce_numeric_β
 #-----------------------------------------------------------------------------------------------------------------------
 n42_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # cmp_test

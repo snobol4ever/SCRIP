@@ -54,7 +54,7 @@ n2_lit_integer_α:
 n2_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n5_statement_begin_α
+                                                                                        jmp   n0_statement_begin_β
 .Lx48_0:
                         .quad            1
 #-----------------------------------------------------------------------------------------------------------------------

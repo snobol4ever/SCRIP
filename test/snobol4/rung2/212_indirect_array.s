@@ -70,13 +70,17 @@ n4_call_α:
                         add              rsp, 16
                         cmp              eax, 104
                                                                                         jne   .Lx45_240
-                                                                                        jmp   n6_statement_end_α
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n2_statement_begin_β
 .Lx45_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
                                                                                         jmp   n5_assign_α
 n4_call_β:
-                                                                                        jmp   n6_statement_end_α
+                        add              rsp, 16
+                        add              rsp, 16
+                                                                                        jmp   n2_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_assign_α:
                         mov              rax, qword ptr [rsp + 0]                       # call
@@ -113,7 +117,7 @@ n9_lit_integer_α:
 n9_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n14_statement_begin_α
+                                                                                        jmp   n7_statement_begin_β
 .Lx52_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
@@ -205,7 +209,7 @@ n18_lit_integer_α:
 n18_lit_integer_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n28_statement_begin_α
+                                                                                        jmp   n16_statement_begin_β
 .Lx65_0:
                         .quad            2
 #-----------------------------------------------------------------------------------------------------------------------

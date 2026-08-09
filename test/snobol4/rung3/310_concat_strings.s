@@ -63,7 +63,7 @@ n4_lit_string_α:
 n4_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n13_statement_begin_α
+                                                                                        jmp   n2_statement_begin_β
 .Lx62_0:
                         .quad            .Lx62_0_s
 .Lx62_0_s:
@@ -200,7 +200,7 @@ n17_lit_string_α:
 n17_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n28_statement_begin_α
+                                                                                        jmp   n15_statement_begin_β
 .Lx81_0:
                         .quad            .Lx81_0_s
 .Lx81_0_s:
@@ -367,7 +367,7 @@ n32_lit_string_α:
 n32_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n43_statement_begin_α
+                                                                                        jmp   n30_statement_begin_β
 .Lx102_0:
                         .quad            .Lx102_0_s
 .Lx102_0_s:

@@ -63,7 +63,7 @@ n4_lit_string_α:
 n4_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n11_statement_begin_α
+                                                                                        jmp   n2_statement_begin_β
 .Lx76_0:
                         .quad            .Lx76_0_s
 .Lx76_0_s:
@@ -171,7 +171,7 @@ n15_lit_string_α:
 n15_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n22_statement_begin_α
+                                                                                        jmp   n13_statement_begin_β
 .Lx93_0:
                         .quad            .Lx93_0_s
 .Lx93_0_s:
@@ -280,7 +280,7 @@ n26_lit_string_α:
 n26_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n57_statement_begin_α
+                                                                                        jmp   n24_statement_begin_β
 .Lx110_0:
                         .quad            .Lx110_0_s
 .Lx110_0_s:
@@ -360,7 +360,7 @@ n33_lit_string_α:
 n33_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n40_statement_begin_α
+                                                                                        jmp   n31_statement_begin_β
 .Lx121_0:
                         .quad            .Lx121_0_s
 .Lx121_0_s:
@@ -469,7 +469,7 @@ n44_lit_string_α:
 n44_lit_string_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n53_statement_begin_α
+                                                                                        jmp   n42_statement_begin_β
 .Lx138_0:
                         .quad            .Lx138_0_s
 .Lx138_0_s:

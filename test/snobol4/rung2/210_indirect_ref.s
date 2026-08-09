@@ -115,7 +115,7 @@ n10_call_α:
                                                                                         jne   .Lx60_240
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n8_statement_begin_β
 .Lx60_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -123,7 +123,7 @@ n10_call_α:
 n10_call_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n8_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_deref_α:
                         sub              rsp, 16
@@ -134,7 +134,7 @@ n11_deref_α:
                                                                                         jne   .Lx62_240
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n8_statement_begin_β
 .Lx62_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -142,7 +142,7 @@ n11_deref_α:
 n11_deref_β:
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   n19_statement_begin_α
+                                                                                        jmp   n8_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_var_α:
                         sub              rsp, 16
@@ -267,7 +267,7 @@ n23_call_α:
                                                                                         jne   .Lx80_240
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n21_statement_begin_β
 .Lx80_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -275,7 +275,7 @@ n23_call_α:
 n23_call_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n21_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n24_deref_α:
                         sub              rsp, 16
@@ -286,7 +286,7 @@ n24_deref_α:
                                                                                         jne   .Lx82_240
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n21_statement_begin_β
 .Lx82_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -294,7 +294,7 @@ n24_deref_α:
 n24_deref_β:
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   n32_statement_begin_α
+                                                                                        jmp   n21_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n25_var_α:
                         sub              rsp, 16

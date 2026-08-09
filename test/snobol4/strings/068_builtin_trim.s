@@ -52,7 +52,7 @@ n2_call_α:
                                                                                         jne   .Lx9_240
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 .Lx9_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -60,7 +60,7 @@ n2_call_α:
 n2_call_β:
                         add              rsp, 16
                         add              rsp, 16
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_call_α:
                         sub              rsp, 16
@@ -82,7 +82,7 @@ n3_call_α:
                                                                                         jne   .Lx11_240
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 .Lx11_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
@@ -90,7 +90,7 @@ n3_call_α:
 n3_call_β:
                         add              rsp, 16
                         add              rsp, 32
-                                                                                        jmp   main_γ
+                                                                                        jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n4_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
