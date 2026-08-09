@@ -613,7 +613,7 @@ upcase_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139994544075488
+                        movabs           rcx, 140412653269728
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -631,7 +631,7 @@ upcase_act_β:
 .Lx88_0_s:
                         .string          "upcase"
                         .section         .rodata
-.S0:                    .string          "\305S\002"
-.S1:                    .string          "\302S\002"
+.S0:                    .string          "\356\342\002"
+.S1:                    .string          "\353\342\002"
                         .text
                         .section         .note.GNU-stack,"",@progbits

@@ -609,7 +609,7 @@ add_act_α:
                         xor              eax, eax                                       # a
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139694351446752
+                        movabs           rcx, 140553053401824
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -627,7 +627,7 @@ add_act_β:
 .Lx86_0_s:
                         .string          "add"
                         .section         .rodata
-.S0:                    .string          "f\341"
-.S1:                    .string          "\324\024\024\016"
+.S0:                    .string          "O\035\001"
+.S1:                    .string          "\375\230\322\021"
                         .text
                         .section         .note.GNU-stack,"",@progbits

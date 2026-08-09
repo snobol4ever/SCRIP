@@ -537,7 +537,7 @@ double_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140249939440352
+                        movabs           rcx, 140679329215200
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -555,7 +555,7 @@ double_act_β:
 .Lx82_0_s:
                         .string          "double"
                         .section         .rodata
-.S0:                    .string          "\252g\003"
-.S1:                    .string          "\250g\003"
+.S0:                    .string          "t\272"
+.S1:                    .string          "r\272"
                         .text
                         .section         .note.GNU-stack,"",@progbits

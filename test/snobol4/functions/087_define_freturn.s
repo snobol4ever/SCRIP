@@ -818,7 +818,7 @@ ispos_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139991545148128
+                        movabs           rcx, 140087139627744
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -836,7 +836,7 @@ ispos_act_β:
 .Lx158_0_s:
                         .string          "ispos"
                         .section         .rodata
-.S0:                    .string          "\234h\305)"
-.S1:                    .string          "|\234\002"
+.S0:                    .string          "mX\310\025"
+.S1:                    .string          "\215\\\001"
                         .text
                         .section         .note.GNU-stack,"",@progbits
