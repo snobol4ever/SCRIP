@@ -60,7 +60,7 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         "jmp *%%rax\n\t"               /* ICN-FR-2: jmp (not call) — ζ-frame kt sized for jmp entry; exits via wire→exit() */
         :
         : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
-        : "memory", "rsi", "r8", "r9", "r10", "r11", "r14"
+        : "memory", "rsi", "r8", "r9", "r10", "r11"           /* ICN-FR-5 CLOBBER-FIX: r14 removed — fn never returns (jmp→exit()), so GCC's clobber-driven r14 spill around the call site corrupted the stack used by rt_outer_call in the non-zframe path (image(int) SEGV). r14 is zeroed inside the asm body before the jmp; no caller-side save/restore needed. */
     );
 }
 extern DESCR_t      eval_expr(const char *src);
