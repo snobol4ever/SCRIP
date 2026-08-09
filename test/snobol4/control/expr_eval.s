@@ -2115,7 +2115,6 @@ n312_match_span_α:
 .Lx314_240:
                         mov              dword ptr [rsp + 4], r14d
                         mov              r14d, ecx
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanhit
 n312_match_span_β:
                         mov              r14d, dword ptr [rsp + 4]
@@ -2251,7 +2250,6 @@ n319_match_defer_α:
                         lea              rdx, [rip + .Lx326_5]
                                                                                         jmp   rax
 .Lx326_4:
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$1_scanhit
 .Lx326_5:
                         add              rsp, 16
@@ -2299,7 +2297,6 @@ n319_match_defer_α:
                         lea              rax, [rip + .Lx326_6]
                         sub              rsp, 8
                         push             rax
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$1_scanhit
 .Lx326_6:
                         add              rsp, 16
@@ -3177,7 +3174,6 @@ n366_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$3_scanhit
 n366_match_assign_cond_β:
                         sub              r12, 24
@@ -3283,7 +3279,6 @@ n377_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$4_scanhit
 n377_match_assign_cond_β:
                         sub              r12, 24
@@ -3399,7 +3394,6 @@ n388_match_assign_cond_α:
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24
-                        add              rsp, 16
                                                                                         jmp   proc_PAT$5_scanhit
 n388_match_assign_cond_β:
                         sub              r12, 24
@@ -8787,7 +8781,7 @@ Push_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1137_2
@@ -8830,7 +8824,7 @@ Push_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1137_5
@@ -8881,7 +8875,7 @@ Pop_act_α:
                         xor              eax, eax
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rax
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1138_2
@@ -8920,7 +8914,7 @@ Pop_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1138_5
@@ -8980,7 +8974,7 @@ Unary_act_α:
                         xor              eax, eax                                       # arg
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rax
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1139_2
@@ -9023,7 +9017,7 @@ Unary_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1139_5
@@ -9085,7 +9079,7 @@ Binary_act_α:
                         xor              eax, eax                                       # op
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rax
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1140_2
@@ -9128,7 +9122,7 @@ Binary_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139709543341452
+                        movabs           rax, 139630480711052
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1140_5

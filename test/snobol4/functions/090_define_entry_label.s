@@ -474,7 +474,7 @@ bumpit_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139881706937740
+                        movabs           rax, 140189763886476
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx72_2
@@ -517,7 +517,7 @@ bumpit_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139881706937740
+                        movabs           rax, 140189763886476
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx72_5
