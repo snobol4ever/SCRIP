@@ -478,6 +478,7 @@ int main(int argc, char **argv)
         else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
         argi++;
     }
+    for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }   /* m4 -o POSITION-INDEPENDENT (OPS-1): accept -o FILE / -oFILE after the source file too (bb_probe_matrix.sh call shape); path recorded, slots compacted out so the extension sniff and per-file loops never see them; sweep stops at -- so program argv is untouched */
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
     if (mode_compile_x86 && mode_run) {
         fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
