@@ -4,6 +4,8 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
+#include "ab_abi.h"
+#include "pin_va.h"
 void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp);
 void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12v);
 void *rt_flat_ret_snap(void);
@@ -55,10 +57,29 @@ std::string bb_save_restore() {
              + x86_align_leave()
              + x86_gamma();
     }
-    if (role == 1 || role == 2) {
-        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater: restore caller machine state, jmp gamma wire" : "IR_SAVE_RESTORE FRETURN floater: restore caller machine state, jmp omega wire")
+    if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
+        /* AB-2 DUAL ARM: if ACT-ANCHOR is non-null an AB frame is active; route through it.
+         * Otherwise fall through to the legacy rt_flat_ret_snap path (AB-3 flips sites; until
+         * then both paths must coexist).  AB-2 maps: role 1=RETURN→γ, role 2=FRETURN→ω,
+         * role -1=NRETURN→γ (same wire as RETURN; name-deref is CALLER-SIDE post-restore).
+         * type code set in cl (AB_TYPECODE_REG) so the shared β can dispatch:
+         *   AB_TC_RETURN=0, AB_TC_NRETURN=1, AB_TC_FRETURN=2. */
+        int tc = (role == 2) ? AB_TC_FRETURN : (role == -1 ? AB_TC_NRETURN : AB_TC_RETURN);
+        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (dual-arm AB-2)" :
+                               role == 2 ? "IR_SAVE_RESTORE FRETURN floater (dual-arm AB-2)" :
+                                           "IR_SAVE_RESTORE NRETURN floater (dual-arm AB-2)")
              + x86_alpha()
-             + bb_glue_wire_exit(role == 1 ? 1 : 0);   /* WIRE-EXIT ONE AUTHORITY (s22v): the snap/restore/jmp-wire tail moved to bb_glue_flat.cpp's bb_glue_wire_exit so the floaters and the stub-blob shared γ/ω ports emit the identical sequence from one function; byte-identical to the inline body it replaces. */
+               /* AB arm: if ACT-ANCHOR == 0, fall to legacy snap */
+             + x86("mov", "r9", ABSQ(RT_AB_ANCHOR))    /* load anchor value (rbp of active frame, or 0) */
+             + x86("test", "r9", "r9")
+             + x86("je",   L(0))                        /* 0 → legacy path */
+               /* AB path: set type-code in cl; jmp through [frame+AB_OFF_BADDR] */
+             + x86("mov",  "cl", (long)tc)              /* AB_TYPECODE_REG = cl */
+             + x86("mov",  "rax", RDQ("r9", AB_OFF_BADDR))  /* β address from the active frame */
+             + x86("jmp",  "rax")
+               /* legacy path: rt_flat_ret_snap → restore → jmp wire */
+             + x86("def",  L(0))
+             + bb_glue_wire_exit(role != 2 ? 1 : 0);   /* WIRE-EXIT ONE AUTHORITY (s22v) */
     }
     /* role 0 — CALL2BB slice 2 (Lon s21x-c: "Have each BB allocate its RESULT value… its LOCAL STORAGE needs… by one instruction, decrement RSP"; "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs:
      * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never rbp-indexed),

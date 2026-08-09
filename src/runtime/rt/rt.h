@@ -89,6 +89,8 @@ void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* LADDER AB: fn_cell initial value — fires error 022 */
+int     rt_ab_enter_env(void *rbp_frame);               /* AB-2: Σ/wn/vtmark snapshot + k_level++ (called from α after frame established) */
+DESCR_t rt_ab_leave_env(void *rbp_frame, DESCR_t result, int is_fail);   /* AB-2: vtmark tidy + Σ restore + k_level-- + nret_fix (called from β before LEAVE) */
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);

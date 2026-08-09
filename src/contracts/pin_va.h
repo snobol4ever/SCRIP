@@ -9,6 +9,8 @@
 #define RT_DCAP_TOP    (RT_PIN_BASE + 0)
 #define RT_WS_LIMIT   (RT_PIN_BASE + 8)
 #define RT_WS_TOP     (RT_PIN_BASE + 16)
+#define RT_AB_ANCHOR  (RT_PIN_BASE + 24)   /* ACT-ANCHOR: rbp of innermost active AB frame (0=none); linked list head */
+#define RT_AB_NRET    (RT_PIN_BASE + 32)   /* NRET discriminator: non-zero when SNO$NRET/NRETURN set the by-name flag before jmp RETURN */
 #define RT_GVA_VA     (RT_PIN_BASE + RT_PIN_BYTES)
 #ifndef MAP_FIXED_NOREPLACE
 #define MAP_FIXED_NOREPLACE 0x100000
