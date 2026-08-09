@@ -357,6 +357,64 @@ defensible summary is unchanged: "faster on scalar/dispatch/pattern work,
 slower on aggregate/string-building and calls, EVAL and REPLACE unfixed."
 
 
+### Demo suite: SCRIP vs SPITBOL — 2026-08-09 s34, HEAD `a5c2264` (counter-loop rail)
+
+The six pattern demos that are IDENT to the oracle in BOTH modes, re-measured after
+MV-BASE + EXPR-CLASSP.  Loop is COUNTER-DRIVEN (`BN.I = BN.I + 1` / `LT(BN.I,N)`),
+NOT the historical `reps LEN(1) =` shape — that shape SEGVs SCRIP at N=1 (REPLACE
+positive-home family; 4-line witness, same class as `roman`/`string_pattern`), so
+the standard rail harness cannot run these programs at this HEAD.  `TIME()` brackets
+the match loop only: process startup, dynamic link and pattern-blob compile excluded.
+**ratio > 1.00x = SCRIP faster.**  RT `-O0`, single round, no `setarch -R`.
+
+| demo | N | SPITBOL | SCRIP m4 | ratio |
+|---|---:|---:|---:|---:|
+| claws5-match | 2000 | 503 ms | 312 ms | **1.61x** |
+| claws5-match-fence | 2000 | 549 ms | 326 ms | **1.68x** |
+| treebank-match | 2000 | 1391 ms | 1330 ms | **1.05x** |
+| treebank-match-fence | 2000 | 1652 ms | 1053 ms | **1.57x** |
+| calculator-1-match | 200 | 8881 ms | 6655 ms | **1.33x** |
+| calculator-1-match-fence | 2000 | 1805 ms | 1838 ms | 0.98x |
+
+**WINDOW ADEQUACY PROVED BY CONVERGENCE, not asserted.**  The same six were run at
+N=400 first: 1.56 / 1.67 / 1.02 / 1.51 / 1.36 / 0.99.  A 5x scale-up moved no ratio
+by more than 0.06, so these are window-independent.  (Contrast: a wall-clock pass over
+the unlooped programs — 3–50 ms windows — gave 1.00 / 0.50 / 0.36 / 0.80 / 1.11 / 0.57,
+i.e. the sign INVERTED on four of six.  The 07-24 variance postmortem below predicted
+exactly that; sub-second wall windows measure the loader, not the emitted code.)
+
+**MOVEMENT vs the 07-24 rail table below** (that table's ratio is scrip÷sbl, LOWER
+faster; inverted here to the common convention):
+
+| demo | 07-24 `a0b9aa41` | 08-09 `a5c2264` | change |
+|---|---:|---:|---|
+| claws5-match | 1.39x | 1.61x | +16% |
+| treebank-match | 0.37x | 1.05x | **2.8x** |
+| calculator-1-match | 0.47x | 1.33x | **2.8x** |
+
+⛔ **WHY WE ARE FASTER — HYPOTHESIS, NOT A MEASUREMENT.**  The 07-24 entry attributes
+its gap to "emitted-code shape (δ-seam traffic, **ARBNO chain**, branch-chain Σ-pop)"
+with the C runtime measured at ~2% of hot path.  The two demos that moved 2.8x
+(treebank, calculator-1) are the ARBNO-heavy pair; claws5, which is not ARBNO-dominated,
+moved only 16%.  ARB-LON-K16 / ARBNO-LON (`c7a276f6`, 08-06) replaced exactly that chain
+with the frameless σ/Δ0 form — no frame, no counter, no links.  The correlation is
+suggestive and the mechanism is named, but NOTHING HERE IS BISECTED: the intervening
+window also contains SEQ-ERAD, FENCE-SEMANTICS, LADDER PB (PATREF deletion), the OS-2
+slices, ZD-8 STFH-CARVE and GAMMA-EXIT.  **To convict ARBNO-LON, A/B `SCRIP_ARBNO_K16=0`
+at this HEAD on treebank-match** — the killswitch exists and is byte-identical-inert.
+Until someone runs it, "the ARBNO chain died" is a lead, not a finding.
+
+Second signal, unexplained: **both fence variants beat their non-fence siblings on the
+SCRIP side** (1.68 vs 1.61; 1.57 vs 1.05) while SPITBOL shows the opposite ordering on
+treebank (1652 ms fenced vs 1391 ms unfenced).  FENCE is pruning backtracking SCRIP
+would otherwise pay for, and pruning more of it than SPITBOL's does.  `treebank-match`
+at 1.05x is the outlier worth attacking: its fence sibling gets 1.57x on nearly identical
+work, so the residue is unpruned backtracking, not raw match speed.
+
+⛔ Coverage: these are the SIX of fifteen working-set demos that are IDENT both modes.
+Base `claws5` / `treebank-list` / `treebank-array`, `json-match` ×2 and `calculator-2` ×3
+do NOT run at this HEAD — no ratio exists for them and none may be quoted.
+
 ### Demo suite: SCRIP vs SPITBOL — the measurement rail (2026-07-24, HEAD `a0b9aa41`)
 
 The five pattern/eval demos (`corpus/programs/snobol4/demo/*-match.sno`) measured on
