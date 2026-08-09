@@ -884,7 +884,7 @@ static int sno_pat_supported(const tree_t * t);
 static int sno_pat_contains_arbno(const tree_t * t);
 static int sno_arbno_chain_on(void) { return rt_zeta_port_mode() == ZC_PORT_FORTH; }   /* ZB-ITER-1a: nested ARBNO admitted iff the s52 rsp linked-frame-chain is active (ZC_PORT_FORTH); the zcol default (fixed-stride realloc array) cannot nest, so it stays refused */
 static const char * sno_pat_collect(const tree_t * pat);
-static struct { const char * var; const char * procname; const tree_t * pat; } g_sno_fz[SNO_PAT_MAX];
+static struct { const char * var; const char * procname; const tree_t * pat; int defer_cnt; } g_sno_fz[SNO_PAT_MAX];
 static int g_sno_nfz = 0;
 static int g_sno_fz_unsafe = 0;
 static int g_sno_in_patproc = 0;
@@ -962,6 +962,7 @@ static int sno_pat_invariant(const tree_t * t) {
 static void sno_fz_mark_defer(IR_graph_t * g, IR_t * nd, const char * nm) {
     if (g_sno_in_patproc || !nm) return;
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm)) {
+        g_sno_fz[i].defer_cnt++;   /* PT-2: count *name consumers; zero = dead build when inline-ok */
         IR_t * pl = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(pl).sval = (char *) g_sno_fz[i].procname; ir_operand_push(nd, pl); return; }
 }
 /* sno_prologue_* -- PS-3 (s152) ORDER-DOMINANCE license: a pattern name is PROLOGUE-BOUND when its (single, seal==2) assignment sits in the unconditional entry corridor -- the statement run from
@@ -1195,6 +1196,19 @@ static int sno_pat_inline_ok(const tree_t * t) {   /* ⛔ PAT-INLINE SLICE-1 SHA
     case TT_SEQ: case TT_CAT: case TT_ALT: { for (int i = 0; i < t->n; i++) if (!sno_pat_inline_ok(t->c[i])) return 0; return 1; }
     default: return 0;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_fz_is_dead_build(const char * nm) {   /* PT-2: 1 iff var-name is fz-member, inline-ok, and has zero *name (TT_DEFER) consumers — MKPAT chain and proc_PAT blob are dead stores */
+    if (!nm) return 0;
+    for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm))
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat);
+    return 0;
+}
+static int sno_fz_procname_is_dead(const char * pn) {   /* PT-2: lookup by procname (PAT$N) for patproc builder which indexes by g_sno_pats[].name */
+    if (!pn) return 0;
+    for (int i = 0; i < g_sno_nfz; i++) if (g_sno_fz[i].procname && !strcmp(g_sno_fz[i].procname, pn))
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat);
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
@@ -2064,6 +2078,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         tree_t * repl = sfind_expr(s, ":repl");
         if (subj->t == TT_VAR && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) {
             sno_reg_var(subj->v.sval);
+            if (sno_fz_is_dead_build(subj->v.sval)) { lc_γ_to(anchor[i], sJ); continue; }   /* PT-2: dead-build suppression — bare refs all inlined, no *name consumers; MKPAT + proc_PAT are dead stores; skip to sJ */
             if (_pro_open && !result_name) sno_prologue_add(subj->v.sval);   /* PS-3 (s152): corridor pattern assignment = order-dominance license for the defer-tail arm */
             const char * bn = NULL;
             for (int fzi = 0; fzi < g_sno_nfz; fzi++) if (g_sno_fz[fzi].pat == repl) { bn = g_sno_fz[fzi].procname; break; }
@@ -2318,6 +2333,7 @@ void sno_pat_thunks_build(int p0) {
     int sv = g_sno_in_patproc;
     g_sno_in_patproc = 1;
     for (int pi2 = p0; pi2 < g_sno_npat; pi2++) {
+        if (sno_fz_procname_is_dead(g_sno_pats[pi2].name)) continue;   /* PT-2: blob suppression — all refs inlined, no *name consumers; proc_PAT graph is dead code */
         IR_graph_t * gp = IR_alloc(512);
         scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
