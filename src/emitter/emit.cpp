@@ -21,6 +21,7 @@ int             g_sm_native_unsupported = 0;
 FILE           *bb_emit_out  = NULL;
 bb_platform_t   g_platform      = BB_PLATFORM_X86;
 bb_medium_t     g_medium        = BB_MEDIUM_BINARY;
+void          (*g_emit_chain_posthook)(void) = NULL;   /* RTX-FUNC-0: one-shot hook called inside emit_chain's binary session after codegen_flat_chain_body; cleared on fire so proc chains never trigger it */
 int             g_use_sm_macros = 0;
 int             g_use_bb_macros = 0;
 sm_emit_t g_emit;
@@ -3047,6 +3048,11 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_flat_node_id = 0;
     emitter_init_binary(buf, FLAT_BUF_MAX);
     codegen_flat_chain_body(entry, prefix);
+    /* RTX-FUNC-0 POST-HOOK: caller can set g_emit_chain_posthook to append additional JIT content into this
+     * session (same bb_emit_buf, live label pool) before emitter_end() seals and patches.  Used by the m3
+     * main-graph path to emit activation blocks so fn_cells resolve before program execution.  One-shot:
+     * cleared here so proc-chain emit_chain calls (which run before main) never fire the hook. */
+    if (g_emit_chain_posthook) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
     int nbytes = emitter_end();
     extern int bb_emit_overflow;
     if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) {

@@ -102,6 +102,7 @@ typedef enum {
 } bb_medium_t;
 extern bb_platform_t   g_platform;
 extern bb_medium_t     g_medium;
+extern void          (*g_emit_chain_posthook)(void);   /* RTX-FUNC-0: one-shot callback fired inside emit_chain's binary session; set before the main-graph emit_chain call, cleared on fire */
 extern int             g_use_sm_macros;
 extern int             g_use_bb_macros;
 #define PLATFORM_X86   (g_platform == BB_PLATFORM_X86)
