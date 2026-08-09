@@ -771,15 +771,14 @@ bump_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139859537935756
+                        movabs           rax, 139933653392780
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx145_2
                         mov              rdi, qword ptr [rip + .Lx145_0]
                         call             mon_emit_call_bin@PLT
 .Lx145_2:
-                        mov              rax, qword ptr [rip + fn_cell$bump@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_bump_α
                                                                                         jmp   bump_act_γ
 .Lx145_1:
                         movzx            r9, cl
@@ -815,7 +814,7 @@ bump_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139859537935756
+                        movabs           rax, 139933653392780
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx145_5

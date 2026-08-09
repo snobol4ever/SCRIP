@@ -865,15 +865,14 @@ ispos_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139759893855628
+                        movabs           rax, 140465128332684
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_2
                         mov              rdi, qword ptr [rip + .Lx161_0]
                         call             mon_emit_call_bin@PLT
 .Lx161_2:
-                        mov              rax, qword ptr [rip + fn_cell$ispos@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_ispos_α
                                                                                         jmp   ispos_act_γ
 .Lx161_1:
                         movzx            r9, cl
@@ -909,7 +908,7 @@ ispos_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139759893855628
+                        movabs           rax, 140465128332684
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx161_5
