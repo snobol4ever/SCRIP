@@ -229,44 +229,82 @@ static std::string bcps_det_arm() {
              + x86_scan_sync_out()
              + x86_anchor_enter()
              + (scc_z
-                ? FOR(0, (int)_.op_ival, [&](int i) {
-                      return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
-                + x86("sub", "rsp", scc_sb_z)
-                + FOR(0, scc_nsave_z, [&](int k) {
-                      return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
-                           + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
-                + x86_ro_load_q("rdi", 0)
-                + x86("mov32", "esi", (long)scc_np_z)
-                + x86("mov32", "edx", (long)_.op_ival)
-                + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
-                + x86("test", "rax", "rax")
-                + x86("je", L(5))
-                + FOR(0, (int)_.op_ival, [&](int i) {
-                      return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-                           + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str())
-                           + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
-                           + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str())
-                           + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
-                + x86("call", "rt_proc_open_fn", openfn_fp_z)
-                + bb_glue_pass_wires(6, 7)
-                + x86("def", L(6))
-                + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
-                + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
-                + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
-                      return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
-                           + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
-                + x86("add", "rsp", scc_sb_z)
-                + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_gz)
-                + x86("jmp", L(2))
-                + x86("def", L(7))
-                + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
-                      return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
-                           + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
-                + x86("add", "rsp", scc_sb_z)
-                + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_wz)
-                + x86("jmp", L(2))
-                + x86("def", L(5))
-                + x86("add", "rsp", scc_sb_z)
+                ? [&]() -> std::string {
+                    /* RTX-FUNC-0 (ZD AB-3b): when this program has DEFINE activation blocks (ab_n>0), replace
+                     * rt_arg_stage×n + open_slim + open_fn + epilogue with: save-set spill (same as non-ZD),
+                     * install actuals from their ZD-frame cells (ZOPQ) directly into formal GVA slots, pass
+                     * γ/ω wire addresses in rcx/rdx, jmp [fn_cell$FN] → FN_act_α.  The activation block
+                     * handles Σ/vtmark/k_level/null-result+locals/body dispatch (rt_ab_enter_env).
+                     * L(10)=γ landing, L(11)=ω landing: result already in rax:rdx from rt_ab_leave_env.
+                     * Arg i installs into scc_gk_z[i] (probe layout: params first in prototype order, then
+                     * result — no offset needed; this differs from the non-ZD arm's i+1 which is a bug there).
+                     * Falls back to the classic open_slim body when ab_n==0 (SCRIP_AB=0 hatch). */
+                    bool ab3b_z = (g_emit_cfg && g_emit_cfg->ab_n > 0 && _.op_sval);
+                    if (ab3b_z) {
+                        std::string fn_cell_lbl_z = std::string("fn_cell$") + _.op_sval;
+                        void * fn_cell_bin_z = bb_ab_fn_cell_ptr(_.op_sval);
+                        /* RTX-FUNC-0 FIX: install actuals from ZOPQ BEFORE sub rsp so the ZD-frame
+                         * displacements are still valid (ZOPQ is relative to rsp at box entry; sub rsp
+                         * would shift every ZOPQ address by scc_sb_z, corrupting the reads).  Then spill
+                         * the save-set, which no longer needs the ZOPQ cells and uses rsp-relative stores. */
+                        return FOR(0, (int)_.op_ival, [&](int i) {
+                                  int gk_iz = scc_gk_z[i];
+                                  return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQ(i, 0))
+                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16), "rax")
+                                       + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQ(i, 8))
+                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16 + 8), "rax"); })
+                            + x86("sub", "rsp", scc_sb_z)
+                            + FOR(0, scc_nsave_z, [&](int k) {
+                                  return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                                       + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                            + x86("lea", "rcx", L(10))
+                            + x86("lea", "rdx", L(11))
+                            + (MEDIUM_BINARY && fn_cell_bin_z
+                                ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin_z) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
+                                : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl_z.c_str()) + x86("jmp", "rax"))
+                            + x86("def", L(10)) + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2))
+                            + x86("def", L(11)) + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2));
+                    }
+                    /* Classic ZD SCC path (SCRIP_AB=0 or no DEFINE in this program) */
+                    return FOR(0, (int)_.op_ival, [&](int i) {
+                               return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        + x86("sub", "rsp", scc_sb_z)
+                        + FOR(0, scc_nsave_z, [&](int k) {
+                              return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
+                                   + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                        + x86_ro_load_q("rdi", 0)
+                        + x86("mov32", "esi", (long)scc_np_z)
+                        + x86("mov32", "edx", (long)_.op_ival)
+                        + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
+                        + x86("test", "rax", "rax")
+                        + x86("je", L(5))
+                        + FOR(0, (int)_.op_ival, [&](int i) {
+                              return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                                   + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str())
+                                   + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
+                                   + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str())
+                                   + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
+                        + x86("call", "rt_proc_open_fn", openfn_fp_z)
+                        + bb_glue_pass_wires(6, 7)
+                        + x86("def", L(6))
+                        + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
+                        + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
+                        + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                              return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                                   + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                        + x86("add", "rsp", scc_sb_z)
+                        + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_gz)
+                        + x86("jmp", L(2))
+                        + x86("def", L(7))
+                        + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
+                              return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
+                                   + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
+                        + x86("add", "rsp", scc_sb_z)
+                        + x86("call", "rt_proc_call_epilogue_slim_ω", (uint64_t)scc_fp_wz)
+                        + x86("jmp", L(2))
+                        + x86("def", L(5))
+                        + x86("add", "rsp", scc_sb_z);
+                }()
                 : std::string(""))
              + (!scc_z && dc_z
                 ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
