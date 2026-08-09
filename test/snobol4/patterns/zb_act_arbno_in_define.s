@@ -1049,7 +1049,7 @@ MATCHIT_act_α:
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140637881094880
+                        movabs           rcx, 139927460377248
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -1068,7 +1068,7 @@ MATCHIT_act_β:
                         .string          "MATCHIT"
                         .section         .rodata
 .S0:                    .string          "V"
-.S1:                    .string          "\015e"
-.S2:                    .string          "\023e"
+.S1:                    .string          "\316\303\003"
+.S2:                    .string          "\324\303\003"
                         .text
                         .section         .note.GNU-stack,"",@progbits
