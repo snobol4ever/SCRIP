@@ -1461,6 +1461,7 @@ typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *g_plw_unwind_floor = 0;
 int   g_plw_floor_bypass = 0;   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): 1 = Prolog zframe JIT execution window; dop_call/dop_call_nothrow skip their floor-set so plc_dead_cstack's !g_plw_unwind_floor guard fires. Set/cleared by scrip.c around rt_outer_call for zframe Prolog graphs only. */
+void  rt_plw_floor_bypass_on(void) { g_plw_floor_bypass = 1; }   /* W1-BUG2-FIX m4 twin (PL-ZFRAME-RESTORE s13): the compiled -no-pie binary CANNOT set g_plw_floor_bypass by direct store — the store copy-relocates a duplicate into the executable's .bss while dop_call (same TU as the definition, binds locally inside the .so) keeps reading the .so's own still-zero copy.  A PLT call always lands in the .so and writes the copy dop_call reads.  Emitted by scrip.c's m4 zframe-main wrapper for Prolog graphs; never returns to a clear because the emitted main exits via the zf wires. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
