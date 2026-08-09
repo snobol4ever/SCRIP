@@ -1966,7 +1966,33 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * sJ = lc_build(g, IR_GOTO, stb ? stb : sT, NULL);   /* success -> the box's alpha; the box's own gamma carries sT, so the statement's real continuation is unchanged and the ONLY delta is the release's HOME (WHACK CONTRACT clause 4: BB_END_STATEMENT is op_zgpop's home; the 5,923 fused pops are its absence). */
         fail_tgt[i] = fT;   /* STMT-BETA (this session): save fT at its ONE derivation point for the post-loop STATEMENT_BEGIN omega wiring */
         IR_t * fJ = lc_build(g, IR_GOTO, fT, NULL);   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
-        if (is_def && is_def[i]) { lc_γ_to(anchor[i], sJ); continue; }
+        if (is_def && is_def[i]) {
+            /* LADDER AB (2026-08-08): mint the per-DEFINE ACTIVATION BLOCK node.  The block is jump-target-only dead code at this
+             * position -- nothing in the graph wires to it yet (AB-3 flips the call sites).  We build an IR_FUNC_ACTIVATE node
+             * γ-wired to exitnd (the block's β is its own domain; exitnd is a safe dead sink here) and insert it off the side of
+             * the anchor so the emitter lays it out as unreachable .text after the DEFINE skip.  The node carries op_sval=fname
+             * and IR_LIT_STRING operands for each save-set member name so the emit-time drive can call gva_index_of on them.
+             * SCRIP_AB=0 restores byte-identical pre-AB emission. */
+            static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (!_e || *_e != '0') ? 1 : 0; }
+            if (_ab) {
+                const tree_t * dfn = lc_stmt_subj(s);
+                const tree_t * pnode = (dfn && dfn->t == TT_DEFINE && dfn->n > 1) ? dfn->c[1] : NULL;
+                if (pnode && pnode->t == TT_QLIT && pnode->v.sval) {
+                    sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
+                    int nsave = 1 + d.nnames;   /* fname + formals + locals */
+                    IR_t * ab = lc_build(g, IR_FUNC_ACTIVATE, exitnd, failnd);
+                    IR_LIT(ab).sval = lp_strdup(d.fname);
+                    IR_LIT(ab).ival = (int64_t)nsave;
+                    /* operands: IR_LIT_STRING nodes carrying the variable names; emit drive calls gva_index_of at emit time */
+                    { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.fname); ir_operand_push(ab, nm); }
+                    for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
+                    /* park the block off the side of anchor via a dedicated dead-path GOTO so emit_chain reaches it */
+                    IR_t * dead = lc_build(g, IR_GOTO, ab, NULL);
+                    (void)dead;   /* dead is not wired from anywhere live -- the block is jump-target-only until AB-3 */
+                }
+            }
+            lc_γ_to(anchor[i], sJ); continue;
+        }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
