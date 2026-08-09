@@ -433,7 +433,7 @@ bumpit_act_α:
                         xor              eax, eax                                       # v
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139907763925664
+                        movabs           rcx, 140548995412704
                         mov              rax, qword ptr [rcx + 0]
                         add              rax, 1
                         mov              qword ptr [rcx + 0], rax
@@ -451,7 +451,7 @@ bumpit_act_β:
 .Lx69_0_s:
                         .string          "bumpit"
                         .section         .rodata
-.S0:                    .string          "N\330"
-.S1:                    .string          "M\330"
+.S0:                    .string          "X\350\003"
+.S1:                    .string          "W\350\003"
                         .text
                         .section         .note.GNU-stack,"",@progbits
