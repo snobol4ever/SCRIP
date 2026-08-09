@@ -1289,6 +1289,9 @@ int main(int argc, char **argv)
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
+                /* LADDER AB (AB-1): emit IR_FUNC_ACTIVATE activation blocks as dead-code .text after the main chain.
+                 * These are jump-target-only until AB-3 flips call sites.  Blocks carry fn_cell$.data + α frame stub. */
+                { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
             }
             g_gva_active = 0;
             g_frame_active = 0;
@@ -1485,6 +1488,8 @@ int main(int argc, char **argv)
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
             emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, _out, "flat") ? 0 : 1;
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
+            /* LADDER AB (AB-1): emit activation blocks as dead-code after main chain */
+            { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(sbbg, g_gva_active); }
             g_gva_active = 0;
             g_proc_direct_active = 0;
             g_frame_active = 0;
