@@ -580,15 +580,14 @@ double_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140223456722316
+                        movabs           rax, 139871116320140
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx85_2
                         mov              rdi, qword ptr [rip + .Lx85_0]
                         call             mon_emit_call_bin@PLT
 .Lx85_2:
-                        mov              rax, qword ptr [rip + fn_cell$double@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_double_α
                                                                                         jmp   double_act_γ
 .Lx85_1:
                         movzx            r9, cl
@@ -624,7 +623,7 @@ double_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140223456722316
+                        movabs           rax, 139871116320140
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx85_5

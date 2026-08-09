@@ -1026,15 +1026,14 @@ MATCHIT_act_α:
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139627427249548
+                        movabs           rax, 139919178849676
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_2
                         mov              rdi, qword ptr [rip + .Lx154_0]
                         call             mon_emit_call_bin@PLT
 .Lx154_2:
-                        mov              rax, qword ptr [rip + fn_cell$MATCHIT@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_MATCHIT_α
                                                                                         jmp   MATCHIT_act_γ
 .Lx154_1:
                         movzx            r9, cl
@@ -1070,7 +1069,7 @@ MATCHIT_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139627427249548
+                        movabs           rax, 139919178849676
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_5

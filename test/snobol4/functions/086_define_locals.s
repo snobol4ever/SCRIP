@@ -736,15 +736,14 @@ swap_act_α:
                         xor              eax, eax                                       # a
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139985295752588
+                        movabs           rax, 140302542429580
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx140_2
                         mov              rdi, qword ptr [rip + .Lx140_0]
                         call             mon_emit_call_bin@PLT
 .Lx140_2:
-                        mov              rax, qword ptr [rip + fn_cell$swap@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_swap_α
                                                                                         jmp   swap_act_γ
 .Lx140_1:
                         movzx            r9, cl
@@ -780,7 +779,7 @@ swap_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139985295752588
+                        movabs           rax, 140302542429580
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx140_5

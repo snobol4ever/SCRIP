@@ -6789,15 +6789,14 @@ roman_act_α:
                         xor              eax, eax                                       # n
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139711988612492
+                        movabs           rax, 140042919206284
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1255_2
                         mov              rdi, qword ptr [rip + .Lx1255_0]
                         call             mon_emit_call_bin@PLT
 .Lx1255_2:
-                        mov              rax, qword ptr [rip + fn_cell$roman@GOTPCREL]
-                                                                                        jmp   rax
+                                                                                        jmp   proc_roman_α
                                                                                         jmp   roman_act_γ
 .Lx1255_1:
                         movzx            r9, cl
@@ -6833,7 +6832,7 @@ roman_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139711988612492
+                        movabs           rax, 140042919206284
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1255_5
