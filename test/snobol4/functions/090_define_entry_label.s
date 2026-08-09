@@ -409,4 +409,49 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .data
+                        .align           8
+fn_cell$bumpit:
+                        .quad            rt_ab_undef_fn_stub
+                        .section         .text
+                        .intel_syntax    noprefix
+bumpit_act_α:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 88
+                        mov              rax, qword ptr [1879052288]                    # bumpit
+                        mov              qword ptr [rbp + -64], rax
+                        mov              rax, qword ptr [1879052296]
+                        mov              qword ptr [rbp + -56], rax
+                        mov              rax, qword ptr [1879052304]                    # v
+                        mov              qword ptr [rbp + -80], rax
+                        mov              rax, qword ptr [1879052312]
+                        mov              qword ptr [rbp + -72], rax
+                        xor              eax, eax                                       # bumpit
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rax
+                        xor              eax, eax                                       # v
+                        mov              qword ptr [1879052304], rax
+                        mov              qword ptr [1879052312], rax
+                        movabs           rcx, 139687216927456
+                        mov              rax, qword ptr [rcx + 0]
+                        add              rax, 1
+                        mov              qword ptr [rcx + 0], rax
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   bumpit_act_γ
+bumpit_act_β:
+                        lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   bumpit_act_ω
+.Lx69_0:
+                        .quad            .Lx69_0_s
+.Lx69_0_s:
+                        .string          "bumpit"
+                        .section         .rodata
+.S0:                    .string          "\321\243\002"
+.S1:                    .string          "\320\243\002"
+                        .text
                         .section         .note.GNU-stack,"",@progbits

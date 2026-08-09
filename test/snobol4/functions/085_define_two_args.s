@@ -583,4 +583,51 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .data
+                        .align           8
+fn_cell$add:
+                        .quad            rt_ab_undef_fn_stub
+                        .section         .text
+                        .intel_syntax    noprefix
+add_act_α:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 104
+                        mov              rax, qword ptr [1879052288]                    # add
+                        mov              qword ptr [rbp + -64], rax
+                        mov              rax, qword ptr [1879052296]
+                        mov              qword ptr [rbp + -56], rax
+                        mov              rax, qword ptr [1879052304]                    # a
+                        mov              qword ptr [rbp + -80], rax
+                        mov              rax, qword ptr [1879052312]
+                        mov              qword ptr [rbp + -72], rax
+                        mov              qword ptr [rbp + -96], 0
+                        mov              qword ptr [rbp + -88], 0
+                        xor              eax, eax                                       # add
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rax
+                        xor              eax, eax                                       # a
+                        mov              qword ptr [1879052304], rax
+                        mov              qword ptr [1879052312], rax
+                        movabs           rcx, 140185095492320
+                        mov              rax, qword ptr [rcx + 0]
+                        add              rax, 1
+                        mov              qword ptr [rcx + 0], rax
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   add_act_γ
+add_act_β:
+                        lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   add_act_ω
+.Lx86_0:
+                        .quad            .Lx86_0_s
+.Lx86_0_s:
+                        .string          "add"
+                        .section         .rodata
+.S0:                    .string          "\325\012\001"
+.S1:                    .string          "c\357\252\020"
+                        .text
                         .section         .note.GNU-stack,"",@progbits

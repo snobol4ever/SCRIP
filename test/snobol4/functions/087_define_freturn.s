@@ -794,4 +794,49 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .data
+                        .align           8
+fn_cell$ispos:
+                        .quad            rt_ab_undef_fn_stub
+                        .section         .text
+                        .intel_syntax    noprefix
+ispos_act_α:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 88
+                        mov              rax, qword ptr [1879052288]                    # ispos
+                        mov              qword ptr [rbp + -64], rax
+                        mov              rax, qword ptr [1879052296]
+                        mov              qword ptr [rbp + -56], rax
+                        mov              rax, qword ptr [1879052304]                    # x
+                        mov              qword ptr [rbp + -80], rax
+                        mov              rax, qword ptr [1879052312]
+                        mov              qword ptr [rbp + -72], rax
+                        xor              eax, eax                                       # ispos
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rax
+                        xor              eax, eax                                       # x
+                        mov              qword ptr [1879052304], rax
+                        mov              qword ptr [1879052312], rax
+                        movabs           rcx, 139969239831264
+                        mov              rax, qword ptr [rcx + 0]
+                        add              rax, 1
+                        mov              qword ptr [rcx + 0], rax
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   ispos_act_γ
+ispos_act_β:
+                        lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   ispos_act_ω
+.Lx158_0:
+                        .quad            .Lx158_0_s
+.Lx158_0_s:
+                        .string          "ispos"
+                        .section         .rodata
+.S0:                    .string          "\337\266&)"
+.S1:                    .string          "?\222\002"
+                        .text
                         .section         .note.GNU-stack,"",@progbits

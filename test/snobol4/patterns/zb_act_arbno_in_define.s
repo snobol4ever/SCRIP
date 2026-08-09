@@ -1025,7 +1025,50 @@ main_ω:
                         pop              rbp
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .data
+                        .align           8
+fn_cell$MATCHIT:
+                        .quad            rt_ab_undef_fn_stub
+                        .section         .text
+                        .intel_syntax    noprefix
+MATCHIT_act_α:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 88
+                        mov              rax, qword ptr [1879052288]                    # MATCHIT
+                        mov              qword ptr [rbp + -64], rax
+                        mov              rax, qword ptr [1879052296]
+                        mov              qword ptr [rbp + -56], rax
+                        mov              rax, qword ptr [1879052304]                    # S
+                        mov              qword ptr [rbp + -80], rax
+                        mov              rax, qword ptr [1879052312]
+                        mov              qword ptr [rbp + -72], rax
+                        xor              eax, eax                                       # MATCHIT
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rax
+                        xor              eax, eax                                       # S
+                        mov              qword ptr [1879052304], rax
+                        mov              qword ptr [1879052312], rax
+                        movabs           rcx, 140637881094880
+                        mov              rax, qword ptr [rcx + 0]
+                        add              rax, 1
+                        mov              qword ptr [rcx + 0], rax
+                        lea              rdi, [rip + .S2]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   MATCHIT_act_γ
+MATCHIT_act_β:
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   MATCHIT_act_ω
+.Lx151_0:
+                        .quad            .Lx151_0_s
+.Lx151_0_s:
+                        .string          "MATCHIT"
                         .section         .rodata
 .S0:                    .string          "V"
+.S1:                    .string          "\015e"
+.S2:                    .string          "\023e"
                         .text
                         .section         .note.GNU-stack,"",@progbits

@@ -1406,4 +1406,49 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .data
+                        .align           8
+fn_cell$fib:
+                        .quad            rt_ab_undef_fn_stub
+                        .section         .text
+                        .intel_syntax    noprefix
+fib_act_α:
+                        push             rbp
+                        mov              rbp, rsp
+                        sub              rsp, 88
+                        mov              rax, qword ptr [1879052288]                    # fib
+                        mov              qword ptr [rbp + -64], rax
+                        mov              rax, qword ptr [1879052296]
+                        mov              qword ptr [rbp + -56], rax
+                        mov              rax, qword ptr [1879052304]                    # n
+                        mov              qword ptr [rbp + -80], rax
+                        mov              rax, qword ptr [1879052312]
+                        mov              qword ptr [rbp + -72], rax
+                        xor              eax, eax                                       # fib
+                        mov              qword ptr [1879052288], rax
+                        mov              qword ptr [1879052296], rax
+                        xor              eax, eax                                       # n
+                        mov              qword ptr [1879052304], rax
+                        mov              qword ptr [1879052312], rax
+                        movabs           rcx, 140620655088352
+                        mov              rax, qword ptr [rcx + 0]
+                        add              rax, 1
+                        mov              qword ptr [rcx + 0], rax
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   fib_act_γ
+fib_act_β:
+                        lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+                                                                                        jmp   fib_act_ω
+.Lx196_0:
+                        .quad            .Lx196_0_s
+.Lx196_0_s:
+                        .string          "fib"
+                        .section         .rodata
+.S0:                    .string          "S\205"
+.S1:                    .string          "Z\205"
+                        .text
                         .section         .note.GNU-stack,"",@progbits
