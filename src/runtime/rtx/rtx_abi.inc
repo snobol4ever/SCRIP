@@ -48,8 +48,9 @@
  *   edi/eax alias the type tag directly; shr by 32 gets slen.
  *   Phase-1 ports keep C signatures, so descriptor-in-registers is FREE and
  *   NO template changes are owed. Registerized signatures are RTX-CC (rung 11).
- * DTYPE tags used below (descr.h): SNUL 0 . S 1 . P 3 . A 4 . T 5 . I 6 . R 7
- *                                  C 8 . N 9 . K 10 . E 11 . X 15 . FAIL 99
+ * DTYPE tags (descr.h is authoritative -- never hardcode in .S without a comment citing descr.h line):
+ *   SNUL 0x00  S 0x02  I 0x03  R 0x05  N 0x09  E 0x38  FAIL 0x68  DATA 0x70+8k
+ * ⛔ THE OLD LIST (SNUL 0 S 1 I 6 E 11 FAIL 99 DATA 100) IS PRE-s229 AND WRONG -- any .S #define must cite descr.h line
  */
 #ifndef RTX_ABI_INC
 #define RTX_ABI_INC
