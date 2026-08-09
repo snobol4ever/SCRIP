@@ -2013,6 +2013,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     int nsave = 1 + d.nnames;   /* fname + formals + locals; encoded as n_operands by ir_operand_push below */
                     IR_t * ab = lc_build(g, IR_FUNC_ACTIVATE, exitnd, failnd);
                     IR_LIT(ab).sval = lp_strdup(d.fname);   /* fname in the union; n_operands carries nsave via ir_operand_push */
+                    ab->seal = d.nformals;   /* AB-3b: nformals in seal field (never set on IR_FUNC_ACTIVATE nodes — seal is IR_MATCH_DEFER-specific); surfaced as op_ab_nformals by emitter dispatch */
                     /* operands: IR_LIT_STRING nodes carrying the variable names; emit drive calls gva_index_of at emit time */
                     { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.fname); ir_operand_push(ab, nm); }
                     for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }

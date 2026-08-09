@@ -102,6 +102,7 @@ std::string bb_goto_dyn();
 std::string bb_save_restore();
 std::string bb_func_activate();   /* LADDER AB (2026-08-08): per-DEFINE activation block */
 std::string bb_ab_bind();   /* AB-3a: role-2 DEFINE residual bind — fn_cell$<FN> <- &<FN>_act_α */
+void * bb_ab_fn_cell_ptr(const char * fname);   /* AB-3b: fn_cell$<FN> binary slot pointer for the call-site indirect jmp; TEXT uses the label string directly */
 std::string bb_scan_stmt();
 std::string bb_scan_splice_empty();
 std::string bb_gen_scan();

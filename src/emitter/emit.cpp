@@ -1004,6 +1004,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (nd->n_operands == 0) { g_emit.op_sval = IR_LIT(nd).sval;   /* ROLE DISCRIMINATOR = n_operands: IR_LIT is a UNION (sval clobbers ival — measured this session: the ival==2 guard sank every bind into drive_unowned); a role-1 block ALWAYS carries >=1 operand (fname), the bind carries none. */ extern std::string bb_ab_bind(); bb_emit_x86(bb_ab_bind()); return 0; }   /* AB-3a: role 2 = the DEFINE residual bind, a live main-chain box (anchor->bind->sJ); role 1 (blocks) rides g->ab_nodes[] via bb_ab_emit_nodes and never reaches this dispatch in-chain. */
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
+        g_emit.op_ab_nformals = nd->seal;   /* AB-3b: nformals stored in seal by lowerer (seal is IR_MATCH_DEFER-specific, always 0 on IR_FUNC_ACTIVATE nodes) */
         { extern int g_gva_active; int _ab_n = (int)nd->n_operands < (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot) ? (int)nd->n_operands : (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot);
           for (int _k = 0; _k < _ab_n; _k++) { const char * _nm = nd->operands[_k] ? IR_LIT(nd->operands[_k]).sval : (const char *)0; g_emit.op_arg_slot[_k] = (_nm && g_gva_active) ? gva_index_of(_nm) : -1; } }   /* GVA indices for save-set {fname,formals,locals}: operands carry names as IR_LIT_STRING; gva_index_of resolves at emit time after GVA is built */
         extern std::string bb_func_activate();

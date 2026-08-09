@@ -482,6 +482,7 @@ typedef struct {
     long                         op_imm_b;
     int                          op_write_route;
     int                          op_call_route;
+    int                          op_ab_nformals;   /* AB-3b: nformals from IR_FUNC_ACTIVATE node (IR_LIT(nd).ival set by lowerer); formals are save-set slots [1..nformals], locals [nformals+1..nsave-1] */
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;

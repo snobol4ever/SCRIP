@@ -57,11 +57,13 @@ static int bb_ab_slot_for(const char * fname) {
     return idx;
 }
 static void * bb_ab_cell_addr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
+void * bb_ab_fn_cell_ptr(const char * fname) { return bb_ab_cell_addr(fname); }   /* AB-3b: non-static accessor for call-site template (bb_call_proc_staged.cpp) — same slot the block and bind use, ONE allocator */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_func_activate() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    long   nsave = (long)_.op_ival;
+    long   nsave    = (long)_.op_ival;
+    long   nformals = (long)_.op_ab_nformals;   /* AB-3b: formals are save-set slots [1..nformals]; call site installs actuals there before jmp fn_cell; null loop must skip them */
     const char * fname = _.op_sval ? _.op_sval : "?";
     long   K     = ab_frame_k(nsave);
     /* ── fn_cell: allocate/record storage ── */
@@ -115,8 +117,13 @@ std::string bb_func_activate() {
             return x86("mov", RDQ("rbp", ot), (long)0)
                  + x86("mov", RDQ("rbp", ov), (long)0);
         })
-        /* null GVA cells (actuals installed by call site at AB-3) */
+        /* null GVA cells: result cell (k=0) and locals (k>nformals) only.
+         * Formals (k=1..nformals) are SKIPPED — the AB-3b call site installs actual arg values there
+         * before jumping fn_cell$<FN>.  Pre-existing callers (non-AB path) reach this block through
+         * fn_cell which still holds rt_ab_undef_fn_stub until DEFINE runs, so the non-AB path
+         * never lands here; the ab_bind path writes INC_act_α and the call site installs args first. */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
+            if (k >= 1 && k <= (int)nformals) return std::string();   /* AB-3b: skip formals; call site pre-installs actuals */
             int gk = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
@@ -136,14 +143,17 @@ std::string bb_func_activate() {
       + x86("call", "mon_emit_call_bin", (uint64_t)(uintptr_t)(void *)mon_emit_call_bin)
       + x86_align_leave()
       + x86("def", L(2))
-        /* body-jmp: jmp [fn_cell$<FN>]  (TEXT: jmp qword ptr [rip + fn_cell$<FN>@GOTPCREL])
-         *           (BINARY: movabs rax, &fn_cell_ptr; jmp [rax]) */
-      + (MEDIUM_BINARY && fn_cell_ptr
-          ? x86("movabs", "rax", (uint64_t)(uintptr_t)(void *)fn_cell_ptr)
-            + x86("mov",  "rax", RDQ("rax", 0))
-            + x86("jmp",  "rax")
-          : x86("mov",  "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl.c_str())
-            + x86("jmp", "rax"))
+        /* body-jmp: jmp proc_FN_α  (AB-3b/AB-5 static-direct fold: proc body label always known at emit time).
+         * fn_cell$FN holds &FN_act_α (written by DEFINE's AB-3a residual action) and is the CALL-SITE target —
+         * using it here would be a self-loop (fn_cell → INC_act_α = this block).  Direct label is both media:
+         * TEXT: jmp proc_INC_α (resolved by the assembler); BINARY: x86_jmp_lblptr patches through emit-label
+         * table (forward — blocks emit post-main-chain, but emit_label_intern allocates the slot now). */
+      + [&]() -> std::string {
+            char blbl[128];
+            snprintf(blbl, sizeof blbl, "proc_%s_\xce\xb1", fname);
+            bb_label_t *bp = emit_label_intern(blbl);
+            return x86_jmp_lblptr(bp, blbl);
+        }()
       + x86_gamma()   /* dead after jmp; present for box structure */
     /* ── β — 3-way dispatch on cl (AB_TYPECODE_REG) ──────────────────────────────────────────── */
       + x86("def", L(1))   /* β: L(1) */
