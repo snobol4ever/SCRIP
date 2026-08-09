@@ -70,9 +70,9 @@ std::string bb_func_activate() {
             int ov  = ab_save_off(nsave, k) + 8;   /* value word rbp offset */
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
-                     + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16))
+                     + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16))
                      + x86("mov", RDQ("rbp", ot), "rax")
-                     + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8))
+                     + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8))
                      + x86("mov", RDQ("rbp", ov), "rax");
             }
             return x86("mov", RDQ("rbp", ot), (long)0)
@@ -84,8 +84,8 @@ std::string bb_func_activate() {
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
                      + x86("xor",  "eax", "eax")
-                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rax")
-                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rax");
+                     + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rax")
+                     + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rax");
             }
             return std::string();
         }))

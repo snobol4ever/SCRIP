@@ -82,10 +82,10 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
                          + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *)rt_gvar_get_int);
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0)
-            s += x86("note", gva_name(k)) + x86("mov", "rdx", ABSQ(RT_GVA_VA + k * 16))
+            s += x86("note", gva_name(k)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 0) : ABSQ(RT_GVA_VA + k * 16))
                + x86("cmp", "edx", (long)DT_I)
                + x86("jne", L(gk_lb))
-               + x86("note", gva_name(k)) + x86("mov", "rax", ABSQ(RT_GVA_VA + k * 16 + 8))
+               + x86("note", gva_name(k)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 8) : ABSQ(RT_GVA_VA + k * 16 + 8))
                + x86("jmp", L(gk_lb + 1))
                + x86("def", L(gk_lb))
                + slow
@@ -117,10 +117,10 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
         slow += x86("mov", "rcx", "rax");
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0)
-            s += x86("note", gva_name(k)) + x86("mov", "rdx", ABSQ(RT_GVA_VA + k * 16))
+            s += x86("note", gva_name(k)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 0) : ABSQ(RT_GVA_VA + k * 16))
                + x86("cmp", "edx", (long)DT_I)
                + x86("jne", L(gk_lb))
-               + x86("note", gva_name(k)) + x86("mov", "rcx", ABSQ(RT_GVA_VA + k * 16 + 8))
+               + x86("note", gva_name(k)) + x86("mov", "rcx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 8) : ABSQ(RT_GVA_VA + k * 16 + 8))
                + x86("jmp", L(gk_lb + 1))
                + x86("def", L(gk_lb))
                + slow

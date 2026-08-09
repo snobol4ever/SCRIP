@@ -14,10 +14,10 @@ extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GVA_LD(reg, k, nm, pl, lb) ( \
-      x86("note", gva_name((k))) + x86("mov", "rdx", ABSQ(RT_GVA_VA + (k) * 16)) \
+      x86("note", gva_name((k))) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((k), 0) : ABSQ(RT_GVA_VA + (k) * 16)) \
     + x86("cmp", "edx", (long)DT_I) \
     + x86("jne", L(lb)) \
-    + x86("note", gva_name((k))) + x86("mov", (reg), ABSQ(RT_GVA_VA + (k) * 16 + 8)) \
+    + x86("note", gva_name((k))) + x86("mov", (reg), (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((k), 8) : ABSQ(RT_GVA_VA + (k) * 16 + 8)) \
     + x86("jmp", L((lb) + 1)) \
     + x86("def", L(lb)) \
     + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) (nm), (pl)) \
