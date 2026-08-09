@@ -6,7 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-extern "C" void rt_gen_save_cont(void *);   /* ICN-FR-4 L3: save continuation ptr to pcall.save_Σ (heap-safe; lex epilogue never reads save_Σ) */
+extern "C" void rt_gen_save_cont(void *gen_rbp, void *cont);   /* ICN-FR-5: save continuation ptr keyed by gen_rbp (pcall scan by fb) */
 extern "C" void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);   /* PL-FR-4 ZFRAME: save {trail_mark_lo, trail_mark_hi, cont_addr} triple at each Prolog zframe yield */
 extern "C" void *g_pl_zf_pending_cursor;   /* PL-FR-4 ZFRAME: set by bcps β arm to signal pending resume; checked by bb_suspend to skip push3 and jmp cursor */
 extern "C" void rt_pl_zf_resume_clear(void);   /* PL-FR-4 ZFRAME: clear g_pl_zf_pending_cursor */
@@ -23,9 +23,11 @@ std::string bb_suspend() {
          * This call happens BEFORE the yield value copy (rax/rdx unset at alpha) and uses rdi for the arg,
          * which is ABI-legal at alpha (no live callee values yet).  Byte-identical for non-flat_gen graphs. */
         std::string cont_save;
-        if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p) {   /* ICN-FR-4 + PL-ZD-WINDOW2-FIX: GATED icn_zframe_gen — Prolog flat_gen graphs skip this save. */
-            uint64_t _sc_fp; { void (*_f)(void *) = rt_gen_save_cont; _sc_fp = (uint64_t)(uintptr_t)(void *)_f; }
-            cont_save = x86_lea_tgt("rdi", X86T_TGT1) + x86("call", "rt_gen_save_cont", _sc_fp);
+        if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p) {   /* ICN-FR-5: GATED icn_zframe_gen; pass gen_rbp=rbp as rdi, cont label as rsi. */
+            uint64_t _sc_fp; { void (*_f)(void *, void *) = rt_gen_save_cont; _sc_fp = (uint64_t)(uintptr_t)(void *)_f; }
+            cont_save = x86("mov", "rdi", "rbp")           /* gen_rbp = rbp at suspend α */
+                      + x86_lea_tgt("rsi", X86T_TGT1)     /* cont = suspend_β label (shifted from rdi→rsi) */
+                      + x86("call", "rt_gen_save_cont", _sc_fp);
         }
         /* PL-FR-4 ZFRAME TRIPLE PUSH: for Prolog zframe generators (zframe_graph=1, NOT icn_zframe_gen), save {trail_mark_lo, trail_mark_hi, suspend_β_addr} into g_pl_cp_stack before each yield.
          * The trail mark lives at FRQ(op_sa)/FRQ(op_sa+8) — the yield-value slot; op_sa is the descr-pair holding the trail mark descriptor (set by n0_call_builtin_prolog for $trail_mark).

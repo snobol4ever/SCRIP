@@ -1438,30 +1438,101 @@ void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].fb : (void *)0; }   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller_rbp, save_Σ→cont_ptr).
- * rt_proc_epilogue_body returns at line 1144 for c->lex=1 without reading rname/save_Σ/save_Σlen/save_base,
- * so these four fields are free for Icon generator use across the suspend/resume lifetime.
- * rname (offset 8)  → caller_rbp: saved in prologue, read in γ/ω epilogue before rbp-restore.
- * save_Σ (offset 16) → cont_ptr: saved by bb_suspend before each yield, read in β-resume arm.
- * The caller's C-call stack CAN reach into [generator_rbp..entry_rsp), so saving these in the heap-allocated
- * pcall record (g_pcall array) is the ONLY safe storage immune to caller stack expansion.
- * Named c_rt_gen_* — rtx_icngen.S exports the public rt_gen_* symbol and delegates here.
- * caller_rbp: pcall.rname is set by the prologue (pcall_top>0) and read by the γ epilogue (pcall still live).
- *   The ω epilogue fires AFTER the pcall is popped by rt_proc_call_epilogue_γ at L(3), so pcall.rname is gone.
- *   g_gen_pending_caller_rbp caches the value; set by rt_gen_save_caller_rbp; read by both γ and ω epilogues.
- *   For nested generators this holds the innermost active one's caller_rbp, which is always the one being exited.
- * cont_ptr: g_gen_pending_cont global (pcall.save_Σ was popped before β-resume reads it). */
-__attribute__((visibility("hidden"))) static void *g_gen_pending_cont = (void *)0;
-__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_rbp = (void *)0;
-__attribute__((visibility("hidden"))) static void *g_gen_pending_gamma_wire = (void *)0;   /* ICN-FR-4: γ-wire saved at prologue; slot [rbp+kt-24]=[entry_rsp-24] is clobbered by epilogue calls */
-__attribute__((visibility("hidden"))) static void *g_gen_pending_omega_wire = (void *)0;   /* ICN-FR-4: ω-wire saved at prologue; slot [rbp+kt-16]=[entry_rsp-16] is clobbered by epilogue calls */
-void c_rt_gen_save_caller_rbp(void *rbp) { g_gen_pending_caller_rbp = rbp; if (g_pcall_top > 0) g_pcall[g_pcall_top - 1].rname = (const char *)rbp; }
-void *c_rt_gen_get_caller_rbp(void) { return g_gen_pending_caller_rbp; }
-void c_rt_gen_save_cont(void *cont) { g_gen_pending_cont = cont; }
-void *c_rt_gen_get_cont(void) { return g_gen_pending_cont; }
-void c_rt_gen_save_wires(void *gw, void *ww) { g_gen_pending_gamma_wire = gw; g_gen_pending_omega_wire = ww; }   /* ICN-FR-4: called from prologue with rcx=γ-wire rsi=ω-wire (both already in regs before pin) */
-void *c_rt_gen_get_gamma_wire(void) { return g_gen_pending_gamma_wire; }
-void *c_rt_gen_get_omega_wire(void) { return g_gen_pending_omega_wire; }/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-FR-5 ONE-SLOT FIX: persistent generator state stack, keyed by generator_rbp (= frame base pinned in α).
+ * FR-4 used four process globals — correct for one pending generator but silently clobbered by a second.
+ * The pcall record was the wrong anchor: it is pushed at call-open and POPPED at γ-exit, BEFORE the caller's
+ * β-resume reads the continuation.  Any per-pcall-slot store is therefore already gone by read time.
+ *
+ * CORRECT ANCHOR: a separate stack of icn_gen_state_t entries, independent of g_pcall:
+ *   - PUSH at save_wires (prologue, after lexprep2 populates fb): gen_rbp known, wires known.
+ *   - UPDATE cont at save_cont (each suspend α): same gen_rbp, new continuation.
+ *   - UPDATE caller_rbp at save_caller_rbp (prologue, after lexprep2): same gen_rbp.
+ *   - READ at get_* (γ/ω epilogue and β-resume): scan from top for matching gen_rbp.
+ *   - POP at save_wires with gw=NULL sentinel (called from ω epilogue when generator is exhausted).
+ *     OR: never explicitly pop — the stack is bounded by max nesting depth (~64); stale entries below
+ *     live gen_rbp addresses are never found by the LIFO scan while those generators are exhausted.
+ *     But we MUST pop at ω to prevent the stack growing unboundedly on repeated generator calls.
+ *
+ * POP PROTOCOL: xa_flat_zframe_epilogue_ω calls save_wires(gen_rbp, NULL, NULL) as an explicit pop marker.
+ * The save_wires body detects gw=NULL and pops/clears the matching entry instead of writing.
+ *
+ * Stack capacity: initial 64 entries (covers all practical nesting depths); grows by doubling. */
+typedef struct { void *gen_rbp; void *cont; void *caller_rbp; void *gwire; void *owire; } icn_gen_state_t;
+__attribute__((visibility("hidden"))) static icn_gen_state_t  g_icn_gen_stk_buf[64];
+__attribute__((visibility("hidden"))) static icn_gen_state_t *g_icn_gen_stk     = g_icn_gen_stk_buf;
+__attribute__((visibility("hidden"))) static int              g_icn_gen_stk_top = 0;
+__attribute__((visibility("hidden"))) static int              g_icn_gen_stk_cap = 64;
+/* Fast single-generator globals: still maintained so single-generator case hits no scan overhead. */
+__attribute__((visibility("hidden"))) static void *g_gen_pending_cont        = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_rbp  = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_gamma_wire  = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_omega_wire  = (void *)0;
+/* Find entry by gen_rbp; LIFO scan; returns pointer or NULL. */
+static icn_gen_state_t *icn_gen_find(void *gen_rbp) {
+    for (int i = g_icn_gen_stk_top - 1; i >= 0; i--)
+        if (g_icn_gen_stk[i].gen_rbp == gen_rbp) return &g_icn_gen_stk[i];
+    return (icn_gen_state_t *)0;
+}
+/* Grow the stack if needed. */
+static void icn_gen_stk_grow(void) {
+    if (g_icn_gen_stk_top < g_icn_gen_stk_cap) return;
+    int nc = g_icn_gen_stk_cap * 2;
+    icn_gen_state_t *nb = (icn_gen_state_t *)rt_ws_realloc(
+        g_icn_gen_stk == g_icn_gen_stk_buf ? (void *)0 : (void *)g_icn_gen_stk,
+        (size_t)nc * sizeof(icn_gen_state_t));
+    if (!nb) return;
+    if (g_icn_gen_stk == g_icn_gen_stk_buf) memcpy(nb, g_icn_gen_stk_buf, (size_t)g_icn_gen_stk_top * sizeof(icn_gen_state_t));
+    g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
+}
+void c_rt_gen_save_wires(void *gen_rbp, void *gw, void *ww) {
+    if (!gw) {   /* ω-exit POP SENTINEL: remove this generator's entry. */
+        for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {
+            if (g_icn_gen_stk[i].gen_rbp == gen_rbp) {
+                /* Shift entries above down by one. */
+                for (int j = i; j < g_icn_gen_stk_top - 1; j++) g_icn_gen_stk[j] = g_icn_gen_stk[j+1];
+                g_icn_gen_stk_top--;
+                break;
+            }
+        }
+        return;
+    }
+    g_gen_pending_gamma_wire = gw; g_gen_pending_omega_wire = ww;
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    if (e) { e->gwire = gw; e->owire = ww; return; }   /* update existing (re-activation via β) */
+    icn_gen_stk_grow();
+    if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return;   /* grow failed; global cache is fallback */
+    g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_rbp, (void*)0, (void*)0, gw, ww };
+}
+void c_rt_gen_save_caller_rbp(void *gen_rbp, void *caller_rbp) {
+    g_gen_pending_caller_rbp = caller_rbp;
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    if (e) e->caller_rbp = caller_rbp;
+}
+void c_rt_gen_save_cont(void *gen_rbp, void *cont) {
+    g_gen_pending_cont = cont;
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    if (e) e->cont = cont;
+}
+void *c_rt_gen_get_caller_rbp(void *gen_rbp) {
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    void *v = e ? e->caller_rbp : g_gen_pending_caller_rbp;
+    g_gen_pending_caller_rbp = v; return v;
+}
+void *c_rt_gen_get_cont(void *gen_rbp) {
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    void *v = e ? e->cont : g_gen_pending_cont;
+    g_gen_pending_cont = v; return v;
+}
+void *c_rt_gen_get_gamma_wire(void *gen_rbp) {
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    void *v = e ? e->gwire : g_gen_pending_gamma_wire;
+    g_gen_pending_gamma_wire = v; return v;
+}
+void *c_rt_gen_get_omega_wire(void *gen_rbp) {
+    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    void *v = e ? e->owire : g_gen_pending_omega_wire;
+    g_gen_pending_omega_wire = v; return v;
+}/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
 {
     if (IS_FAIL_fn(fret)) return rt_proc_call_epilogue_ω();
