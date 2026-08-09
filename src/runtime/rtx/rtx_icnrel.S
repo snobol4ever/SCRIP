@@ -72,8 +72,12 @@ RTX_GATE_DEF(icnrel)
 #define OP_EQV  22
 #define OP_NEQV 23
 
-#define DT_S     1
-#define DT_I     6
+/* ⛔ TAG VALUES MUST MATCH src/contracts/descr.h (s229 renumber: DT_S descr.h:48 = 0x02, DT_I descr.h:49 = 0x03).
+ * A _Static_assert cannot reach an asm #define (the rtx_icncall.S DT_E=11 lesson, ICN-ZFRAME s15) -- re-verify
+ * against descr.h on every edit of this file. Stale tags here are SILENT: every fast arm simply never matches
+ * (perf-only) EXCEPT rt_str_coerce, whose identity arm then returns csets UNCONVERTED (wrong answers). */
+#define DT_S     0x02
+#define DT_I     0x03
 
 RTX_FUNC(rt_jct_relop)
     RTX_GATE(icnrel, c_rt_jct_relop)
@@ -95,6 +99,17 @@ RTX_FUNC(rt_jct_relop)
     jne     .Lbail
     cmp     edx, DT_S
     jne     .Lbail
+/* CSET EXCLUSION (added with the s229 tag fix that ARMED this previously-dead arm): a cset is spelled
+ * DT_S with slen 0xFFFFFFFF, and comparing its raw .s bypasses the sorted-character conversion order
+ * that c_rt_str_coerce establishes. Same guard idiom as the EQV arm below. */
+    mov     rax, rdi
+    shr     rax, 32
+    cmp     eax, -1
+    je      .Lbail
+    mov     rax, rdx
+    shr     rax, 32
+    cmp     eax, -1
+    je      .Lbail
     test    rsi, rsi
     jz      .Lbail
     test    rcx, rcx

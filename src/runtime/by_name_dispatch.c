@@ -4687,7 +4687,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
         if (!strcmp(fn, "%")) return rt_num_arith(a, b, BINOP_MOD);
         if (!strcmp(fn, "^")) return rt_num_arith(a, b, BINOP_POW);
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
-        { int oc = -1;
+        { DESCR_t rt_str_coerce(DESCR_t); int oc = -1;
           if      (!strcmp(fn, "="))    oc = BINOP_EQ;  else if (!strcmp(fn, "~="))   oc = BINOP_NE;
           else if (!strcmp(fn, "<"))    oc = BINOP_LT;  else if (!strcmp(fn, "<="))   oc = BINOP_LE;
           else if (!strcmp(fn, ">"))    oc = BINOP_GT;  else if (!strcmp(fn, ">="))   oc = BINOP_GE;
@@ -4695,7 +4695,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
           else if (!strcmp(fn, "<<"))   oc = BINOP_SLT; else if (!strcmp(fn, "<<="))  oc = BINOP_SLE;
           else if (!strcmp(fn, ">>"))   oc = BINOP_SGT; else if (!strcmp(fn, ">>="))  oc = BINOP_SGE;
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
-          if (oc >= 0) return rt_jct_relop(a, b, oc) ? b : FAILDESCR; }
+          if (oc >= 0) return rt_jct_relop(a, b, oc) ? ((oc >= BINOP_SLT && oc <= BINOP_SNE) ? rt_str_coerce(b) : b) : FAILDESCR; }
     }
     if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
     out = APPLY_fn(fn, args, nargs);
