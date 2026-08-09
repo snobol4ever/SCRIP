@@ -164,6 +164,7 @@ void rt_cap_pop(void *slot);
 int rt_cap_top(void *slot);
 void rt_subject_load_nv(const char *name, void *slot);
 long rt_defer_open(const char *varname, int ival_flag);
+long rt_pat_prim_int(const char *varname);   /* D08 FIX: match-time integer fetch for LEN(*var) deferred-integer primitives */
 long rt_defer_step(DESCR_t fret);
 int  rt_defer_close(int cur_delta);
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
