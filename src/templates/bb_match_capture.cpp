@@ -29,6 +29,7 @@ static inline int  cap_sym()  { static int on = -1; if (on < 0) { const char * e
 static inline int  sfc()      { return x86_fc_on() && (!cap_sym() || _.op_fc_base >= 0); }   /* CAP-SYM (s22m): op_fc_bytes has TWO writers meaning DIFFERENT things -- emit.cpp's ZB-FC-3c capture grant (which also sets op_fc_base = op_off >= 0) and the ZD zeta-spine planner (emit.cpp:832, op_fc_bytes = g_zd_k with op_fc_base = -1).  Bare x86_fc_on() cannot tell them apart, so a SAVE armed by the ZD spine took the 3c CELL arm and stored its delta into the zeta RESULT cell, while its COND partner -- which correctly consults its OWN per-node grant (fc_cond_fp -> op_fc_disp) -- declined to the rt_cap software array that nobody had pushed.  Producer wrote one place, consumer read another: capture start came back 0, so every capture preceded by a matched element swallowed the preceding characters (measured: 'abcd' 'a' (w . tag) bound "abc" where SPITBOL binds "bc").  op_fc_base >= 0 is ALREADY the established discriminator for exactly this split -- x86_asm.h:282 uses `x86_fc_on() && _.op_fc_base < 0` to name the carve-only ZD class -- so this reuses the existing authority rather than minting a second one.  The two ends are now keyed to the SAME grant: both on the cell, or both on the array. */
 static inline int  cfc()      { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0; }
 static inline const char * rspd(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [rsp# + %d]", off); return b[i]; }   /* Z4 s8 (capture-start fix): RAW rsp marker -- the plain spelling collides with the unpinned fr32 prefix in x86_parse and gains op_flat_disp, which displaced SAVE's delta store AND lifted COND's cross-depth read 16 past it (double-counted depth difference).  The '#' routes XK_RSP32 raw, restoring this family's designed cell addressing on both the writer (alpha delta store) and the readers (COND/IMM op_fc_disp) in one move -- the pair cannot desync. */
+static inline const char * caphome(void) { int legacy_main = _.flat_deep_arrival && !_.flat_jmp_entry && !_.flat_lcl_proc && !_.zframe_graph && !_.flat_pat && !_.flat_gen; return legacy_main ? RDD("rbp", -(64 + 16 * _.op_cap_anchor)) : FR(_.op_off); }   /* ⭐ OS-2·SLICE-1 δ SLOT HOME by graph class: legacy deep MAIN (the GLUE-O carve-less-pin customer, mirrored conjuncts) = [rbp - 64 - 16k] inside the widened enter carve -- REAL memory, depth-immune, freed by the leave whack (the m4 environ-smash proof: raw graph-flat FR offs against the token-8 main carve landed slot 400 inside environ[8]); every carve-then-pin class (blob BLOB-GRANT / lcl_proc / zframe / gen) keeps FR(op_off) raw against its OWN real frame -- per-activation homes, which is what makes *P recursion correct.  !deep anchored graphs (no pin) also take FR: the rsp static arm is depth-correct there and byte-identical to the pre-region behavior.  Both media: RDD/FR are x86() operand spellings. */
 std::string bb_match_capture() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -39,6 +40,57 @@ std::string bb_match_capture() {
          : !(_.op_sval ? _.op_sval : "")[0]
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name") )
+         : (int)_.op_phase == 0 && _.op_cap_anchor
+         ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE anchor")   /* ⭐ OS-2·SLICE-1 (ONE-SYSTEM): δ home = the SAVE node's own ZLS slot through THE ONE OFFSET FUNCTION -- pinned graphs (every match stmt with DEFER via deep_arrival, every blob via flat_pat) resolve [rbp+off] = depth-immune, per-activation by the frame itself (blob α self-allocates, BLOB-GRANT s22z), so nesting and *VAR recursion cannot alias: X/Y/Z are three nodes = three slots, recursive same-node activations live in distinct blob frames.  β trampolines: no cell of ours to release (the fc grant's hook cell is dead ballast under this arm). */
+           + x86_alpha()
+           + x86("mov",  caphome(), "r14d")
+           + x86_gamma()
+           + x86_beta_trampoline() )
+         : (int)_.op_phase == 1 && _.op_cap_anchor
+         ? ( x86("comment", "IR_MATCH_CAPTURE_COND anchor")   /* ⭐ OS-2·SLICE-1: delta source = FR(op_off) (op_off staged = SAVE twin's slot, drive dispatch); pend-park CAS machinery verbatim from the legacy arm below -- only the read moved off the fc_cond_fp cross-depth constant. */
+           + x86_alpha()
+           + x86("mov",  "eax", caphome())
+           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("mov",  RDQ("r12", 0), "rcx")
+           + x86("mov",  "esi", "eax")
+           + x86("mov",  RDQ("r12", 8), "rsi")
+           + x86("mov",  "edx", "r14d")
+           + x86("sub",  "edx", "eax")
+           + x86("mov",  RDQ("r12", 16), "rdx")
+           + x86("add",  "r12", (long)24)
+           + x86_gamma()
+           + x86_beta()
+           + x86("sub",  "r12", (long)24)
+           + x86_omega() )
+         : (int)_.op_phase == 2 && _.op_cap_anchor
+         ? ( x86("comment", "IR_MATCH_CAPTURE_IMM anchor")   /* ⭐ OS-2·SLICE-1: FR read BEFORE the anchor window (window pushes 16 -- an FR-rsp-arm read inside would be 16 low; eax survives, the cfc placement law verbatim); rt_cap_open/finish protocol unchanged. */
+           + x86_alpha()
+           + x86("mov",  "eax", caphome())
+           + x86_anchor_enter()
+           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("mov",  "esi", "eax")
+           + x86("mov",  "edx", "r14d")
+           + x86("mov",  "ecx", (long)1)
+           + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + x86("test", "rax", "rax")
+           + x86("je",   L(1))
+           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
+           + bb_glue_pass_wires(2, 3)
+           + x86("def",  L(2))
+           + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
+           + x86("mov",  "rdi", "rax")
+           + x86("mov",  "rsi", "rdx")
+           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + x86("jmp",  L(1))
+           + x86("def",  L(3))
+           + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
+           + x86("mov",  "rdi", "rax")
+           + x86("mov",  "rsi", "rdx")
+           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + x86("def",  L(1))
+           + x86_anchor_leave()
+           + x86_gamma()
+           + x86_beta_trampoline() )
          : (int)_.op_phase == 0 && _.op_zres
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE ZD cell")   /* ZD-5b (s27 cross-front OMEGA): SAVE under ZD -- K=16 own cell; ZRESD(0) stores r14d (cursor at alpha); beta trampoline retries; omega is caller's wire (cell released by op_zgpop at statement end, not here -- K=16 under law-4). */
            + x86_alpha()
