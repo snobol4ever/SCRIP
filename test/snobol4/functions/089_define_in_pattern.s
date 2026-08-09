@@ -90,6 +90,13 @@ n6_statement_end_α:
                                                                                         jmp   n7_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx19_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx19_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -104,11 +111,6 @@ proc_LBL__upcase_β:
                                                                                         jmp   proc_LBL__upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__upcase_ω:
                         call             rt_flat_ret_snap@PLT
@@ -148,11 +150,6 @@ proc_upcase_β:
                                                                                         jmp   proc_upcase_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_upcase_ω:
                         call             rt_flat_ret_snap@PLT
@@ -568,6 +565,13 @@ n47_statement_end_α:
                                                                                         jmp   n48_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n48_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx86_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx86_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -583,8 +587,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              edi, 1
@@ -598,40 +600,96 @@ fn_cell$upcase:
 upcase_act_α:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 88
-                        mov              rax, qword ptr [1879052288]                    # upcase
+                        sub              rsp, 136
+                        mov              qword ptr [rbp + -16], rcx
+                        mov              qword ptr [rbp + -24], rdx
+                        lea              rax, [rbp + 8]
+                        mov              qword ptr [rbp + -32], rax
+                        mov              rax, qword ptr [1879048216]
+                        mov              qword ptr [rbp + -40], rax
+                        mov              qword ptr [1879048216], rbp
+                        lea              rax, [rip + .Lx88_1]
                         mov              qword ptr [rbp + -64], rax
+                        mov              rdi, rbp
+                        call             rt_ab_enter_env@PLT
+                        mov              rax, qword ptr [1879052288]                    # upcase
+                        mov              qword ptr [rbp + -112], rax
                         mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rbp + -56], rax
+                        mov              qword ptr [rbp + -104], rax
                         mov              rax, qword ptr [1879052304]                    # s
-                        mov              qword ptr [rbp + -80], rax
+                        mov              qword ptr [rbp + -128], rax
                         mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rbp + -72], rax
+                        mov              qword ptr [rbp + -120], rax
                         xor              eax, eax                                       # upcase
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rax
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140412653269728
-                        mov              rax, qword ptr [rcx + 0]
-                        add              rax, 1
-                        mov              qword ptr [rcx + 0], rax
-                        lea              rdi, [rip + .S1]
-                        call             rt_bomb@PLT
-                        ud2
+                        movabs           rax, 140454975955660
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx88_2
+                        mov              rdi, qword ptr [rip + .Lx88_0]
+                        call             mon_emit_call_bin@PLT
+.Lx88_2:
+                        mov              rax, qword ptr [rip + fn_cell$upcase@GOTPCREL]
+                                                                                        jmp   rax
                                                                                         jmp   upcase_act_γ
-upcase_act_β:
-                        lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
-                                                                                        jmp   upcase_act_ω
+.Lx88_1:
+                        movzx            r9, cl
+                        cmp              r9d, 2
+                                                                                        je    .Lx88_3
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                        mov              rdi, rbp
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        xor              ecx, ecx
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                                                                                        jmp   .Lx88_4
+.Lx88_3:
+                        mov              rdi, rbp
+                        xor              esi, esi
+                        xor              edx, edx
+                        mov              ecx, 1
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+.Lx88_4:
+                        mov              rcx, qword ptr [rbp + -112]                    # upcase
+                        mov              qword ptr [1879052288], rcx
+                        mov              rcx, qword ptr [rbp + -104]
+                        mov              qword ptr [1879052296], rcx
+                        mov              rcx, qword ptr [rbp + -128]                    # s
+                        mov              qword ptr [1879052304], rcx
+                        mov              rcx, qword ptr [rbp + -120]
+                        mov              qword ptr [1879052312], rcx
+                        mov              r10, qword ptr [rbp + -16]
+                        mov              r11, qword ptr [rbp + -24]
+                        mov              rcx, qword ptr [rbp + -40]
+                        movabs           rax, 140454975955660
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx88_5
+                        mov              rdi, qword ptr [rip + .Lx88_0]
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        call             mon_emit_return_bin@PLT
+.Lx88_5:
+                        mov              rax, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        mov              qword ptr [1879048216], rcx
+                        cmp              r9d, 2
+                                                                                        je    .Lx88_6
+                                                                                        jmp   r10
+.Lx88_6:
+                                                                                        jmp   r11
+upcase_act_ω:
 .Lx88_0:
                         .quad            .Lx88_0_s
 .Lx88_0_s:
                         .string          "upcase"
-                        .section         .rodata
-.S0:                    .string          "\356\342\002"
-.S1:                    .string          "\353\342\002"
-                        .text
                         .section         .note.GNU-stack,"",@progbits

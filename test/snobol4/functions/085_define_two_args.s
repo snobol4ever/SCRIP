@@ -54,6 +54,13 @@ n5_statement_end_α:
                                                                                         jmp   n6_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx16_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx16_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -68,11 +75,6 @@ proc_LBL__add_β:
                                                                                         jmp   proc_LBL__add_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__add_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__add_ω:
                         call             rt_flat_ret_snap@PLT
@@ -112,11 +114,6 @@ proc_add_β:
                                                                                         jmp   proc_add_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_add_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_add_ω:
                         call             rt_flat_ret_snap@PLT
@@ -562,6 +559,13 @@ n45_statement_end_α:
                                                                                         jmp   n46_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n46_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx84_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx84_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -577,8 +581,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              edi, 1
@@ -592,42 +594,98 @@ fn_cell$add:
 add_act_α:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 104
-                        mov              rax, qword ptr [1879052288]                    # add
+                        sub              rsp, 152
+                        mov              qword ptr [rbp + -16], rcx
+                        mov              qword ptr [rbp + -24], rdx
+                        lea              rax, [rbp + 8]
+                        mov              qword ptr [rbp + -32], rax
+                        mov              rax, qword ptr [1879048216]
+                        mov              qword ptr [rbp + -40], rax
+                        mov              qword ptr [1879048216], rbp
+                        lea              rax, [rip + .Lx86_1]
                         mov              qword ptr [rbp + -64], rax
+                        mov              rdi, rbp
+                        call             rt_ab_enter_env@PLT
+                        mov              rax, qword ptr [1879052288]                    # add
+                        mov              qword ptr [rbp + -112], rax
                         mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rbp + -56], rax
+                        mov              qword ptr [rbp + -104], rax
                         mov              rax, qword ptr [1879052304]                    # a
-                        mov              qword ptr [rbp + -80], rax
+                        mov              qword ptr [rbp + -128], rax
                         mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rbp + -72], rax
-                        mov              qword ptr [rbp + -96], 0
-                        mov              qword ptr [rbp + -88], 0
+                        mov              qword ptr [rbp + -120], rax
+                        mov              qword ptr [rbp + -144], 0
+                        mov              qword ptr [rbp + -136], 0
                         xor              eax, eax                                       # add
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rax
                         xor              eax, eax                                       # a
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 140553053401824
-                        mov              rax, qword ptr [rcx + 0]
-                        add              rax, 1
-                        mov              qword ptr [rcx + 0], rax
-                        lea              rdi, [rip + .S1]
-                        call             rt_bomb@PLT
-                        ud2
+                        movabs           rax, 139714370921164
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx86_2
+                        mov              rdi, qword ptr [rip + .Lx86_0]
+                        call             mon_emit_call_bin@PLT
+.Lx86_2:
+                        mov              rax, qword ptr [rip + fn_cell$add@GOTPCREL]
+                                                                                        jmp   rax
                                                                                         jmp   add_act_γ
-add_act_β:
-                        lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
-                                                                                        jmp   add_act_ω
+.Lx86_1:
+                        movzx            r9, cl
+                        cmp              r9d, 2
+                                                                                        je    .Lx86_3
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                        mov              rdi, rbp
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        xor              ecx, ecx
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                                                                                        jmp   .Lx86_4
+.Lx86_3:
+                        mov              rdi, rbp
+                        xor              esi, esi
+                        xor              edx, edx
+                        mov              ecx, 1
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+.Lx86_4:
+                        mov              rcx, qword ptr [rbp + -112]                    # add
+                        mov              qword ptr [1879052288], rcx
+                        mov              rcx, qword ptr [rbp + -104]
+                        mov              qword ptr [1879052296], rcx
+                        mov              rcx, qword ptr [rbp + -128]                    # a
+                        mov              qword ptr [1879052304], rcx
+                        mov              rcx, qword ptr [rbp + -120]
+                        mov              qword ptr [1879052312], rcx
+                        mov              r10, qword ptr [rbp + -16]
+                        mov              r11, qword ptr [rbp + -24]
+                        mov              rcx, qword ptr [rbp + -40]
+                        movabs           rax, 139714370921164
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx86_5
+                        mov              rdi, qword ptr [rip + .Lx86_0]
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        call             mon_emit_return_bin@PLT
+.Lx86_5:
+                        mov              rax, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        mov              qword ptr [1879048216], rcx
+                        cmp              r9d, 2
+                                                                                        je    .Lx86_6
+                                                                                        jmp   r10
+.Lx86_6:
+                                                                                        jmp   r11
+add_act_ω:
 .Lx86_0:
                         .quad            .Lx86_0_s
 .Lx86_0_s:
                         .string          "add"
-                        .section         .rodata
-.S0:                    .string          "O\035\001"
-.S1:                    .string          "\375\230\322\021"
-                        .text
                         .section         .note.GNU-stack,"",@progbits

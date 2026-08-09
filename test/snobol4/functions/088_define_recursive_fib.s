@@ -395,6 +395,13 @@ n22_statement_end_α:
                                                                                         jmp   n23_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n23_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx59_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx59_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -409,11 +416,6 @@ proc_LBL__fib_β:
                                                                                         jmp   proc_LBL__fib_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__fib_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__fib_ω:
                         call             rt_flat_ret_snap@PLT
@@ -453,11 +455,6 @@ proc_fib_β:
                                                                                         jmp   proc_fib_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_fib_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_fib_ω:
                         call             rt_flat_ret_snap@PLT
@@ -1380,6 +1377,13 @@ n113_statement_end_α:
                                                                                         jmp   n114_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n114_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx193_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx193_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -1400,8 +1404,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              edi, 1
@@ -1415,40 +1417,96 @@ fn_cell$fib:
 fib_act_α:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 88
-                        mov              rax, qword ptr [1879052288]                    # fib
+                        sub              rsp, 136
+                        mov              qword ptr [rbp + -16], rcx
+                        mov              qword ptr [rbp + -24], rdx
+                        lea              rax, [rbp + 8]
+                        mov              qword ptr [rbp + -32], rax
+                        mov              rax, qword ptr [1879048216]
+                        mov              qword ptr [rbp + -40], rax
+                        mov              qword ptr [1879048216], rbp
+                        lea              rax, [rip + .Lx196_1]
                         mov              qword ptr [rbp + -64], rax
+                        mov              rdi, rbp
+                        call             rt_ab_enter_env@PLT
+                        mov              rax, qword ptr [1879052288]                    # fib
+                        mov              qword ptr [rbp + -112], rax
                         mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rbp + -56], rax
+                        mov              qword ptr [rbp + -104], rax
                         mov              rax, qword ptr [1879052304]                    # n
-                        mov              qword ptr [rbp + -80], rax
+                        mov              qword ptr [rbp + -128], rax
                         mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rbp + -72], rax
+                        mov              qword ptr [rbp + -120], rax
                         xor              eax, eax                                       # fib
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rax
                         xor              eax, eax                                       # n
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139908822987488
-                        mov              rax, qword ptr [rcx + 0]
-                        add              rax, 1
-                        mov              qword ptr [rcx + 0], rax
-                        lea              rdi, [rip + .S1]
-                        call             rt_bomb@PLT
-                        ud2
+                        movabs           rax, 139945403671244
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx196_2
+                        mov              rdi, qword ptr [rip + .Lx196_0]
+                        call             mon_emit_call_bin@PLT
+.Lx196_2:
+                        mov              rax, qword ptr [rip + fn_cell$fib@GOTPCREL]
+                                                                                        jmp   rax
                                                                                         jmp   fib_act_γ
-fib_act_β:
-                        lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
-                                                                                        jmp   fib_act_ω
+.Lx196_1:
+                        movzx            r9, cl
+                        cmp              r9d, 2
+                                                                                        je    .Lx196_3
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                        mov              rdi, rbp
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        xor              ecx, ecx
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                                                                                        jmp   .Lx196_4
+.Lx196_3:
+                        mov              rdi, rbp
+                        xor              esi, esi
+                        xor              edx, edx
+                        mov              ecx, 1
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+.Lx196_4:
+                        mov              rcx, qword ptr [rbp + -112]                    # fib
+                        mov              qword ptr [1879052288], rcx
+                        mov              rcx, qword ptr [rbp + -104]
+                        mov              qword ptr [1879052296], rcx
+                        mov              rcx, qword ptr [rbp + -128]                    # n
+                        mov              qword ptr [1879052304], rcx
+                        mov              rcx, qword ptr [rbp + -120]
+                        mov              qword ptr [1879052312], rcx
+                        mov              r10, qword ptr [rbp + -16]
+                        mov              r11, qword ptr [rbp + -24]
+                        mov              rcx, qword ptr [rbp + -40]
+                        movabs           rax, 139945403671244
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx196_5
+                        mov              rdi, qword ptr [rip + .Lx196_0]
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        call             mon_emit_return_bin@PLT
+.Lx196_5:
+                        mov              rax, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        mov              qword ptr [1879048216], rcx
+                        cmp              r9d, 2
+                                                                                        je    .Lx196_6
+                                                                                        jmp   r10
+.Lx196_6:
+                                                                                        jmp   r11
+fib_act_ω:
 .Lx196_0:
                         .quad            .Lx196_0_s
 .Lx196_0_s:
                         .string          "fib"
-                        .section         .rodata
-.S0:                    .string          ")\252\003"
-.S1:                    .string          "0\252\003"
-                        .text
                         .section         .note.GNU-stack,"",@progbits

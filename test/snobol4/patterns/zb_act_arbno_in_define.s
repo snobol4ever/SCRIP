@@ -316,6 +316,13 @@ n20_statement_end_α:
                                                                                         jmp   n21_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n21_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx56_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx56_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -330,11 +337,6 @@ proc_LBL__MATCHIT_β:
                                                                                         jmp   proc_LBL__MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_ω:
                         call             rt_flat_ret_snap@PLT
@@ -374,11 +376,6 @@ proc_MATCHIT_β:
                                                                                         jmp   proc_MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_ω:
                         call             rt_flat_ret_snap@PLT
@@ -917,6 +914,13 @@ n93_statement_end_α:
                                                                                         jmp   n94_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n94_save_restore_α:
+                        mov              r9, qword ptr [1879048216]
+                        test             r9, r9
+                                                                                        je    .Lx148_0
+                        mov              cl, 0
+                        mov              rax, qword ptr [r9 + -64]
+                                                                                        jmp   rax
+.Lx148_0:
                         call             rt_flat_ret_snap@PLT
                         mov              rcx, qword ptr [rax + 0]
                         mov              rbp, qword ptr [rax + 24]
@@ -937,10 +941,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              rsp, rbp
-                        pop              rbp
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
@@ -956,41 +956,99 @@ fn_cell$MATCHIT:
 MATCHIT_act_α:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 88
-                        mov              rax, qword ptr [1879052288]                    # MATCHIT
+                        sub              rsp, 136
+                        mov              qword ptr [rbp + -16], rcx
+                        mov              qword ptr [rbp + -24], rdx
+                        lea              rax, [rbp + 8]
+                        mov              qword ptr [rbp + -32], rax
+                        mov              rax, qword ptr [1879048216]
+                        mov              qword ptr [rbp + -40], rax
+                        mov              qword ptr [1879048216], rbp
+                        lea              rax, [rip + .Lx151_1]
                         mov              qword ptr [rbp + -64], rax
+                        mov              rdi, rbp
+                        call             rt_ab_enter_env@PLT
+                        mov              rax, qword ptr [1879052288]                    # MATCHIT
+                        mov              qword ptr [rbp + -112], rax
                         mov              rax, qword ptr [1879052296]
-                        mov              qword ptr [rbp + -56], rax
+                        mov              qword ptr [rbp + -104], rax
                         mov              rax, qword ptr [1879052304]                    # S
-                        mov              qword ptr [rbp + -80], rax
+                        mov              qword ptr [rbp + -128], rax
                         mov              rax, qword ptr [1879052312]
-                        mov              qword ptr [rbp + -72], rax
+                        mov              qword ptr [rbp + -120], rax
                         xor              eax, eax                                       # MATCHIT
                         mov              qword ptr [1879052288], rax
                         mov              qword ptr [1879052296], rax
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rcx, 139835051471584
-                        mov              rax, qword ptr [rcx + 0]
-                        add              rax, 1
-                        mov              qword ptr [rcx + 0], rax
-                        lea              rdi, [rip + .S2]
-                        call             rt_bomb@PLT
-                        ud2
+                        movabs           rax, 140370339095244
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx151_2
+                        mov              rdi, qword ptr [rip + .Lx151_0]
+                        call             mon_emit_call_bin@PLT
+.Lx151_2:
+                        mov              rax, qword ptr [rip + fn_cell$MATCHIT@GOTPCREL]
+                                                                                        jmp   rax
                                                                                         jmp   MATCHIT_act_γ
-MATCHIT_act_β:
-                        lea              rdi, [rip + .S1]
-                        call             rt_bomb@PLT
-                        ud2
-                                                                                        jmp   MATCHIT_act_ω
+.Lx151_1:
+                        movzx            r9, cl
+                        cmp              r9d, 2
+                                                                                        je    .Lx151_3
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                        mov              rdi, rbp
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        xor              ecx, ecx
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+                                                                                        jmp   .Lx151_4
+.Lx151_3:
+                        mov              rdi, rbp
+                        xor              esi, esi
+                        xor              edx, edx
+                        mov              ecx, 1
+                        call             rt_ab_leave_env@PLT
+                        mov              qword ptr [rbp + -88], rax
+                        mov              qword ptr [rbp + -96], rdx
+.Lx151_4:
+                        mov              rcx, qword ptr [rbp + -112]                    # MATCHIT
+                        mov              qword ptr [1879052288], rcx
+                        mov              rcx, qword ptr [rbp + -104]
+                        mov              qword ptr [1879052296], rcx
+                        mov              rcx, qword ptr [rbp + -128]                    # S
+                        mov              qword ptr [1879052304], rcx
+                        mov              rcx, qword ptr [rbp + -120]
+                        mov              qword ptr [1879052312], rcx
+                        mov              r10, qword ptr [rbp + -16]
+                        mov              r11, qword ptr [rbp + -24]
+                        mov              rcx, qword ptr [rbp + -40]
+                        movabs           rax, 140370339095244
+                        mov              rax, qword ptr [rax + 0]
+                        test             rax, rax
+                                                                                        je    .Lx151_5
+                        mov              rdi, qword ptr [rip + .Lx151_0]
+                        mov              rsi, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        call             mon_emit_return_bin@PLT
+.Lx151_5:
+                        mov              rax, qword ptr [rbp + -88]
+                        mov              rdx, qword ptr [rbp + -96]
+                        mov              qword ptr [1879048216], rcx
+                        cmp              r9d, 2
+                                                                                        je    .Lx151_6
+                                                                                        jmp   r10
+.Lx151_6:
+                                                                                        jmp   r11
+MATCHIT_act_ω:
 .Lx151_0:
                         .quad            .Lx151_0_s
 .Lx151_0_s:
                         .string          "MATCHIT"
                         .section         .rodata
 .S0:                    .string          "V"
-.S1:                    .string          "\221\247\001"
-.S2:                    .string          "\225\247\001"
                         .text
                         .section         .note.GNU-stack,"",@progbits
