@@ -2002,6 +2002,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     /* register in g->ab_nodes[] for post-main-chain emission by the driver (jump-target-only dead code until AB-3) */
                     if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
                     else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
+                    { IR_t * bind = lc_build(g, IR_FUNC_ACTIVATE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); /* ROLE = n_operands==0 (bind) vs >=1 (block): IR_LIT is a union, ival and sval share storage — measured this session. */ lc_γ_to(anchor[i], bind); continue; }   /* AB-3a (this session): the DEFINE residual bind joins the LIVE chain — anchor -> bind -> sJ (γ), ω = fA per the statement fail convention (unused: DEFINE errors are fatal, not fail).  ival=2 selects the bind arm in the emit dispatch; sval carries fname for the fname-derived α label and the shared cell registry.  This replaces the bare skip ONLY on the folded-prototype + SCRIP_AB path; the shared legacy skip below still serves _ab=0 and unfolded shapes, keeping SCRIP_AB=0 byte-identical. */
                 }
             }
             lc_γ_to(anchor[i], sJ); continue;
