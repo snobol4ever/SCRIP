@@ -359,9 +359,27 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
  * built in the rax:rdx return pair the call convention already uses: rax = q0 = {v=DT_I(6), slen=0}, rdx = the payload.  `top` is a 32-bit signed int widened by the C's (long long) cast, so the widening is
  * movsxd (via eax) and NOT a bare 32-bit mov — provably identical here since top is a count that only ever rises from 0 or resets to an earlier mark, but written exactly rather than resting on that proof.
  * Internal label ids 100..101 (SINK-1 owns 40..58, SINK-2 60..77, SINK-3 80..99; marshal owns idx*2, unused at nargs==0). */
-static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
-    /* PL-ZK-2b: zd_rsp >= 0 = ZD arm (args at [rsp+zd_rsp]); -1 = legacy FRQ(argbase). Slow-path rdi: ZD uses lea rdi,[rsp+zd_rsp]; legacy uses lea rdi,FRQ(argbase). */
+static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1, int resoff = -1) {
+    /* PL-ZK-2b: zd_rsp >= 0 = ZD arm (args at [rsp+zd_rsp]); -1 = legacy FRQ(argbase). Slow-path rdi: ZD uses lea rdi,[rsp+zd_rsp]; legacy uses lea rdi,FRQ(argbase).
+     * PL-FR-4 N0-SUPPRESS: resoff >= 0 && zframe_graph = Prolog zframe arm.  When g_pl_zf_pending_cursor is set (β-resume re-entry into a fresh callee frame), rt_jmp_frame_lexprep2 already wrote the
+     * saved trail mark into [rbp+resoff] (= FRQ(resoff)) BEFORE n0 ($trail_mark) runs.  Running pl_trail_mark() again would overwrite that with the CURRENT trail top (= 1 after backtrack unwind), making
+     * $unwind_nothrow a no-op and leaving clause-1's bindings live into clause-2.  Canonical fix: skip the trail-mark computation on the resume path; load rax:rdx from FRQ(resoff) (already correct) and jmp
+     * to label 101.  Byte-identical for SN4/ICN: zframe_graph=0 → this block is never emitted.  ONE AUTHORITY: both the fast-path and slow-path share this guard (label 102 is new in the SINK-8 range). */
     std::string s = x86("comment", "PL-SINK-8 inline $trail_mark fast path: guards prove the zh/cw mark push is a no-op, then mark = g_pl_trail.top; rt_pl_dop_trail_mark is the slow-path oracle (unmodified args)");
+    if (resoff >= 0 && g_emit_cfg && g_emit_cfg->zframe_graph) {
+        extern void *g_pl_zf_pending_cursor;
+        s += x86("comment", "PL-FR-4 N0-SUPPRESS: if pending β-resume, lexprep2 already wrote correct trail mark — skip pl_trail_mark and use frame slot as-is");
+        /* Mirror bb_suspend.cpp line 44-45: lea r11,[rip+g_pl_zf_pending_cursor]; mov rax,[r11] — r11 parses XK_MEMIND (x86_load_mem64 dispatch); r10 would parse XK_R10MIR (store-cursor-only, no load arm). */
+        s += x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor");
+        s += x86("mov", "rax", "[r11]");
+        s += x86("test", "rax", "rax");
+        s += x86_jcc_id("je", 102);                /* 0 = normal path: fall through to pl_trail_mark */
+        /* pending resume: load rax:rdx from the slot lexprep2 wrote, then jmp 101 (skip the mark computation) */
+        s += x86("mov", "rax", FRQ(resoff));
+        s += x86("mov", "rdx", FRQ(resoff + 8));
+        s += x86_jmp_id(101);
+        s += x86_deflabel_id(102);
+    }
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_cellws_on, "g_plw_cellws_on");
     s += x86("mov", "eax", "dword ptr [r10 + 0]");
     s += x86("test", "eax", "eax");
@@ -487,7 +505,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         bool zd_sank = false;
         if (nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
             const char * tm_sym = 0; void * tm_fp = dop_direct_fp(fn, 0, &tm_sym);
-            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0); zd_sank = true;
+            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0, _.op_off); zd_sank = true;   /* PL-FR-4 N0-SUPPRESS: ZD arm passes _.op_off (= FRQ result slot = pl_trail_mark_off) as resoff for the pending-resume skip guard */
                 if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): $trail_mark result in ZRES(0/8) must ALSO land in FRQ(op_off+0/8). β-continuation nodes ($unwind_nothrow, $trail_unwind) are NOT on the gamma-chain (zd_on=0, never armed) so they read from FRQ at their own activation depth, not from the FORTH spine. The trail mark integer must survive backtrack at any RSP depth; FRQ(op_off) = [rbp+op_off] is rbp-relative and depth-immune. ONE AUTHORITY. */
             }
         }
@@ -591,7 +609,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     } else if (dfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
         s += sink_unify_lst_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp && nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
-        s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
+        s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, -1, resoff);   /* PL-FR-4 N0-SUPPRESS: pass resoff for the pending-resume skip guard */
     } else if (dfp && nargs == 3 && !strcmp(fn, "$ix_g") && ix_kk > 0 && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK4")) {
         s += sink_ix_g_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, ix_kk, ix_kival);
     } else if (dfp) {
