@@ -299,61 +299,62 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: SCRIP vs SPITBOL — 2026-07-31, HEAD `a679d993` (s22l-B)
+### Benchmark: SCRIP vs SPITBOL — 2026-08-09, HEAD `26cbd86a` (09h)
 
-Full 21-program benchmark corpus (`corpus/benchmarks/snobol4/*.sno`) head-to-head
-against the SPITBOL x64 fork oracle (`snobol4ever/x64`, `sbl -b`). Each figure is
-the program's own `TIME()` compute loop in ms; `—` means the program reports no
-`TIME()` loop (`indirect_dispatch`). SCRIP is the mode-4 `--compile` native binary,
-gcc `-O0`, default regime. Run under `setarch -R` (ASLR off) per the s22l instrument
-law — ASLR is worth ±2 programs on any m4 figure. **ratio > 1.00x means SCRIP is
-faster.**
+Benchmark corpus (`corpus/benchmarks/snobol4/*.sno`, now 23 programs) vs the
+SPITBOL x64 oracle (`sbl -b`). Program-reported `TIME()` ms; SCRIP = mode-4
+`--compile`, gcc `-O0`, default regime. ⚠ NOT run under `setarch -R` this pass
+(the s22l ±2-program ASLR caveat applies). **ratio > 1.00x = SCRIP faster.**
+Suite state this HEAD: **OK=20 FAIL=0 CRASH=3 of 23** — up from 17 after three
+09h fixes (MATCH_BEGIN stfh-carve accounting via the `emit_match_begin_stfh_k`
+one-authority; the DEFER/VALUE hit-store environ smash gated; CAS-POP-SCAN
+replacing the falsified 24 B/capture arena leak — FINDING-2026-08-09h).
 
 | benchmark | SPITBOL (ms) | SCRIP (ms) | ratio |
 |---|---|---|---|
-| arith_int | 4423 | 1137 | 3.89x |
-| arith_loop | 46 | 12 | 3.83x |
-| arith_mixed | 2259 | 444 | 5.09x |
-| arith_str | 275 | 381 | 0.72x |
-| eval_dynamic | 440 | timeout | — |
-| eval_fixed | 254 | 222 | 1.14x |
-| fibonacci | 168 | 342 | 0.49x |
-| func_call | 841 | 1309 | 0.64x |
-| func_call_overhead | 900 | 1201 | 0.75x |
-| indirect_dispatch | — | — | — |
-| mixed_workload | 144 | 1153 | 0.12x |
-| op_dispatch | 122 | 28 | 4.36x |
-| pattern_bt | 225 | 151 | 1.49x |
-| pattern_bt_deep | 3536 | 2049 | 1.73x |
-| roman | 128 | 287 | 0.45x |
-| string_concat | 131 | 7 | 18.71x |
-| string_manip | 622 | 1788 | 0.35x |
-| string_pattern | 682 | 2448 | 0.28x |
-| table_access | 330 | 1226 | 0.27x |
-| table_churn | 332 | 2036 | 0.16x |
-| var_access | 1328 | 312 | 4.26x |
+| arith_int | 4857 | 1571 | 3.09x |
+| arith_loop | 48 | 15 | 3.20x |
+| arith_mixed | 2375 | 768 | 3.09x |
+| arith_str | 350 | 467 | 0.75x |
+| eval_dynamic | — | hang 30s | — |
+| eval_fixed | 277 | 316 | 0.88x |
+| fibonacci | 192 | 514 | 0.37x |
+| func_call | 977 | 2005 | 0.49x |
+| func_call_overhead | 996 | 1926 | 0.52x |
+| mixed_workload | 188 | 2464 | 0.08x |
+| op_dispatch | 132 | 41 | 3.22x |
+| pattern_bt | 526 | 279 | 1.89x |
+| pattern_bt_deep | 8196 | 5104 | 1.61x |
+| roman | 128* | CRASH | — |
+| string_concat | 144 | 10 | 14.40x |
+| string_manip | 658 | 2850 | 0.23x |
+| string_pattern | 682* | CRASH | — |
+| table_access | 356 | 2886 | 0.12x |
+| table_churn | 338 | 1211 | 0.28x |
+| var_access | 1557 | 417 | 3.73x |
 
-**The honest reading: SCRIP wins 9, loses 10, and the board is bimodal.** Where the
-work is scalar arithmetic, dispatch, or concatenation, SCRIP is 3.8–18.7× faster —
-`string_concat` 18.71×, `arith_mixed` 5.09×, `op_dispatch` 4.36×, `var_access` 4.26×,
-`arith_int` 3.89×, `arith_loop` 3.83×. Pattern backtracking is now ahead too
-(`pattern_bt_deep` 1.73×, `pattern_bt` 1.49×), which is recent.
+(`cap_imm_nret`, `indirect_dispatch` run OK, no `TIME()` loop; * = 07-31 sbl
+figure, not re-timed.)
 
-Where SCRIP still loses it loses badly, and the cluster is coherent: **aggregates and
-string building** — `table_churn` 0.16×, `mixed_workload` 0.12×, `table_access` 0.27×,
-`string_pattern` 0.28×, `string_manip` 0.35×. These are allocation- and
-copy-dominated, not codegen-dominated, so they are a RUNTIME story (the RTX ladder),
-not a Byrd-box story. The call cluster sits just under par (`func_call` 0.64×,
-`func_call_overhead` 0.75×) and `fibonacci` at 0.49× tracks it.
+**The bimodal reading holds.** Scalar/dispatch/concat: 3.1–14.4× faster.
+Pattern backtracking is ahead (`pattern_bt` 1.89×, `_deep` 1.61×) — and both
+were CRASH at session open; they land already-faster the day they first run.
+The losing cluster is unchanged and coherent: **aggregates + string building**
+(`mixed_workload` 0.08×, `table_access` 0.12×, `string_manip` 0.23×,
+`table_churn` 0.28×) — allocation/copy-dominated, an RTX-ladder story — plus
+the DEFINE call protocol (`func_call` ~0.5×, `fibonacci` 0.37×), LADDER AB's
+exact customer.
 
-`eval_dynamic` **times out at 40s against SPITBOL's 440ms.** EVAL remains the one
-structural gap — roughly 150× slower, ~0.09 ms/call. Semantics are correct on a
-3-iteration reduction; this is a throughput defect, not a correctness one.
+**Regressions vs 07-31 named, not hidden:** `roman` and `string_pattern` ran at
+`a679d993` and CRASH now — the REPLACE-class positive-home family (environ
+smash; slot census + capture-δ collision constraint in FINDING-2026-08-09h §4,
+routed to OS-2·SLICE-REPLACE). `string_pattern` additionally hides an m3 hang
+at ~500 replacements that the arena leak was masking. `eval_dynamic` still
+hangs both modes.
 
-⛔ **Do not quote a single headline multiplier from this table.** The geometric spread
-runs from 0.12× to 18.71×; any one number is a cherry-pick. The defensible summary is
-"faster on scalar/dispatch/pattern work, slower on aggregate/string-building work,
-and EVAL is unfixed."
+⛔ **Do not quote a single headline multiplier.** Spread runs 0.08×–14.4×; the
+defensible summary is unchanged: "faster on scalar/dispatch/pattern work,
+slower on aggregate/string-building and calls, EVAL and REPLACE unfixed."
 
 
 ### Demo suite: SCRIP vs SPITBOL — the measurement rail (2026-07-24, HEAD `a0b9aa41`)
