@@ -2279,6 +2279,7 @@ void sno_expr_thunks_build(int x0) {
         IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
         ir_operand_push(asn, vr);
         if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
+        { IR_t * ad = lc_build(gx, IR_SAVE_RESTORE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }   /* ⭐ EXPR-CLASSP (2026-08-09, the h2 silent-success-drop root): every live EXPR$ caller is the WIRE loop (dcap pump / rt_defer_open both do rt_proc_call_open then lea rcx,γ; lea rdx,ω; jmp rax — a pcall record is ALWAYS open), yet the graph exited CLASS C (bb_glue_outer_γ: mov rsp,rbp; pop rbp; mov eax,DT; ret) against an rbp NO prologue established — the GLUE-SYM disease verbatim, a fossil of the deleted C-side rt_dcap_flush.  Prepending the role-3 WIRE-ADOPT makes the graph satisfy the driver's EXISTING CLASS P floor predicate (scrip.c ×4: entry==IR_SAVE_RESTORE && ival==3), so exits become bb_glue_wire_γ/ω → rt_flat_ret_snap → the adopted wires — the same one authority DEFINE stubs use; zero driver/pump edits. */
         int xpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
         g_stage2.proc_table[xpi].proc = NULL;
