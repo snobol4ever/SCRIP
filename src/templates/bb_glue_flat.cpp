@@ -89,7 +89,8 @@ std::string bb_glue_outer_γ() {
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(MEDIUM_TEXT   && !_chain, x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
          + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"))
-         + IF(MEDIUM_BINARY,            x86("mov32", "eax", (long)DT_S) + x86("ret"));
+         + IF(MEDIUM_BINARY && !_chain, x86("xor", "edi", "edi") + x86_call_ro("exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
+         + IF(MEDIUM_BINARY &&  _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
@@ -101,7 +102,8 @@ std::string bb_glue_outer_ω() {
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(MEDIUM_TEXT   && !_chain, x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
          + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"))
-         + IF(MEDIUM_BINARY,            x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
+         + IF(MEDIUM_BINARY && !_chain, x86("mov32", "edi", 1) + x86_call_ro("exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
+         + IF(MEDIUM_BINARY &&  _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE
