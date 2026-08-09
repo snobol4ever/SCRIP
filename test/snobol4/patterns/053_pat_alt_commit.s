@@ -382,6 +382,7 @@ n27_match_begin_af:
                         mov              rdx, qword ptr [rbp + -16]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + -48]                     # old_rbp
+                        add              rsp, 64
                                                                                         jmp   n26_assign_β
 #-----------------------------------------------------------------------------------------------------------------------
 n28_match_assign_save_α:
@@ -515,7 +516,11 @@ n31_match_end_α:
                         pop              r13
                         pop              r15
                         pop              r14
+.Lx72_10:
                         sub              r12, 24                                        # cas_mark
+                        mov              rax, qword ptr [r12 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx72_10
                         mov              r13, qword ptr [rbp + -40]                     # outer_Σ
                         mov              r14, qword ptr [rbp + -32]                     # outer_δ
                         mov              r15, qword ptr [rbp + -24]                     # outer_Δ

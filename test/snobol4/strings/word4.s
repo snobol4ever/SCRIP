@@ -695,6 +695,7 @@ n59_match_begin_af:
                         mov              rdx, qword ptr [rbp + -16]                     # cap_gen
                         call             rt_match_ctx_restore@PLT
                         mov              rbp, qword ptr [rbp + -48]                     # old_rbp
+                        add              rsp, 64
                                                                                         jmp   n58_assign_β
 #-----------------------------------------------------------------------------------------------------------------------
 n60_match_defer_α:
@@ -708,9 +709,6 @@ n60_match_defer_α:
                         lea              rdx, [rip + .Lx101_5]
                                                                                         jmp   rax
 .Lx101_4:
-                        lea              rcx, [rip + g_scan_hit_start]
-                        mov              rax, qword ptr [rcx]
-                        mov              dword ptr [rbp + 112], eax
                                                                                         jmp   n61_match_end_α
 .Lx101_5:
                                                                                         jmp   n59_match_begin_β
@@ -808,7 +806,11 @@ n61_match_end_α:
                         pop              r13
                         pop              r15
                         pop              r14
+.Lx103_10:
                         sub              r12, 24                                        # cas_mark
+                        mov              rax, qword ptr [r12 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx103_10
                         mov              r13, qword ptr [rbp + -40]                     # outer_Σ
                         mov              r14, qword ptr [rbp + -32]                     # outer_δ
                         mov              r15, qword ptr [rbp + -24]                     # outer_Δ
