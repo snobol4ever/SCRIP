@@ -40,6 +40,9 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_init(void) {}
+/* RTX-FUNC-0 AB posthook: file-statics + one-shot callback for g_emit_chain_posthook */
+static IR_graph_t *g_ab_posthook_g = NULL; static int g_ab_posthook_gva = 0;
+static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int); if (g_ab_posthook_g) bb_ab_emit_nodes(g_ab_posthook_g, g_ab_posthook_gva); }
 /* ICN-FR-2: ζ-frame exit-wire thunks for the m3 main graph.  The ζ-frame epilogue does `jmp rcx` (γ) / `jmp rdx` (ω);
  * the main graph needs these to point at exit(0)/exit(1) respectively.  rt_outer_call does NOT preserve rcx/rdx across
  * its asm wrapper, so the driver uses a raw asm block to set them directly before calling the graph function. */
@@ -1619,6 +1622,14 @@ int main(int argc, char **argv)
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
+            /* RTX-FUNC-0 AB-EMIT-ORDER (m3): arm the posthook so activation blocks emit inside emit_chain's
+             * JIT session.  bb_ab_emit_nodes appends INC_act_α into the same bb_emit_buf and the bind-fix
+             * C-store writes bb_emit_buf+lbl.offset into fn_cell BEFORE emitter_end() seals the buffer and
+             * BEFORE the SNOBOL4 program runs.  The hook is one-shot (emit_chain clears it on fire) so the
+             * proc-chain emit_chain calls above never trigger it. */
+            { extern void (*g_emit_chain_posthook)(void); extern void bb_ab_emit_nodes(IR_graph_t*, int); extern int g_gva_active;
+              g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;
+              g_emit_chain_posthook = bb_ab_posthook; }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;

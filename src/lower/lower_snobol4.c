@@ -2021,7 +2021,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
              * the anchor so the emitter lays it out as unreachable .text after the DEFINE skip.  The node carries op_sval=fname
              * and IR_LIT_STRING operands for each save-set member name so the emit-time drive can call gva_index_of on them.
              * SCRIP_AB=0 restores byte-identical pre-AB emission. */
-            static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (!_e || *_e != '0') ? 1 : 0; }
+            static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }   /* RTX-FUNC-0: default OFF (opt-in SCRIP_AB=1) until bug#2 (nformals=0 at block emit nulls formal N) lands — transfer path proven live end-to-end m3 this seat; default-on flip owed with the bug#2 fix */
             if (_ab) {
                 int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
                 const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;

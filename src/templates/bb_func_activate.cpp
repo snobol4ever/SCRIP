@@ -10,6 +10,7 @@ extern "C" {
 #include "rt.h"
 extern int64_t kw_fnclevel;
 extern int g_monitor_bin;
+void *rt_proc_get_fn(const char *name);   /* RTX-FUNC-0: binary body-jmp target — proc JIT fn pointer, registered by the driver proc loop before bb_ab_emit_nodes fires */
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
 }
@@ -146,11 +147,19 @@ std::string bb_func_activate() {
         /* body-jmp: jmp proc_FN_α  (AB-3b/AB-5 static-direct fold: proc body label always known at emit time).
          * fn_cell$FN holds &FN_act_α (written by DEFINE's AB-3a residual action) and is the CALL-SITE target —
          * using it here would be a self-loop (fn_cell → INC_act_α = this block).  Direct label is both media:
-         * TEXT: jmp proc_INC_α (resolved by the assembler); BINARY: x86_jmp_lblptr patches through emit-label
-         * table (forward — blocks emit post-main-chain, but emit_label_intern allocates the slot now). */
+         * TEXT: jmp proc_INC_α (resolved by the assembler); BINARY: movabs rax, rt_proc_get_fn(fname); jmp rax
+         * (the proc is already JIT-compiled before bb_ab_emit_nodes runs; the fn pointer is registered by the
+         * driver's proc loop; cross-session x86_jmp_lblptr is NOT used — proc_INC_α lives in a different label
+         * pool that was reset when the proc's emit_chain session ended). */
       + [&]() -> std::string {
             char blbl[128];
             snprintf(blbl, sizeof blbl, "proc_%s_\xce\xb1", fname);
+            if (MEDIUM_BINARY) {
+                void *pfn = rt_proc_get_fn(fname);
+                if (pfn) return x86_jmpfn(blbl, (uint64_t)(uintptr_t)pfn);
+                /* Fallback if proc not yet registered — should not happen when hook fires post-proc-loop */
+                return x86_bomb("bb_func_activate: proc fn not registered for binary body-jmp");
+            }
             bb_label_t *bp = emit_label_intern(blbl);
             return x86_jmp_lblptr(bp, blbl);
         }()
@@ -254,11 +263,16 @@ std::string bb_ab_bind() {
     const char * fname = _.op_sval ? _.op_sval : "?";
     std::string albl = std::string(fname) + "_act_\xce\xb1";
     std::string clbl = std::string("fn_cell$") + fname;
+    /* RTX-FUNC-0 BIND-NEUTRALIZE (BINARY): the lea's [rip + __] 5-arg form routes to x86_load_ro which in
+     * BINARY bakes the ptr argument (0 here) as a movabs immediate — there is NO forward-patch for it, so at
+     * DEFINE-time this store wrote 0 over the correct address the bb_ab_emit_nodes posthook C-store had
+     * already placed (measured: cell probe good, then jmp 0 at first call).  BINARY bind is now a transparent
+     * relay — the C-store at block-emit time IS the bind.  TEXT keeps the runtime store: gas resolves
+     * <FN>_act_α at assembly time and the fn_cell$<FN> .data slot via GOT, both correct as-is. */
+    if (MEDIUM_BINARY) return x86_alpha() + x86_pair_loop();
     return x86_alpha()
-         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())   /* α address by NAME, both media: TEXT renders [rip + <FN>_act_α]; BINARY patches through the emit-label table (the lbl_α override keys the same string), FORWARD — blocks emit post-main-chain.  The bare 3-arg string form is SILENTLY SWALLOWED by the encoder (measured this session: both leas vanished from the .s, r11 garbage, wild store, segv) — the 5-arg __ form is the sanctioned named-symbol spelling (the fn_cell body-jmp arm above is the precedent). */
-         + (MEDIUM_BINARY
-             ? x86("movabs", "r11", (uint64_t)(uintptr_t)bb_ab_cell_addr(fname))   /* BINARY cell = runtime slot via the shared allocator; movabs mirrors the block's own cell idiom */
-             : x86("mov", "r11", std::string("[rip@got + __]"), (uint64_t)0, clbl.c_str()))   /* TEXT cell = &fn_cell$<FN> via the GOT load, the 145-line precedent verbatim */
+         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())   /* α address by NAME (TEXT): renders [rip + <FN>_act_α], resolved by the assembler.  The bare 3-arg string form is SILENTLY SWALLOWED by the encoder (measured: both leas vanished from the .s, r11 garbage, wild store, segv) — the 5-arg __ form is the sanctioned named-symbol spelling. */
+         + x86("mov", "r11", std::string("[rip@got + __]"), (uint64_t)0, clbl.c_str())   /* TEXT cell = &fn_cell$<FN> via the GOT load, the 145-line precedent verbatim */
          + x86("mov", RDQ("r11", 0), "rax")
          + x86_pair_loop();
 }
@@ -293,6 +307,14 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
         g_emit.lbl_β = ab_lbl_β;
         g_emit.lbl_γ = ab_lbl_γ;
         g_emit.lbl_ω = ab_lbl_ω;
+        /* RTX-FUNC-0: BINARY port defines/jumps route through the POINTER fields (x86_portlbl), not the name
+         * strings — stale saved_emit pointers meant the α define landed on the previous node's label and
+         * INC_act_α was interned-but-never-defined (bind-fix probe: def=0 off=-1).  Intern by the same names
+         * so D-records and the bind-fix agree on ONE bb_label_t per port. */
+        g_emit.lbl_α_p = emit_label_intern(ab_lbl_α);
+        g_emit.lbl_β_p = emit_label_intern(ab_lbl_β);
+        g_emit.lbl_γ_p = emit_label_intern(ab_lbl_γ);
+        g_emit.lbl_ω_p = emit_label_intern(ab_lbl_ω);
         int _ab_n = (int)nd->n_operands < (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot)
                   ? (int)nd->n_operands
                   : (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot);
@@ -301,6 +323,20 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
             g_emit.op_arg_slot[k] = (nm && gva_active) ? gva_index_of(nm) : -1;
         }
         bb_emit_x86(bb_func_activate());
+        /* RTX-FUNC-0 BIND-FIX: in BINARY (m3), x86_load_ro baked 0 as the forward-reference placeholder for
+         * [rip + INC_act_α] in bb_ab_bind() — movabs is an immediate, not a patchable rel32, so the label
+         * address was never resolved.  The label pool persists for the whole emitter session (one bb_emit_begin
+         * per emit_chain call), so INC_act_α is now defined (just emitted above).  Look it up and write the
+         * absolute JIT address (bb_emit_buf + offset) directly into the fn_cell.  The runtime bind still runs
+         * (its MOV stores this same address again) — idempotent and harmless.  TEXT (m4): bind resolves via
+         * gas/ld at link time; no C-side store needed.  ONE AUTHORITY: bb_ab_cell_addr is the allocator. */
+        if (MEDIUM_BINARY) {
+            extern bb_buf_t bb_emit_buf;
+            bb_label_t *al = emit_label_intern(ab_lbl_α);
+            void **cell = (void **)bb_ab_cell_addr(fn);
+            if (al && bb_label_defined(al) && cell)
+                *cell = (void *)(bb_emit_buf + al->offset);
+        }
     }
     g_emit     = saved_emit;
     g_emit_cfg = saved_cfg;
