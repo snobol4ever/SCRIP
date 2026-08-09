@@ -134,9 +134,13 @@ n7_lit_integer_α:
 n8_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   n6_match_begin_β
+                                                                                        je    .Lx37_240
+                        add              rsp, 16
+                                                                                        jmp   n6_match_begin_β
+.Lx37_240:
                                                                                         jmp   n9_match_assign_save_α
 n8_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:

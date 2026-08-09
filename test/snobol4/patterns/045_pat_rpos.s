@@ -136,9 +136,13 @@ n8_match_rpos_α:
                         mov              ecx, r15d
                         sub              ecx, eax
                         cmp              r14d, ecx
-                                                                                        jne   n6_match_begin_β
+                                                                                        je    .Lx37_240
+                        add              rsp, 16
+                                                                                        jmp   n6_match_begin_β
+.Lx37_240:
                                                                                         jmp   n9_match_assign_save_α
 n8_match_rpos_β:
+                        add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:

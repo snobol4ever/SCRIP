@@ -417,11 +417,6 @@ proc_LBL__Push_β:
                                                                                         jmp   proc_LBL__Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_ω:
                         call             rt_flat_ret_snap@PLT
@@ -730,11 +725,6 @@ proc_LBL__Pop_β:
                                                                                         jmp   proc_LBL__Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_ω:
                         call             rt_flat_ret_snap@PLT
@@ -1225,11 +1215,6 @@ proc_LBL__Unary_β:
                                                                                         jmp   proc_LBL__Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_ω:
                         call             rt_flat_ret_snap@PLT
@@ -1874,11 +1859,6 @@ proc_LBL__Binary_β:
                                                                                         jmp   proc_LBL__Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_ω:
                         call             rt_flat_ret_snap@PLT
@@ -1918,11 +1898,6 @@ proc_Push_β:
                                                                                         jmp   proc_Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_ω:
                         call             rt_flat_ret_snap@PLT
@@ -1962,11 +1937,6 @@ proc_Pop_β:
                                                                                         jmp   proc_Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_ω:
                         call             rt_flat_ret_snap@PLT
@@ -2006,11 +1976,6 @@ proc_Unary_β:
                                                                                         jmp   proc_Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_ω:
                         call             rt_flat_ret_snap@PLT
@@ -2050,11 +2015,6 @@ proc_Binary_β:
                                                                                         jmp   proc_Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_ω:
                         call             rt_flat_ret_snap@PLT
@@ -6728,7 +6688,7 @@ n609_assign_β:
 n610_match_begin_α:
                         mov              rdi, qword ptr [rsp + 16]                      # var
                         mov              rsi, qword ptr [rsp + 24]
-                        sub              rsp, 64
+                        sub              rsp, 48
                         mov              qword ptr [rbp + -40], r13                     # outer_Σ
                         mov              qword ptr [rbp + -32], r14                     # outer_δ
                         mov              qword ptr [rbp + -24], r15                     # outer_Δ
@@ -6743,14 +6703,14 @@ n610_match_begin_α:
                         mov              qword ptr [r12 + 8], rsp                       # cas_rsp_mark
                         mov              qword ptr [r12 + 16], 0
                         add              r12, 24                                        # cas_top
-                        mov              qword ptr [rbp + -56], rsp                     # zls2_mark
-                        mov              dword ptr [rbp + -64], 0                       # start_δ
+                        mov              qword ptr [rbp + 2832], rsp                    # zls2_mark
+                        mov              dword ptr [rbp + 2816], 0                      # start_δ
 .Lx950_0:
-                        mov              r14d, dword ptr [rbp + -64]
+                        mov              r14d, dword ptr [rbp + 2816]
                                                                                         jmp   n611_lit_integer_α
 n610_match_begin_β:
-                        add              dword ptr [rbp + -64], 1
-                        mov              eax, dword ptr [rbp + -64]
+                        add              dword ptr [rbp + 2816], 1
+                        mov              eax, dword ptr [rbp + 2816]
                         cmp              eax, r15d
                                                                                         jg    .Lx950_1
                         mov              rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]
@@ -6761,7 +6721,7 @@ n610_match_begin_β:
 .Lx950_1:
 n610_match_begin_af:
                         sub              r12, 24                                        # cas_mark
-                        mov              rsp, qword ptr [rbp + -56]
+                        mov              rsp, qword ptr [rbp + 2832]
                         mov              r13, qword ptr [rbp + -40]                     # outer_Σ
                         mov              r14, qword ptr [rbp + -32]                     # outer_δ
                         mov              r15, qword ptr [rbp + -24]                     # outer_Δ
@@ -6784,9 +6744,13 @@ n611_lit_integer_α:
 n612_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   n610_match_begin_β
+                                                                                        je    .Lx952_240
+                        add              rsp, 16
+                                                                                        jmp   n610_match_begin_β
+.Lx952_240:
                                                                                         jmp   n613_match_defer_α
 n612_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   n610_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n613_match_defer_α:
@@ -6864,7 +6828,10 @@ n615_match_rpos_α:
                         mov              ecx, r15d
                         sub              ecx, eax
                         cmp              r14d, ecx
-                                                                                        jne   n613_match_defer_β
+                                                                                        je    .Lx955_240
+                        add              rsp, 16
+                                                                                        jmp   n613_match_defer_β
+.Lx955_240:
                                                                                         jmp   n616_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n616_match_end_α:
@@ -6874,7 +6841,7 @@ n616_match_end_α:
                         mov              rax, qword ptr [r10 + 0]
                         test             rax, rax
                                                                                         jne   .Lx957_9
-                        mov              rsp, qword ptr [rbp + -56]
+                        mov              rsp, qword ptr [rbp + 2832]
                         push             r14
                         push             r15
                         push             r13
@@ -8730,10 +8697,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              rsp, rbp
-                        pop              rbp
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
@@ -8775,7 +8738,7 @@ Push_act_α:
                         xor              eax, eax                                       # x
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1137_2
@@ -8819,7 +8782,7 @@ Push_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1137_5
@@ -8870,7 +8833,7 @@ Pop_act_α:
                         xor              eax, eax
                         mov              qword ptr [1879052320], rax
                         mov              qword ptr [1879052328], rax
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1138_2
@@ -8910,7 +8873,7 @@ Pop_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1138_5
@@ -8970,7 +8933,7 @@ Unary_act_α:
                         xor              eax, eax                                       # arg
                         mov              qword ptr [1879052352], rax
                         mov              qword ptr [1879052360], rax
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1139_2
@@ -9014,7 +8977,7 @@ Unary_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1139_5
@@ -9076,7 +9039,7 @@ Binary_act_α:
                         xor              eax, eax                                       # op
                         mov              qword ptr [1879052368], rax
                         mov              qword ptr [1879052376], rax
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1140_2
@@ -9120,7 +9083,7 @@ Binary_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140584944897356
+                        movabs           rax, 139778873072972
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx1140_5
