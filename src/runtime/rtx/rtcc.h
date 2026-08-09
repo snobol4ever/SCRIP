@@ -35,6 +35,15 @@ extern "C" {
 /* XMM slots start at byte offset RTCC_GPR_BYTES from block base (16-byte each) */
 /* RTCC_XMM_SLOT(n) for XMM(8+n), n=0..7 */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RC-5 VM GLOBAL ASSIGNMENTS — one per measured rung; each its own commit on the fixed rail.                                                                                                          */
+/* The block slot is the CANONICAL home; the register is a CACHE valid only inside generated code.                                                                                                     */
+/* Every C-side write to a claimed global MUST also update the block slot (BLOCK-CANONICAL LAW).                                                                                                       */
+/* RC-5 rung 1: R8 = rt_anchor_g (&ANCHOR value, int64_t).                                                                                                                                            */
+/*   Read site: bb_match_begin/bb_match_advance retry loop (hottest per-match-attempt global access).         */
+/*   Write sites: keywords.c g_anchor write + core.c kw_anchor write (BOTH must update the block slot).      */
+/*   Template change: x86("rtcc_anchor_cmp") → test r8, r8 (replaces 3-insn GOT-deref-cmp sequence).         */
+#define RTCC_GLOBAL_R8_ANCHOR   1   /* RC-5-ANCHOR killswitch: 0 = OFF (byte-identical); 1 = ON */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The block itself — declared in rtcc_init.c; extern here for the GC and coexpr paths.                                                                                                              */
 /* 256-byte aligned so every slot fits in one or two L1 cache lines.                                                                                                                                  */
 extern uint64_t g_rtcc_block[32];   /* 32 × 8B = 256B; XMM slots at [9]..[24] as two uint64 each */

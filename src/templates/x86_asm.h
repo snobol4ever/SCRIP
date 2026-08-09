@@ -11,6 +11,9 @@
 extern "C" {
 extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
 extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 0=OFF(default), 1=ON(SCRIP_RTCC=1) */
+#define RTCC_SLOT_R8 5              /* RC-5: block slot for R8 = rt_anchor_g (&ANCHOR value) */
+#define RTCC_GLOBAL_R8_ANCHOR 1    /* RC-5-ANCHOR killswitch: 0=OFF(byte-identical); 1=ON */
+long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
 #ifndef _
 #define _ g_emit
@@ -1621,6 +1624,32 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (!g_rtcc_on) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block)) : x86_rtcc_rl_text();
+    }
+    if (!strcmp(mnem, "rtcc_anchor_cmp")) {
+        /* RC-5: test r8, r8 — replaces the 3-insn [rip+rt_anchor_g@GOTPCREL] load+deref+cmp sequence.    */
+        /* When gate OFF (RTCC_GLOBAL_R8_ANCHOR=0): emit the original GOT-deref sequence byte-identical.    */
+        /* When gate ON: emit 'test r8, r8' (3 bytes: REX.R=1 TEST rm64,r64 with both operands r8).        */
+        /* The ZF flag semantics are identical: ZF=1 iff anchor==0 (unanchored), ZF=0 iff anchored.        */
+        /* The conditional branch that follows uses 'jne' (branch if anchor != 0 = anchored), unchanged.   */
+        if (!g_rtcc_on || !RTCC_GLOBAL_R8_ANCHOR) {
+            /* KILLSWITCH path: emit the original 3-insn sequence (byte-identical to pre-RC-5) */
+            uint64_t anchor_addr = (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr();
+            if (MEDIUM_BINARY) {
+                std::string s;
+                /* movabs r11, anchor_addr  (REX.WB + B8+3 = 0x49 0xBB + 8-byte addr) */
+                s += (char)0x49; s += (char)0xBB; s += u64le(anchor_addr);
+                /* mov rax, [r11]  (REX.WR + 8B /0 mod=00 rm=011 = 0x4D 0x8B 0x03) */
+                s += (char)0x4D; s += (char)0x8B; s += (char)0x03;
+                /* cmp rax, 0  (REX.W + 83 /7 imm8 = 0x48 0x83 0xF8 0x00) */
+                s += (char)0x48; s += (char)0x83; s += (char)0xF8; s += (char)0x00;
+                return x86_Lrec(s);
+            }
+            /* TEXT: emit the canonical 3-line sequence bb_match_begin uses */
+            return std::string(" mov rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]\n mov rax, qword ptr [rcx]\n cmp rax, 0\n");
+        }
+        /* RC-5 ON path: test r8, r8 (3 bytes: 4D 85 C0) */
+        if (MEDIUM_BINARY) { std::string s; s += (char)0x4D; s += (char)0x85; s += (char)0xC0; return x86_Lrec(s); }
+        return std::string(" test r8, r8\n");
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);
     if (!strcmp(mnem, "pop"))  return x86_pop(a.txt);
