@@ -25,7 +25,7 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
-void   *rt_gen_get_cont(void); /* ICN-FR-4 L3: returns saved continuation ptr from pcall.save_Σ (heap-safe) */
+void   *rt_gen_get_cont(void *gen_rbp); /* ICN-FR-5: returns continuation ptr keyed by gen_rbp (pcall scan by fb) */
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: callee's icn_zframe_gen flag by name — 1 = Icon zframe generator; 0 = Prolog or non-generator (zeta_storage.c) */
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);   /* PL-FR-4 s12: callee's pl_trail_mark_off by name — >0 = frame slot of $trail_mark result; 0 = absent (zeta_storage.c) */
@@ -691,10 +691,12 @@ static std::string bcps_spine_gen_arm() {
           * NON-ZFRAME: mov rsp,FRQ(act+8) restores frontier where [rsp]=landing word; jmp[rsp]→L(7). */
          + (zf_resume
             ? ( [&]() -> std::string {
-                uint64_t _gc_fp; { void *(*_f)(void) = rt_gen_get_cont; _gc_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                return x86("call", "rt_gen_get_cont", _gc_fp)  /* rax = continuation ptr from pcall.save_Σ */
+                uint64_t _gc_fp; { void *(*_f)(void *) = rt_gen_get_cont; _gc_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                return x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp (FRQ slot saved at L(3)) */
+                     + x86("mov", "rdi", "rax")                 /* ICN-FR-5: gen_rbp as first arg for keyed cont lookup */
+                     + x86("call", "rt_gen_get_cont", _gc_fp)   /* rax = continuation ptr keyed by gen_rbp */
                      + x86("mov", "r11", "rax")                 /* save cont in r11 (ABI scratch) */
-                     + x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp from caller frame */
+                     + x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp again */
                      + x86("mov", "rbp", "rax")                 /* pin generator frame base */
                      + x86("mov", "rsp", "rax")                 /* set FORTH base to generator_rbp */
                      + x86("jmp", "r11");                       /* jmp to stored continuation */
