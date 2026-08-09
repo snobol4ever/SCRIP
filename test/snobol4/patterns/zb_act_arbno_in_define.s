@@ -238,7 +238,11 @@ n10_match_end_α:
                         pop              r13
                         pop              r15
                         pop              r14
+.Lx38_10:
                         sub              r12, 24                                        # cas_mark
+                        mov              rax, qword ptr [r12 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx38_10
                         mov              r13, qword ptr [rsp + 48]                      # outer_Σ
                         mov              r14, qword ptr [rsp + 56]                      # outer_δ
                         mov              r15, qword ptr [rsp + 64]                      # outer_Δ
@@ -323,11 +327,11 @@ n20_statement_end_α:
                                                                                         jmp   n21_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n21_save_restore_α:
-                        mov              r9, qword ptr [1879048216]
-                        test             r9, r9
+                        mov              rcx, qword ptr [1879048216]
+                        test             rcx, rcx
                                                                                         je    .Lx56_0
                         mov              cl, 0
-                        mov              rax, qword ptr [r9 + -64]
+                        mov              rax, qword ptr [rcx + -64]
                                                                                         jmp   rax
 .Lx56_0:
                         call             rt_flat_ret_snap@PLT
@@ -861,7 +865,11 @@ n84_match_end_α:
                         pop              r13
                         pop              r15
                         pop              r14
+.Lx133_10:
                         sub              r12, 24                                        # cas_mark
+                        mov              rax, qword ptr [r12 + 0]
+                        test             rax, rax
+                                                                                        jne   .Lx133_10
                         mov              r13, qword ptr [rsp + 48]                      # outer_Σ
                         mov              r14, qword ptr [rsp + 56]                      # outer_δ
                         mov              r15, qword ptr [rsp + 64]                      # outer_Δ
@@ -946,11 +954,11 @@ n94_statement_end_α:
                                                                                         jmp   n95_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n95_save_restore_α:
-                        mov              r9, qword ptr [1879048216]
-                        test             r9, r9
+                        mov              rcx, qword ptr [1879048216]
+                        test             rcx, rcx
                                                                                         je    .Lx151_0
                         mov              cl, 0
-                        mov              rax, qword ptr [r9 + -64]
+                        mov              rax, qword ptr [rcx + -64]
                                                                                         jmp   rax
 .Lx151_0:
                         call             rt_flat_ret_snap@PLT
@@ -1018,7 +1026,7 @@ MATCHIT_act_α:
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140474777320844
+                        movabs           rax, 139627427249548
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_2
@@ -1062,7 +1070,7 @@ MATCHIT_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140474777320844
+                        movabs           rax, 139627427249548
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_5
