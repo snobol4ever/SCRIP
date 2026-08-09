@@ -27,9 +27,13 @@ n0_lit_integer_α:
 n1_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   proc_PAT$0_scanfail
+                                                                                        je    .Lx17_240
+                        add              rsp, 16
+                                                                                        jmp   proc_PAT$0_scanfail
+.Lx17_240:
                                                                                         jmp   n2_match_assign_save_α
 n1_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   proc_PAT$0_scanfail
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_assign_save_α:

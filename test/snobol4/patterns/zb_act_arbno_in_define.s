@@ -83,9 +83,13 @@ n3_lit_integer_α:
 n4_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   n2_match_begin_β
+                                                                                        je    .Lx28_240
+                        add              rsp, 16
+                                                                                        jmp   n2_match_begin_β
+.Lx28_240:
                                                                                         jmp   n5_match_assign_save_α
 n4_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   n2_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_assign_save_α:
@@ -181,7 +185,10 @@ n9_match_rpos_α:
                         mov              ecx, r15d
                         sub              ecx, eax
                         cmp              r14d, ecx
-                                                                                        jne   n7_match_assign_cond_β
+                                                                                        je    .Lx36_240
+                        add              rsp, 16
+                                                                                        jmp   n7_match_assign_cond_β
+.Lx36_240:
                                                                                         jmp   n10_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_end_α:
@@ -337,11 +344,6 @@ proc_LBL__MATCHIT_β:
                                                                                         jmp   proc_LBL__MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__MATCHIT_ω:
                         call             rt_flat_ret_snap@PLT
@@ -381,11 +383,6 @@ proc_MATCHIT_β:
                                                                                         jmp   proc_MATCHIT_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_γ:
-                        call             rt_flat_ret_snap@PLT
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_MATCHIT_ω:
                         call             rt_flat_ret_snap@PLT
@@ -699,9 +696,13 @@ n77_lit_integer_α:
 n78_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   n76_match_begin_β
+                                                                                        je    .Lx123_240
+                        add              rsp, 16
+                                                                                        jmp   n76_match_begin_β
+.Lx123_240:
                                                                                         jmp   n79_match_assign_save_α
 n78_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   n76_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n79_match_assign_save_α:
@@ -797,7 +798,10 @@ n83_match_rpos_α:
                         mov              ecx, r15d
                         sub              ecx, eax
                         cmp              r14d, ecx
-                                                                                        jne   n81_match_assign_cond_β
+                                                                                        je    .Lx131_240
+                        add              rsp, 16
+                                                                                        jmp   n81_match_assign_cond_β
+.Lx131_240:
                                                                                         jmp   n84_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n84_match_end_α:
@@ -959,10 +963,6 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
-                        mov              rsp, rbp
-                        pop              rbp
-                        xor              edi, edi
-                        call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
                         mov              rsp, rbp
@@ -1004,7 +1004,7 @@ MATCHIT_act_α:
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140187282935116
+                        movabs           rax, 140006464396620
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_2
@@ -1048,7 +1048,7 @@ MATCHIT_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140187282935116
+                        movabs           rax, 140006464396620
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_5

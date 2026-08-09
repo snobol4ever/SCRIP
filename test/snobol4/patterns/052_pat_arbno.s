@@ -139,9 +139,13 @@ n7_lit_integer_α:
 n8_match_pos_α:
                         mov              rax, 0
                         cmp              r14d, eax
-                                                                                        jne   n6_match_begin_β
+                                                                                        je    .Lx40_240
+                        add              rsp, 16
+                                                                                        jmp   n6_match_begin_β
+.Lx40_240:
                                                                                         jmp   n9_match_assign_save_α
 n8_match_pos_β:
+                        add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:
@@ -237,7 +241,10 @@ n13_match_rpos_α:
                         mov              ecx, r15d
                         sub              ecx, eax
                         cmp              r14d, ecx
-                                                                                        jne   n11_match_assign_cond_β
+                                                                                        je    .Lx48_240
+                        add              rsp, 16
+                                                                                        jmp   n11_match_assign_cond_β
+.Lx48_240:
                                                                                         jmp   n14_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_end_α:
