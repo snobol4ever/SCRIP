@@ -652,7 +652,7 @@ upcase_act_α:
                         xor              eax, eax                                       # s
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 139666893552972
+                        movabs           rax, 139964659776908
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx91_2
@@ -696,7 +696,7 @@ upcase_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 139666893552972
+                        movabs           rax, 139964659776908
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx91_5

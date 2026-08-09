@@ -1018,7 +1018,7 @@ MATCHIT_act_α:
                         xor              eax, eax                                       # S
                         mov              qword ptr [1879052304], rax
                         mov              qword ptr [1879052312], rax
-                        movabs           rax, 140037653249356
+                        movabs           rax, 139969290288524
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_2
@@ -1062,7 +1062,7 @@ MATCHIT_act_α:
                         mov              r10, qword ptr [rbp + -16]
                         mov              r11, qword ptr [rbp + -24]
                         mov              rcx, qword ptr [rbp + -40]
-                        movabs           rax, 140037653249356
+                        movabs           rax, 139969290288524
                         mov              rax, qword ptr [rax + 0]
                         test             rax, rax
                                                                                         je    .Lx154_5
