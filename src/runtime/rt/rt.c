@@ -1812,7 +1812,8 @@ extern void   *g_pl_zf_pending_cursor;
 extern long    g_pl_zf_pending_tm_lo;
 extern long    g_pl_zf_pending_tm_hi;
 extern int     g_pl_zf_pending_tm_off;
-extern int     g_pl_zf_pending_cursor_off;   /* frame slot offset of the cursor (resume_slot); set by rt_pl_zf_resume_set alongside cursor */
+extern int     g_pl_zf_pending_cursor_off;
+extern int     g_pl_zf_target_pcall_top;   /* PL-FR-4 BUG-FIX s14: pcall_top snapshot at resume_set time */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
 {
@@ -1825,9 +1826,12 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     { DESCR_t *zf = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) zf[zi] = NULVCL; }
     /* PL-FR-2: rt_frame_bind_args writes at [fb+(i+1)*16] (positive, inside frame). Named Prolog params live at positive offsets; anonymous vars (G0/G1) get cells via PLJ heap. */
     rt_frame_bind_args((char *)fb, c->p, c->nargs);
-    /* PL-FR-4 PENDING RESUME OVERRIDE: if bcps_spine_gen_arm's β arm set g_pl_zf_pending_cursor (via rt_pl_zf_resume_set), write cursor+trail into the fresh frame NOW, BEFORE α_body runs.
-     * The α_body re-writes the cursor slot (same value) and n0 overwrites the trail mark with current trail top.
-     * The pending cursor is NOT cleared here — it survives until bb_suspend's intercept or the epilogue-γ intercept fires. */
+    /* PL-FR-4 PENDING RESUME OVERRIDE: write cursor+trail into the fresh frame BEFORE α_body runs.
+     * The α_body re-writes the cursor slot (same value) and n0 overwrites the trail mark.
+     * PL-FR-4 BUG-FIX (s14): write a sentinel value 1 to [fb+0] (the yield-value lo word, normally NULVCL=0 until suspend fires).
+     * α_body NEVER writes [fb+0] — only the suspend yield path does.  bb_suspend checks [rbp+0] for the sentinel
+     * to distinguish β-resume re-entry (1) from fresh call (0).  Per-frame: works for any recursion depth.
+     * The global g_pl_zf_pending_cursor is still checked first (quick zero test before the frame read). */
     if (g_pl_zf_pending_cursor) {
         int rs = g_pl_zf_pending_cursor_off;
         if (rs > 0 && rs + 8 <= (int)region_bytes) *(void **)((char *)fb + rs) = g_pl_zf_pending_cursor;
@@ -1836,6 +1840,7 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
             *(long *)((char *)fb + tm)     = g_pl_zf_pending_tm_lo;
             *(long *)((char *)fb + tm + 8) = g_pl_zf_pending_tm_hi;
         }
+        ((long *)fb)[0] = 1L;   /* PL-FR-4 BUG-FIX: sentinel at [fb+0]; bb_suspend checks this instead of the global */
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1927,6 +1932,7 @@ __attribute__((visibility("default"))) long    g_pl_zf_pending_tm_lo;    /* trai
 __attribute__((visibility("default"))) long    g_pl_zf_pending_tm_hi;    /* trail mark hi to write into [fb+tm_off+8] */
 __attribute__((visibility("default"))) int     g_pl_zf_pending_tm_off;   /* frame slot offset for trail mark (pl_zf_trail_mark_off from IR_graph_t) */
 __attribute__((visibility("default"))) int     g_pl_zf_pending_cursor_off;   /* frame slot offset for cursor (resume_slot from IR_graph_t; baked by bcps_spine_gen_arm from zls_g_resume_by_name) */
+__attribute__((visibility("default"))) int     g_pl_zf_target_pcall_top;   /* PL-FR-4 BUG-FIX (s14): g_pcall_top snapshot at rt_pl_zf_resume_set time (BEFORE open_det increments it).  bb_suspend intercept fires only when g_pcall_top == this+1 — meaning THIS predicate is the direct β-resume target.  Inner predicates called from target's α_body have higher pcall_top and skip the intercept, maintaining triple-stack balance. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off)
 {
@@ -1935,6 +1941,7 @@ void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int c
     g_pl_zf_pending_tm_hi = tm_hi;
     g_pl_zf_pending_tm_off = tm_off;
     g_pl_zf_pending_cursor_off = cursor_off;
+    g_pl_zf_target_pcall_top = g_pcall_top;   /* PL-FR-4 BUG-FIX: snapshot BEFORE open_det pushes the callee pcall */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_zf_resume_clear(void) { g_pl_zf_pending_cursor = (void *)0; }
