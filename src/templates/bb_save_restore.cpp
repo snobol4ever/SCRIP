@@ -70,12 +70,14 @@ std::string bb_save_restore() {
                                            "IR_SAVE_RESTORE NRETURN floater (dual-arm AB-2)")
              + x86_alpha()
                /* AB arm: if ACT-ANCHOR == 0, fall to legacy snap */
-             + x86("mov", "r9", ABSQ(RT_AB_ANCHOR))    /* load anchor value (rbp of active frame, or 0) */
-             + x86("test", "r9", "r9")
+             + x86("mov", "rcx", ABSQ(RT_AB_ANCHOR))  /* load anchor value (rbp of active frame, or 0).
+                * ⚠ RTCC-SAFE: use rcx (dead at floater entry on all three roles) NOT r9.
+                * r9 = RT_GVA_VA (GVA island base) under RTCC_GLOBAL_R9_GVA — must not be clobbered. */
+             + x86("test", "rcx", "rcx")
              + x86("je",   L(0))                        /* 0 → legacy path */
                /* AB path: set type-code in cl; jmp through [frame+AB_OFF_BADDR] */
-             + x86("mov",  "cl", (long)tc)              /* AB_TYPECODE_REG = cl */
-             + x86("mov",  "rax", RDQ("r9", AB_OFF_BADDR))  /* β address from the active frame */
+             + x86("mov",  "cl", (long)tc)              /* AB_TYPECODE_REG = cl (low byte of rcx — safe: test already consumed rcx) */
+             + x86("mov",  "rax", RDQ("rcx", AB_OFF_BADDR))  /* β address from the active frame */
              + x86("jmp",  "rax")
                /* legacy path: rt_flat_ret_snap → restore → jmp wire */
              + x86("def",  L(0))
