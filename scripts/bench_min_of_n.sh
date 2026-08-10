@@ -42,12 +42,23 @@ RATIO_FLOOR="${RATIO_FLOOR:-1.10}"
 FAMILY="${FAMILY:-}"
 ARM_A="${ARM_A:-}"
 ARM_B="${ARM_B:-}"
-ASLR="${ASLR:-on}"
+# ASLR DEFAULTS TO **off** (s11).  RC-0(a)'s own exit criterion is stated "at ASLR=off (setarch -R)", so the
+# instrument now defaults to the layout its acceptance test is defined on.  Address-layout draw moves the
+# min-of-N statistic itself, which defeats the monotone-stability rationale that justifies min-of-N: the min
+# is only a stable floor WITHIN one layout.  Override with ASLR=on to reproduce a legacy number.
+ASLR="${ASLR:-off}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }
 if [ -n "${PROGS:-}" ]; then LIST=""; for p in $PROGS; do LIST="$LIST $BENCH/$p.sno"; done
 else LIST=$(ls "$BENCH"/*.sno 2>/dev/null); fi
 [ -n "$LIST" ] || { echo "no benchmarks found under $BENCH"; exit 1; }
-PRE=""; [ "$ASLR" = "off" ] && PRE="setarch -R"
+# Capability-probe rather than assume: setarch may be missing, or its personality syscall blocked by seccomp
+# in a container.  A silently-ignored `setarch -R` would label rows ASLR=off while measuring ASLR=on, which is
+# a mislabelled number -- the one thing this instrument exists to prevent.  Degrade loudly instead.
+PRE=""
+if [ "$ASLR" = "off" ]; then
+  if command -v setarch >/dev/null 2>&1 && setarch -R /bin/true >/dev/null 2>&1; then PRE="setarch -R"
+  else echo "WARN setarch -R unavailable here -- falling back to ASLR=on; rows are labelled accordingly."; ASLR="on(forced)"; fi
+fi
 # run one program N times under a given gate setting; echo "min med max" in ms
 run_arm() {
     local prog="$1" gate="$2" i s e ms; local times=()
