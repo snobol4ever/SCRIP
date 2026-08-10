@@ -10,6 +10,13 @@ extern "C" {
 #include "rt.h"
 extern int64_t kw_fnclevel;
 extern int g_monitor_bin;
+/* RTX-FUNC-1 α-inline reach set.  Σ/Σlen come from emit.h; these five are the ones no header in this TU declares.  g_pl_trail is declared as a byte array deliberately — the template needs only its
+ * ADDRESS plus the pinned `top` offset, never its layout, and no header exports pl_trail_t; resolution.c's _Static_assert is the guard that keeps PL_TRAIL_TOP_OFF honest across a struct change. */
+extern int rt_g_want_name;
+extern int rt_g_ret_by_name;
+extern int * const rt_k_level_p;
+extern char g_pl_trail[];
+#define PL_TRAIL_TOP_OFF 32
 void *rt_proc_get_fn(const char *name);   /* RTX-FUNC-0: binary body-jmp target — proc JIT fn pointer, registered by the driver proc loop before bb_ab_emit_nodes fires */
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
@@ -98,11 +105,38 @@ std::string bb_func_activate() {
         /* store β address in frame so the shared floater can reach it via anchor chain */
       + x86("lea", "rax", L(1))               /* LEA rip-relative to β label (L(1) string → XK_ILBL → x86_lea_rip_id) */
       + x86("mov", RDQ("rbp", AB_OFF_BADDR), "rax")
-        /* call rt_ab_enter_env(rbp) → Σ/wn/vtmark snapshot + k_level++; clobbers rax/rcx/rdx/rsi/rdi */
-      + x86_align_enter()
-      + x86("mov", "rdi", "rbp")
-      + x86("call", "rt_ab_enter_env", (uint64_t)(uintptr_t)(void *)rt_ab_enter_env)
-      + x86_align_leave()
+        /* RTX-FUNC-1: rt_ab_enter_env INLINED — the five operations of rt.c:511 emitted here, zero C crossings.  Order and semantics are byte-for-byte the C body's: Σ snapshot, Σlen snapshot,
+         * wn snapshot-and-clear, vtmark = g_pl_trail.top, rt_k_level++ then kw_fnclevel = rt_k_level-1.  Scratch is rax (symbol address) + rcx (value) — strictly INSIDE the rax/rcx/rdx/rsi/rdi
+         * set the C call already clobbered here, so no live value changes hands.  Every global is reached through x86("[rip@got + __]") = @GOTPCREL in TEXT / movabs in BINARY: five of the six are
+         * GLOBAL/DEFAULT and dynsym-exported; rt_k_level was GLOBAL/HIDDEN and is promoted at rt.c:396 in this same commit because a hidden symbol cannot be linked from an m4 executable at all.
+         * Each int→64-bit frame slot goes through a 32-bit load into the "e"-name (dword ptr, zero-extending) + movsxd reg,reg, reproducing the C's (int64_t) sign-extension EXACTLY.  ⛔ Do NOT
+         * collapse that pair to x86("mov","rcx",RDD(...)): load32's TEXT arm prints its dst verbatim, so a 64-bit dst spells `mov rcx, dword ptr [..]` (gas size mismatch) while BINARY silently
+         * encodes a correct 32-bit load — the both-medium divergence class, caught at source here rather than in the m4 build. */
+      + x86("note", std::string("RTX-FUNC-1 inline enter_env"))
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σ, "Σ")
+      + x86("mov", "rcx", RDQ("rax", 0))
+      + x86("mov", RDQ("rbp", AB_OFF_SIGMA), "rcx")
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σlen, "Σlen")
+      + x86("mov", "ecx", RDD("rax", 0))
+      + x86("movsxd", "rcx", "ecx")
+      + x86("mov", RDQ("rbp", AB_OFF_SIGMALEN), "rcx")
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+      + x86("mov", "ecx", RDD("rax", 0))
+      + x86("movsxd", "rcx", "ecx")
+      + x86("mov", RDQ("rbp", AB_OFF_WN), "rcx")
+      + x86("mov", RDD("rax", 0), (long)0)                     /* rt_g_want_name = 0 — the C clears it in the same breath it snapshots it */
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
+      + x86("mov", "ecx", RDD("rax", PL_TRAIL_TOP_OFF))        /* rt_value_trail_mark() is { return g_pl_trail.top; } — resolution.c:31; offset pinned by that file's _Static_assert */
+      + x86("movsxd", "rcx", "ecx")
+      + x86("mov", RDQ("rbp", AB_OFF_VTMARK), "rcx")
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+      + x86("mov", "rax", RDQ("rax", 0))                       /* rt_k_level stays HIDDEN for the in-.so asm's PC32 reach — emitted code goes through the exported pointer (rt.c:396) */
+      + x86("add", RDD("rax", 0), (long)1)                     /* rt_k_level++ */
+      + x86("mov", "ecx", RDD("rax", 0))
+      + x86("movsxd", "rcx", "ecx")
+      + x86("sub", "rcx", (long)1)
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+      + x86("mov", RDQ("rax", 0), "rcx")                       /* kw_fnclevel = rt_k_level - 1 (int64_t cell) */
         /* save-set: spill each GVA cell into RBP-relative frame slot */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
             int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
@@ -187,6 +221,51 @@ std::string bb_func_activate() {
                  + x86("mov", "rdx", ABSQ(RT_GVA_VA + (unsigned long)gk0 * 16 + 8)); }()
       + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")
       + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")
+        /* RTX-FUNC-2: rt_ab_leave_env FAST PATH.  Two guards, BOTH provable no-op conditions read straight out of the C (ARCH §7 step 0(f-pre) — the shape whose falsifiability is knowable before the
+         * asm exists), so the fast arm is not an approximation of the C, it is the C with the dead work removed:
+         *   (a) g_pl_trail.top == [rbp+AB_OFF_VTMARK] ⇒ rt_value_trail_tidy_dead_window is a PROVEN no-op: its loop is `for (r = mark; r < top; r++)` (resolution.c) which never iterates when
+         *       mark == top, and its only store is then `top = w = mark`, i.e. writing back the value already there.  Not "usually cheap" — structurally nothing.
+         *   (b) rt_g_ret_by_name == 0 ⇒ rt_nret_fix (rt.c:755) collapses to `rt_g_want_name = wn; return r` — the by-name deref arm is unreachable.
+         * Either guard failing takes the SLOW arm, which is the untouched C call, so the C body remains the fallback AND the bisection oracle exactly as ruling 3 requires.  Fast arm restores Σ/Σlen,
+         * decrements k_level, republishes kw_fnclevel and rt_g_want_name, and hands back the stashed result in rax:rdx — the same post-conditions the call leaves behind.  r9 (type code) untouched. */
+      + x86("note", std::string("RTX-FUNC-2 leave_env fast-path guards"))
+      + x86("mov", "rcx", RDQ("rbp", AB_OFF_VTMARK))
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
+      + x86("mov", "eax", RDD("rax", PL_TRAIL_TOP_OFF))
+      + x86("movsxd", "rax", "eax")
+      + x86("cmp", "rax", "rcx")
+      + x86("jne", L(7))                                       /* trail grew inside this activation → real tidy owed → C */
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+      + x86("mov", "eax", RDD("rax", 0))
+      + x86("cmp", "eax", (long)0)
+      + x86("jne", L(7))                                       /* a by-name return is pending → nret_fix has real work → C */
+        /* ── FAST ARM ── */
+      + x86("mov", "rcx", RDQ("rbp", AB_OFF_SIGMA))
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σ, "Σ")
+      + x86("mov", RDQ("rax", 0), "rcx")
+      + x86("mov", "rcx", RDQ("rbp", AB_OFF_SIGMALEN))
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σlen, "Σlen")
+      + x86("mov", RDD("rax", 0), "ecx")                       /* Σlen is int — dword store, matching the C's assignment width */
+      + x86("mov", "rcx", RDQ("rbp", AB_OFF_WN))
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+      + x86("mov", RDD("rax", 0), "ecx")                       /* rt_nret_fix's tail: rt_g_want_name = wn */
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+      + x86("mov", "rax", RDQ("rax", 0))
+      + x86("mov", "ecx", RDD("rax", 0))
+      + x86("movsxd", "rcx", "ecx")
+      + x86("sub", "rcx", (long)1)                             /* rcx = new k_level; ecx aliases its low half, so the store below writes the decremented value */
+      + x86("mov", RDD("rax", 0), "ecx")                       /* rt_k_level-- .  ⛔ NOT x86("sub", RDD(..), 1): "sub" has NO XK_REGDISP32/XK_IMM dispatch arm and returns the EMPTY STRING — the
+                                                               * decrement vanished from both media and &FNCLEVEL climbed 0,1,2,3 instead of unwinding (caught by the witness, not by the benchmarks,
+                                                               * which stayed oracle-exact throughout).  Third instance of this class in this file's history after x86("leave") and x86("mov",RDD,imm);
+                                                               * "add" happens to have the arm, which is exactly why the α side above works and this one did not. */
+      + x86("sub", "rcx", (long)1)
+      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+      + x86("mov", RDQ("rax", 0), "rcx")
+      + x86("mov", "rax", RDQ("rbp", AB_OFF_RES0))             /* result passes through unchanged — nret_fix is identity under guard (b) */
+      + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))
+      + x86("jmp", L(8))
+        /* ── SLOW ARM — the untouched C crossing ── */
+      + x86("def", L(7))
       + x86_align_enter()
       + x86("mov", "rdi", "rbp")
       + x86("mov", "rsi", RDQ("rbp", AB_OFF_RES0))   /* result.v */
@@ -194,6 +273,7 @@ std::string bb_func_activate() {
       + x86("xor", "ecx", "ecx")                     /* is_fail=0 */
       + x86("call", "rt_ab_leave_env", (uint64_t)(uintptr_t)(void *)rt_ab_leave_env)
       + x86_align_leave()
+      + x86("def", L(8))
         /* rax:rdx = nret-fixed result from leave_env */
       + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")   /* re-stash: monitor tap reads from frame */
       + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")

@@ -394,6 +394,13 @@ typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
+/* RTX-FUNC-1 — rt_k_level_p: the EXPORTED handle on rt_k_level, for EMITTED code only.  bb_func_activate's α now does k_level++ inline, so the m4 executable must name this cell; a hidden symbol is
+ * absent from libscrip_rt.so's .dynsym and every m4 DEFINE-bearing program would fail to LINK (the g_cap_gen class, pattern_match.c:737, 173/316).  ⛔ BUT rt_k_level CANNOT SIMPLY BE PROMOTED: the
+ * hand-written rtx_call.S / rtx_plcall.S reach it with direct R_X86_64_PC32, which is legal ONLY while it is non-preemptible — promoting it fails the .so link outright ("relocation R_X86_64_PC32
+ * against symbol rt_k_level can not be used when making a shared object", measured this session).  Its hidden visibility is LOAD-BEARING for the in-.so asm.  So the cell stays hidden and this
+ * pointer carries it across the .so boundary: emitted code pays one extra load (GOT → pointer → cell) and both media use the identical shape.  ⇒ The RTX-FUNC-1 rung's "promote to hidden" reading is
+ * backwards for emitted-code reach, AND a naive promotion in the other direction breaks the runtime's own asm — the two constraints are opposed and this alias is what satisfies both. */
+int * const rt_k_level_p = &rt_k_level;
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
 typedef struct {
