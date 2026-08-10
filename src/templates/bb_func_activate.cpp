@@ -105,7 +105,7 @@ std::string bb_func_activate() {
       + x86_align_leave()
         /* save-set: spill each GVA cell into RBP-relative frame slot */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
-            int gk  = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
+            int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
             int ot  = ab_save_off(nsave, k);
             int ov  = ab_save_off(nsave, k) + 8;
             if (gk >= 0) {
@@ -125,7 +125,7 @@ std::string bb_func_activate() {
          * never lands here; the ab_bind path writes INC_act_α and the call site installs args first. */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
             if (k >= 1 && k <= (int)nformals) return std::string();   /* AB-3b: skip formals; call site pre-installs actuals */
-            int gk = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
+            int gk = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
                      + x86("xor",  "eax", "eax")
@@ -169,10 +169,22 @@ std::string bb_func_activate() {
         /* Save type-code into r9 immediately — r9 is dead at β entry (was argreg at call site only).
          * r9 survives all C calls and the LEAVE; we read it after LEAVE for the final dispatch. */
       + x86("movzx", "r9", "cl")    /* r9 = type code: 0=RETURN 1=NRETURN 2=FRETURN */
+        /* ADOPT THE FRAME (gdb conviction 2026-08-10): β arrives from the shared floater with the RETURNING STATEMENT's rbp, not this frame's — measured 0x88 below the anchor on the noarg repro.
+         * Every access below (result stash, leave_env frame arg, save-set restore, GW/WW/prev loads, LEAVE) is rbp-relative, so without this adopt β works a FOREIGN frame: γ wire loaded 0 → jmp 0
+         * (rip=0 crash), prev-anchor loaded dead stack garbage → anchor ← rt_ab_enter_env+107 (both gdb-measured).  The anchor is still linked here (unlink is below) and IS this frame's base. */
+      + x86("mov", "rbp", ABSQ(RT_AB_ANCHOR))
         /* FRETURN: result is irrelevant; skip stash; call leave_env(rbp, FAILDESCR, 1) */
       + x86("cmp", "r9d", (long)AB_TC_FRETURN)
       + x86("je",  L(3))
-        /* RETURN / NRETURN: stash result (rax:rdx) in frame before C call clobbers them */
+        /* RETURN / NRETURN: the RESULT is the CURRENT value of the fname GVA cell (save-set k=0), read BEFORE the restore loop puts the saved pre-call value back — manual Ch.8: the value of the
+         * function is the value of the fname variable AT RETURN TIME.  rax:rdx at β entry are statement residue, NOT the result (gdb/output conviction 2026-08-10: stashing them returned null on
+         * every RETURN micro and fed garbage descrs to leave_env on NRETURN → SIGABRT).  Plain ABSQ form deliberately — β's restore loop below is ABSQ-only; the movzx r9 above already conflicts
+         * with RTCC_GLOBAL_R9_GVA's r9=GVA-base claim, flagged in the cursor, so no GVARQ here until that coordination is ruled. */
+      + [&]() -> std::string { int gk0 = (0 < (int)_.op_arg_slot_n) ? _.op_arg_slot[0] : -1;
+            if (gk0 < 0) return x86("xor", "eax", "eax") + x86("xor", "edx", "edx");
+            return x86("note", gva_name(gk0))
+                 + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk0 * 16))
+                 + x86("mov", "rdx", ABSQ(RT_GVA_VA + (unsigned long)gk0 * 16 + 8)); }()
       + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")
       + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")
       + x86_align_enter()
@@ -199,7 +211,7 @@ std::string bb_func_activate() {
       + x86("def", L(4))             /* common β tail */
         /* restore save-set: GVA cells ← frame (rcx is scratch; rax:rdx stashed in frame) */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
-            int gk  = (k < (int)(sizeof _.op_arg_slot / sizeof *_.op_arg_slot)) ? _.op_arg_slot[k] : -1;
+            int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
             int ot  = ab_save_off(nsave, k);
             int ov  = ab_save_off(nsave, k) + 8;
             if (gk >= 0) {
