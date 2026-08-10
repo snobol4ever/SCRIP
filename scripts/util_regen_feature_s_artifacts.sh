@@ -29,6 +29,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 FEAT="${FEAT_DIR:-$ROOT/test/snobol4}"
+CORPUS="${CORPUS:-/home/claude/corpus}"
+# -include 'lib/*.sno' in test/snobol4/library/ resolves against the CORPUS root, not SCRIP; compiling from $ROOT made 4 artifacts EMIT-FAIL and silently freeze at s189 through every regen since.
+INCROOT="$([ -d "$CORPUS/lib" ] && echo "$CORPUS" || echo "$ROOT")"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$FEAT" ]; then echo "SKIP  feature test dir not found: $FEAT"; exit 0; fi
@@ -39,7 +42,7 @@ echo "Emitting feature .s artifacts (mode-4 --compile) under ${FEAT#$ROOT/} ..."
 while IFS= read -r sno; do
     s="${sno%.sno}.s"
     base="$(basename "${sno%.sno}")"
-    if timeout 30 "$SCRIP" --compile "$sno" > "/tmp/feat_$base.s" 2>/dev/null < /dev/null && [ -s "/tmp/feat_$base.s" ]; then
+    if ( cd "$INCROOT" && timeout 30 "$SCRIP" --compile "$sno" ) > "/tmp/feat_$base.s" 2>/dev/null < /dev/null && [ -s "/tmp/feat_$base.s" ]; then
         if gcc -c "/tmp/feat_$base.s" -o "/tmp/feat_$base.o" 2>"/tmp/feat_$base.aserr"; then
             if [ ! -f "$s" ] || ! diff -q "/tmp/feat_$base.s" "$s" >/dev/null 2>&1; then
                 mv "/tmp/feat_$base.s" "$s"; changed=$((changed+1)); echo "  UPD   ${s#$ROOT/}"
