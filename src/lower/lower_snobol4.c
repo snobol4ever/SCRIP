@@ -1220,12 +1220,14 @@ static int sno_pat_inline_ok(const tree_t * t) {   /* ⛔ PAT-INLINE SLICE-1 SHA
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_fz_is_dead_build(const char * nm) {   /* PT-2: 1 iff var-name is fz-member, inline-ok, and has zero *name (TT_DEFER) consumers — MKPAT chain and proc_PAT blob are dead stores */
+    { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: inline off : census undercounts, verdict dies */
     if (!nm) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm))
         return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): a snapshot-referenced store is live even at defer_cnt==0 */
     return 0;
 }
 static int sno_fz_procname_is_dead(const char * pn) {   /* PT-2: lookup by procname (PAT$N) for patproc builder which indexes by g_sno_pats[].name */
+    { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: both consult sites revert together */
     if (!pn) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (g_sno_fz[i].procname && !strcmp(g_sno_fz[i].procname, pn))
         return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): symmetric -- the kept blob's inner fast arm needs the referenced object's own blob for dtp_fn_of */
