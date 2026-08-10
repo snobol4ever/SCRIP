@@ -65,23 +65,32 @@ wl_has() { [ -f "$WHITELIST" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$WHITEL
 # ⛔ NEVER `| grep -q` UNDER pipefail (s11 conviction, recorded in test_gate_rtcc_claimed_regs.sh): grep -q exits
 # on first match and closes the pipe, the upstream sed|perl takes SIGPIPE(141), pipefail propagates it, and A
 # MATCH READS AS A MISS.  grep -c reads to EOF and cannot SIGPIPE the upstream.  Every count below uses grep -c.
+#
+# ⛔ BUT `grep -c` COUNTS LINES, NOT MENTIONS (s14 correction).  s13 published these totals labelled "mentions";
+# they are LINE counts, and a line carrying both registers (`lea r10,..` + `lea r11,..`, 10 such in bb_call_fn)
+# counts once.  Measured gap on the template/emitter surface: 258 lines vs 314 true occurrences, +22%.  The
+# SWEEP is per-occurrence work, so sizing it from the line count understates it.  Both numbers are now printed:
+# LINES stays primary and comparable with every number s13 recorded, OCC is the honest edit surface.  `grep -o |
+# wc -l` is SIGPIPE-safe by the same argument as grep -c -- wc reads to EOF and never closes the pipe early.
 
 echo "=== WREG r10/r11 CLAIM SCOPE GATE ==="
 echo "claim status: $([ "$WREG_CLAIM_LIVE" = 1 ] && echo 'LIVE (rGamma=r10, rOmega=r11 carry wires)' || echo 'PENDING (designed, sweep not yet done)')"
 echo
 
 total=0; wl_total=0; offenders=0
+occ_total=0; wl_occ=0
 listed=""; wl_listed=""
 
 for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h; do
   [ -e "$f" ] || continue
   n=$(strip_comments "$f" | grep -cE "$REGPAT")
   [ "$n" -gt 0 ] || continue
+  o=$(strip_comments "$f" | grep -oE "$REGPAT" | wc -l)
   b="$(basename "$f")"
   if wl_has "$b"; then
-    wl_total=$((wl_total + n)); wl_listed="$wl_listed  LICENSED $b ($n)\n"
+    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ)\n"
   else
-    total=$((total + n)); offenders=$((offenders + 1)); listed="$listed  $n\t$b\n"
+    total=$((total + n)); occ_total=$((occ_total + o)); offenders=$((offenders + 1)); listed="$listed  $n\t$b\t($o occ)\n"
   fi
 done
 
@@ -94,33 +103,36 @@ done
 # It is also the HIGHEST-RISK region in the product for WREG: rtx_match.S runs DURING a match, which is
 # exactly when the wires are live. Reported separately so the two burn-downs never get conflated -- a
 # template rename and an RTX asm rename are different work with different proofs.
-rtx_total=0; rtx_offenders=0; rtx_listed=""
+rtx_total=0; rtx_offenders=0; rtx_occ=0; rtx_listed=""
 for f in src/runtime/rtx/*.S; do
   [ -e "$f" ] || continue
   n=$(strip_comments "$f" | grep -cE "%?$REGPAT")
   [ "$n" -gt 0 ] || continue
+  o=$(strip_comments "$f" | grep -oE "%?$REGPAT" | wc -l)
   b="$(basename "$f")"
   if wl_has "$b"; then
-    wl_total=$((wl_total + n)); wl_listed="$wl_listed  LICENSED $b ($n)\n"
+    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ)\n"
   else
-    rtx_total=$((rtx_total + n)); rtx_offenders=$((rtx_offenders + 1)); rtx_listed="$rtx_listed  $n\t$b\n"
+    rtx_total=$((rtx_total + n)); rtx_occ=$((rtx_occ + o)); rtx_offenders=$((rtx_offenders + 1)); rtx_listed="$rtx_listed  $n\t$b\t($o occ)\n"
   fi
 done
 
 echo "--- LICENSED (whitelisted wire-owning sites) ---"
 if [ -n "$wl_listed" ]; then printf "%b" "$wl_listed"; else echo "  (none yet — whitelist is empty until WREG-1 creates the glue emitters)"; fi
-echo "  licensed mentions: $wl_total"
+echo "  licensed: $wl_total lines / $wl_occ occurrences"
 echo
 echo "--- SWEEP SURFACE (must reach 0 for WREG-0 --strict) ---"
 if [ -n "$listed" ]; then printf "%b" "$listed" | sort -rn; else echo "  (clean)"; fi
 echo
 echo "  files remaining : $offenders"
-echo "  mentions remaining: $total"
+echo "  lines remaining : $total        <- comparable with every number s13 recorded"
+echo "  OCCURRENCES     : $occ_total        <- THE SWEEP SIZE (per-site work; lines undercount by the both-regs-one-line case)"
 echo
 echo "--- RTX HAND-WRITTEN ASM (bulletin-mandated scope; NOT in the design's 178 census) ---"
 if [ -n "$rtx_listed" ]; then printf "%b" "$rtx_listed" | sort -rn; else echo "  (clean)"; fi
 echo "  files remaining : $rtx_offenders"
-echo "  mentions remaining: $rtx_total"
+echo "  lines remaining : $rtx_total"
+echo "  OCCURRENCES     : $rtx_occ"
 echo "  ^ rtx_match.S is the sharpest edge: it executes DURING a match, i.e. while the wires are live."
 echo
 
@@ -130,7 +142,7 @@ echo
 quoted=0
 for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h; do
   [ -e "$f" ] || continue
-  n=$(strip_comments "$f" | grep -coE '"r1[01]"')
+  n=$(strip_comments "$f" | grep -coE '"r1[01]"')   # -c: LINE count, same unit as the design's 178
   quoted=$((quoted + n))
 done
 echo "  drift check: quoted \"r10\"/\"r11\" = $quoted   (LADDER WREG design measured 178 at bce9a4b0)"
@@ -139,7 +151,7 @@ echo
 
 if [ "$strict" = 1 ]; then
   if [ $((total + rtx_total)) -gt 0 ]; then
-    echo "GATE: FAIL ($total template/emitter + $rtx_total RTX-asm non-whitelisted mentions across $((offenders + rtx_offenders)) files)"; exit 1
+    echo "GATE: FAIL ($((occ_total + rtx_occ)) non-whitelisted occurrences -- $occ_total template/emitter + $rtx_occ RTX-asm -- across $((offenders + rtx_offenders)) files)"; exit 1
   fi
   echo "GATE: PASS"; exit 0
 fi
