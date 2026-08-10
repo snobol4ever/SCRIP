@@ -158,10 +158,19 @@ std::string bb_func_activate() {
          * Formals (k=1..nformals) are SKIPPED — the AB-3b call site installs actual arg values there
          * before jumping fn_cell$<FN>.  Pre-existing callers (non-AB path) reach this block through
          * fn_cell which still holds rt_ab_undef_fn_stub until DEFINE runs, so the non-AB path
-         * never lands here; the ab_bind path writes INC_act_α and the call site installs args first. */
+         * never lands here; the ab_bind path writes INC_act_α and the call site installs args first.
+         * ⛔ ALIASED FNAME — manual Ch.8 accumulator idiom, DEFINE('max(max,x)'), used throughout corpus/lib/math.sno:
+         * when the function name is ALSO a formal, the result variable and that formal are ONE name and share ONE
+         * GVA cell (Ch.19 DEFINE: the result is "a variable with the same name as the function").  The call site has
+         * already installed the actual into that cell, and per the oracle that actual IS the value at entry and the
+         * result when no assignment fires (a1(11) -> 11).  Nulling k=0 here destroys the argument.  Detect the
+         * collision by GVA INDEX — names are resolved to cells by this point, so identity is an integer compare, not
+         * a string one — and skip the null.  Restore is untouched: the spill loop above still saves the caller's
+         * OUTER value out of that same cell, so the outer binding comes back on return exactly as before. */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
             if (k >= 1 && k <= (int)nformals) return std::string();   /* AB-3b: skip formals; call site pre-installs actuals */
             int gk = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
+            if (k == 0 && gk >= 0) { for (int f = 1; f <= (int)nformals && f < (int)_.op_arg_slot_n; f++) if (_.op_arg_slot[f] == gk) return std::string(); }   /* fname aliased to a formal: cell holds the actual */
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
                      + x86("xor",  "eax", "eax")
