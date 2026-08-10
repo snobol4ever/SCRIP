@@ -247,23 +247,31 @@ static std::string bcps_det_arm() {
                          * displacements are still valid (ZOPQ is relative to rsp at box entry; sub rsp
                          * would shift every ZOPQ address by scc_sb_z, corrupting the reads).  Then spill
                          * the save-set, which no longer needs the ZOPQ cells and uses rsp-relative stores. */
-                        return FOR(0, (int)_.op_ival, [&](int i) {
-                                  int gk_iz = scc_gk_z[i];
-                                  return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQ(i, 0))
-                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16), "rax")
-                                       + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQ(i, 8))
-                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16 + 8), "rax"); })
-                            + x86("sub", "rsp", scc_sb_z)
+                        /* RTX-FUNC recursion fix (2026-08-10, convicted by r_keepn: caller reads its formal after the inner call and gets the INNER ACTUAL — AB=0 z1 vs AB=1 z0): the pushdown record must hold the CALLER'S LIVE values, so the save-set spill now runs BEFORE the actual install, not after.  Manual Ch.8: formals/locals are saved on the pushdown stack at entry, and only THEN do the formals receive the actuals — the old order saved the actuals over the caller's live environment, which is invisible for sequential calls (twice/nested/r_plain all green) and fatal the moment two frames of one proc are live. */
+                        /* ZOPQ is rsp-relative to box entry, so reading it after `sub rsp` needs the displacement shifted by scc_sb_z — exactly the compensation the classic ab3b arm already applies with FRQB(slot, scc_sb).  Built on the SAME x86_zref inline ZOPQ itself uses, so x86_asm.h stays untouched (NOT-CONCURRENCY-SAFE this seat). */
+                        auto ZOPQC = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)scc_sb_z, 1); };
+                        /* Landing-side formals restore: beta restores the whole save-set from the CALLEE frame, whose formal slots were spilled post-install and therefore hold that call's own actuals.  The caller block (spilled pre-install, just above) is the correct snapshot, so the landings put the formals back after beta has run.  Caller-side restore at the landings is the established BP-7 SCC convention, not a new one.  ABSQ ONLY and rcx scratch: rax:rdx carry the result here, and beta clobbers r9 (movzx r9,cl), so GVARQ's r9=GVA-base claim is dead at this point — the same reasoning that kept beta's restore ABSQ-only. */
+                        auto ab_formals_restore = [&]() { return FOR(0, scc_np_z, [&](int i) {
+                              return x86("note", gva_name(scc_gk_z[i]))
+                                   + x86_rsp_load64("rcx", 16 * i)     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16),     "rcx")
+                                   + x86_rsp_load64("rcx", 16 * i + 8) + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rcx"); }); };
+                        return x86("sub", "rsp", scc_sb_z)
                             + FOR(0, scc_nsave_z, [&](int k) {
                                   return x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16)) + x86_rsp_store64(16 * k, "rax")
                                        + x86("note", gva_name(scc_gk_z[k])) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8)) + x86_rsp_store64(16 * k + 8, "rax"); })
+                            + FOR(0, (int)_.op_ival, [&](int i) {
+                                  int gk_iz = scc_gk_z[i];
+                                  return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQC(i, 0))
+                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16), "rax")
+                                       + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQC(i, 8))
+                                       + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16 + 8), "rax"); })
                             + x86("lea", "rcx", L(10))
                             + x86("lea", "rdx", L(11))
                             + (MEDIUM_BINARY && fn_cell_bin_z
                                 ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin_z) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
                                 : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl_z.c_str()) + x86("jmp", "rax"))
-                            + x86("def", L(10)) + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2))
-                            + x86("def", L(11)) + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2));
+                            + x86("def", L(10)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2))
+                            + x86("def", L(11)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2));
                     }
                     /* Classic ZD SCC path (SCRIP_AB=0 or no DEFINE in this program) */
                     return FOR(0, (int)_.op_ival, [&](int i) {
