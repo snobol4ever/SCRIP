@@ -244,8 +244,12 @@ std::string bb_func_activate() {
       + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))
         /* unlink ACT-ANCHOR: [RT_AB_ANCHOR] ← rcx (prev, loaded above) */
       + x86("mov", ABSQ(RT_AB_ANCHOR), "rcx")
-        /* LEAVE — restores rsp = rbp, pops rbp; frame is gone after this */
-      + x86("leave")
+        /* LEAVE — restores rsp = rbp, pops rbp; frame is gone after this.  Spelled as the mov/pop PAIR, not x86("leave"): there is NO "leave" arm in
+         * x86_asm.h's dispatch, so x86("leave") emitted NOTHING in BOTH media — the callee frame was never torn down.  Neither encoder here touches
+         * flags (as leave does not) and both are proven in-tree (x86_srf_floater; bb_glue_framed).  Adding a real "leave" encoder is the 1-byte form
+         * but x86_asm.h is NOT-CONCURRENCY-SAFE — Lon routes that seat; this pair is byte-equivalent in effect and stays inside the template. */
+      + x86("mov", "rsp", "rbp")
+      + x86("pop", "rbp")
         /* dispatch on r9 (type-code saved before any C call, survives LEAVE):
          *   RETURN / NRETURN (r9 != 2) → γ wire in r10
          *   FRETURN          (r9 == 2) → ω wire in r11 */
