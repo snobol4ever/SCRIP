@@ -2374,24 +2374,25 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             int kt = g_emit.flat_frame_bytes;
             extern uint64_t g_zctx[66];
             if (g_is_text) {
-                char _bg[560];
+                char _bg[672];
                 snprintf(_bg, sizeof _bg,
-                    "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\nmov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n"
-                    "mov rax, qword ptr [rip + g_zctx@GOTPCREL]\nmov r10, qword ptr [rax]\nmov r11, qword ptr [rax + 8]\nmov qword ptr [rax + r10*8 + 16], r11\ninc qword ptr [rax]\nmov qword ptr [rax + 8], rsp\n",
-                    kt, kt - 24, kt - 16, kt - 32, kt - 40);
+                    "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\nmov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\nmov qword ptr [rsp + %d], rsp\n"
+                    "mov rax, qword ptr [rip + g_zctx@GOTPCREL]\nmov r10, qword ptr [rax]\nmov r11, qword ptr [rax + 8]\nmov qword ptr [rax + r10*8 + 16], r11\ninc qword ptr [rax]\nlea r11, [rsp + %d]\nmov qword ptr [rax + 8], r11\n",
+                    kt, kt - 24, kt - 16, kt - 32, kt - 40, kt - 8, kt - 40);
                 emit_text_n(_bg, strlen(_bg));
             } else {
                 if (kt <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)kt); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)kt); }
                 { int _d = kt - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
                 { int _d = kt - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
                 { int _d = kt - 32; ef_b2(0x4C, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_d); } }
-                { int _d = kt - 40; ef_b2(0x44, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_d); } }
+                { int _d = kt - 40; ef_b2(0x44, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_d); } }   /* [kt-40]=δ0 */
+                { int _p = kt - 8; ef_b2(0x48, 0x89); if (_p >= -128 && _p <= 127) { ef_b3(0x64, 0x24, (uint8_t)(int8_t)_p); } else { ef_b2(0xA4, 0x24); bb_emit_u32((uint32_t)_p); } }   /* [kt-8]=own base (HDR+32), reclaimed pad -- makes the retry whack kt-free */
                 { uint64_t _cx = (uint64_t)(uintptr_t)g_zctx; ef_b2(0x48, 0xB8); bb_emit_u64(_cx); }   /* movabs rax, &g_zctx (ZW-4 media split) */
                 ef_b3(0x4C, 0x8B, 0x10);                          /* mov r10,[rax] depth  */
                 ef_b4(0x4C, 0x8B, 0x58, 0x08);                    /* mov r11,[rax+8] cur  */
                 ef_b4(0x4E, 0x89, 0x5C, 0xD0); ef_b1(0x10);       /* [rax+r10*8+16]=r11   */
                 ef_b3(0x48, 0xFF, 0x00);                          /* inc qword [rax]      */
-                ef_b4(0x48, 0x89, 0x60, 0x08);                    /* mov [rax+8],rsp      */
+                { int _h = kt - 40; if (_h >= -128 && _h <= 127) { ef_b4(0x4C, 0x8D, 0x5C, 0x24); ef_b1((uint8_t)(int8_t)_h); } else { ef_b4(0x4C, 0x8D, 0x9C, 0x24); bb_emit_u32((uint32_t)_h); } } ef_b4(0x4C, 0x89, 0x58, 0x08);   /* lea r11,[rsp+kt-40]=HDR; g_zctx[1]=HDR */
             }
         }
         emit_label_define_bb(&lbl_attempt);
@@ -2731,13 +2732,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void); extern uint64_t g_zctx[66];   /* ZW-4: anchor cell via accessor in BOTH media (BINARY movabs of the address, TEXT GOT-indirect [rip+rt_anchor_g@GOTPCREL], the rtx_match.S ARCH 0(c) copy-reloc rule: the exe must reach the .so cell, never a copy) -- the per-medium retry-blob pair (the named forbidden shape) retired into x86() chains this rung */
         emit_label_define_bb(&lbl_scanhit);
         x86_begin();
-        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_zctx, "g_zctx") + x86("mov", "rdx", RDQ("rdx", 8)) + x86("cmp", RDQ("rdx", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "ecx", RDD("rdx", kt - 40)) + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)&g_scan_hit_start, "g_scan_hit_start") + x86("mov", RDD("rax", 0), "ecx") + x86("def", L(0)));   /* DEL-T1 D-2: flag/δ0 from g_zctx (+24/+32) — depth-immune without the pin; scanhit can arrive at DYNAMIC depth (γ suspends with stack content, manual p.204), so the ctx, not rsp arithmetic, is the base */
+        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_zctx, "g_zctx") + x86("mov", "rdx", RDQ("rdx", 8)) + x86("cmp", RDQ("rdx", 8), (long)1) + x86("jne", L(0)) + x86("mov", "ecx", RDD("rdx", 0)) + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)&g_scan_hit_start, "g_scan_hit_start") + x86("mov", RDD("rax", 0), "ecx") + x86("def", L(0)));   /* DEL-T1 D-2: flag/δ0 from g_zctx (+24/+32) — depth-immune without the pin; scanhit can arrive at DYNAMIC depth (γ suspends with stack content, manual p.204), so the ctx, not rsp arithmetic, is the base */
         emit_jmp_label(&lbl_γ, JMP_JMP);
         emit_label_define_bb(&lbl_scanfail);
         x86_begin();
-        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_zctx, "g_zctx") + x86("mov", "rdx", RDQ("rdx", 8)) + x86("cmp", RDQ("rdx", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "eax", RDD("rdx", kt - 40)) + x86("inc", "eax") + x86("cmp", "eax", "r15d") + x86("jg", L(0))
+        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_zctx, "g_zctx") + x86("mov", "rdx", RDQ("rdx", 8)) + x86("cmp", RDQ("rdx", 8), (long)1) + x86("jne", L(0)) + x86("mov", "eax", RDD("rdx", 0)) + x86("inc", "eax") + x86("cmp", "eax", "r15d") + x86("jg", L(0))
             + x86("lea", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g") + x86("cmp", RDQ("rcx", 0), (long)0) + x86("jne", L(0))
-            + x86("mov", RDD("rdx", kt - 40), "eax") + x86("mov", "r14d", "eax") + x86("mov", "rsp", "rdx") + x86("jmp", "extlbl", (uint64_t)(uintptr_t)&lbl_attempt) + x86("def", L(0)));   /* DEL-T1 D-2: δ0 advance writes BOTH ctx(+32) and the carve mirror [base+kt-40] (the res-stub's refill source); the retry whack survives RE-BASED — mov rsp,ctx.base reclaims interior residue exactly as mov rsp,rbp did, without naming rbp.  scanfail arrival depth is entry-by-drain on total failure (manual p.204 step 6), but the whack stays because interior grants are NOT yet K-converted (PT-4 PREREQ) and residue must be reclaimed per retry. */
+            + x86("mov", RDD("rdx", 0), "eax") + x86("mov", "r14d", "eax") + x86("mov", "rsp", RDQ("rdx", 32)) + x86("jmp", "extlbl", (uint64_t)(uintptr_t)&lbl_attempt) + x86("def", L(0)));   /* DEL-T1 D-2: δ0 advance writes BOTH ctx(+32) and the carve mirror [base+kt-40] (the res-stub's refill source); the retry whack survives RE-BASED — mov rsp,ctx.base reclaims interior residue exactly as mov rsp,rbp did, without naming rbp.  scanfail arrival depth is entry-by-drain on total failure (manual p.204 step 6), but the whack stays because interior grants are NOT yet K-converted (PT-4 PREREQ) and residue must be reclaimed per retry. */
         emit_jmp_label(&lbl_ω, JMP_JMP);
     }
     if (g_emit.flat_jmp_entry) {
@@ -2807,11 +2808,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }   /* ZK-4 SLICE 1 (s215): CLASS ZF widened to the CELLS arm. Predicate mirrors xa_flat_class_zf() in xa_flat.cpp (the template-side ONE AUTHORITY); the header base differs per regime and is computed there by xa_flat_wire_hdr_base().  ZK-2 (s226): flat_jmp_entry conjunct added to cells-arm condition. The outer main graph has flat_jmp_entry=0 (entered from C via bare jmp, no wire installed in rcx/rdx); its γ exit is call exit@PLT, not wire-jmp. Procedures (noop, fib, etc.) have flat_jmp_entry=1 and exit via CLASS ZF wire-jmp. Without this guard, cells-arm main's γ would jmp through garbage rcx = SEGV. */   /* ICN-FR-2 CLASS ZF γ: direct wire-header read, depth-immune unwind (lea rsp,[rbp+kt]; load rcx=[rbp+kt-24]; restore rbp=[rbp+kt-8]; jmp rcx).  BOTH MEDIUM via x86() in xa_flat.cpp.  Precedence over _blob_wire/_wire_stub: those are 0 for ζ-frame graphs by construction (floor=0, flat_lcl_proc=0, flat_pat=0). */
     else if (_blob_wire) {   /* ⛔ DEL-T1 D-2 CLASS D γ (s9): SUSPEND at the deep frontier with ZERO rbp — record is {res-landing, CTX.BASE} ({res,rbp}→{res,base} per PT-4); γ wire read from g_zctx[1], depth-immune at any suspend depth.  No caller-rbp restore: rbp was never ours (adopted, untouched).  The invoker's β edge still reads [rsp] for the landing; the res stub pops the base and REFILLS the ctx from the carve header, which is what makes interleaved suspensions come back with their own wires. */
         extern uint64_t g_zctx[66];
-        if (g_is_text) { char _bs[384]; int _gk = g_emit.flat_frame_bytes; snprintf(_bs, sizeof _bs, "mov rdx, qword ptr [rip + g_zctx@GOTPCREL]\nmov rax, qword ptr [rdx + 8]\npush rax\nlea rcx, [rip + %s]\npush rcx\nmov rcx, qword ptr [rax + %d]\nmov r10, qword ptr [rdx]\ndec r10\nmov qword ptr [rdx], r10\nmov r11, qword ptr [rdx + r10*8 + 16]\nmov qword ptr [rdx + 8], r11\njmp rcx\n", lbl_res.name, _gk - 24); emit_text_n(_bs, strlen(_bs)); }
-        else { int _gk = g_emit.flat_frame_bytes; { uint64_t _cx = (uint64_t)(uintptr_t)g_zctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }   /* movabs rdx, &g_zctx */
+        if (g_is_text) { char _bs[384]; snprintf(_bs, sizeof _bs, "mov rdx, qword ptr [rip + g_zctx@GOTPCREL]\nmov rax, qword ptr [rdx + 8]\npush rax\nlea rcx, [rip + %s]\npush rcx\nmov rcx, qword ptr [rax + %d]\nmov r10, qword ptr [rdx]\ndec r10\nmov qword ptr [rdx], r10\nmov r11, qword ptr [rdx + r10*8 + 16]\nmov qword ptr [rdx + 8], r11\njmp rcx\n", lbl_res.name, 16); emit_text_n(_bs, strlen(_bs)); }
+        else { { uint64_t _cx = (uint64_t)(uintptr_t)g_zctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }   /* movabs rdx, &g_zctx */
                ef_b4(0x48, 0x8B, 0x42, 0x08); ef_b1(0x50);                                               /* rax=cur base; push base (record) */
                ef_b3(0x48, 0x8D, 0x0D); bb_emit_patch_rel32(&lbl_res); ef_b1(0x51);                      /* lea rcx,[rip+res]; push landing */
-               ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)(_gk - 24));                               /* mov rcx,[rax+kt-24] γ wire (carve) */
+               ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)16);                               /* mov rcx,[rax+kt-24] γ wire (carve) */
                ef_b3(0x4C, 0x8B, 0x12); ef_b3(0x49, 0xFF, 0xCA); ef_b3(0x4C, 0x89, 0x12);                /* zctx POP: depth-- */
                ef_b4(0x4E, 0x8B, 0x5C, 0xD2); ef_b1(0x10); ef_b4(0x4C, 0x89, 0x5A, 0x08);                /* cur=spill[depth] */
                ef_b2(0xFF, 0xE1); } }
@@ -2824,13 +2825,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;   /* ZK-2 (s226): CELLS-ARM OUTER MAIN ω EPILOGUE. Symmetric with γ arm above; exit(1). */
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "lea rsp, [rbp + %d]\npop rbp\nmov edi, 1\ncall exit@PLT\n", _bk); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b3(0x48, 0x8D, 0xA5); bb_emit_u32((uint32_t)_bk); ef_b1(0x5D); ef_b3(0xBF, 0x01, 0x00); ef_b1(0x00); ef_b1(0x00); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (_blob_wire) { int _bk = g_emit.flat_frame_bytes;   /* ⛔ DEL-T1 D-2 CLASS D ω (s9): TOTAL-FAILURE unwind re-based — rsp = ctx.base + kt rejoins the pre-entry spine from ANY arrival depth (the drain law makes arrival depth entry in the common case; the absolute re-base keeps fence/ABORT seal cuts correct exactly as the old lea rsp,[rbp+kt] did).  ω wire from g_zctx[2].  No rbp restore: never written. */
+    else if (_blob_wire) {   /* ⛔ DEL-T1 D-2 CLASS D ω (s9): TOTAL-FAILURE unwind re-based — rsp = ctx.base + kt rejoins the pre-entry spine from ANY arrival depth (the drain law makes arrival depth entry in the common case; the absolute re-base keeps fence/ABORT seal cuts correct exactly as the old lea rsp,[rbp+kt] did).  ω wire from g_zctx[2].  No rbp restore: never written. */
         extern uint64_t g_zctx[66];
-        if (g_is_text) { char _bf[320]; snprintf(_bf, sizeof _bf, "mov rdx, qword ptr [rip + g_zctx@GOTPCREL]\nmov rax, qword ptr [rdx + 8]\nmov rcx, qword ptr [rax + %d]\nlea rsp, [rax + %d]\nmov r10, qword ptr [rdx]\ndec r10\nmov qword ptr [rdx], r10\nmov r11, qword ptr [rdx + r10*8 + 16]\nmov qword ptr [rdx + 8], r11\njmp rcx\n", _bk - 16, _bk); emit_text_n(_bf, strlen(_bf)); }
+        if (g_is_text) { char _bf[320]; snprintf(_bf, sizeof _bf, "mov rdx, qword ptr [rip + g_zctx@GOTPCREL]\nmov rax, qword ptr [rdx + 8]\nmov rcx, qword ptr [rax + %d]\nlea rsp, [rax + %d]\nmov r10, qword ptr [rdx]\ndec r10\nmov qword ptr [rdx], r10\nmov r11, qword ptr [rdx + r10*8 + 16]\nmov qword ptr [rdx + 8], r11\njmp rcx\n", 24, 40); emit_text_n(_bf, strlen(_bf)); }
         else { { uint64_t _cx = (uint64_t)(uintptr_t)g_zctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }   /* movabs rdx, &g_zctx */
                ef_b4(0x48, 0x8B, 0x42, 0x08);                                                            /* rax = cur base */
-               ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)(_bk - 16));                               /* rcx=[rax+kt-16] ω wire (carve) */
-               ef_b3(0x48, 0x8D, 0xA0); bb_emit_u32((uint32_t)_bk);                                      /* lea rsp,[rax+kt] absolute unwind */
+               ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)24);                               /* rcx=[rax+kt-16] ω wire (carve) */
+               ef_b3(0x48, 0x8D, 0xA0); bb_emit_u32((uint32_t)40);                                      /* lea rsp,[rax+kt] absolute unwind */
                ef_b3(0x4C, 0x8B, 0x12); ef_b3(0x49, 0xFF, 0xCA); ef_b3(0x4C, 0x89, 0x12);                /* zctx POP */
                ef_b4(0x4E, 0x8B, 0x5C, 0xD2); ef_b1(0x10); ef_b4(0x4C, 0x89, 0x5A, 0x08);
                ef_b2(0xFF, 0xE1); } }
