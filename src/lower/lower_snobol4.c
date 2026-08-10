@@ -975,8 +975,28 @@ static int g_sno_npro = 0;
 static void sno_prologue_add(const char * nm) { if (!nm || g_sno_npro >= 128) return; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return; g_sno_pro[g_sno_npro++] = nm; }
 int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* GOAL-PASSTHRU-RBP-ERAD s6 (PT-2 census hole, Defect B): defer_cnt counts only *name consumers reached through sno_fz_mark_defer, which is (a) g_sno_in_patproc-guarded and (b) aimed at the synthetic
+ * $V<i> name by the snapg arm (2351) -- so a TT_VAR member of a KEPT patproc never credits its SOURCE var.  1293's in_patproc guard means such members can never inline; they ALWAYS lower to $V<i>
+ * snapshots that COPY the source var's stage-2 value at MKPAT time -- a live read of the very store PT-2 was suppressing.  Measured (w_cap_* witnesses): VOWEL's GVA slot v=0 at match time, the snapshot
+ * inherited tag 0, and c_rt_defer_close's literal arm matched the NULL STRING -- 'BCD' ? PAT succeeded where SPITBOL fails.  Killswitch-invariant by construction: SCRIP_PAT_INLINE gates the INLINE,
+ * not this defer_cnt==0 verdict.  The set below closes the census at the ONE sweep that already derives subj/repl for every statement (sno_fz_build_table), BEFORE any verdict is consulted -- the 2084
+ * consult runs MID-LOOP, so a g_sno_pats scan would race statement order (PAT registers only when its own statement lowers).  Membership is a sound over-approximation: a name stays live even if every
+ * referencing pattern's own build later dies (rare shape, costs one dead store; PT-4/PT-6 restructure this seam anyway).  Capture TARGETS (. N / $ N / @N) are skipped -- written, not read.  TT_DEFER
+ * children are deliberately WALKED: a *X member inside a patproc is equally invisible to mark_defer (same in_patproc guard) and needs X's build alive for its by-name lookup. */
+static const char * g_sno_snapref[SNO_PAT_MAX]; static int g_sno_nsnapref = 0;
+static void sno_snapref_add(const char * nm) { if (!nm) return; for (int i = 0; i < g_sno_nsnapref; i++) if (!strcmp(g_sno_snapref[i], nm)) return; if (g_sno_nsnapref < SNO_PAT_MAX) g_sno_snapref[g_sno_nsnapref++] = nm; }
+static void sno_snapref_scan(const tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_CAPT_CURSOR) return;   /* @N: cursor write target only */
+    if (t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) { sno_snapref_scan((t->n > 0) ? t->c[0] : NULL); return; }   /* . N / $ N: c[1] is the write target */
+    if (t->t == TT_DEFER) return;   /* *X is OUT OF SCOPE by design: late-bound BY NAME with its own registration (1919) and build-time latch (g_spk) -- the hole this set closes is the SNAPSHOT (bare TT_VAR) consumer only.  s6 measurement note: the D09/D11/H21/X12 ARBNO(*P) runaway (null-width $ fire + SIGSEGV, rc=139) initially attributed to walking TT_DEFER here is PRE-EXISTING AT HEAD 87dfb96 -- reproduced on a pristine stash build, all four fail identically -- baseline drift from an earlier 2026-08-09 landing, flagged for its own MONITOR-FIRST rung, neither caused nor fixed by this set. */
+    if (t->t == TT_VAR && t->v.sval) sno_snapref_add(t->v.sval);
+    for (int i = 0; i < t->n; i++) sno_snapref_scan(t->c[i]);
+}
+static int sno_fz_snapref(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_nsnapref; i++) if (!strcmp(g_sno_snapref[i], nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fz_build_table(const tree_t ** st, int nst) {
-    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nsnapref = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i]; if (!s) continue;
         const tree_t * subj = lc_stmt_subj(s); const tree_t * pat = sfind_expr(s, ":pat"); const tree_t * repl = sfind_expr(s, ":repl"); int has_eq = sfind(s, ":eq") != NULL;
@@ -992,6 +1012,7 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
         if (subj && subj->t == TT_VAR && subj->v.sval) {
             sno_fz_write(subj->v.sval);
             if (repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) sno_seal_note(subj->v.sval, repl);   /* s137: every supported pattern assignment is a seal CANDIDATE (invariance not required — see the table comment) */
+            if (repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) sno_snapref_scan(repl);   /* PT-2 census hole (s6): record TT_VAR members of EVERY stored-pattern RHS -- invariant or not -- so the dead-build verdicts below cannot suppress a store a kept blob will snapshot (or a patproc *X will read by name) */
             if (repl && g_sno_nfz < SNO_PAT_MAX && sno_is_pattern_rhs(repl) && sno_pat_supported(repl) && sno_pat_invariant(repl)) {
                 g_sno_fz[g_sno_nfz].var = subj->v.sval; g_sno_fz[g_sno_nfz].pat = repl; g_sno_fz[g_sno_nfz].procname = NULL; g_sno_nfz++; }
             continue; }
@@ -1201,13 +1222,13 @@ static int sno_pat_inline_ok(const tree_t * t) {   /* ⛔ PAT-INLINE SLICE-1 SHA
 static int sno_fz_is_dead_build(const char * nm) {   /* PT-2: 1 iff var-name is fz-member, inline-ok, and has zero *name (TT_DEFER) consumers — MKPAT chain and proc_PAT blob are dead stores */
     if (!nm) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat);
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): a snapshot-referenced store is live even at defer_cnt==0 */
     return 0;
 }
 static int sno_fz_procname_is_dead(const char * pn) {   /* PT-2: lookup by procname (PAT$N) for patproc builder which indexes by g_sno_pats[].name */
     if (!pn) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (g_sno_fz[i].procname && !strcmp(g_sno_fz[i].procname, pn))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat);
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): symmetric -- the kept blob's inner fast arm needs the referenced object's own blob for dtp_fn_of */
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2603,7 +2624,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
-    g_sno_nfz = 0; g_sno_fz_unsafe = 1;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0;
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL);
     { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
