@@ -85,6 +85,28 @@ for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h
   fi
 done
 
+# ⛔ RTX HAND-WRITTEN ASM IS IN SCOPE — CROSS-GOAL BULLETIN (Lon-directed, .github 37e0273c), verbatim:
+# "Any RTX asm that clobbers r10 or r11 silently breaks EVERY pattern blob in flight -- the wires are live
+#  across the entire match, and a corrupted rGamma/rOmega is a wild jump, not a wrong answer. ...
+#  WREG-0's claim gate must sweep RTX asm sources, not just src/templates/ -- raw-byte and hand-written asm
+#  do not grep as \"r10\"."
+# This region is ENTIRELY OUTSIDE the design's 178-site census, which counted quoted C-string spellings only.
+# It is also the HIGHEST-RISK region in the product for WREG: rtx_match.S runs DURING a match, which is
+# exactly when the wires are live. Reported separately so the two burn-downs never get conflated -- a
+# template rename and an RTX asm rename are different work with different proofs.
+rtx_total=0; rtx_offenders=0; rtx_listed=""
+for f in src/runtime/rtx/*.S; do
+  [ -e "$f" ] || continue
+  n=$(strip_comments "$f" | grep -cE "%?$REGPAT")
+  [ "$n" -gt 0 ] || continue
+  b="$(basename "$f")"
+  if wl_has "$b"; then
+    wl_total=$((wl_total + n)); wl_listed="$wl_listed  LICENSED $b ($n)\n"
+  else
+    rtx_total=$((rtx_total + n)); rtx_offenders=$((rtx_offenders + 1)); rtx_listed="$rtx_listed  $n\t$b\n"
+  fi
+done
+
 echo "--- LICENSED (whitelisted wire-owning sites) ---"
 if [ -n "$wl_listed" ]; then printf "%b" "$wl_listed"; else echo "  (none yet — whitelist is empty until WREG-1 creates the glue emitters)"; fi
 echo "  licensed mentions: $wl_total"
@@ -94,6 +116,12 @@ if [ -n "$listed" ]; then printf "%b" "$listed" | sort -rn; else echo "  (clean)
 echo
 echo "  files remaining : $offenders"
 echo "  mentions remaining: $total"
+echo
+echo "--- RTX HAND-WRITTEN ASM (bulletin-mandated scope; NOT in the design's 178 census) ---"
+if [ -n "$rtx_listed" ]; then printf "%b" "$rtx_listed" | sort -rn; else echo "  (clean)"; fi
+echo "  files remaining : $rtx_offenders"
+echo "  mentions remaining: $rtx_total"
+echo "  ^ rtx_match.S is the sharpest edge: it executes DURING a match, i.e. while the wires are live."
 echo
 
 # The design's own census, kept here as a DRIFT CHECK: if this number moves without a sweep commit, some seat
@@ -110,8 +138,8 @@ echo "  delta vs all-spellings surface = $((total + wl_total - quoted))  <- the 
 echo
 
 if [ "$strict" = 1 ]; then
-  if [ "$total" -gt 0 ]; then
-    echo "GATE: FAIL ($total non-whitelisted mentions across $offenders files)"; exit 1
+  if [ $((total + rtx_total)) -gt 0 ]; then
+    echo "GATE: FAIL ($total template/emitter + $rtx_total RTX-asm non-whitelisted mentions across $((offenders + rtx_offenders)) files)"; exit 1
   fi
   echo "GATE: PASS"; exit 0
 fi
