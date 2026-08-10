@@ -2355,32 +2355,44 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", prefix); emit_label_initf(&lbl_stcω, "%s_stω", prefix); }
     static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
     int scan_live = (!_scan_off && x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
-    if (scan_live) {
+    int blob_act = (x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* ⛔ DEL-T1 D-3 (s9): ACTIVATION ESTABLISHMENT IS NOT SCAN MACHINERY.  D-2 nested the pass-thru α carve + g_blob_ctx publication inside scan_live, so SCRIP_SCAN_OFF=1 suppressed the ACTIVATION ITSELF — every killswitch bisect through it returned a confounded 139 that localized nothing.  The carve now emits whenever a PAT$ blob exists on the RSP arm; the scanhit/scanfail retry blocks keep their OWN scan_live gate downstream, so the killswitch still does exactly what its name says and is usable as a bisect instrument again. */
+    if (blob_act) {
         emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
         emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
         emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
-        int kt = g_emit.flat_frame_bytes;
-        int _sd1 = kt - 32, _sd2 = kt - 40;
-        if (g_emit.flat_jmp_entry) {   /* ⭐ BLOB-GRANT (s22z): the pattern blob's α SELF-ALLOCATES its activation and ADOPTS its wires — THE MODEL applied to the blob as one box.  CARVE-KILL deleted the xa_flat jmp-entry seed (sub rsp,kt + wire quad + caller-rbp save + pin) and nothing replaced it for PAT$ blobs, so at HEAD the SCANBASE stores below scribbled at [caller_rsp+kt-32] into the INVOKER's spine, every internal [rbp+N] reader resolved against the invoker's stale rbp, and rcx/rdx (the γ/ω wires bb_match_defer's fast arm passes) were DROPPED on the floor — measured 105_pat_fence_empty: m4 exited silently rc=0 through the blob's CLASS O exit-glue γ on first FENCE-body success, rt_match_ctx_restore never called (the exact s22y casualty signature).  Spelling re-landed verbatim from the deleted prologue's final form (git ef9a7d2c~1 xa_flat.cpp:360-362 TEXT / :214-217 BINARY): [kt-24]=γ wire(rcx) · [kt-16]=ω wire(rdx) · [kt-8]=caller rbp (U2b self-referential restore slot) · pin rbp=rsp — the layout the planner STILL reserves (kt includes the header; s22u names these exact offsets) and the exit glue reads (see _blob_wire at the EXIT-CLASS LEDGER).  flat_pat ⇒ emit_jmp_pin_rbp so the pin is unconditional in this arm; scanfail's retry whack `mov rsp,rbp` and the fence seal's rbp spellings become correct again by this one seed. */
+        /* ⛔ DEL-T1 D-1 (Lon directive, 2026-08-10 s9): BLOB-GRANT frame establishment DELETED — the PAT$ blob α no longer emits sub rsp,kt + γ/ω wire stores [kt-24]/[kt-16] + caller-rbp save [kt-8] + rbp pin, nor the SCANBASE fills [kt-32]=r8/[kt-40]=r14d.  There is to be NO RBP frame for constant-folded patterns.  KNOWN-DANGLING CONSUMERS (fix-forward D-2, this is the manifest): scanhit/scanfail reads rbp#[kt-32/40] + retry whack mov rsp,rbp (below) · β res-stub pop rbp · CLASS D γ {res,rbp} record + wire reads [rbp+kt-24]/[kt-8] · CLASS D ω absolute unwind lea rsp,[rbp+kt] + wire read [kt-16] · every interior [rbp+N] value-region reader (rbp is now the INVOKER's, adopted).  Revert path = git revert of this commit, nothing else in it. */
+        /* ⭐ DEL-T1 D-2 PASS-THRU α (s9): the blob ADOPTS the caller's frame — rbp arrives pinned to the invoking
+         * statement's MATCH_BEGIN frame (the licensed keeper) and is NEVER WRITTEN here or anywhere in the blob.
+         * The activation's own memory is a pin-free CELL CARVE on the FORTH spine: sub rsp,kt (planner layout kept;
+         * [kt-8] is now dead pad where the caller-rbp save lived) + the four live header fills ([kt-24]=γ wire rcx ·
+         * [kt-16]=ω wire rdx · [kt-32]=scan flag r8 · [kt-40]=attempt δ0 r14d) + publication of the same quad plus
+         * the cell base into g_blob_ctx — the depth-immune anchor that replaces the pin (manual p.204: on total
+         * failure the pushdown DRAINS to entry depth, so ω can re-base off ctx; γ SUSPENDS with stack content at
+         * dynamic depth, which is exactly why a register-free base is needed).  Interior readers speak rsp+op_flat_disp
+         * via the ONE selector now that flat_pat left emit_jmp_pin_rbp() (emit.h:630, same commit). */
+        if (g_emit.flat_jmp_entry) {
+            int kt = g_emit.flat_frame_bytes;
+            extern uint64_t g_blob_ctx[5];
             if (g_is_text) {
-                char _bg[224];
-                snprintf(_bg, sizeof _bg, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\nmov qword ptr [rsp + %d], rbp\nmov rbp, rsp\n", kt, kt - 24, kt - 16, kt - 8);
+                char _bg[560];
+                snprintf(_bg, sizeof _bg,
+                    "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\nmov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n"
+                    "mov rax, qword ptr [rip + g_blob_ctx@GOTPCREL]\nmov qword ptr [rax + 0], rsp\nmov qword ptr [rax + 8], rcx\nmov qword ptr [rax + 16], rdx\nmov qword ptr [rax + 24], r8\nmov dword ptr [rax + 32], r14d\n",
+                    kt, kt - 24, kt - 16, kt - 32, kt - 40);
                 emit_text_n(_bg, strlen(_bg));
             } else {
                 if (kt <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)kt); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)kt); }
                 { int _d = kt - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
                 { int _d = kt - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
-                { int _d = kt - 8;  ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } }
-                ef_b3(0x48, 0x89, 0xE5);
+                { int _d = kt - 32; ef_b2(0x4C, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_d); } }
+                { int _d = kt - 40; ef_b2(0x44, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_d); } }
+                { uint64_t _cx = (uint64_t)(uintptr_t)g_blob_ctx; ef_b2(0x48, 0xB8); bb_emit_u64(_cx); }   /* movabs rax, &g_blob_ctx (same-process JIT; ZW-4 media split) */
+                ef_b3(0x48, 0x89, 0x20);                          /* mov [rax+0],  rsp  */
+                ef_b3(0x48, 0x89, 0x48); ef_b1(0x08);             /* mov [rax+8],  rcx  */
+                ef_b3(0x48, 0x89, 0x50); ef_b1(0x10);             /* mov [rax+16], rdx  */
+                ef_b3(0x4C, 0x89, 0x40); ef_b1(0x18);             /* mov [rax+24], r8   */
+                ef_b3(0x44, 0x89, 0x70); ef_b1(0x20);             /* mov [rax+32], r14d */
             }
-        }
-        if (g_is_text) {
-            char _sc[192];
-            snprintf(_sc, sizeof _sc, "mov qword ptr [rsp + %d], r8\nmov dword ptr [rsp + %d], r14d\n", _sd1, _sd2);   /* SCANBASE: rsp-based — these two stores run before any rsp motion past the jmp-entry seed (only [rsp+N] zero-fills intervene), so rsp==rbp==base by construction; [kt-32]=scan flag (caller r8: defer fast arm is the SOLE flat_pat entry), [kt-40]=attempt start */
-            emit_text_n(_sc, strlen(_sc));
-        } else {
-            ef_b2(0x4C, 0x89); if (_sd1 >= -128 && _sd1 <= 127) { ef_b3(0x44, 0x24, (uint8_t)(int8_t)_sd1); } else { ef_b2(0x84, 0x24); bb_emit_u32((uint32_t)_sd1); }
-            ef_b2(0x44, 0x89); if (_sd2 >= -128 && _sd2 <= 127) { ef_b3(0x74, 0x24, (uint8_t)(int8_t)_sd2); } else { ef_b2(0xB4, 0x24); bb_emit_u32((uint32_t)_sd2); }
         }
         emit_label_define_bb(&lbl_attempt);
     } else if (g_emit.zframe_graph) {   /* ICN-FR-2: ζ-FRAME PROLOGUE — whole-graph ζ frame on rsp; lower_icon.c set zframe_graph.  sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller_rbp + pin rbp=rsp.  Both media handled inside xa_flat_zframe_prologue via x86() calls (BOTH-MEDIUM MANDATORY; TEMPLATE-ONLY EMISSION).  R-ICN-D: SN4 graphs have zframe_graph=0 by construction — this arm is never reached for non-Icon graphs. */
@@ -2716,16 +2728,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.op_wpop = 0;
     if (scan_live) {   /* SPD-2 RETRY-INTERNAL blocks.  scanhit: publish the winning start for the statement-side head-slot write-back, fall to γ.  scanfail: flag off → γ.. no, → ω; else start+1, bound (r15d=Δ), &ANCHOR test — any exit → ω; otherwise write back start, r14d=start, rsp=rbp (post-carve frontier: every element grant sits below), jmp attempt. */
         int kt = g_emit.flat_frame_bytes;
-        extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void);   /* ZW-4: anchor cell via accessor in BOTH media (BINARY movabs of the address, TEXT GOT-indirect [rip+rt_anchor_g@GOTPCREL], the rtx_match.S ARCH 0(c) copy-reloc rule: the exe must reach the .so cell, never a copy) -- the per-medium retry-blob pair (the named forbidden shape) retired into x86() chains this rung */
+        extern uint64_t g_scan_hit_start; extern long *rt_anchor_ptr(void); extern uint64_t g_blob_ctx[5];   /* ZW-4: anchor cell via accessor in BOTH media (BINARY movabs of the address, TEXT GOT-indirect [rip+rt_anchor_g@GOTPCREL], the rtx_match.S ARCH 0(c) copy-reloc rule: the exe must reach the .so cell, never a copy) -- the per-medium retry-blob pair (the named forbidden shape) retired into x86() chains this rung */
         emit_label_define_bb(&lbl_scanhit);
         x86_begin();
-        bb_emit_x86(x86("cmp", RDQ("rbp#", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "ecx", RDD("rbp#", kt - 40)) + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)&g_scan_hit_start, "g_scan_hit_start") + x86("mov", RDD("rdx", 0), "ecx") + x86("def", L(0)));
+        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_blob_ctx, "g_blob_ctx") + x86("cmp", RDQ("rdx", 24), (long)1) + x86("jne", L(0)) + x86("mov", "ecx", RDD("rdx", 32)) + x86("lea", "rax", "[rip + __]", (uint64_t)(uintptr_t)&g_scan_hit_start, "g_scan_hit_start") + x86("mov", RDD("rax", 0), "ecx") + x86("def", L(0)));   /* DEL-T1 D-2: flag/δ0 from g_blob_ctx (+24/+32) — depth-immune without the pin; scanhit can arrive at DYNAMIC depth (γ suspends with stack content, manual p.204), so the ctx, not rsp arithmetic, is the base */
         emit_jmp_label(&lbl_γ, JMP_JMP);
         emit_label_define_bb(&lbl_scanfail);
         x86_begin();
-        bb_emit_x86(x86("cmp", RDQ("rbp#", kt - 32), (long)1) + x86("jne", L(0)) + x86("mov", "eax", RDD("rbp#", kt - 40)) + x86("inc", "eax") + x86("cmp", "eax", "r15d") + x86("jg", L(0))
+        bb_emit_x86(x86("lea", "rdx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)g_blob_ctx, "g_blob_ctx") + x86("cmp", RDQ("rdx", 24), (long)1) + x86("jne", L(0)) + x86("mov", "eax", RDD("rdx", 32)) + x86("inc", "eax") + x86("cmp", "eax", "r15d") + x86("jg", L(0))
             + x86("lea", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr(), "rt_anchor_g") + x86("cmp", RDQ("rcx", 0), (long)0) + x86("jne", L(0))
-            + x86("mov", RDD("rbp#", kt - 40), "eax") + x86("mov", "r14d", "eax") + x86("mov", "rsp", "rbp") + x86("jmp", "extlbl", (uint64_t)(uintptr_t)&lbl_attempt) + x86("def", L(0)));
+            + x86("mov", RDD("rdx", 32), "eax") + x86("mov", "rcx", RDQ("rdx", 0)) + x86("mov", RDD("rcx", kt - 40), "eax") + x86("mov", "r14d", "eax") + x86("mov", "rsp", "rcx") + x86("jmp", "extlbl", (uint64_t)(uintptr_t)&lbl_attempt) + x86("def", L(0)));   /* DEL-T1 D-2: δ0 advance writes BOTH ctx(+32) and the carve mirror [base+kt-40] (the res-stub's refill source); the retry whack survives RE-BASED — mov rsp,ctx.base reclaims interior residue exactly as mov rsp,rbp did, without naming rbp.  scanfail arrival depth is entry-by-drain on total failure (manual p.204 step 6), but the whack stays because interior grants are NOT yet K-converted (PT-4 PREREQ) and residue must be reclaimed per retry. */
         emit_jmp_label(&lbl_ω, JMP_JMP);
     }
     if (g_emit.flat_jmp_entry) {
@@ -2742,7 +2754,30 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          * LIFO law hands back to β.  Drop the landing word, pop the frame reg, fall into the chain's
          * resume dispatch at lbl_β with rsp restored to the pre-suspension frontier. */
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
-        if (g_is_text) {
+        if (g_emit.flat_pat) {   /* ⛔ DEL-T1 D-2 β res-stub PASS-THRU arm (s9): record[+8] is now the CELL BASE, not rbp.  Drop the landing word, pop the base, REFILL g_blob_ctx from the suspended activation's carve header [base+kt-24/16/32/40] plus the base itself — the interleaving repair: P1 suspend-γ → P2 defer runs (ctx now P2's) → statement fails back into P1's β → this refill re-arms P1's wires/scan cells before the resume dispatch.  Zero rbp touches (rbp = statement's, adopted, never written). */
+            int _rkt = g_emit.flat_frame_bytes;
+            extern uint64_t g_blob_ctx[5];
+            if (g_is_text) {
+                char _res[448];
+                snprintf(_res, sizeof _res,
+                    "add rsp, 8\npop rax\nmov rdx, qword ptr [rip + g_blob_ctx@GOTPCREL]\nmov qword ptr [rdx + 0], rax\n"
+                    "mov rcx, qword ptr [rax + %d]\nmov qword ptr [rdx + 8], rcx\n"
+                    "mov rcx, qword ptr [rax + %d]\nmov qword ptr [rdx + 16], rcx\n"
+                    "mov rcx, qword ptr [rax + %d]\nmov qword ptr [rdx + 24], rcx\n"
+                    "mov ecx, dword ptr [rax + %d]\nmov dword ptr [rdx + 32], ecx\n",
+                    _rkt - 24, _rkt - 16, _rkt - 32, _rkt - 40);
+                emit_text_n(_res, strlen(_res));
+            } else {
+                ef_b4(0x48, 0x83, 0xC4, 0x08);                                                         /* add rsp,8       */
+                ef_b1(0x58);                                                                           /* pop rax (base)  */
+                { uint64_t _cx = (uint64_t)(uintptr_t)g_blob_ctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }
+                ef_b3(0x48, 0x89, 0x02);                                                               /* mov [rdx+0],rax */
+                ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)(_rkt - 24)); ef_b3(0x48, 0x89, 0x4A); ef_b1(0x08);   /* γ wire  */
+                ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)(_rkt - 16)); ef_b3(0x48, 0x89, 0x4A); ef_b1(0x10);   /* ω wire  */
+                ef_b3(0x48, 0x8B, 0x88); bb_emit_u32((uint32_t)(_rkt - 32)); ef_b3(0x48, 0x89, 0x4A); ef_b1(0x18);   /* flag    */
+                ef_b2(0x8B, 0x88); bb_emit_u32((uint32_t)(_rkt - 40)); ef_b2(0x89, 0x4A); ef_b1(0x20);               /* δ0 dword*/
+            }
+        } else if (g_is_text) {
             char _res[96];
             snprintf(_res, sizeof _res, "add rsp, 8\npop %s\n", emit_rec_fb());   /* REG-7 U5: the record[+8] payload is the FRAME BASE — rbp for RSP pat blobs (Lon FORTH ruling; zr is sealing to rsp and can no longer name it), r12/rbp legacy modes byte-identical via the fb selector */
             emit_text_n(_res, strlen(_res));
@@ -2775,11 +2810,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _blob_wire = (!_wire_stub && g_emit.flat_jmp_entry && g_emit.flat_pat) ? 1 : 0;   /* ⭐ CLASS D (s22z, the ledger's fourth citizen — DYNAMIC-FLAT, the s21x-f design's first customer IR_MATCH_PATREF(DELETED) delivered): PAT$ blobs are WIRE-ENTERED like CLASS P but with NO pcall record — bb_match_defer's fast arm and the dcap/defer replay loops all enter by bare `jmp rax` with rcx=γ-wire rdx=ω-wire, and the way home is through the wires the BLOB-GRANT α adopted into its own frame.  γ SUSPENDS the activation (frame + interior state retained for β re-entry): 16B resume record {res-landing, rbp} pushed at the deep frontier — the invoker's β edge `jmp qword [rsp]` reads the landing word, the res stub restores rbp and falls into the chain's resume dispatch — then wires read through the PINNED rbp (depth-immune) and caller rbp restored self-referentially [kt-8] (U2b), reads-before-motion.  ω UNWINDS ABSOLUTELY: lea rsp,[rbp+kt] rejoins pre-entry rsp from ANY arrival depth (fence/ABORT seal cuts).  Spellings verbatim from the deleted epilogue's pat arm (git 1ba33ea6~1 xa_flat.cpp:172-174 TEXT / :185-199 BINARY); the CLASS O exit-glue these replace is the roman.s `call exit@PLT` disease the s22u/s22v ledger already named — a blob γ that exits the process.  floor>0 (DEFINE stubs) keeps CLASS P precedence: a DEFINE'd proc whose body carries a pattern is pcall-entered, not blob-entered. */
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }   /* ZK-4 SLICE 1 (s215): CLASS ZF widened to the CELLS arm. Predicate mirrors xa_flat_class_zf() in xa_flat.cpp (the template-side ONE AUTHORITY); the header base differs per regime and is computed there by xa_flat_wire_hdr_base().  ZK-2 (s226): flat_jmp_entry conjunct added to cells-arm condition. The outer main graph has flat_jmp_entry=0 (entered from C via bare jmp, no wire installed in rcx/rdx); its γ exit is call exit@PLT, not wire-jmp. Procedures (noop, fib, etc.) have flat_jmp_entry=1 and exit via CLASS ZF wire-jmp. Without this guard, cells-arm main's γ would jmp through garbage rcx = SEGV. */   /* ICN-FR-2 CLASS ZF γ: direct wire-header read, depth-immune unwind (lea rsp,[rbp+kt]; load rcx=[rbp+kt-24]; restore rbp=[rbp+kt-8]; jmp rcx).  BOTH MEDIUM via x86() in xa_flat.cpp.  Precedence over _blob_wire/_wire_stub: those are 0 for ζ-frame graphs by construction (floor=0, flat_lcl_proc=0, flat_pat=0). */
-    else if (_blob_wire) { int _bk = g_emit.flat_frame_bytes;
-        if (g_is_text) { char _bs[224]; snprintf(_bs, sizeof _bs, "push rbp\nlea rax, [rip + %s]\npush rax\nmov rax, qword ptr [rbp + %d]\nmov rbp, qword ptr [rbp + %d]\njmp rax\n", lbl_res.name, _bk - 24, _bk - 8); emit_text_n(_bs, strlen(_bs)); }
-        else { ef_b1(0x55); ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(&lbl_res); ef_b1(0x50);
-               ef_b3(0x48, 0x8B, 0x85); bb_emit_u32((uint32_t)(_bk - 24));
-               ef_b3(0x48, 0x8B, 0xAD); bb_emit_u32((uint32_t)(_bk - 8));
+    else if (_blob_wire) {   /* ⛔ DEL-T1 D-2 CLASS D γ (s9): SUSPEND at the deep frontier with ZERO rbp — record is {res-landing, CTX.BASE} ({res,rbp}→{res,base} per PT-4); γ wire read from g_blob_ctx[1], depth-immune at any suspend depth.  No caller-rbp restore: rbp was never ours (adopted, untouched).  The invoker's β edge still reads [rsp] for the landing; the res stub pops the base and REFILLS the ctx from the carve header, which is what makes interleaved suspensions come back with their own wires. */
+        extern uint64_t g_blob_ctx[5];
+        if (g_is_text) { char _bs[288]; snprintf(_bs, sizeof _bs, "mov rdx, qword ptr [rip + g_blob_ctx@GOTPCREL]\npush qword ptr [rdx + 0]\nlea rax, [rip + %s]\npush rax\nmov rax, qword ptr [rdx + 8]\njmp rax\n", lbl_res.name); emit_text_n(_bs, strlen(_bs)); }
+        else { { uint64_t _cx = (uint64_t)(uintptr_t)g_blob_ctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }   /* movabs rdx, &g_blob_ctx */
+               ef_b3(0xFF, 0x72, 0x00);                                                                  /* push qword [rdx+0]     */
+               ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(&lbl_res); ef_b1(0x50);                      /* lea rax,[rip+res]; push rax */
+               ef_b3(0x48, 0x8B, 0x42); ef_b1(0x08);                                                     /* mov rax,[rdx+8] (γ wire) */
                ef_b2(0xFF, 0xE0); } }
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;   /* ZK-2 (s226): CELLS-ARM OUTER MAIN γ EPILOGUE. flat_lcl_proc prologue: sub rsp,kt; ...; mov rbp,rsp — rbp = entry_rsp - kt. GLUE-O leave (mov rsp,rbp; pop rbp) would restore rsp to entry_rsp-kt and pop from [rbp+0]=slot0=0, leaving rsp = entry_rsp-kt+8. Correct: lea rsp,[rbp+kt] = entry_rsp; pop rbp from [rbp+kt-8] = saved caller rbp; then exit(0). */
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "lea rsp, [rbp + %d]\npop rbp\nxor edi, edi\ncall exit@PLT\n", _bk); emit_text_n(_seg, strlen(_seg)); }
@@ -2790,11 +2827,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;   /* ZK-2 (s226): CELLS-ARM OUTER MAIN ω EPILOGUE. Symmetric with γ arm above; exit(1). */
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "lea rsp, [rbp + %d]\npop rbp\nmov edi, 1\ncall exit@PLT\n", _bk); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b3(0x48, 0x8D, 0xA5); bb_emit_u32((uint32_t)_bk); ef_b1(0x5D); ef_b3(0xBF, 0x01, 0x00); ef_b1(0x00); ef_b1(0x00); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (_blob_wire) { int _bk = g_emit.flat_frame_bytes;
-        if (g_is_text) { char _bf[192]; snprintf(_bf, sizeof _bf, "mov rax, qword ptr [rbp + %d]\nlea rsp, [rbp + %d]\nmov rbp, qword ptr [rbp + %d]\njmp rax\n", _bk - 16, _bk, _bk - 8); emit_text_n(_bf, strlen(_bf)); }
-        else { ef_b3(0x48, 0x8B, 0x85); bb_emit_u32((uint32_t)(_bk - 16));
-               ef_b3(0x48, 0x8D, 0xA5); bb_emit_u32((uint32_t)_bk);
-               ef_b3(0x48, 0x8B, 0xAD); bb_emit_u32((uint32_t)(_bk - 8));
+    else if (_blob_wire) { int _bk = g_emit.flat_frame_bytes;   /* ⛔ DEL-T1 D-2 CLASS D ω (s9): TOTAL-FAILURE unwind re-based — rsp = ctx.base + kt rejoins the pre-entry spine from ANY arrival depth (the drain law makes arrival depth entry in the common case; the absolute re-base keeps fence/ABORT seal cuts correct exactly as the old lea rsp,[rbp+kt] did).  ω wire from g_blob_ctx[2].  No rbp restore: never written. */
+        extern uint64_t g_blob_ctx[5];
+        if (g_is_text) { char _bf[224]; snprintf(_bf, sizeof _bf, "mov rdx, qword ptr [rip + g_blob_ctx@GOTPCREL]\nmov rax, qword ptr [rdx + 16]\nmov rsp, qword ptr [rdx + 0]\nadd rsp, %d\njmp rax\n", _bk); emit_text_n(_bf, strlen(_bf)); }
+        else { { uint64_t _cx = (uint64_t)(uintptr_t)g_blob_ctx; ef_b2(0x48, 0xBA); bb_emit_u64(_cx); }   /* movabs rdx, &g_blob_ctx */
+               ef_b3(0x48, 0x8B, 0x42); ef_b1(0x10);                                                     /* mov rax,[rdx+16] (ω wire) */
+               ef_b3(0x48, 0x8B, 0x22);                                                                  /* mov rsp,[rdx+0]  (cell base) */
+               if (_bk <= 127) { ef_b3(0x48, 0x83, 0xC4); ef_b1((uint8_t)_bk); } else { ef_b3(0x48, 0x81, 0xC4); bb_emit_u32((uint32_t)_bk); }   /* add rsp, kt */
                ef_b2(0xFF, 0xE0); } }
     else bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); }   /* OUTER-EXIT-1 (Lon s22p): the outermost box owns its OWN two ports, as glue -- this is the whole of what the deleted epilogue did in the ordinary case.  lbl_ω was left UNDEFINED by the s22o deletion while every fail edge still jumped to it, which is the single reason `--compile` produced no assemblable .s for 317/317 programs: one undefined symbol, not 317 defects.  ONE-SHOT BRIDGE (s22p): lbl_gamma and lbl_omega are jmp targets inside main -- no ret, no eax. bb_glue_outer_whack=true; framed_leave is the depth-immune exit; bb_glue_flat.cpp owns the protocol. */
     /* CARVE-KILL (Lon directive, s22o): XA_FLAT_EPILOGUE dispatch DELETED with its function.  The prologue died first and the epilogue was its surviving half -- it read [rbp+kt-24/-16/-8] and lea rsp,[rbp+kt] against a frame nobody established.  A graph has no prologue and no epilogue: the four ports are the whole protocol.  The six regimes this one function branched over (jmp-entry lexprep / nofill / eager, outer stmt-frame / plain, display-reg legacy) are SIX IR KINDS WITH SIX TEMPLATES, not six arms of one mega-function -- that is the rung this deletion opens. */
