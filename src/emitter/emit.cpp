@@ -2355,7 +2355,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", prefix); emit_label_initf(&lbl_stcω, "%s_stω", prefix); }
     static int _scan_off = -1; if (_scan_off < 0) { const char *_e = getenv("SCRIP_SCAN_OFF"); _scan_off = (_e && *_e == '1') ? 1 : 0; }   /* SPD-2 hatch: SCRIP_SCAN_OFF=1 = same-build A/B (BP-5/BP-6 precedent) */
     int scan_live = (!_scan_off && x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* SPD-2 RETRY-INTERNAL: RSP/rbp flavor only (fb==rbp hardwired below); legacy frame modes keep the classic per-position round trip */
-    if (scan_live) {
+    int blob_act = (x86_zc_frame() == ZC_FRAME_RSP && g_emit.flat_pat) ? 1 : 0;   /* ⛔ DEL-T1 D-3 (s9): ACTIVATION ESTABLISHMENT IS NOT SCAN MACHINERY.  D-2 nested the pass-thru α carve + g_blob_ctx publication inside scan_live, so SCRIP_SCAN_OFF=1 suppressed the ACTIVATION ITSELF — every killswitch bisect through it returned a confounded 139 that localized nothing.  The carve now emits whenever a PAT$ blob exists on the RSP arm; the scanhit/scanfail retry blocks keep their OWN scan_live gate downstream, so the killswitch still does exactly what its name says and is usable as a bisect instrument again. */
+    if (blob_act) {
         emit_label_initf(&lbl_attempt,  "%s_attempt",  prefix);
         emit_label_initf(&lbl_scanhit,  "%s_scanhit",  prefix);
         emit_label_initf(&lbl_scanfail, "%s_scanfail", prefix);
