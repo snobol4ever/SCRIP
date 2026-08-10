@@ -42,10 +42,21 @@ RATIO_FLOOR="${RATIO_FLOOR:-1.10}"
 FAMILY="${FAMILY:-}"
 ARM_A="${ARM_A:-}"
 ARM_B="${ARM_B:-}"
-# ASLR DEFAULTS TO **off** (s11).  RC-0(a)'s own exit criterion is stated "at ASLR=off (setarch -R)", so the
-# instrument now defaults to the layout its acceptance test is defined on.  Address-layout draw moves the
-# min-of-N statistic itself, which defeats the monotone-stability rationale that justifies min-of-N: the min
-# is only a stable floor WITHIN one layout.  Override with ASLR=on to reproduce a legacy number.
+# ASLR DEFAULTS TO **off** (s11).  RC-0(a)'s exit criterion is stated "at ASLR=off (setarch -R)", so the
+# instrument defaults to the layout its acceptance test is defined on.  The min-of-N statistic does move with
+# the layout draw (measured: min 427ms unpinned vs 448ms pinned), so the min is only a stable floor WITHIN one
+# layout -- and for an A/B RATIO, a shared fixed layout removes layout as a variable that differs between arms.
+#
+# ⛔ DO NOT REPEAT THE "PINNING REDUCES SPREAD" CLAIM -- FALSIFIED HERE (s11).  Measured INTERLEAVED (arms
+# alternated run-by-run, so thermal/scheduler drift is shared rather than confounded with the arm), fibonacci,
+# unchanged binary, N=12: ASLR=on max/min=1.075 (spread 7.5%) vs ASLR=off max/min=1.085 (spread 8.5%).  Pinning
+# did NOT reduce spread; it converts layout variance into a fixed unknown BIAS, and this box drew a slow layout
+# (~5% slower across the whole distribution).  A first, SEQUENTIAL measurement had suggested the opposite --
+# arm-ordered runs on a 1-core box confound drift with the arm.  Interleave, or do not compare.
+#
+# ⛔ RC-0(a)'s EXIT CRITERION IS NOT MET IN THIS CONTAINER: it requires max/min <= 1.05x at N=12 with ASLR=off;
+# this box measures 1.085x pinned and 1.075x unpinned.  ⇒ NO RATIO BELOW ~1.09x IS TRUSTWORTHY HERE, which
+# independently corroborates RATIO_FLOOR=1.10 below.  The rail is not yet an accepted instrument on this box.
 ASLR="${ASLR:-off}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }
 if [ -n "${PROGS:-}" ]; then LIST=""; for p in $PROGS; do LIST="$LIST $BENCH/$p.sno"; done
