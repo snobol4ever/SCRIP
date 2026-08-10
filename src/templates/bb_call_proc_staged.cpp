@@ -269,7 +269,7 @@ static std::string bcps_det_arm() {
                             + x86("lea", "rdx", L(11))
                             + (MEDIUM_BINARY && fn_cell_bin_z
                                 ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin_z) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
-                                : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl_z.c_str()) + x86("jmp", "rax"))
+                                : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl_z.c_str()) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax"))
                             + x86("def", L(10)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2))
                             + x86("def", L(11)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2));
                     }
@@ -466,7 +466,7 @@ static std::string bcps_det_arm() {
                         + x86("lea", "rdx", L(9))
                         + (MEDIUM_BINARY && fn_cell_bin
                             ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
-                            : x86("mov",  "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl.c_str()) + x86("jmp", "rax"))
+                            : x86("mov",  "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl.c_str()) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax"))
                         + x86("def", L(8)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2))
                         + x86("def", L(9)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2));
                 }
