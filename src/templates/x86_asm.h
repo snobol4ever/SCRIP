@@ -287,6 +287,13 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 /* RAX:RDX to the destination frame slot BEFORE the reload — otherwise reload overwrites RAX:RDX with block      */
 /* values (which are stale VM globals, not the return value).  x86_rtcc_call_descr handles this case.            */
 /* x86_rtcc_call handles void/int/ptr-returning calls where RAX need not be captured before reload.              */
+/* ⛔ H2 — THE R9/GVA SLOT IS NOT WRITTEN BACK (s8 2026-08-10).  rtcc_init.c seeds slot 6 with RT_GVA_VA once and    */
+/* documents it as a BLOCK-CANONICAL EXCEPTION needing "no companion writes anywhere".  This writeback WAS a companion */
+/* write: it stored r9 on EVERY crossing, so the exception silently held only while nothing ever clobbered r9.  When   */
+/* something did (bb_func_activate movzx r9,cl) the clobbered value entered the canonical slot and the reload spread   */
+/* it -- RT_GVA_VA dead process-wide, every [r9+k*16] near-null.  PROVEN: AB=1 RTCC=1 fibonacci SIGSEGV.  Skipping the */
+/* store makes the documented exception TRUE: r9 is a read-only cache of a constant, the reload always restores the    */
+/* pristine seed, and a template clobber of r9 becomes SELF-HEALING at the next crossing instead of fatal.             */
 /* x86_rtcc_wb_bin — BINARY: writeback all 9 GPRs to g_rtcc_block WITHOUT touching RSP.                         */
 /* RSP-SAFETY LAW: the veneer fires inside templates that may have live ζ cells on RSP.  NO push/pop allowed.    */
 /* APPROACH: use the REX.W MOV-moffs-rax encoding (48 A3 addr64) to store RAX directly to its slot by absolute  */
@@ -306,7 +313,7 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block) {
     wb += (char)0x48; wb += (char)0x89; wb += (char)0x70; wb += (char)24;         /* mov [rax+24], rsi  (RSI slot 3) */
     wb += (char)0x48; wb += (char)0x89; wb += (char)0x78; wb += (char)32;         /* mov [rax+32], rdi  (RDI slot 4) */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40;         /* mov [rax+40], r8   (R8  slot 5) */
-    wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48;         /* mov [rax+48], r9   (R9  slot 6) */
+    if (!RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }   /* mov [rax+48], r9 (R9 slot 6) -- SKIPPED under the GVA claim: see H2 note above x86_rtcc_wb_bin */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56;         /* mov [rax+56], r10  (R10 slot 7) */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64;         /* mov [rax+64], r11  (R11 slot 8) */
     /* RAX left = block pointer (original RAX is in slot 0).  Caller uses RAX for indirect call stub. */
@@ -339,7 +346,7 @@ static inline std::string x86_rtcc_wb_text(void) {
     wb += " mov qword ptr [rax + 24], rsi\n";
     wb += " mov qword ptr [rax + 32], rdi\n";
     wb += " mov qword ptr [rax + 40], r8\n";
-    wb += " mov qword ptr [rax + 48], r9\n";
+    if (!RTCC_GLOBAL_R9_GVA) wb += " mov qword ptr [rax + 48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
     wb += " mov qword ptr [rax + 56], r10\n";
     wb += " mov qword ptr [rax + 64], r11\n";
     /* rax left = block ptr; original rax in slot 0; call stub follows directly */
