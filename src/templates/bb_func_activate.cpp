@@ -22,6 +22,8 @@ void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
 }
 #include "x86_asm.h"
+#define AB_TC_REG   ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10"  : "r9")
+#define AB_TC_REG_D ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10d" : "r9d")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* IR_FUNC_ACTIVATE — LADDER AB (2026-08-09 AB-2): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
 /* SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack                                                                                                   */
@@ -202,13 +204,13 @@ std::string bb_func_activate() {
       + x86("def", L(1))   /* β: L(1) */
         /* Save type-code into r9 immediately — r9 is dead at β entry (was argreg at call site only).
          * r9 survives all C calls and the LEAVE; we read it after LEAVE for the final dispatch. */
-      + x86("movzx", "r9", "cl")    /* r9 = type code: 0=RETURN 1=NRETURN 2=FRETURN */
+      + x86("movzx", AB_TC_REG, "cl")    /* type code: 0=RETURN 1=NRETURN 2=FRETURN.  RTCC-SAFE (s8): r10 when the GVA claim is live -- r9 = RT_GVA_VA under RTCC_GLOBAL_R9_GVA and the veneer writeback would store this type code into the canonical GVA slot, killing [r9+k*16] process-wide (proven: AB=1 RTCC=1 fibonacci SIGSEGV).  r10 is scratch-tier claimed with NO global assigned, so it keeps the author's survives-the-C-call property.  RTCC OFF -> r9, byte-identical. */
         /* ADOPT THE FRAME (gdb conviction 2026-08-10): β arrives from the shared floater with the RETURNING STATEMENT's rbp, not this frame's — measured 0x88 below the anchor on the noarg repro.
          * Every access below (result stash, leave_env frame arg, save-set restore, GW/WW/prev loads, LEAVE) is rbp-relative, so without this adopt β works a FOREIGN frame: γ wire loaded 0 → jmp 0
          * (rip=0 crash), prev-anchor loaded dead stack garbage → anchor ← rt_ab_enter_env+107 (both gdb-measured).  The anchor is still linked here (unlink is below) and IS this frame's base. */
       + x86("mov", "rbp", ABSQ(RT_AB_ANCHOR))
         /* FRETURN: result is irrelevant; skip stash; call leave_env(rbp, FAILDESCR, 1) */
-      + x86("cmp", "r9d", (long)AB_TC_FRETURN)
+      + x86("cmp", AB_TC_REG_D, (long)AB_TC_FRETURN)
       + x86("je",  L(3))
         /* RETURN / NRETURN: the RESULT is the CURRENT value of the fname GVA cell (save-set k=0), read BEFORE the restore loop puts the saved pre-call value back — manual Ch.8: the value of the
          * function is the value of the fname variable AT RETURN TIME.  rax:rdx at β entry are statement residue, NOT the result (gdb/output conviction 2026-08-10: stashing them returned null on
@@ -333,7 +335,7 @@ std::string bb_func_activate() {
         /* dispatch on r9 (type-code saved before any C call, survives LEAVE):
          *   RETURN / NRETURN (r9 != 2) → γ wire in r10
          *   FRETURN          (r9 == 2) → ω wire in r11 */
-      + x86("cmp", "r9d", (long)AB_TC_FRETURN)
+      + x86("cmp", AB_TC_REG_D, (long)AB_TC_FRETURN)
       + x86("je",  L(6))
       + x86("jmp", "r10")            /* RETURN / NRETURN → γ */
       + x86("def", L(6))
