@@ -1,0 +1,21 @@
+# wreg_claim_whitelist.txt — capability registry for test_gate_wreg_claim.sh
+#
+# A file listed here is LICENSED TO OWN the WREG wire registers rGamma=r10 / rOmega=r11.  LADDER WREG names
+# exactly four such site classes:
+#   (1) glue emitters          — the two `lea` site-glue spellings (PASS-THRU, ONE-SHOT) and FRAMED's bank/restore
+#   (2) blob-exit emitters     — `jmp r10` success / `jmp r11` fail-after-drain
+#   (3) x86_asm.h internals    — the encoders themselves; they name every register by construction
+#   (4) suspension-capture     — THE ONE LAW: a pending cell pushed inside a blob captures {r10,r11} at push
+#                                and its beta-resume restores them before any blob code runs
+#
+# This is a REGISTRY, not a silencer.  A file here has been cleared to MENTION the wires because owning them is
+# its job — not because its use was assumed safe.  Anything else that touches r10/r11 is sweep debt, and the
+# gate counts it until it is gone.
+#
+# FORMAT (whitespace-separated):
+#   <basename>   <site-class 1-4>   <who/session>   <one-line justification>
+#
+# EMPTY BY DESIGN at creation (2026-08-10, WREG-0).  Nothing is licensed yet because WREG-1 has not created the
+# glue emitters -- at WREG-0 EVERY r10/r11 mention in the product is sweep debt, including x86_asm.h, whose
+# encoder internals become entry (3) the moment they are actually needed by a wire spelling.  Adding a line here
+# before its rung lands would hide debt rather than license ownership.
