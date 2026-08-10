@@ -1988,6 +1988,8 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label) {
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * g_sno_prescan_top       = NULL;
+static int            g_sno_expr_define_seen  = 0;
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0;
@@ -2052,7 +2054,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
              * and IR_LIT_STRING operands for each save-set member name so the emit-time drive can call gva_index_of on them.
              * SCRIP_AB=0 restores byte-identical pre-AB emission. */
             static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }   /* RTX-FUNC-0: default OFF (opt-in SCRIP_AB=1) until bug#2 (nformals=0 at block emit nulls formal N) lands — transfer path proven live end-to-end m3 this seat; default-on flip owed with the bug#2 fix */
-            if (_ab) {
+            if (_ab && !g_sno_expr_define_seen) {   /* RTX-FUNC-8 hatch: any nested DEFINE in this program => mint NO blocks => ab_n==0 => call sites take the legacy fallback */
                 int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
                 const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
                 if (pnode && sno_qlit_fold(pnode)) {
@@ -2287,6 +2289,15 @@ static const char * sno_litname(const tree_t * a) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RTX-FUNC-8 (2026-08-10): AB SAFETY HATCH for EXPRESSION-POSITION DEFINE.  sno_prescan_expr registers BOTH statement-position and
+ * nested DEFINEs, but the AB activation block + bind are minted ONLY on the statement path (sno_build_graph, the sno_stmt_define arm),
+ * so a nested DEFINE leaves fn_cell$<FN> unwired (new name -> rt_ab_undef_fn_stub) or STALE (redefine -> the PREVIOUS body, entered under
+ * the new prototype's frame shape -> SIGSEGV; crosscheck/rung10/1011_func_redefine).  Until RTX-FUNC-8 proper lands -- which needs the
+ * compile-time vs runtime DEFINE binding question routed, since the block must match the LIVE definition and not merely exist -- a program
+ * containing ANY nested DEFINE takes NO activation blocks at all, so ab_n stays 0 and every call site falls through the already-tested
+ * SCRIP_AB=0 hatch to the classic open_slim body.  Correctness-only: AB can decline to fire, it can never fire on a stale block.
+ * g_sno_prescan_top is the statement SUBJECT currently being prescanned; a DEFINE node that IS the subject is statement-position and does
+ * NOT trip the hatch -- without that test every DEFINE-bearing program would trip it and AB would be dead everywhere. */
 static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
     if (!t) return;
     if (t->t == TT_FNC) {
@@ -2317,6 +2328,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs) {
                 else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
             }
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
+            if (t != g_sno_prescan_top) g_sno_expr_define_seen = 1;   /* RTX-FUNC-8 hatch: nested DEFINE gets no activation block, so this program takes none at all (see the note at sno_prescan_expr) */
             sno_predef_note(d.fname);
             int fo = -1;
             for (int k = 0; k < *ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { fo = k; break; }
@@ -2410,6 +2422,7 @@ void sno_pat_thunks_build(int p0) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
+    g_sno_expr_define_seen = 0; g_sno_prescan_top = NULL;   /* RTX-FUNC-8 hatch: per-program state, reset at the whole-program entry */
     g_sno_seal_enabled = 1;   /* s137 MAIN-LOWERING GATE grant: this entry is the whole-program lowering (fragments enter via sno_lower_fragment_at, never here) — see the flag doc at its definition */
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     g_sno_nexpr = 0;
@@ -2428,7 +2441,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     const tree_t * def_body[SNO_DEF_MAX]; for (int _k = 0; _k < SNO_DEF_MAX; _k++) def_body[_k] = NULL;
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     for (int i = 0; i < nst; i++) {
-        sno_prescan_expr(lc_stmt_subj(st[i]), defs, &ndefs);
+        g_sno_prescan_top = lc_stmt_subj(st[i]);   /* RTX-FUNC-8 hatch: mark statement position so only NESTED DEFINEs trip it */
+        sno_prescan_expr(g_sno_prescan_top, defs, &ndefs);
         const tree_t * dfn = lc_stmt_subj(st[i]);
         if (dfn && dfn->t == TT_DEFINE) {
             is_def[i] = 1;
