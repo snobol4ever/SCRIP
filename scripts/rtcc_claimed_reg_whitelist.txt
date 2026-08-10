@@ -1,0 +1,18 @@
+# rtcc_claimed_reg_whitelist.txt — capability registry for test_gate_rtcc_claimed_regs.sh
+#
+# A file listed here has been CLEARED for writing an RTCC live-claimed register despite also reading
+# GVARQ.  This is a REGISTRY, not a silencer: clearing means someone PROVED, by probe or monitor, that
+# no clobber window reaches either hazard —
+#   (H1) a GVARQ [reg+off] read inside the window, or
+#   (H2) a veneered call inside the window (whose writeback would store the clobbered value into the
+#        canonical block slot and destroy the global process-wide).
+# RULES.md forbids conviction by code-reading; it equally forbids ACQUITTAL by code-reading.  A line here
+# without a named probe is not a clearance.
+#
+# FORMAT (whitespace-separated):
+#   <basename.cpp>   <who/session>   <how-cleared: probe or monitor invocation>   <one-line justification>
+#
+# EMPTY BY DESIGN at creation (2026-08-10).  bb_func_activate.cpp is in the collision class and is
+# deliberately NOT cleared here: its `movzx r9, cl` (line 205) was flagged in passing by RTX-FUNC-0's
+# commit message (22a61ccf: "beta movzx r9,cl vs RTCC_GLOBAL_R9_GVA r9=GVA-base claim") and never probed.
+# The owning seat clears it or fixes it; the gate stays INFORMATIONAL until then so it blocks nobody.
