@@ -68,9 +68,15 @@ for claim in $LIVE_CLAIMS; do
     if [ "$n" -gt 0 ]; then writers="$writers $(basename "$f")"; surface=$((surface + n)); fi
   done
 
+  # ⛔ NEVER `| grep -q` UNDER pipefail (s11): grep -q exits on first match, closing the pipe; the upstream
+  # sed|perl then takes SIGPIPE(141) and `set -o pipefail` propagates that, so a MATCH READS AS A MISS.
+  # Measured on this tree: 3 large templates flipped (bb_call 14/20, bb_call_proc_staged 16/20,
+  # bb_func_activate 13/20), readers ranged 5..8 against a truth of 8 -- and the WORST offender is the very
+  # file s8 convicted.  grep -c reads to EOF, cannot SIGPIPE the upstream, and is what line ~67 already uses.
   gvausers=""
   for f in "$TPL"/*.cpp; do
-    if strip_comments "$f" | grep -q "GVARQ("; then gvausers="$gvausers $(basename "$f")"; fi
+    n=$(strip_comments "$f" | grep -c "GVARQ(")
+    if [ "$n" -gt 0 ]; then gvausers="$gvausers $(basename "$f")"; fi
   done
 
   echo "HAZARD SURFACE : $surface write/base-use site(s) of $reg across$( [ -n "$writers" ] && echo "$writers" || echo " (none)")"
