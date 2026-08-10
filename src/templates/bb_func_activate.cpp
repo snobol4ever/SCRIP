@@ -170,8 +170,8 @@ std::string bb_func_activate() {
             }
             return std::string();
         })
-        /* monitor CALL tap — load g_monitor_bin value via movabs+mov; fname from RO slot 0 */
-      + x86("movabs", "rax", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
+        /* monitor CALL tap — g_monitor_bin ADDRESS both-medium (BINARY movabs / TEXT @GOTPCREL); fname from RO slot 0 */
+      + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
       + x86("mov",    "rax", RDQ("rax", 0))    /* load int value; rax != 0 iff monitor active */
       + x86("test",   "rax", "rax")
       + x86("je",  L(2))             /* skip monitor tap */
@@ -309,8 +309,8 @@ std::string bb_func_activate() {
       + x86("mov", "r10", RDQ("rbp", AB_OFF_GW))     /* γ wire */
       + x86("mov", "r11", RDQ("rbp", AB_OFF_WW))     /* ω wire */
       + x86("mov", "rcx", RDQ("rbp", AB_OFF_ANCHOR)) /* prev ACT-ANCHOR */
-        /* monitor RETURN tap — frame still live; result is in frame RES0/RES1 */
-      + x86("movabs", "rax", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
+        /* monitor RETURN tap — frame still live; result is in frame RES0/RES1; address both-medium per the CALL tap */
+      + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
       + x86("mov",    "rax", RDQ("rax", 0))
       + x86("test",   "rax", "rax")
       + x86("je",  L(5))
