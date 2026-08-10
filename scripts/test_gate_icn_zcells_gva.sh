@@ -39,7 +39,7 @@ fi
 
 # CHECK 2 — ZK-5 assertion: census run must not abort (global-cells=0 invariant)
 census_stderr=$(SCRIP_ICN_CELLS=1 SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$WITNESS" 2>&1 >/dev/null) || { echo "GATE FAIL: CELLS=1 CENSUS=1 run crashed/aborted"; FAIL=1; }
-if echo "$census_stderr" | grep -q "ZK-5-FAIL"; then
+if grep -q "ZK-5-FAIL" <<< "$census_stderr"; then
     echo "GATE FAIL: ZK-5 global-cells=0 assertion FIRED -- a global was armed on the cells spine"
     echo "$census_stderr" | grep "ZK-5-FAIL"
     FAIL=1
