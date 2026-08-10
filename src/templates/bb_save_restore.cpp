@@ -76,8 +76,8 @@ std::string bb_save_restore() {
              + x86("test", "rcx", "rcx")
              + x86("je",   L(0))                        /* 0 → legacy path */
                /* AB path: set type-code in cl; jmp through [frame+AB_OFF_BADDR] */
-             + x86("mov",  "cl", (long)tc)              /* AB_TYPECODE_REG = cl (low byte of rcx — safe: test already consumed rcx) */
-             + x86("mov",  "rax", RDQ("rcx", AB_OFF_BADDR))  /* β address from the active frame */
+             + x86("mov",  "rax", RDQ("rcx", AB_OFF_BADDR))  /* β address FIRST, through the PRISTINE anchor — gdb conviction 2026-08-10: the type-code mov ran before this load and clobbered rcx (old comment's safety claim covered the test, not this load) */
+             + x86("mov32","ecx", (long)tc)              /* AB_TYPECODE_REG=cl via imm32 zero-extend (cl==tc; rcx carries nothing else at β entry per ab_abi.h) — the imm8 cl form silently widened to movabs rcx,imm64 in BINARY (encoder gap: do not reintroduce without an imm8 encoder) */
              + x86("jmp",  "rax")
                /* legacy path: rt_flat_ret_snap → restore → jmp wire */
              + x86("def",  L(0))
