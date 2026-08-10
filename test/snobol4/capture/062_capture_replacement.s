@@ -216,10 +216,10 @@ n9_lit_string_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_replace_α:
                         mov              rdi, qword ptr [rip + .Lx33_0]                 # name
-                        mov              rsi, qword ptr [rsp + 160]                     # sub_lo
-                        mov              rdx, qword ptr [rsp + 168]                     # sub_hi
-                        mov              ecx, dword ptr [rsp + 48]                      # start
-                        mov              r8, qword ptr [rsp + 72]                       # end
+                        mov              rsi, qword ptr [rsp + 176]                     # sub_lo
+                        mov              rdx, qword ptr [rsp + 184]                     # sub_hi
+                        mov              ecx, dword ptr [rsp + 64]                      # start
+                        mov              r8, qword ptr [rsp + 88]                       # end
                         lea              r9, [rsp + 0]                                  # lit_string
                         call             rt_match_replace@PLT
                                                                                         jmp   .Lx33_1
