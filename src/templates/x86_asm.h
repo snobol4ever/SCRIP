@@ -11,13 +11,15 @@
 extern "C" {
 extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
 extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 0=OFF(default), 1=ON(SCRIP_RTCC=1) */
-#define RTCC_SLOT_R8 5              /* RC-5: block slot for R8 = rt_anchor_g (&ANCHOR value) */
-#define RTCC_SLOT_R9 6              /* RC-5-GVA: block slot for R9 = RT_GVA_VA (GVA base pointer) */
-#define RTCC_GLOBAL_R8_ANCHOR 1    /* RC-5-ANCHOR killswitch: 0=OFF(byte-identical); 1=ON */
-#define RTCC_GLOBAL_R9_GVA    1    /* RC-5-GVA killswitch: 0=OFF(byte-identical ABSQ); 1=ON(GVARQ) */
-#define RTCC_GVA_REG         "r9"  /* the register that caches RT_GVA_VA inside generated code */
 long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
+/* RC-5 (s11): RTCC_SLOT_R8/R9, RTCC_GLOBAL_R8_ANCHOR, RTCC_GLOBAL_R9_GVA and RTCC_GVA_REG were DUPLICATED here
+   and in rtx/rtcc.h, both unguarded, so no -D could override either and gcc's "redefined" warning was eaten by
+   the tree-wide -w.  That silently VOIDED two graded rungs: RC-5-GVA was RETAINED on a 1.036x "rail" and
+   RC-5-ANCHOR was REVERTED on a 1.000x "rail", when in both cases the two arms were the SAME BINARY.  One
+   source of truth now; a killswitch flip in rtcc.h reaches the emitter, which is what makes those rungs
+   re-gradeable at all.  Values were verified identical across both copies before deletion. */
+#include "rtx/rtcc.h"
 #ifndef _
 #define _ g_emit
 #endif
