@@ -45,7 +45,7 @@ fi
 
 # LOCK 2 — m3 arena engaged (active=1).
 TRACE="$(SCRIP_M3_GVA_TRACE=1 "$SCRIP" --run "$PROG" < /dev/null 2>&1 1>/dev/null)"
-if echo "$TRACE" | grep -q 'active=1'; then
+if grep -q 'active=1' <<< "$TRACE"; then
     echo "  PASS  LOCK 2: m3 gva arena engaged (active=1)"
 else
     echo "  FAIL  LOCK 2: m3 did NOT engage the gva arena (NV fallback) — trace: $TRACE"

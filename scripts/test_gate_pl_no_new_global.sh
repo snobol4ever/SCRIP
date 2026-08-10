@@ -149,7 +149,7 @@ DOOMED_FLOOR=14   # PL-DESCR-2 sub-flip 2 deleted g_resolve_env (the Term* shado
 # ---- enumerate distinct g_* actually present -----------------------------------------------------
 PRESENT=$(grep -rhoE '\bg_[a-zA-Z_][a-zA-Z0-9_]*' $PL_FILES 2>/dev/null | sort -u)
 
-in_set() { echo "$2" | tr -s ' \n' '\n' | grep -qx "$1"; }
+in_set() { grep -qx "$1" <<< "$(tr -s ' \n' '\n' <<< "$2")"; }
 
 new_globals=""
 doomed_present=0
