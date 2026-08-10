@@ -994,11 +994,18 @@ static void sno_snapref_scan(const tree_t * t) {
     for (int i = 0; i < t->n; i++) sno_snapref_scan(t->c[i]);
 }
 static int sno_fz_snapref(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_nsnapref; i++) if (!strcmp(g_sno_snapref[i], nm)) return 1; return 0; }
+static const char * g_sno_encl[SNO_PAT_MAX]; static int g_sno_nencl = 0;
+static void sno_encl_add(const char * nm) { if (!nm) return;
+    for (int i = 0; i < g_sno_nencl; i++) if (!strcmp(g_sno_encl[i], nm)) return; if (g_sno_nencl < SNO_PAT_MAX) g_sno_encl[g_sno_nencl++] = nm; }
+static void sno_encl_mark_all(const tree_t * t) { if (!t) return; if (t->t == TT_VAR && t->v.sval) sno_encl_add(t->v.sval); for (int i = 0; i < t->n; i++) sno_encl_mark_all(t->c[i]); }
+static void sno_encl_scan(const tree_t * t) { if (!t) return; if (t->t == TT_ARBNO || sno_is_fence(t)) { sno_encl_mark_all(t); return; } for (int i = 0; i < t->n; i++) sno_encl_scan(t->c[i]); }
+static int sno_encl_hostile(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_nencl; i++) if (!strcmp(g_sno_encl[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_fz_build_table(const tree_t ** st, int nst) {
-    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nsnapref = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nsnapref = 0; g_sno_nencl = 0;
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i]; if (!s) continue;
+        sno_encl_scan(s);   /* PT-2b: whole statement — inline_ok gates the STORED tree, the hazard is the USE-SITE enclosure (070: DIGIT=ANY() inline-ok, ARBNO(*DIGIT) not; 128 FENCE in an RHS) */
         const tree_t * subj = lc_stmt_subj(s); const tree_t * pat = sfind_expr(s, ":pat"); const tree_t * repl = sfind_expr(s, ":repl"); int has_eq = sfind(s, ":eq") != NULL;
         if (pat) sno_fz_scan(pat);
         if (repl) sno_fz_scan(repl);
@@ -1223,14 +1230,14 @@ static int sno_fz_is_dead_build(const char * nm) {   /* PT-2: 1 iff var-name is 
     { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: inline off : census undercounts, verdict dies */
     if (!nm) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): a snapshot-referenced store is live even at defer_cnt==0 */
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var) && !sno_encl_hostile(g_sno_fz[i].var);   /* s6 census hole + PT-2b lockstep: hostile ⇒ never inlined ⇒ blob never dead */
     return 0;
 }
 static int sno_fz_procname_is_dead(const char * pn) {   /* PT-2: lookup by procname (PAT$N) for patproc builder which indexes by g_sno_pats[].name */
     { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: both consult sites revert together */
     if (!pn) return 0;
     for (int i = 0; i < g_sno_nfz; i++) if (g_sno_fz[i].procname && !strcmp(g_sno_fz[i].procname, pn))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var);   /* PT-2 census hole (s6): symmetric -- the kept blob's inner fast arm needs the referenced object's own blob for dtp_fn_of */
+        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var) && !sno_encl_hostile(g_sno_fz[i].var);   /* s6 + PT-2b lockstep: symmetric -- the kept blob's inner fast arm needs the referenced object's own blob for dtp_fn_of */
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1313,7 +1320,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
         if (in && in->t == TT_VAR && in->v.sval) {
             { static int _p3 = -1; if (_p3 < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _p3 = (!e || *e != '0') ? 1 : 0; }   /* PT-3: *name-of-invariant inline — same killswitch as PT-1 */
-              if (_p3) { const tree_t * p = sno_fz_tree(in->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* inline before mark_defer so defer_cnt stays 0 → PT-2 blob suppression also fires */
+              if (_p3 && !sno_encl_hostile(in->v.sval)) { const tree_t * p = sno_fz_tree(in->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* inline before mark_defer so defer_cnt stays 0 */
             IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = (char *) in->v.sval; sno_fz_mark_defer(g, nd, in->v.sval); nd->seal = sno_defer_sealed(in->v.sval) ? 1 : (sno_seal_pat(in->v.sval) ? 2 : 0);   /* s142: 1 = full right-seal (s137 whack); 2 = WRITE-ONCE only (name eligibly resolves in g_sno_seal: single write, fz-safe) — enables the defer-site entry-cell, NOT the whack.  OP-SPLIT s21x-f: this is the `*X` arm, the only one the manual lets recurse (p.122) — IR_MATCH_DEFER is star-ONLY by construction now; the s199 dstar registration is deleted, the opcode IS the provenance. */ nd->pat_static = sno_name_static(in->v.sval);   /* ZD-5 s23i: a `*X` whose X is transitively defer-free cannot recurse -- the star buys late binding only, and the statement quartet may arm around it (117's *cmd class) */ sno_ω_to(nd, fail); return nd; }
         { const char * bn = sno_expr_collect(in); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn);
           IR_t * nd = lc_build(g, IR_MATCH_DEFER, succ, NULL); IR_LIT(nd).sval = lp_strdup(pb); sno_ω_to(nd, fail); return nd; }
@@ -1330,7 +1337,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * IR_MATCH_DEFER owns the NV acquisition path (GVA / rt_defer_get_pat_fn) and is correct for by-name global reads.
          * SCRIP_PB_SNAP killswitch deleted (PB-5): the live-name VAR→MATCH_VALUE fallback is the PATREF-era incorrect path. */
         { static int _pi = -1; if (_pi < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _pi = (!e || *e != '0') ? 1 : 0; }   /* ⭐ PAT-INLINE (Lon directive 2026-08-09): a bare ref whose name is TOTALLY INVARIANT lowers the STORED TREE INLINE into the statement spine — the reference IS pass-thru glue (pure wiring, zero nodes of its own), and the DEFER→PAT$-blob linkage (BLOB-GRANT whole-graph RBP frame, CLASS D suspend protocol) never exists for it.  The elements ride the statement regime — the licensed frame census {STATEMENT·FUNCTION·MATCH_BEGIN·FENCE1} and the modern per-box mechanism — byte-for-byte as if written inline.  SEMANTICS: sound exactly because invariance proves the PB-5 stage-2 snapshot equals the compile-time tree at every execution (single write, fz-safe, constant args) — the snapshot pre-chain is not skipped, it is PROVEN REDUNDANT.  GUARDS: !g_sno_in_patproc (blob-interior lowering; also breaks lower-time cycles); shape gate sno_pat_inline_ok (ARBNO/FENCE/captures excluded — their statement rungs delete the exclusion when they land); inline cannot fire in the PAT-ARG-BIND scratch walk or patproc build walk (g_sno_pat_match_ctx=0 / g_sno_in_patproc=1 respectively, both confirmed by code read and gate sweep).  `*X` (TT_DEFER arm above) is UNTOUCHED — sole recursion form, manual p.122.  ✅ DEFAULT ON (PT-1 exit gate 2026-08-09): w_pinline1/hand/full hit=A both modes; claws5-match m3 legacy==inline, xc318 120/122 same (2 pre-existing ASLR/ARBNO flakes, neither inline-caused); killswitch SCRIP_PAT_INLINE=0 reverts; corpus/probe/pt_inline_1{,_hand,_full}.sno promoted. */
-          if (_pi) { const tree_t * p = sno_fz_tree(t->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* shape gate = sno_pat_inline_ok, exclusions + deletion conditions documented there */
+          if (_pi && !sno_encl_hostile(t->v.sval)) { const tree_t * p = sno_fz_tree(t->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* shape gate = sno_pat_inline_ok, exclusions + deletion conditions documented there */
         IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
         if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
         return mv;
@@ -2626,7 +2633,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
-    g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0; g_sno_nencl = 0;
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL);
     { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
