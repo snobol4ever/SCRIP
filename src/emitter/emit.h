@@ -151,6 +151,7 @@ void     emit_label_initf      (bb_label_t * lbl, const char * fmt, ...);
 void     bb_label_define       (bb_label_t * lbl);
 bb_label_t * emit_label_alloc  (const char * fmt, ...);
 bb_label_t * emit_label_intern (const char * name);
+void drive_arg_slots_reserve (int n);   /* op_arg_slot heap growth (int*+cap since 599601e); callers fill then set op_arg_slot_n */
 void         emit_label_pool_reset(void);
 void         bb_label_alias      (bb_label_t * stub, bb_label_t * tgt);
 bb_label_t * bb_label_fold       (bb_label_t * l);
