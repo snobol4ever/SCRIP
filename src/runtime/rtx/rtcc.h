@@ -41,7 +41,9 @@ extern "C" {
 /* RC-5 rung 1: R8 = rt_anchor_g (&ANCHOR value, int64_t).  REVERTED 1.000x rail (anchor retry path too cold). */
 /*   Infrastructure COMMITTED (block-canonical write companions in keywords.c / core.c; encoder arm wired).    */
 /*   Template changes (bb_match_begin/bb_match_advance rtcc_anchor_cmp) REVERTED.                              */
-#define RTCC_GLOBAL_R8_ANCHOR   1   /* RC-5-ANCHOR killswitch: 0 = OFF (byte-identical); 1 = ON */
+#ifndef RTCC_GLOBAL_R8_ANCHOR
+#define RTCC_GLOBAL_R8_ANCHOR   1   /* RC-5-ANCHOR killswitch: 0 = OFF (byte-identical); 1 = ON.  GUARDED (s11) so -DRTCC_GLOBAL_R8_ANCHOR=0 from the build actually overrides -- it did NOT before, and that voided both RC-5 rail numbers. */
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RC-5 rung 2: R9 = RT_GVA_VA (GVA island base pointer, constant for process lifetime).                      */
 /*   BLOCK-CANONICAL EXCEPTION: RT_GVA_VA is a compile-time constant (pin_va.h); never changes after mmap.   */
@@ -51,7 +53,9 @@ extern "C" {
 /*   Census: 1038 ABSQ GVA accesses across 21 benchmark files.  disp8 covers k*16 for k≤7 (all roman.sno     */
 /*   variables).  Expected encoding win: 7B (ABSQ abs32+REX) → 4B ([r9+disp8]) per access.                   */
 /*   SysV arg5 (r9) is confirmed unused by rt calls per RC-0(c) census (zero ≥6-arg rt calls).               */
-#define RTCC_GLOBAL_R9_GVA    1   /* RC-5-GVA killswitch: 0 = OFF (byte-identical); 1 = ON */
+#ifndef RTCC_GLOBAL_R9_GVA
+#define RTCC_GLOBAL_R9_GVA   1   /* RC-5-GVA killswitch: 0 = OFF (byte-identical); 1 = ON.  GUARDED (s11) so -DRTCC_GLOBAL_R9_GVA=0 from the build actually overrides -- it did NOT before, and that voided both RC-5 rail numbers. */
+#endif
 #define RTCC_GVA_REG            "r9"  /* the register that holds RT_GVA_VA inside generated code */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The block itself — declared in rtcc_init.c; extern here for the GC and coexpr paths.                                                                                                              */
