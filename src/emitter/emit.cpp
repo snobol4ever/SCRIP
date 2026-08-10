@@ -1006,8 +1006,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
         g_emit.op_ab_nformals = nd->seal;   /* AB-3b: nformals stored in seal by lowerer (seal is IR_MATCH_DEFER-specific, always 0 on IR_FUNC_ACTIVATE nodes) */
-        { extern int g_gva_active; int _ab_n = (int)nd->n_operands < (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot) ? (int)nd->n_operands : (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot);
-          for (int _k = 0; _k < _ab_n; _k++) { const char * _nm = nd->operands[_k] ? IR_LIT(nd->operands[_k]).sval : (const char *)0; g_emit.op_arg_slot[_k] = (_nm && g_gva_active) ? gva_index_of(_nm) : -1; } }   /* GVA indices for save-set {fname,formals,locals}: operands carry names as IR_LIT_STRING; gva_index_of resolves at emit time after GVA is built */
+        { extern int g_gva_active; int _ab_n = (int)nd->n_operands; drive_arg_slots_reserve(_ab_n);   /* 599601e heap-backed op_arg_slot; old fixed-array sizeof idiom = 8/4 = silent cap 2 — same rot as the posthook site, fixed same commit */
+          for (int _k = 0; _k < _ab_n; _k++) { const char * _nm = nd->operands[_k] ? IR_LIT(nd->operands[_k]).sval : (const char *)0; g_emit.op_arg_slot[_k] = (_nm && g_gva_active) ? gva_index_of(_nm) : -1; } g_emit.op_arg_slot_n = _ab_n; }   /* GVA indices for save-set {fname,formals,locals}: operands carry names as IR_LIT_STRING; gva_index_of resolves at emit time after GVA is built */
         extern std::string bb_func_activate();
         bb_emit_x86(bb_func_activate());
     } return 0;   /* LADDER AB (2026-08-08): per-DEFINE activation block.  α = RBP-framed entry + save-set save + arg install + body-entry jmp.  β = return landing (type-code r15b from floaters) + restore + leave + jmp wire.  op_arg_slot[k] = GVA index of save-set member k (from operand->extra per the gva_index_of path). */
@@ -1211,7 +1211,7 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void drive_arg_slots_reserve(int n) {
+void drive_arg_slots_reserve(int n) {   /* promoted non-static for bb_ab_emit_nodes (bb_func_activate.cpp) — the bb_ab_fn_cell_ptr precedent; ONE allocator authority, declared emit.h */
     if (n <= g_emit.op_arg_slot_cap) return;
     int cap = g_emit.op_arg_slot_cap > 0 ? g_emit.op_arg_slot_cap : 16;
     while (cap < n) cap *= 2;

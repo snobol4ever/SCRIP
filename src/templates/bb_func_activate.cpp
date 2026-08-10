@@ -296,6 +296,7 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
         g_emit_cfg     = g;
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
+        g_emit.op_ab_nformals = nd->seal;   /* RTX-FUNC bug#2 fix: dispatch emit.cpp:1008 is the ONLY other setter and role-1 blocks never reach it ("rides ab_nodes[], never reaches this dispatch in-chain") -- without this copy the null loop reads nformals=0 and wipes formal N (two-probe conviction: lower seal=1, template 0) */
         g_emit.op_beta_dead = 0;   /* β has inbound edges from the floaters */
         /* Set unique per-function label names (ROMAN_act_α / _β / _γ / _ω) */
         const char *fn = g_emit.op_sval ? g_emit.op_sval : "unknown";
@@ -315,13 +316,17 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
         g_emit.lbl_β_p = emit_label_intern(ab_lbl_β);
         g_emit.lbl_γ_p = emit_label_intern(ab_lbl_γ);
         g_emit.lbl_ω_p = emit_label_intern(ab_lbl_ω);
-        int _ab_n = (int)nd->n_operands < (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot)
-                  ? (int)nd->n_operands
-                  : (int)(sizeof g_emit.op_arg_slot / sizeof *g_emit.op_arg_slot);
+        /* 599601e (PT-2 Defect B) heap-backed op_arg_slot (int*+cap/n, emit.h:586) and migrated the in-chain fill
+         * sites but missed this one: the fixed-array sizeof idiom silently became 8/4=2 AND the posthook snapshot
+         * restore (g_emit = saved_emit) carries op_arg_slot as NULL -> store at k=0 SEGV'd every SCRIP_AB=1 run at
+         * EMIT time (gdb: rdx=0 at :324; dark under the default-OFF gate).  Reserve per node AFTER the restore. */
+        int _ab_n = (int)nd->n_operands;
+        drive_arg_slots_reserve(_ab_n);
         for (int k = 0; k < _ab_n; k++) {
             const char *nm = nd->operands[k] ? IR_LIT(nd->operands[k]).sval : (const char *)0;
             g_emit.op_arg_slot[k] = (nm && gva_active) ? gva_index_of(nm) : -1;
         }
+        g_emit.op_arg_slot_n = _ab_n;
         bb_emit_x86(bb_func_activate());
         /* RTX-FUNC-0 BIND-FIX: in BINARY (m3), x86_load_ro baked 0 as the forward-reference placeholder for
          * [rip + INC_act_α] in bb_ab_bind() — movabs is an immediate, not a patchable rel32, so the label
