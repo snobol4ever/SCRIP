@@ -225,8 +225,8 @@ n12_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx46_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx46_4]
-                        lea              rdx, [rip + .Lx46_5]
+                        lea              r10, [rip + .Lx46_4]
+                        lea              r11, [rip + .Lx46_5]
                                                                                         jmp   rax
 .Lx46_4:
                                                                                         jmp   n13_match_assign_cond_α

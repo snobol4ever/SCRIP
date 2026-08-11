@@ -900,8 +900,8 @@ n42_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx162_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx162_4]
-                        lea              rdx, [rip + .Lx162_5]
+                        lea              r10, [rip + .Lx162_4]
+                        lea              r11, [rip + .Lx162_5]
                                                                                         jmp   rax
 .Lx162_4:
                                                                                         jmp   n43_match_end_α
