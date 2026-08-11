@@ -4072,8 +4072,8 @@ n412_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx429_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx429_4]
-                        lea              rdx, [rip + .Lx429_5]
+                        lea              r10, [rip + .Lx429_4]
+                        lea              r11, [rip + .Lx429_5]
                                                                                         jmp   rax
 .Lx429_4:
                                                                                         jmp   n413_match_end_α
@@ -4677,8 +4677,8 @@ n445_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx459_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx459_4]
-                        lea              rdx, [rip + .Lx459_5]
+                        lea              r10, [rip + .Lx459_4]
+                        lea              r11, [rip + .Lx459_5]
                                                                                         jmp   rax
 .Lx459_4:
                                                                                         jmp   n446_match_end_α
@@ -5261,8 +5261,8 @@ n473_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx487_0
                         mov              r8d, 1
-                        lea              rcx, [rip + .Lx487_4]
-                        lea              rdx, [rip + .Lx487_5]
+                        lea              r10, [rip + .Lx487_4]
+                        lea              r11, [rip + .Lx487_5]
                                                                                         jmp   rax
 .Lx487_4:
                         lea              rcx, [rip + g_scan_hit_start]
@@ -15386,8 +15386,8 @@ n967_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx1560_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx1560_4]
-                        lea              rdx, [rip + .Lx1560_5]
+                        lea              r10, [rip + .Lx1560_4]
+                        lea              r11, [rip + .Lx1560_5]
                                                                                         jmp   rax
 .Lx1560_4:
                                                                                         jmp   n968_match_end_α
@@ -15924,8 +15924,8 @@ n980_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx1578_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx1578_4]
-                        lea              rdx, [rip + .Lx1578_5]
+                        lea              r10, [rip + .Lx1578_4]
+                        lea              r11, [rip + .Lx1578_5]
                                                                                         jmp   rax
 .Lx1578_4:
                                                                                         jmp   n981_match_end_α
@@ -16412,8 +16412,8 @@ n990_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx1592_0
                         mov              r8d, 0
-                        lea              rcx, [rip + .Lx1592_4]
-                        lea              rdx, [rip + .Lx1592_5]
+                        lea              r10, [rip + .Lx1592_4]
+                        lea              r11, [rip + .Lx1592_5]
                                                                                         jmp   rax
 .Lx1592_4:
                                                                                         jmp   n991_lit_integer_α
