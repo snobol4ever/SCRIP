@@ -6608,36 +6608,6 @@ n463_match_break_α:
                         movsxd           rcx, r14d
 .Lx876_0:
                         cmp              ecx, r15d
-                                                                                        jl    .Lx876_237
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n461_match_begin_β
-.Lx876_237:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx876_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jl    .Lx876_238
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n461_match_begin_β
-.Lx876_238:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx876_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jl    .Lx876_239
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n461_match_begin_β
-.Lx876_239:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx876_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
                                                                                         jl    .Lx876_240
                         add              rsp, 16
                         add              rsp, 16

@@ -3394,24 +3394,6 @@ n312_match_span_α:
                         cmp              byte ptr [rdi+rsi], 0
                                                                                         je    .Lx314_1
                         add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx314_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx314_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx314_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx314_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx314_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx314_1
-                        add              ecx, 1
                                                                                         jmp   .Lx314_0
 .Lx314_1:
                         cmp              ecx, r14d
