@@ -27,7 +27,6 @@ static long bk_chainp() { return bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() 
 static long bk_tablep() { return bk_gu() && !bk_rangep() && !bk_chainp(); }
 static std::string bk_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(1)) + bk_memb(i + 1); }
 static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge") + x86("movzx", "esi", "[r13+rcx]") + (bk_rangep() ? bk_rmemb(0) : bk_chainp() ? bk_memb(0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(1))) + x86("add", "ecx", (long)1); }
-static std::string bk_unroll(long u) { return u >= (ZC_SPAN_LIT_UNROLL ? ZC_UNROLL_FACTOR : 1) ? x86("jmp", L(0)) : bk_char() + bk_unroll(u + 1); }
 std::string bb_match_break() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -91,7 +90,8 @@ std::string bb_match_break() {
               IF(bk_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
-            + bk_unroll(0)
+            + bk_char()
+            + x86("jmp",    L(0))
             + x86("def",    L(1))
             + x86("mov",    FR(_.x86_scratch_off), "r14d")
             + x86("mov",    "r14d", "ecx"))
