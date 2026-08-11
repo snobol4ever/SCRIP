@@ -302,6 +302,26 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 /* address — no base register needed.  Then use RAX as the block pointer for the remaining 8 stores.             */
 /* After all stores, RAX is left holding the block address (its slot already holds the correct original value).   */
 /* The reload restores RAX from slot 0 last — but reload uses R11 as base, so RAX can be restored anytime.       */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ RTCC ABI SEAL (s16) — THE SLOT CONSTANTS ARE ABI, NOT KNOBS.  The encoders below spell every slot as a RAW LITERAL (8,16,24,32,40,48,56,64); rtcc.h spells the same slots as RTCC_SLOT_* for the  */
+/* C runtime (rtcc_init seed, keywords.c ANCHOR companion, rtcc_load_scratch).  NOTHING joined the two halves but these assertions.  PROVEN s16 by probe: #ifndef-guarding RTCC_SLOT_R9 makes            */
+/* -DRTCC_SLOT_R9=7 move the C seed to block[7] while these literals keep addressing block+48 — C and generated code then disagree about where RT_GVA_VA lives, which is exactly the H2 SIGSEGV class     */
+/* documented above, MANUFACTURED by the guard that was meant to prevent a silent -D.  ⛔ DO NOT #ifndef-GUARD RTCC_SLOT_* OR RTCC_GVA_REG.  Guarding is correct ONLY for the two KILLSWITCHES            */
+/* (RTCC_GLOBAL_R8_ANCHOR / RTCC_GLOBAL_R9_GVA): those are read by BOTH halves, so a -D reaches the emitted bytes and the flip stays coherent — which is why they are guarded and these are sealed.       */
+/* A macro edit that drifts from the literals is now a BUILD ERROR, never a silent miscompile.  static_assert emits ZERO bytes: the killswitch md5 is unchanged by this block, by construction.           */
+constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
+static_assert(RTCC_SLOT_RAX * 8 ==  0, "RTCC ABI drift: RTCC_SLOT_RAX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RCX * 8 ==  8, "RTCC ABI drift: RTCC_SLOT_RCX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RDX * 8 == 16, "RTCC ABI drift: RTCC_SLOT_RDX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RSI * 8 == 24, "RTCC ABI drift: RTCC_SLOT_RSI no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RDI * 8 == 32, "RTCC ABI drift: RTCC_SLOT_RDI no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_R8  * 8 == 40, "RTCC ABI drift: RTCC_SLOT_R8 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin (and keywords.c ANCHOR companion write)");
+static_assert(RTCC_SLOT_R9  * 8 == 48, "RTCC ABI drift: RTCC_SLOT_R9 no longer matches the literal offset in x86_rtcc_rl_bin (and the rtcc_init RT_GVA_VA seed) — this is the H2 SIGSEGV class");
+static_assert(RTCC_SLOT_R10 * 8 == 56, "RTCC ABI drift: RTCC_SLOT_R10 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_R11 * 8 == 64, "RTCC ABI drift: RTCC_SLOT_R11 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"), "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[r11+48]) — GVARQ would address a register the veneer never seeds");
+static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR tier width no longer matches the 9 slots the encoders write back and reload");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block) {
     std::string wb;
     uint64_t slot_rax = block;  /* RTCC_SLOT_RAX=0 → block+0 */
