@@ -202,9 +202,26 @@ static std::string bb_match_arbno_tail() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void arbno_arm_diag(const char * arm) { static int d = -1; if (d < 0) { const char * e = getenv("SCRIP_ARBNO_DIAG"); d = (e && *e == '1') ? 1 : 0; } if (d) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arbno() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
+    /* ⛔ D-1 DELETE (Lon-directed, delete-first): ARBNO IS WIRING + ONE CELL.  The TAIL / DT / NARY-CHAIN arms are GONE -- every ARBNO now rides the ARBNO-LON frameless pair, which differ only in whether
+     * the body's staged ΣK is zero.  THE ONE THING ARBNO MAY NOT DELEGATE is a NONZERO per-instance frontier delta: the ζ displacement IS the committed-instance count (no counter exists), so a zero-width
+     * body makes the retract cascade bail at the base test without unwinding a single committed instance -- measured on corpus/probe/bb/test_sno_arbno_csl1a.c, CELLSZ=0 leaves Δ=3 where 0 is correct.
+     * zd_k(ARBNO)=16 is that floor and it is already THE ONE AUTHORITY; frameless_k bills committed growth as kk+16 per instance, so a K0 body still advances by ARBNO's own cell. */
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : "FRAMELESS");
+    return _.op_arbno_body_kk > 0
+             ? bb_match_arbno_frameless_k()
+         : _.op_off < 0
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
+         : (_.op_sa < 0 || _.op_sb <= 0)
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
+             : bb_match_arbno_frameless();
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_DELETED_ARMS() {
     return _.op_tail
              ? bb_match_arbno_tail()
          : (_.op_arbno_dt && _.op_arbno_dt_susp == 0)
