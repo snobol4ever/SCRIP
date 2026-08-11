@@ -150,11 +150,9 @@ std::string bb_glue_pass_wires(int gid, int wid) {
  * x86_jmp_reg emits 0x41), so the spelling needs no new encoder.  KILLSWITCH SCRIP_WREG: OFF reverts byte-identical to the rcx/rdx spelling above, per the OPT-IN-FIRST law (s203 ZW-1: an opt-OUT flip
  * of a SHARED default is what cost Icon 30 programs).  SCOPE THIS RUNG: PAT$ blob entry only — the DEFINE'd-proc/one-shot kinds keep rcx/rdx until their own rung converts them under this same switch. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int wreg_on(void) { static int _w = -1; if (_w < 0) { const char * e = getenv("SCRIP_WREG"); _w = (e && *e == '1') ? 1 : 0; } return _w; }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     if (!PLATFORM_X86) return std::string();
-    if (!wreg_on()) return bb_glue_pass_wires(gid, wid);
     return x86_lea_id("r10", gid)
          + x86_lea_id("r11", wid)
          + x86_jmp_reg("rax");
