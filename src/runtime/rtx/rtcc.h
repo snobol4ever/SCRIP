@@ -22,7 +22,10 @@ extern "C" {
 #define RTCC_GPR_BYTES  (RTCC_GPR_COUNT * 8)       /* 72 bytes */
 #define RTCC_XMM_BYTES  (RTCC_XMM_COUNT * 16)      /* 128 bytes */
 #define RTCC_BLOCK_BYTES (RTCC_GPR_BYTES + RTCC_XMM_BYTES) /* 200 bytes; padded to 256 for alignment */
-/* Slot indices into the 8-byte GPR array */
+/* Slot indices into the 8-byte GPR array.                                                                                                                                                            */
+/* ⛔ SEALED ABI — DO NOT #ifndef-GUARD THESE (s16).  The emitter spells the SAME offsets as raw literals in x86_rtcc_wb_bin/x86_rtcc_rl_bin; these macros are only the C half.  Guarding them would   */
+/* let -DRTCC_SLOT_R9=7 move the C seed while the literals keep addressing block+48 — PROVEN by probe s16 — giving the H2 SIGSEGV class.  The coupling is enforced by static_assert in x86_asm.h; a     */
+/* drift is a BUILD ERROR.  The two KILLSWITCHES below ARE guarded, and correctly so: both halves read them, so a -D reaches the emitted bytes.  KNOB ⇒ guard; ABI ⇒ seal.  The distinction is the rung. */
 #define RTCC_SLOT_RAX   0
 #define RTCC_SLOT_RCX   1
 #define RTCC_SLOT_RDX   2
@@ -56,7 +59,7 @@ extern "C" {
 #ifndef RTCC_GLOBAL_R9_GVA
 #define RTCC_GLOBAL_R9_GVA   1   /* RC-5-GVA killswitch: 0 = OFF (byte-identical); 1 = ON.  GUARDED (s11) so -DRTCC_GLOBAL_R9_GVA=0 from the build actually overrides -- it did NOT before, and that voided both RC-5 rail numbers. */
 #endif
-#define RTCC_GVA_REG            "r9"  /* the register that holds RT_GVA_VA inside generated code */
+#define RTCC_GVA_REG            "r9"  /* the register that holds RT_GVA_VA inside generated code.  ⛔ SEALED ABI, NOT A KNOB (s16): the reload encoders hardcode `mov r9,[r11+48]`, so renaming this alone would make GVARQ address a register the veneer never seeds.  static_assert in x86_asm.h enforces it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The block itself — declared in rtcc_init.c; extern here for the GC and coexpr paths.                                                                                                              */
 /* 256-byte aligned so every slot fits in one or two L1 cache lines.                                                                                                                                  */
