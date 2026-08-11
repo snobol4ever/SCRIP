@@ -245,19 +245,11 @@
 #define ZLS2_RESTORE 2 /* RETIRED (Lon ruling 2026-07-08 s7): only α and ω participate — the ω landing on a β already adjusted the cursor via its own RELEASE; never granted (zls2_geom), no hook site keys on it; bit kept so the mask meaning stays recorded */
 #define ZLS2_RELEASE 4
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SG SPAN-GUTS switches (GOAL-SNOBOL4-BB.md SG ladder, Lon directive s126 + s127 "unroll DEFAULT"): the bb_match_{span,break,breakx,any,notany,span_var} family.
- * ZC_SPAN_LIT_UNROLL   — level-1 LITERAL-needle loop-unroll on/off (s125 machinery); DEFAULT ON (Lon s127).  OFF = same body at factor 1 (one char-step per iteration).
- * ZC_UNROLL_FACTOR     — chars per unrolled literal-loop iteration (s125 hardcoded 4; lifted here, s125's owed switch).
+/* SG SPAN-GUTS switches (GOAL-SNOBOL4-BB.md SG ladder, Lon directive s126 + s127; the s125 literal loop-unroll and its ZC_SPAN_LIT_UNROLL/ZC_UNROLL_FACTOR switches DELETED by Lon directive 2026-08-11 — the scan loops emit one char-step per iteration): the bb_match_{span,break,breakx,any,notany,span_var} family.
  * ZC_CSET_CHAIN_MAX    — literal needle length at or below which the compare-chain is emitted instead of the 256B membership table (s127 A/B RESOLVED on treebank-lit x100: MAX=8 256ms / MAX=3 239ms / MAX=2 249ms — 4-char chains lose to the table, 1-3-char chains win; pattern_bt/claws5 wash).
  * ZC_SPAN_GUTS         — VARIABLE-needle (op_sa >= 0 / span_var) membership mechanism: INLINE = emitted inner loop over the needle bytes, slen-bounded; CALL = hand-written x86 leaf
  *                        (src/runtime/rt/rt_sg_scan.S, R13/R15-aware lean convention, no C ABI dance).  Both are NUL-SAFE by explicit length — the strchr-per-char arm is DELETED
  *                        (Lon s126: strchr truncates a NUL-bearing needle AND strchr(s,0) matches the terminator, falsely accepting a NUL subject byte as a member). */
-#ifndef ZC_SPAN_LIT_UNROLL
-#define ZC_SPAN_LIT_UNROLL 1
-#endif
-#ifndef ZC_UNROLL_FACTOR
-#define ZC_UNROLL_FACTOR 4
-#endif
 #ifndef ZC_CSET_CHAIN_MAX
 #define ZC_CSET_CHAIN_MAX 3
 #endif

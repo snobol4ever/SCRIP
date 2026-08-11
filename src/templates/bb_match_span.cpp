@@ -27,7 +27,6 @@ static long sp_chainp() { return sp_gu() && !sp_rangep() && CSK() >= 1 && CSK() 
 static long sp_tablep() { return sp_gu() && !sp_rangep() && !sp_chainp(); }
 static std::string sp_memb(long u, long i) { return i >= CSK() ? x86("jmp", L(1)) + x86("def", L(10 + u)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(10 + u)) + sp_memb(u, i + 1); }
 static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge", L(1)) + x86("movzx", "esi", "[r13+rcx]") + (sp_rangep() ? sp_rmemb(u, 0) : sp_chainp() ? sp_memb(u, 0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("je", L(1))) + x86("add", "ecx", (long)1); }
-static std::string sp_unroll(long u) { return u >= (ZC_SPAN_LIT_UNROLL ? ZC_UNROLL_FACTOR : 1) ? x86("jmp", L(0)) : sp_char(u) + sp_unroll(u + 1); }
 std::string bb_match_span() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
@@ -104,7 +103,8 @@ std::string bb_match_span() {
               IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
-            + sp_unroll(0)
+            + sp_char(0)
+            + x86("jmp",    L(0))
             + x86("def",    L(1))
             + x86("cmp",    "ecx", "r14d")
             + x86_omega("jle")
