@@ -66,15 +66,15 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
     bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;   /* PL-ZK-5B: pl_cells_graph needs RBPRAWQ(slot) not FRQ(slot) -- see dual-write fix. */
     std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", plc ? RBPRAWQ(slot) : FRQ(slot)) + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
-    return x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
-         + x86("mov", "eax", "dword ptr [r11 + 0]")
+    return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
+         + x86("mov", "eax", "dword ptr [r8 + 0]")
          + x86("test", "eax", "eax")
          + x86("jne", L(20 + i * 2))
          + x86("mov", "rax", plc ? RBPRAWQ(slot) : FRQ(slot))
          + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8))
-         + x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-         + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
-         + x86("mov", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
+         + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
+         + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
          + x86("jmp", L(21 + i * 2))
          + x86("def", L(20 + i * 2))
          + slow
@@ -287,10 +287,10 @@ static std::string bcps_det_arm() {
                         + x86("test", "rax", "rax")
                         + x86("je", L(5))
                         + FOR(0, (int)_.op_ival, [&](int i) {
-                              return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-                                   + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16) + "]").c_str())
+                              return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                                   + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str())
                                    + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
-                                   + x86("mov", "rax", (std::string("[r10 + ") + std::to_string(i * 16 + 8) + "]").c_str())
+                                   + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str())
                                    + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
                         + x86("call", "rt_proc_open_fn", openfn_fp_z)
                         + bb_glue_pass_wires(6, 7)
@@ -773,11 +773,11 @@ static std::string bcps_spine_gen_arm() {
                 return x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp (FRQ slot saved at L(3)) */
                      + x86("mov", "rdi", "rax")                 /* ICN-FR-5: gen_rbp as first arg for keyed cont lookup */
                      + x86("call", "rt_gen_get_cont", _gc_fp)   /* rax = continuation ptr keyed by gen_rbp */
-                     + x86("mov", "r11", "rax")                 /* save cont in r11 (ABI scratch) */
+                     + x86("mov", "r8", "rax")                 /* save cont in r11 (ABI scratch) */
                      + x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp again */
                      + x86("mov", "rbp", "rax")                 /* pin generator frame base */
                      + x86("mov", "rsp", "rax")                 /* set FORTH base to generator_rbp */
-                     + x86("jmp", "r11");                       /* jmp to stored continuation */
+                     + x86("jmp", "r8");                       /* jmp to stored continuation */
               })()
             : pl_zf_resume
             ? ( [&]() -> std::string {
