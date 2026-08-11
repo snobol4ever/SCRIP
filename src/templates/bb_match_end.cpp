@@ -29,14 +29,14 @@ static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
-         + x86("mov",  "rsi", "r12")   /* CAS-R12-UNIFY: top IS r12 -- cell read deleted.  CAS-MARKER: mark is recovered by scanning down to HEAD's tag-0 marker (r10 walks a COPY; r12 must stay at top -- the pump consumes the entries above the marker); one config-blind mechanism serves every basis */
-         + x86("mov",  "r10", "rsi")
+         + x86("mov",  "rsi", "r12")   /* CAS-R12-UNIFY: top IS r12 -- cell read deleted.  CAS-MARKER: mark is recovered by scanning down to HEAD's tag-0 marker (r8 walks a COPY; r12 must stay at top -- the pump consumes the entries above the marker); one config-blind mechanism serves every basis */
+         + x86("mov",  "r8", "rsi")
          + x86("def",  L(5))
-         + x86("sub",  "r10", (long)24)
-         + x86("mov",  "rax", RDQ("r10", 0))
+         + x86("sub",  "r8", (long)24)
+         + x86("mov",  "rax", RDQ("r8", 0))
          + x86("test", "rax", "rax")
          + x86("jne",  L(5))
-         + x86("lea",  "rdi", RDQ("r10", 24))
+         + x86("lea",  "rdi", RDQ("r8", 24))
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
@@ -83,22 +83,22 @@ std::string bb_match_end() {
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
          + x86_alpha()
-         + x86("mov", "r10", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r10 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
+         + x86("mov", "r8", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r8 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
          + x86("def", L(8))
-         + x86("sub", "r10", (long)24)
-         + x86("mov", "rax", RDQ("r10", 0))
+         + x86("sub", "r8", (long)24)
+         + x86("mov", "rax", RDQ("r8", 0))
          + x86("test", "rax", "rax")
          + x86("jne", L(8))
-         + x86("mov", "rsp", RDQ("r10", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r10+16] removed; rsp restore from [r10+8] kept */
+         + x86("mov", "rsp", RDQ("r8", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed; rsp restore from [r8+8] kept */
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha()
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("mov", "r10", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r10 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r10 survives to the unwind below: rfc reads [r10+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
+         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("mov", "r8", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r8 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r8 survives to the unwind below: rfc reads [r8+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
                                                + x86("def", L(9))
-                                               + x86("sub", "r10", (long)24)
-                                               + x86("mov", "rax", RDQ("r10", 0))
+                                               + x86("sub", "r8", (long)24)
+                                               + x86("mov", "rax", RDQ("r8", 0))
                                                + x86("test", "rax", "rax")
-                                               + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r10+16] removed */
+                                               + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed */
          + (_.op_dval != 0.0
                 ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
                           + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + 32)), "eax")
@@ -107,7 +107,7 @@ std::string bb_match_end() {
                                                      : x86("mov", FRQ(_.op_off + 24), "r14"))
                 : std::string())
          /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
-         + (rfc() ? x86("mov", "rsp", RDQ("r10", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
+         + (rfc() ? x86("mov", "rsp", RDQ("r8", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
             : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16)))
          + x86_align_leave()
          + release_pump();

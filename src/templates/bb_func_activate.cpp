@@ -22,8 +22,8 @@ void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
 }
 #include "x86_asm.h"
-#define AB_TC_REG   ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10"  : "r9")
-#define AB_TC_REG_D ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10d" : "r9d")
+#define AB_TC_REG   "r8"
+#define AB_TC_REG_D "r8d"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* IR_FUNC_ACTIVATE — LADDER AB (2026-08-09 AB-2): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
 /* SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack                                                                                                   */
@@ -211,9 +211,9 @@ std::string bb_func_activate() {
       + x86_gamma()   /* dead after jmp; present for box structure */
     /* ── β — 3-way dispatch on cl (AB_TYPECODE_REG) ──────────────────────────────────────────── */
       + x86("def", L(1))   /* β: L(1) */
-        /* Save type-code into r9 immediately — r9 is dead at β entry (was argreg at call site only).
-         * r9 survives all C calls and the LEAVE; we read it after LEAVE for the final dispatch. */
-      + x86("movzx", AB_TC_REG, "cl")    /* type code: 0=RETURN 1=NRETURN 2=FRETURN.  RTCC-SAFE (s8): r10 when the GVA claim is live -- r9 = RT_GVA_VA under RTCC_GLOBAL_R9_GVA and the veneer writeback would store this type code into the canonical GVA slot, killing [r9+k*16] process-wide (proven: AB=1 RTCC=1 fibonacci SIGSEGV).  r10 is scratch-tier claimed with NO global assigned, so it keeps the author's survives-the-C-call property.  RTCC OFF -> r9, byte-identical. */
+        /* Save type-code into r8 immediately — r8 is dead at β entry (was argreg at call site only).
+         * r8 survives all C calls and the LEAVE via the RTCC veneer; we read it after LEAVE for the final dispatch. */
+      + x86("movzx", AB_TC_REG, "cl")    /* type code: 0=RETURN 1=NRETURN 2=FRETURN.  R10/R11-ERAD: r8 unconditionally.  r9 is RT_GVA_VA under RTCC_GLOBAL_R9_GVA and r10/r11 are the reserved wire pair rGamma/rOmega since D-1 made PASS-THRU the only blob linkage, so both prior spellings collided; r8 is veneer-preserved (RTCC slot 5, offset 40) exactly as r10 was, and the conditional fork is deleted so one authority serves both RTCC settings. */
         /* ADOPT THE FRAME (gdb conviction 2026-08-10): β arrives from the shared floater with the RETURNING STATEMENT's rbp, not this frame's — measured 0x88 below the anchor on the noarg repro.
          * Every access below (result stash, leave_env frame arg, save-set restore, GW/WW/prev loads, LEAVE) is rbp-relative, so without this adopt β works a FOREIGN frame: γ wire loaded 0 → jmp 0
          * (rip=0 crash), prev-anchor loaded dead stack garbage → anchor ← rt_ab_enter_env+107 (both gdb-measured).  The anchor is still linked here (unlink is below) and IS this frame's base. */

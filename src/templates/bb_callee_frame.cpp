@@ -18,8 +18,8 @@ std::string bb_callee_frame() {
                  + x86("push", x86_zr())
                  + x86("mov", x86_zr(), "rdi")
                  + FOR(0, ((int)_.op_parts_ival[0] < 4 ? (int)_.op_parts_ival[0] : 4), [&](int i) {
-                     return x86("mov", "r11", RDQ(bcf_areg(i), 0)) + x86("mov", FRQ(GZ_CELL_OFF(i)), "r11")
-                          + x86("mov", "r11", RDQ(bcf_areg(i), 8)) + x86("mov", FRQ(GZ_CELL_OFF(i) + 8), "r11");
+                     return x86("mov", "rax", RDQ(bcf_areg(i), 0)) + x86("mov", FRQ(GZ_CELL_OFF(i)), "rax")
+                          + x86("mov", "rax", RDQ(bcf_areg(i), 8)) + x86("mov", FRQ(GZ_CELL_OFF(i) + 8), "rax");
                  })
                  + x86("call", "rt_trail_mark", (uint64_t)(uintptr_t)(void *)rt_trail_mark)
                  + x86("mov", FR(0), "eax")
