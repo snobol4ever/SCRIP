@@ -6913,8 +6913,8 @@ n471_match_replace_α:
                         mov              rdi, qword ptr [rip + .Lx890_0]
                         mov              rsi, qword ptr [rsp + 2576]
                         mov              rdx, qword ptr [rsp + 2584]
-                        mov              ecx, dword ptr [rsp + 2368]
-                        mov              r8, qword ptr [rsp + 2392]
+                        mov              ecx, dword ptr [rsp + 2304]
+                        mov              r8, qword ptr [rsp + 2328]
                         lea              r9, [rsp + 0]                                  # lit_string
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

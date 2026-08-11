@@ -19,7 +19,7 @@ proc_PAT$0_α:
 proc_PAT$0_attempt:
 proc_PAT$0_α_body:
                         lea              rax, [rip + proc_PAT$0_ω]
-                        mov              qword ptr [rbp + 80], rax
+                        mov              qword ptr [rsp + 80], rax
 #-----------------------------------------------------------------------------------------------------------------------
 n0_var_α:
                         sub              rsp, 16
@@ -107,11 +107,11 @@ n4_match_break_α:
                         add              rsp, 64
                                                                                         jmp   proc_PAT$0_scanfail
 .Lx13_240:
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rsp + 16], r14d
                         mov              r14d, eax
                                                                                         jmp   n5_match_span_α
 n4_match_break_β:
-                        mov              r14d, dword ptr [rsp + 0]
+                        mov              r14d, dword ptr [rsp + 16]
                         add              rsp, 16
                         add              rsp, 64
                                                                                         jmp   proc_PAT$0_scanfail
@@ -154,11 +154,11 @@ n5_match_span_α:
                         add              rsp, 16
                                                                                         jmp   n4_match_break_β
 .Lx15_240:
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rsp + 16], r14d
                         mov              r14d, eax
                                                                                         jmp   proc_PAT$0_scanhit
 n5_match_span_β:
-                        mov              r14d, dword ptr [rsp + 0]
+                        mov              r14d, dword ptr [rsp + 16]
                         add              rsp, 16
                                                                                         jmp   n4_match_break_β
 proc_PAT$0_scanhit:
@@ -201,7 +201,7 @@ proc_PAT$0_res:
                         mov              qword ptr [rdx + 8], rax
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_β:
-                                                                                        jmp   qword ptr [rbp + 80]
+                                                                                        jmp   qword ptr [rax + -24]
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_γ:
                         mov              rdx, qword ptr [rip + g_zctx@GOTPCREL]
