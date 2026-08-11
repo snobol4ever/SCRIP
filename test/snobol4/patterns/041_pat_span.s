@@ -169,24 +169,6 @@ n8_match_span_α:
                         cmp              byte ptr [rdi+rsi], 0
                                                                                         je    .Lx37_1
                         add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx37_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx37_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx37_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx37_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jge   .Lx37_1
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              byte ptr [rdi+rsi], 0
-                                                                                        je    .Lx37_1
-                        add              ecx, 1
                                                                                         jmp   .Lx37_0
 .Lx37_1:
                         cmp              ecx, r14d

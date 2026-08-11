@@ -165,36 +165,6 @@ n8_match_break_α:
                         movsxd           rcx, r14d
 .Lx45_0:
                         cmp              ecx, r15d
-                                                                                        jl    .Lx45_237
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx45_237:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx45_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jl    .Lx45_238
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx45_238:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx45_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
-                                                                                        jl    .Lx45_239
-                        add              rsp, 16
-                        add              rsp, 16
-                                                                                        jmp   n6_match_begin_β
-.Lx45_239:
-                        movzx            esi, byte ptr [r13+rcx]
-                        cmp              esi, 32
-                                                                                        je    .Lx45_1
-                        add              ecx, 1
-                        cmp              ecx, r15d
                                                                                         jl    .Lx45_240
                         add              rsp, 16
                         add              rsp, 16
