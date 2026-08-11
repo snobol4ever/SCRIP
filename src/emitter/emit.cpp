@@ -2507,11 +2507,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             char _init[256];
             snprintf(_init, sizeof _init,
                 "lea rax, [rip + %s]\nmov qword ptr [%s + %d], rax\n",
-                resume_init_lbl->name, emit_rec_fb(), g_suspend_resume_slot);   /* REG-7 U5: the resume slot is a FRAME slot — fb, not zr (zr sealed to rsp; the old flat_pat zr="rbp" coincidence is gone) */
+                resume_init_lbl->name, emit_rec_rsp_arm() ? "rsp" : emit_rec_fb(), g_suspend_resume_slot);   /* REG-7 U5: the resume slot is a FRAME slot — fb, not zr (zr sealed to rsp; the old flat_pat zr="rbp" coincidence is gone).  DEL-T1 D-2: the orphaned blob class stores off rsp — this site is the chain head, where rsp IS the flat base (no interior carve has fired yet), so the offset is unchanged and only the base register moves. */
             emit_text_n(_init, strlen(_init));
         } else {
             ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(resume_init_lbl);
-            { int z = emit_rec_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }   /* REG-7 U5: fb twin */
+            { int z = emit_rec_rsp_arm() ? 4 : emit_rec_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }   /* REG-7 U5: fb twin — rsp (4) takes the SIB path, which is why the encoder already carries it */
         }
     }
     for (int _li = 0; _li < n; _li++) if (nodes[_li]->op == IR_LIMIT) {
@@ -2787,10 +2787,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_suspend_resume_slot >= 0 && emit_heap_fb_adopt()) {   /* ZETA-FB-3 (s161): the SEVENTH copy of the adopt condition, now named — this is the β frame-slot dispatch the emit_rec_pin comment calls out as "ALREADY gates on this pair".  ⚠ OBSERVED, NOT CHANGED: the GUARD is the NARROW adopt-only arm while the body spells emit_rec_fb()/emit_rec_fb_num(), the WIDE union — sound today because adopt ⟹ emit_rec_pin, so the register the body names is right whenever this arm is taken.  A graph that is emit_jmp_pin_rbp() but NOT adopt, carrying a resume slot, therefore takes the ELSE arm by construction; whether it SHOULD is a separate measurable question, and blind widening of exactly this kind is what s158 measured as a regression.  Named here, deliberately NOT widened. */
         if (g_is_text) {
             char _ind_jmp[64];
-            snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", emit_rec_fb(), g_suspend_resume_slot);   /* REG-7 U5: frame-slot dispatch via fb (rbp under RSP — re-pinned by the res landing before arrival) */
+            if (emit_rec_rsp_arm()) snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [rax + %d]\n", REC_SLOT_FROM_CELL);   /* DEL-T1 D-2: rsp at β is the DEEP frontier (the spine is non-popping, so interior carves are still live), so the slot is addressed off the ACTIVATION CELL — which res has just popped into rax and re-published to g_zctx[1] on the two lines above.  Cell-relative == depth-immune. */
+            else snprintf(_ind_jmp, sizeof _ind_jmp, "jmp qword ptr [%s + %d]\n", emit_rec_fb(), g_suspend_resume_slot);   /* REG-7 U5: frame-slot dispatch via fb (rbp under RSP — re-pinned by the res landing before arrival) */
             emit_text_n(_ind_jmp, strlen(_ind_jmp));
         } else {
-            { int z = emit_rec_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0xFF); if (lo == 4) ef_b2(0xA4, 0x24); else ef_b1((uint8_t)(0xA0 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }   /* REG-7 U5: fb twin */
+            { int _ra = emit_rec_rsp_arm(); int z = _ra ? 0 : emit_rec_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0xFF); if (lo == 4) ef_b2(0xA4, 0x24); else ef_b1((uint8_t)(0xA0 | lo)); bb_emit_u32((uint32_t)(unsigned)(_ra ? REC_SLOT_FROM_CELL : g_suspend_resume_slot)); }   /* REG-7 U5: fb twin */
         }
     } else {
         bb_label_t *resume_tgt = &lbl_ω;
