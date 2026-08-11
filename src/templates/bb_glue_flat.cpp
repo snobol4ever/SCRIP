@@ -144,3 +144,19 @@ std::string bb_glue_pass_wires(int gid, int wid) {
          + x86_jmp_reg("rax");
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐⭐ LADDER WREG (Lon s12/s15 directive: "remove the stupid PROC shim around patterns and use proper PASS-THRU glue using R10 and R11") — rΓ=r10 · rΩ=r11 carried LIVE into the blob, no shim, no
+ * receiving code.  A pattern blob is missing exactly two facts (γ and ω); WREG delivers them in registers instead of in a frame header the blob had to carve to hold.  Registers are depth-immune BY
+ * NATURE and carry NO OFFSET, so PT-7's shared-code slot-offset circularity stops existing rather than being solved.  Both encoders already REX-extend for r10/r11 in BOTH media (x86_lea_id sets REX.R,
+ * x86_jmp_reg emits 0x41), so the spelling needs no new encoder.  KILLSWITCH SCRIP_WREG: OFF reverts byte-identical to the rcx/rdx spelling above, per the OPT-IN-FIRST law (s203 ZW-1: an opt-OUT flip
+ * of a SHARED default is what cost Icon 30 programs).  SCOPE THIS RUNG: PAT$ blob entry only — the DEFINE'd-proc/one-shot kinds keep rcx/rdx until their own rung converts them under this same switch. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int wreg_on(void) { static int _w = -1; if (_w < 0) { const char * e = getenv("SCRIP_WREG"); _w = (e && *e == '1') ? 1 : 0; } return _w; }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_pass_wires_blob(int gid, int wid) {
+    if (!PLATFORM_X86) return std::string();
+    if (!wreg_on()) return bb_glue_pass_wires(gid, wid);
+    return x86_lea_id("r10", gid)
+         + x86_lea_id("r11", wid)
+         + x86_jmp_reg("rax");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
