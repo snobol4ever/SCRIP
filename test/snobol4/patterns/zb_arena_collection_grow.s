@@ -189,64 +189,23 @@ n8_match_pos_β:
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_arbno_α:
-                        sub              rsp, 112
-                        mov              eax, 0
-                        mov              qword ptr [rsp + 0], rax
-                        mov              qword ptr [rsp + 8], rax
-                        mov              qword ptr [rsp + 16], rax
-                        mov              qword ptr [rsp + 24], rax
-                        mov              qword ptr [rsp + 32], rax
-                        mov              qword ptr [rsp + 40], rax
-                        mov              qword ptr [rsp + 48], rax
-                        mov              qword ptr [rsp + 56], rax
-                        mov              qword ptr [rsp + 64], rax
-                        mov              qword ptr [rsp + 72], rax
-                        mov              dword ptr [rsp + 80], r14d
-                        mov              dword ptr [rsp + 84], r14d
-                        mov              dword ptr [rsp + 88], 1
-                        mov              rax, qword ptr [rsp + 136]
-                        mov              qword ptr [rsp + 96], rax
-                        mov              rax, qword ptr [rsp + 144]
-                        mov              qword ptr [rsp + 104], rax
+                        sub              rsp, 16
+                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_β:
-                        mov              r14d, dword ptr [rsp + 84]
-                        mov              rax, qword ptr [rsp + 96]
-                        mov              rcx, qword ptr [rsp + 104]
-                        sub              rsp, 112
-                        mov              edx, 0
-                        mov              qword ptr [rsp + 0], rdx
-                        mov              qword ptr [rsp + 8], rdx
-                        mov              qword ptr [rsp + 16], rdx
-                        mov              qword ptr [rsp + 24], rdx
-                        mov              qword ptr [rsp + 32], rdx
-                        mov              qword ptr [rsp + 40], rdx
-                        mov              qword ptr [rsp + 48], rdx
-                        mov              qword ptr [rsp + 56], rdx
-                        mov              qword ptr [rsp + 64], rdx
-                        mov              qword ptr [rsp + 72], rdx
-                        mov              dword ptr [rsp + 80], r14d
-                        mov              dword ptr [rsp + 84], r14d
-                        mov              dword ptr [rsp + 88], 0
-                        mov              qword ptr [rsp + 96], rax
-                        mov              qword ptr [rsp + 104], rcx
                                                                                         jmp   n18_match_alternate_α
 n9_match_arbno_as:
-                        mov              eax, dword ptr [rsp + 80]
+                        mov              eax, dword ptr [rsp + 4]
                         cmp              r14d, eax
                                                                                         je    n18_match_alternate_β
-                        mov              dword ptr [rsp + 84], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n10_lit_integer_α
 n9_match_arbno_af:
-                        mov              eax, dword ptr [rsp + 88]
-                        test             eax, eax
-                                                                                        jnz   .Lx41_2
-                        add              rsp, 112
-                                                                                        jmp   n18_match_alternate_β
-.Lx41_2:
-                        mov              r14d, dword ptr [rsp + 80]
-                        add              rsp, 112
-                        mov              rbp, qword ptr [rsp + 88]                      # old_rbp
+                        mov              eax, dword ptr [rsp + 0]
+                        cmp              r14d, eax
+                                                                                        jne   n18_match_alternate_β
+                        add              rsp, 16
                                                                                         jmp   n8_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_lit_integer_α:
