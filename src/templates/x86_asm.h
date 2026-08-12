@@ -457,32 +457,9 @@ inline int x86_port_mode() { return rt_zeta_port_mode(); }
  * exactly while control is inside the box (the S10c port invariant: rsp at the box's frontier at every
  * port).  x86_jcc_invert(): condition inversion for the conditional-omega pop synth (see x86_jcc). */
 inline int x86_port_cstack() { int m = x86_port_mode(); return m == ZC_PORT_CSTACK || m == ZC_PORT_FORTH; }
-/* HOME-RBX X-3 s40b: widened FORTH-only -> FORTH-or-HEAP.  Traced (SCRIP_RBX_FIELD_TRACE), not guessed:
- * the s37/s39 "field attribution ambiguous" concern was resolved by measurement to be a non-issue (see
- * GOAL-SN4-HOME-RBX.md s40b cursor) -- op_zls2_bytes is dead on the witnesses, op_fc_bytes is the only
- * live grant, and it is set identically regardless of port (fc_geom is port-blind, THE CONTRACT s78).
- * The actual defect was these two predicates: fork (a) (bb_glue_flat_enter/_leave, s37) already carves
- * op_fc_bytes worth of RSP under CELL_HEAP identically to CELL_STACK -- so a HEAP-port node's granted
- * cell lives at the SAME [rsp+K] location a FORTH node's would, carved by the SAME rsp arithmetic.  But
- * x86_fc_on()/x86_fc_hit() -- the READ side -- stayed FORTH-only, so every consumer of a HEAP-granted
- * cell fell through x86_zop_regime to regime 3/4 (pinned-rbp or flat-rsp addressing) instead of regime 2
- * (the fc window rebase) -- a correctly-carved cell read through the wrong formula.  This is precisely
- * THE CONTRACT's own s36-s38 corrected finding restated at the predicate level: "every granted box's
- * reference falls through x86_zop_regime to regime 3/4 and reads/writes a correctly-numbered but
- * never-reserved flat-frame slot".  fc_cells_on() (zeta_storage.c:268, LOWER-side) already treats
- * FORTH/HEAP as one class for planning purposes; this is the EMITTER-side twin closing the same seam.
- * The rebase arithmetic itself ([rsp+off-op_fc_base]) is UNCHANGED -- fork(a) put the bytes at the same
- * rsp-relative place FORTH would, so the existing formula is already correct for HEAP once the gate
- * admits it.  x86_fc_on() ALSO widens (not just x86_fc_hit) because x86_fc_on() gates bb_glue_flat_enter/
- * _leave's OWN emission at the X86H_DEF/ALPHA-BETA/JMP-GAMMA-OMEGA hook (x86_asm.h ~2278) -- but that
- * emission is ALSO reached independently through bb_glue_flat.cpp's own ZC_STORAGE_CELL_STACK||CELL_HEAP
- * check (fork a's s37 change), so widening x86_fc_on() here is closing a SECOND, redundant path to the
- * same already-armed carve, not opening a new one -- byte-identical for the carve itself, and the change
- * that matters is x86_fc_hit's regime selection for READS.  Acceptance: crosscheck/patterns under HEAP
- * matches the FORTH baseline BY SET (not by count) -- re-measured immediately after this edit, below. */
-inline int x86_fc_on()       { int m = x86_port_mode(); return (m == ZC_PORT_FORTH || m == ZC_PORT_HEAP) && _.op_fc_bytes > 0; }
+inline int x86_fc_on()       { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_bytes > 0; }
 inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
-inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int m = x86_port_mode(); int granted = (m == ZC_PORT_FORTH || m == ZC_PORT_HEAP) && w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [rbp+%d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }   /* ZB-VAL-8b GATE (s182, closes s181 HEADLINE 6): the fallback is SILENT BY CONSTRUCTION -- an undersized window does not crash and does not emit a WRONG address, it just leaves the box on rbp, so "I converted it" and "it converted" were indistinguishable in the build.  A GRANTED box (w>0, base>=0) whose offset misses its own window is exactly that event; count it always, narrate it under SCRIP_FC_AUDIT=1.  test_gate_fc_no_residual_rbp.sh asserts the count is ZERO across the corpus, which is what makes conversion progress falsifiable */
+inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = x86_port_mode() == ZC_PORT_FORTH && w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [rbp+%d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }   /* ZB-VAL-8b GATE (s182, closes s181 HEADLINE 6): the fallback is SILENT BY CONSTRUCTION -- an undersized window does not crash and does not emit a WRONG address, it just leaves the box on rbp, so "I converted it" and "it converted" were indistinguishable in the build.  A GRANTED box (w>0, base>=0) whose offset misses its own window is exactly that event; count it always, narrate it under SCRIP_FC_AUDIT=1.  test_gate_fc_no_residual_rbp.sh asserts the count is ZERO across the corpus, which is what makes conversion progress falsifiable */
 inline std::string x86_fc_jcc_omega(const char * mnem);
 inline const char * x86_jcc_canon(uint8_t op) {
     switch (op) {
