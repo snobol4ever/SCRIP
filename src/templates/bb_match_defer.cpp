@@ -80,8 +80,16 @@ std::string bb_match_defer() {
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
+         + IF(_.op_seal != 1 && x86_fb_pinned(),
+               x86("comment", "s44 WIRE-SAVE: stash caller's true r10/r11 before the blob-entry glue overwrites them with this node's private L(4)/L(5)")
+             + x86("mov",  FRQ(_.op_off),     "r10")
+             + x86("mov",  FRQ(_.op_off + 8), "r11"))
          + bb_glue_pass_wires_blob(4, 5)   /* PASS-THROUGH GLUE (s22v): the canonical consumer -- blob entry with this box's L(4)/L(5) as the ride-through γ/ω wires; byte-identical to the hand-rolled trio it replaces */   /* ⭐ LADDER WREG (s15): THE blob-entry site.  rax here is rt_defer_get_pat_fn's PAT$ blob pointer, so this call site is blob-only BY CONSTRUCTION -- which is why the wire spelling can convert here without touching the DEFINE'd-proc/one-shot kinds that share bb_glue_pass_wires.  Under SCRIP_WREG=1 the wires ride r10/r11 and the blob needs ZERO receiving code; under 0 this is the rcx/rdx trio verbatim. */
          + x86("def",  L(4))
+         + IF(_.op_seal != 1 && x86_fb_pinned(),
+               x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
+             + x86("mov",  "r10", FRQ(_.op_off))
+             + x86("mov",  "r11", FRQ(_.op_off + 8)))
          + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_begin_stfh_k(),
@@ -92,6 +100,10 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
+         + IF(_.op_seal != 1 && x86_fb_pinned(),
+               x86("comment", "s44 WIRE-RESTORE (exhaust): without this, x86_omega() below reads r11 == this node's own dead L(5) -- the s43a closed loop")
+             + x86("mov",  "r10", FRQ(_.op_off))
+             + x86("mov",  "r11", FRQ(_.op_off + 8)))
          + IF(_.op_seal == 1 && x86_port_cstack(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
