@@ -7,6 +7,16 @@
 #   (3) x86_asm.h internals    — the encoders themselves; they name every register by construction
 #   (4) suspension-capture     — THE ONE LAW: a pending cell pushed inside a blob captures {r10,r11} at push
 #                                and its beta-resume restores them before any blob code runs
+#   (5) infrastructure         — register-name enumeration tables (decode/encode/print maps) that name EVERY
+#                                register uniformly; needed by the register FILE, not by a wire spelling.
+#                                Added 2026-08-12 s36c (Lon: classification "all your choice") rather than
+#                                widening class (3) past its stated meaning — (3) stays "needed BY A WIRE
+#                                SPELLING", (5) is "names every register because that is what a table does".
+#
+# ⛔ PRODUCT-WIDE RULING (Lon, 2026-08-12 s36c): rGamma=r10 / rOmega=r11 are reserved PRODUCT-WIDE — the 30
+# SN4-unreachable RTX occurrences (FINDING-2026-08-12h census) are NOT licensable by unreachability and are
+# hereby DEBT, not whitelist candidates.  They stay counted until reassigned (tracked at GOAL-SN4-HOME-WIRES
+# W-0 closure note).  Nothing in this registry may be justified by "SNOBOL4 can't reach it".
 #
 # This is a REGISTRY, not a silencer.  A file here has been cleared to MENTION the wires because owning them is
 # its job — not because its use was assumed safe.  Anything else that touches r10/r11 is sweep debt, and the
@@ -27,3 +37,4 @@
 #
 # <basename>  <site-class>  occ=<reviewed count>  <who/session>  <justification>
 emit.cpp      2,4           occ=6                 OP5-s33-WIRES  W-MAP(3) wire owners, all 4 code lines inspected: :2688 res landing reloads BOTH wires from the spine record; :2721 gamma pushes the 32B suspension record capturing {r11,r10} per-activation; :2722 jmp r10 blob success exit; :2737 jmp r11 CLASS D fail-after-drain. Site classes (2) blob-exit + (4) suspension-capture. WREG-2 and WREG-3 slice 1 have LANDED (killswitched SCRIP_WREG), so this licenses shipped ownership, not future debt.
+x86_asm.h     3,5           occ=23                FABLE5-s36c-WIRES  Per-line classification FINDING-2026-08-12j addendum (23/23 traced): 9 occ RTCC veneer save/reload = class (3), plainly needed by the wire spelling (s14 arbitration: safe config = RTCC-ON AND wire capture/restore); 13 occ register-name decode/encode tables = class (5) infrastructure (explicit new class, NOT a widening of (3) — Lon delegated the call s36c); 1 occ self-documented DC-fn call-stub scratch = licensed TEMPORARILY under (3), tagged DIES-WITH-W-5 (it is part of the PROC-shim mechanism W-5 deletes; re-review this pin when W-5 lands). One occ lives in a static_assert MESSAGE string (x86_asm.h:318) — counted by the text gate, zero emitted bytes.
