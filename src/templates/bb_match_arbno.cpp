@@ -211,13 +211,29 @@ std::string bb_match_arbno() {
      * the body's staged ΣK is zero.  THE ONE THING ARBNO MAY NOT DELEGATE is a NONZERO per-instance frontier delta: the ζ displacement IS the committed-instance count (no counter exists), so a zero-width
      * body makes the retract cascade bail at the base test without unwinding a single committed instance -- measured on corpus/probe/bb/test_sno_arbno_csl1a.c, CELLSZ=0 leaves Δ=3 where 0 is correct.
      * zd_k(ARBNO)=16 is that floor and it is already THE ONE AUTHORITY; frameless_k bills committed growth as kk+16 per instance, so a K0 body still advances by ARBNO's own cell. */
-    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : "FRAMELESS");
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : "FRAMELESS");
     return _.op_arbno_body_kk > 0
              ? bb_match_arbno_frameless_k()
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
+         : _.op_arbno_body_defer_unsafe
+             /* W-7 INTERIM GUARD (HOME-WIRES s38): body carries an IR_MATCH_DEFER with pat_static==0 -- can transitively recurse
+              * back through this ARBNO's activation (manual p.122's *X idiom), which the plain-frameless arm below does not model:
+              * that arm's [rsp+4] yield-cursor write assumes the frontier never moves inside the activation.  D12/D13 are this
+              * class (gdb-confirmed stomp on a live CLASS-D resume-record landing address, FINDING-2026-08-12k).  Declining here
+              * converts silent stack corruption into a loud compile-time refusal; the real fix needs an anchor-relative ARBNO
+              * cell (W-4's arena layout).  Floor-neutral: the 16-probe pat_static==1 passer set never sets this flag (see
+              * emit.h field note), so this arm is never reached for them.
+              * PAIR(1)/PAIR(2)/PAIR(3) (β/na_s/na_f) are all registered UNCONDITIONALLY for every node (betas[i] in the generic
+              * per-node label pass, emit.cpp ~2412) and for every IR_MATCH_ARBNO with operands (na_s/na_f, flat_drive_match_alt,
+              * emit.cpp ~1201) -- sibling boxes' forward references to them exist independent of which arm this dispatcher
+              * picks, so the bomb path must still `def` all three (dead code after `ud2`, never reached, but required for
+              * bb_emit_end's forward-reference resolution to succeed at all). */
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a suspend-capable DEFER (pat_static=0) -- anchor-relative slot not yet implemented (W-4)")
+                            + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe decline)")
+                            + x86("def", PAIR(2)) + x86("def", PAIR(3))
              : bb_match_arbno_frameless();
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
