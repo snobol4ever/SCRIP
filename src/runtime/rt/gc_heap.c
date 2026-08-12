@@ -602,6 +602,23 @@ static void gc_root_zeta(void)
     while (fb) { long sz = rt_zls_frame_size(fb); gc_zeta_frame((char *)fb, (char *)fb + sz); fb = rt_zls_frame_prev(fb); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RC-8a / HOME-RBX X-1 (s33) — THE CAS ISLAND JOINS THE ROOT PHASE. Loops rt_cas_live_span exactly as gc_root_zeta loops the zeta frames, and hands each live span to gc_zeta_frame (NOT
+ * gc_cons_scan):
+ * every CAS sub-stack is DESCR-BEARING, so the DESCR-aware walker is the correct instrument — it recognises the 16B descriptor shape and falls back to raw pointer scan for the interleaved pointer
+ * and int
+ * fields of rt_dcf_t and rt_dfx_t.  SCRIP_GC_UNROOT=cas is the GATE'S POSITIVE CONTROL, not a killswitch: it re-opens the pre-s33 hole on demand so test_gate_rc8a_gc_coverage.sh can prove the gate is
+ * capable of going RED (RULES: a gate that cannot fail for the right reason is not a gate).  It is never a bisect aid and nothing may depend on it. */
+static long g_gc_cas_bytes = 0;
+static void gc_root_cas(void)
+{
+    extern int rt_cas_live_span(int, void **, size_t *);
+    static int unroot = -1;
+    if (unroot < 0) { const char *e = getenv("SCRIP_GC_UNROOT"); unroot = (e && strstr(e, "cas")) ? 1 : 0; }
+    g_gc_cas_bytes = 0;
+    if (unroot) return;
+    { void *b = 0; size_t n = 0; for (int i = 0; rt_cas_live_span(i, &b, &n); i++) if (b && n) { gc_zeta_frame((char *)b, (char *)b + n); g_gc_cas_bytes += (long)n; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(int cons_stack)
 {
     extern void core_gc_roots(void); extern void gen_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern int rt_scan_active(void); extern int rt_value_trail_mark(void);
@@ -634,6 +651,9 @@ static long gc_collect_ex(int cons_stack)
       if (cons_stack) { int wso = (cons_stack == 2); g_gc_scan_tag = 2; setjmp(jb); gc_cons_scan_t((const char *)&jb, (const char *)&jb + sizeof jb, wso);
         { char *lo = &anchor, *hi = chi ? chi : gc_stack_top(); g_gc_scan_tag = 3; if (lo < hi) gc_cons_scan_t((const char *)lo, (const char *)hi, wso); g_gc_scan_tag = 0; } } }
     gc_root_zeta();
+    gc_root_cas();
+    { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
+      if (cov) fprintf(stderr, "[GC-COV] pins=%ld ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rpin_n, g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
     core_gc_roots(); gen_gc_roots(); rt_gc_root_args();
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);

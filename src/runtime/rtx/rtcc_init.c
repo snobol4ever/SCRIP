@@ -23,7 +23,20 @@ static unsigned char rtcc_env_on(const char *name) { const char *e = getenv(name
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rtcc_init(void) { g_rtcc_on = rtcc_env_on("SCRIP_RTCC"); if (g_rtcc_on) { rtcc_gc_register(); if (RTCC_GLOBAL_R9_GVA) g_rtcc_block[RTCC_SLOT_R9] = (uint64_t)(uintptr_t)(void *)RT_GVA_VA; } }   /* RC-5-GVA: seed R9 slot with the constant GVA base pointer ONCE — RT_GVA_VA never changes after rt_pin_init; no companion writes needed anywhere in the runtime (BLOCK-CANONICAL EXCEPTION for constant globals). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rtcc_gc_register(void) { rt_gc_root_pin_add((const char *)&g_rtcc_block[0]); }   /* RC-0(d) BLOCK-CANONICAL: at any GC point all claimed-register values sit in the block; registering it is sufficient — no per-register pin needed. */
+/* RC-8a / HOME-RBX X-1 (s33): PIN != SCAN.  rt_gc_root_pin_add feeds rt_gc_pin_ptr, which keeps the CONTAINING BLOCK alive; rt_gc_root_range_add feeds gc_cons_scan, which walks the INTERIOR and marks
+ * what it references (gc_heap.c:625-626).  Registering the pin alone therefore kept the 256 BSS bytes alive while leaving every DESCR the block holds invisible to the marker — "BLOCK-CANONICAL is
+ * sufficient" is true for LIVENESS OF THE BLOCK and false for REACHABILITY THROUGH IT.  The range is added over the WHOLE block, XMM slots included: a real in an XMM slot whose bit pattern happens to
+ * land in the heap span costs one conservatively pinned block (false retention, bounded and safe) whereas a missed GPR root costs a collected live object, so the asymmetry decides it. LATENT, NOT
+ * DEAD,
+ * at HEAD: slots [0..4] (the rax/rcx/rdx/rsi/rdi arg tier) are unclaimed, and the claimed slots hold non-collectible values — R9 the constant GVA base, R10/R11 the Gamma/Omega wires (code addresses).
+ * X-5 claiming the arg tier is what makes it LIVE, which is exactly why GOAL-SN4-HOME-RBX gates X-5 on X-1.  SCRIP_GC_UNROOT=rtcc re-opens the hole for the gate's positive control ONLY. */
+void rtcc_gc_register(void)
+{
+    const char *e = getenv("SCRIP_GC_UNROOT");
+    rt_gc_root_pin_add((const char *)&g_rtcc_block[0]);
+    if (e && strstr(e, "rtcc")) return;
+    rt_gc_root_range_add((const char *)&g_rtcc_block[0], (const char *)&g_rtcc_block[32]);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Coexpr block-swap (Option B): called from scrip_coswitch at save and restore sites.                                                                                                                */
 /* When g_rtcc_on==0 these are no-ops; the coswitch path is unchanged.                                                                                                                                */
