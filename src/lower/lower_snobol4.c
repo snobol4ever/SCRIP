@@ -1749,6 +1749,7 @@ static int sno_is_pattern_rhs(const tree_t * t) {
         return 1;
     case TT_SEQ: case TT_CAT: { const tree_t * a = (t->n > 0) ? t->c[0] : NULL; const tree_t * b = (t->n > 1) ? t->c[1] : NULL;
         if ((a && a->t == TT_DEFER) || (b && b->t == TT_DEFER)) return 1; return sno_is_pattern_rhs(a) || sno_is_pattern_rhs(b); }
+    case TT_VAR: { static int depth = 0; if (depth >= 32 || !t->v.sval) return 0; const tree_t * p = sno_seal_pat(t->v.sval); if (!p) return 0; depth++; int r = sno_is_pattern_rhs(p); depth--; return r; }   /* RBP-EARN s45 DEFECT A: a bare name that eligibly resolves to a stored pattern IS a pattern-RHS -- without this arm, Q = P / Q = P P is never classified, sno_snapref_scan never runs, and P's build is dead-eliminated while Q's use-site reads null (earn0_varref_bare_dropped / _cat_dropped).  Same seal-table resolution + depth cap as sno_pat_right_sealed's own TT_VAR arm (A=B;B=A cycle guard); bare keywords never reach here (sno_pat_eff_kind remaps them first). */
     default: return 0;
     }
 }
