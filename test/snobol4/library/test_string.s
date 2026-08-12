@@ -5432,7 +5432,7 @@ n475_match_rpos_α:
                         cmp              r14d, ecx
                                                                                         je    .Lx489_240
                         add              rsp, 16
-                                                                                        jmp   n473_match_defer_β
+                                                                                        jmp   n472_match_begin_β
 .Lx489_240:
                                                                                         jmp   n476_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -16571,7 +16571,7 @@ n991_lit_integer_α:
                         mov              qword ptr [rsp + 3032], rax
                                                                                         jmp   n992_match_rpos_α
 n991_lit_integer_β:
-                                                                                        jmp   n990_match_defer_β
+                                                                                        jmp   n989_match_begin_β
 .Lx1593_0:
                         .quad            0
 #-----------------------------------------------------------------------------------------------------------------------
@@ -16582,12 +16582,12 @@ n992_match_rpos_α:
                         cmp              r14d, ecx
                                                                                         je    .Lx1594_240
                         add              rsp, 16
-                                                                                        jmp   n990_match_defer_β
+                                                                                        jmp   n989_match_begin_β
 .Lx1594_240:
                                                                                         jmp   n993_match_end_α
 n992_match_rpos_β:
                         add              rsp, 16
-                                                                                        jmp   n990_match_defer_β
+                                                                                        jmp   n989_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n993_match_end_α:
                         mov              r8, r12

@@ -2560,7 +2560,7 @@ n219_match_alternate_af:
                         mov              rax, qword ptr [rbp + 48]
                                                                                         jmp   rax
 .Lx228_19:
-                                                                                        jmp   n218_match_defer_β
+                                                                                        jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n220_var_α:
                         mov              rax, qword ptr [r9 + 80]                       # letter
