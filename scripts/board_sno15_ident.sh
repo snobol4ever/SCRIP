@@ -7,7 +7,20 @@
 # ulimit -s unlimited for SCRIP both modes (raw SIGSEGV otherwise).
 # Reports IDENT/DIVERGE PER MODE, because a program failing in exactly one mode is a MODE34 violation.
 # NO TIMING HERE BY DESIGN: a ratio on a diverging mode is meaningless (s158 treebank-array ~8x trap).
+#
+# B-9 FIX (BOARD): every non-zero exit under `timeout` was previously collapsed to the single label
+# "RC!=0" for both m3 and m4 -- a HANG (timeout's own exit 124) and a CRASH (shell's 128+signal, e.g.
+# 139=SIGSEGV, 134=SIGABRT) read identically. Per FINDING-2026-08-12n the 13 broken demo-board programs
+# are AT LEAST THREE separate mechanisms (a resumable-generator hang, an R12 arena overrun crash, a wild-
+# rbx crash) -- a board that cannot tell hang from crash cannot route a failure to its owner. classify_rc()
+# below turns the raw $? into HANG / CRASH(sig) / RC=<n> so the printed column carries that distinction.
 set -u
+classify_rc() {  # $1 = exit code from `timeout N cmd`
+  local rc=$1
+  if [ "$rc" -eq 124 ]; then echo "HANG"
+  elif [ "$rc" -ge 128 ]; then echo "CRASH($((rc-128)))"
+  else echo "RC=$rc"; fi
+}
 SC=${SC:-/home/claude/SCRIP}; D=${D:-/home/claude/corpus/programs/snobol4/demo}
 SBL=${SBL:-/home/claude/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
@@ -31,15 +44,17 @@ for nm in claws5 claws5-match claws5-match-fence \
   if ! timeout $TMO "$SBL" -b -d512m -i64m $xf "$W/$nm.sbl.sno" < "$inp" > "$W/$nm.sbl" 2>/dev/null; then
     printf '%-26s %-10s %-10s %s\n' "$nm" - - "SBL FAILED"; nfail=$((nfail+1)); continue; fi
   # ---- mode 3 (in-process native) ----
-  if timeout $TMO "$SC/scrip" --run "$src" < "$inp" > "$W/$nm.m3" 2>/dev/null; then
+  timeout $TMO "$SC/scrip" --run "$src" < "$inp" > "$W/$nm.m3" 2>/dev/null; rc3=$?
+  if [ "$rc3" -eq 0 ]; then
     cmp -s "$W/$nm.sbl" "$W/$nm.m3" && m3=IDENT || m3=DIVERGE
-  else m3="RC!=0"; fi
+  else m3=$(classify_rc "$rc3"); fi
   # ---- mode 4 (compile via as+gcc) ----
   if timeout $TMO "$SC/scrip" --compile "$src" > "$W/$nm.s" 2>/dev/null \
      && gcc -no-pie "$W/$nm.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/$nm.prog" 2>/dev/null; then
-    if timeout $TMO "$W/$nm.prog" < "$inp" > "$W/$nm.m4" 2>/dev/null; then
+    timeout $TMO "$W/$nm.prog" < "$inp" > "$W/$nm.m4" 2>/dev/null; rc4=$?
+    if [ "$rc4" -eq 0 ]; then
       cmp -s "$W/$nm.sbl" "$W/$nm.m4" && m4=IDENT || m4=DIVERGE
-    else m4="RC!=0"; fi
+    else m4=$(classify_rc "$rc4"); fi
   else m4="BUILD-FAIL"; fi
   [ "$m3" = IDENT ] || nd3=$((nd3+1)); [ "$m4" = IDENT ] || nd4=$((nd4+1))
   [ "$m3" = IDENT ] && [ "$m4" = IDENT ] && nid=$((nid+1))
