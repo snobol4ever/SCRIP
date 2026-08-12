@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # test_snocone_hand_suite.sh -- SC-18: run hand-crafted Snocone tests (SC-13..SC-17)
-# Gate: PASS=5 FAIL=0 under all three modes
+# Gate: PASS=5 FAIL=0 under BOTH real modes (--run m3, --compile m4)
+#
+# B-9 FIX (BOARD): MODES was (--run --run --run) -- --compile was never
+# exercised. See scripts/test_gate_sn7_beauty_self_host.sh for the same
+# class fixed the same session.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
@@ -9,7 +13,7 @@ TIMEOUT="${TIMEOUT:-8}"
 GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'
 
 TESTS=(fibonacci palindrome wordcount quicksort pattern_suite)
-MODES=(--run --run --run)
+MODES=(--run --compile)
 
 PASS=0; FAIL=0
 

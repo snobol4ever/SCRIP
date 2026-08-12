@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # test_beauty_snocone_all_modes.sh -- SC-19/SC-20/SC-21/SC-22
-# Run all 14 beauty-sc subsystems under --run, --run, --run
+# Run all 14 beauty-sc subsystems under BOTH real modes: --run (m3) and
+# --compile (m4).
 # Gate: 14 PASS + 1 SKIP (beauty, no beauty.sc) per mode
+#
+# B-9 FIX (BOARD): MODES was (--run --run --run) -- --compile was never
+# exercised. See scripts/test_gate_sn7_beauty_self_host.sh for the same
+# class fixed the same session.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
@@ -10,7 +15,7 @@ TIMEOUT="${TIMEOUT:-10}"
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 
 SUBSYSTEMS=(arith assign fence global match roman semantic ShiftReduce ReadWrite counter stack strings trace beauty tree)
-MODES=(--run --run --run)
+MODES=(--run --compile)
 
 PASS=0; FAIL=0; SKIP=0
 

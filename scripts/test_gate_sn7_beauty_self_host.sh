@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # scripts/test_gate_sn7_beauty_self_host.sh — SN-7 gate:
-# every *_driver.sno in corpus/programs/snobol4/beauty_suite/, under --run,
-# --run, --run,
+# every *_driver.sno in corpus/programs/snobol4/beauty_suite/, under BOTH
+# real modes (--run = m3 BINARY, --compile = m4 TEXT),
 # diff=0 vs its pre-baked .ref file (SPITBOL ground truth where valid; some
 # drivers have .ref files that reflect correct behavior SPITBOL itself fails
 # on — see RULES.md on .ref authority).
+#
+# B-9 FIX (BOARD, this session): the loop previously read
+# `for mode in --run --run --run` (before that, `--interp --interp --run`,
+# mechanically flattened when --interp was eradicated project-wide) — it
+# NEVER invoked --compile, so this gate has apparently never once measured
+# mode 4 on beauty_suite. FAIL counts before this fix were exactly 3x the
+# true --run-only fail count, all under the label "--run". Fixed to name
+# both modes explicitly so a future flatten-style edit cannot silently
+# collapse it again.
 #
 # Self-contained per RULES.md: paths derived from $0; no env deps.
 
@@ -32,7 +41,7 @@ for sno in "$BEAUTY"/*_driver.sno; do
     name=$(basename "$sno" .sno)
     ref="$BEAUTY/${name}.ref"
     [ ! -f "$ref" ] && continue
-    for mode in --run --run --run; do
+    for mode in --run --compile; do
         got=$(SNO_LIB="$BEAUTY" timeout "$TIMEOUT" "$SCRIP" $mode "$sno" < /dev/null 2>/dev/null || true)
         if diff <(printf '%s\n' "$got") "$ref" > /dev/null 2>&1; then
             PASS=$((PASS + 1))
