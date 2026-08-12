@@ -21,7 +21,7 @@ if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
 
 PASS3=0; FAIL3=0
 PASS4=0; FAIL4=0; SKIP4=0
-FAILURES2=""; FAILURES3=""; FAILURES4=""
+FAILURES2=""; FAILURES3=""; FAILURES4=""; SKIPPED4=""
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -30,10 +30,11 @@ T_M3=0; T_M4=0; T0_ALL=$SECONDS
 compile_mode4() {
     local sno="$1" out="$2"
     local tmp; tmp="$(mktemp -d)"
-    SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
-    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
+    SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { LAST_M4_STAGE="COMPILE"; rm -rf "$tmp"; return 1; }
+    [ -s "$tmp/p.s" ] || { LAST_M4_STAGE="EMPTY-ASM"; rm -rf "$tmp"; return 1; }
+    (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { LAST_M4_STAGE="ASSEMBLE"; rm -rf "$tmp"; return 1; }
     gcc -no-pie "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm \
-        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
+        -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { LAST_M4_STAGE="LINK"; rm -rf "$tmp"; return 1; }
     rm -rf "$tmp"
 }
 
@@ -59,9 +60,9 @@ run_test() {
 
     # ── Mode 4: --compile → assemble → link → run ─────────────────────────
     local T0m4=$SECONDS
-    if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); return; fi
+    if [ ! -f "$RT_DIR/libscrip_rt.so" ]; then SKIP4=$((SKIP4+1)); SKIPPED4="${SKIPPED4}  SKIP ${label} (no libscrip_rt.so)\n"; return; fi
     local bin="$WORKDIR/${slug}.bin"
-    if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); return; fi
+    if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); SKIPPED4="${SKIPPED4}  SKIP ${label} (${LAST_M4_STAGE:-UNKNOWN})\n"; return; fi
     local got4
     if [ -n "$input" ] && [ -f "$input" ]; then
         got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$input" 2>/dev/null || true)
@@ -105,5 +106,6 @@ echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 [ -n "$FAILURES2" ] && printf "$FAILURES2" | head -400
 [ -n "$FAILURES3" ] && printf "$FAILURES3" | head -400
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -400
+[ -n "$SKIPPED4" ] && printf "$SKIPPED4" | head -400
 
 printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
