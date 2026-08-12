@@ -308,6 +308,42 @@ int bb_node_id(IR_t * nd) {
     g_nid_key[h] = nd; g_nid_val[h] = ++g_nid_count; return g_nid_val[h];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SN4-M34-5a (2026-08-12): DEFINE-entry double-emission fix.  A plain DEFINE mints TWO citizens that can
+ * both reach the SAME shared body anchor: the LBL__<label> pseudo-proc (proc_entry_node = the label's anchor
+ * inside main's own graph -- SN4-FLAT-PROC's O(n) shared-graph design, lower_snobol4.c ~2538) gets its OWN
+ * standalone emit_chain call and legitimately emits that body once; separately, codegen_flat_chain_body's
+ * "pass 1: entry + enterable-chain roots" step (the ORPHAN-PROOF group-root pull-in, HQ s26) walks EVERY
+ * anchor the ZLS group registry knows about for whichever graph g_emit_cfg currently names -- and for a
+ * chain whose own `entry` param happens to equal its own `g->entry` (true of EVERY single-node graph,
+ * including the tiny call-stub the SAME DEFINE also mints -- sno_build_call_stub, IR_SAVE_RESTORE ->
+ * IR_GOTO_DEFERRED), that guard is vacuously satisfied and, when g_emit_cfg for that emit_chain call is
+ * MAIN's own graph (main's own top-level chain), the pull-in walks the SAME anchor LBL__<label> already
+ * emitted standalone -- re-emitting the whole body a second time under main's chain.  Every by-name-call
+ * template inside the re-walked body mints its `.Lbynamefnzd<nid>` label from _.nid a SECOND time (bb_node_id
+ * is dense/collision-free -- the SAME node gets the SAME nid both times, correctly -- so the label is
+ * IDENTICAL, and `as` rejects the duplicate definition).  Root cause is NOT a nid-uniqueness bug: it is two
+ * independent top-level emit_chain calls both structurally reaching the identical IR_t* subgraph.  FIX: the
+ * group-root pass must skip any anchor that some EARLIER emit_chain call in this same compilation already
+ * used as its OWN entry (i.e. already has a dedicated standalone emission, exactly the LBL__ case) -- that
+ * anchor's body is already transfer-reachable and already emitted; pulling it in again is pure duplication,
+ * never new coverage.  Anchors with no dedicated proc (the ordinary case this pass exists for) are unaffected
+ * -- they are never marked, so they still pull in exactly as before.  ONE AUTHORITY: emit_chain marks ITS OWN
+ * raw (pre-entry-chase) `entry` parameter at call start -- the same pointer identity zls_group_mark_anchor
+ * registered, since both derive from the same label anchor (bb_label_landing/anchor[i]) -- so the mark and
+ * the group registry's returned anchors compare by identical IR_t* with no chase-drift possible. */
+static IR_t * g_chain_entry_key[65536];
+static int    g_chain_entry_n = 0;
+void emit_chain_mark_entry_emitted(IR_t * entry) {
+    if (!entry) return;
+    for (int i = 0; i < g_chain_entry_n; i++) if (g_chain_entry_key[i] == entry) return;   /* already marked (re-entrant/defensive; emit_chain runs once per proc in practice) */
+    if (g_chain_entry_n < 65536) g_chain_entry_key[g_chain_entry_n++] = entry;
+}
+int emit_chain_entry_already_emitted(const IR_t * entry) {
+    if (!entry) return 0;
+    for (int i = 0; i < g_chain_entry_n; i++) if (g_chain_entry_key[i] == entry) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_dispatch(XA_op_t op)
 {
     switch (op) {
@@ -2263,7 +2299,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     /* pass 1: entry + enterable-chain roots (SN4-FLAT-PROC s176: DEFINE bodies, RETURN/FRETURN floaters) */
     RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH();
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
-      if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
+      if (g_emit_cfg && (!g_is_text || entry == g_emit_cfg->entry)) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a && !emit_chain_entry_already_emitted(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }   /* SN4-M34-5a: skip an anchor some earlier emit_chain call already emitted standalone (the LBL__ case) -- see the fix comment beside emit_chain_entry_already_emitted's definition. */
     /* pass 2: generator ω tails not reached by pass 1 -- iterate to convergence (the RPO refactor
      * made this a one-shot loop over nodes[0..n-1], missing ω-tails of generators added BY pass-2
      * itself; chained every-loops: n3/IR_TO_BY ω→n5 adds n5..n9 incl n8/IR_TO_BY, whose ω→n10
@@ -2951,6 +2987,7 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
+    emit_chain_mark_entry_emitted(entry);   /* SN4-M34-5a: record BEFORE this call's own body walk so a later sibling's group-root pass (which pulls in OTHER labels' anchors -- this graph's own excluded by the `entry==g_emit_cfg->entry` guard) can skip an anchor this call already emitted standalone. */
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);   /* PS-3 s153 LATE fct finalize: defer-bearing tail candidates were left PENDING by the early pass (drive_slots_all runs before any proc registers its patzeta ζ terms); HERE every earlier-emitted PAT$ is registered, so the SUSP license resolves -- price or decline-to-chain -- before this graph's first node emits (fc_tail_head is consulted at IR_MATCH_BEGIN). */
     g_bb_slotmap_n = 0;
