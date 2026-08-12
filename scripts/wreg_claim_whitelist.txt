@@ -19,3 +19,11 @@
 # glue emitters -- at WREG-0 EVERY r10/r11 mention in the product is sweep debt, including x86_asm.h, whose
 # encoder internals become entry (3) the moment they are actually needed by a wire spelling.  Adding a line here
 # before its rung lands would hide debt rather than license ownership.
+#
+# PINNING (W-0, 2026-08-12).  Field 3 may be `occ=N` — the occurrence count that was ACTUALLY REVIEWED when the
+# license was granted.  The gate compares it to the live count and reports ⛔ DRIFT on any deviation (hard FAIL
+# under --strict).  Without a pin, a basename license silently covers every future use in that file, which is
+# the silencer this registry's header forbids.  Pin every new entry.
+#
+# <basename>  <site-class>  occ=<reviewed count>  <who/session>  <justification>
+emit.cpp      2,4           occ=6                 OP5-s33-WIRES  W-MAP(3) wire owners, all 4 code lines inspected: :2688 res landing reloads BOTH wires from the spine record; :2721 gamma pushes the 32B suspension record capturing {r11,r10} per-activation; :2722 jmp r10 blob success exit; :2737 jmp r11 CLASS D fail-after-drain. Site classes (2) blob-exit + (4) suspension-capture. WREG-2 and WREG-3 slice 1 have LANDED (killswitched SCRIP_WREG), so this licenses shipped ownership, not future debt.

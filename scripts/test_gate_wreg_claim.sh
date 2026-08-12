@@ -62,6 +62,15 @@ strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; 
 
 wl_has() { [ -f "$WHITELIST" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$WHITELIST"; }
 
+# wl_expect FILE — the PINNED occurrence count for a licensed file, or empty if the line carries no `occ=N`.
+# ⛔ WHY PINNING EXISTS (W-0, 2026-08-12).  The whitelist licenses a file by BASENAME, so a bare entry for a
+# large file licenses every future r10/r11 use in it too — which turns the registry into the silencer its own
+# header forbids.  `emit.cpp` is the live case: 6 occurrences, ALL of them wire-owning today, inside a file no
+# one would claim is finished.  Pinning records the count that was actually reviewed; the gate then reports
+# DRIFT the moment the file grows a use nobody cleared, so the license covers what was inspected and nothing
+# more.  An entry with no `occ=N` keeps the old blanket behaviour and is reported as UNPINNED.
+wl_expect() { [ -f "$WHITELIST" ] && grep -E "^[[:space:]]*$1[[:space:]]" "$WHITELIST" | grep -oE 'occ=[0-9]+' | head -1 | cut -d= -f2; }
+
 # ⛔ NEVER `| grep -q` UNDER pipefail (s11 conviction, recorded in test_gate_rtcc_claimed_regs.sh): grep -q exits
 # on first match and closes the pipe, the upstream sed|perl takes SIGPIPE(141), pipefail propagates it, and A
 # MATCH READS AS A MISS.  grep -c reads to EOF and cannot SIGPIPE the upstream.  Every count below uses grep -c.
@@ -79,6 +88,7 @@ echo
 
 total=0; wl_total=0; offenders=0
 occ_total=0; wl_occ=0
+drift=0
 listed=""; wl_listed=""
 
 for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h; do
@@ -88,7 +98,10 @@ for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h
   o=$(strip_comments "$f" | grep -oE "$REGPAT" | wc -l)
   b="$(basename "$f")"
   if wl_has "$b"; then
-    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ)\n"
+    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); exp=$(wl_expect "$b")
+    if [ -z "$exp" ]; then wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ) [UNPINNED — add occ=$o to pin]\n"
+    elif [ "$exp" = "$o" ]; then wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ) [pinned occ=$exp OK]\n"
+    else wl_listed="$wl_listed  ⛔ DRIFT   $b ($n lines / $o occ) [pinned occ=$exp — $((o-exp)) unreviewed occurrence(s)]\n"; drift=$((drift + 1)); fi
   else
     total=$((total + n)); occ_total=$((occ_total + o)); offenders=$((offenders + 1)); listed="$listed  $n\t$b\t($o occ)\n"
   fi
@@ -111,7 +124,10 @@ for f in src/runtime/rtx/*.S; do
   o=$(strip_comments "$f" | grep -oE "%?$REGPAT" | wc -l)
   b="$(basename "$f")"
   if wl_has "$b"; then
-    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ)\n"
+    wl_total=$((wl_total + n)); wl_occ=$((wl_occ + o)); exp=$(wl_expect "$b")
+    if [ -z "$exp" ]; then wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ) [UNPINNED — add occ=$o to pin]\n"
+    elif [ "$exp" = "$o" ]; then wl_listed="$wl_listed  LICENSED $b ($n lines / $o occ) [pinned occ=$exp OK]\n"
+    else wl_listed="$wl_listed  ⛔ DRIFT   $b ($n lines / $o occ) [pinned occ=$exp — $((o-exp)) unreviewed occurrence(s)]\n"; drift=$((drift + 1)); fi
   else
     rtx_total=$((rtx_total + n)); rtx_occ=$((rtx_occ + o)); rtx_offenders=$((rtx_offenders + 1)); rtx_listed="$rtx_listed  $n\t$b\t($o occ)\n"
   fi
@@ -120,6 +136,7 @@ done
 echo "--- LICENSED (whitelisted wire-owning sites) ---"
 if [ -n "$wl_listed" ]; then printf "%b" "$wl_listed"; else echo "  (none yet — whitelist is empty until WREG-1 creates the glue emitters)"; fi
 echo "  licensed: $wl_total lines / $wl_occ occurrences"
+[ "$drift" -gt 0 ] && echo "  ⛔ $drift LICENSED FILE(S) DRIFTED PAST THEIR PINNED occ= COUNT — re-review, then update the pin"
 echo
 echo "--- SWEEP SURFACE (must reach 0 for WREG-0 --strict) ---"
 if [ -n "$listed" ]; then printf "%b" "$listed" | sort -rn; else echo "  (clean)"; fi
@@ -150,6 +167,12 @@ echo "  delta vs all-spellings surface = $((total + wl_total - quoted))  <- the 
 echo
 
 if [ "$strict" = 1 ]; then
+  # ⛔ DRIFT IS A HARD FAIL EVEN AT ZERO SWEEP DEBT.  A licensed file that grew an unreviewed r10/r11 use is
+  # exactly the hole the pin exists to close: the sweep can read 0 while a new scratch use hides behind a
+  # basename that was cleared for a DIFFERENT set of occurrences.  Checked FIRST so it cannot be masked.
+  if [ "$drift" -gt 0 ]; then
+    echo "GATE: FAIL ($drift licensed file(s) drifted past their pinned occ= count -- re-review the new uses, then update the pin)"; exit 1
+  fi
   if [ $((total + rtx_total)) -gt 0 ]; then
     echo "GATE: FAIL ($((occ_total + rtx_occ)) non-whitelisted occurrences -- $occ_total template/emitter + $rtx_occ RTX-asm -- across $((offenders + rtx_offenders)) files)"; exit 1
   fi
