@@ -102,17 +102,15 @@ n4_match_break_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_span_α:
                         sub              rsp, 16
-                        mov              eax, r14d
-                        mov              rsi, qword ptr [rsp + 72]                      # coerce_string
-                        mov              edx, dword ptr [rsp + 68]
+                        mov              dword ptr [rsp + 16], r14d
 .Lx15_0:
+                        mov              eax, dword ptr [rsp + 16]
                         cmp              eax, r15d
-                                                                                        jl    .Lx15_239
-                        add              rsp, 16
-                                                                                        jmp   n4_match_break_β
-.Lx15_239:
+                                                                                        jge   .Lx15_1
                         movsxd           rcx, eax
                         movzx            edi, byte ptr [r13+rcx]
+                        mov              rsi, qword ptr [rsp + 72]                      # coerce_string
+                        mov              edx, dword ptr [rsp + 68]
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 8],  rcx
@@ -130,9 +128,12 @@ n5_match_span_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             eax, eax
                                                                                         je    .Lx15_1
+                        mov              eax, dword ptr [rsp + 16]
                         add              eax, 1
+                        mov              dword ptr [rsp + 16], eax
                                                                                         jmp   .Lx15_0
 .Lx15_1:
+                        mov              eax, dword ptr [rsp + 16]
                         cmp              eax, r14d
                                                                                         jne   .Lx15_240
                         add              rsp, 16
