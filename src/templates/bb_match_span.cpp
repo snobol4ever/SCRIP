@@ -35,22 +35,35 @@ std::string bb_match_span() {
     if (sp_rangep()) sp_ranges();
     if (_.op_sa < 0 && ZC_LIT_GUTS != ZC_LIT_GUTS_UNROLL) strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval ? _.op_sval : "");
     if (_.op_zres && _.op_sa >= 0)
-        return x86("comment", "IR_MATCH_SPAN zd")
+        /* MATCH-SPAN-ZD-FIX (this session, 2026-08-12): eax carries the LOOP POSITION into the call, but rt_sg_member returns its boolean result in
+         * eax too (call ABI), and the RTCC veneer's reload after a call() covers only the scratch tier
+         * {r8,r9,r10,r11} -- eax/rsi/rdx are explicitly NOT restored (RC-4 "arg tier reload deferred", by
+         * design, so a caller reading the CALL'S OWN return value in rax still sees it).  The old code read
+         * eax as the position, then let the call overwrite it with 0/1 and used THAT for "add eax,1; jmp L(0)"
+         * -- position tracking was destroyed after the first successful match.  rsi/edx (needle ptr/len) are
+         * loaded ONCE before the loop and likewise have no veneer protection across the call.  FIX: keep the
+         * position in FR(_.x86_scratch_off) (memory, call-safe) and reload rsi/edx from the zeta-cell every
+         * iteration instead of holding them live in registers across the call. */
+             return x86("comment", "IR_MATCH_SPAN zd")
              + x86_alpha()
-             + x86("mov",    "eax", "r14d")
-             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
-             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
+             + x86("mov",    FR(_.x86_scratch_off), "r14d")
              + x86("def",    L(0))
+             + x86("mov",    "eax", FR(_.x86_scratch_off))
              + x86("cmp",    "eax", "r15d")
-             + x86_omega("jge")
+             + x86("jge",    L(1))   /* end-of-subject with every char matched so far IS a valid span end, not a failure */
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "edi", "[r13+rcx]")
+             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
              + x86("call",   "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
              + x86("test",   "eax", "eax")
              + x86("je",     L(1))
+             + x86("mov",    "eax", FR(_.x86_scratch_off))
              + x86("add",    "eax", (long)1)
+             + x86("mov",    FR(_.x86_scratch_off), "eax")
              + x86("jmp",    L(0))
              + x86("def",    L(1))
+             + x86("mov",    "eax", FR(_.x86_scratch_off))
              + x86("cmp",    "eax", "r14d")
              + x86_omega("je")
              + x86("mov",    FR(_.x86_scratch_off), "r14d")
