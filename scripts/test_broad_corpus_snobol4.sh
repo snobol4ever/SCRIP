@@ -32,7 +32,7 @@ compile_mode4() {
     local tmp; tmp="$(mktemp -d)"
     SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
-    gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm \
+    gcc -no-pie "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm \
         -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     rm -rf "$tmp"
 }
