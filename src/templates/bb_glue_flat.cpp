@@ -27,8 +27,13 @@ std::string bb_glue_flat_enter() {
      * per port and renumbered every downstream label, which is exactly what the byte-identity A/B caught: instructions identical, .Lx5_0 became .Lx8_0.  A pure label rename is harmless to execution and would
      * have been invisible in a run-only test -- and would then have churned every committed .s artifact for no reason, which is precisely the kind of unexplained diff the artifact discipline exists to prevent. */
     if (!PLATFORM_X86) return std::string();
-    return IF(x86_zstorage() == ZC_STORAGE_CELL_STACK && _.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes))
-         + IF(x86_zstorage() == ZC_STORAGE_CELL_HEAP  && _.op_fc_bytes > 0, x86_bomb("bb_glue_flat_enter: CELL_HEAP per-BB carve is HZ-1, not implemented"));
+    /* HOME-RBX X-3 fork (a), s37: CELL_HEAP now carves RSP identically to CELL_STACK instead of bombing.
+     * This is the SAFE/CONSERVATIVE half of the fork FINDING-2026-08-12k named -- it makes today's
+     * dormant-but-BROKEN HEAP port dormant-and-BYTE-SAFE (pays rbx bump AND rsp carve, wasteful, correct),
+     * restoring the § A invariant so slice-2 residence (fork b) has a true floor to build on. Zero change
+     * to CELL_STACK's own arm. Positive control: this line is what makes the bomb below unreachable for
+     * fc_bytes>0 boxes -- if it still fires, the carve did not happen. */
+    return IF((x86_zstorage() == ZC_STORAGE_CELL_STACK || x86_zstorage() == ZC_STORAGE_CELL_HEAP) && _.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE LEAVE SIDE IS NOT THE MIRROR OF THE ENTER SIDE, AND THAT ASYMMETRY IS THE WHOLE PROTOCOL (s21x-m law 1, measured -- do not "simplify" it back).  Which exits free depends on whether the cell is
@@ -38,7 +43,10 @@ std::string bb_glue_flat_enter() {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_leave() {
     if (!PLATFORM_X86) return std::string();
-    return IF(x86_zstorage() == ZC_STORAGE_CELL_STACK && _.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
+    /* HOME-RBX X-3 fork (a), s37: mirrors bb_glue_flat_enter's CELL_HEAP arm above -- same K, releases the
+     * same rsp carve the enter side now reserves. No change to the leave/enter asymmetry law (s21x-m):
+     * this still only fires per the existing CELL_STACK gate's own timing, now shared with CELL_HEAP. */
+    return IF((x86_zstorage() == ZC_STORAGE_CELL_STACK || x86_zstorage() == ZC_STORAGE_CELL_HEAP) && _.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* OUTER-EXIT-1 (Lon directive s22p: "the gamma/omega landings ... belong to the OUTERMOST BOX's own ports and to the dynamic glue, never to a graph-level epilogue").  These two are what the deleted
