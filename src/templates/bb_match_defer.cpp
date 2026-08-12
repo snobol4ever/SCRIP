@@ -29,7 +29,7 @@ std::string bb_match_defer() {
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     /* s142 DEFER-SITE DIET: per-site WRITE-ONCE entry cell (seal==2, GVA arm only this slice).  Steady state replaces the 8-Ir GVA/DT_P/memo dance with lea+load+test+jne; the cold path is the UNCHANGED
      * dance plus one store into the cell (a 0 store on the not-yet-DT_P arm is a no-op — the cell arms itself only when the fn first resolves, and write-once makes it permanently valid).  rsi is the
-     * scratch: dead at α on this path (the non-GVA arm's xor esi,esi is the only prior user), clobbered by the dtp_fn_of C call, hence the re-lea before the store.  Index claim = bb_slot_claim precedent
+     * scratch: dead at α on this path (the non-GVA arm's xor esi,esi is the only prior user), clobbered by the dtp_fn_of C call, hence the re-lea before the store.  Index claim = drive_value_slot precedent (fact fix 2026-08-12: bb_slot_claim was deleted 2026-07-02)
      * (emit-time staging at template top); ≥4096 falls back to the uncached path; counter monotonic per process (uniqueness is the only requirement). */
     int ci = (dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
@@ -84,7 +84,7 @@ std::string bb_match_defer() {
                x86("comment", "s44 WIRE-SAVE: stash caller's true r10/r11 before the blob-entry glue overwrites them with this node's private L(4)/L(5)")
              + x86("mov",  FRQ(_.op_off),     "r10")
              + x86("mov",  FRQ(_.op_off + 8), "r11"))
-         + bb_glue_pass_wires_blob(4, 5)   /* PASS-THROUGH GLUE (s22v): the canonical consumer -- blob entry with this box's L(4)/L(5) as the ride-through γ/ω wires; byte-identical to the hand-rolled trio it replaces */   /* ⭐ LADDER WREG (s15): THE blob-entry site.  rax here is rt_defer_get_pat_fn's PAT$ blob pointer, so this call site is blob-only BY CONSTRUCTION -- which is why the wire spelling can convert here without touching the DEFINE'd-proc/one-shot kinds that share bb_glue_pass_wires.  Under SCRIP_WREG=1 the wires ride r10/r11 and the blob needs ZERO receiving code; under 0 this is the rcx/rdx trio verbatim. */
+         + bb_glue_pass_wires_blob(4, 5)   /* PASS-THROUGH GLUE (s22v): the canonical consumer -- blob entry with this box's L(4)/L(5) as the ride-through γ/ω wires; byte-identical to the hand-rolled trio it replaces */   /* ⭐ LADDER WREG (s15): THE blob-entry site.  rax here is rt_defer_get_pat_fn's PAT$ blob pointer, so this call site is blob-only BY CONSTRUCTION -- which is why the wire spelling can convert here without touching the DEFINE'd-proc/one-shot kinds that share bb_glue_pass_wires.  Under WREG the wires ride r10/r11 and the blob needs ZERO receiving code -- UNCONDITIONALLY: the SCRIP_WREG killswitch was DELETED with the PAT$ frame arm (DEL-T1 D-1, 855a12a5); revert = git revert, never an env flag (fact fix 2026-08-12). */
          + x86("def",  L(4))
          + IF(_.op_seal != 1 && x86_fb_pinned(),
                x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
