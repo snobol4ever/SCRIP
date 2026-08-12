@@ -2276,6 +2276,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
             return;
         }
     }
+    { static long _nvc = -1; if (_nvc < 0) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
     NV_t *e = rt_ws_alloc(sizeof(NV_t));
     e->name = rt_ws_strdup(name);
     e->val  = val;
@@ -2309,6 +2310,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0) return e->is_gva ? e->cell : &e->val;
+    { static long _nvc = -1; if (_nvc < 0) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
     NV_t *e = rt_ws_alloc(sizeof(NV_t));
     e->name = rt_ws_strdup(name);
     e->val  = NULVCL;
