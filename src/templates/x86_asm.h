@@ -2293,6 +2293,16 @@ inline std::string x86_port_hook(int site, int port) {
     if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop > 0) s += x86_add("rsp", (long)_.op_wpop);   /* ⭐ HEAD-PIN (s22z): restore gated on op_wterm -- ONLY the planner's statement-terminal wpop (zd_wp>0 at the choke, "restores to statement entry" by ZD-1's definition) carries the pin restore; a trampoline-ΣK-only fold is mid-statement and restoring there would corrupt the live pin for every later [rbp+off] reader of the same statement. */
     if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
         s += x86_sub(x86_zr(), _.op_zls2_bytes);
+    /* HOME-RBX X-3 s40 FIELD-ATTRIBUTION TRACE (env-gated, inert at HEAD -- s39/s37 cursor instruction:
+     * "do NOT guess-patch REG-4b" until op_fc_bytes vs op_zls2_bytes is TRACED, not inferred from a
+     * --dump-zeta table read by eye).  Fires once per X86H_DEF/ALPHA dispatch, before REG-4b's own hk
+     * selection reads the same fields two lines below, so this prints exactly what hk is about to see. */
+    if (site == X86H_DEF && port == X86P_ALPHA) {
+        static int on = -1;
+        if (on < 0) { const char *e = getenv("SCRIP_RBX_FIELD_TRACE"); on = (e && *e == '1') ? 1 : 0; }
+        if (on) fprintf(stderr, "[RBX-FIELD] port=%d zls2_bytes=%ld zls2_ops=%ld fc_bytes=%ld fc_base=%ld\n",
+                         x86_port_mode(), (long)_.op_zls2_bytes, (long)_.op_zls2_ops, (long)_.op_fc_bytes, (long)_.op_fc_base);
+    }
     /* REG-4b (s78) -- HEAP-ZETA alpha, rbx PROMOTED (C2's second flavor; the pend park->promote pattern,
      * REG-2 -> REG-6 proven): rbx IS the live bump frontier (the s73 map's GC-TOP tenant).  rax = rbx (the
      * box's base), bump = add rbx,K (register arithmetic, no cell store on the fast path), guard ja ->
