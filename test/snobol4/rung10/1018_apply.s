@@ -24,6 +24,7 @@ main:
                         mov              edx, 3
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -60,10 +61,10 @@ n3_lit_string_α:
 n4_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd60:             .string          "SNO$NAME"
                         .section         .text
@@ -129,18 +130,18 @@ n6_lit_integer_β:
 n7_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd8:          .string          "apply"
                         .section         .text
@@ -239,10 +240,10 @@ n16_lit_string_α:
 n17_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd80:             .string          "SNO$NAME"
                         .section         .text
@@ -308,18 +309,18 @@ n19_lit_integer_β:
 n20_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd21:         .string          "apply"
                         .section         .text
@@ -390,10 +391,10 @@ n25_lit_string_α:
 n26_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd94:             .string          "SNO$NAME"
                         .section         .text
@@ -450,14 +451,14 @@ n27_lit_string_β:
 n28_call_α:
                         sub              rsp, 16
                         sub              rsp, 32
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 48]
-                        mov              r11, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], r8
                         .section         .rodata
 .Lbynamefnzd29:         .string          "apply"
                         .section         .text
@@ -511,14 +512,14 @@ n29_lit_string_β:
 n30_call_α:
                         sub              rsp, 16
                         sub              rsp, 32
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 48]
-                        mov              r11, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], r8
                         .section         .rodata
 .Lbynamefnzd31:         .string          "differ"
                         .section         .text

@@ -53,10 +53,10 @@ n5_lit_integer_α:
 n6_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd256:            .string          "ARRAY"
                         .section         .text
@@ -1515,10 +1515,10 @@ n101_lit_integer_α:
 n102_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd381:            .string          "ARRAY"
                         .section         .text
@@ -4022,6 +4022,7 @@ main:
                         mov              edx, 6
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -4127,10 +4128,10 @@ n585_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx876_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -4365,10 +4366,10 @@ n590_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx884_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -4603,10 +4604,10 @@ n595_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx892_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -4841,10 +4842,10 @@ n600_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx900_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -5079,10 +5080,10 @@ n605_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx908_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -5317,10 +5318,10 @@ n610_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx916_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -5528,10 +5529,10 @@ n619_lit_integer_α:
 n620_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd931:            .string          "ARRAY"
                         .section         .text
@@ -6990,10 +6991,10 @@ n715_lit_integer_α:
 n716_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd1056:           .string          "ARRAY"
                         .section         .text

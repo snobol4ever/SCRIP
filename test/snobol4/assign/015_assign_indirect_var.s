@@ -22,6 +22,7 @@ main:
                         mov              edx, 2
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -76,10 +77,10 @@ n5_var_α:
 n6_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd24:             .string          "SNO$NAME"
                         .section         .text

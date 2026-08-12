@@ -292,6 +292,7 @@ main:
                         mov              edx, 5
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -331,10 +332,10 @@ n43_lit_string_α:
 n44_call_α:
                         sub              rsp, 16
                         sub              rsp, 16
-                        mov              r10, qword ptr [rsp + 32]
-                        mov              r11, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
+                        mov              r8, qword ptr [rsp + 32]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 40]
+                        mov              qword ptr [rsp + 8], r8
                         .section         .rodata
 .Lrkfnzd80:             .string          "SNO$MKPAT"
                         .section         .text
@@ -736,10 +737,10 @@ n56_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n57_match_end_α:
-                        mov              r10, r12
+                        mov              r8, r12
 .Lx99_9:
-                        sub              r10, 24
-                        mov              rax, qword ptr [r10 + 0]
+                        sub              r8, 24
+                        mov              rax, qword ptr [r8 + 0]
                         test             rax, rax
                                                                                         jne   .Lx99_9
                         mov              rsp, qword ptr [rbp + -56]
@@ -748,13 +749,13 @@ n57_match_end_α:
                         push             r13
                         sub              rsp, 8
                         mov              rsi, r12
-                        mov              r10, rsi
+                        mov              r8, rsi
 .Lx99_5:
-                        sub              r10, 24
-                        mov              rax, qword ptr [r10 + 0]
+                        sub              r8, 24
+                        mov              rax, qword ptr [r8 + 0]
                         test             rax, rax
                                                                                         jne   .Lx99_5
-                        lea              rdi, [r10 + 24]
+                        lea              rdi, [r8 + 24]
                         mov              rdx, r13
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

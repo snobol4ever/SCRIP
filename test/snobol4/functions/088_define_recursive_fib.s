@@ -279,10 +279,10 @@ n15_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx48_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -479,10 +479,10 @@ n19_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx53_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -868,6 +868,7 @@ main:
                         mov              edx, 2
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -957,10 +958,10 @@ n72_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx129_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -1147,10 +1148,10 @@ n77_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx137_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -1337,10 +1338,10 @@ n82_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx145_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -1527,10 +1528,10 @@ n87_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx153_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -1932,10 +1933,10 @@ n106_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx182_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -2132,10 +2133,10 @@ n110_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx187_5
-                        lea              r10, [rip + g_call_args]
-                        mov              rax, qword ptr [r10 + 0]
+                        lea              r8, [rip + g_call_args]
+                        mov              rax, qword ptr [r8 + 0]
                         mov              qword ptr [r9 + 16], rax                       # n
-                        mov              rax, qword ptr [r10 + 8]
+                        mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

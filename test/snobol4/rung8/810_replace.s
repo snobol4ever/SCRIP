@@ -22,6 +22,7 @@ main:
                         mov              edx, 2
                         call             gva_register@PLT
                         mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                                         jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -89,18 +90,18 @@ n5_lit_string_β:
 n6_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd7:          .string          "replace"
                         .section         .text
@@ -154,14 +155,14 @@ n7_lit_string_β:
 n8_call_α:
                         sub              rsp, 16
                         sub              rsp, 32
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 48]
-                        mov              r11, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], r8
                         .section         .rodata
 .Lbynamefnzd9:          .string          "differ"
                         .section         .text
@@ -305,18 +306,18 @@ n19_lit_string_β:
 n20_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd21:         .string          "replace"
                         .section         .text
@@ -423,18 +424,18 @@ n26_var_β:
 n27_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd28:         .string          "replace"
                         .section         .text
@@ -488,14 +489,14 @@ n28_lit_string_β:
 n29_call_α:
                         sub              rsp, 16
                         sub              rsp, 32
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 48]
-                        mov              r11, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], r8
                         .section         .rodata
 .Lbynamefnzd30:         .string          "differ"
                         .section         .text
@@ -626,18 +627,18 @@ n40_lit_string_β:
 n41_call_α:
                         sub              rsp, 16
                         sub              rsp, 48
-                        mov              r10, qword ptr [rsp + 96]
-                        mov              r11, qword ptr [rsp + 104]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 80]
-                        mov              r11, qword ptr [rsp + 88]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 32], r10
-                        mov              qword ptr [rsp + 40], r11
+                        mov              r8, qword ptr [rsp + 96]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 104]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 80]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 88]
+                        mov              qword ptr [rsp + 24], r8
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 32], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 40], r8
                         .section         .rodata
 .Lbynamefnzd42:         .string          "replace"
                         .section         .text
@@ -691,14 +692,14 @@ n42_lit_string_β:
 n43_call_α:
                         sub              rsp, 16
                         sub              rsp, 32
-                        mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
-                        mov              r10, qword ptr [rsp + 48]
-                        mov              r11, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
+                        mov              r8, qword ptr [rsp + 64]
+                        mov              qword ptr [rsp + 0], r8
+                        mov              r8, qword ptr [rsp + 72]
+                        mov              qword ptr [rsp + 8], r8
+                        mov              r8, qword ptr [rsp + 48]
+                        mov              qword ptr [rsp + 16], r8
+                        mov              r8, qword ptr [rsp + 56]
+                        mov              qword ptr [rsp + 24], r8
                         .section         .rodata
 .Lbynamefnzd44:         .string          "differ"
                         .section         .text
