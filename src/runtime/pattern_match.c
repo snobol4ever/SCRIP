@@ -588,9 +588,13 @@ DESCR_t eval_ast_pat(tree_t *e) {
  * libc realloc onto ONE base-pinned island in the rt_gva_island / g_dcap class (ARCH-ZETA §12): reserved once,
  * carved once, NEVER moved, NEVER freed, NEVER slid.  WHY THIS IS A GC RUNG AND NOT HYGIENE: these three hold
  * live DESCR_t — pointers into the collected workspace — and libgc does not scan malloc'd memory (the TR-2
- * lesson, which cost a GC_add_roots compensation there).  On the island they are covered by RT_SLAB_GC_ROOTS
- * today and are a NAMED ROOT AREA for GC-W-1's MARK / GC-W-2's ADJUST tomorrow (rt_cas_roots exports the
- * bounds; the used cursor, not the reserve, is what the scan walks).  Fixed caps + a loud bomb replace doubling:
+ * lesson, which cost a GC_add_roots compensation there).  ⛔ THE NEXT SENTENCE WAS FALSE AND IS CORRECTED (RC-8a / HOME-RBX X-1, s33): this banner used to read "on the island they are covered by
+ * RT_SLAB_GC_ROOTS today". They were NOT. RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) and gates ZERO `#if` bodies tree-wide — it was the TR-3 libgc compensation and died with libgc at TR-4,
+ * taking
+ * the coverage with it and leaving only the claim; rt_cas_roots, the "named root area" export, had zero consumers from the day it was written. For the whole interval these stacks held live DESCRs
+ * that
+ * no root phase walked. THEY ARE NOW SCANNED FOR REAL: rt_cas_live_span (below) exports the live prefix of each sub-stack and gc_root_cas (gc_heap.c) walks it with gc_zeta_frame every collection.
+ * Fixed caps + a loud bomb replace doubling:
  * an island cannot realloc-move under a collector that has recorded its base.  ⚠ NOT this island (named, so the
  * next session does not re-derive): g_dcap itself is ALREADY an island and its 24B entry is deliberately
  * POINTER-FREE (no root, no adjust — see the block below); rt_zcol_push's per-iteration COLLECTIONS ride the
@@ -924,6 +928,31 @@ static rt_dfx_t *rt_dfx_push(void) {
 typedef struct { const char *nm; DESCR_t val; } rt_spk_t;
 static rt_spk_t *g_spk;
 static int g_spk_n, g_spk_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* RC-8a / HOME-RBX X-1 (s33): THE ISLAND WAS NEVER SCANNED.  The CAS-1 banner above says these stacks "are covered by RT_SLAB_GC_ROOTS today" — FALSE AT HEAD, and stale in two independent ways:
+ * RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) AND there is not one `#if RT_SLAB_GC_ROOTS` body left in the tree — it was the TR-3 libgc compensation (GC_add_roots) and died with libgc at TR-4,
+ * taking the
+ * coverage with it and leaving only the sentence. rt_cas_roots has had ZERO consumers since it was written ("for GC-W-1's MARK tomorrow"), so nothing walked the island either. Net: g_capx (a
+ * DESCR_t
+ * stack), g_dfx (DESCR val), g_dcf (three char* INTO THE SUBJECT plus a pending DESCR) and g_spk (name ptr + DESCR) held live references into the collected workspace that no root phase could see.
+ * rt_cas_live_span is the fix's read side: it enumerates the LIVE PREFIX of each sub-stack — the used cursor, not the carved reserve, exactly as the CAS-1 banner specifies — so the collector walks
+ * a few
+ * KB of live entries instead of the multi-MB zero-filled carve. Index-driven so gc_root_cas can loop it the way gc_root_zeta loops the zeta frames; returns 0 to end the walk. A not-yet-carved or
+ * empty
+ * stack yields bytes==0 and is skipped by the caller, which is why lazy carve needs no special case here. */
+int rt_cas_live_span(int i, void **base, size_t *bytes)
+{
+    void *b = 0; size_t n = 0;
+    switch (i) {
+        case 0: if (g_capx && g_capx_top > 0) { b = (void *)g_capx; n = (size_t)g_capx_top * sizeof(DESCR_t); } break;
+        case 1: if (g_dfx  && g_dfx_top  > 0) { b = (void *)g_dfx;  n = (size_t)g_dfx_top  * sizeof(rt_dfx_t); } break;
+        case 2: if (g_dcf  && g_dcf_top  > 0) { b = (void *)g_dcf;  n = (size_t)g_dcf_top  * sizeof(rt_dcf_t); } break;
+        case 3: if (g_spk  && g_spk_n    > 0) { b = (void *)g_spk;  n = (size_t)g_spk_n    * sizeof(rt_spk_t); } break;
+        default: return 0;
+    }
+    if (base) *base = b; if (bytes) *bytes = n;
+    return 1;
+}
 long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
