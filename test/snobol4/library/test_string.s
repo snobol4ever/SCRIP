@@ -1739,9 +1739,9 @@ n172_match_end_α:
                         mov              rax, qword ptr [r8 + 0]
                         test             rax, rax
                                                                                         jne   .Lx216_9
-                        mov              eax, dword ptr [rsp + 32]
-                        mov              dword ptr [rsp + 1312], eax
-                        mov              qword ptr [rsp + 1336], r14
+                        mov              eax, dword ptr [rsp + 48]
+                        mov              dword ptr [rsp + 1328], eax
+                        mov              qword ptr [rsp + 1352], r14
                         mov              rsp, qword ptr [r8 + 8]
                         push             r14
                         push             r15
@@ -13171,9 +13171,9 @@ n874_match_end_α:
                         mov              rax, qword ptr [r8 + 0]
                         test             rax, rax
                                                                                         jne   .Lx1426_9
-                        mov              eax, dword ptr [rsp + 32]
-                        mov              dword ptr [rsp + 1312], eax
-                        mov              qword ptr [rsp + 1336], r14
+                        mov              eax, dword ptr [rsp + 48]
+                        mov              dword ptr [rsp + 1328], eax
+                        mov              qword ptr [rsp + 1352], r14
                         mov              rsp, qword ptr [r8 + 8]
                         push             r14
                         push             r15
