@@ -162,7 +162,7 @@ n7_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_tab_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              rax, qword ptr [rsp + 24]                      # lit_integer
                         cmp              r14d, eax
                                                                                         jle   .Lx37_239
@@ -177,7 +177,7 @@ n8_match_tab_α:
                         mov              r14d, eax
                                                                                         jmp   n9_match_assign_save_α
 n8_match_tab_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------

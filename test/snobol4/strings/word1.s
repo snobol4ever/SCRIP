@@ -33,20 +33,20 @@ n1_match_assign_save_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_arb_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], 0
+                        mov              dword ptr [rsp + 0], 0
                         mov              eax, r14d
-                        mov              dword ptr [rsp + 20], eax
+                        mov              dword ptr [rsp + 4], eax
                                                                                         jmp   n3_match_assign_cond_α
 n2_match_arb_β:
-                        add              dword ptr [rsp + 16], 1
-                        mov              eax, dword ptr [rsp + 20]
-                        add              eax, dword ptr [rsp + 16]
+                        add              dword ptr [rsp + 0], 1
+                        mov              eax, dword ptr [rsp + 4]
+                        add              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d
                                                                                         jg    .Lx12_0
                         mov              r14d, eax
                                                                                         jmp   n3_match_assign_cond_α
 .Lx12_0:
-                        mov              r14d, dword ptr [rsp + 20]
+                        mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n0_match_lit_β

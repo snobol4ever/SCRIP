@@ -178,11 +178,11 @@ n8_match_span_α:
                         add              rsp, 16
                                                                                         jmp   n6_match_begin_β
 .Lx37_240:
-                        mov              dword ptr [rsp + 20], r14d
+                        mov              dword ptr [rsp + 4], r14d
                         mov              r14d, ecx
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_span_β:
-                        mov              r14d, dword ptr [rsp + 20]
+                        mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_begin_β
