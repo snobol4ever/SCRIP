@@ -75,7 +75,7 @@ n5_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_tab_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              rax, qword ptr [rsp + 24]                      # lit_integer
                         cmp              r14d, eax
                                                                                         jle   .Lx24_239
@@ -90,7 +90,7 @@ n6_match_tab_α:
                         mov              r14d, eax
                                                                                         jmp   n7_match_assign_save_α
 n6_match_tab_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                                                                                         jmp   n4_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
@@ -104,20 +104,20 @@ n7_match_assign_save_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_arb_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], 0
+                        mov              dword ptr [rsp + 0], 0
                         mov              eax, r14d
-                        mov              dword ptr [rsp + 20], eax
+                        mov              dword ptr [rsp + 4], eax
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_arb_β:
-                        add              dword ptr [rsp + 16], 1
-                        mov              eax, dword ptr [rsp + 20]
-                        add              eax, dword ptr [rsp + 16]
+                        add              dword ptr [rsp + 0], 1
+                        mov              eax, dword ptr [rsp + 4]
+                        add              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d
                                                                                         jg    .Lx28_0
                         mov              r14d, eax
                                                                                         jmp   n9_match_assign_cond_α
 .Lx28_0:
-                        mov              r14d, dword ptr [rsp + 20]
+                        mov              r14d, dword ptr [rsp + 4]
                         add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_tab_β
@@ -166,7 +166,7 @@ n11_lit_integer_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_tab_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              rax, qword ptr [rsp + 24]                      # lit_integer
                         cmp              r14d, eax
                                                                                         jle   .Lx34_239
@@ -181,7 +181,7 @@ n12_match_tab_α:
                         mov              r14d, eax
                                                                                         jmp   n13_match_assign_save_α
 n12_match_tab_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                                                                                         jmp   n10_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------

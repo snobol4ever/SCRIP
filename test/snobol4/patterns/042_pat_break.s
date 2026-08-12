@@ -175,11 +175,11 @@ n8_match_break_α:
                         add              ecx, 1
                                                                                         jmp   .Lx37_0
 .Lx37_1:
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              r14d, ecx
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_break_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                         add              rsp, 16
                                                                                         jmp   n6_match_begin_β

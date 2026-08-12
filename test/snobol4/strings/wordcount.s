@@ -91,20 +91,20 @@ n4_match_break_α:
                         add              rsp, 64
                                                                                         jmp   proc_PAT$0_ω
 .Lx13_240:
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              r14d, eax
                                                                                         jmp   n5_match_span_α
 n4_match_break_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                         add              rsp, 64
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_span_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
 .Lx15_0:
-                        mov              eax, dword ptr [rsp + 16]
+                        mov              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d
                                                                                         jge   .Lx15_1
                         movsxd           rcx, eax
@@ -128,22 +128,22 @@ n5_match_span_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             eax, eax
                                                                                         je    .Lx15_1
-                        mov              eax, dword ptr [rsp + 16]
+                        mov              eax, dword ptr [rsp + 0]
                         add              eax, 1
-                        mov              dword ptr [rsp + 16], eax
+                        mov              dword ptr [rsp + 0], eax
                                                                                         jmp   .Lx15_0
 .Lx15_1:
-                        mov              eax, dword ptr [rsp + 16]
+                        mov              eax, dword ptr [rsp + 0]
                         cmp              eax, r14d
                                                                                         jne   .Lx15_240
                         add              rsp, 16
                                                                                         jmp   n4_match_break_β
 .Lx15_240:
-                        mov              dword ptr [rsp + 16], r14d
+                        mov              dword ptr [rsp + 0], r14d
                         mov              r14d, eax
                                                                                         jmp   proc_PAT$0_γ
 n5_match_span_β:
-                        mov              r14d, dword ptr [rsp + 16]
+                        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                                                                                         jmp   n4_match_break_β
 #-----------------------------------------------------------------------------------------------------------------------
