@@ -135,6 +135,20 @@ def read_record(fd, timeout_s):
     if hdr is None or len(hdr) != HDR_SIZE:
         return None
     kind, name_id, type_tag, value_len = struct.unpack(HDR_FMT, hdr)
+    # A participant that dies mid-write (e.g. a SIGSEGV between header and
+    # payload, or a torn write racing process death) can leave garbage on the
+    # pipe that decodes as a huge value_len (the field is a raw u32, so up to
+    # ~4GB).  Attempting os.read()/buf accumulation at that scale crashes the
+    # CONTROLLER with an uncaught MemoryError, destroying the one piece of
+    # forensic information this instrument exists to preserve: which
+    # participant died and after which last-good event.  Cap it and raise the
+    # same ValueError the short-read path already uses, so the existing
+    # per-step try/except in run() reports it as a named PROTOCOL ERR instead
+    # (2026-08-12, BOARD s43, found while chasing the calculator-1 SIGSEGV).
+    MAX_SANE_VALUE_LEN = 16 * 1024 * 1024  # 16MB; no legitimate wire value is near this
+    if value_len > MAX_SANE_VALUE_LEN:
+        raise ValueError(f'insane value_len {value_len} (>{MAX_SANE_VALUE_LEN}) — '
+                          f'torn/garbage header, likely a mid-write participant crash')
     if value_len > 0:
         val = read_exact(fd, value_len, timeout_s)
         if val is None or len(val) != value_len:
@@ -236,6 +250,52 @@ WILDCARD_NAMES_PARTICIPANTS = set(
 # scalar stores).  When that lands, this skip becomes a no-op.
 SKIP_EXTRA_KEYWORD_VALUES = os.environ.get('MONITOR_SKIP_EXTRA_KEYWORD_VALUES', '').strip() in ('1', 'true', 'yes', 'on')
 SKIP_MAX_PER_STEP = 4  # at most this many extra reads per side per comparison step
+
+# MONITOR_SKIP_BARE_LABEL_STNO=1 — opt-in workaround for a monitor-only false
+# DIVERGE on bare label-only statement lines (e.g. a line consisting solely of
+# "EMIT_x", the common DEFINE(...) :(X_x) ... X_x skip-target idiom used
+# throughout the SNOBOL4 corpus).  SPITBOL's oracle bridge counts and traces a
+# bare label line as its own null statement (LABEL event at its own stno --
+# manual Ch.4 p.28: "You can have a program line consisting of just a label");
+# scrip's bridge does not emit a distinct LABEL event for it, landing directly
+# on the next real statement's stno instead.  Verified BENIGN via a minimal
+# 2-DEFINE reproducer (BOARD, 2026-08-12 s43): both engines print identical,
+# correct output despite the trace disagreement -- this is a monitor
+# instrumentation gap, not a control-flow bug.
+#
+# When set, and a LABEL/LABEL disagreement is seen where one or more
+# participants' current stno resolves (via the static stno_map) to a source
+# line that is a bare label token with no statement body, those participants
+# only are advanced one record and comparison is retried.  Bounded by
+# SKIP_MAX_PER_STEP.  A LABEL divergence NOT matching this specific,
+# stno-verified pattern still surfaces immediately -- this is not a blanket
+# LABEL filter (see the explicit prohibition on that in read_semantic_record's
+# docstring above).
+#
+# Long-term fix: extend scrip's monitor bridge to emit LABEL for label-only
+# statements, matching the oracle's statement-counting model exactly.
+SKIP_BARE_LABEL_STNO = os.environ.get('MONITOR_SKIP_BARE_LABEL_STNO', '').strip() in ('1', 'true', 'yes', 'on')
+
+
+def _is_bare_label_stno(stno_map, stno):
+    """True iff stno_map[stno]'s source text is a single whitespace-free
+    token (a label with no statement body) -- e.g. 'EMIT_x'.  Conservative:
+    anything with internal whitespace (a real statement body, or a
+    label+Goto-only line) does NOT match, so this only fires on the exact,
+    verified-benign class."""
+    if stno is None or stno not in stno_map:
+        return False
+    _fn, _ln, text = stno_map[stno]
+    text = text.strip()
+    return bool(text) and ' ' not in text and '\t' not in text
+
+
+def _label_stno_of(ev):
+    """Decode the integer stno carried by a LABEL event's INTEGER payload, or
+    None if ev is not a LABEL / not decodable."""
+    if ev is None or ev.kind != MWK_LABEL or ev.type != 2 or len(ev.value) != 8:
+        return None
+    return struct.unpack('<q', ev.value)[0]
 
 # MONITOR_PM_NAME_WILDCARD=1 — wildcard the name field on PM_CALL/EXIT/REDO/FAIL
 # events.  The dot side emits per-pattern-class tags (e.g. *snoString, BREAK,
@@ -593,6 +653,74 @@ def run(participants):
                 if not advanced_any:
                     break  # nothing further to absorb; surface the divergence
                 # Recompare with refreshed events.
+                oracle_f, oracle_ev = events[0]
+                oracle_key = event_key(oracle_ev, oracle_f['names'])
+                oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
+                if oracle_ev is None:
+                    break
+                agree = True
+                for f, ev in events[1:]:
+                    if ev is None:
+                        agree = False
+                        break
+                    other_namewild = f['name'] in WILDCARD_NAMES_PARTICIPANTS
+                    if not keys_match(event_key(ev, f['names']), oracle_key,
+                                      a_name_wild=other_namewild,
+                                      b_name_wild=oracle_namewild):
+                        agree = False
+                        break
+
+        # Opt-in skip — bounded read-ahead on the side(s) whose current LABEL
+        # event names a verified bare-label statement (no body).  See
+        # SKIP_BARE_LABEL_STNO comment near the top of this file.  Unlike the
+        # kw-VALUE skip above, the "behind" side is not necessarily a non-
+        # oracle participant — the oracle (spl) is the one that correctly
+        # counts the bare-label line as its own statement, so it is usually
+        # spl that needs advancing past it.  Logic: while disagree AND any
+        # participant's current event is LABEL on a stno that stno_map proves
+        # is a bare label token, ack that participant only, read its next
+        # record, retry comparison.  A participant already at (or past) the
+        # max LABEL stno among current events is never advanced — this only
+        # catches genuinely-behind sides, never masks a real forward
+        # disagreement.
+        if not agree and SKIP_BARE_LABEL_STNO and stno_map:
+            skip_budget2 = {f['name']: SKIP_MAX_PER_STEP for f in fds}
+            while not agree:
+                label_stnos = [_label_stno_of(ev) for _f, ev in events]
+                numeric = [s for s in label_stnos if s is not None]
+                if not numeric:
+                    break  # not a LABEL/LABEL disagreement; nothing this skip can do
+                ahead_stno = max(numeric)
+                advanced_any = False
+                for i, (f, ev) in enumerate(events):
+                    s = label_stnos[i]
+                    if s is None or s >= ahead_stno:
+                        continue  # not behind, or not a LABEL event
+                    if not _is_bare_label_stno(stno_map, s):
+                        continue  # a real (non-cosmetic) disagreement — do not touch
+                    if skip_budget2[f['name']] <= 0:
+                        continue
+                    try:
+                        os.write(f['gw'], b'G')
+                    except OSError:
+                        return 2
+                    try:
+                        new_ev = read_semantic_record(f, EVENT_TIMEOUT_S)
+                    except ValueError as e:
+                        print(f'[ctrl] PROTOCOL ERR while skipping bare-label stno={s} on {f["name"]}: {e}',
+                              file=sys.stderr)
+                        return 3
+                    if new_ev is None:
+                        events[i] = (f, None)
+                        break
+                    events[i] = (f, new_ev)
+                    if f['log_fp']:
+                        f['log_fp'].write(f'#{step}+ (bare-label stno={s} skipped) -> {fmt_event(new_ev, f["names"], stno=last_agreed_stno)}\n')
+                        f['log_fp'].flush()
+                    skip_budget2[f['name']] -= 1
+                    advanced_any = True
+                if not advanced_any:
+                    break
                 oracle_f, oracle_ev = events[0]
                 oracle_key = event_key(oracle_ev, oracle_f['names'])
                 oracle_namewild = oracle_f['name'] in WILDCARD_NAMES_PARTICIPANTS
