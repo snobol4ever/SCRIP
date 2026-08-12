@@ -157,8 +157,9 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
     int64_t rlen = (int64_t)strlen(rs);
+    int64_t raw_start = start, raw_end = end;   /* FINDING-2026-08-12f: pre-clamp snapshot for the trace ONLY -- the old trace printed post-clamp, so a reported end==slen was indistinguishable from end>slen (a raw GC-pointer read, the L-3 non-carving class); clamp arithmetic below is UNCHANGED */
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
-    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
+    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
     if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }
