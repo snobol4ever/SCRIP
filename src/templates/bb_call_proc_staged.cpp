@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
+void   *rt_proc_fn(const char *name);   /* s62 NULL-TRANSFER FIX: pure accessor replacing the s55-gutted rt_proc_open_fn at the classic dyn / generator transfer sites */
 void   *rt_proc_call_open_det(long idx, int nargs);
 void   *rt_proc_call_open_det0(long idx);
 void   *rt_proc_call_open_det1(long idx, DESCR_t *a0);
@@ -224,6 +225,7 @@ static std::string bcps_det_arm() {
         static const char *detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
         uint64_t open_fp_z;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t openfn_fp_z; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t procfn_fp_z; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }   /* s62 NULL-TRANSFER FIX, z-variant -- see the note at the non-z capture */
         uint64_t epig_fp_z;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t epiw_fp_z;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t fail_fp_z;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
@@ -369,7 +371,7 @@ static std::string bcps_det_arm() {
                         + x86("call", "rt_proc_call_open", open_fp_z))))
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
-                   + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp_z))
+                   + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
                    + bb_glue_pass_wires(3, 4)
                    + x86("def", L(3))
                    + x86("call", "rt_proc_call_epilogue_γ", epig_fp_z)
@@ -396,6 +398,7 @@ static std::string bcps_det_arm() {
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t procfn_fp; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp = (uint64_t)(uintptr_t)(void*)fp; }   /* s62 NULL-TRANSFER FIX: rt_proc_open_fn was gutted to `return (void*)0` at s55 (GLOBALS-GONE, "fn now rides the OPEN return itself") but only the SLIM and DET arms were migrated to the rax channel.  The classic dyn arm still called it then jmp'd rax -- an unconditional `jmp 0` on every non-det dyn call (MEASURED: 1010_func_recursion SIGSEGV at rip=0x0).  rt_proc_fn(name) is the pure accessor for the same field, so the crossing is REPLACED, not the eradicated record resurrected. */
     uint64_t prep_fp;  { void * (*fp)(void *, long) = rt_frame_prep; prep_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
@@ -612,7 +615,7 @@ static std::string bcps_det_arm() {
              * R12-ERAD s65: the r12 anchor is DEAD — the callee's LIFO exits fully unwind frame+header before jmping the wire, so rsp at either landing = rsp at the jmp below; result arrives in rdi:rsi.
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call). */
-            ? (det_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
+            ? (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
             + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
             + x86("def", L(3))
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
@@ -696,6 +699,7 @@ static std::string bcps_spine_gen_arm() {
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t procfn_fp; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp = (uint64_t)(uintptr_t)(void*)fp; }   /* s62 NULL-TRANSFER FIX: rt_proc_open_fn was gutted to `return (void*)0` at s55 (GLOBALS-GONE, "fn now rides the OPEN return itself") but only the SLIM and DET arms were migrated to the rax channel.  The classic dyn arm still called it then jmp'd rax -- an unconditional `jmp 0` on every non-det dyn call (MEASURED: 1010_func_recursion SIGSEGV at rip=0x0).  rt_proc_fn(name) is the pure accessor for the same field, so the crossing is REPLACED, not the eradicated record resurrected. */
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
@@ -784,7 +788,7 @@ static std::string bcps_spine_gen_arm() {
             + x86("call", "rt_proc_call_open", open_fp))
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
+         + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
          + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
          + x86("def", L(3))
          /* ICN-FR-4 zframe: rax = generator____ (set by xa_flat_zframe_epilogue_γ: mov rax,___ before ___ restore).
@@ -915,7 +919,7 @@ static std::string bcps_spine_gen_arm() {
                         + x86("call", "rt_proc_call_open", open_fp))
                      + x86("test", "rax", "rax")
                      + x86_omega("je")
-                     + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
+                     + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
                      /* push L(7) landing word FIRST (matches what α-path does before open_det; L(3) landing does add rsp,8 to pop it) */
                      + x86_lea_id("r11", 7)
                      + x86("push", "r11")
