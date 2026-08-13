@@ -2437,8 +2437,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _d = frame_total - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 8;  ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } }
-            ef_b3(0x48, 0x89, 0xE5);   /* mov ___,rsp */
-            ef_b3(0x48, 0x89, 0xEF);   /* mov rdi,___ */
+            ef_b3(0x48, 0x89, 0xE7);   /* mov rdi,rsp */
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);   /* mov esi,np (imm32) */
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);   /* mov edx,nl (imm32) */
             { uint64_t _fn = (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install); ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); }   /* movabs rax,fn; call rax */

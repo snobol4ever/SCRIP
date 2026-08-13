@@ -16,7 +16,6 @@
 #define MODRM_ECX_EAX    0xC1
 #define MODRM_EAX_ECX    0xC8
 #define MODRM_RDI_RAX    0xC7
-#define MODRM_FB5_RSP    0xE5
 #define MODRM_RSP_FB5    0xEC
 #define MODRM_R10_INDIR  0x02
 #define MODRM_RCX_INDIR  0x01
@@ -50,8 +49,6 @@
 #define REX_B_POP_R12    0x5C
 #define REX_B_PUSH_R10   0x52
 #define REX_B_POP_R10    0x5A
-#define PUSH_FB5         0x55
-#define POP_FB5          0x5D
 #define JMP_REL8         0xEB
 #define JMP_REL32        0xE9
 #define JL_REL8          0x7C
