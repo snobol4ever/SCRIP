@@ -481,48 +481,10 @@ n28_call_β:
                                                                                         jmp   n30_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n29_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx69_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 0
-                                                                                        jmp   rax
-.Lx69_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 n30_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx71_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 2
-                                                                                        jmp   rax
-.Lx71_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_res:
                         add              rsp, 8
@@ -532,34 +494,10 @@ proc_LBL__Push_β:
                                                                                         jmp   proc_LBL__Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Push_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_α:
 proc_LBL__Pop_α_body:
@@ -921,26 +859,7 @@ n93_statement_end_α:
                                                                                         jmp   n94_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n94_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx122_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 0
-                                                                                        jmp   rax
-.Lx122_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_res:
                         add              rsp, 8
@@ -950,34 +869,10 @@ proc_LBL__Pop_β:
                                                                                         jmp   proc_LBL__Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Pop_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_α:
 proc_LBL__Unary_α_body:
@@ -1011,18 +906,10 @@ n124_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx153_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx153_6]
-                        lea              rdx, [rip + .Lx153_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx153_6]
+                        lea              r11, [rip + .Lx153_7]
                                                                                         jmp   rax
 .Lx153_6:
                         mov              rdi, qword ptr [r9 + 32]
@@ -1118,18 +1005,10 @@ n128_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx160_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx160_6]
-                        lea              rdx, [rip + .Lx160_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx160_6]
+                        lea              r11, [rip + .Lx160_7]
                                                                                         jmp   rax
 .Lx160_6:
                         mov              rdi, qword ptr [r9 + 32]
@@ -1280,18 +1159,10 @@ n134_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx170_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx170_6]
-                        lea              rdx, [rip + .Lx170_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx170_6]
+                        lea              r11, [rip + .Lx170_7]
                                                                                         jmp   rax
 .Lx170_6:
                         mov              rdi, qword ptr [r9 + 0]
@@ -1588,48 +1459,10 @@ n147_call_β:
                                                                                         jmp   n149_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n148_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx191_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 0
-                                                                                        jmp   rax
-.Lx191_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 n149_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx193_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 2
-                                                                                        jmp   rax
-.Lx193_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_res:
                         add              rsp, 8
@@ -1639,34 +1472,10 @@ proc_LBL__Unary_β:
                                                                                         jmp   proc_LBL__Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Unary_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_α:
 proc_LBL__Binary_α_body:
@@ -1700,18 +1509,10 @@ n195_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx234_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx234_6]
-                        lea              rdx, [rip + .Lx234_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx234_6]
+                        lea              r11, [rip + .Lx234_7]
                                                                                         jmp   rax
 .Lx234_6:
                         mov              rdi, qword ptr [r9 + 32]
@@ -1807,18 +1608,10 @@ n199_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx241_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx241_6]
-                        lea              rdx, [rip + .Lx241_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx241_6]
+                        lea              r11, [rip + .Lx241_7]
                                                                                         jmp   rax
 .Lx241_6:
                         mov              rdi, qword ptr [r9 + 32]
@@ -1914,18 +1707,10 @@ n203_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx248_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx248_6]
-                        lea              rdx, [rip + .Lx248_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx248_6]
+                        lea              r11, [rip + .Lx248_7]
                                                                                         jmp   rax
 .Lx248_6:
                         mov              rdi, qword ptr [r9 + 32]
@@ -2076,18 +1861,10 @@ n209_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx258_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx258_6]
-                        lea              rdx, [rip + .Lx258_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx258_6]
+                        lea              r11, [rip + .Lx258_7]
                                                                                         jmp   rax
 .Lx258_6:
                         mov              rdi, qword ptr [r9 + 0]
@@ -2494,48 +2271,10 @@ n228_call_β:
                                                                                         jmp   n230_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n229_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx285_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 0
-                                                                                        jmp   rax
-.Lx285_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 n230_save_restore_α:
-                        mov              rcx, qword ptr [1879048216]
-                        test             rcx, rcx
-                                                                                        je    .Lx287_0
-                        mov              rax, qword ptr [rcx + -64]
-                        mov              ecx, 2
-                                                                                        jmp   rax
-.Lx287_0:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_res:
                         add              rsp, 8
@@ -2545,74 +2284,21 @@ proc_LBL__Binary_β:
                                                                                         jmp   proc_LBL__Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__Binary_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Push_α
 proc_Push_α:
 proc_Push_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n288_save_restore_α:
-                        mov              rdi, rcx
-                        mov              rsi, rdx
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, rsp
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_wire_adopt@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
                                                                                         jmp   n289_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n289_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx293_0]
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_goto_transfer@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   .Lx293_1
-.Lx293_0:
-                        .quad            .Lx293_0_s
-.Lx293_0_s:
-                        .string          "Push"
-.Lx293_1:
+                        lea              rax, [rip + proc_LBL__Push_α]
+                                                                                        jmp   rax
                                                                                         jmp   proc_Push_γ
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_res:
@@ -2623,74 +2309,21 @@ proc_Push_β:
                                                                                         jmp   proc_Push_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Push_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Pop_α
 proc_Pop_α:
 proc_Pop_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n294_save_restore_α:
-                        mov              rdi, rcx
-                        mov              rsi, rdx
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, rsp
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_wire_adopt@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
                                                                                         jmp   n295_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n295_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx299_0]
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_goto_transfer@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   .Lx299_1
-.Lx299_0:
-                        .quad            .Lx299_0_s
-.Lx299_0_s:
-                        .string          "Pop"
-.Lx299_1:
+                        lea              rax, [rip + proc_LBL__Pop_α]
+                                                                                        jmp   rax
                                                                                         jmp   proc_Pop_γ
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_res:
@@ -2701,74 +2334,21 @@ proc_Pop_β:
                                                                                         jmp   proc_Pop_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Pop_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Unary_α
 proc_Unary_α:
 proc_Unary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n300_save_restore_α:
-                        mov              rdi, rcx
-                        mov              rsi, rdx
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, rsp
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_wire_adopt@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
                                                                                         jmp   n301_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n301_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx305_0]
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_goto_transfer@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   .Lx305_1
-.Lx305_0:
-                        .quad            .Lx305_0_s
-.Lx305_0_s:
-                        .string          "Unary"
-.Lx305_1:
+                        lea              rax, [rip + proc_LBL__Unary_α]
+                                                                                        jmp   rax
                                                                                         jmp   proc_Unary_γ
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_res:
@@ -2779,74 +2359,21 @@ proc_Unary_β:
                                                                                         jmp   proc_Unary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Unary_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_Binary_α
 proc_Binary_α:
 proc_Binary_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n306_save_restore_α:
-                        mov              rdi, rcx
-                        mov              rsi, rdx
-                        lea              rdx, [rsp + 0]
-                        mov              rcx, rsp
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_wire_adopt@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
                                                                                         jmp   n307_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
 n307_goto_deferred_α:
-                        mov              rdi, qword ptr [rip + .Lx311_0]
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_goto_transfer@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   .Lx311_1
-.Lx311_0:
-                        .quad            .Lx311_0_s
-.Lx311_0_s:
-                        .string          "Binary"
-.Lx311_1:
+                        lea              rax, [rip + proc_LBL__Binary_α]
+                                                                                        jmp   rax
                                                                                         jmp   proc_Binary_γ
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_res:
@@ -2857,34 +2384,10 @@ proc_Binary_β:
                                                                                         jmp   proc_Binary_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_γ:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 0]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
 proc_Binary_ω:
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_flat_ret_snap@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        mov              rcx, qword ptr [rax + 8]
-                        mov              rsp, qword ptr [rax + 16]
-                                                                                        jmp   rcx
+                                                                                        jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
                         .globl           proc_PAT$0_α
 proc_PAT$0_α:
@@ -9485,18 +8988,10 @@ n595_call_α:
                         mov              r11,  qword ptr [r11 + 64]
                         test             rax, rax
                                                                                         je    .Lx818_5
-                        mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 40], r8
-                        mov              qword ptr [rax + 56], r10
-                        mov              qword ptr [rax + 64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              r8,   qword ptr [r11 + 40]
-                        mov              r9,   qword ptr [r11 + 48]
-                        mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]
-                        lea              rcx, [rip + .Lx818_6]
-                        lea              rdx, [rip + .Lx818_7]
+                        mov              r10, rax
+                        mov              rax, r10
+                        lea              r10, [rip + .Lx818_6]
+                        lea              r11, [rip + .Lx818_7]
                                                                                         jmp   rax
 .Lx818_6:
                         mov              rdi, qword ptr [r9 + 32]
