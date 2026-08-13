@@ -38,7 +38,15 @@ classify_one() {
     elif [ "$RO" = "$ORA" ]; then st=PASS
     else st=DIFF; fi
   fi
-  if [ $ost -ne 0 ] && [ -z "$ORA" ]; then case "$st" in PASS|DIFF) st=ORACLE_FAIL;; esac; fi
+  # s66 -- THE -z "$ORA" CONJUNCT IS DELETED.  It was the s33 "NON-EMPTY IS NOT ALIVE" false-signal class living inside the demotion predicate itself: PLAN.md line 22
+  # names that class for the MISSING-oracle case, and it reappeared here for the CRASHING-oracle case.  MEASURED over the 226-program census set: exactly 3 programs exit
+  # the oracle NONZERO and ALL THREE are NONEMPTY, so the conjunct blocked every demotion -- sbl prints its diagnostic first (expression.sno "ERROR 285 include file
+  # cannot be opened"; beauty.sno "ERROR 217 duplicate label" at 568, 1261 bytes) and THEN segfaults, so the harness banked error text as the reference and graded SCRIP
+  # against it.  family_snobol4.sno was carrying a DIFF earned exactly that way -- a SCRIP red for disagreeing with a dead engine.  Exit code alone is the test now: you
+  # cannot claim PASS or DIFF against a reference from a run that crashed, whether or not it managed to print something first.  SIG-star/COMPILE_FAIL/TIMEOUT stay OUT of
+  # the case list ON PURPOSE -- those are SCRIP-side facts (a SCRIP segfault is a SCRIP segfault no matter how healthy the oracle is) and demoting them would hide real
+  # defects behind a broken oracle.
+  if [ $ost -ne 0 ]; then case "$st" in PASS|DIFF) st=ORACLE_FAIL;; esac; fi
   rm -f $S $X $CE $GE $RE
   echo "$st $f"
 }
