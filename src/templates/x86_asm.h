@@ -98,7 +98,7 @@ inline std::string x86_alu_rr(const char * mnem, uint8_t op, const char * rm, co
     int m = x86_rnum(rm), g = x86_rnum(reg);
     uint8_t rex = 0x40; if (x86_is64(rm) || x86_is64(reg)) rex |= 0x08; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; if (rex != 0x40) code += (char)rex; code += (char)op; code += (char)(0xC0 | ((g & 7) << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" ") + mnem + " " + rm + ", " + reg + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : x86_rec(mnem) + rm + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_rr("mov",  0x89, rm, reg); }
@@ -391,7 +391,7 @@ inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
         call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;  /* call r10 */
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block));
     }
-    return x86_align_assert() + x86_rtcc_wb_text() + " call " + sym + "@PLT\n" + x86_rtcc_rl_text();
+    return x86_align_assert() + x86_rtcc_wb_text() + x86_rec("call") + sym + "@PLT\n" + x86_rtcc_rl_text();
 }
 /* x86_rtcc_call_descr — RC-4 RTCC veneer for DESCR_t-returning calls — declared here, defined after FRQ/x86. */
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot);
@@ -426,7 +426,7 @@ inline std::string x86_jcc(const char * mnem, int port) {
     if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop > 0)) return x86_fc_jcc_gamma(mnem);   /* ZW-1: a conditional gamma in the carve-only class must free the bracket too -- same invert+pop+jmp synth, gamma flavor, so the ONE X86H_JMP/GAMMA hook arm serves every success path.  ZD-1: a pending statement-terminal release (op_zgpop) needs the same synth for the same reason -- add rsp clobbers flags, so the release rides the synth's inner jmp-gamma where the ONE hook arm emits it. */
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
-                          : (std::string(" ") + mnem + " " + x86_portname(port) + "\n"));
+                          : x86_rec(mnem) + x86_portname(port) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -702,7 +702,7 @@ inline std::string x86_jmp_tgt(int t) {
 inline std::string x86_jcc_tgt(const char * mnem, int t) {
     const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
     return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(t))
-                         : (std::string(" ") + mnem + " " + nm + "\n");
+                         : x86_rec(mnem) + nm + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_tgt(int t) {
@@ -740,7 +740,7 @@ inline std::string x86_jmp_id(int n) {
 inline std::string x86_jcc_id(const char * mnem, int n) {
     int id = x86_internal_id(n);
     return MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(id))
-                         : (std::string(" ") + mnem + " " + x86_internal_name(n) + "\n");
+                         : x86_rec(mnem) + x86_internal_name(n) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_id(int n) {
@@ -835,7 +835,7 @@ inline std::string x86_jmp_ext(const struct bb_label_t * lbl) {
 }
 inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
-    return std::string(" ") + mnem + " " + (lbl ? lbl->name : "?") + "\n";
+    return x86_rec(mnem) + (lbl ? lbl->name : "?") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_rip_id(const char * reg, int n) {
@@ -1588,7 +1588,10 @@ inline std::string x86_4col(const std::string & s) {
         for (size_t j2 = inext; j2 < n; ) { size_t e2 = s.find('\n', j2); size_t l2 = (e2 == std::string::npos ? n : e2) - j2; x86_rec_t r2; x86_rec_split(s.data() + j2, l2, r2);
             if (r2.marg && r2.al >= 2 && r2.ar[0] == '#' && r2.ar[1] == '@') { j2 = (e2 == std::string::npos) ? n : e2 + 1; continue; } nk = x86_rec_kind(r2); nhasl = (r2.ll != 0); break; }
         int join = jn && !hasl && ((pend == 1 && (ck == 2 || ck == 3)) || (pend == 2 && ck == 3));
-        int willjoin = jn && !nhasl && ck == 2 && nk == 3;   /* a jump will land on THIS line at the GOTO column, so its note must not occupy that space */
+        if (join) { int pw = x86_disp_w(o.data() + pls, o.size() - pls);   /* ⛔ FIT TEST (s63, same discipline as s62's GOTO 68→78: a column that is overrun is a MEASURED DEFECT, not taste).  A join that cannot */
+            if (pend == 1) { if (pw >= 24) join = 0; }                     /* reach its column lands ragged one-or-two past it, so DECLINE it: an over-long label keeps its own line and the instruction beneath   */
+            else if (pw + 1 >= CJ) join = 0; }                             /* starts clean at 24; an operand run that would push ';' past the GOTO column leaves the jump on its own line, still AT the column.     */
+        int willjoin = jn && !nhasl && ck == 2 && nk == 3;   /* a jump MAY land on this line at the GOTO column, so its note must not occupy that space -- confirmed against the real width at the note fold below */
         size_t ls;
         if (join) { if (pend == 1) x86_4col_to(o, pls, 24); else o.append(1, ';'); if (ck == 3) x86_4col_to(o, pls, CJ); ls = pls; }
         else { if (pend) o.append(1, '\n'); ls = o.size(); }
@@ -1603,7 +1606,7 @@ inline std::string x86_4col(const std::string & s) {
                 else { x86_4col_pad(o, r.op, r.ol, 17); o.append(r.ar, r.al); inst = 1; }
             }
         }
-        if (inst && !note.empty()) { int drop = isj || willjoin; if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, 88); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
+        if (inst && !note.empty()) { int drop = isj || (willjoin && x86_disp_w(o.data() + ls, o.size() - ls) + 1 < CJ); if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, 88); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
         pend = (ck == 0 || ck == 4) ? 4 : ck; pls = ls;
         i = inext;
     }
@@ -1657,7 +1660,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_ILBL) return x86_jcc_id(mnem, a.lbl);
         if (a.kind == XK_PAIR) return x86_jcc_pair(mnem, a.lbl);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jcc_ext(mnem, (const struct bb_label_t *)(uintptr_t)xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" ") + mnem + " " + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_rec(mnem) + a.sym + "\n";
         return std::string();
     }
     if (!strcmp(mnem, "call")) {
@@ -2478,7 +2481,7 @@ inline std::string x86_jmp_pair(int idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_pair(const char * mnem, int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" ") + mnem + " " + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
+    return x86_rec(mnem) + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lit_bytes(const std::string & b) {
@@ -2512,7 +2515,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
         call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;  /* call r10 */
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block));
     }
-    return x86_align_assert() + x86_rtcc_wb_text() + " call " + sym + "@PLT\n" + cap + x86_rtcc_rl_text();
+    return x86_align_assert() + x86_rtcc_wb_text() + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {
