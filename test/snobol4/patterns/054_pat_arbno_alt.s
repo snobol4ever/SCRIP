@@ -28,9 +28,7 @@ main:
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 88
+                        sub              rsp, 0
 #=======================================================================================================================
 #         X = 'abba'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -97,7 +95,7 @@ n6_match_begin_α:
                         lea              rcx, [rip + g_cap_gen]
                         mov              eax, dword ptr [rcx + 0]
                         mov              qword ptr [rsp + 72], rax                      # cap_gen
-                        mov              qword ptr [rsp + 40], rsp                      # old_fb5
+                        mov              qword ptr [rsp + 40], rsp                      # old____
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
@@ -153,7 +151,7 @@ n6_match_begin_af:
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        add              rsp, 16                                        # old_fb5
+                        add              rsp, 16                                        # old____
                                                                                         jmp   n25_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_integer_α:
@@ -182,7 +180,7 @@ n8_match_pos_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n10_match_arbno_α
 n9_match_assign_save_β:
                         add              rsp, 16
@@ -190,26 +188,26 @@ n9_match_assign_save_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_arbno_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + -1], r14d
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_arbno_β:
                                                                                         jmp   n22_match_alternate_α
 n10_match_arbno_as:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 4]
                         cmp              r14d, eax
                                                                                         je    n22_match_alternate_β
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n11_match_assign_cond_α
 n10_match_arbno_af:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 0]
                         cmp              r14d, eax
                                                                                         jne   n22_match_alternate_β
                         add              rsp, 16
                                                                                         jmp   n9_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -448,21 +446,21 @@ n21_statement_end_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n22_match_alternate_α:
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 272], r14d
                         lea              rax, [rip + .Lx67_21]
-                        mov              qword ptr [rsp + -1], rax
+                        mov              qword ptr [rsp + 288], rax
                                                                                         jmp   n24_match_lit_α
 .Lx67_21:
                         lea              rax, [rip + .Lx67_19]
-                        mov              qword ptr [rsp + -1], rax
+                        mov              qword ptr [rsp + 288], rax
                                                                                         jmp   n23_match_lit_α
 n22_match_alternate_s0:
                         lea              rax, [rip + .Lx67_40]
-                        mov              qword ptr [rsp + -1], rax
+                        mov              qword ptr [rsp + 280], rax
                                                                                         jmp   n22_match_alternate_as
 n22_match_alternate_s1:
                         lea              rax, [rip + .Lx67_41]
-                        mov              qword ptr [rsp + -1], rax
+                        mov              qword ptr [rsp + 280], rax
                                                                                         jmp   n22_match_alternate_as
 .Lx67_40:
                                                                                         jmp   n24_match_lit_β
@@ -471,11 +469,11 @@ n22_match_alternate_s1:
 n22_match_alternate_as:
                                                                                         jmp   n10_match_arbno_as
 n22_match_alternate_β:
-                        mov              rax, qword ptr [rsp + -1]
+                        mov              rax, qword ptr [rsp + 280]
                                                                                         jmp   rax
 n22_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + -1]
-                        mov              rax, qword ptr [rsp + -1]
+                        mov              r14d, dword ptr [rsp + 272]
+                        mov              rax, qword ptr [rsp + 288]
                                                                                         jmp   rax
 .Lx67_19:
                                                                                         jmp   n10_match_arbno_af
@@ -575,10 +573,12 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
+                        add              rsp, 0
                         xor              edi, edi
                         call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        add              rsp, 0
                         mov              edi, 1
                         call             exit@PLT
                         .section         .rodata
