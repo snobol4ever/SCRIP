@@ -20,6 +20,8 @@ extern char g_pl_trail[];
 void *rt_proc_get_fn(const char *name);   /* RTX-FUNC-0: binary body-jmp target — proc JIT fn pointer, registered by the driver proc loop before bb_ab_emit_nodes fires */
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
+const char *rt_define_query(const char *, int *, int *, int *, void **);
+void rt_define_site(const char *, const char *, int, int, int, void *);
 }
 #include "x86_asm.h"
 #define AB_TC_REG   "r8"
@@ -383,8 +385,6 @@ std::string bb_ab_bind() {
     std::string albl = std::string(fname) + "_act_\xce\xb1";
     std::string clbl = std::string("fn_cell$") + fname;
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
-    extern const char *rt_define_query(const char *, int *, int *, int *, void **);
-    extern void rt_define_site(const char *, const char *, int, int, int, void *);
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
     std::string blbl = std::string("proc_") + fname + "_\xce\xb1";

@@ -821,6 +821,10 @@ inline std::string x86_fc_jcc_gamma(const char * mnem) {
 inline std::string x86_ext_ptr_bytes(const void * p) {
     uint64_t v = (uint64_t)(uintptr_t)p; std::string s; for (int i = 0; i < 8; i++) { s += (char)(unsigned char)(v & 0xFF); v >>= 8; } return s;
 }
+inline std::string x86_def_ext(const struct bb_label_t * lbl) {
+    if (MEDIUM_BINARY) { std::string r; r += (char)'Y'; r += x86_ext_ptr_bytes(lbl); return r; }
+    return std::string(lbl && lbl->name ? lbl->name : "?") + ":\n";
+}
 inline std::string x86_jmp_ext(const struct bb_label_t * lbl) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
     return std::string(" jmp ") + (lbl ? lbl->name : "?") + "\n";
@@ -2487,6 +2491,7 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
         else if (tag == 'F') { int idx = (unsigned char)s[i++]; bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
+        else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_label_define((bb_label_t *)(uintptr_t)v); }   /* TINY-SITE s57: DEFINE an externally-owned label at the current cursor — the 'X' record's define twin (role-3 shim entry, jumped by x86_jmp_ext from tiny call sites) */
         else break;
     }
 }

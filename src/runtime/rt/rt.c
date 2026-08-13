@@ -1873,6 +1873,12 @@ void rt_define_site(const char *name, const char *params_csv, int nparams, int n
       if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_define_tiny_ok(const char *name, int nargs)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined && p->nformals > 0 && nargs == p->nformals) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
