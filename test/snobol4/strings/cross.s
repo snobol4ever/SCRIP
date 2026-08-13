@@ -901,12 +901,18 @@ n42_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx162_0
                         mov              r8d, 0
+                        mov              qword ptr [rbp + 560], r10
+                        mov              qword ptr [rbp + 568], r11
                         lea              r10, [rip + .Lx162_4]
                         lea              r11, [rip + .Lx162_5]
                                                                                         jmp   rax
 .Lx162_4:
+                        mov              r10, qword ptr [rbp + 560]
+                        mov              r11, qword ptr [rbp + 568]
                                                                                         jmp   n43_match_end_α
 .Lx162_5:
+                        mov              r10, qword ptr [rbp + 560]
+                        mov              r11, qword ptr [rbp + 568]
                                                                                         jmp   n41_match_atp_β
 .Lx162_0:
                         push             r14

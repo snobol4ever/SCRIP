@@ -621,12 +621,18 @@ n58_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx99_0
                         mov              r8d, 1
+                        mov              qword ptr [rbp + 192], r10
+                        mov              qword ptr [rbp + 200], r11
                         lea              r10, [rip + .Lx99_4]
                         lea              r11, [rip + .Lx99_5]
                                                                                         jmp   rax
 .Lx99_4:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n59_match_end_α
 .Lx99_5:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n57_match_begin_β
 .Lx99_0:
                         push             r14
