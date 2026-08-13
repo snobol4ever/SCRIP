@@ -1152,6 +1152,7 @@ int main(int argc, char **argv)
                   } }
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
+                    if (pe->dyn_scope) continue;   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_ab_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
                     emit_textf("  .section .rodata\n");
                     emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
                     if (pe->dyn_scope) {
