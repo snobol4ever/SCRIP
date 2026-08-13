@@ -9,7 +9,7 @@ proc_LBL__ref_a_α_body:
 n0_statement_begin_α:
                                                                                         jmp   n1_lit_string_α
 n0_statement_begin_β:
-                                                                                        jmp   n5_lit_string_α
+                                                                                        jmp   n5_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
                         sub              rsp, 16
@@ -70,9 +70,9 @@ n3_assign_α:
                                                                                         jmp   n4_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n4_statement_end_α:
-                                                                                        jmp   n5_lit_string_α
+                                                                                        jmp   n5_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n5_lit_string_α:
+n5_NRETURN_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 0
@@ -113,22 +113,22 @@ n6_call_α:
                                                                                         jne   .Lx18_240
                         add              rsp, 16
                         add              rsp, 48
-                                                                                        jmp   n8_save_restore_α
+                                                                                        jmp   n8_FRETURN_α
 .Lx18_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n7_save_restore_α
+                                                                                        jmp   n7_RETURN_α
 n6_call_β:
                         add              rsp, 16
                         add              rsp, 48
-                                                                                        jmp   n8_save_restore_α
+                                                                                        jmp   n8_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_save_restore_α:
+n7_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n8_save_restore_α:
+n8_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2

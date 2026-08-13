@@ -9,12 +9,12 @@ proc_LBL__always_fail_α_body:
 n0_statement_begin_α:
                                                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:
-                                                                                        jmp   n2_save_restore_α
+                                                                                        jmp   n2_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_statement_end_α:
-                                                                                        jmp   n2_save_restore_α
+                                                                                        jmp   n2_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n2_save_restore_α:
+n2_FRETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
