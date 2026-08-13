@@ -492,6 +492,42 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (L->t == TT_VAR && L->v.sval) {
             sno_reg_var(L->v.sval);
             IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
+            /* MODE34-5b-BUGB FIX (this session): `X = subject ? pattern` (a match EXPRESSION as an
+             * ordinary assignment RHS, no `= replacement` clause) previously hit sx_lower's TT_SCAN case,
+             * which discards its result (*res = NULL, see that case a few lines up) -- nothing upstream
+             * ever grants the match a value slot, so bb_assign_global/var/local's guard (needs op_zres OR
+             * a legacy op_a_slot+op_off pair) is never satisfied and every such statement hits the
+             * x86_bomb "unhandled" stub, unconditionally, both modes, any pattern.  Oracle-confirmed
+             * (SPITBOL manual p.72's own Error #212 example establishes `?`'s subject is a name-position
+             * construct, not a general value producer; but `X = S ? P . R`-STYLE plain assignment DOES
+             * have a defined value -- verified against /home/claude/x64/bin/sbl: `X = 'ABCDEFG' ? 'ABC' . R`
+             * gives X='ABC' (the whole matched span, same value a `.` capture would receive), and on match
+             * failure X keeps its PRIOR value and the statement fails via the normal goto fields -- exactly
+             * SNOBOL4's universal "failed statement, no LHS side effect" rule, needing no new mechanism).
+             * FIX: rather than teach sno_lower_match's core IR spine a new value-producing exit (invasive --
+             * it is built as pure control flow, no result cell, and re-plumbing it risks the capture/FC/ZD
+             * machinery broadly), rewrite the TREE before lowering: `X = subject ? pattern` (no repl) becomes
+             * `subject ? (pattern . X)` -- an ordinary whole-pattern `.` capture into X, which is the EXACT
+             * value the oracle probe measured and is already a fully-supported, well-tested capture shape.
+             * `X` no longer participates in IR_ASSIGN as a value target for this statement (the capture IS
+             * the assignment); asn is therefore built but left OPERAND-EMPTY and unreachable garbage --
+             * replaced by returning the capture-wrapped scan directly.  Guarded narrowly: only fires when
+             * R is a bare TT_SCAN with no replacement clause (R->n==2; a 3rd child would be a `? P = repl`
+             * REPLACE form, already handled correctly elsewhere and NOT this defect) and the pattern side
+             * exists; anything else keeps the original sx_lower(R) path unchanged. */
+            if (R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
+                extern tree_t * ast_stmt_new(tree_e kind);
+                tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
+                ast_push(capt, (tree_t *) R->c[1]);
+                tree_t * tv = ast_node_new(TT_VAR); tv->v.sval = L->v.sval;
+                ast_push(capt, tv);
+                tree_t * sc = ast_stmt_new(TT_SCAN);
+                ast_push(sc, (tree_t *) R->c[0]);
+                ast_push(sc, capt);
+                IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
+                if (res) *res = NULL;
+                return e;
+            }
             IR_t * vr = NULL; IR_t * e = sx_lower(cx, R, asn, ω, &vr);
             ir_operand_push(asn, vr);
             if (res) *res = asn;
@@ -1266,8 +1302,22 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, IR_MATCH_SPAN, succ, NULL);
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
-        if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_pre_req(cx, t, nd);
+        if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
+        /* MODE34-5b FIX: a bare-variable charset argument (SPAN(WS), not SPAN('literal')) cannot fold
+         * to a compile-time constant, so it fell to sno_pre_req's pre-chain operand slot -- read at
+         * match time via the legacy op_sa/FRQ(off+8) accessor, which is depth-blind to the enclosing
+         * MATCH_BEGIN/MATCH_ASSIGN_SAVE nesting (gdb-measured: 240B off the real DESCR, see rt_pat_prim_str
+         * in rt.c).  For the plain-TT_VAR case only, mirror LEN(*var)'s validated by-NAME fetch: stash
+         * "*varname" in sval so the template calls rt_pat_prim_str at match time instead, never touching
+         * op_sa/FRQ.  Anything else (arithmetic sub-expression, indirection, ...) keeps the pre-chain
+         * path unchanged -- this fix targets only the shape 5b's repro and gdb trace confirmed broken. */
+        { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
+          if (arg && arg->t == TT_VAR && arg->v.sval) {
+              char pb[128]; snprintf(pb, sizeof pb, "*%s", arg->v.sval);
+              IR_LIT(nd).sval = lp_strdup(pb);
+              return nd;
+          } }
+        sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_BREAK: case TT_BREAKX: {
@@ -2151,6 +2201,35 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (subj->t == TT_VAR) {
             sno_reg_var(subj->v.sval);
+            /* MODE34-5b-BUGB FIX (this session): the REAL site for `X = subject ? pattern` (plain top-level
+             * assignment whose replacement field is a match expression) -- confirmed via debug instrumentation
+             * that the sx_lower-level TT_ASSIGN case (a sub-expression path, reached only for NESTED
+             * assignments) never runs for a top-level statement: sno_build_graph's OWN statement loop lowers
+             * `X = ...` by hand-unpacking :subj/:eq/:repl (opt_subject/opt_repl grammar, snobol4.y — the `=`
+             * is parsed as opt_repl's leading token, not a general TT_ASSIGN tree), and THIS branch, not
+             * sx_lower's, is what actually builds the IR_ASSIGN node for it.  Same underlying defect as
+             * documented at the sx_lower TT_ASSIGN site above (see that comment for the oracle-grounded value
+             * semantics and the mechanism): `repl` reaching here as a bare TT_SCAN means sx_lower's own
+             * TT_SCAN case discards its result, so ir_operand_push(asn, vr) below pushes vr=NULL and
+             * bb_assign_global/var/local's slot guard is never satisfied -- the x86_bomb "unhandled" stub.
+             * Same fix, same place it actually needs to live: rewrite `X = subject ? pattern` (no repl-of-
+             * REPLACE, i.e. subj?pattern is not itself inside a further `= REPLACEMENT` -- has_eq/:repl
+             * already consumed that outer position, so `repl` here can only be a VALUE expression, never a
+             * second replacement clause) into `subject ? (pattern . X)`, an ordinary whole-pattern capture,
+             * before it ever reaches sx_lower. */
+            if (repl && repl->t == TT_SCAN && repl->n == 2 && repl->c[0] && repl->c[1]) {
+                extern tree_t * ast_stmt_new(tree_e kind);
+                tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
+                ast_push(capt, (tree_t *) repl->c[1]);
+                tree_t * tv = ast_node_new(TT_VAR); tv->v.sval = subj->v.sval;
+                ast_push(capt, tv);
+                tree_t * sc = ast_stmt_new(TT_SCAN);
+                ast_push(sc, (tree_t *) repl->c[0]);
+                ast_push(sc, capt);
+                IR_t * e = sno_lower_match(&cx, sc, NULL, 0, sJ, fA, NULL);
+                lc_γ_to(anchor[i], e);
+                continue;
+            }
             IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fA); IR_LIT(asn).sval = subj->v.sval;
             IR_t * vr = NULL; IR_t * e = sx_lower(&cx, repl, asn, fA, &vr);
             ir_operand_push(asn, vr);

@@ -369,6 +369,26 @@ long rt_pat_prim_int(const char *varname) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* MODE34-5b FIX (this session): match-time STRING fetch for SPAN(var)/ANY(var)/NOTANY(var)/BREAK(var)/
+ * BREAKX(var) dynamic charset primitives -- the string-argument twin of rt_pat_prim_int above.  Reads
+ * the named variable at match time (by NAME, never via a pre-chain operand slot/FRQ offset), so it is
+ * immune to the enclosing MATCH_BEGIN/MATCH_ASSIGN_SAVE/own-preamble stack growth that corrupts the
+ * legacy op_sa/FRQ(off+8) read -- gdb-measured this session: 5b's SPAN(WS) reads landed 240 bytes off
+ * the real DESCR pointer field, pulling stack garbage as the "charset", so the membership loop never
+ * matched and SPAN always reported zero characters.  Writes the coerced string's pointer into *out_ptr
+ * and its length into *out_len; returns 0 on success, -1 if the variable does not coerce to a string
+ * (template treats negative as omega->fail, matching rt_pat_prim_int's convention). */
+long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len) {
+    extern DESCR_t NV_GET_fn(const char *);
+    DESCR_t v = NV_GET_fn(varname ? varname : "");
+    DESCR_t s;
+    rt_coerce_str_d(&v, &s, 0);
+    if (s.v != DT_S) return -1;
+    *out_ptr = s.s ? s.s : "";
+    *out_len = (long)s.slen;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
