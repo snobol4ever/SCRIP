@@ -178,18 +178,17 @@ RTX_FUNC(rt_proc_call_open_det)
  * case the C skips the record fill but STILL bumps top and rt_k_level — reproduced exactly.  This is
  * the only path that builds a frame; the volatiles that must survive the call are parked. */
 .Lpc_grow:
-    push    rsp                                     /* entry rsp%16==8; push => 0, sub 32 => 0        */
-    sub     rsp, 32
-    mov     qword ptr [rsp - 1],  r8
-    mov     qword ptr [rsp - 1], r9
-    mov     dword ptr [rsp - 1], esi
-    mov     dword ptr [rsp - 1], r10d
+    sub     rsp, 40                                 /* RSP-ONLY: entry rsp%16==8, -40 => aligned call */
+    mov     qword ptr [rsp+32], r8
+    mov     qword ptr [rsp+24], r9
+    mov     dword ptr [rsp+20], esi
+    mov     dword ptr [rsp+16], r10d
     call    rt_pcall_grow                           /* de-static'd + hidden this commit               */
-    mov     r8,   qword ptr [rsp - 1]
-    mov     r9,   qword ptr [rsp - 1]
-    mov     esi,  dword ptr [rsp - 1]
-    mov     r10d, dword ptr [rsp - 1]
-    leave
+    mov     r8,   qword ptr [rsp+32]
+    mov     r9,   qword ptr [rsp+24]
+    mov     esi,  dword ptr [rsp+20]
+    mov     r10d, dword ptr [rsp+16]
+    add     rsp, 40                                 /* exact inverse of the α carve above             */
     mov     eax, dword ptr [rip + g_pcall_top]
     cmp     eax, dword ptr [rip + g_pcall_cap]
     jl      .Lpc_fill
