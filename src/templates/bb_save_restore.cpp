@@ -34,44 +34,34 @@ std::string bb_save_restore() {
     if (!PLATFORM_X86) return std::string();
     long role = (long)_.op_ival;
     if (role == 3) {
-        int kt = g_emit.flat_frame_bytes;
-        /* ZW-0 stage 2: island wire-adopt arm (rt_flat_wire_adopt_isle) deleted -- unreachable under ZC_FRAME_RSP default */
-        return x86("comment", "IR_SAVE_RESTORE wire-adopt (WIREREG, s53 UNCONDITIONAL): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, fb = rsp -- the sole arm; the legacy header-read twin below it read [___+kt-24..] slots CARVE-KILL stopped writing and s53 deleted the base register itself, so it was garbage-by-construction and is DELETED")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
+        /* ⛔⭐⭐⭐ LON RULING s54 (in-chat, verbatim substance): "delete all of that global variables. GONE. DONE.
+         * We do not do that here. We have registers R10 and R11 for linkage, and plan on using the stack to
+         * store things, not global variables."  The rt_flat_wire_adopt call — which banked the wire quad into
+         * the g_pcall global array — is DELETED.  Wires ride rΓ=r10 · rΩ=r11 (LADDER WREG assignment, locked
+         * s12).  Entry-rsp banking moves to the SPINE (stack-resident record), not a parallel global — that
+         * half is the next seat's WREG-3 shape; until it lands, RETURN-from-interior-growth is KNOWN BROKEN
+         * (Lon: "worry not about breakage").  git revert is the undo. */
+        return x86("comment", "IR_SAVE_RESTORE wire-adopt (s54 LON RULING: globals GONE — wires ride r10/r11, no g_pcall bank)")
              + x86_alpha()
-             + x86("mov", "rdi", "rcx")
-             + x86("mov", "rsi", "rdx")
-             + x86("lea", "rdx", RDQ("rsp", 0))
-             + x86("mov", "rcx", "rsp")
-             + x86_align_enter()
-             + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
-             + x86_align_leave()
+             + x86("mov", "r10", "rcx")
+             + x86("mov", "r11", "rdx")
              + x86_gamma();
     }
     if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
-        /* AB-2 DUAL ARM: if ACT-ANCHOR is non-null an AB frame is active; route through it.
-         * Otherwise fall through to the legacy rt_flat_ret_snap path (AB-3 flips sites; until
-         * then both paths must coexist).  AB-2 maps: role 1=RETURN→γ, role 2=FRETURN→ω,
-         * role -1=NRETURN→γ (same wire as RETURN; name-deref is CALLER-SIDE post-restore).
-         * type code set in cl (AB_TYPECODE_REG) so the shared β can dispatch:
-         *   AB_TC_RETURN=0, AB_TC_NRETURN=1, AB_TC_FRETURN=2. */
-        int tc = (role == 2) ? AB_TC_FRETURN : (role == -1 ? AB_TC_NRETURN : AB_TC_RETURN);
-        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (dual-arm AB-2)" :
-                               role == 2 ? "IR_SAVE_RESTORE FRETURN floater (dual-arm AB-2)" :
-                                           "IR_SAVE_RESTORE NRETURN floater (dual-arm AB-2)")
+        /* ⛔⭐⭐⭐ LON RULING s54: globals GONE.  The RT_AB_ANCHOR global read and the rt_flat_ret_snap
+         * (g_pcall peek) legacy path are DELETED from the floaters.  RETURN/NRETURN = jmp r10 (γ wire);
+         * FRETURN = jmp r11 (ω wire) — LADDER WREG blob-exit spelling, now the floater spelling too.
+         * ⛔ KNOWN BROKEN until WREG-3 lands: (a) rsp is NOT restored to entry depth here — the FORTH
+         * paired-release discipline must hold interior-to-exit, and defers that survive on the spine break
+         * it; (b) r10/r11 are SysV caller-saved — every C crossing in the body clobbers them until the
+         * per-activation spine capture (WREG-3's law: pendings capture {r10,r11} at push, β restores).
+         * Lon: "worry not about breakage."  The save-set restore stays caller-side (role 0's own rsp slots
+         * + the landing epilogue) — already stack-resident. */
+        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (s54: jmp r10, globals GONE)" :
+                               role == 2 ? "IR_SAVE_RESTORE FRETURN floater (s54: jmp r11, globals GONE)" :
+                                           "IR_SAVE_RESTORE NRETURN floater (s54: jmp r10, globals GONE)")
              + x86_alpha()
-               /* AB arm: if ACT-ANCHOR == 0, fall to legacy snap */
-             + x86("mov", "rcx", ABSQ(RT_AB_ANCHOR))  /* load anchor value (___ of active frame, or 0).
-                * ⚠ RTCC-SAFE: use rcx (dead at floater entry on all three roles) NOT r9.
-                * r9 = RT_GVA_VA (GVA island base) under RTCC_GLOBAL_R9_GVA — must not be clobbered. */
-             + x86("test", "rcx", "rcx")
-             + x86("je",   L(0))                        /* 0 → legacy path */
-               /* AB path: set type-code in cl; jmp through [frame+AB_OFF_BADDR] */
-             + x86("mov",  "rax", RDQ("rcx", AB_OFF_BADDR))  /* β address FIRST, through the PRISTINE anchor — gdb conviction 2026-08-10: the type-code mov ran before this load and clobbered rcx (old comment's safety claim covered the test, not this load) */
-             + x86("mov32","ecx", (long)tc)              /* AB_TYPECODE_REG=cl via imm32 zero-extend (cl==tc; rcx carries nothing else at β entry per ab_abi.h) — the imm8 cl form silently widened to movabs rcx,imm64 in BINARY (encoder gap: do not reintroduce without an imm8 encoder) */
-             + x86("jmp",  "rax")
-               /* legacy path: rt_flat_ret_snap → restore → jmp wire */
-             + x86("def",  L(0))
-             + bb_glue_wire_exit(role != 2 ? 1 : 0);   /* WIRE-EXIT ONE AUTHORITY (s22v) */
+             + (role == 2 ? x86("jmp", "r11") : x86("jmp", "r10"));
     }
     /* role 0 — CALL2BB slice 2 (Lon s21x-c: "Have each BB allocate its RESULT value… its LOCAL STORAGE needs… by one instruction, decrement RSP"; "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs:
      * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never ___-indexed),
