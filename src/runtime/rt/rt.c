@@ -1326,7 +1326,7 @@ DESCR_t c_rt_gen_spine_pass_ω(void) { rt_k_level--; return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *c_rt_gen_get_fb(void) { return (void *)0; }   /* GLOBALS-GONE s55: pcall record eradicated; Icon FR-4 resume OWED a stack-resident carrier */   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
+void *rt_gen_get_fb(void) { return (void *)0; }   /* GLOBALS-GONE s55: pcall record eradicated; Icon FR-4 resume OWED a stack-resident carrier */   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ICN-FR-5 ONE-SLOT FIX: persistent generator state stack, keyed by generator____ (= frame base pinned in α).
  * FR-4 used four process globals — correct for one pending generator but silently clobbered by a second.
@@ -1374,7 +1374,7 @@ static void icn_gen_stk_grow(void) {
     if (g_icn_gen_stk == g_icn_gen_stk_buf) memcpy(nb, g_icn_gen_stk_buf, (size_t)g_icn_gen_stk_top * sizeof(icn_gen_state_t));
     g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
 }
-void c_rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
+void rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
     if (!gw) {   /* ω-exit POP SENTINEL: remove this generator's entry. */
         for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {
             if (g_icn_gen_stk[i].gen_fb == gen_fb) {
@@ -1393,22 +1393,22 @@ void c_rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
     if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return;   /* grow failed; global cache is fallback */
     g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb, (void*)0, (void*)0, gw, ww };
 }
-void c_rt_gen_save_cont(void *gen_fb, void *cont) {
+void rt_gen_save_cont(void *gen_fb, void *cont) {
     g_gen_pending_cont = cont;
     icn_gen_state_t *e = icn_gen_find(gen_fb);
     if (e) e->cont = cont;
 }
-void *c_rt_gen_get_cont(void *gen_fb) {
+void *rt_gen_get_cont(void *gen_fb) {
     icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->cont : g_gen_pending_cont;
     g_gen_pending_cont = v; return v;
 }
-void *c_rt_gen_get_gamma_wire(void *gen_fb) {
+void *rt_gen_get_gamma_wire(void *gen_fb) {
     icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->gwire : g_gen_pending_gamma_wire;
     g_gen_pending_gamma_wire = v; return v;
 }
-void *c_rt_gen_get_omega_wire(void *gen_fb) {
+void *rt_gen_get_omega_wire(void *gen_fb) {
     icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->owire : g_gen_pending_omega_wire;
     g_gen_pending_omega_wire = v; return v;
