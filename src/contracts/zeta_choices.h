@@ -4,7 +4,7 @@
 /* ZC_ALLOC AXIS RETIRED (RK-ZETA-4 close, 2026-07-17): the BUMP_INFINITE/BUMP_LIFO/MALLOC/GC allocator choice is superseded and had ZERO code consumers left
  * (sole reference was the zls_dump diagnostic label; the RK-ZETA-3 MALLOC-vs-BUMP_LIFO A/B was byte-identical BECAUSE the knob was disconnected, not because two
  * live allocators agreed).  The law it once selected (Lon ruling 2026-07-08 s6) stands, implemented by the layered end state: TWO zeta lifetime classes, two
- * providers, zero globals.  Control-flow-lifetime zeta rides the machine stack (ZC_PORT_FORTH fixed cells on rsp + the rbp value-slot frame under ZC_FRAME_RSP).
+ * providers, zero globals.  Control-flow-lifetime zeta rides the machine stack (ZC_PORT_FORTH fixed cells on rsp + the ___ value-slot frame under ZC_FRAME_RSP).
  * LONG-LIVED zeta — persists its data state, freed independent of control flow (suspended generator frames, coexpr stacks, COLLECTION captures) — lives on the
  * HEAP: rt_zls_alloc/release IS that provider, issuing fixed ZC_ZBLOCK_KB blocks through rt_arena_zblock_get/put (ZA-FLIP s67; GC-heap-carved when ZC_ZH_IN_GCHEAP). */
 /* ZA-FLIP s67 (GC-U-2): the fixed reusable ζ-block class rt_zls_alloc issues through rt_arena_zblock_get/put — requests over one block route to the grow-only workspace (ZBF_WS). */
@@ -119,7 +119,7 @@
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZC_STORAGE — THE FOUR-CONFIG ζ-STORAGE SELECTOR (Lon directive 2026-07-28, GOAL-ZETA-FOUR.md rung Z4-4 slice 1).  ONE knob replaces the ZC_PORT ladder + the ZC_FRAME axis + ZC_ZETA + SCRIP_ZMODE.
  * FOUR values, because four techniques were built and each worked with limitations: FRAME_R12 = whole-graph ζ frame (all boxes' results+locals, 1 entry / 1 exit) on an r12-based island stack, the
- * original; FRAME_RSP = that same whole-graph frame moved onto the C stack, shared with C; CELL_STACK = per-BB cell, fixed rsp carve, with rbp pinned PER GRAPH for the dynamic-sized housekeeping
+ * original; FRAME_RSP = that same whole-graph frame moved onto the C stack, shared with C; CELL_STACK = per-BB cell, fixed rsp carve, with ___ pinned PER GRAPH for the dynamic-sized housekeeping
  * (ARBNO/FENCE/suspending generators) and rsp for the static-sized; CELL_HEAP = per-BB cell with LOCALS on the rbx-topped GC island and the RESULT on its own island (the VSP value stack).
  * ONE ENUM, NOT FOUR BOOLEANS, BY DESIGN: a graph mixing two regimes is the s188 failure shape, so the mixed states must be UNREPRESENTABLE rather than merely discouraged; this also collapses the
  * SCRIP_CELLS × SCRIP_ZMODE interaction matrix collapsed into four named points.  MEASURED at Z4-0/1/2 (m3, -O0, best-of-3, corpus/probe): FRAME_R12 5/5 correct
@@ -174,20 +174,20 @@
 #define ZC_ZLS2_MB 512
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZC_FRAME_R12 (value 0) DELETED (ZR-RSPRBP-1, Lon directive 2026-07-27 "finish new ZETA storage based from RSP and RBP"): the r12-as-ζ basis was
+/* ZC_FRAME_R12 (value 0) DELETED (ZR-RSP___-1, Lon directive 2026-07-27 "finish new ZETA storage based from RSP and ___"): the r12-as-ζ basis was
  * retired in practice at R12-ERAD s65 when RSP became the default, and ARCH-ICON.md has recorded "R12 is FREE" ever since — but the ENUM arm survived
  * as compile-time-selectable history, so the tree still claimed three ζ bases while only two were reachable.  It had ZERO `#if ZC_FRAME == ZC_FRAME_R12`
  * consumers at deletion (measured, not assumed) and its only residue was the unreachable third ternary arm in x86_zr/x86_zr_num.  ζ is now based from
- * RSP and RBP, and that is the whole closed set.  RBP/RSP keep their values 1/2 — NOT renumbered, because nothing passes ZC_FRAME numerically (measured
+ * RSP and ___, and that is the whole closed set.  ___/RSP keep their values 1/2 — NOT renumbered, because nothing passes ZC_FRAME numerically (measured
  * across Makefile + scripts/) and renumbering would be churn that buys nothing.  The PER-GRAPH selection between the two lives in x86_fb_pinned(). */
 #define ZC_FRAME_ISLE 0 /* Z4-7 slice 1 (GOAL-ZETA-FOUR.md): the LIVE-frame value rt_zc_frame_live() returns when the runtime selector says ZC_STORAGE_FRAME_R12.  This is the deleted ZC_FRAME_R12's old value 0 wearing a new name on purpose: the 17 `!= ZC_FRAME_RSP` arms were written FOR that basis (EXTRACT-Z4-R12.md §1 — R12 never named itself, the negative predicate WAS its selector), so making the live comparison resolve to a non-RSP value re-connects them without one positive `== R12` test appearing anywhere, exactly as the extraction doc prescribes.  NOT a ZC_FRAME build value — the build axis stays RSP-only until Z4-9 deletes it; every former compile-time `ZC_FRAME ==/!= ZC_FRAME_RSP` comparison now routes through rt_zc_frame_live()/x86_zc_frame(), which fold to the identical truth table under every non-island selection. */
-#define ZC_FRAME_RBP 1
+#define ZC_FRAME_DEAD5 1
 #define ZC_FRAME_RSP 2 /* rsp-as-ζ (Lon directive 2026-07-09): EMIT-side switch only today — runnable only after the
  * proc trampoline retires (no C frame above a live BB frame, zeta_alloc.c ZLS2 note) and escaping
  * activations (suspends/coexprs) live off-spine.  Selectable at BUILD TIME ONLY — set ZC_FRAME here or -DZC_FRAME=…; the env/runtime
  * switch is deleted (Lon 2026-07-09: never flipped at runtime). */
 #ifndef ZC_FRAME
-#define ZC_FRAME ZC_FRAME_RSP  /* R12-ERAD s65: RSP is the default (replaced ZC_FRAME_R12, which was here through s64 and is DELETED outright at ZR-RSPRBP-1) */
+#define ZC_FRAME ZC_FRAME_RSP  /* R12-ERAD s65: RSP is the default (replaced ZC_FRAME_R12, which was here through s64 and is DELETED outright at ZR-RSP___-1) */
 #endif
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZETA SUBSYSTEM SELECTOR (Lon directive 2026-07-09: "we will want a command line switch to select the ZETA
@@ -276,8 +276,8 @@
 #if ZC_COLLECTION == ZC_COL_GC
 #error "ZC_COL_GC is a stub until GC-4 lands (ARCH-ZETA-LOCAL-STORAGE.md section 6e)"
 #endif
-#if ZC_FRAME == ZC_FRAME_RBP
-#error "ZC_FRAME_RBP DOES NOT RUN. Measured s202 by matched-pair A/B (same 20-program batch across SNOBOL4/Icon/Prolog, same invocation, compiler AND runtime rebuilt for each arm): RSP ok=15 crash=5, RBP ok=6 crash=14. Every one of the RSP control's 5 crashes is PRE-EXISTING AND DOCUMENTED -- 3 are the SNOBOL4 ARBNO-family bench crashers GOAL-SNOBOL4-BB.md records as 'all 5 bench CRASHers' (pattern_bt, string_pattern, roman), the other 2 are Icon jcon_args FZ-E1 and the jcon_btrees xfail -- so the basis flip alone contributes 9 NET NEW crashes. ROOT CAUSE, structural: the 17 'ZC_FRAME != ZC_FRAME_RSP' arms across bb_match_end/capture/head, bb_call_proc_staged, xa_flat and zeta_storage.c were written for the R12 basis (bb_call_proc_staged.cpp:281 says so verbatim: 'configs where r12 IS the zeta frame'), and ZR-RSPRBP-1 deleted ZC_FRAME_R12's LABEL while leaving that CODE, so the arms silently re-pointed at RBP without ever being designed for it. Under RBP x86_zr() and x86_fb() are BOTH rbp, so bb_match_end.cpp:32's push x86_zr() / mov x86_zr(),rsp push and repoint the frame base itself; and x86_align_save(), the helper whose whole purpose was making the C-call dance frame-safe under an rbp frame, has ZERO definitions in the tree while x86_asm.h:1435 still describes it as live. THE ZETA BASIS IS REACHABLE AT RSP ONLY. This guard is NOT the fix -- it converts a silent 9-crash trap into a loud one. The fix is Lon's call: re-establish the RBP arms against the current register contract, or delete all 17 and retire ZC_FRAME, leaving the PER-GRAPH x86_fb_pinned() rsp/rbp selection (FLATDISP-8) as the whole zeta RSP/RBP story -- the duality that actually runs and is already complete (FLATDISP-9 census, unseeded=0). Do NOT half-land the deletion: several arms sit inside suspend/resume protocols. See FINDING-2026-07-28b."
+#if ZC_FRAME == ZC_FRAME_DEAD5
+#error "ZC_FRAME_DEAD5 DOES NOT RUN. Measured s202 by matched-pair A/B (same 20-program batch across SNOBOL4/Icon/Prolog, same invocation, compiler AND runtime rebuilt for each arm): RSP ok=15 crash=5, FB5 ok=6 crash=14. Every one of the RSP control's 5 crashes is PRE-EXISTING AND DOCUMENTED -- 3 are the SNOBOL4 ARBNO-family bench crashers GOAL-SNOBOL4-BB.md records as 'all 5 bench CRASHers' (pattern_bt, string_pattern, roman), the other 2 are Icon jcon_args FZ-E1 and the jcon_btrees xfail -- so the basis flip alone contributes 9 NET NEW crashes. ROOT CAUSE, structural: the 17 'ZC_FRAME != ZC_FRAME_RSP' arms across bb_match_end/capture/head, bb_call_proc_staged, xa_flat and zeta_storage.c were written for the R12 basis (bb_call_proc_staged.cpp:281 says so verbatim: 'configs where r12 IS the zeta frame'), and ZR-RSPFB5-1 deleted ZC_FRAME_R12's LABEL while leaving that CODE, so the arms silently re-pointed at FB5 without ever being designed for it. Under FB5 x86_zr() and x86_fb() are BOTH fb5, so bb_match_end.cpp:32's push x86_zr() / mov x86_zr(),rsp push and repoint the frame base itself; and x86_align_save(), the helper whose whole purpose was making the C-call dance frame-safe under an fb5 frame, has ZERO definitions in the tree while x86_asm.h:1435 still describes it as live. THE ZETA BASIS IS REACHABLE AT RSP ONLY. This guard is NOT the fix -- it converts a silent 9-crash trap into a loud one. The fix is Lon's call: re-establish the FB5 arms against the current register contract, or delete all 17 and retire ZC_FRAME, leaving the PER-GRAPH x86_fb_pinned() rsp/fb5 selection (FLATDISP-8) as the whole zeta RSP/FB5 story -- the duality that actually runs and is already complete (FLATDISP-9 census, unseeded=0). Do NOT half-land the deletion: several arms sit inside suspend/resume protocols. See FINDING-2026-07-28b."
 #endif
 #if ZC_PROMOTE == ZC_PROMOTE_ON
 #error "ZC_PROMOTE_ON is a stub until the heap-promotion rung lands (ARCH-ZETA-LOCAL-STORAGE.md section 7)"

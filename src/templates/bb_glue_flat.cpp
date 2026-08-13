@@ -55,30 +55,30 @@ std::string bb_glue_flat_leave() {
  * s22o wire contract (rcx = gamma-return, rdx = omega-return): a determinate outer chain carries no result out, so the wire ships NULL rather than whatever the last box left in the register.
  * NO STACK MOTION HERE BY DESIGN.  There is no prologue any more, so the outermost box carved nothing at alpha and there is nothing to release at gamma/omega -- the balanced per-BB spine returns rsp to
  * entry depth on its own.  The moment the spine goes NON-POPPING (the ladder rung above this one), that ceases to be true and the WHACK belongs here: bb_glue_framed_leave() in front of the ret, which
- * discards the activation wholesale at whatever depth it actually reached.  That is the sanctioned law-4 RBP -- one frame pointer, at the one sync point, for the one job a depth-immune base is for. */
+ * discards the activation wholesale at whatever depth it actually reached.  That is the sanctioned law-4 ___ -- one frame pointer, at the one sync point, for the one job a depth-immune base is for. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE WHACK PREDICATE -- ONE AUTHORITY.  TRUE NOW (s22p, one-shot bridge + non-popping flip atomic).
  * The flip is safe because the outermost α NOW emits bb_glue_framed_enter() (emit.cpp codegen_flat_chain_body
- * α preamble, same commit), pinning rbp to the stack base BEFORE the graph runs.  The whack (mov rsp,rbp;
- * pop rbp) at γ/ω discards the activation WHOLESALE at whatever depth it actually reached -- no per-box pop
- * accounting needed, no second opinion about depth.  This is the law-4 RBP: one frame pointer, at the one
+ * α preamble, same commit), pinning ___ to the stack base BEFORE the graph runs.  The whack (mov rsp,___;
+ * pop ___) at γ/ω discards the activation WHOLESALE at whatever depth it actually reached -- no per-box pop
+ * accounting needed, no second opinion about depth.  This is the law-4 ___: one frame pointer, at the one
  * known sync point (graph completion / FENCE checkpoint), for the one job a depth-immune base is for.
  * THE ORDER CONSTRAINT THAT MAKES THIS SAFE (measured, not assumed -- the 058 disease):
- *   (1) framed_enter at outermost α  fires FIRST -- pushes rbp, seeds rbp=rsp
+ *   (1) framed_enter at outermost α  fires FIRST -- pushes ___, seeds ___=rsp
  *   (2) graph body runs, rsp wanders freely (non-popping FORTH spine)
- *   (3) framed_leave at γ/ω          fires LAST -- restores rsp=rbp, pops rbp
- * Reversing (1)/(3) or omitting (1) while keeping (3) loads the CRT caller's rbp into rsp.
+ *   (3) framed_leave at γ/ω          fires LAST -- restores rsp=___, pops ___
+ * Reversing (1)/(3) or omitting (1) while keeping (3) loads the CRT caller's ___ into rsp.
  * emit.cpp:2121 records the same trap for the first statement head stub. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int g_glue_entered = 0;   /* GLUE-SYM (s206): set at the framed-enter site (emit.cpp), read here.  ONE decision, recorded once, consulted by its own counterpart -- the shape zc_nofc and x86_jcc_invert were both collapsed into after drifting as two spellings. */
 int g_glue_o_sup = 0;   /* GLUE-O (s26a): set at the framed-enter site (emit.cpp) alongside g_glue_entered; 1 = CLASS O outer frame suppressed for this graph.  Read here by bb_glue_outer_whack to gate the leave -- the GLUE-SYM one-authority law: enter and whack cannot drift. */
-static inline bool bb_glue_outer_whack() { extern int g_glue_o_sup; if (g_glue_o_sup) return false; static int s = -1; if (s < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; } return s ? (g_glue_entered != 0) : true; }   /* ⭐⭐ GLUE-O (s26a): leading g_glue_o_sup arm -- when the enter was suppressed the whack must be too, or mov rsp,rbp loads the CRT caller's rbp into rsp.  Under SCRIP_GLUEO=0 g_glue_o_sup is always 0 and every byte below is reached as before. */   /* ⭐⭐⭐ GLUE-SYM (s206): THE WHACK MUST FOLLOW THE ENTER.  This returned true UNCONDITIONALLY while the enter at emit.cpp:2153 is guarded by (nparams==0 && !flat_jmp_entry && !flat_pat && !flat_gen && !g_gen_proc_active) -- so every pat/gen/jmp-entry/gen-proc graph emitted `mov rsp,rbp; pop rbp` against a base it never established, which is verbatim the failure this file's own header names four lines up ("omitting (1) while keeping (3) loads the CRT caller's rbp into rsp").  MEASURED on a 7-line repro (procedure g() with two suspends, every write(g())): proc_g carries push rbp=0 / mov rsp,rbp=2 / pop rbp=3 and SEGVs.  ⛔ THE OPPOSITE FIX WAS TRIED FIRST AND FALSIFIED: forcing the ENTER to fire for those classes (so it matched the unconditional whack) scored Icon 184/79/30 -> 181/82/30, THREE PROGRAMS WORSE -- the pinned classes decline the push deliberately, because a jmp-entry graph's base is established by its CALLER and a dc-prep graph's by rt_pl_dc_prep, so an extra push shifts rsp under offsets computed against the real base.  The enter is therefore RIGHT and the whack was the drifted spelling.  NOT A REGRESSION: CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue, which used to seed rbp for exactly these classes, and the surviving whack inherited a `true` written when the prologue still covered them. */
+static inline bool bb_glue_outer_whack() { extern int g_glue_o_sup; if (g_glue_o_sup) return false; static int s = -1; if (s < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; } return s ? (g_glue_entered != 0) : true; }   /* ⭐⭐ GLUE-O (s26a): leading g_glue_o_sup arm -- when the enter was suppressed the whack must be too, or mov rsp,___ loads the CRT caller's ___ into rsp.  Under SCRIP_GLUEO=0 g_glue_o_sup is always 0 and every byte below is reached as before. */   /* ⭐⭐⭐ GLUE-SYM (s206): THE WHACK MUST FOLLOW THE ENTER.  This returned true UNCONDITIONALLY while the enter at emit.cpp:2153 is guarded by (nparams==0 && !flat_jmp_entry && !flat_pat && !flat_gen && !g_gen_proc_active) -- so every pat/gen/jmp-entry/gen-proc graph emitted `mov rsp,___; pop ___` against a base it never established, which is verbatim the failure this file's own header names four lines up ("omitting (1) while keeping (3) loads the CRT caller's ___ into rsp").  MEASURED on a 7-line repro (procedure g() with two suspends, every write(g())): proc_g carries push ___=0 / mov rsp,___=2 / pop ___=3 and SEGVs.  ⛔ THE OPPOSITE FIX WAS TRIED FIRST AND FALSIFIED: forcing the ENTER to fire for those classes (so it matched the unconditional whack) scored Icon 184/79/30 -> 181/82/30, THREE PROGRAMS WORSE -- the pinned classes decline the push deliberately, because a jmp-entry graph's base is established by its CALLER and a dc-prep graph's by rt_pl_dc_prep, so an extra push shifts rsp under offsets computed against the real base.  The enter is therefore RIGHT and the whack was the drifted spelling.  NOT A REGRESSION: CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue, which used to seed ___ for exactly these classes, and the surviving whack inherited a `true` written when the prologue still covered them. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_γ() {
     /* ONE-SHOT BRIDGE gamma landing.
      * CLASS O (outermost main, !flat_jmp_entry): TEXT exit(0) -- process terminus; BINARY mov eax,DT_S + ret.
      * CLASS C (chain-entered EVAL/CODE/LBL__ blob, flat_jmp_entry=1, floor=0, !flat_pat): TEXT and BINARY both
-     *   mov eax,DT_S + ret.  The whack (mov rsp,rbp; pop rbp) unwinds rsp to the -O0 eval_chain_run_capture
+     *   mov eax,DT_S + ret.  The whack (mov rsp,___; pop ___) unwinds rsp to the -O0 eval_chain_run_capture
      *   frame; ret returns there, bypassing rt_chain_enter's 5-save pushes (which become below-rsp garbage,
      *   cleaned up when eval_chain_run_capture itself returns -- measured correct at s22v and in m3).
      *   m4 TEXT must ret here too: exit@PLT in a chain-entered JIT blob terminates the process before
@@ -116,10 +116,10 @@ std::string bb_glue_outer_ω() {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE
  * stub blob is wire-entered: rt_proc_call_open/_slim pushed a pcall record, passed the caller's γ/ω landings in rcx/rdx, and the blob's role-3 WIRE-ADOPT box (its first box) recorded them plus entry
- * rsp / caller rbp into the record's wire quad.  The blob's OWN shared γ/ω ports therefore exit the same way the RETURN/FRETURN floaters do -- snap the open record, restore the caller's machine state
- * from it (rsp from the RECORDED entry value: the known sync point is the adopt, no rbp assumption, no whack), and jmp home through the port's wire.  γ rides the gw wire (RETURN semantics: fname's
+ * rsp / caller ___ into the record's wire quad.  The blob's OWN shared γ/ω ports therefore exit the same way the RETURN/FRETURN floaters do -- snap the open record, restore the caller's machine state
+ * from it (rsp from the RECORDED entry value: the known sync point is the adopt, no ___ assumption, no whack), and jmp home through the port's wire.  γ rides the gw wire (RETURN semantics: fname's
  * cell holds whatever was assigned, null if nothing); ω rides the ww wire (FRETURN semantics: the caller's :F() sees the failure).  This retires the whack+exit@PLT landing on stub blobs, which (a)
- * whacked an rbp NO authority had pinned for this class (the α pin guard excludes jmp-entry; the RBPPAIR falsification s22u proved suppressing the whack alone is NOT the cure) and (b) reported
+ * whacked an ___ NO authority had pinned for this class (the α pin guard excludes jmp-entry; the ___PAIR falsification s22u proved suppressing the whack alone is NOT the cure) and (b) reported
  * exit(0) -- a SILENT SUCCESS -- on the γ arm of a path that means the transfer machinery fell through.  Level-0 arrival dies loudly inside rt_flat_ret_snap (error 18, "return from level zero"),
  * strictly better than the silent exit.  ONE AUTHORITY: bb_save_restore.cpp's role-1/2 floaters consume this same function for their tails, so the wire-exit sequence exists exactly once. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -129,7 +129,7 @@ std::string bb_glue_wire_exit(int is_gamma) {
          + x86("call", "rt_flat_ret_snap", (uint64_t)(uintptr_t)(void *)rt_flat_ret_snap)
          + x86_align_leave()
          + x86("mov", "rcx", RDQ("rax", is_gamma ? 0 : 8))
-         + x86("mov", "rbp", RDQ("rax", 24))
+         + std::string("")
          /* ZW-0 stage 2: island r12 restore from wire snap deleted -- unreachable under ZC_FRAME_RSP default */
          + x86("mov", "rsp", RDQ("rax", 16))
          + x86("jmp", "rcx");

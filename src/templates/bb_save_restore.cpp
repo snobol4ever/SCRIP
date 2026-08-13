@@ -6,8 +6,8 @@ extern "C" {
 #include "bb_templates.h"
 #include "ab_abi.h"
 #include "pin_va.h"
-void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp);
-void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12v);
+void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5);
+void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb5, void *r12v);
 void *rt_flat_ret_snap(void);
 long  rt_proc_call_open_slim(const char *name, int np, int nargs);
 int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
@@ -20,11 +20,11 @@ void  bb_scc_handoff_pending_clear(void);
 /* IR_SAVE_RESTORE — SN4-FLAT-PROC (s176) functional linkage family.  SPITBOL manual Ch.8: a DEFINE'd function saves the fname variable, formals, and locals on a pushdown stack at entry and restores
  * them when the body transfers to the reserved labels RETURN (yield fname's value), FRETURN (signal failure), or NRETURN (Ch.9: yield the NAME held in fname).  In the flat regime the body statements
  * live ONLY in the one main chain, so the return labels are program-wide FLOATER boxes and the save/restore protocol rides the pcall record; roles discriminate on op_ival:
- *   3 WIRE-ADOPT — first box of a DEFINE stub blob, runs right after the jmp-entry prologue: rbp = this activation's base, the prologue parked outside-γ at [rbp+kt-24], outside-ω at [rbp+kt-16],
- *     caller rbp at [rbp+kt-8] (xa_flat header contract), and blob-entry rsp = rbp+kt (pre-carve).  Marshal all four into rt_flat_wire_adopt, which writes the OPEN pcall record's wire quad — the way
+ *   3 WIRE-ADOPT — first box of a DEFINE stub blob, runs right after the jmp-entry prologue: ___ = this activation's base, the prologue parked outside-γ at [___+kt-24], outside-ω at [___+kt-16],
+ *     caller ___ at [___+kt-8] (xa_flat header contract), and blob-entry rsp = ___+kt (pre-carve).  Marshal all four into rt_flat_wire_adopt, which writes the OPEN pcall record's wire quad — the way
  *     home from any depth.  γ continues to the IR_GOTO_DEFERRED entry transfer.
  *   1 RETURN floater / 2 FRETURN floater — reached as ordinary labels through the registry (any goto, incl. $-computed).  rt_flat_ret_snap PEEKS (never pops) the open record's wire quad into a static
- *     buffer {γ-wire@0, ω-wire@8, rsp@16, rbp@24} and returns its address; the tail restores rbp/rsp and jmps the port's wire with rax:rdx riding untouched, landing exactly on the wire the opener
+ *     buffer {γ-wire@0, ω-wire@8, rsp@16, ___@24} and returns its address; the tail restores ___/rsp and jmps the port's wire with rax:rdx riding untouched, landing exactly on the wire the opener
  *     installed (rt_proc_enter's landings on the C path) — the landing's epilogue leaf then performs the pop + name-restore + result protocol VERBATIM, so semantics are byte-identical to the old
  *     extracted-body exit.  Discarded intermediate C frames (rt_chain_enter / rt_goto_transfer) hold only callee-saved pins that are global invariants in emitted code, so the wholesale rsp restore is
  *     sound.  Level-0 transfer and wire-less activations die loudly inside the leaf.
@@ -36,22 +36,22 @@ std::string bb_save_restore() {
     if (role == 3) {
         int kt = g_emit.flat_frame_bytes;
         /* ZW-0 stage 2: island wire-adopt arm (rt_flat_wire_adopt_isle) deleted -- unreachable under ZC_FRAME_RSP default */
-        if (!emit_jmp_pin_rbp()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static, WIREREG): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, caller rbp live -> open pcall record")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
+        if (!emit_jmp_pin_legacy()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static, WIREREG): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, caller fb5 live -> open pcall record")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
              + x86_alpha()
              + x86("mov", "rdi", "rcx")
              + x86("mov", "rsi", "rdx")
              + x86("lea", "rdx", RDQ("rsp", 0))
-             + x86("mov", "rcx", "rbp")
+             + x86("mov", "rcx", "rsp")
              + x86_align_enter()
              + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
              + x86_align_leave()
              + x86_gamma();
-        return x86("comment", "IR_SAVE_RESTORE wire-adopt: header wires + entry rsp + caller rbp -> open pcall record")
+        return x86("comment", "IR_SAVE_RESTORE wire-adopt: header wires + entry rsp + caller fb5 -> open pcall record")
              + x86_alpha()
-             + x86("mov", "rdi", RDQ("rbp", kt - 24))
-             + x86("mov", "rsi", RDQ("rbp", kt - 16))
-             + x86("lea", "rdx", RDQ("rbp", kt))
-             + x86("mov", "rcx", RDQ("rbp", kt - 8))
+             + x86("mov", "rdi", RDQ("rsp", -1))
+             + x86("mov", "rsi", RDQ("rsp", -1))
+             + x86("lea", "rdx", RDQ("rsp", -1))
+             + x86("mov", "rcx", RDQ("rsp", -1))
              + x86_align_enter()
              + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
              + x86_align_leave()
@@ -70,7 +70,7 @@ std::string bb_save_restore() {
                                            "IR_SAVE_RESTORE NRETURN floater (dual-arm AB-2)")
              + x86_alpha()
                /* AB arm: if ACT-ANCHOR == 0, fall to legacy snap */
-             + x86("mov", "rcx", ABSQ(RT_AB_ANCHOR))  /* load anchor value (rbp of active frame, or 0).
+             + x86("mov", "rcx", ABSQ(RT_AB_ANCHOR))  /* load anchor value (___ of active frame, or 0).
                 * ⚠ RTCC-SAFE: use rcx (dead at floater entry on all three roles) NOT r9.
                 * r9 = RT_GVA_VA (GVA island base) under RTCC_GLOBAL_R9_GVA — must not be clobbered. */
              + x86("test", "rcx", "rcx")
@@ -84,7 +84,7 @@ std::string bb_save_restore() {
              + bb_glue_wire_exit(role != 2 ? 1 : 0);   /* WIRE-EXIT ONE AUTHORITY (s22v) */
     }
     /* role 0 — CALL2BB slice 2 (Lon s21x-c: "Have each BB allocate its RESULT value… its LOCAL STORAGE needs… by one instruction, decrement RSP"; "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs:
-     * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never rbp-indexed),
+     * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never ___-indexed),
      * offsets slide from RSP.  Body = the BP-7 SCC prefix migrated out of bb_call_proc_staged: (1) spill the DEFINE save-set's old GVA cell values (fname/formals/locals per manual Ch.8 p.104 + Ch.19
      * DEFINE: "saved prior to function entry, and restored upon function return") into the own slots; (2) open_slim — ALL runtime guards re-checked before ANY side effect, so a 0 return needs nothing
      * undone (the spilled copies are pure reads, released by the decline's add); (3) committed: install the staged args into the formals' NV GLOBAL cells (SNOBOL4's one namespace — no ζ in the call

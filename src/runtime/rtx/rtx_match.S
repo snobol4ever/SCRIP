@@ -377,7 +377,7 @@ RTX_ENDF(rt_defer_close)
  *
  * WHAT IT DOES NOT TOUCH: the Σ PIN.  r13 is the subject base pointer and the template restores it directly; this
  * function syncs only the C-side global mirror that pattern_match.c / runtime_eval.c read.  Two different stores of
- * the same logical value, and this one is the C half.  Every blob pin (rbx r13 r14 r15 rbp rsp) is preserved here by
+ * the same logical value, and this one is the C half.  Every blob pin (rbx r13 r14 r15 ___ rsp) is preserved here by
  * construction: the body touches rax-class scratch only (r10), never a pin, never the stack.
  *
  * SysV in: rdi = sig (Σ, 8 bytes) . rsi = len (Σlen, int, 4 bytes) . rdx = capgen (g_cap_gen, uint32_t, 4 bytes)
@@ -492,8 +492,8 @@ RTX_ENDF(rt_patstk_lazy_init)
  * ABSQ() bakes in the templates, no GOT and no RIP-relative -- and rtx_init.c carries a _Static_assert tying
  * RTX_DCAP_TOP_VA below to RT_DCAP_TOP, so moving the pin breaks the BUILD rather than the runtime.
  *
- * PINS: touches rax rdx rdi rsi r8 r10 and a balanced rsp only.  rbx r13 r14 r15 rbp are untouched by construction,
- * and the cold edges deliberately DO NOT use RTX_CALL_ALIGN because that macro borrows rbp, which is a per-graph pin
+ * PINS: touches rax rdx rdi rsi r8 r10 and a balanced rsp only.  rbx r13 r14 r15 ___ are untouched by construction,
+ * and the cold edges deliberately DO NOT use RTX_CALL_ALIGN because that macro borrows ___, which is a per-graph pin
  * (FLATDISP-8); they align by push count instead -- entry rsp is 8 (mod 16), so push+push+sub 8 reaches 0, and in
  * the strlen edge the single `push rsi` both aligns AND preserves the subject pointer.
  *
@@ -749,7 +749,7 @@ RTX_ENDF(rt_dcap_end_ok_close)
  *                                            so the C measures a string it already knows the length of
  * Each guard is universally correct (a zero-length copy is a no-op for ALL inputs), not a workload-shaped special
  * case.  Plus the -O0 frame: the C carries a `uint64_t w[2]` + memcpy-to-DESCR dance and spills every one of its ten
- * locals.  This asm keeps ONE 64-byte frame and r12 (free since ZR-RSPRBP-1 deleted ZC_FRAME_R12, but callee-saved in
+ * locals.  This asm keeps ONE 64-byte frame and r12 (free since ZR-RSP___-1 deleted ZC_FRAME_R12, but callee-saved in
  * SysV, so it is PUSHED -- "free, not scratch-by-fiat", rtx_abi.inc).
  *
  * ⛔ CEILING COMPUTED BEFORE THE ASM WAS WRITTEN, AND NO NUMBER IS CLAIMED FROM IT: ~3 libc round-trips (~20 cycles
@@ -802,7 +802,7 @@ RTX_FUNC(rt_match_replace)
     xor     r10d, r10d                               /* slen == 0 && *rs == 0 -> IS_NULL_fn true -> rs = "", rlen 0      */
 .Lmr_repl_done:
 .Lmr_call:                                           /* ---- FIRST CALL BELOW; NOTHING ABOVE MUTATES OR CALLS ----      */
-    push    r12                                      /* r12 is FREE since ZR-RSPRBP-1 but still SysV callee-saved        */
+    push    r12                                      /* r12 is FREE since ZR-RSP___-1 but still SysV callee-saved        */
     sub     rsp, 80                                  /* entry rsp==8 (mod 16); push->0; sub 80->0 ⇒ aligned at every call*/
     mov     qword ptr [rsp + 0], rdi                 /* name                                                            */
     mov     qword ptr [rsp + 8], rdx                 /* s = sv.s (VARVAL_fn's DT_S arm inlined: `return v.s`)            */
@@ -1078,7 +1078,7 @@ RTX_ENDF(rt_defer_get_pat_fn)
  *   rdi = varname (const char *)
  *   esi = saved_delta (int)
  *   edx = cur_delta   (int)
- *   ecx = is_imm      (int) — IGNORED by both C and asm (comment in C: rbp-dcap arm no longer calls here)
+ *   ecx = is_imm      (int) — IGNORED by both C and asm (comment in C: ___-dcap arm no longer calls here)
  *
  * DESCR_t ABI: 16 bytes, two INTEGER eightbytes.
  *   For NV_SET_fn(const char *name, DESCR_t val):
@@ -1115,7 +1115,7 @@ RTX_FUNC(rt_cap_open)
     xor     eax, eax                                     /* len = 0 (clamp negative to 0)   */
 .Lcap_len_ok:
     /* Save rdi (varname) and esi (saved_delta) across the rt_str_alloc call */
-    RTX_CALL_ALIGN                                       /* push rbp; mov rbp,rsp; and rsp,-16 */
+    RTX_CALL_ALIGN                                       /* push ___; mov ___,rsp; and rsp,-16 */
     push    rdi                                          /* save varname                    */
     push    rsi                                          /* save saved_delta                */
     push    rax                                          /* save len                        */
@@ -1126,7 +1126,7 @@ RTX_FUNC(rt_cap_open)
     pop     rcx                                          /* rcx = len (saved)               */
     pop     rsi                                          /* rsi = saved_delta               */
     pop     r11                                          /* r11 = varname                   */
-    RTX_CALL_UNALIGN                                     /* mov rsp,rbp; pop rbp            */
+    RTX_CALL_UNALIGN                                     /* mov rsp,___; pop ___            */
     /* copy = rax; copy[len] = '\0'; if (copy && len > 0) memcpy(copy, Σ+saved_delta, len) */
     test    rax, rax
     jz      .Lcap_nul                                    /* rt_str_alloc returned NULL      */

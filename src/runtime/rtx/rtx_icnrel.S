@@ -49,7 +49,7 @@
  *
  * Registers: rdi = lhs (slen<<32)|v, rsi = lhs value, rdx = rhs (slen<<32)|v, rcx = rhs value,
  * r8d = op. Returns int in eax. All five argument registers are preserved on every bail path.
- * Working set per ARCH section 2: rax r9 r10 r11. Blob pins rbx rbp r12-r15 are never touched.
+ * Working set per ARCH section 2: rax r9 r10 r11. Blob pins rbx ___ r12-r15 are never touched.
  */
 #include "rtx_abi.inc"
 

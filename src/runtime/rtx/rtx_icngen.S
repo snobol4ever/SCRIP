@@ -40,7 +40,7 @@
  * a silently wrong &level, not a slow one. Arizona inits k_level to 0 (init.r:58) where SCRIP inits to
  * 1 -- that base offset is SCRIP's own convention and is NOT touched here.
  *
- * NO SPEED CLAIM IS MADE OR IMPLIED. What is removed is the -O0 frame ceremony (push rbp / mov rbp,rsp
+ * NO SPEED CLAIM IS MADE OR IMPLIED. What is removed is the -O0 frame ceremony (push ___ / mov ___,rsp
  * / load / add / store / pop) around a single memory increment. Per the s208 inbox's gap #1 that is
  * PRECISELY the class of win that -O2 would also remove, so it must never be quoted as an -O2-durable
  * gain. The reason to land it is Lon's completeness directive plus correctness infrastructure.
@@ -83,10 +83,10 @@ RTX_FUNC(rt_gen_spine_pass_ω)
 RTX_ENDF(rt_gen_spine_pass_ω)
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_gen_get_fb(void) -- ICN-FR-4 ZFRAME GENERATOR RESUME: returns generator_rbp from pcall[top-1].fb,
+/* rt_gen_get_fb(void) -- ICN-FR-4 ZFRAME GENERATOR RESUME: returns generator____ from pcall[top-1].fb,
  * set by rt_jmp_frame_lexprep2 at the generator's α prologue.  The β arm does:
  *   call rt_gen_spine_resume_enter   ; k_level++
- *   call rt_gen_get_fb               ; rax = generator_rbp
+ *   call rt_gen_get_fb               ; rax = generator____
  *   jmp  [rax + cont_off]            ; jump to stored β continuation in generator frame
  * No asm shortcut: reading g_pcall (a C struct pointer) requires the C body. Always delegate. */
 RTX_FUNC(rt_gen_get_fb)
@@ -94,17 +94,17 @@ RTX_FUNC(rt_gen_get_fb)
     jmp c_rt_gen_get_fb                 /* RTX enabled: also use C twin (no asm shortcut) */
 RTX_ENDF(rt_gen_get_fb)
 
-/* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller_rbp, save_Σ→cont_ptr).
+/* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller____, save_Σ→cont_ptr).
  * All four delegate to C twins — the pcall array pointer and top index live in C globals. */
-RTX_FUNC(rt_gen_save_caller_rbp)
-    RTX_GATE(icngen, c_rt_gen_save_caller_rbp)
-    jmp c_rt_gen_save_caller_rbp
-RTX_ENDF(rt_gen_save_caller_rbp)
+RTX_FUNC(rt_gen_save_caller_fb5)
+    RTX_GATE(icngen, c_rt_gen_save_caller_fb5)
+    jmp c_rt_gen_save_caller_fb5
+RTX_ENDF(rt_gen_save_caller_fb5)
 
-RTX_FUNC(rt_gen_get_caller_rbp)
-    RTX_GATE(icngen, c_rt_gen_get_caller_rbp)
-    jmp c_rt_gen_get_caller_rbp
-RTX_ENDF(rt_gen_get_caller_rbp)
+RTX_FUNC(rt_gen_get_caller_fb5)
+    RTX_GATE(icngen, c_rt_gen_get_caller_fb5)
+    jmp c_rt_gen_get_caller_fb5
+RTX_ENDF(rt_gen_get_caller_fb5)
 
 RTX_FUNC(rt_gen_save_cont)
     RTX_GATE(icngen, c_rt_gen_save_cont)

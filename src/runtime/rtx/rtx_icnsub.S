@@ -82,7 +82,7 @@
  *
  * REGISTER CONTRACT: touches only the RTX working set (rax rcx rdx rsi rdi r8 r9 r10 r11).
  *   ⭐ Σ/δ/Δ (r13/r14/r15) are NOT read or written — this symbol is off the scan path, so
- *   ARCH §2's Icon-specific live-subject warning does not bind here. rbx/rbp/rsp untouched.
+ *   ARCH §2's Icon-specific live-subject warning does not bind here. rbx/___/rsp untouched.
  *   No FR()/FRQ() appears: this is a .S runtime routine with no ζ frame of its own.
  *
  * ARGS (SysV, two 16-byte all-INTEGER structs — ARCH §2):

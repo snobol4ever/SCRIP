@@ -26,7 +26,7 @@
  * SCRATCH IS xmm, NOT THE STACK, precisely so that "bail is a bare jmp valid at any point" holds.
  *
  * Registers: rdi self, rsi other, rdx out, rcx codes -- all four preserved for the bail path.
- * Working set per ARCH section 2: rax r8 r9 r10 r11 + xmm0-2. Blob pins rbx r12-r15 rbp untouched.
+ * Working set per ARCH section 2: rax r8 r9 r10 r11 + xmm0-2. Blob pins rbx r12-r15 ___ untouched.
  */
 #include "rtx_abi.inc"
 

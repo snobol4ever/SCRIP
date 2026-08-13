@@ -36,9 +36,9 @@
  *   g_plw_unwind_floor feeds plc_dead_cstack (parser/prolog/pl_cell.h): pl_trail_unwind SKIPS the
  *   restore for any trail entry whose target address is < floor+16, i.e. lives in a dead C frame.
  *   Writing a DIFFERENT floor than the C would silently change which bindings survive backtracking.
- *   The C stores __builtin_frame_address(0), which at -O0 is rbp AFTER `push rbp; mov rbp,rsp`,
- *   i.e. EXACTLY rsp_at_entry - 8.  This port builds the same frame, so rbp holds the identical
- *   value bit for bit.  VERIFIED against the disassembly of the C body (`mov %rbp,%rdx; mov %rdx,(%rax)`).
+ *   The C stores __builtin_frame_address(0), which at -O0 is ___ AFTER `push ___; mov ___,rsp`,
+ *   i.e. EXACTLY rsp_at_entry - 8.  This port builds the same frame, so ___ holds the identical
+ *   value bit for bit.  VERIFIED against the disassembly of the C body (`mov %___,%rdx; mov %rdx,(%rax)`).
  *
  * ⭐ THE nargs GUARD RETURNS WITHOUT TOUCHING THE FLOOR OR THE SAFEPOINT
  *   Read from the C's disassembly, not from its source shape: the nargs!=2 arm jumps straight to the
@@ -70,7 +70,7 @@
  *
  * REGISTER SAFETY
  *   Uses rax rcx rdx rsi rdi r8 r9 — all inside the ARCH §2 RTX working set.  NO blob pin
- *   (rbx r13 r14 r15) is read or written, and r12 is not used at all.  rbp is the standard frame
+ *   (rbx r13 r14 r15) is read or written, and r12 is not used at all.  ___ is the standard frame
  *   pointer and is required here: it IS the floor value.
  */
 #include "rtx_abi.inc"
@@ -101,21 +101,20 @@ RTX_FUNC(rt_pl_dop_unify)
     RTX_GATE(plunify, c_rt_pl_dop_unify)
     cmp     esi, 2
     jne     .Lpu_fail_bare                          /* decline BEFORE any side effect              */
-    push    rbp
-    mov     rbp, rsp                                /* rbp == rsp_at_entry-8 == the C's floor value */
+    mov     rsp, rsp                                /* ___ == rsp_at_entry-8 == the C's floor value */
     sub     rsp, 16                                 /* rsp stays 16-aligned for the calls below     */
-    mov     qword ptr [rbp + FR_ARGS], rdi
+    mov     qword ptr [rsp - 1], rdi
     mov     rax, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]
     mov     rcx, qword ptr [rax]
-    mov     qword ptr [rbp + FR_FLOOR], rcx         /* fl = g_plw_unwind_floor                      */
-    mov     qword ptr [rax], rbp                    /* g_plw_unwind_floor = frame_address(0)        */
+    mov     qword ptr [rsp - 1], rcx         /* fl = g_plw_unwind_floor                      */
+    mov     qword ptr [rax], rsp                    /* g_plw_unwind_floor = frame_address(0)        */
 /* --- absorbed rt_gc_point_arr(args, 2, 0): its body is `if (!g_gc_pending) return;`, so the common
  * case is a flag test and the @plt crossing is deleted.  Cold arm calls the real thing unchanged. -- */
     mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lpu_gc
 .Lpu_gc_done:
-    mov     rax, qword ptr [rbp + FR_ARGS]
+    mov     rax, qword ptr [rsp - 1]
     mov     rdi, qword ptr [rax + D_LO]             /* args[0] lo                                   */
     mov     rsi, qword ptr [rax + D_HI]             /* args[0] hi                                   */
     mov     rdx, qword ptr [rax + D_SIZE + D_LO]    /* args[1] lo                                   */
@@ -123,7 +122,7 @@ RTX_FUNC(rt_pl_dop_unify)
     call    plw_unify_vals                          /*   scratch in the C too)                      */
     test    eax, eax
     je      .Lpu_fail
-    mov     rax, qword ptr [rbp + FR_ARGS]
+    mov     rax, qword ptr [rsp - 1]
     mov     rdi, qword ptr [rax + D_LO]
     mov     rsi, qword ptr [rax + D_HI]
     call    rt_pl_deref_val                         /* exported `T`: plain call, returns rax:rdx     */
@@ -133,14 +132,14 @@ RTX_FUNC(rt_pl_dop_unify)
     xor     edx, edx
 .Lpu_restore:
     mov     rcx, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]
-    mov     r8,  qword ptr [rbp + FR_FLOOR]
+    mov     r8,  qword ptr [rsp - 1]
     mov     qword ptr [rcx], r8                     /* restore floor WITHOUT touching rax:rdx        */
     leave
     ret
 /* COLD: a collection is pending.  Call the real safepoint with the C's exact arguments so the shield
  * registration is byte-identical; args is reloaded from the frame afterwards by the common path. */
 .Lpu_gc:
-    mov     rdi, qword ptr [rbp + FR_ARGS]
+    mov     rdi, qword ptr [rsp - 1]
     mov     esi, 2
     xor     edx, edx
     call    rt_gc_point_arr

@@ -1011,7 +1011,7 @@ static int g_sno_npro = 0;
 static void sno_prologue_add(const char * nm) { if (!nm || g_sno_npro >= 128) return; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return; g_sno_pro[g_sno_npro++] = nm; }
 int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GOAL-PASSTHRU-RBP-ERAD s6 (PT-2 census hole, Defect B): defer_cnt counts only *name consumers reached through sno_fz_mark_defer, which is (a) g_sno_in_patproc-guarded and (b) aimed at the synthetic
+/* GOAL-PASSTHRU-___-ERAD s6 (PT-2 census hole, Defect B): defer_cnt counts only *name consumers reached through sno_fz_mark_defer, which is (a) g_sno_in_patproc-guarded and (b) aimed at the synthetic
  * $V<i> name by the snapg arm (2351) -- so a TT_VAR member of a KEPT patproc never credits its SOURCE var.  1293's in_patproc guard means such members can never inline; they ALWAYS lower to $V<i>
  * snapshots that COPY the source var's stage-2 value at MKPAT time -- a live read of the very store PT-2 was suppressing.  Measured (w_cap_* witnesses): VOWEL's GVA slot v=0 at match time, the snapshot
  * inherited tag 0, and c_rt_defer_close's literal arm matched the NULL STRING -- 'BCD' ? PAT succeeded where SPITBOL fails.  Killswitch-invariant by construction: SCRIP_PAT_INLINE gates the INLINE,
@@ -1157,7 +1157,7 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
         if (x->op == IR_MATCH_DEFER) {   /* PS-3 s153 DEFER-AS-KNOWN-FOOTPRINT-LEAF: a WRITE-ONCE (seal==2) defer whose name is PROLOGUE-DOMINATED and which carries its PAT$ target literal is ADMISSIBLE
                                           * -- its per-activation retention (SUSP = align16(32+fb)+fp+16, the emit_patzeta ζ size) is a compile-time constant priced at FINALIZE (registry fed by then;
                                           * a non-uniform/unregistered target DECLINES the whole candidate there, chain-arm fallback).  The blob carves at its own α and its ω restores the entry
-                                          * frontier ABSOLUTELY (lea rsp,[rbp+K]) so carve/release are exact; β = jmp [rsp+0] finds the γ-record by LIFO.  Same license trio as the s152 DT arm;
+                                          * frontier ABSOLUTELY (lea rsp,[___+K]) so carve/release are exact; β = jmp [rsp+0] finds the γ-record by LIFO.  Same license trio as the s152 DT arm;
                                           * SCRIP_ARBNO_LATCH=1 arms (opt-in until monitor-proven -- default byte-identical, the walk keeps declining). */
             static int _dtl = -1; if (_dtl < 0) { const char * _e = getenv("SCRIP_ARBNO_LATCH"); _dtl = _e ? (atoi(_e) != 0) : 0; }
             if (_dtl && x->seal == 2 && IR_LIT(x).sval && sno_name_prologue_bound(IR_LIT(x).sval)) {
@@ -1386,7 +1386,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * see the frozen stage-2 value (manual pp.87-88: 'A' $ X X uses the BUILD snapshot for the second X).
          * IR_MATCH_DEFER owns the NV acquisition path (GVA / rt_defer_get_pat_fn) and is correct for by-name global reads.
          * SCRIP_PB_SNAP killswitch deleted (PB-5): the live-name VAR→MATCH_VALUE fallback is the PATREF-era incorrect path. */
-        { static int _pi = -1; if (_pi < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _pi = (!e || *e != '0') ? 1 : 0; }   /* ⭐ PAT-INLINE (Lon directive 2026-08-09): a bare ref whose name is TOTALLY INVARIANT lowers the STORED TREE INLINE into the statement spine — the reference IS pass-thru glue (pure wiring, zero nodes of its own), and the DEFER→PAT$-blob linkage (BLOB-GRANT whole-graph RBP frame, CLASS D suspend protocol) never exists for it.  The elements ride the statement regime — the licensed frame census {STATEMENT·FUNCTION·MATCH_BEGIN·FENCE1} and the modern per-box mechanism — byte-for-byte as if written inline.  SEMANTICS: sound exactly because invariance proves the PB-5 stage-2 snapshot equals the compile-time tree at every execution (single write, fz-safe, constant args) — the snapshot pre-chain is not skipped, it is PROVEN REDUNDANT.  GUARDS: !g_sno_in_patproc (blob-interior lowering; also breaks lower-time cycles); shape gate sno_pat_inline_ok (ARBNO/FENCE/captures excluded — their statement rungs delete the exclusion when they land); inline cannot fire in the PAT-ARG-BIND scratch walk or patproc build walk (g_sno_pat_match_ctx=0 / g_sno_in_patproc=1 respectively, both confirmed by code read and gate sweep).  `*X` (TT_DEFER arm above) is UNTOUCHED — sole recursion form, manual p.122.  ✅ DEFAULT ON (PT-1 exit gate 2026-08-09): w_pinline1/hand/full hit=A both modes; claws5-match m3 legacy==inline, xc318 120/122 same (2 pre-existing ASLR/ARBNO flakes, neither inline-caused); killswitch SCRIP_PAT_INLINE=0 reverts; corpus/probe/pt_inline_1{,_hand,_full}.sno promoted. */
+        { static int _pi = -1; if (_pi < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _pi = (!e || *e != '0') ? 1 : 0; }   /* ⭐ PAT-INLINE (Lon directive 2026-08-09): a bare ref whose name is TOTALLY INVARIANT lowers the STORED TREE INLINE into the statement spine — the reference IS pass-thru glue (pure wiring, zero nodes of its own), and the DEFER→PAT$-blob linkage (BLOB-GRANT whole-graph ___ frame, CLASS D suspend protocol) never exists for it.  The elements ride the statement regime — the licensed frame census {STATEMENT·FUNCTION·MATCH_BEGIN·FENCE1} and the modern per-box mechanism — byte-for-byte as if written inline.  SEMANTICS: sound exactly because invariance proves the PB-5 stage-2 snapshot equals the compile-time tree at every execution (single write, fz-safe, constant args) — the snapshot pre-chain is not skipped, it is PROVEN REDUNDANT.  GUARDS: !g_sno_in_patproc (blob-interior lowering; also breaks lower-time cycles); shape gate sno_pat_inline_ok (ARBNO/FENCE/captures excluded — their statement rungs delete the exclusion when they land); inline cannot fire in the PAT-ARG-BIND scratch walk or patproc build walk (g_sno_pat_match_ctx=0 / g_sno_in_patproc=1 respectively, both confirmed by code read and gate sweep).  `*X` (TT_DEFER arm above) is UNTOUCHED — sole recursion form, manual p.122.  ✅ DEFAULT ON (PT-1 exit gate 2026-08-09): w_pinline1/hand/full hit=A both modes; claws5-match m3 legacy==inline, xc318 120/122 same (2 pre-existing ASLR/ARBNO flakes, neither inline-caused); killswitch SCRIP_PAT_INLINE=0 reverts; corpus/probe/pt_inline_1{,_hand,_full}.sno promoted. */
           if (_pi && !sno_encl_hostile(t->v.sval)) { const tree_t * p = sno_fz_tree(t->v.sval); if (p && sno_pat_inline_ok(p)) return sno_pat_node(cx, p, succ, fail); } }   /* shape gate = sno_pat_inline_ok, exclusions + deletion conditions documented there */
         IR_t * mv = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mv, fail);
         if (cx->npre >= 0 && cx->npre < 64) { cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mv; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = t->v.sval; cx->npre++; }
@@ -1597,7 +1597,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             if (sno_is_fence(elems[i])) {                                           /* FENCE0 seals everything to its right (abort-on-backup); FENCE1 does NOT — it is a normal seam element whose box β IS the pass-through (⭐ FENCE-PASS-THROUGH, this rung; the old umbrella "each seals its right" applied FENCE0's abort to FENCE1 and was falsified by the oracle: H01/T4/T5) */
                 const tree_t * inner = sno_is_fence1(elems[i]) ? elems[i]->c[0] : NULL;   /* inner != NULL ⇔ FENCE1; FENCE0 stays node-free (pure rewiring — its box body would be α→γ, β→ω) */
                 if (!inner || sno_in_arbno) right_sealed = 1;                      /* ⭐ FENCE-PASS-THROUGH: FENCE0 always seals; FENCE1 seals inside an ARBNO body (sno_in_arbno>0): the pass-through seam repoint rests on a static-depth rsp premise that ARBNO violates (rsp moves per iteration, Tier D).  Outside ARBNO bodies FENCE1 participates in the standard leftward seam chain. */
-                if (inner && sno_in_arbno) {                                        /* FENCE1 inside ARBNO body: ival=2 = watermark+P but NO U-2 rbp frame (ARBNO owns rbp; nested push/pop corrupts its frame) */
+                if (inner && sno_in_arbno) {                                        /* FENCE1 inside ARBNO body: ival=2 = watermark+P but NO U-2 ___ frame (ARBNO owns ___; nested push/pop corrupts its frame) */
                     IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
@@ -1622,7 +1622,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                      * alternatives are invisible backing up — manual ln 4716).  Measured: json-match.sno's FENCE-per-token ws eats
                      * >32MB ≤64MB of ζ on a 632KB subject (SCRIP_STACK ladder, s132/this rung).  Now the fence is ONE
                      * IR_MATCH_FENCE1 box in the ALT/SEQ σ/φ-glue mold: F.α records the watermark (rsp under FORTH; the zls2 cursor
-                     * under the heap ports) into its granted [rbp+off] quad — depth-immune, per-activation, so DEFER recursion
+                     * under the heap ports) into its granted [___+off] quad — depth-immune, per-activation, so DEFER recursion
                      * through the same fence is safe — and jmps P's entry; P is lowered succ=F fail=F with the standard inside-edge
                      * retag, so P's commit lands F's na_s glue (bulk-restore to the watermark, jmp F.γ = the old cur_succ) and P's
                      * leftward exhaust lands na_f (same restore — the identity by LIFO — then F.ω = the old fail_p).  Resume-from-
@@ -1646,7 +1646,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx; right_sealed = 0;   /* F is now an ordinary left-neighbor; next (left) run repoints F.ω at its tail-β */
                 }
                 else if (i > 0) {                                                   /* s137 OVER-SEAL (Lon ruling): an INTERIOR FENCE0 gets the operand-free sync box (ival=0) — its α IS the forward
-                                                                                     * commit (match null), and the box body is now non-empty: whack the activation's dynamic ζ to the rbp floor
+                                                                                     * commit (match null), and the box body is now non-empty: whack the activation's dynamic ζ to the ___ floor
                                                                                      * (bb_match_fence1.cpp ival=0 arm), then γ.  Wiring is the s133 erasure's, verbatim: ω → the pre-seal fail
                                                                                      * (backup ≡ attempt abort), right_sealed already set above so the left run gets no resume repoint and the box
                                                                                      * gets no inbound β.  FIRST-POSITION FENCE0 (i==0, the anchor idiom) keeps the node-free erasure: zero left
@@ -1799,7 +1799,7 @@ static int sno_is_pattern_rhs(const tree_t * t) {
         return 1;
     case TT_SEQ: case TT_CAT: { const tree_t * a = (t->n > 0) ? t->c[0] : NULL; const tree_t * b = (t->n > 1) ? t->c[1] : NULL;
         if ((a && a->t == TT_DEFER) || (b && b->t == TT_DEFER)) return 1; return sno_is_pattern_rhs(a) || sno_is_pattern_rhs(b); }
-    case TT_VAR: { static int depth = 0; if (depth >= 32 || !t->v.sval) return 0; const tree_t * p = sno_seal_pat(t->v.sval); if (!p) return 0; depth++; int r = sno_is_pattern_rhs(p); depth--; return r; }   /* RBP-EARN s45 DEFECT A: a bare name that eligibly resolves to a stored pattern IS a pattern-RHS -- without this arm, Q = P / Q = P P is never classified, sno_snapref_scan never runs, and P's build is dead-eliminated while Q's use-site reads null (earn0_varref_bare_dropped / _cat_dropped).  Same seal-table resolution + depth cap as sno_pat_right_sealed's own TT_VAR arm (A=B;B=A cycle guard); bare keywords never reach here (sno_pat_eff_kind remaps them first). */
+    case TT_VAR: { static int depth = 0; if (depth >= 32 || !t->v.sval) return 0; const tree_t * p = sno_seal_pat(t->v.sval); if (!p) return 0; depth++; int r = sno_is_pattern_rhs(p); depth--; return r; }   /* ___-EARN s45 DEFECT A: a bare name that eligibly resolves to a stored pattern IS a pattern-RHS -- without this arm, Q = P / Q = P P is never classified, sno_snapref_scan never runs, and P's build is dead-eliminated while Q's use-site reads null (earn0_varref_bare_dropped / _cat_dropped).  Same seal-table resolution + depth cap as sno_pat_right_sealed's own TT_VAR arm (A=B;B=A cycle guard); bare keywords never reach here (sno_pat_eff_kind remaps them first). */
     default: return 0;
     }
 }
@@ -1877,7 +1877,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
          * direction failure keeps the flat path byte-verbatim (degrade never die). */
         int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
-        /* REG-7 U4 sweep (s86): the s66 ANCHOR-WINDOW decline fallback is DELETED -- a !tail_ok statement now runs the same unconditional-rbp frame as everything else (U1/U2/s79 seeds; FR/FRQ rbp-based
+        /* REG-7 U4 sweep (s86): the s66 ANCHOR-WINDOW decline fallback is DELETED -- a !tail_ok statement now runs the same unconditional-___ frame as everything else (U1/U2/s79 seeds; FR/FRQ ___-based
          * post-U3; the ARBNO chain arm's zv() view decoupled s85).  Proof of deadness: the s85 flip probe -- crosscheck watermark-exact, .s byte-identical on 070/117/142/164/165 -- no live emission
          * consulted the window predicate.  Candidacy below is unchanged; the only decline consequence left is the TAIL_DIAG print. */
         if (!fc_lin && rt_zc_frame_live() == ZC_FRAME_RSP) {
@@ -2034,7 +2034,7 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label) {
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
-    IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller rbp into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
+    IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller ___ into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
     g->entry = ad;
     return g;
 }
@@ -2059,7 +2059,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     }
     bb_label_registry_add(lp_strdup("END"), exitnd);
     /* SN4-FLAT-PROC (s176): in the ONE flat graph (and in EVAL/CODE fragment graphs) the reserved return labels are program-wide FLOATER BBs — manual Ch.8: RETURN yields the fname variable's value,
-     * FRETURN signals failure, both restore the pushdown-saved formals/locals/fname; the floaters merely re-route control (peek the open activation's wires, restore rsp/rbp, jmp the γ/ω wire) and the
+     * FRETURN signals failure, both restore the pushdown-saved formals/locals/fname; the floaters merely re-route control (peek the open activation's wires, restore rsp/___, jmp the γ/ω wire) and the
      * existing epilogue leaves on those wires perform the pop+restore+result protocol verbatim.  ANY goto — direct or $-computed — reaches them through this registry for free.  Level-0 transfer is a
      * runtime error inside rt_flat_ret_snap.  Def-body graphs (result_name != NULL) stay self-contained on their own exitnd/failnd exactly as before: their bodies are not statements of this graph. */
     if (!result_name) {
@@ -2437,7 +2437,7 @@ void sno_expr_thunks_build(int x0) {
         IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
         ir_operand_push(asn, vr);
         if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
-        { IR_t * ad = lc_build(gx, IR_SAVE_RESTORE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }   /* ⭐ EXPR-CLASSP (2026-08-09, the h2 silent-success-drop root): every live EXPR$ caller is the WIRE loop (dcap pump / rt_defer_open both do rt_proc_call_open then lea rcx,γ; lea rdx,ω; jmp rax — a pcall record is ALWAYS open), yet the graph exited CLASS C (bb_glue_outer_γ: mov rsp,rbp; pop rbp; mov eax,DT; ret) against an rbp NO prologue established — the GLUE-SYM disease verbatim, a fossil of the deleted C-side rt_dcap_flush.  Prepending the role-3 WIRE-ADOPT makes the graph satisfy the driver's EXISTING CLASS P floor predicate (scrip.c ×4: entry==IR_SAVE_RESTORE && ival==3), so exits become bb_glue_wire_γ/ω → rt_flat_ret_snap → the adopted wires — the same one authority DEFINE stubs use; zero driver/pump edits. */
+        { IR_t * ad = lc_build(gx, IR_SAVE_RESTORE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }   /* ⭐ EXPR-CLASSP (2026-08-09, the h2 silent-success-drop root): every live EXPR$ caller is the WIRE loop (dcap pump / rt_defer_open both do rt_proc_call_open then lea rcx,γ; lea rdx,ω; jmp rax — a pcall record is ALWAYS open), yet the graph exited CLASS C (bb_glue_outer_γ: mov rsp,___; pop ___; mov eax,DT; ret) against an ___ NO prologue established — the GLUE-SYM disease verbatim, a fossil of the deleted C-side rt_dcap_flush.  Prepending the role-3 WIRE-ADOPT makes the graph satisfy the driver's EXISTING CLASS P floor predicate (scrip.c ×4: entry==IR_SAVE_RESTORE && ival==3), so exits become bb_glue_wire_γ/ω → rt_flat_ret_snap → the adopted wires — the same one authority DEFINE stubs use; zero driver/pump edits. */
         int xpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
         g_stage2.proc_table[xpi].proc = NULL;

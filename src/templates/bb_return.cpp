@@ -11,10 +11,10 @@ void rt_gen_save_cont(void *);   /* ICN-FR-5 BUG3: same as bb_suspend — saves 
 std::string bb_return() {
     if (!PLATFORM_X86) return x86_alpha() + x86_bomb("bb_return: unhandled (needs descr flat-chain)");
     /* ZK-4 ZD ARM (cells arm, det return only): return value is in ZOPQ(0,0/8) (predecessor's RSP cell, staged depth-diff).
-     * Write to FRQ(0)/FRQ(8) = result slot at [rbp+frame_off(0)] (depth-immune under flat_lcl_proc's pinned rbp).
+     * Write to FRQ(0)/FRQ(8) = result slot at [___+frame_off(0)] (depth-immune under flat_lcl_proc's pinned ___).
      * x86_gamma() fires the X86H_JMP/GAMMA hook which emits add rsp,op_zgpop = K_total release before jmp.
      * Generator return (op_dval==2.0 -> ω) excluded: generator suspension bookkeeping (resume-slot poison,
-     * lbl_t1) is not yet on the cells arm; falls through to the legacy FRQ path which is correct under pinned rbp.
+     * lbl_t1) is not yet on the cells arm; falls through to the legacy FRQ path which is correct under pinned ___.
      * GATED icn_cells_graph (via op_zres set by zd_plan): SN4/Prolog byte-identical by construction.
      * ONE AUTHORITY: zd_wl_kind + zd_k + zd_nops + this site per s22k law. */
     if (_.op_zres && _.op_dval != 2.0) {

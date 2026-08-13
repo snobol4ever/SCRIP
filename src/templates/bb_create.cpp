@@ -19,7 +19,7 @@ std::string bb_create() {
     int op_off2 = _.op_off + 16;
     std::string s = x86("comment", "IR_CREATE")
                    + x86_alpha();
-    static const char *contract_regs[6] = {"r12", "r13", "r14", "r15", "rbx", "rbp"};
+    static const char *contract_regs[6] = {"r12", "r13", "r14", "r15", "rbx", "rsp"};
     for (int k = 0; k < 6; k++) {
         s += x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(op_off2 + k * 8) + "]", contract_regs[k]);
     }

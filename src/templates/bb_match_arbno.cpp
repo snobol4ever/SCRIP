@@ -8,13 +8,13 @@ extern "C" {
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — rbp borrowed from the MATCH_BEGIN frame base.  FRQ() reads in the chain arm are rbp-relative (depth-immune under the pinned MATCH_BEGIN frame),
+/* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — ___ borrowed from the MATCH_BEGIN frame base.  FRQ() reads in the chain arm are ___-relative (depth-immune under the pinned MATCH_BEGIN frame),
  * so the sigma/phi paths read element-frame slots correctly at ANY rsp depth.  W-1c.2: the view-restore guards (arbno_u2_frame) are made UNCONDITIONAL — nested body execution (inner ARBNO beta, DEFINE frames)
- * clobbers rbp; re-deriving it via `lea rbp,[rsp+(24-op_sa)]` at PAIR(2) (rsp==element frontier on body success) and saving/restoring it at exhaust L(2) via a dedicated frame slot is always correct.  The slot+32
+ * clobbers ___; re-deriving it via `lea ___,[rsp+(24-op_sa)]` at PAIR(2) (rsp==element frontier on body success) and saving/restoring it at exhaust L(2) via a dedicated frame slot is always correct.  The slot+32
  * grant in zeta_storage.c is now UNCONDITIONAL (matching: template always writes slot+32, grant always allocates it; SCRIP_U2 condition deleted).  arbno_u2_frame() deleted — its guards fire unconditionally. */
-static inline const char * zv() { return "rbp"; }
+static inline const char * zv() { return "rsp"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * RBPRAWD(int off) { static char b[8][48]; static int i; i=(i+1)&7; snprintf(b[i],48,"dword ptr [rbp# + %d]",off); return b[i]; }   /* M-2 BUG-5 FIX: raw machine-rbp dword (twin of RBPRAWQ in x86_asm.h); [rbp# + N] escapes x86_parse's FR classifier -- always encodes as a direct reg+disp, never re-canonicalized through the frame base.  Used in bb_match_arbno_tail PAIR(2) to reach the element header after MATCH_END's CAS restore. */
+static inline const char * FB5RAWD(int off) { static char b[8][48]; static int i; i=(i+1)&7; snprintf(b[i],48,"dword ptr [fb5# + %d]",off); return b[i]; }   /* M-2 BUG-5 FIX: raw machine-___ dword (twin of ___RAWQ in x86_asm.h); [___# + N] escapes x86_parse's FR classifier -- always encodes as a direct reg+disp, never re-canonicalized through the frame base.  Used in bb_match_arbno_tail PAIR(2) to reach the element header after MATCH_END's CAS restore. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -42,7 +42,7 @@ static std::string tail_cap_zero8(int base, int n, const char * zr64) { std::str
 static std::string tail_cap_copy(int dst, int src, int n) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", "rax", trq(src + 16 * j)) + x86("mov", trq(dst + 16 * j), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int arbno_lon(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FRAMELESS"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* ⭐ ARBNO-LON killswitch (default ON): =0 reverts the nested-K0 class to the legacy chain arm byte-identically */
-static int arbno_rootspine(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_ROOTSPINE"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* ⭐ ROOT-SPINE (FF-1 SCAFFOLD, Lon 2026-08-11 "RESTORE NOTHING — proper RSP/RBP FORTH-style stack"): ⛔ DEFAULT 0 — MEASURED INSUFFICIENT ALONE: root-spine α makes the ROOT per-activation but every yield exit (ε-γ and each PAIR(2) prev-view restore) then terminates the view chain at root-op_off instead of the statement frame, so downstream FR readers leak a view as rbp — claws5-match (defer-free survivor) SEGV'd under default 1.  The COMPLETE arm additionally restores true rbp from [root+32] at every γ exit AND re-derives the view at as/af entry (see FINDING 2026-08-11 FF-0: blob γ/ω/res never touch rbp — view continuity across defer suspension is the ACTUAL defect; this α is the correct first half).  =1 = chain-arm ROOT header lives in a 48B alpha-carved SPINE record (per-activation BY CONSTRUCTION), view0 = root - op_off so every FR(op_off+X) spelling resolves [root+X] unchanged; =0 restores the FR frame-slot root for same-build A/B.  WHY: FR root state was per-activation ONLY under the pinned-rbp contract (one fresh rbp per BLOB-GRANT frame); DEL-T1 (1af93e3a) deleted that contract for blob interiors, so every nested activation of the same node shared ONE statement-frame header — pattern_match.c:624's single-cell defect in frame clothing.  gdb conviction: treebank-match 327B witness, inner *group re-entry aliased its header writes onto the outer element window (op_off+24 == op_sa-24 == +88 collide), as-arm restored a clobbered cursor (rbp=31) as the view base.  Exhaust self-releases the root: [root+24] stores pre-carve rsp (root+48), so L(2)'s pointer restore reclaims record and elements in one move — the FORTH way, no size arithmetic. */
+static int arbno_rootspine(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_ROOTSPINE"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* ⭐ ROOT-SPINE (FF-1 SCAFFOLD, Lon 2026-08-11 "RESTORE NOTHING — proper RSP/___ FORTH-style stack"): ⛔ DEFAULT 0 — MEASURED INSUFFICIENT ALONE: root-spine α makes the ROOT per-activation but every yield exit (ε-γ and each PAIR(2) prev-view restore) then terminates the view chain at root-op_off instead of the statement frame, so downstream FR readers leak a view as ___ — claws5-match (defer-free survivor) SEGV'd under default 1.  The COMPLETE arm additionally restores true ___ from [root+32] at every γ exit AND re-derives the view at as/af entry (see FINDING 2026-08-11 FF-0: blob γ/ω/res never touch ___ — view continuity across defer suspension is the ACTUAL defect; this α is the correct first half).  =1 = chain-arm ROOT header lives in a 48B alpha-carved SPINE record (per-activation BY CONSTRUCTION), view0 = root - op_off so every FR(op_off+X) spelling resolves [root+X] unchanged; =0 restores the FR frame-slot root for same-build A/B.  WHY: FR root state was per-activation ONLY under the pinned-___ contract (one fresh ___ per BLOB-GRANT frame); DEL-T1 (1af93e3a) deleted that contract for blob interiors, so every nested activation of the same node shared ONE statement-frame header — pattern_match.c:624's single-cell defect in frame clothing.  gdb conviction: treebank-match 327B witness, inner *group re-entry aliased its header writes onto the outer element window (op_off+24 == op_sa-24 == +88 collide), as-arm restored a clobbered cursor (___=31) as the view base.  Exhaust self-releases the root: [root+24] stores pre-carve rsp (root+48), so L(2)'s pointer restore reclaims record and elements in one move — the FORTH way, no size arithmetic. */
 static int arbno_fprpop(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FPRPOP"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* ⭐ TWO-CALCULATORS RETIRED (N24 s38, default 0 = beta does NOT pop; =1 restores the legacy double-pop for same-build A/B bisect).  THE RIGHT SPINE OWNS THE RELEASE OF ITS OWN CELLS: ZD-5b POS/RPOS CONST-WPOP (emit.cpp:1448, op_wpop+=16, promoted to THE ONE AUTHORITY at s32) already pops the right-spine LIT_INT 16B on the failure edge INTO beta -- measured identical in N02 and N24 (`add rsp,16; jmp arbno_β` in match_rpos omega).  N02-FIX (L156) then popped it a SECOND time, so beta arrived at element_base+16 and every header read was displaced: yield read at +52 = HIGH DWORD of the saved quad at +48 = 0x7fff (gdb-measured, N24 m4).  m3 read 0 there instead, which is accidentally the correct delta for the FIRST instance -- hence N23 passed m3 and SEGV began at 2 instances (delta frozen -> unbounded chain growth -> rsp runaway), while m4 failed from 1 instance. */
 static inline int kkN(void) { return _.op_arbno_body_kk; }   /* staged body-span ΣK, THE ONE K AUTHORITY zd_k summed by the emit.cpp ARB-LON-K16 prelude -- the one-level-in static offset of the previous cell at the σ junction.  Killswitches SCRIP_ARBNO_K16 / SCRIP_ARBNO_FRAMELESS are read in that prelude ONLY (single routing authority); =0 stages kk=0 and every byte reverts to the legacy routes. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -83,7 +83,7 @@ static std::string bb_match_arbno_frameless_k() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {
-    /* ⭐ ARBNO-LON (Lon rulings 2026-08-06: "ARBNO needs NOT its own RBP frame ... We never need to know the stack depth for ARBNO; just let it grow ... freed on either a FINAL MATCH_END or DURING the
+    /* ⭐ ARBNO-LON (Lon rulings 2026-08-06: "ARBNO needs NOT its own ___ frame ... We never need to know the stack depth for ARBNO; just let it grow ... freed on either a FINAL MATCH_END or DURING the
      * match on a FENCED construct ... no chain is needed.  When will that chain be traversed?  Never.  ARBNO will have ONE BB local, the DELTA subject cursor").  The whole construct: ONE 16B alpha-carved
      * rsp cell {DELTA0 dword at +0, yield-cursor dword at +4} and TWO compares.  No counter, no element links, no saved-rsp mark, no view register, no U2 quad -- the counter machinery is what MEASURABLY
      * aliased and killed the 5 nested probes (X02 gdb 2026-08-06), and under exact unwind it was bookkeeping someone else's allocator (RULING 2).  Instance k's sigma entry IS the (k-1)th yield -- one
@@ -122,18 +122,18 @@ static std::string bb_match_arbno_tail() {
      * maintains for every extension).  alpha pushes op_sb+fp_body copying the bracket from HEAD's cell at [rsp + KA + fp_left + k]; beta pushes op_sb copying it from the current element; the
      * fail-glue pop `add rsp, op_sb` lands EXACTLY on the previous element's yield frontier (LIFO + fixed size = arithmetic, never indirection); exhaust pops op_sb ONLY (the resumed-epsilon cascade's
      * box-omega pops already consumed the FPB phantom pad -- popping KA here overshot flat by FPB, the s71 measured SEGV: oracle-identical trace then exit 139 at first FPB>0 exhaust) and omega runs at flat depth.
-     * Every reference is [rsp + compile-time-const] at element depth -- EXCEPT PAIR(2)/PAIR(3) which run post-MATCH_END CAS restore (rsp back to pre-head entry level).  Those use rbp-relative
-     * addressing: the hfc pin (bb_match_begin rpin()=1) sets rbp=rsp AFTER sub rsp,80, so rbp = original_rsp - 80.  At ARBNO alpha, rsp = rbp - FPL - KA; element header HDRA+N is at
-     * [rbp + RBP_HDR + N] where RBP_HDR = -(FPL + KA - HDRA) = -(FPL + op_sb + FPB - HDRA).  This is stable across MATCH_END's whack. */
+     * Every reference is [rsp + compile-time-const] at element depth -- EXCEPT PAIR(2)/PAIR(3) which run post-MATCH_END CAS restore (rsp back to pre-head entry level).  Those use ___-relative
+     * addressing: the hfc pin (bb_match_begin rpin()=1) sets ___=rsp AFTER sub rsp,80, so ___ = original_rsp - 80.  At ARBNO alpha, rsp = ___ - FPL - KA; element header HDRA+N is at
+     * [___ + ____HDR + N] where ____HDR = -(FPL + KA - HDRA) = -(FPL + op_sb + FPB - HDRA).  This is stable across MATCH_END's whack. */
     /* L2 FENCE SEAL (s71; the flat path's PAIR(1)->na_f re-aim with the element scheme's depth fixed): resume a committed iteration ABANDONS it.  Every PAIR(1) departure in this template -- the sigma
      * null-progress je and phi's post-pop resume -- runs at the UNIFORM yield depth rsp = elem - FPB (the alpha phantom pad + S10c suspension invariant), and external resume routes to this box's beta
      * (extend), never PAIR(1); so the whole seal is ONE glue: L(3) arithmetic-pops the dead suspended body (its alternatives are forbidden -- skipping the sealed boxes' omegas IS the seal) and falls
      * through into phi, whose elem0 dance then cascades pop-by-pop to exhaust exactly as SPITBOL cuts left (manual ln 4716).  The epsilon element exits at the flag check before any body code runs. */
     int HDRB = _.op_sa, FPB = _.op_tail_fpb, FPL = _.op_tail_fpl, SEAL = _.op_tail_seal, NCAP = _.op_tail_ncap;
     int KA = (int)_.op_sb + FPB, HDRA = FPB + HDRB;
-    int RBP_HDR = -(FPL + KA - HDRA);   /* M-2 BUG-5 FIX: rbp-relative base for element header, post-MATCH_END CAS restore.
-                                          * rbp = original_rsp - 80 (hfc pin); element header HDRA+N at [rbp + RBP_HDR + N].
-                                          * RBP_HDR = -(FPL + KA - HDRA): negative offset from pin base to element header top. */
+    int FB5_HDR = -(FPL + KA - HDRA);   /* M-2 BUG-5 FIX: ___-relative base for element header, post-MATCH_END CAS restore.
+                                          * ___ = original_rsp - 80 (hfc pin); element header HDRA+N at [___ + ____HDR + N].
+                                          * ____HDR = -(FPL + KA - HDRA): negative offset from pin base to element header top. */
     int FPR_RSP = _.op_tail_fpr_rsp;   /* ⭐ N02-FIX: actual rsp-push depth of right-spine nodes -- same BUG-5 law as FPL.
                                          * Right-spine flat-allocated nodes (LIT_INTEGER for RPOS/POS arg) push K=16 rsp cells
                                          * before gamma; on failure those cells stay on the stack and beta arrives with
@@ -172,12 +172,12 @@ static std::string bb_match_arbno_tail() {
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
          /* N02-FIX: PAIR(2) is a body-success handler — rsp = current_element_base at every entry.
-          * The BUG-5 RBPRAWD fix assumed "PAIR(2) fires post-MATCH_END CAS restore" but that is
+          * The BUG-5 ___RAWD fix assumed "PAIR(2) fires post-MATCH_END CAS restore" but that is
           * wrong: MATCH_END success jumps to STATEMENT_END, never through PAIR(2).  PAIR(2) is
           * reached ONLY from body γ (rsp = current_element_base), so trd() = [rsp+HDRA+N] is the
-          * correct addressing for any element (ε or extended).  RBPRAWD(RBP_HDR+N) only matches
-          * [element_base+N] for the ε element (element_base = rbp-FPL-KA); for the Nth extension
-          * element_base shifts by -(N-1)*op_sb, making RBPRAWD read ε's slot instead of the current
+          * correct addressing for any element (ε or extended).  ___RAWD(____HDR+N) only matches
+          * [element_base+N] for the ε element (element_base = ___-FPL-KA); for the Nth extension
+          * element_base shifts by -(N-1)*op_sb, making ___RAWD read ε's slot instead of the current
           * element's — null-progress false positive → cursor clobbered → SIGSEGV.
           * trd(HDRA+0) = [rsp+HDRA] = [current_element_base+HDRA] ← always correct. */
          + x86("mov", "eax", trd(HDRA + 0))
@@ -198,7 +198,7 @@ static std::string bb_match_arbno_tail() {
          + x86("def", L(2))
          + x86("mov", "r14d", trd(HDRB + 0))
          + x86("add", "rsp", (long)_.op_sb)
-         + IF(_.flat_deep_arrival, x86("note", "old_rbp") + x86("mov", "rbp", trq(FPL + 72)))   /* M-2 BUG-6 FIX: BRACKET-GATE rbp restore moved here from release_pump (bb_match_end.cpp !op_tail gate). At L(2) omega rsp=cas_rsp_mark-32-FPL; old_rbp was saved by MATCH_BEGIN at [cas_rsp_mark+40]=[rsp+FPL+72]. Gated flat_deep_arrival matching bb_match_begin's save gate. */
+         + IF(_.flat_deep_arrival, x86("note", "old_fb5") + std::string(""))   /* M-2 BUG-6 FIX: BRACKET-GATE ___ restore moved here from release_pump (bb_match_end.cpp !op_tail gate). At L(2) omega rsp=cas_rsp_mark-32-FPL; old____ was saved by MATCH_BEGIN at [cas_rsp_mark+40]=[rsp+FPL+72]. Gated flat_deep_arrival matching bb_match_begin's save gate. */
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -244,9 +244,9 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              /* PS-3 SLICE 2 (s155) RECORD-CARRY DEFER-TAIL — the susp-free form; uniformity gate + recursion barrier DISSOLVED (the FINDING-2026-07-25 slice-2 design, pad ruling A).  The s152 arm's ONE
               * size-dependent datum was the element entry cursor, stack-parked BELOW the blob and read back over it at [rsp+susp] — requiring the registry-uniform compile-time SUSP.  Here the entry
               * cursor lives in the flat quad FR(off+4) while the element is IN FLIGHT (β reads it there and leaves it untouched; only ONE element is ever in flight per activation, and recursion is safe
-              * because FR is per-activation by the pinned-rbp contract), and at yield-accept it rides a 16B CARRY RECORD pushed ON TOP of the blob's own frontier record: {[rsp+0]=&L(4) glue,
+              * because FR is per-activation by the pinned-___ contract), and at yield-accept it rides a 16B CARRY RECORD pushed ON TOP of the blob's own frontier record: {[rsp+0]=&L(4) glue,
               * [rsp+8]=entry cursor} — a JUMPABLE record, so the universal retreat `jmp [rsp+0]` composes: L(4) restores the cursor into FR(off+4), pops itself, and falls through to the blob's record.
-              * The exhaust needs NO arithmetic at all: the blob's ω is the ABSOLUTE `lea rsp,[rbp+kt]` self-release (xa_flat epilogue, pat arm), landing rsp exactly on the previous element's carry
+              * The exhaust needs NO arithmetic at all: the blob's ω is the ABSOLUTE `lea rsp,[___+kt]` self-release (xa_flat epilogue, pat arm), landing rsp exactly on the previous element's carry
               * record (or the ARBNO frontier at elem0) — pop = pointer restore, never a size add.  ANY arriving blob admits: unregistered, non-uniform, recursive (*group), even the slow rt_defer path
               * (whose own {L6} exhaust record is 16B and self-popping — the carry composes over it identically).  σ/count/exhaust bookkeeping mirrors the s152 arm move-for-move. */
              ? x86("comment", "IR_MATCH_ARBNO_DT (PS-3 s155 record-carry: susp-free, recursion-safe)")
@@ -291,8 +291,8 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              + x86_omega()
          : _.op_arbno_dt
              /* PS-3 (s152) DEFER-TAIL (Lon directive: solve ARBNO(*P); ARCH-SNOBOL4 §ARBNO eradication ruling).  The body is ONE write-once prologue-bound defer: its blob SELF-allocates, γ-suspends
-              * leaving the 16B {res,rbp} frontier record at [rsp+0] (t1.s ground truth), β = jmp [rsp+0] self-pops, ω restores rsp to the blob's entry frontier sweeping every interior carve (lea
-              * rsp,[rbp+K]).  So the blob IS the iteration frame: no link cell, no view repoint, no element window -- the chain ceremony deletes wholesale.  The ONLY per-element datum is the entry
+              * leaving the 16B {res,___} frontier record at [rsp+0] (t1.s ground truth), β = jmp [rsp+0] self-pops, ω restores rsp to the blob's entry frontier sweeping every interior carve (lea
+              * rsp,[___+K]).  So the blob IS the iteration frame: no link cell, no view repoint, no element window -- the chain ceremony deletes wholesale.  The ONLY per-element datum is the entry
               * cursor (σ's null-progress baseline survives a resume-and-re-yield only per-element; the flat yield quad is clobbered by the first yield), stored in a 16B header ABOVE the blob carve
               * and read from the uniform yield depth at [rsp + op_arbno_dt_susp] -- the compile-time ζ size align16(32+fb)+fp+16 from the emit_patzeta registry, constant across yields by the UNIFORM
               * license (no interior ARBNO/DEFER/VALUE).  Cursor bookkeeping, counter dance, and exhaust restore mirror the chain arm verbatim (same flat header quads); φ pops the 16B header only --
@@ -343,8 +343,8 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              ? x86("comment", "IR_MATCH_ARBNO_NARY (ZB-FC-4 rsp linked-frame-chain)")
              + x86_alpha()
              + IF(arbno_rootspine(),
-                   x86("sub", "rsp", 48L)                                    /* ROOT-SPINE α: 48B per-activation root record {0:anchor 4:yield 8:count 16:chainhead 24:exhaust-rsp 32:saved-rbp} */
-                 + x86("mov", trq(32), "rbp")                                /* VIEW-SAVE into the RECORD (not a frame slot) BEFORE the repoint; L(2)'s FRQ(op_off+32) read resolves here via view0 */
+                   x86("sub", "rsp", 48L)                                    /* ROOT-SPINE α: 48B per-activation root record {0:anchor 4:yield 8:count 16:chainhead 24:exhaust-rsp 32:saved-___} */
+                 + x86("mov", trq(32), "rsp")                                /* VIEW-SAVE into the RECORD (not a frame slot) BEFORE the repoint; L(2)'s FRQ(op_off+32) read resolves here via view0 */
                  + x86("mov", zv(), "rsp")
                  + x86("add", zv(), (long)(-_.op_off))                       /* view0 = root - op_off: every FR(op_off+X) spelling below lands [root+X]; zero downstream spelling changes */
                  + x86("lea", "rax", RDQ("rsp", 48)))                        /* pre-carve rsp: exhaust pointer-restore reclaims the root record itself */
@@ -353,7 +353,7 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              + x86("mov", FR(_.op_off + 8), 0L)
              + IF(arbno_rootspine(),  x86("mov", FRQ(_.op_off + 24), "rax"))
              + IF(!arbno_rootspine(), x86("mov", FRQ(_.op_off + 24), "rsp"))
-             + IF(!arbno_rootspine(), x86("mov", FRQ(_.op_off + 32), "rbp"))   /* VIEW-SAVE α (legacy FR-root): save MATCH_BEGIN rbp before beta repoints it as element view. Restored unconditionally at exhaust L(2) to re-establish callee-saved ABI rbp. W-1c.2: unconditional (was IF(arbno_u2_frame())). */
+             + IF(!arbno_rootspine(), x86("mov", FRQ(_.op_off + 32), "rsp"))   /* VIEW-SAVE α (legacy FR-root): save MATCH_BEGIN ___ before beta repoints it as element view. Restored unconditionally at exhaust L(2) to re-establish callee-saved ABI ___. W-1c.2: unconditional (was IF(arbno_u2_frame())). */
              + x86("mov", FRQ(_.op_off + 16), 0L)
              + x86_gamma()
              + x86_beta()
@@ -396,7 +396,7 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              + x86("jmp", PAIR(1))
              + x86("def", L(2))
              + x86("mov", "r14d", FR(_.op_off))
-             + x86("mov", "rbp", FRQ(_.op_off + 32))   /* VIEW-RESTORE exhaust: re-establish MATCH_BEGIN rbp before rsp restore; callee-saved ABI. W-1c.2: unconditional. */
+             + std::string("")   /* VIEW-RESTORE exhaust: re-establish MATCH_BEGIN ___ before rsp restore; callee-saved ABI. W-1c.2: unconditional. */
              + x86("mov", "rsp", FRQ(_.op_off + 24))
              + x86_omega()
          : x86("comment", "IR_MATCH_ARBNO_NARY")
