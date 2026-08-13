@@ -1523,54 +1523,76 @@ static inline void x86_argnote(std::string & o) {
     }
     o.swap(out);
 }
-/* x86_4col (2026-07-26, Lon directive; corrected same day: BBs have ALWAYS been a FOUR-column format — LABEL / OPERATOR / OPERANDS / GOTO; the three-column notion was Stack Machine, long gone): render
- * every TEXT-medium assembly line in the four-column BB shape — label field 24, operator field 17, operands at col 41 width 47, GOTO column at col 88 (24+17+47, sized by the 2026-07-26 sweep of all 587
- * live .intel_syntax artifacts: widest non-jump operand = 47).  Every jump — mnemonic 'j*': jmp + the whole jcc family + jecxz/jrcxz, an exact class in x86 — renders in the GOTO column, mnemonic
- * padded to 6.  '#' comment lines and empty lines pass through at the margin; 'label: op ...' lines split; rep/lock prefixes fold into the operator; label-only lines sit alone at col 0.  x86() — the
- * ONE funnel, which is not new — applies this formatter to every line it dispatches; the emit_text_n sink applies it again (idempotent, a no-op on x86() output) to catch the legacy producers that do
- * not yet speak x86() (emit_textf sites, xa_* string builders, label defines) until R7 conversion retires them.  Plain x86 TEXT only: BINARY records, MACRO_DEF, and non-x86 platforms pass untouched,
- * so mode-3 bytes and MODE34 identity are unaffected by construction.  SCRIP_ASM_COLUMNS=0 restores verbatim. */
+static inline void x86_4col_to(std::string & o, size_t ls, int col) { int w = x86_disp_w(o.data() + ls, o.size() - ls); int pd = col - w; if (pd < 1) pd = 1; o.append((size_t)pd, ' '); }
+static inline int x86_4col_joinon(void) { static int j = -1; if (j < 0) { const char * e = getenv("SCRIP_ASM_JOIN"); j = (e && *e == '0') ? 0 : 1; } return j; }
+static inline int x86_4col_kind(const char * p, size_t len, int * hasl) {
+    *hasl = 0; size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
+    const char * t = p + b; size_t tl = len - b;
+    if (tl == 0) return 0;
+    if (t[0] == '#') return 4;
+    size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
+    if (k > 0 && t[k - 1] == ':') { *hasl = 1; size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++; if (r >= tl) return 1; t += r; tl -= r; }
+    return (t[0] == 'j') ? 3 : 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_4col (2026-07-26, Lon directive; corrected same day: BBs have ALWAYS been a FOUR-column format — LABEL / OPERATOR / OPERANDS / GOTO): render every TEXT-medium assembly line in the four-column BB
+ * shape — label field 24, operator field 17, operands at col 41, GOTO column at col 68.  Every jump — mnemonic 'j*': jmp + the whole jcc family + jecxz/jrcxz, an exact class in x86 — renders in the GOTO
+ * column, mnemonic padded to 6.  LINE JOIN (2026-08-13, Lon directive "hold back the NEW-LINE until the next instruction comes in"): the newline is DEFERRED, never emitted with its own line, and the
+ * pending line is resolved only once the FOLLOWING line's kind is known — a label-only line absorbs the instruction (or jump) beneath it, and an instruction absorbs a following jump behind a ';' at the
+ * GOTO column.  The walk is FORWARD over the assembled chunk, so source order is exact; the templates' '+' chains evaluate LAST-TO-FIRST under g++ (measured -O0 and -O2), which is why this cannot be a
+ * state machine consulted at x86_*() call time and why no global carries it.  '#' comment lines and empty lines pass through at the margin and never join.  x86() applies this per dispatched line (single
+ * lines, nothing to join); the emit_text_n sink applies it over the whole assembled body, where the joining actually happens, and so also catches the legacy producers that do not speak x86().  Plain x86
+ * TEXT only: BINARY records, MACRO_DEF, and non-x86 platforms pass untouched, so mode-3 bytes and MODE34 identity are unaffected by construction.  SCRIP_ASM_COLUMNS=0 restores verbatim; SCRIP_ASM_JOIN=0
+ * restores the pre-join one-line-per-instruction shape with the GOTO column back at 88. */
 inline std::string x86_4col(const std::string & s) {
     if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
+    const int jn = x86_4col_joinon(); const int CJ = jn ? 68 : 88;
     std::string o; o.reserve(s.size() + s.size() / 2);
-    std::string note, prevnote;   /* RUN-DEDUP (s23f): prevnote = the name standing on the previous INSTRUCTION line; declared beside note so both reset per x86_4col call (per chunk) and a run cannot leak across a bb_emit_x86 boundary. */
+    std::string note, prevnote;   /* RUN-DEDUP (s23f): prevnote = the name standing on the previous INSTRUCTION line; both reset per x86_4col call (per chunk) so a run cannot leak across a bb_emit_x86 boundary. */
     size_t i = 0, n = s.size();
+    int pend = 0; size_t pls = 0;   /* pend = kind of the line sitting in o[pls..] whose newline is still HELD BACK; 0 = none pending */
     while (i < n) {
         size_t e = s.find('\n', i); size_t len = (e == std::string::npos ? n : e) - i;
-        const char * p = s.data() + i;
+        const char * p = s.data() + i; size_t inext = (e == std::string::npos) ? n : e + 1;
         size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
         const char * t = p + b; size_t tl = len - b;
-        if (tl >= 2 && t[0] == '#' && t[1] == '@') { note.assign(t + 2, tl - 2); i = (e == std::string::npos) ? n : e + 1; continue; }   /* OBJ-NOTE (Lon s23b): x86("note",name) rides in-band as a '#@name' line -- stateless across the unspecified-order '+' chains -- and folds onto the NEXT instruction line at the GOTO column below; markers unmatched at chunk end re-emit so the sink pass (which sees marker+instruction adjacent in one string) completes the fold. */
-        size_t ls = o.size(); int inst = 0, isj = 0;
+        if (tl >= 2 && t[0] == '#' && t[1] == '@') { note.assign(t + 2, tl - 2); i = inext; continue; }   /* OBJ-NOTE (Lon s23b): x86("note",name) rides in-band as '#@name' -- stateless across the unspecified-order '+' chains -- and folds onto the NEXT instruction line. */
+        int hasl = 0; int ck = x86_4col_kind(p, len, &hasl);
+        int nk = 0, nhasl = 0;
+        for (size_t j2 = inext; j2 < n; ) { size_t e2 = s.find('\n', j2); size_t l2 = (e2 == std::string::npos ? n : e2) - j2; const char * p2 = s.data() + j2; size_t b2 = 0; while (b2 < l2 && (p2[b2] == ' ' || p2[b2] == '\t')) b2++;
+            if (l2 - b2 >= 2 && p2[b2] == '#' && p2[b2 + 1] == '@') { j2 = (e2 == std::string::npos) ? n : e2 + 1; continue; } nk = x86_4col_kind(p2, l2, &nhasl); break; }
+        int join = jn && !hasl && ((pend == 1 && (ck == 2 || ck == 3)) || (pend == 2 && ck == 3));
+        int willjoin = jn && !nhasl && ck == 2 && nk == 3;   /* a jump will land on THIS line at the GOTO column, so its note must not occupy that space */
+        size_t ls;
+        if (join) { if (pend == 1) x86_4col_to(o, pls, 24); else o.append(1, ';'); if (ck == 3) x86_4col_to(o, pls, CJ); ls = pls; }
+        else { if (pend) o.append(1, '\n'); ls = o.size(); }
+        int inst = 0, isj = 0;
         if (tl == 0) { }
         else if (t[0] == '#') { o.append(t, tl); }
         else {
             size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
             const char * q = t; size_t ql = tl;
-            if (t[k - 1] == ':') {
-                size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++;
-                if (r >= tl) { o.append(t, k); q = 0; }
-                else { x86_4col_pad(o, t, k, 24); q = t + r; ql = tl - r; }
-            } else o.append((size_t)24, ' ');
+            if (hasl) { size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++;
+                if (r >= tl) { o.append(t, k); q = 0; } else { x86_4col_pad(o, t, k, 24); q = t + r; ql = tl - r; } }
+            else if (!join) o.append((size_t)24, ' ');
             if (q) {
                 size_t m = 0; while (m < ql && q[m] != ' ' && q[m] != '\t') m++;
-                std::string op(q, m);
-                size_t r2 = m;
+                std::string op(q, m); size_t r2 = m;
                 if ((m == 3 && !strncmp(q, "rep", 3)) || (m == 4 && (!strncmp(q, "repe", 4) || !strncmp(q, "repz", 4) || !strncmp(q, "lock", 4))) || (m == 5 && (!strncmp(q, "repne", 5) || !strncmp(q, "repnz", 5)))) {
                     size_t w = m; while (w < ql && (q[w] == ' ' || q[w] == '\t')) w++;
-                    if (w < ql) { size_t m2 = w; while (m2 < ql && q[m2] != ' ' && q[m2] != '\t') m2++; op += ' '; op.append(q + w, m2 - w); r2 = m2; }
-                }
+                    if (w < ql) { size_t m2 = w; while (m2 < ql && q[m2] != ' ' && q[m2] != '\t') m2++; op += ' '; op.append(q + w, m2 - w); r2 = m2; } }
                 while (r2 < ql && (q[r2] == ' ' || q[r2] == '\t')) r2++;
-                if (op[0] == 'j') { o.append((size_t)64, ' '); if (r2 >= ql) o.append(op); else { x86_4col_pad(o, op.data(), op.size(), 6); o.append(q + r2, ql - r2); } inst = 1; isj = 1; }
+                if (op[0] == 'j') { if (!join) x86_4col_to(o, ls, CJ); if (r2 >= ql) o.append(op); else { x86_4col_pad(o, op.data(), op.size(), 6); o.append(q + r2, ql - r2); } inst = 1; isj = 1; }
                 else if (r2 >= ql) { o.append(op); inst = 1; }
                 else { x86_4col_pad(o, op.data(), op.size(), 17); o.append(q + r2, ql - r2); inst = 1; }
             }
         }
-        if (inst && !note.empty()) { if (!isj && note != prevnote && o.find('#', ls) == std::string::npos) { int w = x86_disp_w(o.data() + ls, o.size() - ls); int pd = 88 - w; if (pd < 1) pd = 1; o.append((size_t)pd, ' '); o.append("# "); o.append(note); prevnote = note; } if (!isj) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row -- `# A / # A` on the load pair, `# result / # result` on the store pair.  The name belongs to the OBJECT, not to each half of it, so a note identical to the one already standing on the PREVIOUS instruction line is suppressed and the run reads once at its head.  Tracked on INSTRUCTION lines only: a jump between two references does not break the run (it takes no note by the drop-on-jump rule and so cannot separate them), while a DIFFERENT name legitimately ends the run and re-arms.  prevnote resets per chunk with the fold state, so a run cannot leak across a bb_emit_x86 boundary and silently swallow the first note of the next box. */
-        o.append(1, '\n');
-        i = (e == std::string::npos) ? n : e + 1;
+        if (inst && !note.empty()) { int drop = isj || willjoin; if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, 88); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
+        pend = (ck == 0 || ck == 4) ? 4 : ck; pls = ls;
+        i = inext;
     }
+    if (pend) o.append(1, '\n');
     if (!note.empty()) { o.append("#@"); o.append(note); o.append(1, '\n'); }
     x86_argnote(o);   /* ARG-NOTE (ON-3, s23d): the backward walk runs on the FORMATTED lines, so it sees the same GOTO column the note fold uses and cannot disturb it — an already-noted line keeps its term. */
     return o;
