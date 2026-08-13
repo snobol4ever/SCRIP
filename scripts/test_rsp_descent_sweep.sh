@@ -7,12 +7,13 @@
 #   BOMB_FRETURN/BOMB_NRETURN   died at those floaters (prefix not checked — FRETURN paths diverge from oracle by design here)
 #   COMPILE_FAIL / ASM_FAIL / TIMEOUT / SIG<n> / DIFF   everything else — the bugs to fix before only depth-spots remain
 cd "$(dirname "$0")/.."
+ROOT=$PWD   # include-bearing tests (-include 'lib/*.sno') resolve against the corpus checkout: sbl is CWD-relative, scrip honors SNO_LIB (s59 harness fix; both engines verified on test_case)
 OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
 S=/tmp/dsw.s; X=/tmp/dsw.x
 for f in $(find test demo -name '*.sno' 2>/dev/null | sort); do
-  ORA=$(/home/claude/x64/bin/sbl -b "$f" </dev/null 2>/dev/null)
+  ORA=$(cd /home/claude/corpus && /home/claude/x64/bin/sbl -b "$ROOT/$f" </dev/null 2>/dev/null)
   st=
-  if ! timeout 30 ./scrip --compile "$f" </dev/null > $S 2>/tmp/dsw.cerr; then st=COMPILE_FAIL
+  if ! SNO_LIB=/home/claude/corpus timeout 30 ./scrip --compile "$f" </dev/null > $S 2>/tmp/dsw.cerr; then st=COMPILE_FAIL
   elif ! gcc -no-pie $S -L out -lscrip_rt -Wl,-rpath,$PWD/out -o $X 2>/tmp/dsw.gerr; then st=ASM_FAIL
   else
     RO=$(timeout 8 $X </dev/null 2>/tmp/dsw.rerr); rc=$?
