@@ -6794,8 +6794,10 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_PROTOTYPE) && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *a = (ARBLK_t *)args[0].arr;
-            if (a->proto) { *out = STRVAL(rt_ws_strdup_c(a->proto)); return 1; }
-            char pb[64]; if (a->lo == 1) snprintf(pb, sizeof pb, "%d", a->hi); else snprintf(pb, sizeof pb, "%d:%d", a->lo, a->hi);
+            if (a->proto) { int alldig = a->proto[0] != 0; for (const char *p = a->proto; *p; p++) if (*p < '0' || *p > '9') { alldig = 0; break; }
+                if (alldig) { *out = INTVAL(atoll(a->proto)); return 1; } *out = STRVAL(rt_ws_strdup_c(a->proto)); return 1; }
+            if (a->lo == 1) { *out = INTVAL(a->hi); return 1; }
+            char pb[64]; snprintf(pb, sizeof pb, "%d:%d", a->lo, a->hi);
             *out = STRVAL(rt_ws_strdup_c(pb)); return 1;
         }
         *out = FAILDESCR; return 1;

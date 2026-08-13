@@ -3,25 +3,25 @@
 * When a field name is reused across DATA types, the accessor dispatches
 * by the runtime type of its argument.
 
-        DATA('node(val,lson,rson)')
-        DATA('clunk(value,lson)')
+        DATA('NODE(VAL,LSON,RSON)')
+        DATA('CLUNK(VALUE,LSON)')
 
 *       node's rson accessor still works after clunk defines lson
-        a = node('x', 'y', 'z')
-        b = node()
-        lson(b) = a
-        DIFFER(rson(lson(b)), 'z')                   :f(e001)
+        A = NODE('x', 'y', 'z')
+        B = NODE()
+        LSON(B) = A
+        DIFFER(RSON(LSON(B)), 'z')                   :f(e001)
         OUTPUT = 'FAIL 1116/001: node.rson after clunk data def' :(END)
 e001
 
 *       value() (the built-in) still retrieves variable by name
-        DIFFER(VALUE('b'), b)                   :f(e002)
+        DIFFER($'B', B)                   :f(e002)
         OUTPUT = 'FAIL 1116/002: value() still works after clunk' :(END)
 e002
 
 *       clunk's own lson accessor works on a clunk instance
-        c = clunk('alpha', 'beta')
-        DIFFER(lson(c), 'beta')                   :f(e003)
+        C = CLUNK('alpha', 'beta')
+        DIFFER(LSON(C), 'beta')                   :f(e003)
         OUTPUT = 'FAIL 1116/003: clunk.lson accessor'  :(END)
 e003
 

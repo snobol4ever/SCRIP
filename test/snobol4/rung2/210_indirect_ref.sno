@@ -1,15 +1,15 @@
 * 210_indirect_ref.sno — indirect variable reference via $ operator
 * Rung 2. 2 assertions.
 
-        BAL = 'the real bal'
+        TBAL = 'the real tbal'
 
 *       $'name' looks up variable named by string
-        DIFFER($'bal', BAL)                   :f(e001)
+        DIFFER($'TBAL', TBAL)                   :f(e001)
         OUTPUT = 'FAIL 210/001: $string lookup'        :(END)
 e001
 
 *       $.var looks up variable whose name is in var
-        DIFFER($.BAL, BAL)                   :f(e002)
+        DIFFER($.TBAL, TBAL)                   :f(e002)
         OUTPUT = 'FAIL 210/002: $.var lookup'          :(END)
 e002
 
