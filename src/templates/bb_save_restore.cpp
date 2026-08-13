@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 #include "emit.h"
+extern "C" int bb_tiny_shim_ok(const char *, int);   /* s59 ONE-AUTHORITY: shim emits iff the shared site predicate (bb_call_proc_staged.cpp) says so — a jmp <fn>_alpha can never dangle */
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
@@ -63,10 +64,9 @@ std::string bb_save_restore() {
          * Addressing base r8 = extension base (= site rsp − nf*16): missing_i=[r8+i*16] (valid iff i>=K), count=[r8+nf*16], conts=[+16,+24], supplied_i=[r8+nf*16+32+i*16] — every disp positive+static.
          * Over-arity (K>nf, manual: extras evaluated+ignored) stays on the classic arm this rung — owed.  TEXT-only this seat (m3 cross-chain body-α, same owed class as fold slice-2).  Hatch
          * SCRIP_NO_TINY=1 empties this box (sites fall to slim which never jmps here). */
-        static int _nt4 = -1; if (_nt4 < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _nt4 = (_e && *_e == '1') ? 1 : 0; }
         const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4;
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
-        int ok4 = (!_nt4 && MEDIUM_TEXT && fn4 && en4) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
+        int ok4 = (MEDIUM_TEXT && fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
         if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ x86("comment", "IR_SAVE_RESTORE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma();
         int xt4 = ns4 - nf4;   /* extra = locals + unshadowed result name (probe layout: gk[0..np)=formals then locals, gk[np..ns)=result iff unshadowed) */
