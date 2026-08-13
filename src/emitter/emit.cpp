@@ -47,6 +47,16 @@ void emit_label_pool_reset(void)
 static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FLOATERS (Lon 2026-08-13): RETURN/FRETURN/NRETURN are program-wide SINGLETON blocks — output ONCE, jumpable from anywhere, labeled by their own bare names (a node-numbered label is a chain resident,
+ * not a floater).  emit_floater_kind is THE ONE membership authority: SAVE_RESTORE ival=1/2 (sno_build_graph's RETURN/FRETURN mint) and the NRETURN head (the lit_string whose γ is the SNO$NRET call).
+ * The collector EXCLUDES floaters from every chain's γ/ω expansion (RPO_PUSH conjunct) and the graph-root call seeds them as its FINAL root blocks, so they land once, near main, with main at the
+ * bottom of the file.  Cross-chain jumps resolve through the ONE shared bb_label_t per name (emit_floater_label), both media.  emit_floater_member additionally covers the NRETURN call node so the
+ * referenced-scan at the seed does not count the floaters' own internal wiring as an outside reference.  Bombs today; the coming-out restore (the pop-rbp dance) is a LATER rung — no RBP here yet. */
+static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_SAVE_RESTORE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_SAVE_RESTORE && IR_LIT(n).ival == 2) return 2; if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
+static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1; if (n->op == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1; return 0; }
+static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};
+static bb_label_t * emit_floater_label(int k) { static const char * fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0; if (!g_flt_lbl[k]) g_flt_lbl[k] = emit_label_alloc("%s", fn[k]); return g_flt_lbl[k]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
     if (g_label_pool_n >= g_label_pool_max) {
@@ -2280,7 +2290,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #define RPO_VISITED(p) ({ int _v = 0; for (int _vi = 0; _vi < sn; _vi++) if (seen[_vi] == (p)) { _v = 1; break; } _v; })
 #define RPO_MARK(p)    do { if (sn < CH_MAX) seen[sn++] = (const IR_t *)(p); } while (0)
 #define RPO_TAG_EMIT   ((IR_t *)1)
-#define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)
+#define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !emit_floater_kind(p) && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)   /* FLOATERS: never pulled into a chain's flow — seeded once as the graph-root call's final root blocks below */
 #define RPO_PUSH_SUCCS(c) \
         /* γ FIRST = popped LAST = finishes last = immediately follows (c) after the reversal */ \
         RPO_PUSH((c)->γ.node); \
@@ -2325,6 +2335,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH();
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
       if (g_emit_cfg && entry_is_own_graph_root) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a && !emit_chain_entry_already_emitted(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }   /* SN4-M34-5a: skip an anchor some earlier emit_chain call already emitted standalone (the LBL__ case) -- see the fix comment beside emit_chain_entry_already_emitted's definition. */   /* ⭐ EARN-DIV-1 (this session): THE `!g_is_text ||` DISJUNCT DELETED -- it made the ORPHAN-PROOF pull-in UNCONDITIONAL IN BINARY, and that is the whole m3/m4 `[EARN]` divergence (s48 item 3b, 11 files).  MEASURED, not reasoned: on a minimal DEFINE+LOOP repro, INC's own `proc_flat` walk arrives here with n=7 (exactly its own body) and entry=0x432820 vs g_emit_cfg->entry=0x4327d0 -- NOT EQUAL, because codegen_flat_chain_body chased its own local `entry` through the LBL__ landing relay at line ~2251 (HQ s26) while g->entry is the graph's unchased root.  In TEXT the `entry == g->entry` conjunct is therefore FALSE and the pull-in is correctly skipped (measured: m4 stays at n=7); in BINARY `!g_is_text` short-circuited the `||` and the pull-in ran anyway, walking anchors 1/2/3 -- main's own IR_GOTO label landings (LOOP/DONE), none of them INC's -- and dragging main's ENTIRE statement chain into INC's collection: n=7 -> 43.  Those 36 foreign nodes are then emitted a SECOND time by main's own `pat_flat` walk, which reaches the identical IR_t* objects (SN4-FLAT-PROC's shared-graph design, scrip.c:923).  Silent at runtime -- dense nids make the duplicate labels byte-identical rather than colliding, and INC's own fn pointer never reaches the appended tail -- but it is duplicate JIT'd instructions in the sealed slab and a real 1:1 violation of GOAL-MODE34-IDENTICAL.  ⛔ THE PRIOR TWO SESSIONS RULED THIS SITE OUT ON A FALSE PREMISE and it cost them the root cause: s49 recorded "zls_group_mark_anchor has zero callers, the registry is empty, _gc is 0 for this program."  DIRECTLY MEASURED HERE: _gc == 4.  The registry is populated by a DIFFERENT writer than the one grepped for.  Never re-rule-out this site from a caller grep -- print _gc.  ONE AUTHORITY: entry-identity is now the SOLE gate in both media, which is also what BOTH-MEDIUM MANDATORY requires -- a pull-in rule that fires in one medium and not the other was the violation. */
+    /* FLOATERS (Lon 2026-08-13): seed each REFERENCED floater as its own FINAL root block of the graph-root call — one RETURN, one FRETURN, one NRETURN, output once, near main, main at the bottom.
+     * Referenced = some node OUTSIDE the floater group targets it through γ or ω (the NRETURN call's own γ=RETURN / ω=FRETURN wiring is group-internal and must not count, or every program would grow
+     * all three blocks for any one landing).  Direct queue write bypasses RPO_PUSH's floater conjunct; RPO_DRAIN's visited mark still dedupes.  Seed order 1..3 fixes block order RETURN, FRETURN, NRETURN. */
+    { if (g_emit_cfg && entry_is_own_graph_root) { int _refd[4] = {0, 0, 0, 0};
+          for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi]; int _fk = emit_floater_kind(_fn); if (!_fk || _refd[_fk]) continue;
+              for (int _rj = 0; _rj < g_emit_cfg->n && !_refd[_fk]; _rj++) { IR_t * _r = g_emit_cfg->all[_rj]; if (_r && _r != _fn && !emit_floater_member(_r) && (_r->γ.node == _fn || _r->ω.node == _fn)) _refd[_fk] = 1; } }
+          if (_refd[3]) _refd[1] = _refd[2] = 1;   /* the SNO$NRET call is wired γ=RETURN / ω=FRETURN, so a referenced NRETURN pulls both siblings in — group-internal wiring, invisible to the outside-only scan above (claws5 ASM_FAIL witness: FRETURN referenced from n1208_call, never defined) */
+          for (int _fk = 1; _fk <= 3; _fk++) { if (!_refd[_fk]) continue; for (int _fi = 0; _fi < g_emit_cfg->n; _fi++) { IR_t * _fn = g_emit_cfg->all[_fi]; if (!_fn || emit_floater_kind(_fn) != _fk || RPO_VISITED(_fn)) continue;
+              if (qt < Q_MAX) { queue[qt++] = _fn; RPO_DRAIN(); RPO_FLUSH(); } } } } }
     /* pass 2: generator ω tails not reached by pass 1 -- iterate to convergence (the RPO refactor
      * made this a one-shot loop over nodes[0..n-1], missing ω-tails of generators added BY pass-2
      * itself; chained every-loops: n3/IR_TO_BY ω→n5 adds n5..n9 incl n8/IR_TO_BY, whose ω→n10
@@ -2468,8 +2487,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     { extern int zls_off(const IR_t *); for (int _oi = 0; _oi < n; _oi++) if (nodes[_oi]->op == IR_MATCH_BEGIN) { int _ho = zls_off(nodes[_oi]); if (_ho >= 0) own_mark = _ho + 16; break; } }
     for (int i = 0; i < n; i++) {
         int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(nodes[i]->op);
-        { IR_t * _fl = nodes[i]; if (_fl->op == IR_SAVE_RESTORE && IR_LIT(_fl).ival == 1) _kn = "RETURN"; else if (_fl->op == IR_SAVE_RESTORE && IR_LIT(_fl).ival == 2) _kn = "FRETURN"; else if (_fl->op == IR_LIT_STRING && _fl->γ.node && _fl->γ.node->op == IR_CALL && IR_LIT(_fl->γ.node).sval && !strcmp(IR_LIT(_fl->γ.node).sval, "SNO$NRET")) _kn = "NRETURN"; }   /* FLOATER NAMES (Lon 2026-08-13): the program-wide RETURN/FRETURN/NRETURN landings are FLOATERS — one block, jumpable from anywhere — and their labels say so; 'save_restore' was the union-kind name leaking into the .s.  Roles keyed off ival (1=RETURN, 2=FRETURN, the sno_build_graph mint); NRETURN's head is the lit_string whose γ is the SNO$NRET call.  Bombs today; the coming-out restore (the pop-rbp dance) is a LATER rung — no RBP here yet. */
         lbls[i]  = emit_label_alloc("n%d_%s_α", _uid, _kn);
+        { int _flk = emit_floater_kind(nodes[i]); if (_flk) lbls[i] = emit_floater_label(_flk); }   /* FLOATERS (Lon 2026-08-13): the singleton landing's α IS the bare program-wide label (RETURN / FRETURN / NRETURN) — the ONE shared bb_label_t, defined here in the graph-root chain, referenced by name from every jumper in every chain.  A node-numbered label is a chain resident, not a floater. */
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_ry", _uid, _kn) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_rt", _uid, _kn) : NULL;
@@ -2574,10 +2593,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (gamma_is_phi) { node_γ = node_γ; }   /* SEQ-ERAD SE-5/SE-6: fc_seq_phi_tgt deleted; LOWER wires φ-edges directly */
             break;
         }
+        { int _flk = emit_floater_kind(gtgt); if (_flk && node_γ == &lbl_γ) node_γ = emit_floater_label(_flk); }   /* FLOATERS: a jump into a floater from ANY chain resolves to the ONE bare program-wide label — the floater is excluded from this chain's nodes[], so the k-scan above cannot find it */
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }   /* SEQ-ERAD SE-5/SE-6: fc_seq_phi_tgt deleted */
+        if (!omega_resolved) { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }   /* FLOATERS: ω twin of the γ fallback above */
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         /* BB-OWNED-ζ STEP 1: true death iff this ω-edge falls all the way through to the chain's own outer
          * lbl_ω (never resolved inside the local chain) AND the unresolved target isn't a success-fallthrough
