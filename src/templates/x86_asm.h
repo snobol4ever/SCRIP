@@ -1547,7 +1547,7 @@ static inline int x86_4col_kind(const char * p, size_t len, int * hasl) {
 inline std::string x86_4col(const std::string & s) {
     if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
-    const int jn = x86_4col_joinon(); const int CJ = jn ? 68 : 88;
+    const int jn = x86_4col_joinon(); const int CJ = jn ? 78 : 88;   /* GOTO column (Lon s62: 68 was TOO FAR LEFT -- 12 of 167 jump lines overran it and landed ragged at 69-70; +10 restores a clean column with headroom) */
     std::string o; o.reserve(s.size() + s.size() / 2);
     std::string note, prevnote;   /* RUN-DEDUP (s23f): prevnote = the name standing on the previous INSTRUCTION line; both reset per x86_4col call (per chunk) so a run cannot leak across a bb_emit_x86 boundary. */
     size_t i = 0, n = s.size();
