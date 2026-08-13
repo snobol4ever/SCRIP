@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 }
 #include "x86_asm.h"
-extern "C" void *rt_flat_ret_snap(void);
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GLUE-1 FLAT (Lon directive s21x-n: "Devise two glue codes, one flat jumps and the second the same plus setup of stack frame" + "You might have to put some IF logic in the templates for implementing
  * the FOUR ZETA modes, which is fine").  THE FLAT GLUE: a BB's own storage bracket with NO frame pointer -- the box enters, carves its cell with ONE instruction, and every port transition is a plain jmp.
@@ -125,14 +124,12 @@ std::string bb_glue_outer_ω() {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
     if (!PLATFORM_X86) return std::string();
-    return x86_align_enter()
-         + x86("call", "rt_flat_ret_snap", (uint64_t)(uintptr_t)(void *)rt_flat_ret_snap)
-         + x86_align_leave()
-         + x86("mov", "rcx", RDQ("rax", is_gamma ? 0 : 8))
-         + std::string("")
-         /* ZW-0 stage 2: island r12 restore from wire snap deleted -- unreachable under ZC_FRAME_RSP default */
-         + x86("mov", "rsp", RDQ("rax", 16))
-         + x86("jmp", "rcx");
+    /* ⛔⭐⭐⭐ GLOBALS-GONE s55 (Lon in-chat): rt_flat_ret_snap ERADICATED with the g_pcall record.  The wire pair
+     * rides rΓ=r10 · rΩ=r11 (LADDER WREG, set at the site / role-3 adopt) — this glue IS the floater spelling now,
+     * one authority both places.  ⛔ KNOWN INCOMPLETE until the RBP-era coming-out lands: rsp is NOT restored to
+     * entry depth here (the record that banked it is gone); entry-only per Lon s55: "You are just getting the
+     * going in part, not the coming out part." */
+    return x86("jmp", is_gamma ? "r10" : "r11");
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_γ() { return bb_glue_wire_exit(1); }

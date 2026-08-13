@@ -6,9 +6,6 @@ extern "C" {
 #include "bb_templates.h"
 #include "ab_abi.h"
 #include "pin_va.h"
-void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb);
-void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb, void *r12v);
-void *rt_flat_ret_snap(void);
 long  rt_proc_call_open_slim(const char *name, int np, int nargs);
 int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int   bb_scc_handoff_arm(void);

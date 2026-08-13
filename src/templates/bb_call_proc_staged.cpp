@@ -286,13 +286,14 @@ static std::string bcps_det_arm() {
                         + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_oz)
                         + x86("test", "rax", "rax")
                         + x86("je", L(5))
+                        + x86("mov", "r10", "rax")   /* GLOBALS-GONE s55: open_slim's return IS the transfer target (rax channel, record eradicated); parked in r10 across the install loop (rax/r8 clobbered there) — r10 is dead until the callee's role-3 adopt overwrites it from rcx */
                         + FOR(0, (int)_.op_ival, [&](int i) {
                               return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
                                    + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str())
                                    + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16), "rax")
                                    + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str())
                                    + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
-                        + x86("call", "rt_proc_open_fn", openfn_fp_z)
+                        + x86("mov", "rax", "r10")   /* GLOBALS-GONE s55: rt_proc_open_fn crossing DELETED — the record it read is gone; fn rode the open return */
                         + bb_glue_pass_wires(6, 7)
                         + x86("def", L(6))
                         + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))

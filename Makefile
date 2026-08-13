@@ -69,7 +69,6 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_misc.S \
     $(RT)/rtx/rtx_alloc.S \
     $(RT)/rtx/rtx_str.S \
-    $(RT)/rtx/rtx_call.S \
     $(RT)/rtx/rtx_arith.S \
     $(RT)/rtx/rtx_icnvar.S \
     $(RT)/rtx/rtx_icnnum.S \
@@ -79,7 +78,6 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_icngen.S \
     $(RT)/rtx/rtx_icncall.S \
     $(RT)/rtx/rtx_icnsub.S \
-    $(RT)/rtx/rtx_plcall.S \
     $(RT)/rtx/rtx_plunify.S \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rtx/rtcc_init.c \
