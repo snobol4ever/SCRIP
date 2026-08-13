@@ -1332,7 +1332,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, (t->t == TT_TAB) ? IR_MATCH_TAB : IR_MATCH_RTAB, succ, NULL);
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("TAB/RTAB requires a count argument", NULL);
-        if (t->c[0]->t == TT_ILIT || t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
+        if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }   /* CONST-AT-LOWER (Lon 2026-08-13): the folded value RIDES THE NODE (LEN's TT_ILIT shape) — no IR_LIT_INTEGER chain operand is minted, so no dead 16B cell is ever emitted or released.  n_operands==0 == folded; an operand present == supplied by an IR_LIT chain or pre-chain node. */
+        if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
         sno_pre_req(cx, t, nd);
         return nd;
     }
@@ -1340,7 +1341,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, (t->t == TT_RPOS) ? IR_MATCH_RPOS : IR_MATCH_POS, succ, NULL);
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
-        if (t->c[0]->t == TT_ILIT || t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
+        if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }   /* CONST-AT-LOWER (Lon 2026-08-13): twin of the TAB/RTAB arm above — value rides the node, n_operands==0 == folded.  This retires the n3_lit_integer dead-cell shape (roman.s RPOS(1)) and with it the CONST-WPOP orphan-release the emitter carried for it. */
+        if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
         sno_pre_req(cx, t, nd);
         return nd;
     }
