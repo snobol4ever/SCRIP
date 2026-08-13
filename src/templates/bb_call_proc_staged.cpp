@@ -294,7 +294,7 @@ static std::string bcps_det_arm() {
                                    + x86("mov", "rax", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str())
                                    + x86("note", gva_name(scc_gk_z[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[i] * 16 + 8), "rax"); })
                         + x86("mov", "rax", "r10")   /* GLOBALS-GONE s55: rt_proc_open_fn crossing DELETED — the record it read is gone; fn rode the open return */
-                        + bb_glue_pass_wires(6, 7)
+                        + bb_glue_pass_wires_blob(6, 7)   /* ⭐ FUNCTION LINKAGE s55 (Lon in-chat): "R10 and R11 for success and fail return address ... just like any BB BLOB interface" — site-set wires, adopt hop DELETED (role-3 emits nothing) */
                         + x86("def", L(6))
                         + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
                         + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
@@ -419,8 +419,7 @@ static std::string bcps_det_arm() {
              * merged shape); rax==0 = runtime decline (redefined / fastpath-off / prototype drift) → sr0 already released its block → fall to L(5) = the classic sequence verbatim, at base depth. */
             ? x86("test", "rax", "rax")
             + x86("je", L(5))
-            + x86("call", "rt_proc_open_fn", openfn_fp)
-            + bb_glue_pass_wires(6, 7)   /* GLUE-SYM (s22x): the ONE pass-through spelling -- byte-identical to the hand-rolled trio it replaces */
+            + bb_glue_pass_wires_blob(6, 7)   /* FUNCTION LINKAGE s55: open_slim's return IS the target (rax channel; rt_proc_open_fn crossing DELETED — read an eradicated record); site-set r10/r11 wires */
             + x86("def", L(6))
             + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
             + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
@@ -482,14 +481,15 @@ static std::string bcps_det_arm() {
                     + x86("call", "rt_proc_call_open_slim", (uint64_t)scc_fp_o)
                     + x86("test", "rax", "rax")
                     + x86("je", L(5))
+                    + x86("mov", "r10", "rax")   /* FUNCTION LINKAGE s55: fn rides the open return; parked across the install loop (rax clobbered), r10 dead until the site's own lea below */
                     + FOR(0, (int)_.op_ival, [&](int i) {
                           int slot = bcps_arg_slot(_.node, argblks, i);
                           return (c2farm() ? x86_rsp_load64("rax", (int)scc_sb) : x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot, (int)scc_sb)))
                                + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16), "rax")
                                + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
                                + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
-                    + x86("call", "rt_proc_open_fn", openfn_fp)
-                    + bb_glue_pass_wires(6, 7)
+                    + x86("mov", "rax", "r10")   /* FUNCTION LINKAGE s55: rt_proc_open_fn crossing DELETED */
+                    + bb_glue_pass_wires_blob(6, 7)
                     + x86("def", L(6))
                     + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
                     + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
