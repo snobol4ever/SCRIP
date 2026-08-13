@@ -2,7 +2,8 @@
 #include <cstdint>
 #include "emit.h"
 extern "C" int bb_tiny_shim_ok(const char *, int);   /* s59 ONE-AUTHORITY: shim emits iff the shared site predicate (bb_call_proc_staged.cpp) says so — a jmp <fn>_alpha can never dangle */
-static int fnrbp(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_RBP"); v = e ? atoi(e) : 1; if (v < 0 || v > 2) v = 1; } return v; }   /* s63/s64 FUNCTION-linkage arms: 0 = s58 BOMB floaters (descent instrument) · 1 = RBP bracket (s63, proven) · 2 = RSP-ONLY (s64, Lon's challenge): the shim pushes the 16B {γ,ω} pair at TOS and the floaters find it by DEPTH-INVARIANCE — no anchor register; sound iff every statement boundary in the body is depth-neutral, so under =2 a leaking statement shape pops junk as a code address and dies LOUD at the jmp: the failure list IS the leak census, program-granular.  One predicate gates writer + readers, drift-proof. */
+static int fnrbp(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_RBP"); v = e ? atoi(e) : 1; if (v < 0 || v > 2) v = 1; } return v; }
+static int fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* SIG s66: MUST agree with bcps_fnsig (bb_call_proc_staged.cpp) — same env read, same default, two coherent worlds never mixed */   /* s63/s64 FUNCTION-linkage arms: 0 = s58 BOMB floaters (descent instrument) · 1 = RBP bracket (s63, proven) · 2 = RSP-ONLY (s64, Lon's challenge): the shim pushes the 16B {γ,ω} pair at TOS and the floaters find it by DEPTH-INVARIANCE — no anchor register; sound iff every statement boundary in the body is depth-neutral, so under =2 a leaking statement shape pops junk as a code address and dies LOUD at the jmp: the failure list IS the leak census, program-granular.  One predicate gates writer + readers, drift-proof. */
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
@@ -97,6 +98,88 @@ std::string bb_save_restore() {
                             + x86("mov", "rax", R8Q(16L * i + 8)) + x86("mov", GQ(gk4[i], 8), "rax")
                             + x86_deflabel_id(lid + 30 + i); })
                  + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
+        if (fnsig()) {
+            /* ⭐⭐⭐ SIG s66 SHIM (Lon in-chat: the site publishes "a STATIC MAP of how to reach them all" and the shim "can REACH DOWN the stack himself and avoid the middle man pushes").  Protocol:
+             * site sets rcx = &sig {[0]=K, [8]=γcont, [16]=ωcont, [24+8i]=off_i entry-rsp-relative} and jmps here; the actuals never moved — they sit in the CALLER'S OWN operand cells at [entry+off_i],
+             * and entry rsp IS the reference point (= rsp at the site's jmp = this frame's base + F4).  WHAT DIES vs the s58 record shim: the K-dependent max-carve + clamp + give-back (was recomputed on
+             * ALL THREE faces α/γ/ω), the dual r8 derivations, and the two-arm release constant — the frame is a per-DEFINE CONSTANT F4 = T4 + nf*16 (extras+wires+sigbank+pad, then nf extension slots
+             * used only for missing formals), and the release is one immediate.  The swap stays the manual-Ch.8 pushdown-by-swap, relocated: supplied formal i ⇒ SWAP [entry+off_i] ↔ formal-GVA (old
+             * formal parks in the caller's own cell, restored one-way at γ/ω exactly as the record copy was); missing ⇒ old formal into extension slot [rsp+T4+16i], formal←null.  Over-arity: i≥nf sig
+             * entries are simply never read; the extras stay caller-resident and statement_end releases them with every other operand cell.  Recursion is LIFO by construction (each activation swaps its
+             * OWN caller's cells and restores them before that caller resumes).  Registers: rcx=sig (banked at [16*xt4+16], replacing the K bank), rdx=K, r8=entry rsp, rdi/rsi swap scratch in α (r11
+             * scratch in γ/ω before its reload); result rides rdi:rsi across the γ restore as before.  SCRIP_FN_SIG=0 restores the s58 record shim below, byte-identical. */
+            long F4 = T4 + 16L * nf4;
+            auto SIGQ = [&](long d) { return std::string("[rcx + ") + std::to_string(d) + "]"; };
+            auto EXTQ = [&](long d) { return std::string("[rsp + ") + std::to_string(T4 + d) + "]"; };
+            auto R8AT = [&]() { return x86("lea", "r8", std::string("[rsp + ") + std::to_string(F4) + "]"); };
+            auto FRESTORE = [&](int lid) {   /* shared γ/ω: sig from bank, K, r8=entry, extras reversed, formals via sig offsets (supplied) or extension (missing); leaves rcx=sig; r11 scratch pre-reload */
+                return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
+                     + x86("mov", "rdx", SIGQ(0))
+                     + R8AT()
+                     + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
+                           return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
+                                + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
+                     + FOR(0, nf4, [&](int i) {
+                           return x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", lid + i)
+                                + x86("mov", "r11", SIGQ(24 + 8L * i)) + x86("add", "r11", "r8")
+                                + x86("mov", "rax", "[r11 + 0]") + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
+                                + x86("mov", "rax", "[r11 + 8]") + x86("mov", GQ(gk4[i], 8), "rax")
+                                + x86_jmp_id(lid + 30 + i)
+                                + x86_deflabel_id(lid + i)
+                                + x86("mov", "rax", EXTQ(16L * i).c_str()) + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
+                                + x86("mov", "rax", EXTQ(16L * i + 8).c_str()) + x86("mov", GQ(gk4[i], 8), "rax")
+                                + x86_deflabel_id(lid + 30 + i); })
+                     + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
+            return x86("comment", "IR_SAVE_RESTORE role 4: SIG s66 per-DEFINE shim (alpha=swap-by-map, gamma/omega=restore-by-map, CONSTANT frame)")
+                 + x86_alpha()
+                 + x86_def_ext(emit_label_intern(la.c_str()))
+                 + x86("sub", "rsp", F4)
+                 + FOR(0, xt4, [&](int k) {
+                       return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
+                            + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
+                            + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
+                 + x86_rsp_store64(16 * xt4, "r10") + x86_rsp_store64(16 * xt4 + 8, "r11") + x86_rsp_store64(16 * xt4 + 16, "rcx")
+                 + x86("mov", "rdx", SIGQ(0))
+                 + R8AT()
+                 + FOR(0, nf4, [&](int i) {
+                       return x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", 10 + i)
+                            + x86("mov", "rdi", SIGQ(24 + 8L * i)) + x86("add", "rdi", "r8")
+                            + x86("mov", "rax", "[rdi + 0]") + x86("note", gva_name(gk4[i])) + x86("mov", "rsi", GQ(gk4[i], 0)) + x86("mov", GQ(gk4[i], 0), "rax") + x86("mov", "[rdi + 0]", "rsi")
+                            + x86("mov", "rax", "[rdi + 8]") + x86("mov", "rsi", GQ(gk4[i], 8)) + x86("mov", GQ(gk4[i], 8), "rax") + x86("mov", "[rdi + 8]", "rsi")
+                            + x86_jmp_id(41 + i)
+                            + x86_deflabel_id(10 + i)
+                            + x86("note", gva_name(gk4[i])) + x86("mov", "rax", GQ(gk4[i], 0)) + x86("mov", EXTQ(16L * i).c_str(), "rax")
+                            + x86("mov", "rax", GQ(gk4[i], 8)) + x86("mov", EXTQ(16L * i + 8).c_str(), "rax")
+                            + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[i], 8), (long)0)
+                            + x86_deflabel_id(41 + i); })
+                 + x86("lea", "r10", std::string("[rip + __]"), (uint64_t)0, lb.c_str())
+                 + x86("lea", "r11", std::string("[rip + __]"), (uint64_t)0, lo.c_str())
+                 + IF(fnrbp() == 1, x86("comment", "s63 RBP-FUNCTION WRITER (see the s58 arm's full comment — unchanged under SIG)")
+                             + x86("sub", "rsp", (long)8)
+                             + x86("push", "r11")
+                             + x86("push", "r10")
+                             + x86("push", "rbp")
+                             + x86("mov", "rbp", "rsp"))
+                 + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
+                             + x86("push", "r11")
+                             + x86("push", "r10"))
+                 + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, blb.c_str())
+                 + x86("jmp", "rax")
+                 + x86_def_ext(emit_label_intern(lb.c_str()))
+                 + x86("note", gva_name(rgx)) + x86("mov", "rdi", GQ(rgx, 0)) + x86("mov", "rsi", GQ(rgx, 8))
+                 + FRESTORE(80)
+                 + x86("mov", "rcx", SIGQ(8))
+                 + x86("add", "rsp", F4)
+                 + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
+                 + x86("jmp", "rcx")
+                 + x86_def_ext(emit_label_intern(lo.c_str()))
+                 + FRESTORE(150)
+                 + x86("mov", "rcx", SIGQ(16))
+                 + x86("add", "rsp", F4)
+                 + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+                 + x86("jmp", "rcx")
+                 + x86_gamma();
+        }
         return x86("comment", "IR_SAVE_RESTORE role 4: TINY-REAL s58 per-DEFINE shim (alpha=swap/extend, beta/omega=restore)")
              + x86_alpha()
              + x86_def_ext(emit_label_intern(la.c_str()))
