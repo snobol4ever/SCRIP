@@ -10,7 +10,7 @@
 #include "pin_va.h"
 extern "C" {
 extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
-extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 0=OFF(default), 1=ON(SCRIP_RTCC=1) */
+extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 1=ON(default, s13), 0=OFF(SCRIP_RTCC=0, emergency bisect only) */
 long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
 /* RC-5 (s11): RTCC_SLOT_R8/R9, RTCC_GLOBAL_R8_ANCHOR, RTCC_GLOBAL_R9_GVA and RTCC_GVA_REG were DUPLICATED here
