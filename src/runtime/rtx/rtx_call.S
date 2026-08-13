@@ -81,9 +81,9 @@ RTX_GATE_DEF(call)
  */
 RTX_FUNC(rt_proc_call_epilogue_γ)
     RTX_GATE(call, c_rt_proc_call_epilogue_γ)
-    sub     rsp, 80
-    mov     qword ptr [rsp - 1], rdi         /* park frame0 across the tidy call  */
-    mov     qword ptr [rsp - 1], rsi
+    sub     rsp, 88                         /* RSP-ONLY (RBP-ERAD s53): entry rsp%16==8, -88 => 0-aligned calls; slots [rsp+0..79], pad [80..87]; the two exits add rsp,88 — exact α/ω pair */
+    mov     qword ptr [rsp+0], rdi          /* park frame0 across the tidy call  */
+    mov     qword ptr [rsp+8], rsi
     dec     dword ptr [rip + rt_k_level]    /* hidden => rip-direct, one op      */
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -98,31 +98,31 @@ RTX_FUNC(rt_proc_call_epilogue_γ)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rsp - 1], xmm0
-    movdqu  xmmword ptr [rsp - 1], xmm1
-    movdqu  xmmword ptr [rsp - 1], xmm2
-    movdqu  xmmword ptr [rsp - 1], xmm3
-    mov     rax, qword ptr [rsp - 1]    /* c.p                               */
+    movdqu  xmmword ptr [rsp+16], xmm0      /* c lives at [rsp+16..79]           */
+    movdqu  xmmword ptr [rsp+32], xmm1
+    movdqu  xmmword ptr [rsp+48], xmm2
+    movdqu  xmmword ptr [rsp+64], xmm3
+    mov     rax, qword ptr [rsp+16+PC_P]    /* c.p                               */
     test    rax, rax
     je      .Lg_body
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lg_body
-    mov     edi, dword ptr [rsp - 1]
-    mov     rsi, qword ptr [rsp - 1]
-    lea     rdx, [rsp - 1]
+    mov     edi, dword ptr [rsp+16+PC_VTMARK]
+    mov     rsi, qword ptr [rsp+16+PC_FB]
+    lea     rdx, [rsp+96]                   /* first byte above this activation == entry+8, the old frame_address(0)+16 */
     call    rt_value_trail_tidy_dead_window
 .Lg_body:
-    lea     rdi, [rsp - 1]                   /* &c — must outlive the call, so    */
+    lea     rdi, [rsp+16]                   /* &c — must outlive the call, so    */
     xor     esi, esi                        /* this is a call, never a tail jmp  */
-    mov     rdx, qword ptr [rsp - 1]         /* frame0 pair as arg 3              */
-    mov     rcx, qword ptr [rsp - 1]
+    mov     rdx, qword ptr [rsp+0]          /* frame0 pair as arg 3              */
+    mov     rcx, qword ptr [rsp+8]
     call    rt_proc_epilogue_body
-    leave
+    add     rsp, 88
     ret
 .Lg_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    leave
+    add     rsp, 88
     ret
 RTX_ENDF(rt_proc_call_epilogue_γ)
 
@@ -136,7 +136,7 @@ RTX_ENDF(rt_proc_call_epilogue_γ)
  */
 RTX_FUNC(rt_proc_call_epilogue_ω)
     RTX_GATE(call, c_rt_proc_call_epilogue_ω)
-    sub     rsp, 64
+    sub     rsp, 72                         /* RSP-ONLY: entry%16==8, -72 => aligned; c at [rsp+0..63]; exits add rsp,72 */
     dec     dword ptr [rip + rt_k_level]
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -151,31 +151,31 @@ RTX_FUNC(rt_proc_call_epilogue_ω)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rsp - 1], xmm0
-    movdqu  xmmword ptr [rsp - 1], xmm1
-    movdqu  xmmword ptr [rsp - 1], xmm2
-    movdqu  xmmword ptr [rsp - 1], xmm3
-    mov     rax, qword ptr [rsp - 1]
+    movdqu  xmmword ptr [rsp+0], xmm0
+    movdqu  xmmword ptr [rsp+16], xmm1
+    movdqu  xmmword ptr [rsp+32], xmm2
+    movdqu  xmmword ptr [rsp+48], xmm3
+    mov     rax, qword ptr [rsp+PC_P]
     test    rax, rax
     je      .Lw_body
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lw_body
-    mov     edi, dword ptr [rsp - 1]
-    mov     rsi, qword ptr [rsp - 1]
-    lea     rdx, [rsp - 1]
+    mov     edi, dword ptr [rsp+PC_VTMARK]
+    mov     rsi, qword ptr [rsp+PC_FB]
+    lea     rdx, [rsp+80]                   /* entry+8, first byte above this activation */
     call    rt_value_trail_tidy_dead_window
 .Lw_body:
-    lea     rdi, [rsp - 1]
+    lea     rdi, [rsp+0]
     mov     esi, 1                          /* failed = 1                        */
     xor     edx, edx                        /* NULVCL: v = DT_SNUL, slen = 0     */
     lea     rcx, [rip + .Lrtx_nulstr]       /* NULVCL: .s = ""                   */
     call    rt_proc_epilogue_body
-    leave
+    add     rsp, 72
     ret
 .Lw_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    leave
+    add     rsp, 72
     ret
 RTX_ENDF(rt_proc_call_epilogue_ω)
 
@@ -252,9 +252,9 @@ RTX_ENDF(rt_proc_call_epilogue_ω)
  */
 RTX_FUNC(rt_proc_call_epilogue_slim_γ)
     RTX_GATE(call, c_rt_proc_call_epilogue_slim_γ)
-    sub     rsp, 80
-    mov     qword ptr [rsp - 1], rdi
-    mov     qword ptr [rsp - 1], rsi
+    sub     rsp, 88                          /* RSP-ONLY: entry%16==8, -88 => aligned; result [rsp+0..15], c [rsp+16..79]; exits add rsp,88 */
+    mov     qword ptr [rsp+0], rdi
+    mov     qword ptr [rsp+8], rsi
     dec     dword ptr [rip + rt_k_level]     /* hidden => rip-direct              */
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -269,49 +269,49 @@ RTX_FUNC(rt_proc_call_epilogue_slim_γ)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rsp - 1], xmm0
-    movdqu  xmmword ptr [rsp - 1], xmm1
-    movdqu  xmmword ptr [rsp - 1], xmm2
-    movdqu  xmmword ptr [rsp - 1], xmm3
-    mov     rax, qword ptr [rsp - 1]
+    movdqu  xmmword ptr [rsp+16], xmm0
+    movdqu  xmmword ptr [rsp+32], xmm1
+    movdqu  xmmword ptr [rsp+48], xmm2
+    movdqu  xmmword ptr [rsp+64], xmm3
+    mov     rax, qword ptr [rsp+16+PC_P]
     test    rax, rax
     je      .Lsg_sigma
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lsg_sigma
-    mov     edi, dword ptr [rsp - 1]
-    mov     rsi, qword ptr [rsp - 1]
-    lea     rdx, [rsp - 1]                    /* see the bound discussion above    */
+    mov     edi, dword ptr [rsp+16+PC_VTMARK]
+    mov     rsi, qword ptr [rsp+16+PC_FB]
+    lea     rdx, [rsp+96]                    /* entry+8: first byte above this activation */
     call    rt_value_trail_tidy_dead_window
 .Lsg_sigma:
     mov     rax, qword ptr [rip + Σ@GOTPCREL]     /* exported => GOT, not lea     */
-    mov     rcx, qword ptr [rsp - 1]
+    mov     rcx, qword ptr [rsp+16+PC_SAVE_S]
     mov     qword ptr [rax], rcx
     mov     rax, qword ptr [rip + Σlen@GOTPCREL]
-    mov     ecx, dword ptr [rsp - 1]
+    mov     ecx, dword ptr [rsp+16+PC_SAVE_SLEN]
     mov     dword ptr [rax], ecx                  /* Σlen is int, 4-byte store    */
-    mov     rdi, qword ptr [rsp - 1]
-    mov     rsi, qword ptr [rsp - 1]
-    mov     edx, dword ptr [rsp - 1]
+    mov     rdi, qword ptr [rsp+0]
+    mov     rsi, qword ptr [rsp+8]
+    mov     edx, dword ptr [rsp+16+PC_WN]
     call    rt_nret_fix                           /* de-static'd + hidden, s187   */
-    mov     qword ptr [rsp - 1], rax
-    mov     qword ptr [rsp - 1], rdx
+    mov     qword ptr [rsp+0], rax
+    mov     qword ptr [rsp+8], rdx
     mov     rcx, qword ptr [rip + g_monitor_bin@GOTPCREL]
     cmp     dword ptr [rcx], 0
     je      .Lsg_ret
-    mov     rcx, qword ptr [rsp - 1]
+    mov     rcx, qword ptr [rsp+16+PC_P]
     mov     rdi, qword ptr [rcx + PROC_NAME]
-    mov     rsi, qword ptr [rsp - 1]
-    mov     rdx, qword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp+0]
+    mov     rdx, qword ptr [rsp+8]
     call    mon_emit_return_bin
 .Lsg_ret:
-    mov     rax, qword ptr [rsp - 1]
-    mov     rdx, qword ptr [rsp - 1]
-    leave
+    mov     rax, qword ptr [rsp+0]
+    mov     rdx, qword ptr [rsp+8]
+    add     rsp, 88
     ret
 .Lsg_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    leave
+    add     rsp, 88
     ret
 RTX_ENDF(rt_proc_call_epilogue_slim_γ)
 
@@ -324,7 +324,7 @@ RTX_ENDF(rt_proc_call_epilogue_slim_γ)
  */
 RTX_FUNC(rt_proc_call_epilogue_slim_ω)
     RTX_GATE(call, c_rt_proc_call_epilogue_slim_ω)
-    sub     rsp, 80
+    sub     rsp, 88                          /* RSP-ONLY: entry%16==8, -88 => aligned; result [rsp+0..15], c [rsp+16..79]; exits add rsp,88 */
     dec     dword ptr [rip + rt_k_level]
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -339,49 +339,49 @@ RTX_FUNC(rt_proc_call_epilogue_slim_ω)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rsp - 1], xmm0
-    movdqu  xmmword ptr [rsp - 1], xmm1
-    movdqu  xmmword ptr [rsp - 1], xmm2
-    movdqu  xmmword ptr [rsp - 1], xmm3
-    mov     rax, qword ptr [rsp - 1]
+    movdqu  xmmword ptr [rsp+16], xmm0
+    movdqu  xmmword ptr [rsp+32], xmm1
+    movdqu  xmmword ptr [rsp+48], xmm2
+    movdqu  xmmword ptr [rsp+64], xmm3
+    mov     rax, qword ptr [rsp+16+PC_P]
     test    rax, rax
     je      .Lsw_sigma
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lsw_sigma
-    mov     edi, dword ptr [rsp - 1]
-    mov     rsi, qword ptr [rsp - 1]
-    lea     rdx, [rsp - 1]
+    mov     edi, dword ptr [rsp+16+PC_VTMARK]
+    mov     rsi, qword ptr [rsp+16+PC_FB]
+    lea     rdx, [rsp+96]
     call    rt_value_trail_tidy_dead_window
 .Lsw_sigma:
     mov     rax, qword ptr [rip + Σ@GOTPCREL]
-    mov     rcx, qword ptr [rsp - 1]
+    mov     rcx, qword ptr [rsp+16+PC_SAVE_S]
     mov     qword ptr [rax], rcx
     mov     rax, qword ptr [rip + Σlen@GOTPCREL]
-    mov     ecx, dword ptr [rsp - 1]
+    mov     ecx, dword ptr [rsp+16+PC_SAVE_SLEN]
     mov     dword ptr [rax], ecx
     mov     edi, DT_FAIL                          /* FAILDESCR word0 = (0<<32)|99 */
     xor     esi, esi                              /* FAILDESCR word1 = 0          */
-    mov     edx, dword ptr [rsp - 1]
+    mov     edx, dword ptr [rsp+16+PC_WN]
     call    rt_nret_fix
-    mov     qword ptr [rsp - 1], rax
-    mov     qword ptr [rsp - 1], rdx
+    mov     qword ptr [rsp+0], rax
+    mov     qword ptr [rsp+8], rdx
     mov     rcx, qword ptr [rip + g_monitor_bin@GOTPCREL]
     cmp     dword ptr [rcx], 0
     je      .Lsw_ret
-    mov     rcx, qword ptr [rsp - 1]
+    mov     rcx, qword ptr [rsp+16+PC_P]
     mov     rdi, qword ptr [rcx + PROC_NAME]
-    mov     rsi, qword ptr [rsp - 1]
-    mov     rdx, qword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp+0]
+    mov     rdx, qword ptr [rsp+8]
     call    mon_emit_return_bin
 .Lsw_ret:
-    mov     rax, qword ptr [rsp - 1]
-    mov     rdx, qword ptr [rsp - 1]
-    leave
+    mov     rax, qword ptr [rsp+0]
+    mov     rdx, qword ptr [rsp+8]
+    add     rsp, 88
     ret
 .Lsw_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    leave
+    add     rsp, 88
     ret
 RTX_ENDF(rt_proc_call_epilogue_slim_ω)
 
