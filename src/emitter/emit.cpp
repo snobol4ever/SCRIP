@@ -1497,8 +1497,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_MATCH_TAB: case IR_MATCH_RTAB: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = -1;
-        if (!a0) { drive_unowned(nd); break; }
-        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
+        if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }   /* CONST-AT-LOWER (Lon 2026-08-13): n_operands==0 == the count RIDES THE NODE (lower folded it, LEN's shape) — no chain cell exists, so no wpop and no slot */
+        else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1506,8 +1506,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_MATCH_POS: case IR_MATCH_RPOS: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         g_emit.op_off = -1;
-        if (!a0) { drive_unowned(nd); break; }
-        if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; { extern int fc_frameless_fpr_rsp(const IR_t *); if (g_zd_arm && fc_frameless_fpr_rsp(a0)) g_emit.op_wpop += 16; } }   /* ⭐ ZD-5b POS/RPOS CONST-WPOP (s31/s32): const arg ZD-armed in FORTH mode → LIT_INT's 16B on rsp, never read via ZOPQ; orphaned on failure. fc_frameless_fpr_rsp = THE ONE AUTHORITY (zeta_storage.c OS-2·SLICE-ARBNO-FPR: ZC_PORT_FORTH && !fc_geom). g_zd_arm = per-run gate (LIT_INT armed this compile). op_wpop+=16 arms x86_fc_jcc_omega: je Lγ / add rsp,16 / jmp ω. N21 ARBNO right-spine witness. */
+        if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }   /* CONST-AT-LOWER (Lon 2026-08-13): n_operands==0 == the position RIDES THE NODE (lower folded it, LEN's shape) — no chain cell, so NO CONST-WPOP: the 16B orphan that hack released never exists on this arm */
+        else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; { extern int fc_frameless_fpr_rsp(const IR_t *); if (g_zd_arm && fc_frameless_fpr_rsp(a0)) g_emit.op_wpop += 16; } }   /* ⭐ ZD-5b POS/RPOS CONST-WPOP (s31/s32): const arg ZD-armed in FORTH mode → LIT_INT's 16B on rsp, never read via ZOPQ; orphaned on failure. fc_frameless_fpr_rsp = THE ONE AUTHORITY (zeta_storage.c OS-2·SLICE-ARBNO-FPR: ZC_PORT_FORTH && !fc_geom). g_zd_arm = per-run gate (LIT_INT armed this compile). op_wpop+=16 arms x86_fc_jcc_omega: je Lγ / add rsp,16 / jmp ω. N21 ARBNO right-spine witness. */
         else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
