@@ -1154,7 +1154,7 @@ int main(int argc, char **argv)
                     ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
                     if (pe->dyn_scope) continue;   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_ab_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
                     emit_textf("  .section .rodata\n");
-                    { const char *_rn = proc_names_buf[i]; if (_rn && strncmp(_rn, "LBL__", 5) == 0) _rn = asm_sym_name(_rn + 5); emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _rn); }   /* STATEMENT-ORDER (s62): LBL__<N> rows register under the entry-label name (strip prefix) — ARG(.jlab,1) looks up "jlab", not "LBL__jlab"; registering under "LBL__jlab" left the lookup empty and ARG returned wrong results */
+                    emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: the LBL__<N> row registers under its OWN name — an earlier s62 attempt stripped the prefix so ARG/LOCAL would find "jlab", which MEASURABLY diverged from the sbl oracle on 1017_arg_local (oracle returns the prototype name as written; the stripped-name lookup resolved to the upcased formal and flipped every assertion).  The oracle is the law: register the name the table holds. */
                     if (pe->dyn_scope) {
                         for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
                             emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
