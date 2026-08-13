@@ -27,7 +27,7 @@ std::string bb_glue_framed_enter() {
    /* ⭐ ___-KILL (Lon s51 directive: "establish EVERYTHING as RSP and when it breaks turn it into an ___") -- the EMPIRICAL license discovery, replacing the predicate-first approach.  Keep the carve (the cell region is real and its consumers read it), drop ONLY the base-pointer ceremony.  The BROKEN set of board_patterns_set.sh under this arm IS the license set: whatever fails here is a construct that genuinely reads a cell across an unknown-size span and earns its frame back; whatever still passes never needed one.  This cannot under-detect the way earn_hazard_in does (measured: it returns 0 for 95/95 ASSIGN_SAVE nodes -- a capture family that never once earns across 122 pattern programs is a stuck classifier, not a measurement). */
     return std::string("")
          + std::string("")
-         + x86("sub", "rsp", ((_.op_fc_bytes + 8 + 15) & ~15L) - 8);
+         + x86("sub", "rsp", ((_.op_fc_bytes + 15) & ~15L));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE LEAVE SIDE TAKES NO K BY DESIGN -- that is the entire reason the framed flavor exists.  `mov rsp, ___` discards the activation WHOLESALE, at whatever depth it actually reached, without anyone
@@ -36,7 +36,7 @@ std::string bb_glue_framed_enter() {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_leave() {
     if (!PLATFORM_X86) return std::string();
-    return x86("add", "rsp", ((_.op_fc_bytes + 8 + 15) & ~15L) - 8);
+    return x86("add", "rsp", ((_.op_fc_bytes + 15) & ~15L));
    /* ___-KILL: the enter arm emitted no push and no pin, so there is nothing to discard -- and `mov rsp,___` against a base this arm never established would load a STALE ___ into rsp, which is the exact failure bb_glue_framed.cpp's own header names ("Reversing (1)/(3) or omitting (1) while keeping (3) loads the CRT caller's ___ into rsp").  The statement-terminal op_zgpop release is the sole authority for freeing the carve under this arm, which is what the FORTH-spine model says it always should have been. */
     return std::string("")
          + std::string("");
