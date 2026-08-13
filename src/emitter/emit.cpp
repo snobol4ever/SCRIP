@@ -2468,6 +2468,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     { extern int zls_off(const IR_t *); for (int _oi = 0; _oi < n; _oi++) if (nodes[_oi]->op == IR_MATCH_BEGIN) { int _ho = zls_off(nodes[_oi]); if (_ho >= 0) own_mark = _ho + 16; break; } }
     for (int i = 0; i < n; i++) {
         int _uid = g_flat_node_id++; const char * _kn = flat_label_kind(nodes[i]->op);
+        { IR_t * _fl = nodes[i]; if (_fl->op == IR_SAVE_RESTORE && IR_LIT(_fl).ival == 1) _kn = "RETURN"; else if (_fl->op == IR_SAVE_RESTORE && IR_LIT(_fl).ival == 2) _kn = "FRETURN"; else if (_fl->op == IR_LIT_STRING && _fl->γ.node && _fl->γ.node->op == IR_CALL && IR_LIT(_fl->γ.node).sval && !strcmp(IR_LIT(_fl->γ.node).sval, "SNO$NRET")) _kn = "NRETURN"; }   /* FLOATER NAMES (Lon 2026-08-13): the program-wide RETURN/FRETURN/NRETURN landings are FLOATERS — one block, jumpable from anywhere — and their labels say so; 'save_restore' was the union-kind name leaking into the .s.  Roles keyed off ival (1=RETURN, 2=FRETURN, the sno_build_graph mint); NRETURN's head is the lit_string whose γ is the SNO$NRET call.  Bombs today; the coming-out restore (the pop-rbp dance) is a LATER rung — no RBP here yet. */
         lbls[i]  = emit_label_alloc("n%d_%s_α", _uid, _kn);
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_ry", _uid, _kn) : NULL;
