@@ -320,21 +320,19 @@ static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block) {
     std::string wb;
-    uint64_t slot_rax = block;  /* RTCC_SLOT_RAX=0 → block+0 */
-    /* Step 1: RAX → slot 0 via absolute moffs encoding (REX.W + A3 + addr64); no base register, no rsp touch */
-    wb += (char)0x48; wb += (char)0xA3; wb += u64le(slot_rax);                   /* mov qword [block+0], rax */
-    /* Step 2: movabs rax, block — RAX now = block pointer; original RAX already saved in slot 0 */
+    /* RC-8b (this session, FINDING pending): the ARG TIER {RAX,RCX,RDX,RSI,RDI} writeback is confirmed dead --
+     * exhaustive codebase search (x86_asm.h's own reload, rtcc_load_scratch, keywords.c's ANCHOR companion,
+     * and the hand-written inline-asm reload sites in rt.c/runtime_eval.c) shows every single reader of
+     * g_rtcc_block touches ONLY offsets 40+ (the scratch tier R8/R9/R10/R11); offsets 0/8/16/24/32 are never
+     * read back by anything.  Dropped the 5 arg-tier stores (RAX's own slot-0 save included -- nothing reads
+     * slot 0 either).  RAX still loads the block address: it remains the base register for the scratch-tier
+     * stores below, that role is independent of whether RAX's OWN pre-call value gets snapshotted anywhere. */
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);                      /* movabs rax, block */
-    /* Step 3: store remaining 8 GPRs via RAX as base */
-    wb += (char)0x48; wb += (char)0x89; wb += (char)0x48; wb += (char)8;          /* mov [rax+8],  rcx  (RCX slot 1) */
-    wb += (char)0x48; wb += (char)0x89; wb += (char)0x50; wb += (char)16;         /* mov [rax+16], rdx  (RDX slot 2) */
-    wb += (char)0x48; wb += (char)0x89; wb += (char)0x70; wb += (char)24;         /* mov [rax+24], rsi  (RSI slot 3) */
-    wb += (char)0x48; wb += (char)0x89; wb += (char)0x78; wb += (char)32;         /* mov [rax+32], rdi  (RDI slot 4) */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40;         /* mov [rax+40], r8   (R8  slot 5) */
     if (!RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }   /* mov [rax+48], r9 (R9 slot 6) -- SKIPPED under the GVA claim: see H2 note above x86_rtcc_wb_bin */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56;         /* mov [rax+56], r10  (R10 slot 7) */
     wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64;         /* mov [rax+64], r11  (R11 slot 8) */
-    /* RAX left = block pointer (original RAX is in slot 0).  Caller uses RAX for indirect call stub. */
+    /* RAX left = block pointer.  Caller uses RAX for indirect call stub. */
     return wb;
 }
 /* x86_rtcc_rl_bin — BINARY: reload GPRs from g_rtcc_block.                                                      */
@@ -354,20 +352,16 @@ static inline std::string x86_rtcc_rl_bin(uint64_t block) {
 }
 static inline std::string x86_rtcc_wb_text(void) {
     std::string wb;
-    /* RSP-SAFETY: no push/pop.  Save RAX first via direct symbol reference (no base register needed).      */
-    /* gas .intel_syntax accepts 'mov [sym], rax' as an absolute address store using a direct memory ref.   */
-    /* After saving RAX, load block address into RAX and use it as base for the remaining 8 stores.         */
-    wb += " mov qword ptr [g_rtcc_block + 0], rax\n";   /* RAX → slot 0 (direct symbol, no base needed) */
-    wb += " mov rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";   /* rax = block ptr (original rax saved) */
-    wb += " mov qword ptr [rax + 8],  rcx\n";
-    wb += " mov qword ptr [rax + 16], rdx\n";
-    wb += " mov qword ptr [rax + 24], rsi\n";
-    wb += " mov qword ptr [rax + 32], rdi\n";
+    /* RC-8b (this session): arg tier {RAX,RCX,RDX,RSI,RDI} writeback dropped -- confirmed dead by exhaustive
+     * codebase search, see x86_rtcc_wb_bin's comment for the full account.  RAX still loads the block address
+     * as the base register for the scratch-tier stores that remain; its own pre-call value is no longer saved
+     * anywhere since nothing ever read slot 0 back either. */
+    wb += " mov rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
     wb += " mov qword ptr [rax + 40], r8\n";
     if (!RTCC_GLOBAL_R9_GVA) wb += " mov qword ptr [rax + 48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
     wb += " mov qword ptr [rax + 56], r10\n";
     wb += " mov qword ptr [rax + 64], r11\n";
-    /* rax left = block ptr; original rax in slot 0; call stub follows directly */
+    /* rax left = block ptr; call stub follows directly */
     return wb;
 }
 static inline std::string x86_rtcc_rl_text(void) {
