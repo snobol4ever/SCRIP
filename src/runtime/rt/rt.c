@@ -519,7 +519,6 @@ __attribute__((constructor)) static void rt_pin_init(void) {
     if (p != (void *)RT_PIN_BASE) { fprintf(stderr, "rt_pin_init: RT_PIN_BASE 0x%lx unavailable (got %p) -- REG-0 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_PIN_BASE, p); abort(); }
     void * g = mmap((void *)RT_GVA_VA, RT_GVA_ISLAND_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
     if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
-    *(volatile uint64_t *)RT_AB_ANCHOR = 0;   /* AB-2: ACT-ANCHOR init — no active frame */
     *(volatile uint64_t *)RT_AB_NRET   = 0;   /* AB-2: NRET discriminator init — no pending NRETURN */
     { extern void rt_dcap_lazy_init(void); rt_dcap_lazy_init(); }   /* REG-6 PEND-PROMOTE: the outer-graph prologue SEEDS r12 from [RT_DCAP_TOP] before any match runs, so the island init can no longer ride rt_match_enter's lazy call alone -- chain it here, after the pin map it writes through, deterministic in BOTH modes (this constructor lives in scrip and libscrip_rt.so alike).  rt_match_enter's call stays as an idempotent no-op. */
 }
@@ -1133,31 +1132,14 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval) {
  * same nesting — which is precisely why an assembly call/ret may carry it.  Depth-safe: grows like g_name_save.
  * Behaviour is preserved EXACTLY, including each caller's own pre-existing want-name clear ordering on the
  * not-found path (hence wn is passed IN rather than captured in the prologue). */
-typedef struct {
-    rt_proc_t  *p;
-    const char *rname;
-    const char *save_Σ;
-    int         save_Σlen;
-    int         save_base;
-    int         wn;
-    int         lex;        /* 0 = dyn-scope protocol (SNOBOL4 DEFINE), 1 = lexical (frame-bound args) */
-    int         nargs;      /* lexical only: args to bind at frame_prep time */
-    void       *fb;         /* lexical only: the frame, for the [fb+0] result read */
-    int         vtmark;     /* RSP-F-2: value-trail top at call-open — the γ/ω landings tidy dead-stack entries pushed since (see rt_value_trail_tidy_dead_below in resolution.c) */
-} rt_pcall_t;
-_Static_assert(sizeof(rt_pcall_t) == 64 && __builtin_offsetof(rt_pcall_t, p) == 0 && __builtin_offsetof(rt_pcall_t, save_Σ) == 16, "rtx_call.S bakes PC_P/PC_SAVE_S and the shl 6 stride");
-_Static_assert(__builtin_offsetof(rt_pcall_t, save_Σlen) == 24 && __builtin_offsetof(rt_pcall_t, wn) == 32 && __builtin_offsetof(rt_pcall_t, fb) == 48 && __builtin_offsetof(rt_pcall_t, vtmark) == 56, "rtx_call.S slice-2 offsets");
-_Static_assert(__builtin_offsetof(rt_pcall_t, rname) == 8 && __builtin_offsetof(rt_pcall_t, save_base) == 28 && __builtin_offsetof(rt_pcall_t, lex) == 36 && __builtin_offsetof(rt_pcall_t, nargs) == 40, "rtx_plcall.S bakes PC_RNAME/PC_SAVE_BASE/PC_LEX/PC_NARGS for the RTX-1-PL open port");
-_Static_assert(CALL_ARGS_MAX == 64, "rtx_plcall.S bakes the nargs clamp as an immediate");
+/* rt_pcall_t + g_pcall + g_pcall_wires ERADICATED (Lon s55 in-chat: "Remove g_pcall* regardless of who uses them. We do not do that here.").  Linkage rides r10/r11 wires + the stack. */
 extern int  rt_value_trail_mark(void);
 extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
 extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
-__attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
-__attribute__((visibility("hidden"))) int         g_pcall_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [___+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [___+(nparams+j+1)*16]. Both media call this C function. */
     char *base = (char *)base_p;
-    int nargs = (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].nargs : 0;
+    int nargs = nparams;   /* GLOBALS-GONE s55: record eradicated; assume full formals until the stack-resident record lands (going-in only) */
     int na = (nargs < nparams) ? nargs : nparams;
     for (int i = 0; i < na; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int i = na; i < nparams; i++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _n; }
@@ -1169,95 +1151,18 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {   /* I
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
-__attribute__((visibility("hidden"))) int         g_pcall_cap;
-/* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
- * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
- * ___) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
- * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
-typedef struct { void *gw; void *ww; void *rsp; void *fb; void *r12; } rt_flat_wires_t;
-__attribute__((visibility("hidden"))) rt_flat_wires_t *g_pcall_wires;
-__attribute__((visibility("hidden"))) rt_flat_wires_t  g_flat_ret_snapbuf;
-_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, fb) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
+/* rt_flat_wires_t / g_pcall_wires / g_flat_ret_snapbuf ERADICATED (Lon s55). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
     for (int i = 0; i < g_name_save_top; i++) rt_gc_visit_descr(&g_name_save[i].old);
-    for (int i = 0; i < g_pcall_top; i++) rt_gc_visit_raw(&g_pcall[i].save_Σ);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) void rt_pcall_grow(void)
-{
-    if (g_pcall_top < g_pcall_cap) return;
-    int nc = g_pcall_cap ? g_pcall_cap * 2 : 1024;
-    rt_pcall_t *np = (rt_pcall_t *)rt_ws_realloc(g_pcall, (size_t)nc * sizeof(rt_pcall_t));
-    if (!np) return;
-    rt_flat_wires_t *nw = (rt_flat_wires_t *)rt_ws_realloc(g_pcall_wires, (size_t)nc * sizeof(rt_flat_wires_t));
-    if (!nw) return;
-    g_pcall = np; g_pcall_wires = nw; g_pcall_cap = nc;
-}
+/* rt_pcall_grow ERADICATED (s55) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RTX-4 CALL UNIT BATTERY SUPPORT (rtx_call_test.c) — exported thin accessors so the test can reach hidden globals.  Each does exactly one thing; no test logic lives here.  rt_pcall_test_push()
- * writes a synthetic slot (must be called after rt_pcall_grow has ensured capacity) and increments g_pcall_top; rt_pcall_test_pop() decrements it.  rt_pcall_test_wire_get() copies the wire slot at
- * index idx into *out.  rt_pcall_test_snap_buf() returns &g_flat_ret_snapbuf.  rt_pcall_test_top() reads g_pcall_top.  rt_pcall_test_wire_set() writes all five fields of the wire slot at idx. */
-void rt_pcall_test_push(void *proc_ptr, const char *rname)
-{
-    rt_pcall_grow();
-    int top = g_pcall_top;
-    memset(&g_pcall[top], 0, sizeof(rt_pcall_t));
-    g_pcall[top].p     = (rt_proc_t *)proc_ptr;
-    g_pcall[top].rname = rname;
-    g_pcall_top = top + 1;
-}
-void rt_pcall_test_pop(void) { if (g_pcall_top > 0) g_pcall_top--; }
-int  rt_pcall_test_top(void) { return g_pcall_top; }
-void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *fb, void *r12)
-{
-    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) return;
-    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].fb = fb; g_pcall_wires[idx].r12 = r12;
-}
-void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **fb, void **r12)
-{
-    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*fb=*r12=(void*)0; return; }
-    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *fb=g_pcall_wires[idx].fb; *r12=g_pcall_wires[idx].r12;
-}
-void *rt_pcall_test_snap_buf(void) { return (void *)&g_flat_ret_snapbuf; }
-void  rt_pcall_test_snap_buf_set_all(unsigned char v) { memset(&g_flat_ret_snapbuf, v, sizeof(rt_flat_wires_t)); }
-void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **fb, void **r12)
-{
-    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *fb=g_flat_ret_snapbuf.fb; *r12=g_flat_ret_snapbuf.r12;
-}
-void rt_pcall_test_wire_null_set(void)
-{
-    if (!g_pcall_wires || g_pcall_top <= 0) return;
-    memset(&g_pcall_wires[g_pcall_top - 1], 0, sizeof(rt_flat_wires_t));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SN4-FLAT-PROC leaves.  wire_adopt: the stub blob's WIRE-ADOPT box calls here right after the jmp-entry prologue — copy the just-saved header wires plus the restore state into the record the open
- * pushed one call boundary up (LIFO: the top record IS this activation's).  Guard top==0: a blob entered with no open activation (LBL__/CODE chain-enter) has nothing to adopt into and nothing will
- * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
- * PEEK (never pop) the top record's wires into a static quad and return its address; rax:rdx ride untouched through the floater's tail so the γ landing's epilogue sees exactly what it sees today.
- * Level-0 transfer to RETURN/FRETURN = runtime error (Lon s175 ruling; SPITBOL erred here too rather than exiting). */
-void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb)
-{
-    if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb = fb; w->r12 = 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb, void *r12v)
-{
-    if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb = fb; w->r12 = r12v; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *c_rt_flat_ret_snap(void)
-{
-    if (g_pcall_top <= 0) { extern void core_runtime_error(int, const char *); core_runtime_error(18, (const char *)0); exit(1); }   /* SN4-FLAT-PROC: manual/SPITBOL error class "Return from level zero" (core_err_msgs[18]) — routed through the core machinery so &ERROR/SETEXIT trapping applies; the exit is unreachable belt-and-braces (core exits or longjmps) */
-    { rt_flat_wires_t *w = g_pcall_wires ? &g_pcall_wires[g_pcall_top - 1] : (rt_flat_wires_t *)0;
-      if (!w || !w->gw || !w->ww) { fprintf(stderr, "[SNO] RETURN: open call for '%s' carries no return wires (activation was not flat-adopted)\n", g_pcall[g_pcall_top - 1].p ? g_pcall[g_pcall_top - 1].p->name : "?"); exit(1); }
-      g_flat_ret_snapbuf = *w;
-      return &g_flat_ret_snapbuf; }
-}
+/* RTX-4 test-battery accessors ERADICATED with the record (s55); rtx_call_test.c deleted. */
+/* c_rt_flat_wire_adopt / rt_flat_wire_adopt_isle / c_rt_flat_ret_snap ERADICATED (s55): the wire pair rides r10/r11 set at the site; no bank, no snap. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PROLOGUE LEAF — everything from resolve_cells through the monitor call event.  Returns the 16-aligned frame
  * byte count the caller must make available at fb; pushes the call context.  Strict leaf: calls no BB. */
@@ -1275,14 +1180,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    rt_pcall_grow();
-    if (g_pcall_top < g_pcall_cap) {
-        rt_pcall_t *c = &g_pcall[g_pcall_top];
-        c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = save_base; c->wn = wn;
-        c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
-        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
-    }
-    g_pcall_top++;
+    /* GLOBALS-GONE s55: record push ERADICATED — going-in keeps resolve/save/install/monitor/k_level */
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     rt_k_level++;
     return fbytes;
@@ -1296,28 +1194,15 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
  * constant and the shim below is deleted.  Strict leaf: calls no BB.  ⚠ The c.lex arm is PORT-AGNOSTIC today —
  * it reads [fb+0] whether the callee reached RETURN or FRETURN, ignoring the port entirely.  Preserved VERBATIM
  * here (this refactor is watermark-neutral by construction); it needs a ruling before the transfer converts. */
-__attribute__((visibility("hidden"))) DESCR_t rt_proc_epilogue_body(const rt_pcall_t *c, int failed, DESCR_t frame0)
-{
-    if (c->lex) return failed ? FAILDESCR : rt_nret_fix(frame0, c->wn);
-    Σ = c->save_Σ; Σlen = c->save_Σlen;
-    DESCR_t *rcell = rt_call_fastpath_ok() ? c->p->rcell : (DESCR_t *)0;
-    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(c->rname));
-    result = rt_nret_fix(result, c->wn);
-    rt_name_restore(c->save_base);
-    if (g_monitor_bin) mon_emit_return_bin(c->p->name, result);
-    return result;
-}
+/* rt_proc_epilogue_body ERADICATED with the record (s55). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* γ ENTRY — RETURN and NRETURN.  Manual Ch.8: RETURN yields a value for the caller.  NRETURN yields a NAME and
  * is a γ citizen too — lower_snobol4.c routes its SNO$NRET node to exitnd, the same γ as RETURN, the flag
  * riding in rt_g_ret_by_name.  There is no fifth port (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS). */
 DESCR_t c_rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
-    rt_k_level--;
-    if (g_pcall_top <= 0) return FAILDESCR;
-    rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM (PL-DC s108): exact dead activation [c.fb, landing), replacing the frame-size-luck band — see resolution.c */
-    return rt_proc_epilogue_body(&c, 0, frame0);
+    rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
+    return frame0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
@@ -1325,11 +1210,8 @@ DESCR_t c_rt_proc_call_epilogue_γ(DESCR_t frame0)
  * signal (s61 RULING 1); no frame value is read — s62 ruling (c): a failing lexical proc returns FAILDESCR. */
 DESCR_t c_rt_proc_call_epilogue_ω(void)
 {
-    rt_k_level--;
-    if (g_pcall_top <= 0) return FAILDESCR;
-    rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);   /* RSP-F-2 WINDOW FORM: same as the γ landing */
-    return rt_proc_epilogue_body(&c, 1, NULVCL);
+    rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
+    return FAILDESCR;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BP-7 SCC SLIM LEAVES — the static-save-set call convention (GOAL-SNOBOL4-BB BP-7).  The emitted static arm performs the save-set old-value saves (GVA cell → caller rsp block) and the arg installs
@@ -1348,41 +1230,22 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     for (int k = nargs; k < np; k++) { if (p->pcells && p->pcells[k]) *p->pcells[k] = NULVCL; else if (p->pnames && p->pnames[k]) NV_SET_fn(p->pnames[k], NULVCL); }
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
-    rt_pcall_grow();
-    if (g_pcall_top < g_pcall_cap) {
-        rt_pcall_t *c = &g_pcall[g_pcall_top];
-        c->p = p; c->rname = rname; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = -1; c->wn = wn;
-        c->lex = 0; c->nargs = 0; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
-        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
-    }
-    g_pcall_top++;
+    /* GLOBALS-GONE s55: record push ERADICATED — going-in keeps resolve/save/install/monitor/k_level */
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     rt_k_level++;
-    return 1;
+    return (long)(uintptr_t)(void *)p->fn;   /* GLOBALS-GONE s55: record eradicated */ /* rax channel: nonzero == admitted AND the transfer target — c_rt_proc_open_fn crossing deleted from the site */
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_proc_call_epilogue_slim_γ(DESCR_t result)
 {
-    rt_k_level--;
-    if (g_pcall_top <= 0) return FAILDESCR;
-    rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);
-    Σ = c.save_Σ; Σlen = c.save_Σlen;
-    result = rt_nret_fix(result, c.wn);
-    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
+    rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
     return result;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_proc_call_epilogue_slim_ω(void)
 {
-    rt_k_level--;
-    if (g_pcall_top <= 0) return FAILDESCR;
-    rt_pcall_t c = g_pcall[--g_pcall_top];
-    if (c.p && !c.p->is_generator) rt_value_trail_tidy_dead_window(c.vtmark, c.fb, (char *)__builtin_frame_address(0) + 16);
-    Σ = c.save_Σ; Σlen = c.save_Σlen;
-    DESCR_t result = rt_nret_fix(FAILDESCR, c.wn);
-    if (g_monitor_bin) mon_emit_return_bin(c.p->name, result);
-    return result;
+    rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
+    return FAILDESCR;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC DIRECT-CALL FAMILY (REGAIN-1 SLICE C, 2026-07-20 s108) — the emit-time-resolved DIRECT det call: the site `call`s the callee's per-proc dc stub (m4: named `call proc_X_dcα`; m3: `call [r11]`
@@ -1463,7 +1326,7 @@ DESCR_t c_rt_gen_spine_pass_ω(void) { rt_k_level--; return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].fb : (void *)0; }   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
+void *c_rt_gen_get_fb(void) { return (void *)0; }   /* GLOBALS-GONE s55: pcall record eradicated; Icon FR-4 resume OWED a stack-resident carrier */   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ICN-FR-5 ONE-SLOT FIX: persistent generator state stack, keyed by generator____ (= frame base pinned in α).
  * FR-4 used four process globals — correct for one pending generator but silently clobbered by a second.
@@ -1557,8 +1420,7 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
      * (prologue_lex: "result read back from [fb+0]"; the s61 finding: the lex arm discards fret).
      * Lift it here so the γ entry's frame0 carries the same datum the dyn landing reads from slot 0. */
     DESCR_t frame0 = fret;
-    if (g_pcall_top > 0 && g_pcall[g_pcall_top - 1].lex && g_pcall[g_pcall_top - 1].fb)
-        frame0 = *(DESCR_t *)g_pcall[g_pcall_top - 1].fb;
+    /* GLOBALS-GONE s55: lex [fb+0] lift rode the record; passthrough until the stack-resident record lands */
     return rt_proc_call_epilogue_γ(frame0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1672,8 +1534,7 @@ DESCR_t rt_proc_enter(void *fn);
  * Strict leaf: reads the pcall record the open just pushed. */
 void *c_rt_proc_open_fn(void)
 {
-    if (g_pcall_top <= 0) return (void *)0;
-    return (void *)g_pcall[g_pcall_top - 1].p->fn;
+    return (void *)0;   /* GLOBALS-GONE s55: record eradicated */ /* fn now rides the OPEN return itself (rax channel) */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEXICAL PROLOGUE LEAF — the rt_call_proc_descr protocol: no name saves, args bound INTO the frame, result
@@ -1685,14 +1546,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-    rt_pcall_grow();
-    if (g_pcall_top < g_pcall_cap) {
-        rt_pcall_t *c = &g_pcall[g_pcall_top];
-        c->p = p; c->rname = p->name; c->save_Σ = Σ; c->save_Σlen = Σlen; c->save_base = 0; c->wn = wn;
-        c->lex = 1; c->nargs = nargs; c->fb = (void *)0; c->vtmark = rt_value_trail_mark();
-        if (g_pcall_wires) g_pcall_wires[g_pcall_top] = (rt_flat_wires_t){0, 0, 0, 0};
-    }
-    g_pcall_top++;
+    /* GLOBALS-GONE s55: record push ERADICATED — going-in keeps resolve/save/install/monitor/k_level */
     rt_k_level++;
     return fbytes;
 }
@@ -1812,12 +1666,7 @@ void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DE
  * (flat_lex gates it), and a non-lex top record no-ops defensively. */
 void rt_jmp_frame_lexprep(void *fb, long region_bytes)
 {
-    if (g_pcall_top <= 0) return;
-    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
-    if (!c->lex) return;
-    c->fb = fb;
-    { DESCR_t *zf = (DESCR_t *)fb; for (long zi = 0; zi < region_bytes / 16; zi++) zf[zi] = NULVCL; }
-    rt_frame_bind_args((char *)fb, c->p, c->nargs);
+    (void)fb; (void)region_bytes;   /* GLOBALS-GONE s55: record eradicated */ /* Icon/PL lexical prep OWED a stack-resident record */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LAZY LEXPREP LEAF (PL-REGAIN-4, 2026-07-19) — the one-call frame-init tail replacing {rep stosb zero-fill + rt_jmp_frame_lexprep's full NULVCL sweep} for DET-LEXICAL/GEN jmp-entry graphs.  zls_build's
@@ -1834,31 +1683,7 @@ extern int     g_pl_zf_target_pcall_top;   /* PL-FR-4 BUG-FIX s14: pcall_top sna
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
 {
-    if (g_pcall_top <= 0) return;
-    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
-    if (!c->lex) return;
-    c->fb = fb;
-    { static int zp = -1; if (zp < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); zp = e ? (atoi(e) != 0) : 0; } if (zp && suffix_off > 16) memset((char *)fb + 16, 0xA5, (size_t)(suffix_off - 16)); }
-    ((DESCR_t *)fb)[0] = NULVCL;
-    { DESCR_t *zf = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) zf[zi] = NULVCL; }
-    /* PL-FR-2: rt_frame_bind_args writes at [fb+(i+1)*16] (positive, inside frame). Named Prolog params live at positive offsets; anonymous vars (G0/G1) get cells via PLJ heap. */
-    rt_frame_bind_args((char *)fb, c->p, c->nargs);
-    /* PL-FR-4 PENDING RESUME OVERRIDE: write cursor+trail into the fresh frame BEFORE α_body runs.
-     * The α_body re-writes the cursor slot (same value) and n0 overwrites the trail mark.
-     * PL-FR-4 BUG-FIX (s14): write a sentinel value 1 to [fb+0] (the yield-value lo word, normally NULVCL=0 until suspend fires).
-     * α_body NEVER writes [fb+0] — only the suspend yield path does.  bb_suspend checks [___+0] for the sentinel
-     * to distinguish β-resume re-entry (1) from fresh call (0).  Per-frame: works for any recursion depth.
-     * The global g_pl_zf_pending_cursor is still checked first (quick zero test before the frame read). */
-    if (g_pl_zf_pending_cursor) {
-        int rs = g_pl_zf_pending_cursor_off;
-        if (rs > 0 && rs + 8 <= (int)region_bytes) *(void **)((char *)fb + rs) = g_pl_zf_pending_cursor;
-        int tm = g_pl_zf_pending_tm_off;
-        if (tm > 0 && tm + 8 <= (int)region_bytes) {
-            *(long *)((char *)fb + tm)     = g_pl_zf_pending_tm_lo;
-            *(long *)((char *)fb + tm + 8) = g_pl_zf_pending_tm_hi;
-        }
-        ((long *)fb)[0] = 1L;   /* PL-FR-4 BUG-FIX: sentinel at [fb+0]; bb_suspend checks this instead of the global */
-    }
+    (void)fb; (void)suffix_off; (void)region_bytes;   /* GLOBALS-GONE s55: record eradicated */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-FR-4 RETRY CONTINUATION STACK — the WAM B register for the ζ-frame regime.  THE DEFECT: MOVE_LABEL/DISJUNCTION rendezvous via [___+op_off+16]; the ζ epilogue restores ___ to the caller before
@@ -1958,7 +1783,7 @@ void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int c
     g_pl_zf_pending_tm_hi = tm_hi;
     g_pl_zf_pending_tm_off = tm_off;
     g_pl_zf_pending_cursor_off = cursor_off;
-    g_pl_zf_target_pcall_top = g_pcall_top;   /* PL-FR-4 BUG-FIX: snapshot BEFORE open_det pushes the callee pcall */
+    g_pl_zf_target_pcall_top = 0;   /* GLOBALS-GONE s55: record eradicated */ /* PL-FR-4 intercept predicate OWED a stack-resident carrier */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_zf_resume_clear(void) { g_pl_zf_pending_cursor = (void *)0; }
@@ -1969,18 +1794,8 @@ void rt_pl_zf_resume_clear(void) { g_pl_zf_pending_cursor = (void *)0; }
  * or table-index encoding is needed in either medium. */
 void *rt_frame_prep(void *fb, long fbytes)
 {
-    if (g_pcall_top <= 0) return (void *)0;
-    rt_pcall_t *c = &g_pcall[g_pcall_top - 1];
-    c->fb = fb;
-    if (c->lex) {
-        DESCR_t *zf = (DESCR_t *)fb;
-        for (long zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL;
-        rt_frame_bind_args((char *)fb, c->p, c->nargs);
-    } else {
-        memset(fb, 0, (size_t)fbytes);
-        if (g_monitor_bin) { /* dyn monitor call event already fired in the dyn prologue */ }
-    }
-    return (void *)c->p->fn;
+    (void)fb; (void)fbytes;
+    return (void *)0;   /* GLOBALS-GONE s55: record eradicated */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FAIL LEAF (NCB-1b) — the emitted call site's no-body arm.  rt_proc_call_open returns 0 when the proc has no
@@ -2192,3 +2007,13 @@ void rt_nofail_abort(void)
     core_runtime_error(35, "unexpected failure in -nofail mode");
     exit(1);   /* belt-and-braces: core_runtime_error is fatal for code 35, but rt_call_arr's setjmp may intercept the longjmp; direct exit ensures termination */
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔⭐⭐⭐ GLOBALS-GONE s55 UNPREFIXED ALIASES — rtx_call.S / rtx_plcall.S deleted with the g_pcall record they ported (Lon in-chat: "Remove g_pcall* regardless of who uses them.  We do not do that
+ * here.").  The unprefixed hot symbols they exported are still baked by templates and called by runtime C; each is now a thin jump to its record-free C body.  No RTX re-port is owed until the
+ * stack-resident record exists (RBP-era coming-out work). */
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0) { return c_rt_proc_call_epilogue_γ(frame0); }
+DESCR_t rt_proc_call_epilogue_ω(void) { return c_rt_proc_call_epilogue_ω(); }
+DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result) { return c_rt_proc_call_epilogue_slim_γ(result); }
+DESCR_t rt_proc_call_epilogue_slim_ω(void) { return c_rt_proc_call_epilogue_slim_ω(); }
+void *rt_proc_open_fn(void) { return c_rt_proc_open_fn(); }
+void *rt_proc_call_open_det(long idx, int nargs) { return c_rt_proc_call_open_det(idx, nargs); }
