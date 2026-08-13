@@ -1,37 +1,37 @@
 * 410_arith_int.sno — integer arithmetic operators and string coercions
 * Rung 4. 9 assertions.
 
-        differ(3 + 2, 5)                   :f(e001)
-        output = 'FAIL 410/001: 3+2'                   :(end)
+        DIFFER(3 + 2, 5)                   :f(e001)
+        OUTPUT = 'FAIL 410/001: 3+2'                   :(END)
 e001
-        differ(3 - 2, 1)                   :f(e002)
-        output = 'FAIL 410/002: 3-2'                   :(end)
+        DIFFER(3 - 2, 1)                   :f(e002)
+        OUTPUT = 'FAIL 410/002: 3-2'                   :(END)
 e002
-        differ(3 * 2, 6)                   :f(e003)
-        output = 'FAIL 410/003: 3*2'                   :(end)
+        DIFFER(3 * 2, 6)                   :f(e003)
+        OUTPUT = 'FAIL 410/003: 3*2'                   :(END)
 e003
-        differ(5 / 2, 2)                   :f(e004)
-        output = 'FAIL 410/004: 5/2 integer division'  :(end)
+        DIFFER(5 / 2, 2)                   :f(e004)
+        OUTPUT = 'FAIL 410/004: 5/2 integer division'  :(END)
 e004
-        differ(2 ** 3, 8)                   :f(e005)
-        output = 'FAIL 410/005: 2**3'                  :(end)
+        DIFFER(2 ** 3, 8)                   :f(e005)
+        OUTPUT = 'FAIL 410/005: 2**3'                  :(END)
 e005
 
 *       string operands coerce to integer when used arithmetically
-        differ('3' + 2, 5)                   :f(e006)
-        output = 'FAIL 410/006: string+int coerce'     :(end)
+        DIFFER('3' + 2, 5)                   :f(e006)
+        OUTPUT = 'FAIL 410/006: string+int coerce'     :(END)
 e006
-        differ(3 + '-2', 1)                   :f(e007)
-        output = 'FAIL 410/007: int+neg-string'        :(end)
+        DIFFER(3 + '-2', 1)                   :f(e007)
+        OUTPUT = 'FAIL 410/007: int+neg-string'        :(END)
 e007
-        differ('1' + '0', 1)                   :f(e008)
-        output = 'FAIL 410/008: string+string coerce'  :(end)
+        DIFFER('1' + '0', 1)                   :f(e008)
+        OUTPUT = 'FAIL 410/008: string+string coerce'  :(END)
 e008
 
 *       null coerces to zero in arithmetic
-        differ(5 + '', 5)                   :f(e009)
-        output = 'FAIL 410/009: null addend is zero'   :(end)
+        DIFFER(5 + '', 5)                   :f(e009)
+        OUTPUT = 'FAIL 410/009: null addend is zero'   :(END)
 e009
 
-        output = 'PASS 410_arith_int (9/9)'
-end
+        OUTPUT = 'PASS 410_arith_int (9/9)'
+END

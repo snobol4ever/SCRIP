@@ -1,22 +1,22 @@
 * 911_datatype.sno — DATATYPE: runtime type name as string
 * Rung 9. 4 assertions.
 
-        differ(datatype('hello'), 'string')                   :f(e001)
-        output = 'FAIL 911/001: string literal datatype' :(end)
+        DIFFER(DATATYPE('hello'), 'string')                   :f(e001)
+        OUTPUT = 'FAIL 911/001: string literal datatype' :(END)
 e001
 
-        differ(datatype(12), 'integer')                   :f(e002)
-        output = 'FAIL 911/002: integer datatype'       :(end)
+        DIFFER(DATATYPE(12), 'integer')                   :f(e002)
+        OUTPUT = 'FAIL 911/002: integer datatype'       :(END)
 e002
 
-        differ(datatype(1.33), 'real')                   :f(e003)
-        output = 'FAIL 911/003: real datatype'          :(end)
+        DIFFER(DATATYPE(1.33), 'real')                   :f(e003)
+        OUTPUT = 'FAIL 911/003: real datatype'          :(END)
 e003
 
 *       null string has datatype string, not a special null type
-        differ(datatype(''), 'string')                   :f(e004)
-        output = 'FAIL 911/004: null is string'         :(end)
+        DIFFER(DATATYPE(''), 'string')                   :f(e004)
+        OUTPUT = 'FAIL 911/004: null is string'         :(END)
 e004
 
-        output = 'PASS 911_datatype (4/4)'
-end
+        OUTPUT = 'PASS 911_datatype (4/4)'
+END

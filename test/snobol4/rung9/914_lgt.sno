@@ -2,29 +2,29 @@
 * Rung 9. 5 assertions.
 
 *       'abc' < 'xyz' lexicographically — LGT should fail
-        lgt('abc', 'xyz')          :f(e001)
-        output = 'FAIL 914/001: lgt(abc,xyz) should fail'   :(end)
+        LGT('abc', 'xyz')          :f(e001)
+        OUTPUT = 'FAIL 914/001: lgt(abc,xyz) should fail'   :(END)
 e001
 
 *       equal strings — LGT fails (strictly greater, not >=)
-        lgt('abc', 'abc')          :f(e002)
-        output = 'FAIL 914/002: lgt(abc,abc) should fail'   :(end)
+        LGT('abc', 'abc')          :f(e002)
+        OUTPUT = 'FAIL 914/002: lgt(abc,abc) should fail'   :(END)
 e002
 
 *       'xyz' > 'abc' — should succeed
-        lgt('xyz', 'abc')          :s(e003)
-        output = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(end)
+        LGT('xyz', 'abc')          :s(e003)
+        OUTPUT = 'FAIL 914/003: lgt(xyz,abc) should succeed' :(END)
 e003
 
 *       null < any non-empty string
-        lgt('', 'abc')             :f(e004)
-        output = 'FAIL 914/004: lgt(null,abc) should fail'  :(end)
+        LGT('', 'abc')             :f(e004)
+        OUTPUT = 'FAIL 914/004: lgt(null,abc) should fail'  :(END)
 e004
 
 *       any non-empty string > null
-        lgt('abc', '')             :s(e005)
-        output = 'FAIL 914/005: lgt(abc,null) should succeed' :(end)
+        LGT('abc', '')             :s(e005)
+        OUTPUT = 'FAIL 914/005: lgt(abc,null) should succeed' :(END)
 e005
 
-        output = 'PASS 914_lgt (5/5)'
-end
+        OUTPUT = 'PASS 914_lgt (5/5)'
+END

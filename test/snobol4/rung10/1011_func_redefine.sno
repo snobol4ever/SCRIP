@@ -2,22 +2,22 @@
 * Rung 10. 3 assertions.
 
 *       first definition
-        define('myfunc(n)')                            :(myfunc_end)
-myfunc  myfunc = n * 2                                 :(return)
+        DEFINE('myfunc(n)')                            :(myfunc_end)
+myfunc  myfunc = n * 2                                 :(RETURN)
 myfunc_end
-        ne(myfunc(3), 6)           :f(e001)
-        output = 'FAIL 1011/001: first definition myfunc(3)=6' :(end)
+        NE(myfunc(3), 6)           :f(e001)
+        OUTPUT = 'FAIL 1011/001: first definition myfunc(3)=6' :(END)
 e001
 
 *       redefine with new body at a different label; old binding replaced
-        differ(define('myfunc(myfunc)', 'myfunc2'))                   :f(e002)
-        output = 'FAIL 1011/002: define returns function name' :(end)
+        DIFFER(DEFINE('myfunc(myfunc)', 'myfunc2'))                   :f(e002)
+        OUTPUT = 'FAIL 1011/002: define returns function name' :(END)
 e002    :(myfunc2_end)
-myfunc2 myfunc = ne(myfunc, 1) myfunc * myfunc(myfunc - 1) :(return)
+myfunc2 myfunc = NE(myfunc, 1) myfunc * myfunc(myfunc - 1) :(RETURN)
 myfunc2_end
-        ne(myfunc(4), 24)          :f(e003)
-        output = 'FAIL 1011/003: redefined myfunc(4)=24'   :(end)
+        NE(myfunc(4), 24)          :f(e003)
+        OUTPUT = 'FAIL 1011/003: redefined myfunc(4)=24'   :(END)
 e003
 
-        output = 'PASS 1011_func_redefine (3/3)'
-end
+        OUTPUT = 'PASS 1011_func_redefine (3/3)'
+END

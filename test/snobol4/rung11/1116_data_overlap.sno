@@ -3,27 +3,27 @@
 * When a field name is reused across DATA types, the accessor dispatches
 * by the runtime type of its argument.
 
-        data('node(val,lson,rson)')
-        data('clunk(value,lson)')
+        DATA('node(val,lson,rson)')
+        DATA('clunk(value,lson)')
 
 *       node's rson accessor still works after clunk defines lson
         a = node('x', 'y', 'z')
         b = node()
         lson(b) = a
-        differ(rson(lson(b)), 'z')                   :f(e001)
-        output = 'FAIL 1116/001: node.rson after clunk data def' :(end)
+        DIFFER(rson(lson(b)), 'z')                   :f(e001)
+        OUTPUT = 'FAIL 1116/001: node.rson after clunk data def' :(END)
 e001
 
 *       value() (the built-in) still retrieves variable by name
-        differ(value('b'), b)                   :f(e002)
-        output = 'FAIL 1116/002: value() still works after clunk' :(end)
+        DIFFER(VALUE('b'), b)                   :f(e002)
+        OUTPUT = 'FAIL 1116/002: value() still works after clunk' :(END)
 e002
 
 *       clunk's own lson accessor works on a clunk instance
         c = clunk('alpha', 'beta')
-        differ(lson(c), 'beta')                   :f(e003)
-        output = 'FAIL 1116/003: clunk.lson accessor'  :(end)
+        DIFFER(lson(c), 'beta')                   :f(e003)
+        OUTPUT = 'FAIL 1116/003: clunk.lson accessor'  :(END)
 e003
 
-        output = 'PASS 1116_data_overlap (3/3)'
-end
+        OUTPUT = 'PASS 1116_data_overlap (3/3)'
+END

@@ -1,22 +1,22 @@
 * 910_convert.sno — CONVERT: explicit type coercion
 * Rung 9. 4 assertions.
 
-        differ(convert('12', 'integer'), 12)                   :f(e001)
-        output = 'FAIL 910/001: string->integer'        :(end)
+        DIFFER(CONVERT('12', 'integer'), 12)                   :f(e001)
+        OUTPUT = 'FAIL 910/001: string->integer'        :(END)
 e001
 
 *       real->integer truncates toward zero
-        differ(convert(2.5, 'integer'), 2)                   :f(e002)
-        output = 'FAIL 910/002: real->integer truncation' :(end)
+        DIFFER(CONVERT(2.5, 'integer'), 2)                   :f(e002)
+        OUTPUT = 'FAIL 910/002: real->integer truncation' :(END)
 e002
 
-        differ(convert(2, 'real'), 2.0)                   :f(e003)
-        output = 'FAIL 910/003: integer->real'          :(end)
+        DIFFER(CONVERT(2, 'real'), 2.0)                   :f(e003)
+        OUTPUT = 'FAIL 910/003: integer->real'          :(END)
 e003
 
-        differ(convert('.2', 'real'), 0.2)                   :f(e004)
-        output = 'FAIL 910/004: string->real'           :(end)
+        DIFFER(CONVERT('.2', 'real'), 0.2)                   :f(e004)
+        OUTPUT = 'FAIL 910/004: string->real'           :(END)
 e004
 
-        output = 'PASS 910_convert (4/4)'
-end
+        OUTPUT = 'PASS 910_convert (4/4)'
+END
