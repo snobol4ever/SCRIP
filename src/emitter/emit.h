@@ -539,6 +539,7 @@ typedef struct {
     const char *                 flat_lbl_γ;
     const char *                 flat_lbl_ω;
     int                          flat_text_externalise;
+    int                          flat_bare_chain;     /* BARE-CHAIN (Lon s62 "old silliness"): driver-set per SN4 flat proc chain — no proc_* wrapper labels (LBL__ chains bind ONE label <FN>_body), no res/β/γ/ω port stubs; dangling chain-level γ/ω resolve to the RETURN/FRETURN floaters, which is exactly the SPITBOL Ch.8 semantics of falling off a DEFINE body */
     const char *                 enclosing_fname;
     const char *                 prev_instr_name;
     int                          flat_wired;
