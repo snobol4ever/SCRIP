@@ -75,7 +75,7 @@ std::string bb_save_restore() {
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         std::string la = std::string(fn4) + "_alpha", lb = std::string(fn4) + "_gamma", lo = std::string(fn4) + "_omega";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly */
-        std::string blb = std::string("proc_LBL__") + en4 + "_\xce\xb1";
+        std::string blb = std::string(en4) + "_body";   /* BARE-CHAIN (Lon s62): the body chain's one label — proc_LBL__<FN>_α wrapper is gone */
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
         auto RESTORE4 = [&](int lid) {   /* shared beta/omega restore body: needs rsp at tail base; leaves rcx=K r8=ext-base; clobbers rax; preserves rdi/rsi; lid = per-instantiation label-id base (beta/omega emit this twice in ONE box — ids must not collide) */
             return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))

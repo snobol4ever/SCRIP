@@ -28,7 +28,7 @@ std::string bb_goto_dyn() {
          * wires already in r10/r11 (role-3 adopt, two boxes back), one jmp to the body α.  Zero C, zero frame, zero
          * globals.  BINARY arm stays on the transfer path below (per-call lookup, functional) — the sealed-cell
          * resolution is the owed slice-2, unchanged from s53's plan. */
-        std::string lbl = std::string("proc_LBL__") + _.op_sval + "_\xce\xb1";
+        std::string lbl = std::string(_.op_sval) + "_body";   /* BARE-CHAIN (Lon s62): the body chain's one label — proc_LBL__<FN>_α wrapper is gone */
         return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp body alpha, wires ride r10/r11, no chain, no reserve)")
              + x86_alpha()
              + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, lbl.c_str())

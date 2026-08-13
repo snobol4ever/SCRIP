@@ -251,6 +251,9 @@ struct IR_graph_t {
     int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;
+    IR_t        ** balias_node;   /* BODY-ALIAS (Lon s62): DEFINE entry statements in the ONE shared graph — the m4 driver fills these before main's emit_chain; the emitter renames that statement_begin's α to <FN>_body IN PLACE, so the entry label is bound AT the statement, at its source position, and the standalone pre-main body-chain emission is deleted.  Parallel arrays, n_balias entries; zero for every other graph (IR_alloc callocs). */
+    const char  ** balias_name;
+    int            n_balias;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
     int            ring_head;
