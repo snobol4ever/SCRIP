@@ -1,52 +1,52 @@
 * 1113_table.sno — TABLE: string/integer keys, convert, roundtrip
 * Rung 11. 8 assertions.
 
-        t = table(10)
+        t = TABLE(10)
 
 *       lookup of absent key returns null
-        differ(t<'cat'>)           :f(e001)
-        output = 'FAIL 1113/001: absent key is null'   :(end)
+        DIFFER(t<'cat'>)           :f(e001)
+        OUTPUT = 'FAIL 1113/001: absent key is null'   :(END)
 e001
 
 *       string key assign/read
         t<'cat'> = 'dog'
-        differ(t<'cat'>, 'dog')                   :f(e002)
-        output = 'FAIL 1113/002: string key assign/read' :(end)
+        DIFFER(t<'cat'>, 'dog')                   :f(e002)
+        OUTPUT = 'FAIL 1113/002: string key assign/read' :(END)
 e002
 
 *       integer key assign/read
         t<7> = 45
-        differ(t<7>, 45)                   :f(e003)
-        output = 'FAIL 1113/003: integer key assign/read' :(end)
+        DIFFER(t<7>, 45)                   :f(e003)
+        OUTPUT = 'FAIL 1113/003: integer key assign/read' :(END)
 e003
 
 *       multiple keys coexist
-        differ(t<'cat'>, 'dog')                   :f(e004)
-        output = 'FAIL 1113/004: string key survives int key add' :(end)
+        DIFFER(t<'cat'>, 'dog')                   :f(e004)
+        OUTPUT = 'FAIL 1113/004: string key survives int key add' :(END)
 e004
 
 *       TABLE -> ARRAY conversion; prototype = '2,2' (key/value columns)
-        ta = convert(t, 'array')
-        differ(prototype(ta), '2,2')                   :f(e005)
-        output = 'FAIL 1113/005: table->array prototype 2,2' :(end)
+        ta = CONVERT(t, 'array')
+        DIFFER(PROTOTYPE(ta), '2,2')                   :f(e005)
+        OUTPUT = 'FAIL 1113/005: table->array prototype 2,2' :(END)
 e005
 
 *       ARRAY -> TABLE roundtrip preserves integer key
-        ata = convert(ta, 'table')
-        differ(ata<7>, 45)                   :f(e006)
-        output = 'FAIL 1113/006: array->table int key roundtrip' :(end)
+        ata = CONVERT(ta, 'table')
+        DIFFER(ata<7>, 45)                   :f(e006)
+        OUTPUT = 'FAIL 1113/006: array->table int key roundtrip' :(END)
 e006
 
 *       roundtrip preserves string key
-        differ(ata<'cat'>, 'dog')                   :f(e007)
-        output = 'FAIL 1113/007: array->table string key roundtrip' :(end)
+        DIFFER(ata<'cat'>, 'dog')                   :f(e007)
+        OUTPUT = 'FAIL 1113/007: array->table string key roundtrip' :(END)
 e007
 
 *       bracket syntax [] equivalent to angle brackets <>
         t['cat'] = 'fish'
-        differ(t<'cat'>, 'fish')                   :f(e008)
-        output = 'FAIL 1113/008: [] and <> syntax equivalent' :(end)
+        DIFFER(t<'cat'>, 'fish')                   :f(e008)
+        OUTPUT = 'FAIL 1113/008: [] and <> syntax equivalent' :(END)
 e008
 
-        output = 'PASS 1113_table (8/8)'
-end
+        OUTPUT = 'PASS 1113_table (8/8)'
+END
