@@ -138,6 +138,17 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
     if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return scc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTHORITY: the role-4 shim's exact emit condition, shared by every tiny site — a site may jmp <fn>_alpha iff this returns 1, so the shim and its consumers can never drift (1010 linked jmps to a shim the role-4 box had declined). env+probe+formals-bounds mirror bb_save_restore verbatim; nargs kept for signature stability (arity routing stays rt_define_tiny_ok's job inside). */
+    static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
+    if (_nt || !fname) return 0;
+    if (!rt_define_tiny_ok(fname, nargs)) return 0;
+    int np = 0, ns = 0, rg = -1; int gk[64];
+    if (!bb_scc_probe(fname, 0, &np, &ns, gk, &rg)) return 0;
+    int nf = rt_proc_nformals(fname);
+    if (!(nf >= 0 && nf <= np && nf <= 29)) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Node-exact handoff: BFS emission ORDER interleaves sr0 boxes and their calls freely (measured: two role-0 boxes emitted back-to-back on the operand-position witness), but CONTROL follows the γ edge —
  * sr0 jmps directly to ITS call's α with rax + the live block riding, so runtime adjacency holds regardless of text order.  The consumer key is therefore the CALL NODE POINTER, deposited by the sr0
  * DRIVE arm (drivers own nodes; templates never see them), promoted to ARMED only when the role-0 template actually emits the prefix, and consumed in the call-family drive arm which marshals the clean
@@ -229,7 +240,7 @@ static std::string bcps_det_arm() {
         return x86_alpha()
              + x86_scan_sync_out()
              + x86_anchor_enter()
-             + ((scc_z || (_.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)))
+             + ((scc_z || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)))
                 /* s58 OVER-ARITY ROUTING, ZD twin — same as the non-ZD gate: K>nf sites reach the tiny arm (the shim discards extras); tiny-declined non-scc sites return empty and fall through. */
                 ? [&]() -> std::string {
                     /* TINY-REAL s58 ZD twin (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  Same protocol as the non-ZD twin
@@ -237,7 +248,7 @@ static std::string bcps_det_arm() {
                      * the live carve — the AB-3b spelling), locals+result NULVCL, site wires, ONE jmp to the body α; landings capture the result into rdi:rsi then reverse-restore.  Shim + g_call_args
                      * GONE from this path.  TEXT-only this seat (m3 owed: cross-chain body-α target). */
                     static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
-                    if (!_ntz && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                    if (!_ntz && MEDIUM_TEXT && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
                         /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
                         std::string laz = std::string(_.op_sval) + "_alpha";
                         long Kbz = 16L * (long)_.op_ival + 32;
@@ -463,7 +474,7 @@ static std::string bcps_det_arm() {
             + x86("def", L(5))
             + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
-         + ((scc || (_.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival))) && !c2
+         + ((scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))) && !c2
             /* s58 OVER-ARITY ROUTING: scc admission is nargs<=nformals, but the role-4 shim discards extras per the manual — a tiny-eligible K>nf site must reach the tiny arm, not fall to the
              * eradicated legacy path (measured: SEGV, no bomb).  Inside, a non-scc site that the tiny gate ALSO declines returns empty and falls through to legacy exactly as before. */
             ? [&]() -> std::string {
@@ -479,7 +490,7 @@ static std::string bcps_det_arm() {
                  * TEXT-only this seat (m3 owed: cross-chain body-α target, the same class as the fold arm's sealed-cell slice-2). */
                 static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
                 { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
-                if (!_ntiny && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                if (!_ntiny && MEDIUM_TEXT && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
                     /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
                      * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
