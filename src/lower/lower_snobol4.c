@@ -2124,6 +2124,13 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     { IR_t * bind = lc_build(g, IR_FUNC_ACTIVATE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); /* ROLE = n_operands==0 (bind) vs >=1 (block): IR_LIT is a union, ival and sval share storage — measured this session. */ lc_γ_to(anchor[i], bind); continue; }   /* AB-3a (this session): the DEFINE residual bind joins the LIVE chain — anchor -> bind -> sJ (γ), ω = fA per the statement fail convention (unused: DEFINE errors are fatal, not fail).  ival=2 selects the bind arm in the emit dispatch; sval carries fname for the fname-derived α label and the shared cell registry.  This replaces the bare skip ONLY on the folded-prototype + SCRIP_AB path; the shared legacy skip below still serves _ab=0 and unfolded shapes, keeping SCRIP_AB=0 byte-identical. */
                 }
             }
+            /* ⭐⭐⭐ DEFINE-SITE s57 (Lon in-chat: "the code for DEFINE comes directly after the statement comment ... move it there. This is shared code"): the folded DEFINE statement ALWAYS carries the
+             * bind box in the shared chain (anchor -> bind -> sJ; sJ carries the :(...) goto), independent of SCRIP_AB — the box's registration half (bb_ab_bind) is the DEFINE code AT the statement,
+             * replacing the m4 startup hoist for dyn_scope procs.  The AB=1 path above continues before reaching here (bind already minted with the cell store); this arm serves AB=0.  Non-literal
+             * prototypes fall through to the bare skip (they are outside the landed fold subset and fatal upstream at :776 anyway). */
+            { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase); const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
+              if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
+                IR_t * bind = lc_build(g, IR_FUNC_ACTIVATE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); lc_γ_to(anchor[i], bind); continue; } }
             lc_γ_to(anchor[i], sJ); continue;
         }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */

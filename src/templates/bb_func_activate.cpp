@@ -367,24 +367,53 @@ std::string bb_func_activate() {
 /* Called from scrip.c after both m3 and m4 main-chain emission.  Saves/restores g_emit and related                                                                                                   */
 /* globals so the sweep is side-effect-free from the caller's perspective.                                                                                                                             */
 std::string bb_ab_bind() {
-    /* AB-3a (this session): the DEFINE residual runtime action — ONE store fn_cell$<FN> <- &<FN>_act_α (ladder: "DEFINE residual runtime action = ONE store").  Role-2 IR_FUNC_ACTIVATE minted by the lowerer INSIDE the live chain (anchor -> bind -> sJ), replacing the bare DEFINE skip when SCRIP_AB is armed; SCRIP_AB=0 takes the legacy skip and is byte-identical.  The α label is fname-derived (bb_ab_emit_nodes lbl override: <FN>_act_α), so BOTH MEDIA reference it by NAME — TEXT resolves at assembly time, BINARY through the emit-label table with forward patching (blocks emit post-main-chain, after this store's code).  The CELL splits by medium exactly as the block emission does: TEXT = rip-lea to the .data label; BINARY = the runtime slot via the shared allocator.  K=0 transparent spine box (zd_k AB line); trailer = the bb_goto relay shape (alpha + pair_loop). */
+    /* ⭐⭐⭐ DEFINE-SITE s57 (Lon in-chat: "the code for DEFINE comes directly after the statement comment ... move it there. This is shared code"): this box IS the DEFINE statement's emitted body in the
+     * ONE shared chain — the constant-folded registration executes exactly where SPITBOL says DEFINE executes (manual Ch.8: "the DEFINE function must be executed for the definition to occur"), replacing
+     * the m4 startup hoist (scrip.c per-proc emit_textf loop, now skipped for dyn_scope) and the bare skip.  ONE crossing: rt_define_site(name, params_csv, np, nf, fb, fn) — idempotent for the m3 case
+     * (registry already populated at compile; fn==same → refresh, NO redefined poison) and the full registration for the m4 executable's first pass; a genuine re-DEFINE (different fn) sets redefined per
+     * existing semantics.  Emit-time data comes from rt_define_query(fname) — the in-process registry is populated in BOTH modes before main-chain emission (driver register loops precede emit_chain), and
+     * in m4 the proc blobs (which set frame_bytes/fn in-process) are emitted before the main chain, so the baked constants are final.  fn operand: named-symbol lea `[rip + proc_<FN>_α]` in TEXT (assembler
+     * resolves); in BINARY x86_load_ro's movabs arm bakes the ptr — the real slab fn in m3 (set before main emit), and the leaf's fn==existing check makes it a refresh either way.  R10 sanctioned RO-load
+     * divergence; ONE body, no medium branch on the registration half. */
+    /* AB-3a (retained, SCRIP_AB=1 only): the fn_cell$<FN> <- &<FN>_act_α store — the α label is fname-derived (bb_ab_emit_nodes lbl override), TEXT rip-lea + GOT cell, BINARY neutralized to a relay (the
+     * C-store at block-emit time IS the bind; movabs cannot forward-patch).  K=0 transparent spine box; trailer = the bb_goto relay shape (alpha + pair_loop). */
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     const char * fname = _.op_sval ? _.op_sval : "?";
     std::string albl = std::string(fname) + "_act_\xce\xb1";
     std::string clbl = std::string("fn_cell$") + fname;
+    static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
+    extern const char *rt_define_query(const char *, int *, int *, int *, void **);
+    extern void rt_define_site(const char *, const char *, int, int, int, void *);
+    int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
+    uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    std::string blbl = std::string("proc_") + fname + "_\xce\xb1";
+    std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
+         + x86_ro_load_q("rdi", 0)
+         + x86_ro_load_q("rsi", 1)
+         + x86("mov32", "edx", (long)_np)
+         + x86("mov32", "ecx", (long)_nf)
+         + x86("mov32", "r8d", (long)_fb)
+         + x86("lea", "r9", std::string("[rip + __]"), (uint64_t)(uintptr_t)_fn, blbl.c_str())
+         + x86_scan_sync_out()
+         + x86("call", "rt_define_site", _site_fp)
+         + x86_scan_sync_in_rr();
+    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "");
+    if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     /* RTX-FUNC-0 BIND-NEUTRALIZE (BINARY): the lea's [rip + __] 5-arg form routes to x86_load_ro which in
      * BINARY bakes the ptr argument (0 here) as a movabs immediate — there is NO forward-patch for it, so at
      * DEFINE-time this store wrote 0 over the correct address the bb_ab_emit_nodes posthook C-store had
      * already placed (measured: cell probe good, then jmp 0 at first call).  BINARY bind is now a transparent
      * relay — the C-store at block-emit time IS the bind.  TEXT keeps the runtime store: gas resolves
      * <FN>_act_α at assembly time and the fn_cell$<FN> .data slot via GOT, both correct as-is. */
-    if (MEDIUM_BINARY) return x86_alpha() + x86_pair_loop();
+    if (MEDIUM_BINARY) return x86_alpha() + reg + x86_pair_loop() + seals;
     return x86_alpha()
+         + reg
          + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())   /* α address by NAME (TEXT): renders [rip + <FN>_act_α], resolved by the assembler.  The bare 3-arg string form is SILENTLY SWALLOWED by the encoder (measured: both leas vanished from the .s, r11 garbage, wild store, segv) — the 5-arg __ form is the sanctioned named-symbol spelling. */
          + x86("mov", "r11", std::string("[rip@got + __]"), (uint64_t)0, clbl.c_str())   /* TEXT cell = &fn_cell$<FN> via the GOT load, the 145-line precedent verbatim */
          + x86("mov", RDQ("r11", 0), "rax")
-         + x86_pair_loop();
+         + x86_pair_loop()
+         + seals;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)

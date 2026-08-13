@@ -1863,6 +1863,25 @@ void rt_proc_set_frame_bytes(const char *name, int bytes)
     if (p && bytes > p->frame_bytes) p->frame_bytes = bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (p) { if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn; if (nparams) p->nparams = nparams; p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1; return; }
+    { int np = nparams > 0 ? nparams : 0; const char **pn = (const char **)calloc((size_t)(np + 1), sizeof(const char *)); char *dup = params_csv ? strdup(params_csv) : (char *)0; int k = 0;
+      if (pn && dup) { char *sv = (char *)0; for (char *t = strtok_r(dup, ",", &sv); t && k < np; t = strtok_r((char *)0, ",", &sv)) pn[k++] = t; }
+      rt_proc_register(name, pn, np); p = rt_proc_find(name);
+      if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (np_out) *np_out = p ? p->nparams : 0; if (nf_out) *nf_out = p ? p->nformals : 0; if (fb_out) *fb_out = p ? p->frame_bytes : 0; if (fn_out) *fn_out = p ? (void *)p->fn : (void *)0;
+    if (!p || !p->pnames || p->nparams <= 0) return "";
+    { size_t need = 1; for (int k = 0; k < p->nparams; k++) need += (p->pnames[k] ? strlen(p->pnames[k]) : 0) + 1; char *csv = (char *)malloc(need); if (!csv) return ""; csv[0] = 0;
+      for (int k = 0; k < p->nparams; k++) { if (k) strcat(csv, ","); if (p->pnames[k]) strcat(csv, p->pnames[k]); } return csv; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_frame_nslots(const char *name)
 {
     rt_proc_t *p = rt_proc_find(name);
