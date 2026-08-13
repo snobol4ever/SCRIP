@@ -145,7 +145,8 @@ n9_match_arbno_af:      mov              eax, dword ptr [rsp + 0]
                         cmp              r14d, eax;                           jne   n14_match_alternate_β
                         add              rsp, 16;                             jmp   n8_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
-n10_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
+n10_match_assign_cond_α:
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -154,7 +155,8 @@ n10_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24;                             jmp   n11_match_rpos_α
-n10_match_assign_cond_β: sub              r12, 24;                            jmp   n9_match_arbno_β
+n10_match_assign_cond_β:
+                        sub              r12, 24;                             jmp   n9_match_arbno_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_rpos_α:       mov              rax, 0
                         mov              ecx, r15d

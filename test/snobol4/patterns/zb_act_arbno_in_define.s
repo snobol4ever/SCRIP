@@ -284,9 +284,11 @@ n15_match_pos_α:        mov              rax, 0
                                                                               jmp   n16_match_assign_save_α
 n15_match_pos_β:                                                              jmp   n14_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n16_match_assign_save_α: sub              rsp, 16
+n16_match_assign_save_α:
+                        sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d;           jmp   n17_match_arbno_α
-n16_match_assign_save_β: add              rsp, 16;                            jmp   n14_match_begin_β
+n16_match_assign_save_β:
+                        add              rsp, 16;                             jmp   n14_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_arbno_α:      sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d
@@ -299,7 +301,8 @@ n17_match_arbno_af:     mov              eax, dword ptr [rsp + 0]
                         cmp              r14d, eax;                           jne   n22_match_lit_β
                         add              rsp, 16;                             jmp   n16_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
-n18_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
+n18_match_assign_cond_α:
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -308,7 +311,8 @@ n18_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24;                             jmp   n19_match_rpos_α
-n18_match_assign_cond_β: sub              r12, 24;                            jmp   n17_match_arbno_β
+n18_match_assign_cond_β:
+                        sub              r12, 24;                             jmp   n17_match_arbno_β
 #-----------------------------------------------------------------------------------------------------------------------
 n19_match_rpos_α:       mov              rax, 0
                         mov              ecx, r15d
