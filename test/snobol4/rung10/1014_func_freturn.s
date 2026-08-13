@@ -22,7 +22,7 @@ always_fail_alpha:      mov              rcx, qword ptr [rsp + 0]
                         mov              eax, 0
 .Lx8_2:                 sub              rsp, 48
                         add              rsp, rax
-                        mov              rax, qword ptr [r9 + 0]                        # always_fail
+                        mov              rax, qword ptr [r9 + 0]              # always_fail
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
                         mov              qword ptr [rsp + 8], rax
@@ -96,7 +96,7 @@ always_fail_omega:      mov              rcx, qword ptr [rsp + 32]
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
-.Lstartup_pname0:       .string          "always_fail"
+.Lstartup_pname0:       .string          "LBL__always_fail"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
@@ -200,7 +200,7 @@ n19_call_α:             sub              rsp, 16
                         mov              qword ptr [rsp + 16], rax
                         mov              qword ptr [rsp + 24], rax
                         lea              rax, [rip + always_fail_alpha];      jmp   rax
-.Lx53_2:                mov              qword ptr [rsp + 0], rax                       # result
+.Lx53_2:                mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx53_240
                         add              rsp, 16;                             jmp   n18_statement_begin_β
@@ -217,14 +217,14 @@ n21_statement_begin_α:                                                        j
 n21_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n22_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 53
                         mov              rax, qword ptr [rip + .Lx58_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n23_assign_α
 .Lx58_0:                .quad            .Lx58_0_s
 .Lx58_0_s:              .string          "FAIL 1014/001: freturn should cause statement failure"
 #-----------------------------------------------------------------------------------------------------------------------
-n23_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n23_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx59_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -253,14 +253,14 @@ n27_statement_begin_α:                                                        j
 n27_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n28_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 28
                         mov              rax, qword ptr [rip + .Lx68_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n29_assign_α
 .Lx68_0:                .quad            .Lx68_0_s
 .Lx68_0_s:              .string          "PASS 1014_func_freturn (1/1)"
 #-----------------------------------------------------------------------------------------------------------------------
-n29_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n29_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx69_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

@@ -25,7 +25,7 @@ n2_statement_begin_α:                                                         j
 n2_statement_begin_β:                                                         jmp   n11_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx67_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n4_lit_string_α
@@ -33,7 +33,7 @@ n3_lit_string_α:        sub              rsp, 16
 .Lx67_0_s:              .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n4_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx68_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n5_cmp_test_α
@@ -43,7 +43,7 @@ n4_lit_string_β:        add              rsp, 16
 .Lx68_0_s:              .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
 n5_cmp_test_α:          sub              rsp, 16
-                        lea              rdi, [rsp + 32]                                # lit_string
+                        lea              rdi, [rsp + 32]                      # lit_string
                         lea              rsi, [rsp + 16]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -67,14 +67,14 @@ n7_statement_begin_α:                                                         j
 n7_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n8_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 38
                         mov              rax, qword ptr [rip + .Lx75_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n9_assign_α
 .Lx75_0:                .quad            .Lx75_0_s
 .Lx75_0_s:              .string          "FAIL 914/001: lgt(abc,xyz) should fail"
 #-----------------------------------------------------------------------------------------------------------------------
-n9_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n9_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx76_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -103,7 +103,7 @@ n13_statement_begin_α:                                                        j
 n13_statement_begin_β:                                                        jmp   n22_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx85_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n15_lit_string_α
@@ -111,7 +111,7 @@ n14_lit_string_α:       sub              rsp, 16
 .Lx85_0_s:              .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n15_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx86_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n16_cmp_test_α
@@ -121,7 +121,7 @@ n15_lit_string_β:       add              rsp, 16
 .Lx86_0_s:              .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n16_cmp_test_α:         sub              rsp, 16
-                        lea              rdi, [rsp + 32]                                # lit_string
+                        lea              rdi, [rsp + 32]                      # lit_string
                         lea              rsi, [rsp + 16]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -145,14 +145,14 @@ n18_statement_begin_α:                                                        j
 n18_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 38
                         mov              rax, qword ptr [rip + .Lx93_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n20_assign_α
 .Lx93_0:                .quad            .Lx93_0_s
 .Lx93_0_s:              .string          "FAIL 914/002: lgt(abc,abc) should fail"
 #-----------------------------------------------------------------------------------------------------------------------
-n20_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n20_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx94_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -181,7 +181,7 @@ n24_statement_begin_α:                                                        j
 n24_statement_begin_β:                                                        jmp   n29_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n25_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx103_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n26_lit_string_α
@@ -189,7 +189,7 @@ n25_lit_string_α:       sub              rsp, 16
 .Lx103_0_s:             .string          "xyz"
 #-----------------------------------------------------------------------------------------------------------------------
 n26_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx104_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n27_cmp_test_α
@@ -199,7 +199,7 @@ n26_lit_string_β:       add              rsp, 16
 .Lx104_0_s:             .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n27_cmp_test_α:         sub              rsp, 16
-                        lea              rdi, [rsp + 32]                                # lit_string
+                        lea              rdi, [rsp + 32]                      # lit_string
                         lea              rsi, [rsp + 16]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -223,14 +223,14 @@ n29_statement_begin_α:                                                        j
 n29_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n30_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 41
                         mov              rax, qword ptr [rip + .Lx111_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n31_assign_α
 .Lx111_0:               .quad            .Lx111_0_s
 .Lx111_0_s:             .string          "FAIL 914/003: lgt(xyz,abc) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
-n31_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n31_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx112_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -259,7 +259,7 @@ n35_statement_begin_α:                                                        j
 n35_statement_begin_β:                                                        jmp   n44_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n36_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 0
                         mov              rax, qword ptr [rip + .Lx121_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n37_lit_string_α
@@ -267,7 +267,7 @@ n36_lit_string_α:       sub              rsp, 16
 .Lx121_0_s:             .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
 n37_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx122_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n38_cmp_test_α
@@ -277,7 +277,7 @@ n37_lit_string_β:       add              rsp, 16
 .Lx122_0_s:             .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n38_cmp_test_α:         sub              rsp, 16
-                        lea              rdi, [rsp + 32]                                # lit_string
+                        lea              rdi, [rsp + 32]                      # lit_string
                         lea              rsi, [rsp + 16]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -301,14 +301,14 @@ n40_statement_begin_α:                                                        j
 n40_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n41_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 39
                         mov              rax, qword ptr [rip + .Lx129_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n42_assign_α
 .Lx129_0:               .quad            .Lx129_0_s
 .Lx129_0_s:             .string          "FAIL 914/004: lgt(null,abc) should fail"
 #-----------------------------------------------------------------------------------------------------------------------
-n42_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n42_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx130_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -337,7 +337,7 @@ n46_statement_begin_α:                                                        j
 n46_statement_begin_β:                                                        jmp   n51_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n47_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx139_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n48_lit_string_α
@@ -345,7 +345,7 @@ n47_lit_string_α:       sub              rsp, 16
 .Lx139_0_s:             .string          "abc"
 #-----------------------------------------------------------------------------------------------------------------------
 n48_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 0
                         mov              rax, qword ptr [rip + .Lx140_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n49_cmp_test_α
@@ -355,7 +355,7 @@ n48_lit_string_β:       add              rsp, 16
 .Lx140_0_s:             .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
 n49_cmp_test_α:         sub              rsp, 16
-                        lea              rdi, [rsp + 32]                                # lit_string
+                        lea              rdi, [rsp + 32]                      # lit_string
                         lea              rsi, [rsp + 16]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -379,14 +379,14 @@ n51_statement_begin_α:                                                        j
 n51_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n52_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 42
                         mov              rax, qword ptr [rip + .Lx147_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n53_assign_α
 .Lx147_0:               .quad            .Lx147_0_s
 .Lx147_0_s:             .string          "FAIL 914/005: lgt(abc,null) should succeed"
 #-----------------------------------------------------------------------------------------------------------------------
-n53_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n53_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx148_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -415,14 +415,14 @@ n57_statement_begin_α:                                                        j
 n57_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n58_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 18
                         mov              rax, qword ptr [rip + .Lx157_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n59_assign_α
 .Lx157_0:               .quad            .Lx157_0_s
 .Lx157_0_s:             .string          "PASS 914_lgt (5/5)"
 #-----------------------------------------------------------------------------------------------------------------------
-n59_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n59_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx158_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

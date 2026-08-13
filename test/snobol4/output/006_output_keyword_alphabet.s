@@ -31,7 +31,7 @@ n1_keyword_snobol4_α:   sub              rsp, 16
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n2_call_α
 .Lx7_0:                 .quad            .Lx7_0_s
 .Lx7_0_s:               .string          "ALPHABET"
@@ -63,12 +63,12 @@ n2_call_α:              sub              rsp, 16
                         cmp              eax, 104;                            jne   .Lx8_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n0_statement_begin_β
-.Lx8_240:               mov              qword ptr [rsp + 0], rax                       # result
+.Lx8_240:               mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n3_assign_α
 n2_call_β:              add              rsp, 16
                         add              rsp, 16;                             jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n3_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # call
+n3_assign_α:            mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx10_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

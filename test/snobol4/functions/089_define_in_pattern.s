@@ -22,7 +22,7 @@ upcase_alpha:           mov              rcx, qword ptr [rsp + 0]
                         mov              eax, 16
 .Lx8_2:                 sub              rsp, 64
                         add              rsp, rax
-                        mov              rax, qword ptr [r9 + 0]                        # upcase
+                        mov              rax, qword ptr [r9 + 0]              # upcase
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
                         mov              qword ptr [rsp + 8], rax
@@ -33,7 +33,7 @@ upcase_alpha:           mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [rsp + 32], rcx
                         cmp              rcx, 0;                              jbe   .Lx8_10
                         mov              rax, qword ptr [r8 + 48]
-                        mov              rdx, qword ptr [r9 + 16]                       # s
+                        mov              rdx, qword ptr [r9 + 16]             # s
                         mov              qword ptr [r9 + 16], rax
                         mov              qword ptr [r8 + 48], rdx
                         mov              rax, qword ptr [r8 + 56]
@@ -49,7 +49,7 @@ upcase_alpha:           mov              rcx, qword ptr [rsp + 0]
 .Lx8_41:                lea              r10, [rip + upcase_gamma]
                         lea              r11, [rip + upcase_omega]
                         lea              rax, [rip + upcase_body];            jmp   rax
-upcase_gamma:           mov              rdi, qword ptr [r9 + 0]                        # upcase
+upcase_gamma:           mov              rdi, qword ptr [r9 + 0]              # upcase
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rax, rcx
@@ -67,7 +67,7 @@ upcase_gamma:           mov              rdi, qword ptr [r9 + 0]                
                         mov              qword ptr [r9 + 8], rax
                         cmp              rcx, 0;                              jbe   .Lx8_80
                         mov              rax, qword ptr [r8 + 48]
-                        mov              qword ptr [r9 + 16], rax                       # s
+                        mov              qword ptr [r9 + 16], rax             # s
                         mov              rax, qword ptr [r8 + 56]
                         mov              qword ptr [r9 + 24], rax;            jmp   .Lx8_110
 .Lx8_80:                mov              rax, qword ptr [r8 + 0]
@@ -99,12 +99,12 @@ upcase_omega:           mov              rcx, qword ptr [rsp + 32]
 .Lx8_145:               lea              r8, [rsp + 48]
                         sub              r8, rax
                         mov              rax, qword ptr [rsp + 0]
-                        mov              qword ptr [r9 + 0], rax                        # upcase
+                        mov              qword ptr [r9 + 0], rax              # upcase
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
                         cmp              rcx, 0;                              jbe   .Lx8_150
                         mov              rax, qword ptr [r8 + 48]
-                        mov              qword ptr [r9 + 16], rax                       # s
+                        mov              qword ptr [r9 + 16], rax             # s
                         mov              rax, qword ptr [r8 + 56]
                         mov              qword ptr [r9 + 24], rax;            jmp   .Lx8_180
 .Lx8_150:               mov              rax, qword ptr [r8 + 0]
@@ -129,7 +129,7 @@ upcase_omega:           mov              rcx, qword ptr [rsp + 32]
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
-.Lstartup_pname0:       .string          "upcase"
+.Lstartup_pname0:       .string          "LBL__upcase"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
@@ -211,9 +211,9 @@ upcase_body:                                                                  jm
 n12_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 16]                       # s
+                        mov              rax, qword ptr [r9 + 16]             # s
                         mov              rdx, qword ptr [r9 + 24]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n14_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_keyword_snobol4_α:  sub              rsp, 16
@@ -228,7 +228,7 @@ n14_keyword_snobol4_α:  sub              rsp, 16
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n15_keyword_snobol4_α
 .Lx41_0:                .quad            .Lx41_0_s
 .Lx41_0_s:              .string          "LCASE"
@@ -245,7 +245,7 @@ n15_keyword_snobol4_α:  sub              rsp, 16
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n16_call_α
 .Lx42_0:                .quad            .Lx42_0_s
 .Lx42_0_s:              .string          "UCASE"
@@ -285,14 +285,14 @@ n16_call_α:             sub              rsp, 16
                         cmp              eax, 104;                            jne   .Lx43_240
                         add              rsp, 16
                         add              rsp, 48;                             jmp   n12_statement_begin_β
-.Lx43_240:              mov              qword ptr [rsp + 0], rax                       # result
+.Lx43_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n17_assign_α
 n16_call_β:             add              rsp, 16
                         add              rsp, 48;                             jmp   n12_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n17_assign_α:           mov              rax, qword ptr [rsp + 0]                       # call
+n17_assign_α:           mov              rax, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 0], rax                        # upcase
+                        mov              qword ptr [r9 + 0], rax              # upcase
                         mov              qword ptr [r9 + 8], rdx;             jmp   n18_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n18_statement_end_α:                                                          jmp   RETURN
@@ -308,7 +308,7 @@ n21_statement_begin_α:                                                        j
 n21_statement_begin_β:                                                        jmp   n26_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n22_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n23_call_α
@@ -317,7 +317,7 @@ n22_lit_string_α:       sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n23_call_α:             sub              rsp, 16
                         sub              rsp, 48
-                        mov              rax, qword ptr [rsp + 64]                      # lit_string
+                        mov              rax, qword ptr [rsp + 64]            # lit_string
                         mov              qword ptr [rsp + 32], rax
                         mov              rax, qword ptr [rsp + 72]
                         mov              qword ptr [rsp + 40], rax
@@ -327,7 +327,7 @@ n23_call_α:             sub              rsp, 16
                         mov              qword ptr [rsp + 16], rax
                         mov              qword ptr [rsp + 24], rax
                         lea              rax, [rip + upcase_alpha];           jmp   rax
-.Lx56_2:                mov              qword ptr [rsp + 0], rax                       # result
+.Lx56_2:                mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx56_240
                         add              rsp, 16
@@ -337,7 +337,7 @@ n23_call_β:                                                                   j
 .Lx56_0:                .quad            .Lx56_0_s
 .Lx56_0_s:              .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
-n24_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # call
+n24_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx57_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -361,7 +361,7 @@ n26_statement_begin_α:                                                        j
 n26_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n27_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx62_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n28_call_α
@@ -370,7 +370,7 @@ n27_lit_string_α:       sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n28_call_α:             sub              rsp, 16
                         sub              rsp, 48
-                        mov              rax, qword ptr [rsp + 64]                      # lit_string
+                        mov              rax, qword ptr [rsp + 64]            # lit_string
                         mov              qword ptr [rsp + 32], rax
                         mov              rax, qword ptr [rsp + 72]
                         mov              qword ptr [rsp + 40], rax
@@ -380,7 +380,7 @@ n28_call_α:             sub              rsp, 16
                         mov              qword ptr [rsp + 16], rax
                         mov              qword ptr [rsp + 24], rax
                         lea              rax, [rip + upcase_alpha];           jmp   rax
-.Lx64_2:                mov              qword ptr [rsp + 0], rax                       # result
+.Lx64_2:                mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx64_240
                         add              rsp, 16
@@ -390,7 +390,7 @@ n28_call_β:                                                                   j
 .Lx64_0:                .quad            .Lx64_0_s
 .Lx64_0_s:              .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
-n29_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # call
+n29_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx65_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

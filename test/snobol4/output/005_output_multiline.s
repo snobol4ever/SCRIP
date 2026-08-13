@@ -20,14 +20,14 @@ n0_statement_begin_α:                                                         j
 n0_statement_begin_β:                                                         jmp   n4_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 8
                         mov              rax, qword ptr [rip + .Lx14_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n2_assign_α
 .Lx14_0:                .quad            .Lx14_0_s
 .Lx14_0_s:              .string          "line one"
 #-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx15_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -51,14 +51,14 @@ n4_statement_begin_α:                                                         j
 n4_statement_begin_β:                                                         jmp   n8_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 8
                         mov              rax, qword ptr [rip + .Lx20_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n6_assign_α
 .Lx20_0:                .quad            .Lx20_0_s
 .Lx20_0_s:              .string          "line two"
 #-----------------------------------------------------------------------------------------------------------------------
-n6_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n6_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx21_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -82,14 +82,14 @@ n8_statement_begin_α:                                                         j
 n8_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n9_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 10
                         mov              rax, qword ptr [rip + .Lx26_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n10_assign_α
 .Lx26_0:                .quad            .Lx26_0_s
 .Lx26_0_s:              .string          "line three"
 #-----------------------------------------------------------------------------------------------------------------------
-n10_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n10_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx27_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
