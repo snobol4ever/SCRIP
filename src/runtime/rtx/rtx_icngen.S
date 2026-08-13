@@ -89,37 +89,13 @@ RTX_ENDF(rt_gen_spine_pass_ω)
  *   call rt_gen_get_fb               ; rax = generator____
  *   jmp  [rax + cont_off]            ; jump to stored β continuation in generator frame
  * No asm shortcut: reading g_pcall (a C struct pointer) requires the C body. Always delegate. */
-RTX_FUNC(rt_gen_get_fb)
-    RTX_GATE(icngen, c_rt_gen_get_fb)   /* RTX disabled: jmp C twin */
-    jmp c_rt_gen_get_fb                 /* RTX enabled: also use C twin (no asm shortcut) */
-RTX_ENDF(rt_gen_get_fb)
 
 /* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller____, save_Σ→cont_ptr).
  * All four delegate to C twins — the pcall array pointer and top index live in C globals. */
-RTX_FUNC(rt_gen_save_cont)
-    RTX_GATE(icngen, c_rt_gen_save_cont)
-    jmp c_rt_gen_save_cont
-RTX_ENDF(rt_gen_save_cont)
 
-RTX_FUNC(rt_gen_get_cont)
-    RTX_GATE(icngen, c_rt_gen_get_cont)
-    jmp c_rt_gen_get_cont
-RTX_ENDF(rt_gen_get_cont)
 
 /* ICN-FR-4: Wire-save (one call saves both γ+ω wires; rdi=γ, rsi=ω at call site) and wire-get functions. */
-RTX_FUNC(rt_gen_save_wires)
-    RTX_GATE(icngen, c_rt_gen_save_wires)
-    jmp c_rt_gen_save_wires
-RTX_ENDF(rt_gen_save_wires)
 
-RTX_FUNC(rt_gen_get_gamma_wire)
-    RTX_GATE(icngen, c_rt_gen_get_gamma_wire)
-    jmp c_rt_gen_get_gamma_wire
-RTX_ENDF(rt_gen_get_gamma_wire)
 
-RTX_FUNC(rt_gen_get_omega_wire)
-    RTX_GATE(icngen, c_rt_gen_get_omega_wire)
-    jmp c_rt_gen_get_omega_wire
-RTX_ENDF(rt_gen_get_omega_wire)
 
 .section .note.GNU-stack,"",@progbits
