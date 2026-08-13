@@ -1943,7 +1943,7 @@ inline std::string x86_cell_push(int tag, int resume_ilbl) {
          + x86("push", "rax")
          + std::string("");
 }
-inline std::string x86_main_prologue()             { return x86("push", "rbp") + x86("mov", "rbp", "rsp"); }   /* THE ONLY TWO. main alone keeps the C-ABI pair. */
+inline std::string x86_main_prologue()             { return std::string(); }   /* THE ONLY TWO. main alone keeps the C-ABI pair. */
 inline std::string x86_cell_unwind_tail()           { return x86("pop", "rax") + x86("pop", "r14") + std::string("") + x86("add", "rsp", 8L) + x86_jmp_reg("rax"); }
 inline std::string x86_cell_fail_body()             { return std::string("") + x86_cell_unwind_tail(); }
 inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_load64("rsp", base, 16) + x86_reg_disp32_lea64("rsp", base, 32); }
