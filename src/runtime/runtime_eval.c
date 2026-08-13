@@ -98,7 +98,7 @@ __asm__(
 "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
 "  cmpb $0, (%r10)\n"
 "  je 2f\n"
-"  movq g_rtcc_block@GOTPCREL(%rip), %r10\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
 "  movq 24(%r10), %rsi\n"
 "  movq 32(%r10), %rdi\n"
 "  movq 64(%r10), %r11\n"
