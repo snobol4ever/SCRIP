@@ -14,7 +14,7 @@ extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long ele
  * grant in zeta_storage.c is now UNCONDITIONAL (matching: template always writes slot+32, grant always allocates it; SCRIP_U2 condition deleted).  arbno_u2_frame() deleted — its guards fire unconditionally. */
 static inline const char * zv() { return "rsp"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * FB5RAWD(int off) { static char b[8][48]; static int i; i=(i+1)&7; snprintf(b[i],48,"dword ptr [fb5# + %d]",off); return b[i]; }   /* M-2 BUG-5 FIX: raw machine-___ dword (twin of ___RAWQ in x86_asm.h); [___# + N] escapes x86_parse's FR classifier -- always encodes as a direct reg+disp, never re-canonicalized through the frame base.  Used in bb_match_arbno_tail PAIR(2) to reach the element header after MATCH_END's CAS restore. */
+   /* M-2 BUG-5 FIX: raw machine-___ dword (twin of ___RAWQ in x86_asm.h); [___# + N] escapes x86_parse's FR classifier -- always encodes as a direct reg+disp, never re-canonicalized through the frame base.  Used in bb_match_arbno_tail PAIR(2) to reach the element header after MATCH_END's CAS restore. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string arbno_zero_window(long op_sb) { std::string r; for (long k = 24; k < op_sb; k += 8) r += x86("mov", RSP((int)k), "rax"); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -198,7 +198,7 @@ static std::string bb_match_arbno_tail() {
          + x86("def", L(2))
          + x86("mov", "r14d", trd(HDRB + 0))
          + x86("add", "rsp", (long)_.op_sb)
-         + IF(_.flat_deep_arrival, x86("note", "old_fb5") + std::string(""))   /* M-2 BUG-6 FIX: BRACKET-GATE ___ restore moved here from release_pump (bb_match_end.cpp !op_tail gate). At L(2) omega rsp=cas_rsp_mark-32-FPL; old____ was saved by MATCH_BEGIN at [cas_rsp_mark+40]=[rsp+FPL+72]. Gated flat_deep_arrival matching bb_match_begin's save gate. */
+         + IF(_.flat_deep_arrival, x86("note", "old_base") + std::string(""))   /* M-2 BUG-6 FIX: BRACKET-GATE ___ restore moved here from release_pump (bb_match_end.cpp !op_tail gate). At L(2) omega rsp=cas_rsp_mark-32-FPL; old____ was saved by MATCH_BEGIN at [cas_rsp_mark+40]=[rsp+FPL+72]. Gated flat_deep_arrival matching bb_match_begin's save gate. */
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

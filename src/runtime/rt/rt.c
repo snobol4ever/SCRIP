@@ -535,9 +535,9 @@ void rt_value_trail_tidy_dead_window(int mark, void *fb, void *top);
 /*   Snapshots Σ/Σlen into the frame (mid-match protection); snapshots wn; marks the value trail;                                                                                                      */
 /*   increments rt_k_level (= &FNCLEVEL; kw_fnclevel is the keyword readable cell, same value).                                                                                                        */
 /*   Returns vtmark so α can store it in AB_OFF_VTMARK without a second C crossing.                                                                                                                     */
-int rt_ab_enter_env(void *fb5_frame)
+int rt_ab_enter_env(void *frame)
 {
-    char *fb = (char *)fb5_frame;
+    char *fb = (char *)frame;
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
     *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
@@ -553,9 +553,9 @@ int rt_ab_enter_env(void *fb5_frame)
 /*   this activation); restores Σ/Σlen; decrements rt_k_level / kw_fnclevel.                                                                                                                           */
 /*   result is the candidate DESCR (rax:rdx on arrival at β, pre-restore); is_fail = 1 for FRETURN.                                                                                                   */
 /*   Returns rt_nret_fix(result, wn) — the caller's rax:rdx after restore.                                                                                                                             */
-DESCR_t rt_ab_leave_env(void *fb5_frame, DESCR_t result, int is_fail)
+DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
 {
-    char *fb = (char *)fb5_frame;
+    char *fb = (char *)frame;
     int vtm  = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_VTMARK);
     int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
     rt_value_trail_tidy_dead_window(vtm, (void *)fb, (char *)fb + 16);   /* dead window = [fb, fb+16) = the ___-push slot; mirrors slim epilogue's RSP-F-2 form */
@@ -1155,8 +1155,8 @@ extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 __attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
 __attribute__((visibility("hidden"))) int         g_pcall_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_lcl_proc_args_install(void *fb5_base, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [___+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [___+(nparams+j+1)*16]. Both media call this C function. */
-    char *base = (char *)fb5_base;
+void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [___+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [___+(nparams+j+1)*16]. Both media call this C function. */
+    char *base = (char *)base_p;
     int nargs = (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].nargs : 0;
     int na = (nargs < nparams) ? nargs : nparams;
     for (int i = 0; i < na; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
@@ -1164,8 +1164,8 @@ void rt_lcl_proc_args_install(void *fb5_base, int nparams, int nlocals) {   /* I
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_zframe_args_install(void *fb5_base, int nparams, int nlocals) {   /* ICN-FR-2 / PL-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY.  Slot layout: param i at [___+(i+1)*16] (positive, inside the frame [___+0..kt-1]); ZLS result slots start at 16+nparams*16 and above, so named params never collide.  Matches ir_drive_slot_assign vslot grants in scrip_ir.c. */
-    char *base = (char *)fb5_base;
+void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {   /* ICN-FR-2 / PL-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY.  Slot layout: param i at [___+(i+1)*16] (positive, inside the frame [___+0..kt-1]); ZLS result slots start at 16+nparams*16 and above, so named params never collide.  Matches ir_drive_slot_assign vslot grants in scrip_ir.c. */
+    char *base = (char *)base_p;
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
@@ -1174,10 +1174,10 @@ __attribute__((visibility("hidden"))) int         g_pcall_cap;
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
  * ___) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
  * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
-typedef struct { void *gw; void *ww; void *rsp; void *fb5; void *r12; } rt_flat_wires_t;
+typedef struct { void *gw; void *ww; void *rsp; void *fb; void *r12; } rt_flat_wires_t;
 __attribute__((visibility("hidden"))) rt_flat_wires_t *g_pcall_wires;
 __attribute__((visibility("hidden"))) rt_flat_wires_t  g_flat_ret_snapbuf;
-_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, fb5) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
+_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, fb) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
@@ -1211,21 +1211,21 @@ void rt_pcall_test_push(void *proc_ptr, const char *rname)
 }
 void rt_pcall_test_pop(void) { if (g_pcall_top > 0) g_pcall_top--; }
 int  rt_pcall_test_top(void) { return g_pcall_top; }
-void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *fb5, void *r12)
+void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *fb, void *r12)
 {
     if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) return;
-    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].fb5 = fb5; g_pcall_wires[idx].r12 = r12;
+    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].fb = fb; g_pcall_wires[idx].r12 = r12;
 }
-void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **fb5, void **r12)
+void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **fb, void **r12)
 {
-    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*fb5=*r12=(void*)0; return; }
-    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *fb5=g_pcall_wires[idx].fb5; *r12=g_pcall_wires[idx].r12;
+    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*fb=*r12=(void*)0; return; }
+    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *fb=g_pcall_wires[idx].fb; *r12=g_pcall_wires[idx].r12;
 }
 void *rt_pcall_test_snap_buf(void) { return (void *)&g_flat_ret_snapbuf; }
 void  rt_pcall_test_snap_buf_set_all(unsigned char v) { memset(&g_flat_ret_snapbuf, v, sizeof(rt_flat_wires_t)); }
-void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **fb5, void **r12)
+void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **fb, void **r12)
 {
-    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *fb5=g_flat_ret_snapbuf.fb5; *r12=g_flat_ret_snapbuf.r12;
+    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *fb=g_flat_ret_snapbuf.fb; *r12=g_flat_ret_snapbuf.r12;
 }
 void rt_pcall_test_wire_null_set(void)
 {
@@ -1238,16 +1238,16 @@ void rt_pcall_test_wire_null_set(void)
  * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
  * PEEK (never pop) the top record's wires into a static quad and return its address; rax:rdx ride untouched through the floater's tail so the γ landing's epilogue sees exactly what it sees today.
  * Level-0 transfer to RETURN/FRETURN = runtime error (Lon s175 ruling; SPITBOL erred here too rather than exiting). */
-void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5)
+void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb5 = fb5; w->r12 = 0; }
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb = fb; w->r12 = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb5, void *r12v)
+void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb, void *r12v)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb5 = fb5; w->r12 = r12v; }
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb = fb; w->r12 = r12v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_flat_ret_snap(void)
@@ -1484,20 +1484,20 @@ void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1
  * The save_wires body detects gw=NULL and pops/clears the matching entry instead of writing.
  *
  * Stack capacity: initial 64 entries (covers all practical nesting depths); grows by doubling. */
-typedef struct { void *gen_fb5; void *cont; void *caller_fb5; void *gwire; void *owire; } icn_gen_state_t;
+typedef struct { void *gen_fb; void *cont; void *caller_fb; void *gwire; void *owire; } icn_gen_state_t;
 __attribute__((visibility("hidden"))) static icn_gen_state_t  g_icn_gen_stk_buf[64];
 __attribute__((visibility("hidden"))) static icn_gen_state_t *g_icn_gen_stk     = g_icn_gen_stk_buf;
 __attribute__((visibility("hidden"))) static int              g_icn_gen_stk_top = 0;
 __attribute__((visibility("hidden"))) static int              g_icn_gen_stk_cap = 64;
 /* Fast single-generator globals: still maintained so single-generator case hits no scan overhead. */
 __attribute__((visibility("hidden"))) static void *g_gen_pending_cont        = (void *)0;
-__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_fb5  = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_caller____  = (void *)0;
 __attribute__((visibility("hidden"))) static void *g_gen_pending_gamma_wire  = (void *)0;
 __attribute__((visibility("hidden"))) static void *g_gen_pending_omega_wire  = (void *)0;
 /* Find entry by gen____; LIFO scan; returns pointer or NULL. */
-static icn_gen_state_t *icn_gen_find(void *gen_fb5) {
+static icn_gen_state_t *icn_gen_find(void *gen_fb) {
     for (int i = g_icn_gen_stk_top - 1; i >= 0; i--)
-        if (g_icn_gen_stk[i].gen_fb5 == gen_fb5) return &g_icn_gen_stk[i];
+        if (g_icn_gen_stk[i].gen_fb == gen_fb) return &g_icn_gen_stk[i];
     return (icn_gen_state_t *)0;
 }
 /* Grow the stack if needed. */
@@ -1511,10 +1511,10 @@ static void icn_gen_stk_grow(void) {
     if (g_icn_gen_stk == g_icn_gen_stk_buf) memcpy(nb, g_icn_gen_stk_buf, (size_t)g_icn_gen_stk_top * sizeof(icn_gen_state_t));
     g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
 }
-void c_rt_gen_save_wires(void *gen_fb5, void *gw, void *ww) {
+void c_rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
     if (!gw) {   /* ω-exit POP SENTINEL: remove this generator's entry. */
         for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {
-            if (g_icn_gen_stk[i].gen_fb5 == gen_fb5) {
+            if (g_icn_gen_stk[i].gen_fb == gen_fb) {
                 /* Shift entries above down by one. */
                 for (int j = i; j < g_icn_gen_stk_top - 1; j++) g_icn_gen_stk[j] = g_icn_gen_stk[j+1];
                 g_icn_gen_stk_top--;
@@ -1524,39 +1524,29 @@ void c_rt_gen_save_wires(void *gen_fb5, void *gw, void *ww) {
         return;
     }
     g_gen_pending_gamma_wire = gw; g_gen_pending_omega_wire = ww;
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
     if (e) { e->gwire = gw; e->owire = ww; return; }   /* update existing (re-activation via β) */
     icn_gen_stk_grow();
     if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return;   /* grow failed; global cache is fallback */
-    g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb5, (void*)0, (void*)0, gw, ww };
+    g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb, (void*)0, (void*)0, gw, ww };
 }
-void c_rt_gen_save_caller_fb5(void *gen_fb5, void *caller_fb5) {
-    g_gen_pending_caller_fb5 = caller_fb5;
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
-    if (e) e->caller_fb5 = caller_fb5;
-}
-void c_rt_gen_save_cont(void *gen_fb5, void *cont) {
+void c_rt_gen_save_cont(void *gen_fb, void *cont) {
     g_gen_pending_cont = cont;
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
     if (e) e->cont = cont;
 }
-void *c_rt_gen_get_caller_fb5(void *gen_fb5) {
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
-    void *v = e ? e->caller_fb5 : g_gen_pending_caller_fb5;
-    g_gen_pending_caller_fb5 = v; return v;
-}
-void *c_rt_gen_get_cont(void *gen_fb5) {
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+void *c_rt_gen_get_cont(void *gen_fb) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->cont : g_gen_pending_cont;
     g_gen_pending_cont = v; return v;
 }
-void *c_rt_gen_get_gamma_wire(void *gen_fb5) {
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+void *c_rt_gen_get_gamma_wire(void *gen_fb) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->gwire : g_gen_pending_gamma_wire;
     g_gen_pending_gamma_wire = v; return v;
 }
-void *c_rt_gen_get_omega_wire(void *gen_fb5) {
-    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+void *c_rt_gen_get_omega_wire(void *gen_fb) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
     void *v = e ? e->owire : g_gen_pending_omega_wire;
     g_gen_pending_omega_wire = v; return v;
 }/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

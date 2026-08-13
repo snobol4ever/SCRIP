@@ -89,8 +89,8 @@ void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
 void rt_proc_reset(void);
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* LADDER AB: fn_cell initial value — fires error 022 */
-int     rt_ab_enter_env(void *fb5_frame);               /* AB-2: Σ/wn/vtmark snapshot + k_level++ (called from α after frame established) */
-DESCR_t rt_ab_leave_env(void *fb5_frame, DESCR_t result, int is_fail);   /* AB-2: vtmark tidy + Σ restore + k_level-- + nret_fix (called from β before LEAVE) */
+int     rt_ab_enter_env(void *frame);               /* AB-2: Σ/wn/vtmark snapshot + k_level++ (called from α after frame established) */
+DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail);   /* AB-2: vtmark tidy + Σ restore + k_level-- + nret_fix (called from β before LEAVE) */
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
@@ -115,8 +115,8 @@ int64_t rt_gvar_get_int(const char *name);
 DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
-void rt_lcl_proc_args_install(void *fb5_base, int nparams, int nlocals);   /* ICN-PROC-FRAME (s211): copy g_call_args into lexical-proc frame param slots and zero locals; nargs from g_pcall top. */
-void rt_icn_zframe_args_install(void *fb5_base, int nparams, int nlocals);   /* ICN-FR-2: ζ-frame variant — reads g_call_args[0..nparams-1] directly (no pcall-nargs clamp); correct for both dc-stub path (no pcall record) and jmp-entry C path. */
+void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals);   /* ICN-PROC-FRAME (s211): copy g_call_args into lexical-proc frame param slots and zero locals; nargs from g_pcall top. */
+void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals);   /* ICN-FR-2: ζ-frame variant — reads g_call_args[0..nparams-1] directly (no pcall-nargs clamp); correct for both dc-stub path (no pcall record) and jmp-entry C path. */
 void  rt_pl_retry_push(void *addr);   /* PL-FR-4: push retry continuation onto the choice-point stack (WAM ALTB write; frame-independent — rt.c). */
 void *rt_pl_retry_pop(void);          /* PL-FR-4: pop retry continuation (WAM `return ALTB(B)` read); 0 = exhausted = fail. */
 void  rt_pl_cp_push(void *addr);      /* PL-FR-4 ZFRAME: push β-resume addr onto zframe retry stack (separate from cells g_pl_retry — rt.c). */

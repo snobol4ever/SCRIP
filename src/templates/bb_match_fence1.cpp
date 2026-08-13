@@ -85,14 +85,14 @@ std::string bb_match_fence1() {
     if (_.op_ival == 0)   /* FENCE0 sync box (s137): the bare-variable FENCE lowered as an INTERIOR spine element — operand-free, no watermark (its α IS the commit: match null, whack, γ); β ≡ abandon
                            * (post-commit backup is the attempt-abort, routed by the lowerer's ω edge exactly as the s133 erasure routed it — the box adds only the whack).  First-position FENCE0 (the
                            * anchor idiom) stays node-free in the lowerer: zero left context, nothing to whack. */
-        return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — match null — then gamma; beta abandons to omega; NO RSP whack — WHACK CONTRACT clause 5: statement ζ release is STATEMENT_END's authority; the op_zw arm that lived here double-released the UCLAIM statement claim below the fb5 floor — ZWS-FENCE0-UCLAIM fix, MECH s6)")
+        return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — match null — then gamma; beta abandons to omega; NO RSP whack — WHACK CONTRACT clause 5: statement ζ release is STATEMENT_END's authority; the op_zw arm that lived here double-released the UCLAIM statement claim below the ___ floor — ZWS-FENCE0-UCLAIM fix, MECH s6)")
              + x86_alpha()
              + x86_gamma()
              + x86_beta()
              + x86_omega();
     return _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_FENCE1: watermark slot not granted (zls)")
-         : x86("comment", "IR_MATCH_FENCE1 (SYNC-POINT zeta RELEASE: watermark at alpha, OVER-SEAL whack to the fb5 activation floor at the seal-success glue — s137 ruling; H29-FIX s33: U-2 dual-slot save avoids ZLS alias between outer FRQ(off) and inner FRQ(off+32))")
+         : x86("comment", "IR_MATCH_FENCE1 (SYNC-POINT zeta RELEASE: watermark at alpha, OVER-SEAL whack to the ___ activation floor at the seal-success glue — s137 ruling; H29-FIX s33: U-2 dual-slot save avoids ZLS alias between outer FRQ(off) and inner FRQ(off+32))")
          + x86_alpha()
          + fence_mark_save(_.op_off)   /* ⭐ H29-FIX (s33): U-2 saves to BOTH FRQ(off) [for β outer-___ reads] AND FRQ(off+32) [for inner-frame reads where ___=inner____]; non-U2: FRQ(off) only */
          + IF(fence_u2_frame(), bb_glue_framed_enter())   /* ⭐ U-2 STRUCTURAL (s42+1): establish FENCE1's OWN independent ___ frame before entering P's body.  push ___; mov ___,rsp (K=0, alignment sub handled by bb_glue_framed_enter).  The frame is independent of MATCH_BEGIN's per HQ ruling O-PB-4: ARBNO and FENCE1 must NOT touch MATCH_BEGIN's frame data.  fence_whack_commit's `mov rsp,___` at PAIR(2) then whacks P's growth to FENCE1's own floor, and the paired bb_glue_framed_leave pops to restore the outer activation's ___.  Gate: SCRIP_U2=1, x86_port_cstack() only (FORTH/CSTACK ports; arena/alloc ports keep the s133 release path). */

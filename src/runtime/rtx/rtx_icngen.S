@@ -96,16 +96,6 @@ RTX_ENDF(rt_gen_get_fb)
 
 /* ICN-FR-4 LAYER 3: pcall-record safe-storage wrappers (rname→caller____, save_Σ→cont_ptr).
  * All four delegate to C twins — the pcall array pointer and top index live in C globals. */
-RTX_FUNC(rt_gen_save_caller_fb5)
-    RTX_GATE(icngen, c_rt_gen_save_caller_fb5)
-    jmp c_rt_gen_save_caller_fb5
-RTX_ENDF(rt_gen_save_caller_fb5)
-
-RTX_FUNC(rt_gen_get_caller_fb5)
-    RTX_GATE(icngen, c_rt_gen_get_caller_fb5)
-    jmp c_rt_gen_get_caller_fb5
-RTX_ENDF(rt_gen_get_caller_fb5)
-
 RTX_FUNC(rt_gen_save_cont)
     RTX_GATE(icngen, c_rt_gen_save_cont)
     jmp c_rt_gen_save_cont
