@@ -75,7 +75,7 @@ std::string bb_func_activate() {
     long   nsave    = (long)_.op_ival;
     long   nformals = (long)_.op_ab_nformals;   /* AB-3b: formals are save-set slots [1..nformals]; call site installs actuals there before jmp fn_cell; null loop must skip them */
     const char * fname = _.op_sval ? _.op_sval : "?";
-    long   K     = ab_frame_k(nsave);
+    long   K     = ab_frame_k(nsave) + 8;   /* s53 PARITY: ab_frame_k is 8 mod 16 BY DESIGN for the old push-world (push 8 + K = 16-mult); with no push, +8 makes the carve a true 16-multiple so entry parity is PRESERVED and every interior C call sits correctly aligned.  All slot math below derives from K/BASE, so the shift is uniform. */
     long   BASE  = K - 8;   /* record base = rsp+BASE == entry−8, the old frame-pointer address bit-for-bit */
     /* ── fn_cell: allocate/record storage ── */
     void ** fn_cell_ptr = (void **)0;
