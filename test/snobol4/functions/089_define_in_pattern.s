@@ -48,6 +48,11 @@ upcase_alpha:           mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 24], 0
 .Lx8_41:                lea              r10, [rip + upcase_gamma]
                         lea              r11, [rip + upcase_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + upcase_body];            jmp   rax
 upcase_gamma:           mov              rdi, qword ptr [r9 + 0]              # upcase
                         mov              rsi, qword ptr [r9 + 8]
@@ -408,9 +413,10 @@ n29_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_end_α:    add              rsp, 32;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
+RETURN:                 mov              rsp, rbp
+                        pop              rbp
+                        pop              rcx
+                        add              rsp, 16;                             jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω
@@ -422,7 +428,4 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
-                        .section         .rodata
-.S0:                    .string          "BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
-                        .text
                         .section         .note.GNU-stack,"",@progbits

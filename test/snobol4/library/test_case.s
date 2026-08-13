@@ -42,6 +42,11 @@ lwr_alpha:              mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 8], 0
 .Lx8_41:                lea              r10, [rip + lwr_gamma]
                         lea              r11, [rip + lwr_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + lwr_body];               jmp   rax
 lwr_gamma:              mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
@@ -154,6 +159,11 @@ upr_alpha:              mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 24], 0
 .Lx17_41:               lea              r10, [rip + upr_gamma]
                         lea              r11, [rip + upr_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + upr_body];               jmp   rax
 upr_gamma:              mov              rdi, qword ptr [r9 + 16]
                         mov              rsi, qword ptr [r9 + 24]
@@ -266,6 +276,11 @@ cap_alpha:              mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 40], 0
 .Lx26_41:               lea              r10, [rip + cap_gamma]
                         lea              r11, [rip + cap_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + cap_body];               jmp   rax
 cap_gamma:              mov              rdi, qword ptr [r9 + 32]
                         mov              rsi, qword ptr [r9 + 40]
@@ -396,6 +411,11 @@ icase_alpha:            mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 72], 0
 .Lx35_41:               lea              r10, [rip + icase_gamma]
                         lea              r11, [rip + icase_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + icase_body];             jmp   rax
 icase_gamma:            mov              rdi, qword ptr [r9 + 48]             # icase
                         mov              rsi, qword ptr [r9 + 56]
@@ -3676,13 +3696,16 @@ n229_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 #-----------------------------------------------------------------------------------------------------------------------
 n230_statement_end_α:   add              rsp, 160;                            jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 lea              rdi, [rip + .S3]
-                        call             rt_bomb@PLT
-                        ud2
+RETURN:                 mov              rsp, rbp
+                        pop              rbp
+                        pop              rcx
+                        add              rsp, 16;                             jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
-FRETURN:                lea              rdi, [rip + .S4]
-                        call             rt_bomb@PLT
-                        ud2
+FRETURN:                mov              rsp, rbp
+                        pop              rbp
+                        add              rsp, 8
+                        pop              rcx
+                        add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω
@@ -3700,8 +3723,6 @@ main_ω:
 .S0:                    .string          "PAT$0$V0"
 .S1:                    .string          "letter"
 .S2:                    .string          "ch"
-.S3:                    .string          "BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
-.S4:                    .string          "BOMB-FRETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
                         .text
                         .section         .rodata
 .C0:                    .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0

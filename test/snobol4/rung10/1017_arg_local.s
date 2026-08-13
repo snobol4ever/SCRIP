@@ -96,6 +96,11 @@ jlab_alpha:             mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 56], 0
 .Lx8_43:                lea              r10, [rip + jlab_gamma]
                         lea              r11, [rip + jlab_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + jlab_body];              jmp   rax
 jlab_gamma:             mov              rdi, qword ptr [r9 + 0]              # jlab
                         mov              rsi, qword ptr [r9 + 8]
