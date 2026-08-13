@@ -11,6 +11,10 @@ int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, in
 int   bb_scc_handoff_arm(void);
 int   bb_scc_handoff_room(void);
 void  bb_scc_handoff_pending_clear(void);
+const char *rt_define_query(const char *, int *, int *, int *, void **);
+int gva_index_of(const char *);
+extern int g_gva_active;
+extern DESCR_t g_call_args[];
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -44,7 +48,29 @@ std::string bb_save_restore() {
          * pair arrives already seated.  rcx/rdx remain the chain contract (rt_chain_enter, EVAL/CODE) only. */
         return x86("comment", "IR_SAVE_RESTORE wire-adopt (s55: EMPTY — sites set r10/r11 directly, adopt hop deleted)")
              + x86_alpha()
-             + x86_gamma();
+             + x86_gamma()
+             + [&]() -> std::string {
+                   /* ⭐⭐⭐ TINY-SITE SHIM s57 (Lon in-chat: "a simple ONE-SHOT GLUE to the SHIM that is created by DEFINE. The CALL sites are TINY. You have it backwards."): the per-DEFINE activation
+                    * lives HERE, once — <FN>_shim installs g_call_args[0..nf) into the formal GVA cells (pure ASM, zero C crossings, zero RTCC veneers per ruling) and falls into the fold transfer via γ.
+                    * The fallback (open_slim) path flows α→γ ABOVE and never touches the shim, so its own site-side install + NULVCL pad stay correct for under-arity; only the tiny sites jmp-ext here,
+                    * and they are full-arity by eligibility.  Residue owed to the return-side rung: save-set spill, locals/result NULVCL, k_level. */
+                   const char * fname = _.op_sval; int np = 0, nf = 0, fb = 0; void * fn = 0;
+                   const char * csv = fname ? rt_define_query(fname, &np, &nf, &fb, &fn) : (const char *)0;
+                   if (!(fname && csv && *csv && nf > 0 && g_gva_active)) return std::string();
+                   char buf[512]; snprintf(buf, sizeof buf, "%s", csv); char * sv = 0; int k = 0, ok = 1; int gk[64];
+                   for (char * t = strtok_r(buf, ",", &sv); t && k < nf && k < 64; t = strtok_r((char *)0, ",", &sv)) { gk[k] = gva_index_of(t); if (gk[k] < 0) ok = 0; k++; }
+                   if (!ok || k != nf) return std::string();
+                   std::string shim = std::string(fname) + "_shim";
+                   (void)fname; (void)csv; (void)shim; if (!MEDIUM_TEXT) return std::string();
+                   return x86_def_ext(emit_label_intern(shim.c_str()))
+                        + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                        + FOR(0, nf, [&](int i) {
+                              return x86("mov", "rax", RDQ("r8", i * 16))
+                                   + x86("note", gva_name(gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)gk[i] * 16), "rax")
+                                   + x86("mov", "rax", RDQ("r8", i * 16 + 8))
+                                   + x86("note", gva_name(gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)gk[i] * 16 + 8), "rax"); })
+                        + x86_gamma();
+               }();
     }
     if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
         /* ⛔⭐⭐⭐ LON RULING s54: globals GONE.  The RT_AB_ANCHOR global read and the rt_flat_ret_snap

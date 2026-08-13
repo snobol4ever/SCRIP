@@ -31,6 +31,7 @@ int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: call
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);   /* PL-FR-4 s12: callee's pl_trail_mark_off by name — >0 = frame slot of $trail_mark result; 0 = absent (zeta_storage.c) */
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);   /* PL-FR-4: callee trail-mark frame slot offset by name; 0 = not a Prolog zframe pred or no $trail_mark; mirrors icn_zframe_gen_by_name pattern (zeta_storage.c) */
 int  rt_proc_is_generator(const char *name);
+int rt_define_tiny_ok(const char *, int);
 void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);   /* PL-FR-4 ZFRAME: pop {trail_mark_lo, trail_mark_hi, cont_addr} triple; 0 = exhausted = omega. */
 void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);   /* PL-FR-4 ZFRAME RESUME: set pending-resume globals. */
 int  rt_proc_dyn_scope(const char *name);
@@ -230,6 +231,30 @@ static std::string bcps_det_arm() {
              + x86_anchor_enter()
              + (scc_z
                 ? [&]() -> std::string {
+                    /* TINY-SITE s57 ZD twin (Lon in-chat: one-shot glue to the DEFINE shim; ASM staging, no veneers, no open_slim/epilogue crossings).  Same gate, arm and residue notes as the non-ZD twin below; args read from their ZD cells (ZOPQ). */
+                    static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
+                    if (!_ntz && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-SITE s57: TEXT-only this seat (m3 cross-chain rel32 owed) */
+                        std::string shim = std::string(_.op_sval) + "_shim";
+                       /* TINY-SITE s57 m3 LIMITATION (owed): X-record rel32 cannot patch across per-chain buffers, so BINARY takes tiny only when the shim is already defined in THIS emission session (stub-before-main ordering); otherwise the byte-identical slim arm below. TEXT: gas resolves the name at assembly. */
+                        int rgz = scc_res_gk_z < 0 ? 0 : scc_res_gk_z;
+                        auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w, 1); };
+                        return FOR(0, (int)_.op_ival, [&](int i) {
+                                   return x86("mov", "rax", ZOPQT(i, 0)) + x86("mov", "rdx", ZOPQT(i, 8))
+                                        + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                                        + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
+                                        + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx"); })
+                             + x86("lea", "r10", L(6))
+                             + x86("lea", "r11", L(7))
+                             + x86_jmp_ext(emit_label_intern(shim.c_str()))
+                             + x86("def", L(6))
+                             + x86("note", gva_name(rgz)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rgz, 0) : ABSQ(RT_GVA_VA + (unsigned long)rgz * 16))
+                             + x86("note", gva_name(rgz)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rgz, 8) : ABSQ(RT_GVA_VA + (unsigned long)rgz * 16 + 8))
+                             + x86("jmp", L(2))
+                             + x86("def", L(7))
+                             + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+                             + x86("jmp", L(2));
+                    }
+                    _tiny_declined_z: ;
                     /* RTX-FUNC-0 (ZD AB-3b): when this program has DEFINE activation blocks (ab_n>0), replace
                      * rt_arg_stage×n + open_slim + open_fn + epilogue with: save-set spill (same as non-ZD),
                      * install actuals from their ZD-frame cells (ZOPQ) directly into formal GVA slots, pass
@@ -406,6 +431,7 @@ static std::string bcps_det_arm() {
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);   /* CALL2BB slice 2: the inline BP-7 predicate factored to the shared probe above (identical answer by construction; is_dyn now inside) */
     int c2 = _.op_c2 == 1 ? 1 : 0;
+    { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc,c2); }
     if (_.op_c2 < 0) return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB handoff callee-name mismatch for this exact call node (producer/consumer drift)");
     if (c2 && !scc)  return x86_alpha() + x86_bomb("bb_call_proc_staged: CALL2BB consumer probe disagrees with the role-0 producer that armed for this node (structural drift — bb_scc_probe is supposed to make this impossible)");
     if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha() + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist as storage on an armed statement; registration and the probe disagreed");
@@ -441,6 +467,35 @@ static std::string bcps_det_arm() {
             : std::string(""))
          + (scc && !c2
             ? [&]() -> std::string {
+                /* ⭐⭐⭐ TINY-SITE s57 (Lon in-chat, roman.s n201: "That needs all be DELETED and REPLACED with a simple ONE-SHOT GLUE to the SHIM that is created by DEFINE. The CALL sites are TINY.
+                 * You have it backwards."  And: "Is rt_arg_stage a C function? If so then NOT. Make it ASM and DO NOT have RTCC VENEERS there").  The folded full-arity class collapses to: inline
+                 * g_call_args stores (raw ASM — rt_arg_stage crossing and its RTCC veneers DELETED from this arm) + site-set r10/r11 wires + ONE direct jmp-ext to the DEFINE-created <FN>_shim
+                 * (bb_save_restore role 3), which installs formals and falls into the fold transfer.  γ landing reads the result GVA cell inline; ω loads FAILDESCR inline — open_slim and both
+                 * epilogue_slim crossings DELETED here.  Eligibility EMIT-TIME (rt_define_tiny_ok: registered dyn_scope !gen !variadic !redefined, nargs==nformals>0); everything else keeps the slim
+                 * arm below (its NULVCL under-arity pad still matters there).  Residue owed to the return-side rung: k_level, result/locals NULVCL, GC-pending shield on the stores.  SCRIP_NO_TINY=1
+                 * restores the slim arm byte-identically. */
+                static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
+                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
+                if (!_ntiny && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-SITE s57: TEXT-only this seat */
+                    std::string shim = std::string(_.op_sval) + "_shim";
+                       /* TINY-SITE s57 m3 LIMITATION (owed): X-record rel32 cannot patch across per-chain buffers, so BINARY takes tiny only when the shim is already defined in THIS emission session (stub-before-main ordering); otherwise the byte-identical slim arm below. TEXT: gas resolves the name at assembly. */
+                    int rg = scc_res_gk < 0 ? 0 : scc_res_gk;
+                    return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
+                               return x86("mov", "rax", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8))
+                                    + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
+                                    + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
+                                    + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx"); })
+                         + x86("lea", "r10", L(6))
+                         + x86("lea", "r11", L(7))
+                         + x86_jmp_ext(emit_label_intern(shim.c_str()))
+                         + x86("def", L(6))
+                         + x86("note", gva_name(rg)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rg, 0) : ABSQ(RT_GVA_VA + (unsigned long)rg * 16))
+                         + x86("note", gva_name(rg)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rg, 8) : ABSQ(RT_GVA_VA + (unsigned long)rg * 16 + 8))
+                         + x86("jmp", L(2))
+                         + x86("def", L(7))
+                         + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+                         + x86("jmp", L(2));
+                }
                 /* AB-3b path: when this program has DEFINE activation blocks (SCRIP_AB on, ab_n>0),
                  * replace open_slim+open_fn+arg-install with: save-set spill, install actuals into
                  * formal GVA cells, pass wires rcx/rdx, jmp [fn_cell$FN] → FN_act_α.
@@ -509,6 +564,7 @@ static std::string bcps_det_arm() {
                     + x86("def", L(5))
                     + x86("add", "rsp", scc_sb)
                     + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp));
+
               }()
             : std::string(""))
          + (dc
