@@ -31,12 +31,12 @@ n1_keyword_snobol4_α:   sub              rsp, 16
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n2_assign_α
 .Lx6_0:                 .quad            .Lx6_0_s
 .Lx6_0_s:               .string          "UCASE"
 #-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # keyword_snobol4
+n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             # keyword_snobol4
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

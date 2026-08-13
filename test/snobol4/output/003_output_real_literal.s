@@ -20,12 +20,12 @@ n0_statement_begin_α:                                                         j
 n0_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_real_α:          sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 5                         # result
+                        mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx6_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n2_assign_α
 .Lx6_0:                 .quad            4614253070214989087
 #-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_real
+n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_real
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

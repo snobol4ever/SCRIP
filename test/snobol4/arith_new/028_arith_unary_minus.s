@@ -20,13 +20,13 @@ n0_statement_begin_α:                                                         j
 n0_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 3                         # result
+                        mov              qword ptr [rsp + 0], 3               # result
                         mov              rax, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n2_unop_α
 .Lx7_0:                 .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n2_unop_α:              sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 16]                      # lit_integer
+                        mov              rdi, qword ptr [rsp + 16]            # lit_integer
                         mov              rsi, qword ptr [rsp + 24]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 40], r8
@@ -38,10 +38,10 @@ n2_unop_α:              sub              rsp, 16
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        mov              qword ptr [rsp + 0], rax                       # result
+                        mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n3_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
-n3_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # unop
+n3_assign_α:            mov              rsi, qword ptr [rsp + 0]             # unop
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx9_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]

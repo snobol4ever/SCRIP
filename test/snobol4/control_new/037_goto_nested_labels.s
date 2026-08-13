@@ -27,14 +27,14 @@ n2_statement_begin_α:                                                         j
 n2_statement_begin_β:                                                         jmp   n6_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 4
                         mov              rax, qword ptr [rip + .Lx26_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n4_assign_α
 .Lx26_0:                .quad            .Lx26_0_s
 .Lx26_0_s:              .string          "skip"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n4_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx27_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -58,14 +58,14 @@ n6_statement_begin_α:                                                         j
 n6_statement_begin_β:                                                         jmp   n10_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:        sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx32_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n8_assign_α
 .Lx32_0:                .quad            .Lx32_0_s
 .Lx32_0_s:              .string          "a"
 #-----------------------------------------------------------------------------------------------------------------------
-n8_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n8_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx33_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -96,14 +96,14 @@ n12_statement_begin_α:                                                        j
 n12_statement_begin_β:                                                        jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 4
                         mov              rax, qword ptr [rip + .Lx42_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n14_assign_α
 .Lx42_0:                .quad            .Lx42_0_s
 .Lx42_0_s:              .string          "skip"
 #-----------------------------------------------------------------------------------------------------------------------
-n14_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n14_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx43_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
@@ -127,14 +127,14 @@ n16_statement_begin_α:                                                        j
 n16_statement_begin_β:                                                        jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n17_lit_string_α:       sub              rsp, 16
-                        mov              qword ptr [rsp + 0], 2                         # result
+                        mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 1
                         mov              rax, qword ptr [rip + .Lx48_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n18_assign_α
 .Lx48_0:                .quad            .Lx48_0_s
 .Lx48_0_s:              .string          "b"
 #-----------------------------------------------------------------------------------------------------------------------
-n18_assign_α:           mov              rsi, qword ptr [rsp + 0]                       # lit_string
+n18_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
