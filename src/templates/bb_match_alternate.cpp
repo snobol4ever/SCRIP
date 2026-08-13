@@ -17,10 +17,21 @@ extern "C" {
  *       address (x86_lea_rip_id -- the encoder whose own comment names this use) into the box's
  *       alt.resume quad; alpha and each entry stub store the NEXT arm's entry-stub address into alt.next.
  *       beta = one indirect jmp through resume; af = delta restore + one indirect jmp through next.
- *   (3) ZETA STORAGE.  Box state is the flat quad pair: FR(op_off+0) delta (4B, +4 dead), FRQ(op_off+8)
- *       resume (ZK_PTR_CODE), FRQ(op_off+16) next (ZK_PTR_CODE).  Reads/writes happen at alpha/sigma/beta/af,
- *       all of which execute at the ALT's frontier (flat arms, LIFO downstream), so the registered flat
- *       displacement is correct in every regime the old !afc legacy path already served.
+ *   (3) OWN-CARVED RECORD (s61, Lon in-chat: "the ALPHA is not carving its own BB LOCAL to store the NEXT
+ *       POINTER").  WAS the registered-flat trio FR(op_off+0)/FRQ(op_off+8)/FRQ(op_off+16) — writes into the
+ *       residual flat_frame_bytes graph region the box never carved (emit.cpp:2918 CARVE-ERAD names ALTERNATE
+ *       as the witness of exactly this aliasing class), per-BLOB not per-activation, so nested/recursive
+ *       activations of one node shared ONE trio (the DEL-T1 disease bb_match_arbno's ROOT-SPINE note
+ *       documents).  NOW: alpha carves its OWN 32B record (sub rsp,32 — 16B quantum law), delta dword at
+ *       [rsp+0] (+4 dead), resume quad [rsp+8], next quad [rsp+16], [rsp+24] pad; RDD/RSP direct spellings
+ *       escape the FR classifier so no frame-base re-canonicalization.  alpha/sigma/beta/af all execute at
+ *       the ALT's post-carve frontier (flat arms, LIFO downstream) so every offset is static; the record is
+ *       per-activation BY CONSTRUCTION.  Release follows the unwind law clause 2 (emit.cpp:1937): the
+ *       generator frees its OWN K at exhaust — add rsp,32 at L(19) before omega; beta and af keep the record
+ *       live (backtrack re-entry + next-arm entry stubs still write [rsp+16]); success-side growth is
+ *       NON-POPPING by THE MODEL, released by the bracket whacks, never by ALTERNATE.  zd_k stays 0 this
+ *       rung (planner depth model unchanged; the sweep is the gate — flip to 32 there if FR readers
+ *       downstream of a live ALT record measure displaced).
  * Pair map unchanged: 0..N-1 arm entries, N..2N-1 arm resumes, 2N merge, 2N+1 fail-advance, 2N+2+j sigma
  * stubs (driver mints them for EVERY match-alt now, emit.cpp).  Internal labels: 19 = pre-omega terminal,
  * 20+j = entry stubs (j=1..N-1), 40+j = resume trampolines. */
@@ -29,7 +40,7 @@ static std::string alt_entry_stubs(long N) {
     for (long j = 1; j < N; j++)
         r += x86("def", L((int)(20 + j)))
            + x86_lea_rip_id("rax", (j + 1 < N) ? (int)(20 + j + 1) : 19)
-           + x86("mov", FRQ(_.op_off + 16), "rax")
+           + x86("mov", RSP(16), "rax")
            + x86("jmp", PAIR((int)j));
     return r;
 }
@@ -38,7 +49,7 @@ static std::string alt_sigma_stubs(long N) {
     for (long j = 0; j < N; j++)
         r += x86("def", PAIR((int)(2 * N + 2 + j)))
            + x86_lea_rip_id("rax", (int)(40 + j))
-           + x86("mov", FRQ(_.op_off + 8), "rax")
+           + x86("mov", RSP(8), "rax")
            + x86("jmp", PAIR((int)(2 * N)));
     for (long j = 0; j < N; j++)
         r += x86("def", L((int)(40 + j)))
@@ -49,25 +60,25 @@ static std::string alt_sigma_stubs(long N) {
 std::string bb_match_alternate() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    return _.op_off < 0
-             ? x86_alpha() + x86_bomb("IR_MATCH_ALTERNATE: cursor slot not granted (zls)")
-             : x86("comment", "IR_MATCH_ALT_NARY (ALT-FLAT)")
+    return x86("comment", "IR_MATCH_ALT_NARY (ALT-FLAT, s61 own-carved record)")
              + x86_alpha()
-             + x86("mov", FR(_.op_off), "r14d")
+             + x86("sub", "rsp", 32L)
+             + x86("mov", RDD("rsp", 0), "r14d")
              + x86_lea_rip_id("rax", (_.op_ival > 1) ? 21 : 19)
-             + x86("mov", FRQ(_.op_off + 16), "rax")
+             + x86("mov", RSP(16), "rax")
              + x86("jmp", PAIR(0))
              + alt_entry_stubs(_.op_ival)
              + alt_sigma_stubs(_.op_ival)
              + x86("def", PAIR((int)(2 * _.op_ival)))
              + x86_gamma()
              + x86_beta()
-             + x86("mov", "rax", FRQ(_.op_off + 8))
+             + x86("mov", "rax", RSP(8))
              + x86_jmp_reg("rax")
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
-             + x86("mov", "r14d", FR(_.op_off))
-             + x86("mov", "rax", FRQ(_.op_off + 16))
+             + x86("mov", "r14d", RDD("rsp", 0))
+             + x86("mov", "rax", RSP(16))
              + x86_jmp_reg("rax")
              + x86("def", L(19))
+             + x86("add", "rsp", 32L)
              + x86_omega();
 }
