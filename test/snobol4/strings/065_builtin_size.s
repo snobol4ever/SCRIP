@@ -9,21 +9,21 @@ main:
                         mov              r12, qword ptr [0x70000000]
                         call             rtcc_load_all@PLT
                         xor              esi, esi
-                                                                    jmp   main_α
+                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = SIZE('hello')
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                               jmp   n1_lit_string_α
-n0_statement_begin_β:                                               jmp   main_γ
+n0_statement_begin_α:                                                         jmp   n1_lit_string_α
+n0_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx7_0]
-                        mov              qword ptr [rsp + 8], rax;  jmp   n2_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n2_call_α
 .Lx7_0:                 .quad            .Lx7_0_s
 .Lx7_0_s:               .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
@@ -51,13 +51,13 @@ n2_call_α:              sub              rsp, 16
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         add              rsp, 16
-                        cmp              eax, 104;                  jne   .Lx8_240
+                        cmp              eax, 104;                            jne   .Lx8_240
                         add              rsp, 16
-                        add              rsp, 16;                   jmp   n0_statement_begin_β
+                        add              rsp, 16;                             jmp   n0_statement_begin_β
 .Lx8_240:               mov              qword ptr [rsp + 0], rax                       # result
-                        mov              qword ptr [rsp + 8], rdx;  jmp   n3_assign_α
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n3_assign_α
 n2_call_β:              add              rsp, 16
-                        add              rsp, 16;                   jmp   n0_statement_begin_β
+                        add              rsp, 16;                             jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # call
                         mov              rdx, qword ptr [rsp + 8]
@@ -71,14 +71,14 @@ n3_assign_α:            mov              rsi, qword ptr [rsp + 0]              
                         mov              r8,   qword ptr [r11 + 40]
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]; jmp   n4_statement_end_α
+                        mov              r11,  qword ptr [r11 + 64];          jmp   n4_statement_end_α
 .Lx10_0:                .quad            .Lx10_0_s
 .Lx10_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_statement_end_α:     add              rsp, 32;                   jmp   main_γ
+n4_statement_end_α:     add              rsp, 32;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
-                                                                    jmp   main_ω
+                                                                              jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         xor              edi, edi
