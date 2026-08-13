@@ -9,7 +9,7 @@
 #include "zeta_choices.h"
 #include "pin_va.h"
 extern "C" {
-extern uint64_t g_rtcc_block[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
+extern uint64_t rtccb[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
 extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 1=ON(default, s13), 0=OFF(SCRIP_RTCC=0, emergency bisect only) */
 long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
@@ -298,7 +298,7 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 /* it -- RT_GVA_VA dead process-wide, every [r9+k*16] near-null.  PROVEN: AB=1 RTCC=1 fibonacci SIGSEGV.  Skipping the */
 /* store makes the documented exception TRUE: r9 is a read-only cache of a constant, the reload always restores the    */
 /* pristine seed, and a template clobber of r9 becomes SELF-HEALING at the next crossing instead of fatal.             */
-/* x86_rtcc_wb_bin — BINARY: writeback all 9 GPRs to g_rtcc_block WITHOUT touching RSP.                         */
+/* x86_rtcc_wb_bin — BINARY: writeback all 9 GPRs to rtccb WITHOUT touching RSP.                         */
 /* RSP-SAFETY LAW: the veneer fires inside templates that may have live ζ cells on RSP.  NO push/pop allowed.    */
 /* APPROACH: use the REX.W MOV-moffs-rax encoding (48 A3 addr64) to store RAX directly to its slot by absolute  */
 /* address — no base register needed.  Then use RAX as the block pointer for the remaining 8 stores.             */
@@ -329,7 +329,7 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block) {
     /* RC-8b (this session, FINDING pending): the ARG TIER {RAX,RCX,RDX,RSI,RDI} writeback is confirmed dead --
      * exhaustive codebase search (x86_asm.h's own reload, rtcc_load_scratch, keywords.c's ANCHOR companion,
      * and the hand-written inline-asm reload sites in rt.c/runtime_eval.c) shows every single reader of
-     * g_rtcc_block touches ONLY offsets 40+ (the scratch tier R8/R9/R10/R11); offsets 0/8/16/24/32 are never
+     * rtccb touches ONLY offsets 40+ (the scratch tier R8/R9/R10/R11); offsets 0/8/16/24/32 are never
      * read back by anything.  Dropped the 5 arg-tier stores (RAX's own slot-0 save included -- nothing reads
      * slot 0 either).  RAX still loads the block address: it remains the base register for the scratch-tier
      * stores below, that role is independent of whether RAX's OWN pre-call value gets snapshotted anywhere. */
@@ -341,7 +341,7 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block) {
     /* RAX left = block pointer.  Caller uses RAX for indirect call stub. */
     return wb;
 }
-/* x86_rtcc_rl_bin — BINARY: reload GPRs from g_rtcc_block.                                                      */
+/* x86_rtcc_rl_bin — BINARY: reload GPRs from rtccb.                                                      */
 /* RC-4 PARTIAL RELOAD: only the SCRATCH TIER {R8, R9, R10, R11} is restored from the block.                   */
 /* The ARG TIER {RAX, RCX, RDX, RSI, RDI} reload is DEFERRED to RC-5: until a VM global is assigned to those  */
 /* slots, the block values are zero (BSS) and restoring zero would corrupt the call return value in RAX/RDX.   */
@@ -362,30 +362,31 @@ static inline std::string x86_rtcc_wb_text(void) {
      * codebase search, see x86_rtcc_wb_bin's comment for the full account.  RAX still loads the block address
      * as the base register for the scratch-tier stores that remain; its own pre-call value is no longer saved
      * anywhere since nothing ever read slot 0 back either. */
-    wb += x86_rec("mov") + "rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    wb += x86_rec("mov") + "qword ptr [rax + 40], r8\n";
-    if (!RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rax + 48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
-    wb += x86_rec("mov") + "qword ptr [rax + 56], r10\n";
-    wb += x86_rec("mov") + "qword ptr [rax + 64], r11\n";
-    /* rax left = block ptr; call stub follows directly */
+    wb += x86_rec("mov") + "qword ptr [rip + rtccb+40], r8\n";
+    if (!RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rip + rtccb+48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
+    wb += x86_rec("mov") + "qword ptr [rip + rtccb+56], r10\n";
+    wb += x86_rec("mov") + "qword ptr [rip + rtccb+64], r11\n";
+    /* NO base register and NO scratch clobber: each slot is addressed straight off rip.  rax survives the veneer in TEXT */
+    /* (it does not in BINARY, which still movabs's the block address -- a template depending on rax across a crossing    */
+    /* would already be broken in mode 3, so TEXT being the more preserving of the two is safe, not a new divergence).    */
     return wb;
 }
 static inline std::string x86_rtcc_rl_text(void) {
     std::string rl;
     /* RC-4 PARTIAL RELOAD: scratch tier only {R8 R9 R10 R11}; arg tier reload deferred to RC-5.            */
     /* Use r11 as block base; restore r8/r9/r10; restore r11 last from its slot.                             */
-    rl += x86_rec("mov") + "r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    rl += x86_rec("mov") + "r8,   qword ptr [r11 + 40]\n";
-    rl += x86_rec("mov") + "r9,   qword ptr [r11 + 48]\n";
-    rl += x86_rec("mov") + "r10,  qword ptr [r11 + 56]\n";
-    rl += x86_rec("mov") + "r11,  qword ptr [r11 + 64]\n";
+    rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
+    rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
+    rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb+56]\n";
+    rl += x86_rec("mov") + "r11, qword ptr [rip + rtccb+64]\n";
+    /* Each slot addressed off rip: r11 is no longer the block base, so the "restore r11 LAST" ordering constraint is gone. */
     return rl;
 }
 /* x86_rtcc_call — RC-4 RTCC veneer for void/int/ptr-returning calls (no DESCR_t capture needed).               */
 /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC (x86_call_ro).                                             */
 inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
     if (!g_rtcc_on) return x86_call_ro(sym, ptr);   /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC */
-    uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+    uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
         /* Call stub: movabs r10,ptr; call r10 — R10 already written-back, free as indirect-call scratch */
         std::string call_b;
@@ -1696,14 +1697,14 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         /* RC-4: emit the writeback half only (all 9 GPRs → block).  For chained post-call sequences where  */
         /* cmp/je/capture all happen between the call and the reload.  KILLSWITCH: no-op when gate OFF.      */
         if (!g_rtcc_on) return std::string();
-        uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+        uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block)) : x86_rtcc_wb_text();
     }
     if (!strcmp(mnem, "rtcc_rl")) {
         /* RC-4: emit the reload half only (block → all 9 GPRs).  Paired with rtcc_wb above.               */
         /* KILLSWITCH: no-op when gate OFF.                                                                  */
         if (!g_rtcc_on) return std::string();
-        uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+        uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block)) : x86_rtcc_rl_text();
     }
     if (!strcmp(mnem, "rtcc_anchor_cmp")) {
@@ -2508,7 +2509,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     if (!g_rtcc_on) {
         return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     }
-    uint64_t block = (uint64_t)(uintptr_t)g_rtcc_block;
+    uint64_t block = (uint64_t)(uintptr_t)rtccb;
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     if (MEDIUM_BINARY) {
         std::string call_b;

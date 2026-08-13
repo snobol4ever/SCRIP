@@ -63,7 +63,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* The block itself — declared in rtcc_init.c; extern here for the GC and coexpr paths.                                                                                                              */
 /* 256-byte aligned so every slot fits in one or two L1 cache lines.                                                                                                                                  */
-extern uint64_t g_rtcc_block[32];   /* 32 × 8B = 256B; XMM slots at [9]..[24] as two uint64 each */
+extern uint64_t rtccb[32];   /* 32 × 8B = 256B; XMM slots at [9]..[24] as two uint64 each */
 extern unsigned char g_rtcc_on;     /* 1 = ON (default, s13); 0 = OFF (SCRIP_RTCC=0, emergency bisect only, nothing may depend on it) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GC integration: call at runtime init (done in rtcc_init constructor).                                                                                                                              */
