@@ -1210,7 +1210,7 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int fc_alt_fpmax(const IR_t *);
-static int fc_alt_active(const IR_t *nd) { return nd && nd->op == IR_MATCH_ALTERNATE && x86_port_mode() == ZC_PORT_FORTH && fc_alt_fpmax(nd) >= 0; }
+static int fc_alt_active(const IR_t *nd) { extern int fc_cells_active(void); return nd && nd->op == IR_MATCH_ALTERNATE && fc_cells_active() && fc_alt_fpmax(nd) >= 0; }   /* RBX census (FINDING-2026-08-12p/v): producer fc_alt_register (lower_snobol4.c:1677) is port-BLIND -- zero port checks in that file, gated only on fc_linear/fc_walk_range.  Widened from bare ZC_PORT_FORTH to match.  Measured BY SET byte-identical both ports (FORTH 84/122 0/0, HEAP 36/122 0/0) -- currently zero corpus impact, a real fix for a real mismatch. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int fc_seq_active(const IR_t *);
 static int fc_seq_on(const IR_t *nd) { return nd && x86_port_mode() == ZC_PORT_FORTH && fc_seq_active(nd); }
