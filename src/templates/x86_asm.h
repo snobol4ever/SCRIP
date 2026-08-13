@@ -25,6 +25,10 @@ long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local
 #endif
 extern "C" {
 }
+static inline int x86_tabs_on(void) { static int t = -1; if (t < 0) { const char * e = getenv("SCRIP_ASM_TABS"); t = (e && *e == '0') ? 0 : 1; } return t; }
+inline std::string x86_rec(const char * op) { return x86_tabs_on() ? (std::string("\t") + op + "\t") : (std::string(" ") + op + " "); }
+inline std::string x86_recn(const char * op) { return x86_tabs_on() ? (std::string("\t") + op) : (std::string(" ") + op); }
+inline std::string x86_reclbl(const std::string & nm) { return x86_tabs_on() ? (nm + ":\t") : (nm + ":"); }
 enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };
 #define PORT_ALPHA   "\xCE\xB1"
 #define PORT_BETA    "\xCE\xB2"
@@ -108,37 +112,37 @@ inline std::string x86_imul_rr(const char * dst, const char * src) {
     int g = x86_rnum(dst), m = x86_rnum(src);
     uint8_t rex = 0x40; if (x86_is64(dst) || x86_is64(src)) rex |= 0x08; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; if (rex != 0x40) code += (char)rex; code += (char)0x0F; code += (char)0xAF; code += (char)(0xC0 | ((g & 7) << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" imul ") + dst + ", " + src + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("imul") + dst + ", " + src + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cqo() {
-    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x48, 0x99)) : std::string(" cqo\n");
+    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0x48, 0x99)) : x86_recn("cqo") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rep_stosb() {
-    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xAA)) : std::string(" rep stosb\n");
+    return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xAA)) : x86_rec("rep") + "stosb\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xorps_xmm0() {
-    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : std::string(" xorps xmm0, xmm0\n");
+    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : x86_rec("xorps") + "xmm0, xmm0\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movabs_r64(const char * dst, uint64_t imm) {
     int m = x86_rnum(dst);
     if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(imm); return x86_Lrec(code); }
-    return std::string(" movabs ") + dst + ", " + std::to_string((unsigned long long)imm) + "\n";
+    return x86_rec("movabs") + dst + ", " + std::to_string((unsigned long long)imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movq_xmm0_r64(const char * src) {
     int m = x86_rnum(src); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x6E; code += (char)(0xC0 | (0 << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq xmm0, ") + src + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movq") + "xmm0, " + src + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movq_xmm_r64(const char * dst, const char * src) {
     int xn = (dst && !strncmp(dst, "xmm", 3)) ? atoi(dst + 3) : 0; int m = x86_rnum(src); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; if (xn >= 8) rex |= 0x04;
     std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x6E; code += (char)(0xC0 | ((xn & 7) << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movq ") + dst + ", " + src + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movq") + dst + ", " + src + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_set_xmm0_double(double d) {
@@ -149,13 +153,13 @@ inline std::string x86_set_xmm0_double(double d) {
 inline std::string x86_idiv(const char * reg) {
     int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (7 << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" idiv ") + reg + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("idiv") + reg + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_neg(const char * reg) {
     int m = x86_rnum(reg); uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0xF7; code += (char)(0xC0 | (3 << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" neg ") + reg + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("neg") + reg + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_add(const char * reg, long imm) {
@@ -165,7 +169,7 @@ inline std::string x86_add(const char * reg, long imm) {
     if (imm >= -128 && imm <= 127) { if (rex != 0x40) code += (char)rex; code += (char)0x83; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else if (m == 0 && !w)         { code += (char)0x05; code += u32le((uint32_t)imm); }
     else                           { if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" add ") + reg + ", " + std::to_string(imm) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("add") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_sub(const char * reg, long imm) {
@@ -174,14 +178,14 @@ inline std::string x86_sub(const char * reg, long imm) {
     uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else                           { code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" sub ") + reg + ", " + std::to_string(imm) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("sub") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movsxd(const char * dst64, const char * src32) {
     int g = x86_rnum(dst64), m = x86_rnum(src32);
     uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0x63; code += (char)(0xC0 | ((g & 7) << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movsxd ") + dst64 + ", " + src32 + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movsxd") + dst64 + ", " + src32 + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_subj_cursor(const char * dst) {
@@ -190,7 +194,7 @@ inline std::string x86_lea_subj_cursor(const char * dst) {
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8D; code += (char)modrm; code += (char)sib; code += (char)0x00;
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" lea ") + dst + ", [r13 + rcx]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("lea") + dst + ", [r13 + rcx]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
@@ -199,7 +203,7 @@ inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movzx") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movzx_bir(const char * dst, const char * base, const char * idx) {
@@ -208,7 +212,7 @@ inline std::string x86_movzx_bir(const char * dst, const char * base, const char
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | ((in & 7) << 3) | (bn & 7));
     std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)0x00;
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" movzx ") + dst + ", byte ptr [" + base + " + " + idx + "]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movzx") + dst + ", byte ptr [" + base + " + " + idx + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_mov_subj_q(const char * dst, int disp) {
@@ -217,7 +221,7 @@ inline std::string x86_mov_subj_q(const char * dst, int disp) {
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", qword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", qword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_mov_subj_d(const char * dst, int disp) {
@@ -226,51 +230,51 @@ inline std::string x86_mov_subj_d(const char * dst, int disp) {
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
     uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", dword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", dword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cset_probe() {
-    return MEDIUM_BINARY ? x86_Lrec(x86_b4(0x80, 0x3C, 0x37, 0x00)) : std::string(" cmp byte ptr [rdi+rsi], 0\n");
+    return MEDIUM_BINARY ? x86_Lrec(x86_b4(0x80, 0x3C, 0x37, 0x00)) : x86_rec("cmp") + "byte ptr [rdi+rsi], 0\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_push(const char * r) {
-    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" push ") + r + "\n");
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("push") + r + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pop (const char * r) {
-    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" pop ")  + r + "\n");
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("pop")  + r + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm(const char * dst, long imm) {
     int m = x86_rnum(dst);
     if (MEDIUM_BINARY) { std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le((uint64_t)imm); return x86_Lrec(code); }
-    return std::string(" mov ") + dst + ", " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + dst + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm32(const char * dst, long imm) {
     int m = x86_rnum(dst);
     if (MEDIUM_BINARY) { std::string code; if (m >= 8) code += (char)0x41; code += (char)(0xB8 | (m & 7)); code += u32le((uint32_t)imm); return x86_Lrec(code); }
-    return std::string(" mov ") + dst + ", " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + dst + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_ro(const char * dst, const char * label, uint64_t ptr) {
     if (MEDIUM_BINARY) {
         int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code);
     }
-    return std::string(" lea ") + dst + ", [rip + " + (label ? label : "??") + "]\n";
+    return x86_rec("lea") + dst + ", [rip + " + (label ? label : "??") + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_got(const char * dst, const char * label, uint64_t ptr) {
     if (MEDIUM_BINARY) {
         int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)(0xB8 | (m & 7)); code += u64le(ptr); return x86_Lrec(code);
     }
-    return std::string(" mov ") + dst + ", qword ptr [rip + " + (label ? label : "??") + "@GOTPCREL]\n";
+    return x86_rec("mov") + dst + ", qword ptr [rip + " + (label ? label : "??") + "@GOTPCREL]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_align_assert();
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
     if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code); }
-    return x86_align_assert() + std::string(" call ") + sym + "@PLT\n";
+    return x86_align_assert() + x86_rec("call") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_rtcc_writeback / x86_rtcc_reload — RC-4 FULL 9-GPR block I/O helpers (BINARY + TEXT).                                                                                                        */
@@ -356,11 +360,11 @@ static inline std::string x86_rtcc_wb_text(void) {
      * codebase search, see x86_rtcc_wb_bin's comment for the full account.  RAX still loads the block address
      * as the base register for the scratch-tier stores that remain; its own pre-call value is no longer saved
      * anywhere since nothing ever read slot 0 back either. */
-    wb += " mov rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    wb += " mov qword ptr [rax + 40], r8\n";
-    if (!RTCC_GLOBAL_R9_GVA) wb += " mov qword ptr [rax + 48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
-    wb += " mov qword ptr [rax + 56], r10\n";
-    wb += " mov qword ptr [rax + 64], r11\n";
+    wb += x86_rec("mov") + "rax, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
+    wb += x86_rec("mov") + "qword ptr [rax + 40], r8\n";
+    if (!RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rax + 48], r9\n";   /* SKIPPED under the GVA claim -- H2 */
+    wb += x86_rec("mov") + "qword ptr [rax + 56], r10\n";
+    wb += x86_rec("mov") + "qword ptr [rax + 64], r11\n";
     /* rax left = block ptr; call stub follows directly */
     return wb;
 }
@@ -368,11 +372,11 @@ static inline std::string x86_rtcc_rl_text(void) {
     std::string rl;
     /* RC-4 PARTIAL RELOAD: scratch tier only {R8 R9 R10 R11}; arg tier reload deferred to RC-5.            */
     /* Use r11 as block base; restore r8/r9/r10; restore r11 last from its slot.                             */
-    rl += " mov r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
-    rl += " mov r8,   qword ptr [r11 + 40]\n";
-    rl += " mov r9,   qword ptr [r11 + 48]\n";
-    rl += " mov r10,  qword ptr [r11 + 56]\n";
-    rl += " mov r11,  qword ptr [r11 + 64]\n";
+    rl += x86_rec("mov") + "r11, qword ptr [rip + g_rtcc_block@GOTPCREL]\n";
+    rl += x86_rec("mov") + "r8,   qword ptr [r11 + 40]\n";
+    rl += x86_rec("mov") + "r9,   qword ptr [r11 + 48]\n";
+    rl += x86_rec("mov") + "r10,  qword ptr [r11 + 56]\n";
+    rl += x86_rec("mov") + "r11,  qword ptr [r11 + 64]\n";
     return rl;
 }
 /* x86_rtcc_call — RC-4 RTCC veneer for void/int/ptr-returning calls (no DESCR_t capture needed).               */
@@ -582,7 +586,7 @@ inline int x86_align_assert_on(void) {
 inline std::string x86_align_assert() {
     if (!x86_align_assert_on()) return std::string();
     if (MEDIUM_BINARY) return x86_Lrec(x86_b2(0x40, 0xF6) + x86_b2(0xC4, 0x0F) + x86_b2(0x74, 0x02) + x86_b2(0x0F, 0x0B));
-    return std::string(" test spl, 15\n jz 1f\n ud2\n1:\n");
+    return x86_rec("test") + "spl, 15\n jz 1f\n ud2\n1:\n";
 }
 inline std::string x86_port_canary() {
     if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
@@ -591,7 +595,7 @@ inline std::string x86_port_canary() {
         uint8_t rex = (uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), modrm = (uint8_t)(0xC0 | (lo << 3) | lo);
         return x86_Lrec(x86_b3(rex, 0x85, modrm) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
     }
-    return std::string(" test ") + x86_zr() + ", " + x86_zr() + "\n jnz 1f\n ud2\n1:\n";
+    return x86_rec("test") + x86_zr() + ", " + x86_zr() + "\n jnz 1f\n ud2\n1:\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_free_call() — emits `call rt_zls_release(r12)`, alignment-safe (push ___/and rsp,-16/restore, the
@@ -616,7 +620,7 @@ extern "C" void rt_zls_release(void *);
 inline std::string x86_own_floor_store() {
     if (MEDIUM_BINARY)
         return x86_Lrec(x86_b3(0x48, 0x39, 0xC1) + x86_b2(0x73, 0x03) + x86_b3(0x48, 0x89, 0x0F));
-    return std::string(" cmp rcx, rax\n jae 1f\n mov qword ptr [rdi], rcx\n1:\n");
+    return x86_rec("cmp") + "rcx, rax\n jae 1f\n mov qword ptr [rdi], rcx\n1:\n";
 }
 inline std::string x86_zeta_free_call();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -653,11 +657,11 @@ inline std::string x86_zeta_free_call();
 inline std::string x86_jmp(int port) {
     return x86_port_hook(X86H_JMP, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
-                          : (std::string(" jmp ") + x86_portname(port) + "\n"));
+                          : (x86_rec("jmp") + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
-    std::string s = MEDIUM_BINARY ? x86_Drec(port) : (std::string(" ") + x86_portname(port) + ":\n");
+    std::string s = MEDIUM_BINARY ? x86_Drec(port) : x86_reclbl(x86_portname(port)) + "\n";   /* the pre-TAB form carried a cosmetic leading space that the sink stripped anyway; a label field holds the LABEL and nothing else */
     return s + x86_port_hook(X86H_DEF, port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -692,7 +696,7 @@ enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
 inline std::string x86_jmp_tgt(int t) {
     const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(t))
-                         : (std::string(" jmp ") + nm + "\n");
+                         : (x86_rec("jmp") + nm + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_tgt(const char * mnem, int t) {
@@ -704,7 +708,7 @@ inline std::string x86_jcc_tgt(const char * mnem, int t) {
 inline std::string x86_call_tgt(int t) {
     const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(t))
-                         : (std::string(" call ") + nm + "\n");
+                         : (x86_rec("call") + nm + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_tgt(const char * dst, int t) {
@@ -713,7 +717,7 @@ inline std::string x86_lea_tgt(const char * dst, int t) {
         int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3));
         return x86_Lrec(code) + x86_Jrec(t);
     }
-    return std::string(" lea ") + dst + ", [rip + " + nm + "]\n";
+    return x86_rec("lea") + dst + ", [rip + " + nm + "]\n";
 }
 #define X86_INTERNAL_BASE 6
 #define X86_INTERNAL_MAX  250
@@ -730,7 +734,7 @@ inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
 inline std::string x86_jmp_id(int n) {
     int id = x86_internal_id(n);
     return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(id))
-                         : (std::string(" jmp ") + x86_internal_name(n) + "\n");
+                         : (x86_rec("jmp") + x86_internal_name(n) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_id(const char * mnem, int n) {
@@ -741,7 +745,7 @@ inline std::string x86_jcc_id(const char * mnem, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_id(int n) {
     int id = x86_internal_id(n);
-    return MEDIUM_BINARY ? x86_Drec(id) : (x86_internal_name(n) + ":\n");
+    return MEDIUM_BINARY ? x86_Drec(id) : x86_reclbl(x86_internal_name(n)) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZS-2 jmp-port transfer vocabulary (s58, design of record FINDING-2026-07-14-CLAUDE-SN4-ZS2-JMP-TOPOLOGY-DESIGN-AND-R12-LADDER.md §5/§8): materialize an internal label's address (the lea_tgt sibling,
@@ -749,12 +753,12 @@ inline std::string x86_deflabel_id(int n) {
 inline std::string x86_lea_id(const char * dst, int n) {
     int id = x86_internal_id(n);
     if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3)); return x86_Lrec(code) + x86_Jrec(id); }
-    return std::string(" lea ") + dst + ", [rip + " + x86_internal_name(n) + "]\n";
+    return x86_rec("lea") + dst + ", [rip + " + x86_internal_name(n) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_reg(const char * r) {
     if (MEDIUM_BINARY) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)0xFF; code += (char)(0xE0 | (m & 7)); return x86_Lrec(code); }
-    return std::string(" jmp ") + r + "\n";
+    return x86_rec("jmp") + r + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC (REGAIN-1C s108) — the direct det call's site transfer.  Intentional medium split of the R10 sanctioned class (the RO-load/call precedent): TEXT names the callee's dc stub label directly
@@ -762,21 +766,21 @@ inline std::string x86_jmp_reg(const char * r) {
  * seal, strictly before any runtime transfer).  r11 is caller-saved and dead at every site. */
 inline std::string x86_call_dc(const char * dcname, uint64_t slot) {
     if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("r11", slot); std::string c; c += (char)0x41; c += (char)0xFF; c += (char)0x13; r += x86_Lrec(c); return r; }
-    return std::string(" call ") + dcname + "\n";
+    return x86_rec("call") + dcname + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC — jmp to an EXTERNALLY-OWNED bb_label_t by pointer: the 'X' record (raw label pointer, rel32-discovered by the walker — the existing record, produced here for the first time from a
  * template-side helper).  Same-emission-session only (the pointer must outlive resolution); the dc stub's jmp to its own graph's α_body is exactly that.  TEXT twin takes the label's NAME. */
 inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
     if (MEDIUM_BINARY) { std::string r = x86_Lrec(x86_b1(0xE9)); r += (char)'X'; uint64_t v = (uint64_t)(uintptr_t)l; for (int j = 0; j < 8; j++) r += (char)(unsigned char)(v >> (8 * j)); return r; }
-    return std::string(" jmp ") + txt + "\n";
+    return x86_rec("jmp") + txt + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC — tail-transfer to a C runtime leaf from a stub-local shim: TEXT ` jmp sym@PLT`; BINARY `movabs rax, fp; jmp rax` (rax dead at both shims: γ carries the result in rdi:rsi, ω carries
  * nothing).  The leaf's own `ret` then returns to the emitted site through the retaddr the shim just re-pushed. */
 inline std::string x86_jmpfn(const char * sym, uint64_t fp) {
     if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("rax", fp); std::string c; c += (char)0xFF; c += (char)0xE0; r += x86_Lrec(c); return r; }
-    return std::string(" jmp ") + sym + "@PLT\n";
+    return x86_rec("jmp") + sym + "@PLT\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_mem(const char * base, int disp) {
@@ -787,8 +791,8 @@ inline std::string x86_jmp_mem(const char * base, int disp) {
         else { code += (char)(0xA0 | lo); if (sib) code += (char)0x24; code += u32le((uint32_t)disp); }
         return x86_Lrec(code);
     }
-    char b2[96]; if (disp) snprintf(b2, sizeof b2, " jmp qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, " jmp qword ptr [%s]\n", base);
-    return std::string(b2);
+    char b2[96]; if (disp) snprintf(b2, sizeof b2, "qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, "qword ptr [%s]\n", base);
+    return x86_rec("jmp") + b2;   /* the record wraps the FORMATTED operands -- a printf template can never carry the separator */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-FC-0 conditional-omega pop synth (see x86_jcc): descending per-box id pool _.x86_fc_synth (reset 240 at
@@ -823,11 +827,11 @@ inline std::string x86_ext_ptr_bytes(const void * p) {
 }
 inline std::string x86_def_ext(const struct bb_label_t * lbl) {
     if (MEDIUM_BINARY) { std::string r; r += (char)'Y'; r += x86_ext_ptr_bytes(lbl); return r; }
-    return std::string(lbl && lbl->name ? lbl->name : "?") + ":\n";
+    return x86_reclbl(std::string(lbl && lbl->name ? lbl->name : "?")) + "\n";
 }
 inline std::string x86_jmp_ext(const struct bb_label_t * lbl) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
-    return std::string(" jmp ") + (lbl ? lbl->name : "?") + "\n";
+    return x86_rec("jmp") + (lbl ? lbl->name : "?") + "\n";
 }
 inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
@@ -840,7 +844,7 @@ inline std::string x86_lea_rip_id(const char * reg, int n) {
     int g = x86_rnum(reg);
     int id = x86_internal_id(n);
     if (MEDIUM_BINARY) { std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); return x86_Lrec(c) + x86_Jrec(id); }
-    return std::string(" lea ") + reg + ", [rip + " + x86_internal_name(n) + "]\n";
+    return x86_rec("lea") + reg + ", [rip + " + x86_internal_name(n) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void x86_begin() { if (!MEDIUM_BINARY) _.x86_uid = g_flat_node_id++; }
@@ -851,12 +855,12 @@ inline std::string x86_ro_load_q(const char * reg, int n) {
         std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((m & 7) << 3) | 5);
         return x86_Lrec(code) + x86_Jrec(X86_INTERNAL_BASE + n);
     }
-    return std::string(" mov ") + reg + ", qword ptr [rip + " + x86_internal_name(n) + "]\n";
+    return x86_rec("mov") + reg + ", qword ptr [rip + " + x86_internal_name(n) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_ro_seal_q(int n, uint64_t val) {
     if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le(val));
-    return x86_internal_name(n) + ":\n" + std::string(" .quad ") + std::to_string((unsigned long long)val) + "\n";
+    return x86_reclbl(x86_internal_name(n)) + "\n" + x86_rec(".quad") + std::to_string((unsigned long long)val) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_asm_str_escape(const char * s) {
@@ -891,7 +895,7 @@ inline std::string x86_and(const char * reg, long imm) {
         uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
         code += (char)0x81; code += (char)(0xC0 | (4 << 3) | (m & 7)); code += u32le((uint32_t)imm);
     }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" and ") + reg + ", " + std::to_string(imm) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("and") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cmp_imm(const char * reg, long imm) {
@@ -900,7 +904,7 @@ inline std::string x86_cmp_imm(const char * reg, long imm) {
     if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else if (m == 0)               { code += (char)0x3D; code += u32le((uint32_t)imm); }
     else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cmp") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_modrm(int regfield, int off) {
@@ -948,7 +952,7 @@ inline std::string x86_frame_text_mem(int off) { return std::string("[") + x86_f
 inline std::string x86_frame_lea(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8D; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" lea ") + reg + ", " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("lea") + reg + ", " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_movsxd_frame(dst64, off) — movsxd dst64, dword ptr [ζ+off]: the FRAME-SOURCE form of movsxd, mirroring
@@ -960,24 +964,24 @@ inline std::string x86_frame_lea(const char * reg, int off) {
 inline std::string x86_movsxd_frame(const char * dst64, int off) {
     int g = x86_rnum(dst64);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x63; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" movsxd ") + dst64 + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("movsxd") + dst64 + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, 0); c += (char)0xC7; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
-    return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + "dword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x89; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov dword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
+    return x86_rec("mov") + "dword ptr " + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x8B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("mov") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_add_imm(int off, long imm) {
@@ -993,19 +997,19 @@ inline std::string x86_frame_add_imm(int off, long imm) {
         else                           { c += (char)0x81; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
-    return std::string(" add dword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+    return x86_rec("add") + "dword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_add_to_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x03; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" add ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("add") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(0, g); c += (char)0x2B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" sub ") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("sub") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1064,23 +1068,23 @@ inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i +
 inline std::string x86_frame_load64(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x8B; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov ") + reg + ", qword ptr " + x86_frame_text_mem(off) + "\n";
+    return x86_rec("mov") + reg + ", qword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_store64(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, g); c += (char)0x89; c += x86_frame_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + reg + "\n";
+    return x86_rec("mov") + "qword ptr " + x86_frame_text_mem(off) + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_frame64(int off) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xFF; c += x86_frame_modrm(4, off); return x86_Lrec(c); }
-    return std::string(" jmp qword ptr ") + x86_frame_text_mem(off) + "\n";
+    return x86_rec("jmp") + "qword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_mov_imm64(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += x86_frame_rex(1, 0); c += (char)0xC7; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
-    return std::string(" mov qword ptr ") + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + "qword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FRQ(int off)           { return x86_zop(off, 1, 0); }      /* ZOP-1: qword twin of FR. */
@@ -1117,7 +1121,7 @@ inline std::string x86_reg_disp32_load64(const char * dst, const char * base, in
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8B; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
-    return std::string(" mov ") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+    return x86_rec("mov") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store64(const char * base, int disp, const char * src) {
@@ -1126,7 +1130,7 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x89; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
-    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
+    return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm) {
@@ -1137,7 +1141,7 @@ inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm)
         else                           { c += (char)0x81; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
-    return std::string(" cmp qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("cmp") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_inc_r(const char * reg) {
@@ -1145,7 +1149,7 @@ inline std::string x86_inc_r(const char * reg) {
     if (MEDIUM_BINARY) {
         std::string c; uint8_t rex = (uint8_t)((w64 ? 0x48 : 0x40) | (m >= 8 ? 0x01 : 0)); if (rex != 0x40) c += (char)rex; c += (char)0xFF; c += (char)(0xC0 | (m & 7)); return x86_Lrec(c);
     }
-    return std::string(" inc ") + reg + "\n";
+    return x86_rec("inc") + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_abs_disp32_load64(const char * dst, long va) {
@@ -1154,7 +1158,7 @@ inline std::string x86_abs_disp32_load64(const char * dst, long va) {
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8B; c += (char)(0x04 | ((g & 7) << 3)); c += (char)0x25;
         c += u32le((uint32_t)va); return x86_Lrec(c);
     }
-    return std::string(" mov ") + dst + ", qword ptr [" + std::to_string(va) + "]\n";
+    return x86_rec("mov") + dst + ", qword ptr [" + std::to_string(va) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_abs_disp32_store64(long va, const char * src) {
@@ -1163,7 +1167,7 @@ inline std::string x86_abs_disp32_store64(long va, const char * src) {
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x89; c += (char)(0x04 | ((g & 7) << 3)); c += (char)0x25;
         c += u32le((uint32_t)va); return x86_Lrec(c);
     }
-    return std::string(" mov qword ptr [") + std::to_string(va) + "], " + src + "\n";
+    return x86_rec("mov") + "qword ptr [" + std::to_string(va) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_abs_disp32_addsub_imm8(int is_sub, long va, long imm) {
@@ -1181,7 +1185,7 @@ inline std::string x86_cmp_reg_abs64(const char * reg, long va) {
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x3B; c += (char)(0x04 | ((g & 7) << 3)); c += (char)0x25;
         c += u32le((uint32_t)va); return x86_Lrec(c);
     }
-    return std::string(" cmp ") + reg + ", qword ptr [" + std::to_string(va) + "]\n";
+    return x86_rec("cmp") + reg + ", qword ptr [" + std::to_string(va) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_load32(const char * dst, const char * base, int disp) {
@@ -1190,7 +1194,7 @@ inline std::string x86_reg_disp32_load32(const char * dst, const char * base, in
         std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x8B; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
-    return std::string(" mov ") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+    return x86_rec("mov") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store32(const char * base, int disp, const char * src) {
@@ -1199,7 +1203,7 @@ inline std::string x86_reg_disp32_store32(const char * base, int disp, const cha
         std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x89; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
-    return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + src + "\n";
+    return x86_rec("mov") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long imm) {
@@ -1208,7 +1212,7 @@ inline std::string x86_reg_disp32_store_imm64(const char * base, int disp, long 
         std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xC7; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
         return x86_Lrec(c);
     }
-    return std::string(" mov qword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_reg_disp32_store_imm32 — the dword sibling of store_imm64 above (Claude Sonnet 5, 2026-07-08 session 2).
@@ -1228,7 +1232,7 @@ inline std::string x86_reg_disp32_store_imm32(const char * base, int disp, long 
         std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0xC7; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm);
         return x86_Lrec(c);
     }
-    return std::string(" mov dword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_reg_disp32_add_imm32 — add dword ptr [base+disp], imm (R7: mech-2 start_δ increment via RDD("___",-48)).
@@ -1243,7 +1247,7 @@ inline std::string x86_reg_disp32_add_imm32(const char * base, int disp, long im
         else                           { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
-    return std::string(" add dword ptr [") + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("add") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int disp) {
@@ -1252,41 +1256,41 @@ inline std::string x86_reg_disp32_lea64(const char * dst, const char * base, int
         std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x8D; x86_rd32_modrm(c, g, b);
         c += u32le((uint32_t)disp); return x86_Lrec(c);
     }
-    return std::string(" lea ") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
+    return x86_rec("lea") + dst + ", [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store64(int off, const char * reg) {
     int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
     if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
+    return x86_rec("mov") + "qword ptr [rsp + " + std::to_string(off) + "], " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32_imm(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += (char)0xC7; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
-    return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string((uint32_t)imm) + "\n";
+    return x86_rec("mov") + "dword ptr [rsp + " + std::to_string(off) + "], " + std::to_string((uint32_t)imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_load64(const char * reg, int off) {
     int g = x86_rnum(reg); uint8_t rex = 0x48; if (g >= 8) rex |= 0x04;
     if (MEDIUM_BINARY) { std::string c; c += (char)rex; c += (char)0x8B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov ") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
+    return x86_rec("mov") + reg + ", qword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store64_imm(int off, long imm) {
     if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0xC7; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); return x86_Lrec(c); }
-    return std::string(" mov qword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("mov") + "qword ptr [rsp + " + std::to_string(off) + "], " + std::to_string(imm) + "\n";
 }   /* s150: the missing QWORD-immediate rsp store.  Before this, "qword ptr [rsp + N]" + an immediate dispatched to x86_rsp_store32_imm and SILENTLY EMITTED A 4-BYTE STORE (no REX.W), zeroing only the low half of the slot -- and because that encoder's TEXT arm also spells "dword ptr", the two media AGREED with each other, so even a cross-medium byte check could not see it.  imm32 sign-extends to 64 bits, matching the hand-encoded 48 C7 /0 the xa_flat raw-byte family uses; x86_rsp_modrm already picks mod=0/1/2 so the disp width is as-matching. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov dword ptr [rsp + ") + std::to_string(off) + "], " + reg + "\n";
+    return x86_rec("mov") + "dword ptr [rsp + " + std::to_string(off) + "], " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_load32(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x8B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" mov ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+    return x86_rec("mov") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_add_imm32(int off, long imm) {
@@ -1296,18 +1300,18 @@ inline std::string x86_rsp_add_imm32(int off, long imm) {
         else                           { c += (char)0x81; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
-    return std::string(" add dword ptr [rsp + ") + std::to_string(off) + "], " + std::to_string(imm) + "\n";
+    return x86_rec("add") + "dword ptr [rsp + " + std::to_string(off) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_add_to_reg32(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x03; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" add ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+    return x86_rec("add") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 inline std::string x86_rsp_sub_from_reg32(const char * reg, int off) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x2B; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
-    return std::string(" sub ") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
+    return x86_rec("sub") + reg + ", dword ptr [rsp + " + std::to_string(off) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * RSP(int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", off); return b[i]; }
@@ -1319,7 +1323,7 @@ inline std::string x86_cmp_imm64(const char * reg, long imm) {
     std::string code; code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else                           { code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" cmp ") + reg + ", " + std::to_string(imm) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cmp") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_indexed8(const char * dst, const char * base, const char * idx) {
@@ -1328,12 +1332,12 @@ inline std::string x86_load_indexed8(const char * dst, const char * base, const 
     std::string code; code += (char)rex; code += (char)0x8B;
     code += (char)(0x00 | ((g & 7) << 3) | 0x04);
     code += (char)((3 << 6) | ((x & 7) << 3) | (b & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", [" + base + " + " + idx + "*8]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", [" + base + " + " + idx + "*8]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_inc64(int off) {
     std::string code; code += x86_frame_rex(1, 0); code += (char)0xFF; code += x86_frame_modrm(0, off);
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" inc qword ptr ") + x86_frame_text_mem(off) + "\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("inc") + "qword ptr " + x86_frame_text_mem(off) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_load_mem64(const char * dst, const char * basebr) {
@@ -1341,7 +1345,7 @@ inline std::string x86_load_mem64(const char * dst, const char * basebr) {
     int g = x86_rnum(dst), m = x86_rnum(rb);
     uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((g & 7) << 3) | (m & 7));
-    return MEDIUM_BINARY ? x86_Lrec(code) : (std::string(" mov ") + dst + ", qword ptr [" + rb + "]\n");
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", qword ptr [" + rb + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_strkeep(const std::string & v) {
@@ -1525,15 +1529,37 @@ static inline void x86_argnote(std::string & o) {
 }
 static inline void x86_4col_to(std::string & o, size_t ls, int col) { int w = x86_disp_w(o.data() + ls, o.size() - ls); int pd = col - w; if (pd < 1) pd = 1; o.append((size_t)pd, ' '); }
 static inline int x86_4col_joinon(void) { static int j = -1; if (j < 0) { const char * e = getenv("SCRIP_ASM_JOIN"); j = (e && *e == '0') ? 0 : 1; } return j; }
-static inline int x86_4col_kind(const char * p, size_t len, int * hasl) {
-    *hasl = 0; size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
+/* TAB RECORD (Lon 2026-08-13 s62b, verbatim: "would it not be best to have all x86_*() and x*() use TAB character delineated four columns with NO padding, and do formatting later on output like your second   */
+/* pass is doing -- strings would take LESS MEMORY").  Every x86_*() encoder emits its line as TAB-DELIMITED FIELDS -- `label \t opcode \t operands` -- carrying ZERO padding, and the sink splits on TAB and     */
+/* applies the columns ONCE, on output.  Field occupancy is then EXPLICIT, which deletes the whole whitespace-sniffing layer: no first-token scan, no ':' label detection, no rep/lock prefix special case (a      */
+/* prefixed mnemonic is simply what the opcode field CONTAINS).  ⛔ THE ONE TRAP THE DESIGN NAMED: a label-only line and the `#@` note marker become records with EMPTY FIELDS rather than special cases, so       */
+/* x86_rec_kind keys off OCCUPANCY (is the opcode field empty?) and never off text.  LEGACY LINES SURVIVE BY CONSTRUCTION: a record with NO TAB -- the raw producers in emit.cpp and the xa_*.cpp templates that   */
+/* do not speak x86() -- falls to the whitespace parse below, so this is ADDITIVE, not a cutover.  Tabs cannot collide with content: x86_asm_str_escape and emit_str.cpp both render a literal tab as the two      */
+/* characters backslash-t, so no raw tab ever reaches a .string operand.  KILLSWITCH SCRIP_ASM_TABS=0 restores the space-delimited producer form; the rendered .s is byte-identical either way, which is what      */
+/* scripts/test_gate_asm_tabs_identity.sh proves across the demo corpus.                                                                                                                                          */
+struct x86_rec_t { const char * lb; size_t ll; const char * op; size_t ol; const char * ar; size_t al; int marg; };
+static inline void x86_rec_split(const char * p, size_t len, x86_rec_t & r) {
+    r.lb = r.op = r.ar = 0; r.ll = r.ol = r.al = 0; r.marg = 0;
+    size_t b0 = 0; while (b0 < len && p[b0] == ' ') b0++;
+    if (b0 < len && p[b0] == '#') { r.marg = 1; r.ar = p + b0; r.al = len - b0; return; }   /* a comment / the #@ note marker rides the margin verbatim, exactly as the pre-TAB sink appended it */
+    const char * tb = (const char *) memchr(p, '\t', len);
+    if (tb) { r.lb = p; r.ll = (size_t)(tb - p); const char * q = tb + 1; size_t ql = len - r.ll - 1; const char * t2 = (const char *) memchr(q, '\t', ql);
+        if (t2) { r.op = q; r.ol = (size_t)(t2 - q); r.ar = t2 + 1; r.al = ql - r.ol - 1; } else { r.op = q; r.ol = ql; }
+        if (!r.ll && !r.ol && !r.al) r.marg = 1;
+        return; }
+    size_t b = b0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
     const char * t = p + b; size_t tl = len - b;
-    if (tl == 0) return 0;
-    if (t[0] == '#') return 4;
+    if (tl == 0) { r.marg = 1; return; }
     size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
-    if (k > 0 && t[k - 1] == ':') { *hasl = 1; size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++; if (r >= tl) return 1; t += r; tl -= r; }
-    return (t[0] == 'j') ? 3 : 2;
+    if (k > 0 && t[k - 1] == ':') { r.lb = t; r.ll = k; size_t rr = k; while (rr < tl && (t[rr] == ' ' || t[rr] == '\t')) rr++; if (rr >= tl) return; t += rr; tl -= rr; k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++; }
+    r.op = t; r.ol = k;
+    if ((k == 3 && !strncmp(t, "rep", 3)) || (k == 4 && (!strncmp(t, "repe", 4) || !strncmp(t, "repz", 4) || !strncmp(t, "lock", 4))) || (k == 5 && (!strncmp(t, "repne", 5) || !strncmp(t, "repnz", 5)))) {
+        size_t w = k; while (w < tl && (t[w] == ' ' || t[w] == '\t')) w++;
+        if (w < tl) { size_t m2 = w; while (m2 < tl && t[m2] != ' ' && t[m2] != '\t') m2++; r.ol = m2; } }   /* the prefix pair SPANS in place -- the sole legacy rep/lock producer separates them by exactly one space */
+    size_t rr = r.ol; while (rr < tl && (t[rr] == ' ' || t[rr] == '\t')) rr++;
+    if (rr < tl) { r.ar = t + rr; r.al = tl - rr; }
 }
+static inline int x86_rec_kind(const x86_rec_t & r) { if (r.marg) return r.al ? 4 : 0; if (!r.ol) return 1; return (r.op[0] == 'j') ? 3 : 2; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_4col (2026-07-26, Lon directive; corrected same day: BBs have ALWAYS been a FOUR-column format — LABEL / OPERATOR / OPERANDS / GOTO): render every TEXT-medium assembly line in the four-column BB
  * shape — label field 24, operator field 17, operands at col 41, GOTO column at col 68.  Every jump — mnemonic 'j*': jmp + the whole jcc family + jecxz/jrcxz, an exact class in x86 — renders in the GOTO
@@ -1555,37 +1581,26 @@ inline std::string x86_4col(const std::string & s) {
     while (i < n) {
         size_t e = s.find('\n', i); size_t len = (e == std::string::npos ? n : e) - i;
         const char * p = s.data() + i; size_t inext = (e == std::string::npos) ? n : e + 1;
-        size_t b = 0; while (b < len && (p[b] == ' ' || p[b] == '\t')) b++;
-        const char * t = p + b; size_t tl = len - b;
-        if (tl >= 2 && t[0] == '#' && t[1] == '@') { note.assign(t + 2, tl - 2); i = inext; continue; }   /* OBJ-NOTE (Lon s23b): x86("note",name) rides in-band as '#@name' -- stateless across the unspecified-order '+' chains -- and folds onto the NEXT instruction line. */
-        int hasl = 0; int ck = x86_4col_kind(p, len, &hasl);
+        x86_rec_t r; x86_rec_split(p, len, r);
+        if (r.marg && r.al >= 2 && r.ar[0] == '#' && r.ar[1] == '@') { note.assign(r.ar + 2, r.al - 2); i = inext; continue; }   /* OBJ-NOTE (Lon s23b): x86("note",name) rides in-band as '#@name' -- stateless across the unspecified-order '+' chains -- and folds onto the NEXT instruction line. */
+        int ck = x86_rec_kind(r); int hasl = (r.ll != 0);
         int nk = 0, nhasl = 0;
-        for (size_t j2 = inext; j2 < n; ) { size_t e2 = s.find('\n', j2); size_t l2 = (e2 == std::string::npos ? n : e2) - j2; const char * p2 = s.data() + j2; size_t b2 = 0; while (b2 < l2 && (p2[b2] == ' ' || p2[b2] == '\t')) b2++;
-            if (l2 - b2 >= 2 && p2[b2] == '#' && p2[b2 + 1] == '@') { j2 = (e2 == std::string::npos) ? n : e2 + 1; continue; } nk = x86_4col_kind(p2, l2, &nhasl); break; }
+        for (size_t j2 = inext; j2 < n; ) { size_t e2 = s.find('\n', j2); size_t l2 = (e2 == std::string::npos ? n : e2) - j2; x86_rec_t r2; x86_rec_split(s.data() + j2, l2, r2);
+            if (r2.marg && r2.al >= 2 && r2.ar[0] == '#' && r2.ar[1] == '@') { j2 = (e2 == std::string::npos) ? n : e2 + 1; continue; } nk = x86_rec_kind(r2); nhasl = (r2.ll != 0); break; }
         int join = jn && !hasl && ((pend == 1 && (ck == 2 || ck == 3)) || (pend == 2 && ck == 3));
         int willjoin = jn && !nhasl && ck == 2 && nk == 3;   /* a jump will land on THIS line at the GOTO column, so its note must not occupy that space */
         size_t ls;
         if (join) { if (pend == 1) x86_4col_to(o, pls, 24); else o.append(1, ';'); if (ck == 3) x86_4col_to(o, pls, CJ); ls = pls; }
         else { if (pend) o.append(1, '\n'); ls = o.size(); }
         int inst = 0, isj = 0;
-        if (tl == 0) { }
-        else if (t[0] == '#') { o.append(t, tl); }
+        if (r.marg) { if (r.al) o.append(r.ar, r.al); }   /* blank line = nothing; comment = verbatim at the margin */
         else {
-            size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
-            const char * q = t; size_t ql = tl;
-            if (hasl) { size_t r = k; while (r < tl && (t[r] == ' ' || t[r] == '\t')) r++;
-                if (r >= tl) { o.append(t, k); q = 0; } else { x86_4col_pad(o, t, k, 24); q = t + r; ql = tl - r; } }
+            if (r.ll) { if (r.ol) x86_4col_pad(o, r.lb, r.ll, 24); else o.append(r.lb, r.ll); }   /* a label with nothing beneath it takes NO padding -- it is the whole line */
             else if (!join) o.append((size_t)24, ' ');
-            if (q) {
-                size_t m = 0; while (m < ql && q[m] != ' ' && q[m] != '\t') m++;
-                std::string op(q, m); size_t r2 = m;
-                if ((m == 3 && !strncmp(q, "rep", 3)) || (m == 4 && (!strncmp(q, "repe", 4) || !strncmp(q, "repz", 4) || !strncmp(q, "lock", 4))) || (m == 5 && (!strncmp(q, "repne", 5) || !strncmp(q, "repnz", 5)))) {
-                    size_t w = m; while (w < ql && (q[w] == ' ' || q[w] == '\t')) w++;
-                    if (w < ql) { size_t m2 = w; while (m2 < ql && q[m2] != ' ' && q[m2] != '\t') m2++; op += ' '; op.append(q + w, m2 - w); r2 = m2; } }
-                while (r2 < ql && (q[r2] == ' ' || q[r2] == '\t')) r2++;
-                if (op[0] == 'j') { if (!join) x86_4col_to(o, ls, CJ); if (r2 >= ql) o.append(op); else { x86_4col_pad(o, op.data(), op.size(), 6); o.append(q + r2, ql - r2); } inst = 1; isj = 1; }
-                else if (r2 >= ql) { o.append(op); inst = 1; }
-                else { x86_4col_pad(o, op.data(), op.size(), 17); o.append(q + r2, ql - r2); inst = 1; }
+            if (r.ol) {
+                if (r.op[0] == 'j') { if (!join) x86_4col_to(o, ls, CJ); if (!r.al) o.append(r.op, r.ol); else { x86_4col_pad(o, r.op, r.ol, 6); o.append(r.ar, r.al); } inst = 1; isj = 1; }
+                else if (!r.al) { o.append(r.op, r.ol); inst = 1; }
+                else { x86_4col_pad(o, r.op, r.ol, 17); o.append(r.ar, r.al); inst = 1; }
             }
         }
         if (inst && !note.empty()) { int drop = isj || willjoin; if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, 88); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
@@ -1602,7 +1617,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }   /* ⛔ PER-LINE x86_4col ERADICATED (Lon 2026-08-13 s62, in-chat: "I like eradicating pests"): this funnel used to format EVERY dispatched line, and the emit_text_n sink then re-parsed and re-formatted the same line from scratch — idempotent, so invisible, but the whole pass was thrown away.  Since the deferred-newline JOIN landed, a single line cannot join anything by construction (the join is a property of a line and its NEIGHBOUR), so the per-line pass could not even see the work.  Formatting is now ONE application at ONE place: the sink, where the whole assembled body is visible.  Byte-identical output, verified by md5 over the demo corpus. */
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
-    if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
+    if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
     if (!strcmp(mnem, "comment"))   return std::string();   /* SN4-ASM-CRIT (Lon s173): BB emissions are COMMENT-FREE — the IR kind now lives in the node label (n<uid>_<kind>_α); statement source echo rides "srccomment", separators ride "commentrule".  All 245 template x86("comment",...) calls become pure empty strings; call-site removal is a named hygiene follow-up. */
     if (!strcmp(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");   /* OBJ-NOTE (Lon s23b): one-term object name for the NEXT instruction line, rendered '# name' in the GOTO column by x86_4col's fold; jump lines never take it (the GOTO column is theirs); BINARY = empty by construction. */
     if (!strcmp(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
@@ -1615,7 +1630,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, ".string")) return MEDIUM_BINARY ? std::string() : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
-    if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : std::string(" ret\n");
+    if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     if (!strcmp(mnem, "rep_stosb")) return x86_rep_stosb();
     if (!strcmp(mnem, "def")) {
@@ -1632,9 +1647,9 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jmp_ext((const struct bb_label_t *)(uintptr_t)xb.u);
         if (a.kind == XK_REG) {   /* SN4-FLAT-PROC (s176): jmp through a register — FF /4 (modrm 0xE0|r), REX.B for r8+; the floater's wire transfer.  Mirror of the call XK_REG arm below. */
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xE0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1, (char)rex)) + (char)0xFF + (char)modrm) : (std::string(" jmp ") + a.txt + "\n");
+            return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1, (char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("jmp") + a.txt + "\n");
         }
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return std::string(" jmp ") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_rec("jmp") + a.sym + "\n";
         return std::string();
     }
     if (mnem[0] == 'j') {
@@ -1647,12 +1662,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (!strcmp(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
-                                                    : (std::string(" call ") + x86_portname(a.port) + "\n"));
+                                                    : (x86_rec("call") + x86_portname(a.port) + "\n"));
         if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);   /* RC-4: RTCC veneer choke for void/int/ptr-returning calls */
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_rec("call") + a.sym + "\n";
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (std::string(" call ") + a.txt + "\n"));
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n"));
         }
         return std::string();
     }
@@ -1670,7 +1685,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         /* brackets where the wb and rl are emitted separately by the template.  BOTH gates: always a bare call. */
         /* KILLSWITCH: same behaviour regardless of g_rtcc_on — this is intentionally veneer-free.               */
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
-        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + std::string(" call ") + a.sym + "\n";
+        if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_rec("call") + a.sym + "\n";
         return std::string();
     }
     if (!strcmp(mnem, "rtcc_wb")) {
@@ -1707,11 +1722,11 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
                 return x86_Lrec(s);
             }
             /* TEXT: emit the canonical 3-line sequence bb_match_begin uses */
-            return std::string(" mov rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]\n mov rax, qword ptr [rcx]\n cmp rax, 0\n");
+            return x86_rec("mov") + "rcx, qword ptr [rip + rt_anchor_g@GOTPCREL]\n mov rax, qword ptr [rcx]\n cmp rax, 0\n";
         }
         /* RC-5 ON path: test r8, r8 (3 bytes: 4D 85 C0) */
         if (MEDIUM_BINARY) { std::string s; s += (char)0x4D; s += (char)0x85; s += (char)0xC0; return x86_Lrec(s); }
-        return std::string(" test r8, r8\n");
+        return x86_rec("test") + "r8, r8\n";
     }
     if (!strcmp(mnem, "push")) return x86_push(a.txt);
     if (!strcmp(mnem, "pop"))  return x86_pop(a.txt);
@@ -1845,7 +1860,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
             uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
             uint8_t modrm = (uint8_t)(0xC0 | ((g & 7) << 3) | (m & 7));
             if (MEDIUM_BINARY) return x86_Lrec(x86_b4(rex, 0x0F, 0xB6, modrm));
-            return std::string(" movzx ") + a.txt + std::string(", ") + b.txt + std::string("\n");
+            return x86_rec("movzx") + a.txt + std::string(", ") + b.txt + std::string("\n");
         }
         return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0);
     }
@@ -1877,12 +1892,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
 inline std::string x86_align_enter() {
     if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65 (ZB-OWN-1a G1): base ≡ 0 mod 16 (K=65544 phase pad) and every rsp motion in the body is a 16-multiple (32B HEAD cell, 16B leaf cells, 32B xfer, 16-rounded zls blocks) ⇒ rsp ≡ 0 mod 16 at every C-call site ⇒ the dance is a no-op — and MUST be one: its own pushes are what displaced every flat ref inside it.  Pat blobs (r12-island, rsp sinks) keep the dance. */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
-    return std::string(" push rsp\n push qword ptr [rsp]\n and rsp, -16\n");
+    return x86_rec("push") + "rsp\n push qword ptr [rsp]\n and rsp, -16\n";
 }
 inline std::string x86_align_leave() {
     if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* R12-ERAD s65: paired with the enter no-op above */
     if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
-    return std::string(" mov rsp, [rsp + 8]\n");
+    return x86_rec("mov") + "rsp, [rsp + 8]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_anchor_enter/leave — ALIGN-INV-1 (Lon 2026-07-13): the DEEP-WINDOW flavor.  A window whose interior
@@ -2422,13 +2437,13 @@ inline std::string x86_bomb(const char * msg) {
     uint64_t     fp  = (uint64_t)(uintptr_t)(void *)rt_bomb;
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)
-         + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : std::string(" ud2\n"));
+         + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]); }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */
 inline std::string x86_pair_jmp(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" jmp ") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
+    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_pair_loop — the DRIVE_PAIR define/jmp flush, the FOURTH port-emission site (the other three are
@@ -2445,7 +2460,7 @@ inline std::string x86_pair_loop() {
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
             if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); }
-            if (g_emit.xa_bb_emit_pair_jmp[i])    r += std::string(" jmp ") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
+            if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86_rec("jmp") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
         }
     }
     return r;
@@ -2458,7 +2473,7 @@ inline std::string x86_deflabel_pair(int idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)idx; return r; }
-    return std::string(" jmp ") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
+    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_pair(const char * mnem, int idx) {
