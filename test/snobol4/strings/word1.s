@@ -494,12 +494,18 @@ n37_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx66_0
                         mov              r8d, 1
+                        mov              qword ptr [rbp + 192], r10
+                        mov              qword ptr [rbp + 200], r11
                         lea              r10, [rip + .Lx66_4]
                         lea              r11, [rip + .Lx66_5]
                                                                                         jmp   rax
 .Lx66_4:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n38_match_end_α
 .Lx66_5:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n36_match_begin_β
 .Lx66_0:
                         push             r14

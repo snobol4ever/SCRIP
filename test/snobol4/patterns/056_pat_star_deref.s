@@ -226,12 +226,18 @@ n12_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx46_0
                         mov              r8d, 0
+                        mov              qword ptr [rbp + 192], r10
+                        mov              qword ptr [rbp + 200], r11
                         lea              r10, [rip + .Lx46_4]
                         lea              r11, [rip + .Lx46_5]
                                                                                         jmp   rax
 .Lx46_4:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n13_match_assign_cond_α
 .Lx46_5:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                         add              rsp, 16
                                                                                         jmp   n11_match_assign_save_β
 .Lx46_0:

@@ -584,12 +584,18 @@ n56_match_defer_α:
                         test             rax, rax
                                                                                         jz    .Lx97_0
                         mov              r8d, 1
+                        mov              qword ptr [rbp + 192], r10
+                        mov              qword ptr [rbp + 200], r11
                         lea              r10, [rip + .Lx97_4]
                         lea              r11, [rip + .Lx97_5]
                                                                                         jmp   rax
 .Lx97_4:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n57_match_end_α
 .Lx97_5:
+                        mov              r10, qword ptr [rbp + 192]
+                        mov              r11, qword ptr [rbp + 200]
                                                                                         jmp   n55_match_begin_β
 .Lx97_0:
                         push             r14
