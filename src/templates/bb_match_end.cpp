@@ -108,8 +108,9 @@ std::string bb_match_end() {
                                                      : x86("mov", FRQ(_.op_off + 24), "r14"))
                 : std::string())
          /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
-         + (rfc() ? x86("mov", "rsp", RDQ("r8", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
-            : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16)))
+         + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", "rsp", RDQ("r8", 8))   /* s53 RSP-ONLY: BOTH arms unwind via the arena -- the L(9) walk above already found this activation's begin marker in r8, and [r8+8] is the rsp bb_match_begin BANKED there (depth-IMMUNE).  The old non-rfc HKM read ([rsp#+8]) was depth-static and any surviving interior record (DEFER's {pad,resume} success pair -- the r8.sno conviction: rsp loaded a CODE address) displaced it.  One value, one home, two spellings collapsed to the banked one. */
+            : (rfc() ? x86("mov", "rsp", RDQ("r8", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
+               : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16))))
          + x86_align_leave()
          + release_pump();
 }
