@@ -650,13 +650,36 @@ void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const ch
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_kind_is_driver_owned"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int earn_hazard_in(const IR_t * nd, int depth) {                                          /* EARN-1 (RBP-EARN s47): hazardous material test -- OPAQUE (*E / runtime pattern value) or ARBNO (unknown count => unknown size, ONE class per s28).  Conservative: null/over-deep = hazardous. */
+    if (!nd || depth > 32) return 1;
+    if (nd->op == IR_MATCH_ARBNO) return 1;
+    if (nd->op == IR_MATCH_DEFER && !nd->pat_static) return 1;                                   /* pat_static calloc-default 0 covers the s29 BINOP dropped-operand trap conservatively */
+    if (nd->op == IR_MATCH_VALUE) return 1;
+    for (int i = 0; i < nd->n_operands; i++) if (earn_hazard_in(nd->operands[i], depth + 1)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY, DORMANT (no reader).  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
+    if (!nd) return 0;
+    switch (nd->op) {
+    case IR_MATCH_ARBNO:        return 1;
+    case IR_MATCH_FENCE1:       return 1;
+    case IR_MATCH_ASSIGN_IMM:
+    case IR_MATCH_ASSIGN_COND:
+    case IR_MATCH_ASSIGN_SAVE:  return earn_hazard_in(nd, 0);
+    default:                    return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
     if (!PLATFORM_X86) return;
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
     g_emit.bb_lk = -1;
-    (void) nd;
+    g_emit.op_frame_need = frame_need_of(nd);                                                    /* EARN-1: staged at the ONE choke; DORMANT -- nothing reads it yet */
+    { static int _ed = -1; if (_ed < 0) { const char * e = getenv("SCRIP_EARN_DIAG"); _ed = (e && *e == '1') ? 1 : 0; }
+      if (_ed && nd) fprintf(stderr, "[EARN] op=%d need=%d haz=%d pat_static=%d n_op=%d\n", nd->op, g_emit.op_frame_need, earn_hazard_in(nd, 0), nd->pat_static, nd->n_operands); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_arith_dyn_kind(IR_t *o) { return o && (o->op == IR_CALL || ir_is_call_kind(o->op)); }
