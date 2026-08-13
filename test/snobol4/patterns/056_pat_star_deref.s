@@ -141,9 +141,11 @@ n10_match_begin_af:     sub              r12, 24                                
                         add              rsp, 64                                        # old____
                         add              rsp, 16;                             jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n11_match_assign_save_α: sub              rsp, 16
+n11_match_assign_save_α:
+                        sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d;           jmp   n12_match_defer_α
-n11_match_assign_save_β: add              rsp, 16;                            jmp   n10_match_begin_β
+n11_match_assign_save_β:
+                        add              rsp, 16;                             jmp   n10_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_defer_α:      sub              rsp, 16
                         mov              rax, qword ptr [r9 + 0]                        # PAT
@@ -267,7 +269,8 @@ n12_match_defer_α:      sub              rsp, 16
                         add              rsp, 16;                             jmp   n11_match_assign_save_β
 n12_match_defer_β:                                                            jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
-n13_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
+n13_match_assign_cond_α:
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S1]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -276,7 +279,8 @@ n13_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24;                             jmp   n14_match_end_α
-n13_match_assign_cond_β: sub              r12, 24;                            jmp   n12_match_defer_β
+n13_match_assign_cond_β:
+                        sub              r12, 24;                             jmp   n12_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_end_α:        mov              r8, r12
 .Lx49_9:                sub              r8, 24

@@ -94,9 +94,11 @@ n9_match_tab_α:         sub              rsp, 16
 n9_match_tab_β:         mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16;                             jmp   n8_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
-n10_match_assign_save_α: sub              rsp, 16
+n10_match_assign_save_α:
+                        sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d;           jmp   n11_match_rem_α
-n10_match_assign_save_β: add              rsp, 16;                            jmp   n9_match_tab_β
+n10_match_assign_save_β:
+                        add              rsp, 16;                             jmp   n9_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
 n11_match_rem_α:        sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d
@@ -105,7 +107,8 @@ n11_match_rem_β:        mov              r14d, dword ptr [rsp + 0]
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n9_match_tab_β
 #-----------------------------------------------------------------------------------------------------------------------
-n12_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
+n12_match_assign_cond_α:
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S2]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -114,7 +117,8 @@ n12_match_assign_cond_α: mov              eax, dword ptr [rsp + 16]
                         sub              edx, eax
                         mov              qword ptr [r12 + 16], rdx
                         add              r12, 24;                             jmp   proc_PAT$0_γ
-n12_match_assign_cond_β: sub              r12, 24;                            jmp   n11_match_rem_β
+n12_match_assign_cond_β:
+                        sub              r12, 24;                             jmp   n11_match_rem_β
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$0_res:
                         mov              r10, qword ptr [rsp + 8]
