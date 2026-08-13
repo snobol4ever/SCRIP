@@ -41,19 +41,19 @@
 /* ---- extern declarations ---- */
 extern void  *rt_proc_open_fn(void);
 extern void  *c_rt_proc_open_fn(void);
-extern void   rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp);
-extern void   c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp);
+extern void   rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5);
+extern void   c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5);
 extern void  *rt_flat_ret_snap(void);
 extern void  *c_rt_flat_ret_snap(void);
 /* test-support accessors (exported from rt.c this commit) */
 extern void   rt_pcall_test_push(void *proc_ptr, const char *rname);
 extern void   rt_pcall_test_pop(void);
 extern int    rt_pcall_test_top(void);
-extern void   rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *rbp, void *r12);
-extern void   rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **rbp, void **r12);
+extern void   rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *fb5, void *r12);
+extern void   rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **fb5, void **r12);
 extern void  *rt_pcall_test_snap_buf(void);
 extern void   rt_pcall_test_snap_buf_set_all(unsigned char v);
-extern void   rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **rbp, void **r12);
+extern void   rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **fb5, void **r12);
 extern void   rt_pcall_test_wire_null_set(void);
 /* ---- harness ---- */
 static int fails = 0, n = 0;
@@ -120,23 +120,23 @@ static void test_adopt_guard_top0(void) {
 static void test_adopt_live(void) {
     push((void *)0);
     int slot = rt_pcall_test_top() - 1;
-    void *gw=(void *)0x1111,*ww=(void *)0x2222,*rsp=(void *)0x3333,*rbp=(void *)0x4444;
+    void *gw=(void *)0x1111,*ww=(void *)0x2222,*rsp=(void *)0x3333,*fb5=(void *)0x4444;
     /* asm arm */
     rt_pcall_test_wire_null_set();
-    rt_flat_wire_adopt(gw, ww, rsp, rbp);
-    void *agw,*aww,*arsp,*arbp,*ar12; rt_pcall_test_wire_get(slot,&agw,&aww,&arsp,&arbp,&ar12);
+    rt_flat_wire_adopt(gw, ww, rsp, fb5);
+    void *agw,*aww,*arsp,*afb5,*ar12; rt_pcall_test_wire_get(slot,&agw,&aww,&arsp,&afb5,&ar12);
     /* C arm */
     rt_pcall_test_wire_null_set();
-    c_rt_flat_wire_adopt(gw, ww, rsp, rbp);
-    void *cgw,*cww,*crsp,*crbp,*cr12; rt_pcall_test_wire_get(slot,&cgw,&cww,&crsp,&crbp,&cr12);
+    c_rt_flat_wire_adopt(gw, ww, rsp, fb5);
+    void *cgw,*cww,*crsp,*cfb5,*cr12; rt_pcall_test_wire_get(slot,&cgw,&cww,&crsp,&cfb5,&cr12);
     pop();
     n++;
-    if (agw!=cgw||aww!=cww||arsp!=crsp||arbp!=crbp||ar12!=cr12) {
+    if (agw!=cgw||aww!=cww||arsp!=crsp||afb5!=cfb5||ar12!=cr12) {
         fails++;
-        printf("  FAIL adopt live: asm{gw=%p ww=%p rsp=%p rbp=%p r12=%p} c{gw=%p ww=%p rsp=%p rbp=%p r12=%p}\n",agw,aww,arsp,arbp,ar12,cgw,cww,crsp,crbp,cr12);
+        printf("  FAIL adopt live: asm{gw=%p ww=%p rsp=%p fb5=%p r12=%p} c{gw=%p ww=%p rsp=%p fb5=%p r12=%p}\n",agw,aww,arsp,afb5,ar12,cgw,cww,crsp,cfb5,cr12);
         return;
     }
-    if (agw!=gw||aww!=ww||arsp!=rsp||arbp!=rbp||ar12!=(void*)0) {
+    if (agw!=gw||aww!=ww||arsp!=rsp||afb5!=fb5||ar12!=(void*)0) {
         fails++;
         printf("  FAIL adopt live: field wrong or r12 non-zero (r12=%p)\n", ar12);
     }
@@ -147,7 +147,7 @@ static void test_adopt_r12_zeroed(void) {
     int slot = rt_pcall_test_top() - 1;
     rt_pcall_test_wire_set(slot,(void*)0xAA,(void*)0xBB,(void*)0xCC,(void*)0xDD,(void*)0xFF);
     rt_flat_wire_adopt((void*)0x11,(void*)0x22,(void*)0x33,(void*)0x44);
-    void *gw,*ww,*rsp,*rbp,*r12; rt_pcall_test_wire_get(slot,&gw,&ww,&rsp,&rbp,&r12);
+    void *gw,*ww,*rsp,*fb5,*r12; rt_pcall_test_wire_get(slot,&gw,&ww,&rsp,&fb5,&r12);
     pop();
     n++;
     if (r12 != (void *)0) { fails++; printf("  FAIL adopt r12_zeroed: r12=%p after adopt\n", r12); }
@@ -159,34 +159,34 @@ static void test_adopt_overwrite(void) {
     rt_flat_wire_adopt((void*)0x1,(void*)0x2,(void*)0x3,(void*)0x4);
     rt_flat_wire_adopt((void*)0xA,(void*)0xB,(void*)0xC,(void*)0xD);
     int slot = rt_pcall_test_top() - 1;
-    void *gw,*ww,*rsp,*rbp,*r12; rt_pcall_test_wire_get(slot,&gw,&ww,&rsp,&rbp,&r12);
+    void *gw,*ww,*rsp,*fb5,*r12; rt_pcall_test_wire_get(slot,&gw,&ww,&rsp,&fb5,&r12);
     pop();
     n++;
-    if (gw!=(void*)0xA||ww!=(void*)0xB||rsp!=(void*)0xC||rbp!=(void*)0xD) {
+    if (gw!=(void*)0xA||ww!=(void*)0xB||rsp!=(void*)0xC||fb5!=(void*)0xD) {
         fails++; printf("  FAIL adopt overwrite: last values not visible\n");
     }
 }
 /*====================================================================================================================================================================================================*/
 static void test_snap_live(void) {
     push((void *)0);
-    static int gw_target, ww_target, rsp_target, rbp_target;
-    rt_pcall_test_wire_set(rt_pcall_test_top()-1,(void*)&gw_target,(void*)&ww_target,(void*)&rsp_target,(void*)&rbp_target,(void*)0xCAFE);
+    static int gw_target, ww_target, rsp_target, fb5_target;
+    rt_pcall_test_wire_set(rt_pcall_test_top()-1,(void*)&gw_target,(void*)&ww_target,(void*)&rsp_target,(void*)&fb5_target,(void*)0xCAFE);
     /* asm arm */
     rt_pcall_test_snap_buf_set_all(0xAB);
     void *ra = rt_flat_ret_snap();
-    void *agw,*aww,*arsp,*arbp,*ar12; rt_pcall_test_snap_buf_get(&agw,&aww,&arsp,&arbp,&ar12);
+    void *agw,*aww,*arsp,*afb5,*ar12; rt_pcall_test_snap_buf_get(&agw,&aww,&arsp,&afb5,&ar12);
     /* C arm */
     rt_pcall_test_snap_buf_set_all(0xCD);
     void *rc = c_rt_flat_ret_snap();
-    void *cgw,*cww,*crsp,*crbp,*cr12; rt_pcall_test_snap_buf_get(&cgw,&cww,&crsp,&crbp,&cr12);
+    void *cgw,*cww,*crsp,*cfb5,*cr12; rt_pcall_test_snap_buf_get(&cgw,&cww,&crsp,&cfb5,&cr12);
     pop();
     n++;
     if (!ra||!rc) { fails++; printf("  FAIL snap live: asm=%p c=%p (both non-NULL)\n",ra,rc); return; }
-    if (agw!=cgw||aww!=cww||arsp!=crsp||arbp!=crbp||ar12!=cr12) {
+    if (agw!=cgw||aww!=cww||arsp!=crsp||afb5!=cfb5||ar12!=cr12) {
         fails++;
         printf("  FAIL snap live: snapbuf mismatch\n");
-        printf("    asm: gw=%p ww=%p rsp=%p rbp=%p r12=%p\n",agw,aww,arsp,arbp,ar12);
-        printf("    c:   gw=%p ww=%p rsp=%p rbp=%p r12=%p\n",cgw,cww,crsp,crbp,cr12);
+        printf("    asm: gw=%p ww=%p rsp=%p fb5=%p r12=%p\n",agw,aww,arsp,afb5,ar12);
+        printf("    c:   gw=%p ww=%p rsp=%p fb5=%p r12=%p\n",cgw,cww,crsp,cfb5,cr12);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -201,7 +201,7 @@ static void test_snap_r12_preserved(void) {
     push((void *)0);
     rt_pcall_test_wire_set(rt_pcall_test_top()-1,(void*)0x1,(void*)0x2,(void*)0x3,(void*)0x4,(void*)0xBEEF);
     rt_flat_ret_snap();
-    void *gw,*ww,*rsp,*rbp,*r12; rt_pcall_test_snap_buf_get(&gw,&ww,&rsp,&rbp,&r12);
+    void *gw,*ww,*rsp,*fb5,*r12; rt_pcall_test_snap_buf_get(&gw,&ww,&rsp,&fb5,&r12);
     pop();
     n++;
     if (r12 != (void*)0xBEEF) { fails++; printf("  FAIL snap r12_preserved: r12=%p expected 0xBEEF\n", r12); }

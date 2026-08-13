@@ -25,7 +25,7 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
-void   *rt_gen_get_cont(void *gen_rbp); /* ICN-FR-5: returns continuation ptr keyed by gen_rbp (pcall scan by fb) */
+void   *rt_gen_get_cont(void *gen_fb5); /* ICN-FR-5: returns continuation ptr keyed by gen____ (pcall scan by fb) */
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: callee's icn_zframe_gen flag by name — 1 = Icon zframe generator; 0 = Prolog or non-generator (zeta_storage.c) */
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);   /* PL-FR-4 s12: callee's pl_trail_mark_off by name — >0 = frame slot of $trail_mark result; 0 = absent (zeta_storage.c) */
@@ -63,15 +63,15 @@ void bb_slot_register(IR_t * nd, int off);
  * which is precisely what SINK-1 solved - the dual-medium RIPSEAL load x86("lea", r, "[rip + __]", &sym, "sym") emits a rip-relative symbol in TEXT and the live address in BINARY.  Two internal labels per
  * staged arg based at 20 (this box uses L(1)..L(7)); capped at 8 args so the pair range stays 20..35.  Kill switch: SCRIP_NO_SINK=1 at emit time. */
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
-    bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;   /* PL-ZK-5B: pl_cells_graph needs RBPRAWQ(slot) not FRQ(slot) -- see dual-write fix. */
-    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", plc ? RBPRAWQ(slot) : FRQ(slot)) + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;   /* PL-ZK-5B: pl_cells_graph needs ___RAWQ(slot) not FRQ(slot) -- see dual-write fix. */
+    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", plc ? FB5RAWQ(slot) : FRQ(slot)) + x86("mov", "rdx", plc ? FB5RAWQ(slot + 8) : FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
          + x86("mov", "eax", "dword ptr [r8 + 0]")
          + x86("test", "eax", "eax")
          + x86("jne", L(20 + i * 2))
-         + x86("mov", "rax", plc ? RBPRAWQ(slot) : FRQ(slot))
-         + x86("mov", "rdx", plc ? RBPRAWQ(slot + 8) : FRQ(slot + 8))
+         + x86("mov", "rax", plc ? FB5RAWQ(slot) : FRQ(slot))
+         + x86("mov", "rdx", plc ? FB5RAWQ(slot + 8) : FRQ(slot + 8))
          + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
@@ -165,9 +165,9 @@ extern "C" void bb_scc_handoff_reset(void) { g_c2h_n = 0; g_c2h_pend.live = 0; }
  *                  →  epilogue leaf  →  align_leave (THE FRAME RELEASE, for free)
  *
  * WHY THE SHAPE IS SAFE, verified rather than assumed:
- *  · F2 — ⭐ CORRECTED s202: this line read "rbp is the align-save register TODAY (x86_align_save() = rbp while
+ *  · F2 — ⭐ CORRECTED s202: this line read "___ is the align-save register TODAY (x86_align_save() = ___ while
  *    the ζ frame is r12)".  x86_align_save() has ZERO definitions (grep: comments only) and r12 is not a ζ basis
- *    (ZC_FRAME_R12 deleted, ZR-RSPRBP-1 s201).  x86_align_enter/leave is a PUSH-based dance touching no callee-
+ *    (ZC_FRAME_R12 deleted, ZR-RSP___-1 s201).  x86_align_enter/leave is a PUSH-based dance touching no callee-
  *    saved register, and is a no-op entirely under the RSP default.  The invariant the line was defending still
  *    holds and is what matters here: the anchor
  *    is taken with x86_align_enter/leave, never by hand.  align_leave restores rsp FROM the save reg, which is
@@ -366,7 +366,7 @@ static std::string bcps_det_arm() {
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epir_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_ret; epir_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    /* PROC-CONV regime selector — NCB-1d (Lon "RSP/RBP FORTH ζ for ALL, sharing the C stack", s90): under ZC_FRAME_RSP EVERY det proc call takes the jmp-entry wire — dyn (SNOBOL4) unchanged, det LEXICAL
+    /* PROC-CONV regime selector — NCB-1d (Lon "RSP/___ FORTH ζ for ALL, sharing the C stack", s90): under ZC_FRAME_RSP EVERY det proc call takes the jmp-entry wire — dyn (SNOBOL4) unchanged, det LEXICAL
      * (Icon/Raku) newly joined: the callee blob self-allocates and its lexprep prologue tail binds the staged g_call_args, so the caller-made-frame window below is LEGACY-CONFIG ONLY now (both its arms).
      * The rt table is populated before any emission in both media, so this is emit-time-static.  Congruence with the callee side: emit_jmp_entry_for_proc admits exactly the !is_generator procs, and this
      * det arm is dispatched exactly on !rt_proc_is_generator — one truth source (scrip.c rt_proc_set_generator from proc_table). */
@@ -511,7 +511,7 @@ static std::string bcps_det_arm() {
               }()
             : std::string(""))
          + (dc
-            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? RBPRAWQ(slot) : FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [rbp+slot] (FRQ(slot) under pinned rbp). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb_rbp=0 — causing all args to LEA [rsp+0] identically. RBPRAWQ(slot) bypasses the refinement and directly names [rbp+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's rbp pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
+            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? FB5RAWQ(slot) : FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [___+slot] (FRQ(slot) under pinned ___). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb____=0 — causing all args to LEA [rsp+0] identically. ___RAWQ(slot) bypasses the refinement and directly names [___+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's ___ pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
             + x86_call_dc(dc_name, dc_slot)
             + x86("jmp", L(2))
             : std::string(""))
@@ -554,8 +554,8 @@ static std::string bcps_det_arm() {
             : is_dyn
             /* LEGACY-CONFIG ONLY (REG-7 s80 audit resolved; was the ⛔ REG-6 hazard flag): reachable solely
              * when x86_zc_frame() != ZC_FRAME_RSP after the guard widening above — configs where r12 IS the ζ frame
-             * (⭐ s202: that basis NO LONGER EXISTS.  ZC_FRAME_R12 was deleted at ZR-RSPRBP-1 s201, so `!= RSP`
-             * now means RBP — a basis this arm was never written for, and which is #error-guarded as non-running
+             * (⭐ s202: that basis NO LONGER EXISTS.  ZC_FRAME_R12 was deleted at ZR-RSP___-1 s201, so `!= RSP`
+             * now means ___ — a basis this arm was never written for, and which is #error-guarded as non-running
              * in zeta_choices.h after a matched-pair A/B measured 9 NET NEW crashes (s202).  This arm is therefore DEAD CODE awaiting the
              * delete-or-re-establish call; see FINDING-2026-07-28b.)
              * (pre-REG-MAP tenancy), the pend top is NOT register-resident, and this rsp-anchor bracket is the
@@ -611,10 +611,10 @@ static std::string bcps_det_arm() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GENP-SPINE (Lon directive 2026-07-17 s92: "get generator procedures on the main spine; co-expressions are the only construct requiring a separate stack/pthread") — THE GENERATOR CALL SITE, SPINE-RESIDENT.
  * Supersedes the s91 per-instance-stack arms below (bcps_bin/txt_gen_arm, now LEGACY-CONFIG ONLY: non-RSP frames): the callee is the SAME jmp-entry blob the det arm enters — flat_lex lexprep binds the
- * staged args, the body runs on the ONE RSP/RBP ζ stack, and suspend routes through xa_flat's RETAINING γ epilogue (result preloaded rdi:rsi, 16B resume record {res-landing, callee rbp} left at the
+ * staged args, the body runs on the ONE RSP/___ ζ stack, and suspend routes through xa_flat's RETAINING γ epilogue (result preloaded rdi:rsi, 16B resume record {res-landing, callee ___} left at the
  * deep frontier, γ wire jumped, NO unwind).  The caller continues DEEP below the retained activation — legal since NCB-1d made consumers depth-immune — and the β resume edge is the ZS-2 outside law
- * verbatim: jmp qword [rsp] (the record's landing word sits AT the frontier by LIFO balance; res-landing drops it, re-pins rbp, dispatches jmp [rbp+resume_slot] to the recorded suspend's β).
- * Exhaustion and post-`return` resumption (the bb_return slot-poison) unwind ABSOLUTELY lea rsp,[rbp+kt] and land the ω wire.  ABANDONMENT IS FREE: any enclosing epilogue's rbp-absolute unwind reclaims
+ * verbatim: jmp qword [rsp] (the record's landing word sits AT the frontier by LIFO balance; res-landing drops it, re-pins ___, dispatches jmp [___+resume_slot] to the recorded suspend's β).
+ * Exhaustion and post-`return` resumption (the bb_return slot-poison) unwind ABSOLUTELY lea rsp,[___+kt] and land the ω wire.  ABANDONMENT IS FREE: any enclosing epilogue's ___-absolute unwind reclaims
  * every retained frame below it — no thread, no join, the s91 rc=124 exit-hang / abandoned-instance-leak class dies structurally.  ONE-POP LAW: rt_proc_call_open pushed ONE pcall record and
  * epilogue_γ/ω POP one, so only the FIRST delivery may run an epilogue leaf; the callgen.act ZLS2 slot (the pthread model's activation handle, repurposed) is the once-flag — α zeroes it, the landings
  * test-and-set, resumed deliveries pass rdi:rsi through to rax:rdx (γ) or synthesize FAILDESCR (ω) with no pop.  Wires are per-activation constants, so EVERY yield lands L(3) and EVERY failure L(4):
@@ -644,7 +644,7 @@ static std::string bcps_spine_gen_arm() {
      * then α_body (which re-writes the cursor — same value as our override), then n0 ($trail_mark = CURRENT
      * trail top), then the body runs clause 1 again.  At n15_suspend_α (clause 1 γ-exit), before the
      * xa_flat_zframe_epilogue_γ unwinds the frame, the epilogue checks g_pl_zf_pending_cursor:
-     *   - if set (our resume_set was still pending), write cursor to [rbp+resume_slot] and jmp there directly
+     *   - if set (our resume_set was still pending), write cursor to [___+resume_slot] and jmp there directly
      *     → SKIPS clause 1's result, jumps straight to n15_suspend_β (clause 2 entry)
      *   - if cleared (normal path), γ-exit proceeds to L(3) with clause 1's result
      * Wait: rt_jmp_frame_lexprep2 calls rt_pl_zf_resume_clear() — so by n15_suspend_α time, the pending flag
@@ -663,12 +663,12 @@ static std::string bcps_spine_gen_arm() {
      * THIS IS THE FIX: bb_suspend gates the push3 on !g_pl_zf_pending_cursor, and if pending: jmp cursor. */
     /* ICN-FR-4 ZFRAME GENERATOR RESUME — emit-time callee resume-slot lookup.
      * Under the zframe model (g_emit.zframe_graph=1), the generator's γ epilogue absolutely unwinds the
-     * deep stack (lea rsp,[rbp+kt]).  The non-zframe resume record ({res-landing, callee_rbp} at the FORTH
+     * deep stack (lea rsp,[___+kt]).  The non-zframe resume record ({res-landing, callee____} at the FORTH
      * frontier) is not retained.  Instead we jump to the generator's stored β continuation via:
-     *   call rt_gen_get_fb       → rax = generator_rbp (stored in pcall.fb by rt_jmp_frame_lexprep2)
+     *   call rt_gen_get_fb       → rax = generator____ (stored in pcall.fb by rt_jmp_frame_lexprep2)
      *   jmp  [rax + zf_cont_off] → reaches n1_suspend_β / n3_suspend_β / ... (the next body segment)
      * zf_cont_off = zls_g_resume_by_name(callee) is the byte offset in the generator's frame where bb_suspend
-     * stores the next continuation address via `lea rax,[rip+n_suspend_β]; mov [rbp+cont_off], rax`.
+     * stores the next continuation address via `lea rax,[rip+n_suspend_β]; mov [___+cont_off], rax`.
      * zls_g_resume_by_name is emit-time-only (scans zg[] by name) and bakes the offset as an immediate.
      * zframe_graph=0 for all SN4/Prolog/Raku/Pascal graphs by law R-ICN-D — non-zframe generators keep the
      * original push/jmp[rsp] protocol unchanged (byte-identical). */
@@ -701,7 +701,7 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
-         /* ICN-FR-4: zframe path needs NO stack guard before open. old_rbp is now stored at [rbp+kt-32]
+         /* ICN-FR-4: zframe path needs NO stack guard before open. old____ is now stored at [___+kt-32]
           * (inside the generator's allocated frame, not at [entry_rsp-8] where C callers push return addresses).
           * Header relocation in xa_flat_zframe_prologue/epilogue is the structural fix. No padding needed here.
           * Non-zframe: push rax (L(7) landing word) provides the FORTH resume record at [rsp]; unchanged. */
@@ -718,12 +718,12 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86("call", "rt_proc_open_fn", openfn_fp))
          + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
          + x86("def", L(3))
-         /* ICN-FR-4 zframe: rax = generator_rbp (set by xa_flat_zframe_epilogue_γ: mov rax,rbp before rbp restore).
+         /* ICN-FR-4 zframe: rax = generator____ (set by xa_flat_zframe_epilogue_γ: mov rax,___ before ___ restore).
           * Save to FRQ(act+8) WITHOUT a call — any call at rsp=generator_entry_rsp would push the return address
-          * to [generator_entry_rsp-8] = generator's old_rbp header slot, permanently corrupting it.
+          * to [generator_entry_rsp-8] = generator's old____ header slot, permanently corrupting it.
           * Non-zframe: rax is the epilogue's return value (unrelated); save rsp for FORTH [rsp] resume record. */
          + (zf_resume
-            ? x86("mov", FRQ(act + 8), "rax")   /* save generator_rbp (from epilogue) in caller's frame */
+            ? x86("mov", FRQ(act + 8), "rax")   /* save generator____ (from epilogue) in caller's frame */
             : x86("mov", FRQ(act + 8), "rsp")   /* non-zframe: save rsp with landing word at [rsp] */
               + x86("add", "rsp", 8L))           /* pop landing word after save (non-zframe) */
          + x86("mov", "rax", FRQ(act))
@@ -759,24 +759,24 @@ static std::string bcps_spine_gen_arm() {
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
          /* ICN-FR-4 β RESUME — TWO PATHS:
-          * ZFRAME (zf_resume=true): FRQ(act+8) = generator_rbp (saved at L(3) from epilogue's rax=r11).
+          * ZFRAME (zf_resume=true): FRQ(act+8) = generator____ (saved at L(3) from epilogue's rax=r11).
           *   1. call rt_gen_get_cont → rax = continuation ptr (saved in pcall.save_Σ by bb_suspend).
-          *      The in-frame slot [generator_rbp+zf_cont_off] is CLOBBERED by the caller's C-calls between
+          *      The in-frame slot [generator____+zf_cont_off] is CLOBBERED by the caller's C-calls between
           *      yields (the caller's call stack expands downward into the generator's frame). pcall.save_Σ
           *      is heap-allocated and immune. rsen_fp was already called above; rax is clobbered here.
-          *   2. Save cont to r11 (ABI scratch); load generator_rbp from FRQ(act+8) into rax.
-          *   3. mov rbp=rsp=rax (generator_rbp); jmp r11 (continuation).
+          *   2. Save cont to r11 (ABI scratch); load generator____ from FRQ(act+8) into rax.
+          *   3. mov ___=rsp=rax (generator____); jmp r11 (continuation).
           * NON-ZFRAME: mov rsp,FRQ(act+8) restores frontier where [rsp]=landing word; jmp[rsp]→L(7). */
          + (zf_resume
             ? ( [&]() -> std::string {
                 uint64_t _gc_fp; { void *(*_f)(void *) = rt_gen_get_cont; _gc_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                return x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp (FRQ slot saved at L(3)) */
-                     + x86("mov", "rdi", "rax")                 /* ICN-FR-5: gen_rbp as first arg for keyed cont lookup */
-                     + x86("call", "rt_gen_get_cont", _gc_fp)   /* rax = continuation ptr keyed by gen_rbp */
+                return x86("mov", "rax", FRQ(act + 8))          /* rax = generator____ (FRQ slot saved at L(3)) */
+                     + x86("mov", "rdi", "rax")                 /* ICN-FR-5: gen____ as first arg for keyed cont lookup */
+                     + x86("call", "rt_gen_get_cont", _gc_fp)   /* rax = continuation ptr keyed by gen____ */
                      + x86("mov", "r8", "rax")                 /* save cont in r11 (ABI scratch) */
-                     + x86("mov", "rax", FRQ(act + 8))          /* rax = generator_rbp again */
-                     + x86("mov", "rbp", "rax")                 /* pin generator frame base */
-                     + x86("mov", "rsp", "rax")                 /* set FORTH base to generator_rbp */
+                     + x86("mov", "rax", FRQ(act + 8))          /* rax = generator____ again */
+                     + std::string("")                 /* pin generator frame base */
+                     + x86("mov", "rsp", "rax")                 /* set FORTH base to generator____ */
                      + x86("jmp", "r8");                       /* jmp to stored continuation */
               })()
             : pl_zf_resume
@@ -803,8 +803,8 @@ static std::string bcps_spine_gen_arm() {
                  * THE PENDING CURSOR MUST NOT BE CLEARED BY LEXPREP2 — it must survive until γ-exit so the
                  * epilogue intercept can fire.  Move the clear OUT of rt_jmp_frame_lexprep2 and into the
                  * epilogue intercept (which already calls rt_pl_zf_resume_clear).  The α_body's cursor
-                 * re-write (lea rax,[rip+n15_suspend_β]; mov [rbp+1120],rax) happens AFTER lexprep2 and
-                 * sets [rbp+1120] = n15_suspend_β — same as our pending cursor, no conflict.
+                 * re-write (lea rax,[rip+n15_suspend_β]; mov [___+1120],rax) happens AFTER lexprep2 and
+                 * sets [___+1120] = n15_suspend_β — same as our pending cursor, no conflict.
                  * n15_suspend_α at γ-time: g_pl_zf_pending_cursor is still set (not cleared by lexprep2).
                  * bb_suspend checks it — pending=set → jmp r11 (cursor = n15_suspend_β, in live frame).
                  * n15_suspend_β → n16_call_builtin_prolog_α → trail unwind → clause 2 body → ...

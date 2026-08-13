@@ -565,21 +565,21 @@ DESCR_t eval_ast_pat(tree_t *e) {
     fprintf(stderr, "[B0b] BOMB eval_ast_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
     abort();
 }
-/* rbp-dcap (2026-07-13, Lon directive: "the conditional assignment capture should not call a C function when
- * all it must do is increment RBP and decrement RBP in the capture BB").  The bounded ring (RT_DCAP_MAX 32) +
+/* ___-dcap (2026-07-13, Lon directive: "the conditional assignment capture should not call a C function when
+ * all it must do is increment ___ and decrement ___ in the capture BB").  The bounded ring (RT_DCAP_MAX 32) +
  * mark/depth arrays + active flag are DELETED; the pend stack is an UNBOUNDED register-anchored island (the
- * rt_gva_island precedent, ARCH-ZETA §12) whose live cursor is REGISTER rbp in emitted code.  Entry = 24B,
+ * rt_gva_island precedent, ARCH-ZETA §12) whose live cursor is REGISTER ___ in emitted code.  Entry = 24B,
  * pointer-free into Region 2 (varname is sealed RO strtab; saved_delta resolved against the subject at flush
  * via the pump ctx, never stored as a pointer — no GC root, no ADJUST entry).  Layout: varname@+0,
  * saved_delta@+8 (zero-extended u32), len@+16 (zero-extended u32).  Future entry species (SZ-3's *FN() commit
  * chains — the Python engine's one-cstack uniformity) discriminate on the varname qword, as '*' names do
- * today.  Push = box-inline stores + add rbp,24 (capture γ).  Pop = sub rbp,24 (capture β) — balanced by
+ * today.  Push = box-inline stores + add ___,24 (capture γ).  Pop = sub ___,24 (capture β) — balanced by
  * generator LIFO scoping (the s45 Python insight; snobol4python Δ.γ append/yield/pop).  MARK = per-match-head
- * frame qword (head α saves rbp; nesting = ζ frames nest; the depth array dies).  Head-fail/release restore
- * rbp=mark AND g_dcap_top=mark inline.  g_dcap_top is the MIRROR: match-head α loads its cursor from it, and
- * every mid-match transfer window in a MATCH-FAMILY box mirrors rbp out first so a nested graph's heads see
+ * frame qword (head α saves ___; nesting = ζ frames nest; the depth array dies).  Head-fail/release restore
+ * ___=mark AND g_dcap_top=mark inline.  g_dcap_top is the MIRROR: match-head α loads its cursor from it, and
+ * every mid-match transfer window in a MATCH-FAMILY box mirrors ___ out first so a nested graph's heads see
  * the live top (a stale-low mirror would let nested pushes overwrite live pends).  Non-SNOBOL graphs never
- * touch rbp or the mirror (mirror-out sites are IR-kind-conditioned, per the no-language-sentinel FACT RULE).
+ * touch ___ or the mirror (mirror-out sites are IR-kind-conditioned, per the no-language-sentinel FACT RULE).
  * KNOWN INHERITED LIMIT (status quo ante, the old shared ring had it too): a generator that SUSPENDS mid-match
  * with pends live shares the one stack non-LIFO — the suspended-ζ residue class, NCB-2/TR-6 territory. */
 /* CAS-1 (Lon directive s60: "SNOBOL4 will have a CONDITIONAL ASSIGN stack in separate mmap"; GOAL-SNOBOL4-BB.md
@@ -696,12 +696,12 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Box contract (bb_match_end): rdi = MARK (head's saved rbp, FRQ(head+32)), rsi = TOP (live rbp), rdx =
+/* Box contract (bb_match_end): rdi = MARK (head's saved ___, FRQ(head+32)), rsi = TOP (live ___), rdx =
  * SUBJECT base (r13, by value).  The subject rides the ctx BY VALUE so a mid-pump *VAR transfer that runs a
  * nested match (clobbering Σ and r13 under xfer save) cannot skew the resolution of the REMAINING entries —
  * the old ring was immune by snapshotting base pointers at record time; the pointer-free entry moves that
  * immunity here.  Walk range is FIXED [mark, top): nested matches during a transfer push above top, flush
- * their own range through their own open/close, and restore rbp/mirror to their mark == our top — disjoint by
+ * their own range through their own open/close, and restore ___/mirror to their mark == our top — disjoint by
  * construction (the old g_rt_dcap_n re-read compensated for a SHARED counter; ranges need no compensation). */
 long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
@@ -726,7 +726,7 @@ long c_rt_dcap_step(DESCR_t nm)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_dcap_end_ok_close(void)
 {
-    /* rbp-dcap: the ctx pops; the TRUNCATION is the box's own `mov rbp, mark` + mirror store after this
+    /* ___-dcap: the ctx pops; the TRUNCATION is the box's own `mov ___, mark` + mirror store after this
      * returns (bb_match_end exit) — no C-side stack state remains to reset. */
     if (g_dcf_top > 0) g_dcf_top--;
 }
@@ -737,8 +737,8 @@ void c_rt_dcap_end_ok_close(void)
  * it must drive the pump from an emitted box. */
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rbp-dcap: rt_dcap_begin (depth-mark push) → head α's inline `mov FRQ(+32), rbp` after loading the mirror;
- * rt_dcap_end_fail (truncate-to-mark) → head ω's inline mirror-store + `mov rbp, FRQ(+40)` incoming restore;
+/* ___-dcap: rt_dcap_begin (depth-mark push) → head α's inline `mov FRQ(+32), ___` after loading the mirror;
+ * rt_dcap_end_fail (truncate-to-mark) → head ω's inline mirror-store + `mov ___, FRQ(+40)` incoming restore;
  * rt_cap_unpend (dead-trial discard by name) had ZERO callers — the balanced capture-β pop is the discard.
  * All three DELETED with their ring.  end_ok's bomb stays parked (PARK-NEVER-DELETE, NCB-1c). */
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
@@ -790,8 +790,8 @@ int c_rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s
 static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
 long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
-    (void)is_imm; /* rbp-dcap: the COND (deferred) arm no longer calls here — bb_match_capture phase 1 records
-                   * its entry inline on the rbp stack.  Every remaining caller is the immediate ($) path. */
+    (void)is_imm; /* ___-dcap: the COND (deferred) arm no longer calls here — bb_match_capture phase 1 records
+                   * its entry inline on the ___ stack.  Every remaining caller is the immediate ($) path. */
     if (!varname || !*varname) return 0;
     int len = cur_delta - saved_delta;
     if (len < 0) len = 0;

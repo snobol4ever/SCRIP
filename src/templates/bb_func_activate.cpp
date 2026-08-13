@@ -27,20 +27,20 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* IR_FUNC_ACTIVATE — LADDER AB (2026-08-09 AB-2): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
 /* SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack                                                                                                   */
-/* at entry (here: an RBP frame) and restores them on RETURN/FRETURN/NRETURN.  Ch.16: &FNCLEVEL++                                                                                                     */
+/* at entry (here: an ___ frame) and restores them on RETURN/FRETURN/NRETURN.  Ch.16: &FNCLEVEL++                                                                                                     */
 /* at call, -- at return.  ABI frozen in contracts/ab_abi.h (ONE AUTHORITY).                                                                                                                          */
 /*                                                                                                                                                                                                    */
 /* AB-2 DELIVERS:                                                                                                                                                                                     */
-/*   α  = push rbp; mov rbp,rsp; sub rsp,K;                                                                                                                                                           */
+/*   α  = push ___; mov ___,rsp; sub rsp,K;                                                                                                                                                           */
 /*        fill meta frame: wires (rcx/rdx from call site), entry-rsp, ANCHOR link/update;                                                                                                             */
-/*        call rt_ab_enter_env(rbp) → Σ/wn/vtmark snapshot + k_level++;                                                                                                                              */
+/*        call rt_ab_enter_env(___) → Σ/wn/vtmark snapshot + k_level++;                                                                                                                              */
 /*        save-set spill (GVA→frame); null GVA cells;                                                                                                                                                 */
 /*        monitor call tap (g_monitor_bin guard + RO fname + mon_emit_call_bin);                                                                                                                       */
 /*        jmp [fn_cell$<FN>] → lands at <FN>_act_α which IS here, after DEFINE store at AB-3.                                                                                                        */
 /*        (body-jmp is the fn_cell indirect so AB-3 can flip the cell; static-direct fold at AB-5.)                                                                                                   */
 /*   β  = 3-way on cl (AB_TC_RETURN/NRETURN/FRETURN):                                                                                                                                                */
 /*        RETURN/NRETURN: result rax:rdx pre-restore (NRETURN: deref CALLER-SIDE post-restore);                                                                                                       */
-/*        stash result → call rt_ab_leave_env(rbp, result, is_fail) → restore rax:rdx;                                                                                                               */
+/*        stash result → call rt_ab_leave_env(___, result, is_fail) → restore rax:rdx;                                                                                                               */
 /*        restore save-set from frame; write &RTNTYPE;                                                                                                                                                */
 /*        monitor return tap (g_monitor_bin guard + RO fname + mon_emit_return_bin(fname, result));                                                                                                   */
 /*        unlink ANCHOR; LEAVE; jmp γ-wire (RETURN/NRETURN) or ω-wire (FRETURN).                                                                                                                     */
@@ -89,24 +89,24 @@ std::string bb_func_activate() {
       + x86("directive", std::string(".quad rt_ab_undef_fn_stub"))
       + x86("directive", std::string(".section .text"))
       + x86("directive", std::string(".intel_syntax noprefix"))
-        /* α label + RBP frame prologue */
+        /* α label + ___ frame prologue */
       + x86_alpha()
-      + x86("push", "rbp")
-      + x86("mov",  "rbp", "rsp")
+      + std::string("")
+      + std::string("")
       + x86("sub",  "rsp", K)
         /* store γ/ω wires (arrive in rcx/rdx from call site — lea contract) */
-      + x86("mov", RDQ("rbp", AB_OFF_GW), "rcx")
-      + x86("mov", RDQ("rbp", AB_OFF_WW), "rdx")
-        /* entry rsp = rbp + 8 (BEFORE push rbp: rsp was rbp+8 at caller's call point; +8 undoes the push) */
-      + x86("lea", "rax", RDQ("rbp", 8))
-      + x86("mov", RDQ("rbp", AB_OFF_ERSP), "rax")
-        /* link ACT-ANCHOR: prev = [RT_AB_ANCHOR]; [RT_AB_ANCHOR] = rbp; store prev in frame */
+      + x86("mov", RDQ("rsp", -1), "rcx")
+      + x86("mov", RDQ("rsp", -1), "rdx")
+        /* entry rsp = ___ + 8 (BEFORE push ___: rsp was ___+8 at caller's call point; +8 undoes the push) */
+      + x86("lea", "rax", RDQ("rsp", -1))
+      + x86("mov", RDQ("rsp", -1), "rax")
+        /* link ACT-ANCHOR: prev = [RT_AB_ANCHOR]; [RT_AB_ANCHOR] = ___; store prev in frame */
       + x86("mov", "rax", ABSQ(RT_AB_ANCHOR))
-      + x86("mov", RDQ("rbp", AB_OFF_ANCHOR), "rax")
-      + x86("mov", ABSQ(RT_AB_ANCHOR), "rbp")
+      + x86("mov", RDQ("rsp", -1), "rax")
+      + x86("mov", ABSQ(RT_AB_ANCHOR), "rsp")
         /* store β address in frame so the shared floater can reach it via anchor chain */
       + x86("lea", "rax", L(1))               /* LEA rip-relative to β label (L(1) string → XK_ILBL → x86_lea_rip_id) */
-      + x86("mov", RDQ("rbp", AB_OFF_BADDR), "rax")
+      + x86("mov", RDQ("rsp", -1), "rax")
         /* RTX-FUNC-1: rt_ab_enter_env INLINED — the five operations of rt.c:511 emitted here, zero C crossings.  Order and semantics are byte-for-byte the C body's: Σ snapshot, Σlen snapshot,
          * wn snapshot-and-clear, vtmark = g_pl_trail.top, rt_k_level++ then kw_fnclevel = rt_k_level-1.  Scratch is rax (symbol address) + rcx (value) — strictly INSIDE the rax/rcx/rdx/rsi/rdi
          * set the C call already clobbered here, so no live value changes hands.  Every global is reached through x86("[rip@got + __]") = @GOTPCREL in TEXT / movabs in BINARY: five of the six are
@@ -117,20 +117,20 @@ std::string bb_func_activate() {
       + x86("note", std::string("RTX-FUNC-1 inline enter_env"))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σ, "Σ")
       + x86("mov", "rcx", RDQ("rax", 0))
-      + x86("mov", RDQ("rbp", AB_OFF_SIGMA), "rcx")
+      + x86("mov", RDQ("rsp", -1), "rcx")
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σlen, "Σlen")
       + x86("mov", "ecx", RDD("rax", 0))
       + x86("movsxd", "rcx", "ecx")
-      + x86("mov", RDQ("rbp", AB_OFF_SIGMALEN), "rcx")
+      + x86("mov", RDQ("rsp", -1), "rcx")
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
       + x86("mov", "ecx", RDD("rax", 0))
       + x86("movsxd", "rcx", "ecx")
-      + x86("mov", RDQ("rbp", AB_OFF_WN), "rcx")
+      + x86("mov", RDQ("rsp", -1), "rcx")
       + x86("mov", RDD("rax", 0), (long)0)                     /* rt_g_want_name = 0 — the C clears it in the same breath it snapshots it */
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
       + x86("mov", "ecx", RDD("rax", PL_TRAIL_TOP_OFF))        /* rt_value_trail_mark() is { return g_pl_trail.top; } — resolution.c:31; offset pinned by that file's _Static_assert */
       + x86("movsxd", "rcx", "ecx")
-      + x86("mov", RDQ("rbp", AB_OFF_VTMARK), "rcx")
+      + x86("mov", RDQ("rsp", -1), "rcx")
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
       + x86("mov", "rax", RDQ("rax", 0))                       /* rt_k_level stays HIDDEN for the in-.so asm's PC32 reach — emitted code goes through the exported pointer (rt.c:396) */
       + x86("add", RDD("rax", 0), (long)1)                     /* rt_k_level++ */
@@ -139,7 +139,7 @@ std::string bb_func_activate() {
       + x86("sub", "rcx", (long)1)
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
       + x86("mov", RDQ("rax", 0), "rcx")                       /* kw_fnclevel = rt_k_level - 1 (int64_t cell) */
-        /* save-set: spill each GVA cell into RBP-relative frame slot */
+        /* save-set: spill each GVA cell into ___-relative frame slot */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
             int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
             int ot  = ab_save_off(nsave, k);
@@ -147,12 +147,12 @@ std::string bb_func_activate() {
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
                      + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16))
-                     + x86("mov", RDQ("rbp", ot), "rax")
+                     + x86("mov", RDQ("rsp", -1), "rax")
                      + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8))
-                     + x86("mov", RDQ("rbp", ov), "rax");
+                     + x86("mov", RDQ("rsp", -1), "rax");
             }
-            return x86("mov", RDQ("rbp", ot), (long)0)
-                 + x86("mov", RDQ("rbp", ov), (long)0);
+            return x86("mov", RDQ("rsp", -1), (long)0)
+                 + x86("mov", RDQ("rsp", -1), (long)0);
         })
         /* null GVA cells: result cell (k=0) and locals (k>nformals) only.
          * Formals (k=1..nformals) are SKIPPED — the AB-3b call site installs actual arg values there
@@ -214,11 +214,11 @@ std::string bb_func_activate() {
         /* Save type-code into r8 immediately — r8 is dead at β entry (was argreg at call site only).
          * r8 survives all C calls and the LEAVE via the RTCC veneer; we read it after LEAVE for the final dispatch. */
       + x86("movzx", AB_TC_REG, "cl")    /* type code: 0=RETURN 1=NRETURN 2=FRETURN.  R10/R11-ERAD: r8 unconditionally.  r9 is RT_GVA_VA under RTCC_GLOBAL_R9_GVA and r10/r11 are the reserved wire pair rGamma/rOmega since D-1 made PASS-THRU the only blob linkage, so both prior spellings collided; r8 is veneer-preserved (RTCC slot 5, offset 40) exactly as r10 was, and the conditional fork is deleted so one authority serves both RTCC settings. */
-        /* ADOPT THE FRAME (gdb conviction 2026-08-10): β arrives from the shared floater with the RETURNING STATEMENT's rbp, not this frame's — measured 0x88 below the anchor on the noarg repro.
-         * Every access below (result stash, leave_env frame arg, save-set restore, GW/WW/prev loads, LEAVE) is rbp-relative, so without this adopt β works a FOREIGN frame: γ wire loaded 0 → jmp 0
+        /* ADOPT THE FRAME (gdb conviction 2026-08-10): β arrives from the shared floater with the RETURNING STATEMENT's ___, not this frame's — measured 0x88 below the anchor on the noarg repro.
+         * Every access below (result stash, leave_env frame arg, save-set restore, GW/WW/prev loads, LEAVE) is ___-relative, so without this adopt β works a FOREIGN frame: γ wire loaded 0 → jmp 0
          * (rip=0 crash), prev-anchor loaded dead stack garbage → anchor ← rt_ab_enter_env+107 (both gdb-measured).  The anchor is still linked here (unlink is below) and IS this frame's base. */
-      + x86("mov", "rbp", ABSQ(RT_AB_ANCHOR))
-        /* FRETURN: result is irrelevant; skip stash; call leave_env(rbp, FAILDESCR, 1) */
+      + std::string("")
+        /* FRETURN: result is irrelevant; skip stash; call leave_env(___, FAILDESCR, 1) */
       + x86("cmp", AB_TC_REG_D, (long)AB_TC_FRETURN)
       + x86("je",  L(3))
         /* RETURN / NRETURN: the RESULT is the CURRENT value of the fname GVA cell (save-set k=0), read BEFORE the restore loop puts the saved pre-call value back — manual Ch.8: the value of the
@@ -230,17 +230,17 @@ std::string bb_func_activate() {
             return x86("note", gva_name(gk0))
                  + x86("mov", "rax", ABSQ(RT_GVA_VA + (unsigned long)gk0 * 16))
                  + x86("mov", "rdx", ABSQ(RT_GVA_VA + (unsigned long)gk0 * 16 + 8)); }()
-      + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")
-      + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")
+      + x86("mov", RDQ("rsp", -1), "rax")
+      + x86("mov", RDQ("rsp", -1), "rdx")
         /* RTX-FUNC-2: rt_ab_leave_env FAST PATH.  Two guards, BOTH provable no-op conditions read straight out of the C (ARCH §7 step 0(f-pre) — the shape whose falsifiability is knowable before the
          * asm exists), so the fast arm is not an approximation of the C, it is the C with the dead work removed:
-         *   (a) g_pl_trail.top == [rbp+AB_OFF_VTMARK] ⇒ rt_value_trail_tidy_dead_window is a PROVEN no-op: its loop is `for (r = mark; r < top; r++)` (resolution.c) which never iterates when
+         *   (a) g_pl_trail.top == [___+AB_OFF_VTMARK] ⇒ rt_value_trail_tidy_dead_window is a PROVEN no-op: its loop is `for (r = mark; r < top; r++)` (resolution.c) which never iterates when
          *       mark == top, and its only store is then `top = w = mark`, i.e. writing back the value already there.  Not "usually cheap" — structurally nothing.
          *   (b) rt_g_ret_by_name == 0 ⇒ rt_nret_fix (rt.c:755) collapses to `rt_g_want_name = wn; return r` — the by-name deref arm is unreachable.
          * Either guard failing takes the SLOW arm, which is the untouched C call, so the C body remains the fallback AND the bisection oracle exactly as ruling 3 requires.  Fast arm restores Σ/Σlen,
          * decrements k_level, republishes kw_fnclevel and rt_g_want_name, and hands back the stashed result in rax:rdx — the same post-conditions the call leaves behind.  r9 (type code) untouched. */
       + x86("note", std::string("RTX-FUNC-2 leave_env fast-path guards"))
-      + x86("mov", "rcx", RDQ("rbp", AB_OFF_VTMARK))
+      + x86("mov", "rcx", RDQ("rsp", -1))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
       + x86("mov", "eax", RDD("rax", PL_TRAIL_TOP_OFF))
       + x86("movsxd", "rax", "eax")
@@ -251,13 +251,13 @@ std::string bb_func_activate() {
       + x86("cmp", "eax", (long)0)
       + x86("jne", L(7))                                       /* a by-name return is pending → nret_fix has real work → C */
         /* ── FAST ARM ── */
-      + x86("mov", "rcx", RDQ("rbp", AB_OFF_SIGMA))
+      + x86("mov", "rcx", RDQ("rsp", -1))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σ, "Σ")
       + x86("mov", RDQ("rax", 0), "rcx")
-      + x86("mov", "rcx", RDQ("rbp", AB_OFF_SIGMALEN))
+      + x86("mov", "rcx", RDQ("rsp", -1))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&Σlen, "Σlen")
       + x86("mov", RDD("rax", 0), "ecx")                       /* Σlen is int — dword store, matching the C's assignment width */
-      + x86("mov", "rcx", RDQ("rbp", AB_OFF_WN))
+      + x86("mov", "rcx", RDQ("rsp", -1))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
       + x86("mov", RDD("rax", 0), "ecx")                       /* rt_nret_fix's tail: rt_g_want_name = wn */
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
@@ -272,33 +272,33 @@ std::string bb_func_activate() {
       + x86("sub", "rcx", (long)1)
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
       + x86("mov", RDQ("rax", 0), "rcx")
-      + x86("mov", "rax", RDQ("rbp", AB_OFF_RES0))             /* result passes through unchanged — nret_fix is identity under guard (b) */
-      + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))
+      + x86("mov", "rax", RDQ("rsp", -1))             /* result passes through unchanged — nret_fix is identity under guard (b) */
+      + x86("mov", "rdx", RDQ("rsp", -1))
       + x86("jmp", L(8))
         /* ── SLOW ARM — the untouched C crossing ── */
       + x86("def", L(7))
       + x86_align_enter()
-      + x86("mov", "rdi", "rbp")
-      + x86("mov", "rsi", RDQ("rbp", AB_OFF_RES0))   /* result.v */
-      + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))   /* result.i */
+      + x86("mov", "rdi", "rsp")
+      + x86("mov", "rsi", RDQ("rsp", -1))   /* result.v */
+      + x86("mov", "rdx", RDQ("rsp", -1))   /* result.i */
       + x86("xor", "ecx", "ecx")                     /* is_fail=0 */
       + x86("call", "rt_ab_leave_env", (uint64_t)(uintptr_t)(void *)rt_ab_leave_env)
       + x86_align_leave()
       + x86("def", L(8))
         /* rax:rdx = nret-fixed result from leave_env */
-      + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")   /* re-stash: monitor tap reads from frame */
-      + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")
+      + x86("mov", RDQ("rsp", -1), "rax")   /* re-stash: monitor tap reads from frame */
+      + x86("mov", RDQ("rsp", -1), "rdx")
       + x86("jmp", L(4))
       + x86("def", L(3))             /* FRETURN path */
       + x86_align_enter()
-      + x86("mov", "rdi", "rbp")
+      + x86("mov", "rdi", "rsp")
       + x86("xor", "esi", "esi")     /* result.v = 0 */
       + x86("xor", "edx", "edx")     /* result.i = 0 */
       + x86("mov", "ecx", (long)1)   /* is_fail=1 */
       + x86("call", "rt_ab_leave_env", (uint64_t)(uintptr_t)(void *)rt_ab_leave_env)
       + x86_align_leave()
-      + x86("mov", RDQ("rbp", AB_OFF_RES0), "rax")   /* stash FAILDESCR for monitor */
-      + x86("mov", RDQ("rbp", AB_OFF_RES1), "rdx")
+      + x86("mov", RDQ("rsp", -1), "rax")   /* stash FAILDESCR for monitor */
+      + x86("mov", RDQ("rsp", -1), "rdx")
       + x86("def", L(4))             /* common β tail */
         /* restore save-set: GVA cells ← frame (rcx is scratch; rax:rdx stashed in frame) */
       + FOR(0, (int)nsave, [&](int k) -> std::string {
@@ -307,17 +307,17 @@ std::string bb_func_activate() {
             int ov  = ab_save_off(nsave, k) + 8;
             if (gk >= 0) {
                 return x86("note", gva_name(gk))
-                     + x86("mov", "rcx", RDQ("rbp", ot))
+                     + x86("mov", "rcx", RDQ("rsp", -1))
                      + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rcx")
-                     + x86("mov", "rcx", RDQ("rbp", ov))
+                     + x86("mov", "rcx", RDQ("rsp", -1))
                      + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rcx");
             }
             return std::string();
         })
         /* load γ/ω wires and prev ACT-ANCHOR from frame BEFORE LEAVE tears it down */
-      + x86("mov", "r10", RDQ("rbp", AB_OFF_GW))     /* γ wire */
-      + x86("mov", "r11", RDQ("rbp", AB_OFF_WW))     /* ω wire */
-      + x86("mov", "rcx", RDQ("rbp", AB_OFF_ANCHOR)) /* prev ACT-ANCHOR */
+      + x86("mov", "r10", RDQ("rsp", -1))     /* γ wire */
+      + x86("mov", "r11", RDQ("rsp", -1))     /* ω wire */
+      + x86("mov", "rcx", RDQ("rsp", -1)) /* prev ACT-ANCHOR */
         /* monitor RETURN tap — frame still live; result is in frame RES0/RES1; address both-medium per the CALL tap */
       + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
       + x86("mov",    "rax", RDQ("rax", 0))
@@ -325,22 +325,22 @@ std::string bb_func_activate() {
       + x86("je",  L(5))
       + x86_align_enter()
       + x86_ro_load_q("rdi", 0)                       /* rdi = sealed fname ptr */
-      + x86("mov", "rsi", RDQ("rbp", AB_OFF_RES0))   /* result.v */
-      + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))   /* result.i */
+      + x86("mov", "rsi", RDQ("rsp", -1))   /* result.v */
+      + x86("mov", "rdx", RDQ("rsp", -1))   /* result.i */
       + x86("call", "mon_emit_return_bin", (uint64_t)(uintptr_t)(void *)mon_emit_return_bin)
       + x86_align_leave()
       + x86("def", L(5))
         /* restore result to rax:rdx */
-      + x86("mov", "rax", RDQ("rbp", AB_OFF_RES0))
-      + x86("mov", "rdx", RDQ("rbp", AB_OFF_RES1))
+      + x86("mov", "rax", RDQ("rsp", -1))
+      + x86("mov", "rdx", RDQ("rsp", -1))
         /* unlink ACT-ANCHOR: [RT_AB_ANCHOR] ← rcx (prev, loaded above) */
       + x86("mov", ABSQ(RT_AB_ANCHOR), "rcx")
-        /* LEAVE — restores rsp = rbp, pops rbp; frame is gone after this.  Spelled as the mov/pop PAIR, not x86("leave"): there is NO "leave" arm in
+        /* LEAVE — restores rsp = ___, pops ___; frame is gone after this.  Spelled as the mov/pop PAIR, not x86("leave"): there is NO "leave" arm in
          * x86_asm.h's dispatch, so x86("leave") emitted NOTHING in BOTH media — the callee frame was never torn down.  Neither encoder here touches
          * flags (as leave does not) and both are proven in-tree (x86_srf_floater; bb_glue_framed).  Adding a real "leave" encoder is the 1-byte form
          * but x86_asm.h is NOT-CONCURRENCY-SAFE — Lon routes that seat; this pair is byte-equivalent in effect and stays inside the template. */
-      + x86("mov", "rsp", "rbp")
-      + x86("pop", "rbp")
+      + std::string("")
+      + std::string("")
         /* dispatch on r9 (type-code saved before any C call, survives LEAVE):
          *   RETURN / NRETURN (r9 != 2) → γ wire in r10
          *   FRETURN          (r9 == 2) → ω wire in r11 */

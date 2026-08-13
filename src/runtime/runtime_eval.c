@@ -73,9 +73,9 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
  * at emit time from its region) and is one-shot.  The trailing ret is the C builtin boundary, not the
  * transfer.  ⚠ EXACTLY FIVE PUSHES — the SysV 16-byte stack alignment is load-bearing through the jmp: rsp is
  * 8 mod 16 at entry, +40 bytes of pushes makes it 0 mod 16, and the blob's `sub rsp,K_total` (K_total
- * 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved rbp) left every
+ * 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved ___) left every
  * C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path — measured, gdb,
- * rsp=...be8.  rbp needs no save here: it is the align-save register the chains manage themselves
+ * rsp=...be8.  ___ needs no save here: it is the align-save register the chains manage themselves
  * (x86_align_enter/leave).  PROC-CONV converted the last call-regime citizen (LBL__ pseudo-procs,
  * rt_goto_transfer arm 4) to this same transfer; the donated-frame shim rt_callregime_run is deleted. */
 __asm__(
@@ -217,13 +217,13 @@ static eval_chain_fn eval_build_chain(const char *s)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* EVAL-CHAIN-RET (this session): CLASS C chains (EVAL/CODE JIT fragments) exit via bb_glue_outer_γ/ω which
- * does mov rsp,rbp; pop rbp; ret.  The ret lands in eval_string_transient (the caller of THIS function)
+ * does mov rsp,___; pop ___; ret.  The ret lands in eval_string_transient (the caller of THIS function)
  * after "call eval_chain_run_capture" — skipping this function's NV_GET_fn(EVAL_TMP) call entirely.
  * The chain's γ return value is eax=DT_S, rdx=garbage — unusable as a DESCR.
  * FIX: eval_string_transient reads ZZEVALZZ directly after calling eval_chain_run_capture.
- * THIS function now only exists to correctly set up rbp as the eval_chain_run_capture frame base
- * so the chain's "mov rsp,rbp; pop rbp; ret" correctly unwinds to eval_string_transient.
- * __attribute__((noinline)) ensures a real call frame with its own rbp. */
+ * THIS function now only exists to correctly set up ___ as the eval_chain_run_capture frame base
+ * so the chain's "mov rsp,___; pop ___; ret" correctly unwinds to eval_string_transient.
+ * __attribute__((noinline)) ensures a real call frame with its own ___. */
 __attribute__((noinline))
 static void eval_chain_enter_only(eval_chain_fn fn) {
     rt_chain_enter(fn);

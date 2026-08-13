@@ -5,9 +5,9 @@
 #ifndef AB_ABI_H
 #define AB_ABI_H
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ACTIVATION FRAME LAYOUT (RBP-relative; all offsets NEGATIVE — cells live below the saved-rbp pushed by push rbp).                                                                                  */
-/* Established by α: push rbp; mov rbp,rsp; sub rsp,K.  Released by β: mov rsp,rbp; pop rbp (or LEAVE).                                                                                              */
-/* The pushed rbp occupies [rbp-8]; frame cells start at [rbp-0x10].                                                                                                                                  */
+/* ACTIVATION FRAME LAYOUT (___-relative; all offsets NEGATIVE — cells live below the saved-___ pushed by push ___).                                                                                  */
+/* Established by α: push ___; mov ___,rsp; sub rsp,K.  Released by β: mov rsp,___; pop ___ (or LEAVE).                                                                                              */
+/* The pushed ___ occupies [___-8]; frame cells start at [___-0x10].                                                                                                                                  */
 /*                                                                                                                                                                                                    */
 /* Meta fields (12 × 8B = 96B; AB_META_BYTES) — AB-2 fills every field:                                                                                                                              */
 #define AB_OFF_GW       (-0x10)   /* γ wire  — caller's success continuation                                                                                                                          */
@@ -29,13 +29,13 @@
 #define AB_META_BYTES   96        /* 12 meta fields × 8B (AB_OFF_PAD fills the 12th; SAVE0 at -0x70) */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LEGACY WIRE QUAD OFFSETS (rt_flat_wires_t layout, for the AB-2 dual-arm that reads either protocol).                                                                                               */
-/* rt_flat_wires_t: +0=γ +8=ω +16=rsp +24=rbp — same as AB_OFF_GW/WW/ERSP + an extra rbp field.                                                                                                     */
-/* The AB block recovers rbp via LEAVE (mov rsp,rbp / pop rbp), not by reading a stored value.                                                                                                        */
+/* rt_flat_wires_t: +0=γ +8=ω +16=rsp +24=___ — same as AB_OFF_GW/WW/ERSP + an extra ___ field.                                                                                                     */
+/* The AB block recovers ___ via LEAVE (mov rsp,___ / pop ___), not by reading a stored value.                                                                                                        */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* FRAME SIZE CALCULATION:                                                                                                                                                                             */
-/* total = AB_META_BYTES + nsave*16;  K = ((total + 8 + 15) & ~15) - 8;  (16-align ACROSS the pushed rbp)                                                                                            */
+/* total = AB_META_BYTES + nsave*16;  K = ((total + 8 + 15) & ~15) - 8;  (16-align ACROSS the pushed ___)                                                                                            */
 static inline long ab_frame_k(long nsave) { long t = AB_META_BYTES + nsave * 16L; return ((t + 8 + 15) & ~15L) - 8; }
-/* RBP-relative offset of save-set member k type-word (value-word = +8): */
+/* ___-relative offset of save-set member k type-word (value-word = +8): */
 static inline int ab_save_off(long nsave, int k) { (void)nsave; return AB_OFF_SAVE0 - (int)(16L * (long)k); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Δ/Ω VERDICT (AB-0, 2026-08-09): OMIT Δ/Ω from the ACTIVATION FRAME — safe-by-construction.                                                                                                       */
@@ -66,7 +66,7 @@ static inline int ab_save_off(long nsave, int k) { (void)nsave; return AB_OFF_SA
 #define AB_TC_NRETURN   1
 #define AB_TC_FRETURN   2
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ACT-ANCHOR: one process-global 8B cell on the pin page, holds rbp of the innermost active frame                                                                                                    */
+/* ACT-ANCHOR: one process-global 8B cell on the pin page, holds ___ of the innermost active frame                                                                                                    */
 /* (or NULL when no DEFINE'd function is active). Linked list: each α links prev anchor into the                                                                                                      */
 /* frame at AB_OFF_ANCHOR; β unlinks. Address: RT_AB_ANCHOR (defined in pin_va.h).                                                                                                                    */
 /* NRET DISCRIMINATOR CELL: RT_AB_NRET (8B, pin page) — written by SNO$NRET / NRETURN-body before                                                                                                    */

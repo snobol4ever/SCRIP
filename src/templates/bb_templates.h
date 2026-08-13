@@ -57,11 +57,11 @@ std::string bb_bound();
 std::string bb_statement();
 std::string bb_glue_flat_enter();     /* GLUE-1 (Lon s21x-n): per-BB storage bracket, no frame pointer -- the ~99.999% case (s21x-c law 3). */
 std::string bb_glue_flat_leave();
-std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + rbp activation base; ONLY the four RBP constructs (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4).  Wiring this wires the prologue -- s21x-m law 3. */
+std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + ___ activation base; ONLY the four ___ constructs (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4).  Wiring this wires the prologue -- s21x-m law 3. */
 std::string bb_glue_framed_leave();
 std::string bb_glue_outer_γ();
 std::string bb_glue_outer_ω();
-std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the open pcall record, restore caller rsp/rbp(/r12 island) from it, jmp the port's wire -- gw for γ (RETURN), ww for ω (FRETURN).  ONE authority; the role-1/2 floaters and the stub-blob shared ports both consume it. */
+std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the open pcall record, restore caller rsp/___(/r12 island) from it, jmp the port's wire -- gw for γ (RETURN), ww for ω (FRETURN).  ONE authority; the role-1/2 floaters and the stub-blob shared ports both consume it. */
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();
 std::string bb_glue_pass_wires(int gid, int wid);   /* PASS-THROUGH (s22v): the bare wire contract -- lea rcx,<L(gid)>; lea rdx,<L(wid)>; jmp rax.  One-shot = this + the pcall record; pass-through = this alone. */

@@ -16,7 +16,7 @@ extern "C" {
 /* SCRATCH TIER (RC-2): R10 R11 R8 R9 — never/rarely used for C-call arg staging; claimable with zero template changes.                                                                              */
 /* ARG TIER (RC-4): RAX RCX RDX RSI RDI — SysV argument/return registers; claiming forces arg-staging re-plumb.                                                                                      */
 /* XMM TIER (RC-2): XMM8–XMM15 — 8 × 16B = 128B; caller-saved, zero xmm-arg rt calls confirmed by RC-0(c) census.                                                                                  */
-/* NOTE: callee-saved set (RBX RBP R12 R13 R14 R15 RSP) is ALREADY SCRIP-owned and NOT stored here.                                                                                                  */
+/* NOTE: callee-saved set (RBX ___ R12 R13 R14 R15 RSP) is ALREADY SCRIP-owned and NOT stored here.                                                                                                  */
 #define RTCC_GPR_COUNT  9           /* RAX RCX RDX RSI RDI R8 R9 R10 R11 — the nine caller-saved GPRs */
 #define RTCC_XMM_COUNT  8           /* XMM8–XMM15 */
 #define RTCC_GPR_BYTES  (RTCC_GPR_COUNT * 8)       /* 72 bytes */

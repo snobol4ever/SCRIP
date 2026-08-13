@@ -24,7 +24,7 @@ std::string bb_bound() {
                  + x86_beta_trampoline();
         /* ZK-3 UNMARK cells arm: restore RSP from the BOUND's frame slot (Op_Unmark: rsp=efp semantics).
          * op_off points to the paired BOUND's zls slot (set by the dispatch: op_off = zls_off(operands[0])).
-         * FRQ(op_off) = [rbp+N] is depth-immune so this works at any FORTH spine depth.
+         * FRQ(op_off) = [___+N] is depth-immune so this works at any FORTH spine depth.
          * We do NOT use op_zgpop here: op_zgpop is the absolute depth-from-statement-start (= K_total),
          * but the BOUND/UNMARK bracket spans only a SUBSET of the statement's cells -- subtracting K_total
          * overshoots and releases the TO counter+lo+hi cells that must persist across the every-do loop body.

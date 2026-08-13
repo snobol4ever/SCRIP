@@ -31,9 +31,9 @@
  *   private copy.  That C change is deliberately separable from this asm so the
  *   two effects can be measured apart (gate off = by-pointer C, gate on = asm).
  *
- * FRAME LAYOUT (rbp-relative, 80 bytes, keeps rsp 16-aligned at every call)
- *   [rbp-80] .. [rbp-65]   frame0, the incoming DESCR_t, parked across the tidy call
- *   [rbp-64] .. [rbp-1]    c, the private copy of the popped rt_pcall_t
+ * FRAME LAYOUT (___-relative, 80 bytes, keeps rsp 16-aligned at every call)
+ *   [___-80] .. [___-65]   frame0, the incoming DESCR_t, parked across the tidy call
+ *   [___-64] .. [___-1]    c, the private copy of the popped rt_pcall_t
  *
  * rt_pcall_t OFFSETS — CONFIRMED FROM THE EMITTED CODE, NOT COMPUTED BY HAND
  *   (objdump of the -O0 build, s165; the 64-byte stride is visible as shl $0x6)
@@ -75,17 +75,15 @@ RTX_GATE_DEF(call)
  *   return rt_proc_epilogue_body(&c, 0, frame0);
  *
  *   Arg pair: rdi = (slen<<32)|v, rsi = value.  Return pair: rax, rdx.
- *   __builtin_frame_address(0) is exactly rbp under the standard prologue, so the
- *   dead-window upper bound is lea rdx,[rbp+16] — frame-size independent, it names
+ *   __builtin_frame_address(0) is exactly ___ under the standard prologue, so the
+ *   dead-window upper bound is lea rdx,[___+16] — frame-size independent, it names
  *   the first byte above this activation either way.
  */
 RTX_FUNC(rt_proc_call_epilogue_γ)
     RTX_GATE(call, c_rt_proc_call_epilogue_γ)
-    push    rbp
-    mov     rbp, rsp
     sub     rsp, 80
-    mov     qword ptr [rbp-80], rdi         /* park frame0 across the tidy call  */
-    mov     qword ptr [rbp-72], rsi
+    mov     qword ptr [rsp - 1], rdi         /* park frame0 across the tidy call  */
+    mov     qword ptr [rsp - 1], rsi
     dec     dword ptr [rip + rt_k_level]    /* hidden => rip-direct, one op      */
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -100,24 +98,24 @@ RTX_FUNC(rt_proc_call_epilogue_γ)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rbp-64], xmm0
-    movdqu  xmmword ptr [rbp-48], xmm1
-    movdqu  xmmword ptr [rbp-32], xmm2
-    movdqu  xmmword ptr [rbp-16], xmm3
-    mov     rax, qword ptr [rbp-64+PC_P]    /* c.p                               */
+    movdqu  xmmword ptr [rsp - 1], xmm0
+    movdqu  xmmword ptr [rsp - 1], xmm1
+    movdqu  xmmword ptr [rsp - 1], xmm2
+    movdqu  xmmword ptr [rsp - 1], xmm3
+    mov     rax, qword ptr [rsp - 1]    /* c.p                               */
     test    rax, rax
     je      .Lg_body
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lg_body
-    mov     edi, dword ptr [rbp-64+PC_VTMARK]
-    mov     rsi, qword ptr [rbp-64+PC_FB]
-    lea     rdx, [rbp+16]
+    mov     edi, dword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp - 1]
+    lea     rdx, [rsp - 1]
     call    rt_value_trail_tidy_dead_window
 .Lg_body:
-    lea     rdi, [rbp-64]                   /* &c — must outlive the call, so    */
+    lea     rdi, [rsp - 1]                   /* &c — must outlive the call, so    */
     xor     esi, esi                        /* this is a call, never a tail jmp  */
-    mov     rdx, qword ptr [rbp-80]         /* frame0 pair as arg 3              */
-    mov     rcx, qword ptr [rbp-72]
+    mov     rdx, qword ptr [rsp - 1]         /* frame0 pair as arg 3              */
+    mov     rcx, qword ptr [rsp - 1]
     call    rt_proc_epilogue_body
     leave
     ret
@@ -138,8 +136,6 @@ RTX_ENDF(rt_proc_call_epilogue_γ)
  */
 RTX_FUNC(rt_proc_call_epilogue_ω)
     RTX_GATE(call, c_rt_proc_call_epilogue_ω)
-    push    rbp
-    mov     rbp, rsp
     sub     rsp, 64
     dec     dword ptr [rip + rt_k_level]
     mov     ecx, dword ptr [rip + g_pcall_top]
@@ -155,21 +151,21 @@ RTX_FUNC(rt_proc_call_epilogue_ω)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rbp-64], xmm0
-    movdqu  xmmword ptr [rbp-48], xmm1
-    movdqu  xmmword ptr [rbp-32], xmm2
-    movdqu  xmmword ptr [rbp-16], xmm3
-    mov     rax, qword ptr [rbp-64+PC_P]
+    movdqu  xmmword ptr [rsp - 1], xmm0
+    movdqu  xmmword ptr [rsp - 1], xmm1
+    movdqu  xmmword ptr [rsp - 1], xmm2
+    movdqu  xmmword ptr [rsp - 1], xmm3
+    mov     rax, qword ptr [rsp - 1]
     test    rax, rax
     je      .Lw_body
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lw_body
-    mov     edi, dword ptr [rbp-64+PC_VTMARK]
-    mov     rsi, qword ptr [rbp-64+PC_FB]
-    lea     rdx, [rbp+16]
+    mov     edi, dword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp - 1]
+    lea     rdx, [rsp - 1]
     call    rt_value_trail_tidy_dead_window
 .Lw_body:
-    lea     rdi, [rbp-64]
+    lea     rdi, [rsp - 1]
     mov     esi, 1                          /* failed = 1                        */
     xor     edx, edx                        /* NULVCL: v = DT_SNUL, slen = 0     */
     lea     rcx, [rip + .Lrtx_nulstr]       /* NULVCL: .s = ""                   */
@@ -209,10 +205,10 @@ RTX_ENDF(rt_proc_call_epilogue_ω)
  *   wrong in a direction the crosscheck is WORST at catching (too high tidies
  *   LIVE trail entries = silent corruption).
  *   IT IS NOT FRAME-SIZE DEPENDENT.  Under the standard prologue
- *   (push rbp; mov rbp,rsp) gcc's __builtin_frame_address(0) IS rbp, and
- *   [rbp+0]=saved rbp, [rbp+8]=return address, so rbp+16 is the caller's rsp
+ *   (push ___; mov ___,rsp) gcc's __builtin_frame_address(0) IS ___, and
+ *   [___+0]=saved ___, [___+8]=return address, so ___+16 is the caller's rsp
  *   immediately before its `call` — the first byte above THIS activation,
- *   whatever `sub rsp,N` follows.  lea rdx,[rbp+16] is therefore byte-exact for
+ *   whatever `sub rsp,N` follows.  lea rdx,[___+16] is therefore byte-exact for
  *   any frame size, and slice 1 has shipped precisely this since s165.
  *   MEASURED, NOT ASSUMED: the s187 probe proved slice 1's asm — including this
  *   very lea and the tidy call it feeds — actually EXECUTES on all four covering
@@ -251,16 +247,14 @@ RTX_ENDF(rt_proc_call_epilogue_ω)
  * DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)   C: rt/rt.c c_ fallback
  *   Arg pair rdi/rsi = the returned descriptor; return pair rax/rdx.
  * FRAME (80 B, rsp stays 16-aligned at every call site)
- *   [rbp-80],[rbp-72]  result, parked across tidy / nret_fix / monitor
- *   [rbp-64] .. [rbp-1] c, the private copy of the popped record
+ *   [___-80],[___-72]  result, parked across tidy / nret_fix / monitor
+ *   [___-64] .. [___-1] c, the private copy of the popped record
  */
 RTX_FUNC(rt_proc_call_epilogue_slim_γ)
     RTX_GATE(call, c_rt_proc_call_epilogue_slim_γ)
-    push    rbp
-    mov     rbp, rsp
     sub     rsp, 80
-    mov     qword ptr [rbp-80], rdi
-    mov     qword ptr [rbp-72], rsi
+    mov     qword ptr [rsp - 1], rdi
+    mov     qword ptr [rsp - 1], rsi
     dec     dword ptr [rip + rt_k_level]     /* hidden => rip-direct              */
     mov     ecx, dword ptr [rip + g_pcall_top]
     test    ecx, ecx
@@ -275,43 +269,43 @@ RTX_FUNC(rt_proc_call_epilogue_slim_γ)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rbp-64], xmm0
-    movdqu  xmmword ptr [rbp-48], xmm1
-    movdqu  xmmword ptr [rbp-32], xmm2
-    movdqu  xmmword ptr [rbp-16], xmm3
-    mov     rax, qword ptr [rbp-64+PC_P]
+    movdqu  xmmword ptr [rsp - 1], xmm0
+    movdqu  xmmword ptr [rsp - 1], xmm1
+    movdqu  xmmword ptr [rsp - 1], xmm2
+    movdqu  xmmword ptr [rsp - 1], xmm3
+    mov     rax, qword ptr [rsp - 1]
     test    rax, rax
     je      .Lsg_sigma
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lsg_sigma
-    mov     edi, dword ptr [rbp-64+PC_VTMARK]
-    mov     rsi, qword ptr [rbp-64+PC_FB]
-    lea     rdx, [rbp+16]                    /* see the bound discussion above    */
+    mov     edi, dword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp - 1]
+    lea     rdx, [rsp - 1]                    /* see the bound discussion above    */
     call    rt_value_trail_tidy_dead_window
 .Lsg_sigma:
     mov     rax, qword ptr [rip + Σ@GOTPCREL]     /* exported => GOT, not lea     */
-    mov     rcx, qword ptr [rbp-64+PC_SAVE_S]
+    mov     rcx, qword ptr [rsp - 1]
     mov     qword ptr [rax], rcx
     mov     rax, qword ptr [rip + Σlen@GOTPCREL]
-    mov     ecx, dword ptr [rbp-64+PC_SAVE_SLEN]
+    mov     ecx, dword ptr [rsp - 1]
     mov     dword ptr [rax], ecx                  /* Σlen is int, 4-byte store    */
-    mov     rdi, qword ptr [rbp-80]
-    mov     rsi, qword ptr [rbp-72]
-    mov     edx, dword ptr [rbp-64+PC_WN]
+    mov     rdi, qword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp - 1]
+    mov     edx, dword ptr [rsp - 1]
     call    rt_nret_fix                           /* de-static'd + hidden, s187   */
-    mov     qword ptr [rbp-80], rax
-    mov     qword ptr [rbp-72], rdx
+    mov     qword ptr [rsp - 1], rax
+    mov     qword ptr [rsp - 1], rdx
     mov     rcx, qword ptr [rip + g_monitor_bin@GOTPCREL]
     cmp     dword ptr [rcx], 0
     je      .Lsg_ret
-    mov     rcx, qword ptr [rbp-64+PC_P]
+    mov     rcx, qword ptr [rsp - 1]
     mov     rdi, qword ptr [rcx + PROC_NAME]
-    mov     rsi, qword ptr [rbp-80]
-    mov     rdx, qword ptr [rbp-72]
+    mov     rsi, qword ptr [rsp - 1]
+    mov     rdx, qword ptr [rsp - 1]
     call    mon_emit_return_bin
 .Lsg_ret:
-    mov     rax, qword ptr [rbp-80]
-    mov     rdx, qword ptr [rbp-72]
+    mov     rax, qword ptr [rsp - 1]
+    mov     rdx, qword ptr [rsp - 1]
     leave
     ret
 .Lsg_fail:
@@ -330,8 +324,6 @@ RTX_ENDF(rt_proc_call_epilogue_slim_γ)
  */
 RTX_FUNC(rt_proc_call_epilogue_slim_ω)
     RTX_GATE(call, c_rt_proc_call_epilogue_slim_ω)
-    push    rbp
-    mov     rbp, rsp
     sub     rsp, 80
     dec     dword ptr [rip + rt_k_level]
     mov     ecx, dword ptr [rip + g_pcall_top]
@@ -347,43 +339,43 @@ RTX_FUNC(rt_proc_call_epilogue_slim_ω)
     movdqu  xmm1, xmmword ptr [r8+16]
     movdqu  xmm2, xmmword ptr [r8+32]
     movdqu  xmm3, xmmword ptr [r8+48]
-    movdqu  xmmword ptr [rbp-64], xmm0
-    movdqu  xmmword ptr [rbp-48], xmm1
-    movdqu  xmmword ptr [rbp-32], xmm2
-    movdqu  xmmword ptr [rbp-16], xmm3
-    mov     rax, qword ptr [rbp-64+PC_P]
+    movdqu  xmmword ptr [rsp - 1], xmm0
+    movdqu  xmmword ptr [rsp - 1], xmm1
+    movdqu  xmmword ptr [rsp - 1], xmm2
+    movdqu  xmmword ptr [rsp - 1], xmm3
+    mov     rax, qword ptr [rsp - 1]
     test    rax, rax
     je      .Lsw_sigma
     cmp     dword ptr [rax + PROC_ISGEN], 0
     jne     .Lsw_sigma
-    mov     edi, dword ptr [rbp-64+PC_VTMARK]
-    mov     rsi, qword ptr [rbp-64+PC_FB]
-    lea     rdx, [rbp+16]
+    mov     edi, dword ptr [rsp - 1]
+    mov     rsi, qword ptr [rsp - 1]
+    lea     rdx, [rsp - 1]
     call    rt_value_trail_tidy_dead_window
 .Lsw_sigma:
     mov     rax, qword ptr [rip + Σ@GOTPCREL]
-    mov     rcx, qword ptr [rbp-64+PC_SAVE_S]
+    mov     rcx, qword ptr [rsp - 1]
     mov     qword ptr [rax], rcx
     mov     rax, qword ptr [rip + Σlen@GOTPCREL]
-    mov     ecx, dword ptr [rbp-64+PC_SAVE_SLEN]
+    mov     ecx, dword ptr [rsp - 1]
     mov     dword ptr [rax], ecx
     mov     edi, DT_FAIL                          /* FAILDESCR word0 = (0<<32)|99 */
     xor     esi, esi                              /* FAILDESCR word1 = 0          */
-    mov     edx, dword ptr [rbp-64+PC_WN]
+    mov     edx, dword ptr [rsp - 1]
     call    rt_nret_fix
-    mov     qword ptr [rbp-80], rax
-    mov     qword ptr [rbp-72], rdx
+    mov     qword ptr [rsp - 1], rax
+    mov     qword ptr [rsp - 1], rdx
     mov     rcx, qword ptr [rip + g_monitor_bin@GOTPCREL]
     cmp     dword ptr [rcx], 0
     je      .Lsw_ret
-    mov     rcx, qword ptr [rbp-64+PC_P]
+    mov     rcx, qword ptr [rsp - 1]
     mov     rdi, qword ptr [rcx + PROC_NAME]
-    mov     rsi, qword ptr [rbp-80]
-    mov     rdx, qword ptr [rbp-72]
+    mov     rsi, qword ptr [rsp - 1]
+    mov     rdx, qword ptr [rsp - 1]
     call    mon_emit_return_bin
 .Lsw_ret:
-    mov     rax, qword ptr [rbp-80]
-    mov     rdx, qword ptr [rbp-72]
+    mov     rax, qword ptr [rsp - 1]
+    mov     rdx, qword ptr [rsp - 1]
     leave
     ret
 .Lsw_fail:
@@ -409,11 +401,11 @@ RTX_ENDF(rt_proc_call_epilogue_slim_ω)
  *   so "once per call" is a property of the LANGUAGE here, not an accident of the benchmark.
  *
  * WHAT THE -O0 C SPENT, MEASURED BY objdump AT HEAD (not estimated)
- *   rt_flat_ret_snap  ~48 instructions: a full rbp frame plus a pushed rbx (a PIN, saved only because the
+ *   rt_flat_ret_snap  ~48 instructions: a full ___ frame plus a pushed rbx (a PIN, saved only because the
  *                     40-byte copy was emitted as 5 scalar load/store PAIRS = 10 memory ops); g_pcall_top
  *                     loaded TWICE; g_pcall_wires loaded TWICE; the w pointer spilled to stack and
  *                     reloaded THREE times; a jmp to rejoin the ternary's two arms.
- *   rt_proc_open_fn   16 instructions: an rbp frame for a function that touches no stack at all, and
+ *   rt_proc_open_fn   16 instructions: an ___ frame for a function that touches no stack at all, and
  *                     g_pcall_top loaded TWICE to perform ONE decrement.
  *
  * WHAT THIS PORT DOES INSTEAD
@@ -435,12 +427,12 @@ RTX_ENDF(rt_proc_call_epilogue_slim_ω)
  *   clobbers rdx (objdump: movslq %eax,%rdx), so no emitted caller can legally depend on it surviving.
  *   The rt.c comment about "rax:rdx riding untouched through the floater's tail" describes the floater's
  *   own tail AFTER this call returns, not a guarantee across it -- verified against the emitted site in
- *   func_call.s, which consumes only rax and then reloads rcx/rbp/rsp from the returned buffer.
+ *   func_call.s, which consumes only rax and then reloads rcx/___/rsp from the returned buffer.
  *
  * OFFSETS -- ALL ANCHORED BY _Static_assert IN rt.c, SO A STRUCT MOVE BREAKS THE BUILD, NOT THE RUNTIME
  *   rt_pcall_t      sizeof 64 (stride shl 6), p at 0                    (rt.c assert, pre-existing)
  *   rt_proc_t       fn at 8                                             (rt.c assert, added this slice)
- *   rt_flat_wires_t sizeof 40, gw 0, ww 8, rsp 16, rbp 24, r12 32       (rt.c assert, Z4-7 slice 2)
+ *   rt_flat_wires_t sizeof 40, gw 0, ww 8, rsp 16, ___ 24, r12 32       (rt.c assert, Z4-7 slice 2)
  *   The 40-byte stride is NOT a power of two: index*40 == ((index*5)<<3), done as lea+shl.
  *=======================================================================================================*/
 
@@ -491,7 +483,7 @@ RTX_FUNC(rt_flat_ret_snap)
     test    rdx, rdx
     jz      .Lsnap_c                                /* !w->ww -> same */
     movdqu  xmm0, xmmword ptr [rcx +  0]            /* gw, ww  */
-    movdqu  xmm1, xmmword ptr [rcx + 16]            /* rsp, rbp */
+    movdqu  xmm1, xmmword ptr [rcx + 16]            /* rsp, ___ */
     mov     r8,  qword ptr [rcx + 32]               /* r12 (Z4-7 slice 2 island caller-base) */
     lea     rax, [rip + g_flat_ret_snapbuf]
     movdqu  xmmword ptr [rax +  0], xmm0
@@ -523,7 +515,7 @@ RTX_ENDF(rt_flat_ret_snap)
  *   direct and @GOTPCREL is NOT owed.
  *
  * WHAT THE -O0 C SPENDS (objdump at HEAD, measured not estimated)
- *   A full rbp frame for a leaf that touches no stack, all FOUR pointer arguments spilled to [rbp-N] and
+ *   A full ___ frame for a leaf that touches no stack, all FOUR pointer arguments spilled to [___-N] and
  *   reloaded, g_pcall_top loaded TWICE, g_pcall_wires loaded TWICE, and the w pointer spilled and
  *   reloaded across the five stores.  The port loads each global ONCE, keeps all four arguments in their
  *   incoming SysV registers, builds no frame, and stores five fields straight through r8.
@@ -540,19 +532,19 @@ RTX_ENDF(rt_flat_ret_snap)
  *   and never written.  No pin is touched, so nothing needs saving.  Return value is void, so rax is
  *   free scratch by the SysV contract.
  *
- * OFFSETS -- anchored by the _Static_assert at rt.c:1026 (sizeof 40, gw 0, ww 8, rsp 16, rbp 24, r12 32),
+ * OFFSETS -- anchored by the _Static_assert at rt.c:1026 (sizeof 40, gw 0, ww 8, rsp 16, ___ 24, r12 32),
  *   so a struct move breaks the BUILD rather than the runtime.  40 is not a power of two: index*40 is
  *   done as lea(index*5) + shl 3, identical to snap's arithmetic above.
  *=======================================================================================================*/
 
 #define FW_RSP     16
-#define FW_RBP     24
+#define FW_FB5     24
 #define FW_R12     32
 
-/* void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
+/* void rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *___)
  * C of record (rt.c:1051):
  *   if (g_pcall_top <= 0 || !g_pcall_wires) return;
- *   w = &g_pcall_wires[g_pcall_top - 1]; w->gw=gw; w->ww=ww; w->rsp=rsp; w->rbp=rbp; w->r12=0; */
+ *   w = &g_pcall_wires[g_pcall_top - 1]; w->gw=gw; w->ww=ww; w->rsp=rsp; w->___=___; w->r12=0; */
 RTX_FUNC(rt_flat_wire_adopt)
     RTX_GATE(call, c_rt_flat_wire_adopt)
     mov     eax, dword ptr [rip + g_pcall_top]      /* the ONE load of top */
@@ -569,7 +561,7 @@ RTX_FUNC(rt_flat_wire_adopt)
     mov     qword ptr [r8 + FW_GW],  rdi            /* w->gw  = gw   (arg1, still in place) */
     mov     qword ptr [r8 + FW_WW],  rsi            /* w->ww  = ww   (arg2) */
     mov     qword ptr [r8 + FW_RSP], rdx            /* w->rsp = rsp  (arg3) */
-    mov     qword ptr [r8 + FW_RBP], rcx            /* w->rbp = rbp  (arg4) */
+    mov     qword ptr [r8 + FW_FB5], rcx            /* w->___ = ___  (arg4) */
     mov     qword ptr [r8 + FW_R12], 0              /* w->r12 = 0    (the _isle variant is a SEPARATE symbol and is untouched) */
 .Ladopt_done:
     ret

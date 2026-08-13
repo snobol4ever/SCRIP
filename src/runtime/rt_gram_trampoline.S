@@ -6,7 +6,7 @@
 /* Old protocol (pre-RK-ZC-2): box entered via 'call'; rdi=zeta, rsi=0 on entry.                            */
 /* New protocol: box prologue is                                                                               */
 /*   sub rsp,64; mov [rsp+40],rcx (γ wire); mov [rsp+48],rdx (ω wire);                                      */
-/*   mov [rsp+56],rbp; mov rbp,rsp                                                                            */
+/*   mov [rsp+56],___; mov ___,rsp                                                                            */
 /* exits via 'jmp rcx' (γ) or 'jmp rdx' (ω). We supply rcx=γ-label, rdx=ω-label before jmp.                */
 /* Use 'jmp *rax' NOT 'call': the zframe kt is sized for jmp entry (icn_zf_main_call law).                   */
 /*                                                                                                            */

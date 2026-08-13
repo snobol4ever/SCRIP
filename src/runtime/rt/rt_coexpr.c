@@ -76,7 +76,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
     }
-    __asm__ volatile ("mov %%rbx,0(%0)\n\tmov %%rbp,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "memory");
+    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "memory");
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }   /* RTCC Option-B: writeback block→spill before yielding; no-op when SCRIP_RTCC=0 */
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
@@ -121,7 +121,7 @@ void scrip_cofail(void) {
 }
 typedef struct scrip_coexpr_entry_pkg_t {
     void    *body_entry_addr;
-    uint64_t r12, r13, r14, r15, rbx, rbp;
+    uint64_t r12, r13, r14, r15, rbx, fb5;
 } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) ==  0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12)             ==  8, "pkg layout drift: r12");
@@ -129,7 +129,7 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r13)             == 16, "pkg l
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14)             == 24, "pkg layout drift: r14");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15)             == 32, "pkg layout drift: r15");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx)             == 40, "pkg layout drift: rbx");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbp)             == 48, "pkg layout drift: rbp");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, fb5)             == 48, "pkg layout drift: fb5");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
@@ -140,7 +140,7 @@ void scrip_coexpr_trampoline_entry(void *arg) {
         "mov 24(%0), %%r14\n\t"
         "mov 32(%0), %%r15\n\t"
         "mov 40(%0), %%rbx\n\t"
-        "mov 48(%0), %%rbp\n\t"
+        "mov 48(%0), %%r11\n\t.byte 0x4c,0x89,0xdd\n\t"
         "jmp *%%rax\n\t"
         :
         : "r"(pkg)
@@ -158,14 +158,14 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
-    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->rbp = regs[5];
+    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->fb5 = regs[5];
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     if (frame_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);
         void *cp = malloc((size_t)frame_bytes);
         if (!cp) scrip_co_uerror("scrip_coexpr: malloc frame snapshot failed");
         memcpy(cp, (const void *)(uintptr_t)regs[5], (size_t)frame_bytes);
-        pkg->rbp = (uint64_t)(uintptr_t)cp;
+        pkg->fb5 = (uint64_t)(uintptr_t)cp;
         ctx->frame_copy = cp; ctx->frame_copy_sz = frame_bytes;
         rt_gc_root_range_add((const char *)cp, (const char *)cp + frame_bytes);
     }

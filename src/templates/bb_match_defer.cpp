@@ -36,7 +36,7 @@ std::string bb_match_defer() {
     const char * clbl = ci >= 0 ? cl[cln] : "";
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     /* s137 OVER-SEAL (Lon ruling: a fence clearly demarks a point OUTSIDE a γ where entire chunks of ζ can be whacked, since no backtracking is guaranteed): when the defer's target is a STATICALLY
-     * right-sealed stored pattern (IR_t.seal → op_seal), this element is that demarked sync point in ITS OWN activation — α stamps rsp into the defer.pad quad (FRQ(op_off), rbp-relative → recursion-
+     * right-sealed stored pattern (IR_t.seal → op_seal), this element is that demarked sync point in ITS OWN activation — α stamps rsp into the defer.pad quad (FRQ(op_off), ___-relative → recursion-
      * safe), the L(4)/L(5) glues restore it (bulk-freeing the callee's ENTIRE retained subtree: frame, suspend record, every transitive carve — the resume surface is already dead by NCB-2/SZ-1
      * body_root=NULL, so nothing the whack destroys is ever read), and β restores-then-ωs instead of `jmp [rsp+0]` (the fast-path record is whacked; the SLOW-path L(6) exhaust record is discarded by
      * the same restore, keeping the frontier LIFO exact for the left neighbour).  CSTACK/FORTH only — other ports keep the untouched original body. */
@@ -95,7 +95,7 @@ std::string bb_match_defer() {
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_begin_stfh_k(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
-             + x86("mov",  emit_match_begin_stfh_k() > 0 ? "dword ptr [rbp + -64]" : FR(_.op_scan_head_off), "eax"))   /* ⭐ ZD-8·STFH-DEFER-FIX (FINDING-2026-08-09): start_δ home matches MATCH_BEGIN.  When stfh fires (emit_match_begin_stfh_k()>0), MATCH_BEGIN writes start_δ to HKD=[rbp-64]; the γ-continuation here must write the scan hit position to the SAME slot.  Old FR(_.op_scan_head_off)=[rbp+416] was the pre-stfh positive layout — landing in CRT territory above the outer frame's RSP, corrupting environ, SEGV in getenv() on first iteration.  emit_match_begin_stfh_k() is the ONE AUTHORITY (same call MATCH_BEGIN's template uses at line 48); when it returns 0, FR(_.op_scan_head_off) is byte-identical to the historic path.  Killswitch: SCRIP_OS_CAP=0 forces emit_match_begin_stfh_k()==0 → legacy path byte-identical. */
+             + x86("mov",  emit_match_begin_stfh_k() > 0 ? "dword ptr [fb5 + -64]" : FR(_.op_scan_head_off), "eax"))   /* ⭐ ZD-8·STFH-DEFER-FIX (FINDING-2026-08-09): start_δ home matches MATCH_BEGIN.  When stfh fires (emit_match_begin_stfh_k()>0), MATCH_BEGIN writes start_δ to HKD=[___-64]; the γ-continuation here must write the scan hit position to the SAME slot.  Old FR(_.op_scan_head_off)=[___+416] was the pre-stfh positive layout — landing in CRT territory above the outer frame's RSP, corrupting environ, SEGV in getenv() on first iteration.  emit_match_begin_stfh_k() is the ONE AUTHORITY (same call MATCH_BEGIN's template uses at line 48); when it returns 0, FR(_.op_scan_head_off) is byte-identical to the historic path.  Killswitch: SCRIP_OS_CAP=0 forces emit_match_begin_stfh_k()==0 → legacy path byte-identical. */
 
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()

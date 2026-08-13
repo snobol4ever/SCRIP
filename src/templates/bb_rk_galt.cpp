@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* IR_GALT (RK-GRAM-3d): two-arm grammar alternation with delta-restore-on-beta.
- * Grammar procs have zframe_graph=1 but do NOT pin rbp (emit_rec_pin()=0 for grammar nodes --
+ * Grammar procs have zframe_graph=1 but do NOT pin ___ (emit_rec_pin()=0 for grammar nodes --
  * they carry no IR_SUSPEND/SCAN/etc.).  The δ-save slot therefore lives at [rsp+op_off] using
  * LITERAL-RSP addressing ("dword ptr [rsp + N]") NOT FR(off) -- FR uses the frame-base selector
  * which resolves to rsp+op_zdepth for unpinned graphs, adding depth compensation that is zero

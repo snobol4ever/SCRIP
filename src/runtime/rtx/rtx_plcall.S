@@ -65,7 +65,7 @@
  *
  * REGISTER SAFETY
  *   Uses rax rcx rdx rsi rdi r8 r9 r10 r11 xmm0 — all inside the ARCH §2 RTX working set.  No blob pin
- *   (rbx r13 r14 r15) is read or written; rbp is touched only inside the cold grow arm, under the
+ *   (rbx r13 r14 r15) is read or written; ___ is touched only inside the cold grow arm, under the
  *   standard prologue, and r12 is not used at all.
  */
 #include "rtx_abi.inc"
@@ -178,18 +178,17 @@ RTX_FUNC(rt_proc_call_open_det)
  * case the C skips the record fill but STILL bumps top and rt_k_level — reproduced exactly.  This is
  * the only path that builds a frame; the volatiles that must survive the call are parked. */
 .Lpc_grow:
-    push    rbp                                     /* entry rsp%16==8; push => 0, sub 32 => 0        */
-    mov     rbp, rsp
+    push    rsp                                     /* entry rsp%16==8; push => 0, sub 32 => 0        */
     sub     rsp, 32
-    mov     qword ptr [rbp-8],  r8
-    mov     qword ptr [rbp-16], r9
-    mov     dword ptr [rbp-20], esi
-    mov     dword ptr [rbp-24], r10d
+    mov     qword ptr [rsp - 1],  r8
+    mov     qword ptr [rsp - 1], r9
+    mov     dword ptr [rsp - 1], esi
+    mov     dword ptr [rsp - 1], r10d
     call    rt_pcall_grow                           /* de-static'd + hidden this commit               */
-    mov     r8,   qword ptr [rbp-8]
-    mov     r9,   qword ptr [rbp-16]
-    mov     esi,  dword ptr [rbp-20]
-    mov     r10d, dword ptr [rbp-24]
+    mov     r8,   qword ptr [rsp - 1]
+    mov     r9,   qword ptr [rsp - 1]
+    mov     esi,  dword ptr [rsp - 1]
+    mov     r10d, dword ptr [rsp - 1]
     leave
     mov     eax, dword ptr [rip + g_pcall_top]
     cmp     eax, dword ptr [rip + g_pcall_cap]

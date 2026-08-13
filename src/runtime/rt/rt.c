@@ -27,7 +27,7 @@ extern const char *Σ;
 extern int Σlen;
 /* R12-EXTERN (Lon s173): mode-3's OUTSIDE sets the environment register — twin of the mode-4 wrapper's `mov r12, [RT_DCAP_TOP]` (scrip.c).  The blob no longer self-seeds (xa_flat REG-6 outer seed deleted); every graph assumes r12 = live pend/dcap top on entry.  push/pop r12 also closes the old in-blob seed's caller-r12 ABI clobber.  Literal address drift-locked below. */
 /* R12-FREE-1 (Lon 2026-07-29, GOAL-ZETA-FOUR): the r12 environment seed is DELETED from the outer thunk -- the pend top is cell-resident at [RT_DCAP_TOP] (pattern_match.c g_dcap_top alias), nothing reads r12, and r12 is vacated for ZC_STORAGE_FRAME_R12.  The old push r12 was ALSO the 16-byte call-alignment adjuster, so its removal is paired with an explicit sub/add rsp,8 bracket. */
-/* ONE-SHOT-BRIDGE-M3 (s22q): the adjuster is 16, NOT 8, and the 8 was correct only for the PRE-BRIDGE arrival parity.  MEASURED, not reasoned: mode-4's `main` jmps into α having moved 24 bytes (sub rsp,8 + push rdi + push rsi), so α arrives rsp≡0 (mod 16); mode-3 CALLs α through this thunk, and `call` pushes 8 more, so the old `sub $8` delivered α at rsp≡8 -- an 8-byte skew against the SAME α preamble (bb_glue_framed_enter's `push rbp` + `sub rsp,8`), inherited by every C call the graph then makes.  Witness 002_output_integer_literal: graph-side NV_SET_fn entry measured rsp%16 = 8 in m3 vs 0 in m4, SIGSEGV in glibc dl_iterate_phdr's movaps during gc_static_segs_init.  `sub $16` puts α at rsp≡0 in BOTH modes: the bridge's parity contract is now one law, and mode-3 keeps `ret` (no PLT in the JIT slab) while agreeing with mode-4 on arrival. */
+/* ONE-SHOT-BRIDGE-M3 (s22q): the adjuster is 16, NOT 8, and the 8 was correct only for the PRE-BRIDGE arrival parity.  MEASURED, not reasoned: mode-4's `main` jmps into α having moved 24 bytes (sub rsp,8 + push rdi + push rsi), so α arrives rsp≡0 (mod 16); mode-3 CALLs α through this thunk, and `call` pushes 8 more, so the old `sub $8` delivered α at rsp≡8 -- an 8-byte skew against the SAME α preamble (bb_glue_framed_enter's `push ___` + `sub rsp,8`), inherited by every C call the graph then makes.  Witness 002_output_integer_literal: graph-side NV_SET_fn entry measured rsp%16 = 8 in m3 vs 0 in m4, SIGSEGV in glibc dl_iterate_phdr's movaps during gc_static_segs_init.  `sub $16` puts α at rsp≡0 in BOTH modes: the bridge's parity contract is now one law, and mode-3 keeps `ret` (no PLT in the JIT slab) while agreeing with mode-4 on arrival. */
 /* ZW-3 R12-FREE-1 REVERSAL (s23l): r12 is the LIVE CAS/dcap top register. rt_outer_call must seed r12
  * from [RT_DCAP_TOP] before entering the graph (the graph assumes r12 live on entry) and save/restore the
  * CALLER's r12 across the call (SysV callee-saved contract).  The sub/add $16 alignment is preserved.
@@ -504,7 +504,7 @@ void rt_proc_reset(void) { g_rt_gen_proc_count = 0; rt_proc_cache_clear(); if (g
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* LADDER AB (2026-08-09): fn_cell initial stub — fires error 022 "Undefined function called" (manual ch.10 p.140, error table entry 22).  fn_cell$<FN> is initialized to this address at program      */
 /* start; DEFINE's residual runtime action replaces it with &<FN>_act_α.  Reached by jmp [fn_cell] on the AB-3 call path when DEFINE has not yet executed (or never will).  __attribute__((noreturn))  */
-/* because core_runtime_error does not return; absent that, the callee-save discipline of the AB frame's α would leave rsp/rbp intact but the call chain is irrelevant — this function never returns.   */
+/* because core_runtime_error does not return; absent that, the callee-save discipline of the AB frame's α would leave rsp/___ intact but the call chain is irrelevant — this function never returns.   */
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "Undefined function called"); __builtin_unreachable(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
@@ -535,9 +535,9 @@ void rt_value_trail_tidy_dead_window(int mark, void *fb, void *top);
 /*   Snapshots Σ/Σlen into the frame (mid-match protection); snapshots wn; marks the value trail;                                                                                                      */
 /*   increments rt_k_level (= &FNCLEVEL; kw_fnclevel is the keyword readable cell, same value).                                                                                                        */
 /*   Returns vtmark so α can store it in AB_OFF_VTMARK without a second C crossing.                                                                                                                     */
-int rt_ab_enter_env(void *rbp_frame)
+int rt_ab_enter_env(void *fb5_frame)
 {
-    char *fb = (char *)rbp_frame;
+    char *fb = (char *)fb5_frame;
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
     *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
@@ -553,12 +553,12 @@ int rt_ab_enter_env(void *rbp_frame)
 /*   this activation); restores Σ/Σlen; decrements rt_k_level / kw_fnclevel.                                                                                                                           */
 /*   result is the candidate DESCR (rax:rdx on arrival at β, pre-restore); is_fail = 1 for FRETURN.                                                                                                   */
 /*   Returns rt_nret_fix(result, wn) — the caller's rax:rdx after restore.                                                                                                                             */
-DESCR_t rt_ab_leave_env(void *rbp_frame, DESCR_t result, int is_fail)
+DESCR_t rt_ab_leave_env(void *fb5_frame, DESCR_t result, int is_fail)
 {
-    char *fb = (char *)rbp_frame;
+    char *fb = (char *)fb5_frame;
     int vtm  = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_VTMARK);
     int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
-    rt_value_trail_tidy_dead_window(vtm, (void *)fb, (char *)fb + 16);   /* dead window = [fb, fb+16) = the rbp-push slot; mirrors slim epilogue's RSP-F-2 form */
+    rt_value_trail_tidy_dead_window(vtm, (void *)fb, (char *)fb + 16);   /* dead window = [fb, fb+16) = the ___-push slot; mirrors slim epilogue's RSP-F-2 form */
     Σ    = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
     rt_k_level--;
@@ -848,7 +848,7 @@ __asm__(
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* GENP C-window spine protocol (s94 repair): the s92 GENP-SPINE made generator bodies suspend via xa_flat's RETAINING γ epilogue — result preloaded rdi:rsi, a 16B resume record {res-landing, callee
- * rbp} left AT the deep frontier, γ wire jumped, NO unwind.  rt_proc_enter's γ landing pops 5 saved regs — correct for det bodies (fully unwound before the jmp) but at the retained frontier it EATS
+ * ___} left AT the deep frontier, γ wire jumped, NO unwind.  rt_proc_enter's γ landing pops 5 saved regs — correct for det bodies (fully unwound before the jmp) but at the retained frontier it EATS
  * the resume record plus 24B of live frame into rbx/r12..r15 and the next wire jmps frame junk (rip=r12 class).  This shim mirrors bcps_spine_gen_arm's call-site contract on the instance thread:
  * enter the blob `jmp rax` with rcx/rdx = γ/ω wires; the landings POP NOTHING (callee-saved ride through scrip_coret's ABI preservation); first-vs-resumed is the instance once-flag (ONE-POP law —
  * rt_proc_call_open pushed ONE pcall record, only the first delivery runs an epilogue leaf); every γ delivery parks in scrip_coret and, on re-activation, resumes the recorded suspend via
@@ -1155,8 +1155,8 @@ extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 __attribute__((visibility("hidden"))) rt_pcall_t *g_pcall;
 __attribute__((visibility("hidden"))) int         g_pcall_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [rbp+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [rbp+(nparams+j+1)*16]. Both media call this C function. */
-    char *base = (char *)rbp_base;
+void rt_lcl_proc_args_install(void *fb5_base, int nparams, int nlocals) {   /* ICN-PROC-FRAME (s211): install g_call_args into lexical-proc frame at ZLS vslot offsets. Param i lives at [___+(i+1)*16] (ZLS: slot 0 reserved for proc result, params at +16,+32,...). Locals at [___+(nparams+j+1)*16]. Both media call this C function. */
+    char *base = (char *)fb5_base;
     int nargs = (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].nargs : 0;
     int na = (nargs < nparams) ? nargs : nparams;
     for (int i = 0; i < na; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
@@ -1164,20 +1164,20 @@ void rt_lcl_proc_args_install(void *rbp_base, int nparams, int nlocals) {   /* I
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_icn_zframe_args_install(void *rbp_base, int nparams, int nlocals) {   /* ICN-FR-2 / PL-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY.  Slot layout: param i at [rbp+(i+1)*16] (positive, inside the frame [rbp+0..kt-1]); ZLS result slots start at 16+nparams*16 and above, so named params never collide.  Matches ir_drive_slot_assign vslot grants in scrip_ir.c. */
-    char *base = (char *)rbp_base;
+void rt_icn_zframe_args_install(void *fb5_base, int nparams, int nlocals) {   /* ICN-FR-2 / PL-FR-2: ζ-frame arg installer — reads g_call_args[0..nparams-1] DIRECTLY.  Slot layout: param i at [___+(i+1)*16] (positive, inside the frame [___+0..kt-1]); ZLS result slots start at 16+nparams*16 and above, so named params never collide.  Matches ir_drive_slot_assign vslot grants in scrip_ir.c. */
+    char *base = (char *)fb5_base;
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
 }
 __attribute__((visibility("hidden"))) int         g_pcall_cap;
 /* SN4-FLAT-PROC (s176) — the flat-return wires ride a PARALLEL array, index-locked to g_pcall, NOT new rt_pcall_t fields: rtx_call.S bakes sizeof(rt_pcall_t)==64 (stride shl 6) and its field offsets,
  * so growing the record would silently shear that assembly.  Each entry: the caller's γ/ω landing wires plus the machine state (rsp at blob entry — 5 rt_proc_enter pushes still live — and the caller's
- * rbp) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
+ * ___) the RETURN/FRETURN floaters must restore before jmping home.  Zeroed at every push site; filled by the stub's WIRE-ADOPT box; PEEKED (never popped) by the floaters — the pop and the entire
  * SPITBOL restore protocol stay in the existing γ/ω epilogue leaves the wires land on, so save/restore semantics are byte-identical to the extracted-body regime. */
-typedef struct { void *gw; void *ww; void *rsp; void *rbp; void *r12; } rt_flat_wires_t;
+typedef struct { void *gw; void *ww; void *rsp; void *fb5; void *r12; } rt_flat_wires_t;
 __attribute__((visibility("hidden"))) rt_flat_wires_t *g_pcall_wires;
 __attribute__((visibility("hidden"))) rt_flat_wires_t  g_flat_ret_snapbuf;
-_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, rbp) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
+_Static_assert(sizeof(rt_flat_wires_t) == 40 && offsetof(rt_flat_wires_t, gw) == 0 && offsetof(rt_flat_wires_t, ww) == 8 && offsetof(rt_flat_wires_t, rsp) == 16 && offsetof(rt_flat_wires_t, fb5) == 24 && offsetof(rt_flat_wires_t, r12) == 32, "bb_save_restore.cpp bakes these offsets; r12 field Z4-7 slice 2 (island caller-base restore), read only by the island-emitted floater arm");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_ws_roots(void)
 {
@@ -1211,21 +1211,21 @@ void rt_pcall_test_push(void *proc_ptr, const char *rname)
 }
 void rt_pcall_test_pop(void) { if (g_pcall_top > 0) g_pcall_top--; }
 int  rt_pcall_test_top(void) { return g_pcall_top; }
-void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *rbp, void *r12)
+void rt_pcall_test_wire_set(int idx, void *gw, void *ww, void *rsp, void *fb5, void *r12)
 {
     if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) return;
-    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].rbp = rbp; g_pcall_wires[idx].r12 = r12;
+    g_pcall_wires[idx].gw = gw; g_pcall_wires[idx].ww = ww; g_pcall_wires[idx].rsp = rsp; g_pcall_wires[idx].fb5 = fb5; g_pcall_wires[idx].r12 = r12;
 }
-void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **rbp, void **r12)
+void rt_pcall_test_wire_get(int idx, void **gw, void **ww, void **rsp, void **fb5, void **r12)
 {
-    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*rbp=*r12=(void*)0; return; }
-    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *rbp=g_pcall_wires[idx].rbp; *r12=g_pcall_wires[idx].r12;
+    if (!g_pcall_wires || idx < 0 || idx >= g_pcall_cap) { *gw=*ww=*rsp=*fb5=*r12=(void*)0; return; }
+    *gw=g_pcall_wires[idx].gw; *ww=g_pcall_wires[idx].ww; *rsp=g_pcall_wires[idx].rsp; *fb5=g_pcall_wires[idx].fb5; *r12=g_pcall_wires[idx].r12;
 }
 void *rt_pcall_test_snap_buf(void) { return (void *)&g_flat_ret_snapbuf; }
 void  rt_pcall_test_snap_buf_set_all(unsigned char v) { memset(&g_flat_ret_snapbuf, v, sizeof(rt_flat_wires_t)); }
-void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **rbp, void **r12)
+void  rt_pcall_test_snap_buf_get(void **gw, void **ww, void **rsp, void **fb5, void **r12)
 {
-    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *rbp=g_flat_ret_snapbuf.rbp; *r12=g_flat_ret_snapbuf.r12;
+    *gw=g_flat_ret_snapbuf.gw; *ww=g_flat_ret_snapbuf.ww; *rsp=g_flat_ret_snapbuf.rsp; *fb5=g_flat_ret_snapbuf.fb5; *r12=g_flat_ret_snapbuf.r12;
 }
 void rt_pcall_test_wire_null_set(void)
 {
@@ -1238,16 +1238,16 @@ void rt_pcall_test_wire_null_set(void)
  * ever peek — a silent no-op is correct there because such an entry's RETURN legitimately belongs to the ENCLOSING open call, whose own adopt already filled the top record.  ret_snap: the floaters
  * PEEK (never pop) the top record's wires into a static quad and return its address; rax:rdx ride untouched through the floater's tail so the γ landing's epilogue sees exactly what it sees today.
  * Level-0 transfer to RETURN/FRETURN = runtime error (Lon s175 ruling; SPITBOL erred here too rather than exiting). */
-void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *rbp)
+void c_rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = 0; }
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb5 = fb5; w->r12 = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *rbp, void *r12v)
+void rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb5, void *r12v)
 {
     if (g_pcall_top <= 0 || !g_pcall_wires) return;
-    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->rbp = rbp; w->r12 = r12v; }
+    { rt_flat_wires_t *w = &g_pcall_wires[g_pcall_top - 1]; w->gw = gw; w->ww = ww; w->rsp = rsp; w->fb5 = fb5; w->r12 = r12v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_flat_ret_snap(void)
@@ -1455,7 +1455,7 @@ const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt
  * no frame, no transfer, one counter and a marshal. */
 DESCR_t c_rt_gen_spine_pass_γ(DESCR_t v) { rt_k_level--; return v; }
 /* ICN-FR-4 NOTE: the resumed-delivery DESCR_t correctness is now ensured by xa_flat_zframe_epilogue_γ
- * loading rdi:rsi from [rbp+0]:[rbp+8] (= FRQ(0/8) = bb_suspend's stored yield value) rather than from
+ * loading rdi:rsi from [___+0]:[___+8] (= FRQ(0/8) = bb_suspend's stored yield value) rather than from
  * rax:rdx (where rax = last FRQ(op_sa+8) load = i-field only).  This pass_γ function is a strict
  * pass-through in BOTH C and RTX forms — the fix lives in the epilogue that feeds rdi:rsi. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1465,39 +1465,39 @@ void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gen_get_fb(void) { return (g_pcall_top > 0) ? g_pcall[g_pcall_top - 1].fb : (void *)0; }   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ICN-FR-5 ONE-SLOT FIX: persistent generator state stack, keyed by generator_rbp (= frame base pinned in α).
+/* ICN-FR-5 ONE-SLOT FIX: persistent generator state stack, keyed by generator____ (= frame base pinned in α).
  * FR-4 used four process globals — correct for one pending generator but silently clobbered by a second.
  * The pcall record was the wrong anchor: it is pushed at call-open and POPPED at γ-exit, BEFORE the caller's
  * β-resume reads the continuation.  Any per-pcall-slot store is therefore already gone by read time.
  *
  * CORRECT ANCHOR: a separate stack of icn_gen_state_t entries, independent of g_pcall:
- *   - PUSH at save_wires (prologue, after lexprep2 populates fb): gen_rbp known, wires known.
- *   - UPDATE cont at save_cont (each suspend α): same gen_rbp, new continuation.
- *   - UPDATE caller_rbp at save_caller_rbp (prologue, after lexprep2): same gen_rbp.
- *   - READ at get_* (γ/ω epilogue and β-resume): scan from top for matching gen_rbp.
+ *   - PUSH at save_wires (prologue, after lexprep2 populates fb): gen____ known, wires known.
+ *   - UPDATE cont at save_cont (each suspend α): same gen____, new continuation.
+ *   - UPDATE caller____ at save_caller____ (prologue, after lexprep2): same gen____.
+ *   - READ at get_* (γ/ω epilogue and β-resume): scan from top for matching gen____.
  *   - POP at save_wires with gw=NULL sentinel (called from ω epilogue when generator is exhausted).
  *     OR: never explicitly pop — the stack is bounded by max nesting depth (~64); stale entries below
- *     live gen_rbp addresses are never found by the LIFO scan while those generators are exhausted.
+ *     live gen____ addresses are never found by the LIFO scan while those generators are exhausted.
  *     But we MUST pop at ω to prevent the stack growing unboundedly on repeated generator calls.
  *
- * POP PROTOCOL: xa_flat_zframe_epilogue_ω calls save_wires(gen_rbp, NULL, NULL) as an explicit pop marker.
+ * POP PROTOCOL: xa_flat_zframe_epilogue_ω calls save_wires(gen____, NULL, NULL) as an explicit pop marker.
  * The save_wires body detects gw=NULL and pops/clears the matching entry instead of writing.
  *
  * Stack capacity: initial 64 entries (covers all practical nesting depths); grows by doubling. */
-typedef struct { void *gen_rbp; void *cont; void *caller_rbp; void *gwire; void *owire; } icn_gen_state_t;
+typedef struct { void *gen_fb5; void *cont; void *caller_fb5; void *gwire; void *owire; } icn_gen_state_t;
 __attribute__((visibility("hidden"))) static icn_gen_state_t  g_icn_gen_stk_buf[64];
 __attribute__((visibility("hidden"))) static icn_gen_state_t *g_icn_gen_stk     = g_icn_gen_stk_buf;
 __attribute__((visibility("hidden"))) static int              g_icn_gen_stk_top = 0;
 __attribute__((visibility("hidden"))) static int              g_icn_gen_stk_cap = 64;
 /* Fast single-generator globals: still maintained so single-generator case hits no scan overhead. */
 __attribute__((visibility("hidden"))) static void *g_gen_pending_cont        = (void *)0;
-__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_rbp  = (void *)0;
+__attribute__((visibility("hidden"))) static void *g_gen_pending_caller_fb5  = (void *)0;
 __attribute__((visibility("hidden"))) static void *g_gen_pending_gamma_wire  = (void *)0;
 __attribute__((visibility("hidden"))) static void *g_gen_pending_omega_wire  = (void *)0;
-/* Find entry by gen_rbp; LIFO scan; returns pointer or NULL. */
-static icn_gen_state_t *icn_gen_find(void *gen_rbp) {
+/* Find entry by gen____; LIFO scan; returns pointer or NULL. */
+static icn_gen_state_t *icn_gen_find(void *gen_fb5) {
     for (int i = g_icn_gen_stk_top - 1; i >= 0; i--)
-        if (g_icn_gen_stk[i].gen_rbp == gen_rbp) return &g_icn_gen_stk[i];
+        if (g_icn_gen_stk[i].gen_fb5 == gen_fb5) return &g_icn_gen_stk[i];
     return (icn_gen_state_t *)0;
 }
 /* Grow the stack if needed. */
@@ -1511,10 +1511,10 @@ static void icn_gen_stk_grow(void) {
     if (g_icn_gen_stk == g_icn_gen_stk_buf) memcpy(nb, g_icn_gen_stk_buf, (size_t)g_icn_gen_stk_top * sizeof(icn_gen_state_t));
     g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
 }
-void c_rt_gen_save_wires(void *gen_rbp, void *gw, void *ww) {
+void c_rt_gen_save_wires(void *gen_fb5, void *gw, void *ww) {
     if (!gw) {   /* ω-exit POP SENTINEL: remove this generator's entry. */
         for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {
-            if (g_icn_gen_stk[i].gen_rbp == gen_rbp) {
+            if (g_icn_gen_stk[i].gen_fb5 == gen_fb5) {
                 /* Shift entries above down by one. */
                 for (int j = i; j < g_icn_gen_stk_top - 1; j++) g_icn_gen_stk[j] = g_icn_gen_stk[j+1];
                 g_icn_gen_stk_top--;
@@ -1524,39 +1524,39 @@ void c_rt_gen_save_wires(void *gen_rbp, void *gw, void *ww) {
         return;
     }
     g_gen_pending_gamma_wire = gw; g_gen_pending_omega_wire = ww;
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
     if (e) { e->gwire = gw; e->owire = ww; return; }   /* update existing (re-activation via β) */
     icn_gen_stk_grow();
     if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return;   /* grow failed; global cache is fallback */
-    g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_rbp, (void*)0, (void*)0, gw, ww };
+    g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb5, (void*)0, (void*)0, gw, ww };
 }
-void c_rt_gen_save_caller_rbp(void *gen_rbp, void *caller_rbp) {
-    g_gen_pending_caller_rbp = caller_rbp;
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
-    if (e) e->caller_rbp = caller_rbp;
+void c_rt_gen_save_caller_fb5(void *gen_fb5, void *caller_fb5) {
+    g_gen_pending_caller_fb5 = caller_fb5;
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+    if (e) e->caller_fb5 = caller_fb5;
 }
-void c_rt_gen_save_cont(void *gen_rbp, void *cont) {
+void c_rt_gen_save_cont(void *gen_fb5, void *cont) {
     g_gen_pending_cont = cont;
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
     if (e) e->cont = cont;
 }
-void *c_rt_gen_get_caller_rbp(void *gen_rbp) {
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
-    void *v = e ? e->caller_rbp : g_gen_pending_caller_rbp;
-    g_gen_pending_caller_rbp = v; return v;
+void *c_rt_gen_get_caller_fb5(void *gen_fb5) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
+    void *v = e ? e->caller_fb5 : g_gen_pending_caller_fb5;
+    g_gen_pending_caller_fb5 = v; return v;
 }
-void *c_rt_gen_get_cont(void *gen_rbp) {
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+void *c_rt_gen_get_cont(void *gen_fb5) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
     void *v = e ? e->cont : g_gen_pending_cont;
     g_gen_pending_cont = v; return v;
 }
-void *c_rt_gen_get_gamma_wire(void *gen_rbp) {
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+void *c_rt_gen_get_gamma_wire(void *gen_fb5) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
     void *v = e ? e->gwire : g_gen_pending_gamma_wire;
     g_gen_pending_gamma_wire = v; return v;
 }
-void *c_rt_gen_get_omega_wire(void *gen_rbp) {
-    icn_gen_state_t *e = icn_gen_find(gen_rbp);
+void *c_rt_gen_get_omega_wire(void *gen_fb5) {
+    icn_gen_state_t *e = icn_gen_find(gen_fb5);
     void *v = e ? e->owire : g_gen_pending_omega_wire;
     g_gen_pending_omega_wire = v; return v;
 }/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1757,7 +1757,7 @@ void *c_rt_proc_call_open_det(long idx, int nargs)
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* FUSED DET OPEN FAMILY (PL-REGAIN-4, 2026-07-19) — staging folded INTO the det open: the site passes CALLER-FRAME CELL POINTERS (lea [rbp+slot]) and the leaf copies them into g_call_args, then runs
+/* FUSED DET OPEN FAMILY (PL-REGAIN-4, 2026-07-19) — staging folded INTO the det open: the site passes CALLER-FRAME CELL POINTERS (lea [___+slot]) and the leaf copies them into g_call_args, then runs
  * the same guarded lex prologue as rt_proc_call_open_det.  ONE crossing replaces {rt_arg_stage × nargs + open_det}; g_call_args stays the arg MEDIUM (the REGAIN-1 slice-B residency decision — slab
  * rehome vs register ABI — is untouched: only the number of crossings that feed it changes).  Guards precede every copy so a decline (bad idx / no body / dyn) is side-effect-free per the SCC arm's
  * discipline; nargs > 4 keeps the classic stage chain at the site (no hot-path pred exceeds 4 today — tak/4 is the ceiling). */
@@ -1856,7 +1856,7 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     /* PL-FR-4 PENDING RESUME OVERRIDE: write cursor+trail into the fresh frame BEFORE α_body runs.
      * The α_body re-writes the cursor slot (same value) and n0 overwrites the trail mark.
      * PL-FR-4 BUG-FIX (s14): write a sentinel value 1 to [fb+0] (the yield-value lo word, normally NULVCL=0 until suspend fires).
-     * α_body NEVER writes [fb+0] — only the suspend yield path does.  bb_suspend checks [rbp+0] for the sentinel
+     * α_body NEVER writes [fb+0] — only the suspend yield path does.  bb_suspend checks [___+0] for the sentinel
      * to distinguish β-resume re-entry (1) from fresh call (0).  Per-frame: works for any recursion depth.
      * The global g_pl_zf_pending_cursor is still checked first (quick zero test before the frame read). */
     if (g_pl_zf_pending_cursor) {
@@ -1871,7 +1871,7 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-FR-4 RETRY CONTINUATION STACK — the WAM B register for the ζ-frame regime.  THE DEFECT: MOVE_LABEL/DISJUNCTION rendezvous via [rbp+op_off+16]; the ζ epilogue restores rbp to the caller before
+/* PL-FR-4 RETRY CONTINUATION STACK — the WAM B register for the ζ-frame regime.  THE DEFECT: MOVE_LABEL/DISJUNCTION rendezvous via [___+op_off+16]; the ζ epilogue restores ___ to the caller before
  * backtrack reads it — measured as rip=0 on bt_minimal.pl (the slot also aliases param-0).  CANONICAL SHAPE read this session from gprolog (ALTB on the B stack, EnginePl/wam_inst.h:92-107, CHOICE_STATIC_SIZE
  * 8, entirely separate from the E environment stack) and SWI-Prolog (struct choice { Choice parent; LocalFrame frame; union { Code pc; } value; }, pl-incl.h:1825-1838 — frame is a reference, never storage).
  * In both engines, choice-point lifetime is INDEPENDENT of activation-frame lifetime.  LIFO is sound: backtracking is stack-disciplined by the language definition; cut discards a contiguous top segment.
