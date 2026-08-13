@@ -9,20 +9,20 @@ main:
                         mov              r12, qword ptr [0x70000000]
                         call             rtcc_load_all@PLT
                         xor              esi, esi
-                                                                    jmp   main_α
+                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
 #=======================================================================================================================
 #         OUTPUT = -5
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                               jmp   n1_lit_integer_α
-n0_statement_begin_β:                                               jmp   main_γ
+n0_statement_begin_α:                                                         jmp   n1_lit_integer_α
+n0_statement_begin_β:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_integer_α:       sub              rsp, 16
                         mov              qword ptr [rsp + 0], 3                         # result
                         mov              rax, qword ptr [rip + .Lx7_0]
-                        mov              qword ptr [rsp + 8], rax;  jmp   n2_unop_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n2_unop_α
 .Lx7_0:                 .quad            5
 #-----------------------------------------------------------------------------------------------------------------------
 n2_unop_α:              sub              rsp, 16
@@ -39,7 +39,7 @@ n2_unop_α:              sub              rsp, 16
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              qword ptr [rsp + 0], rax                       # result
-                        mov              qword ptr [rsp + 8], rdx;  jmp   n3_assign_α
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n3_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_assign_α:            mov              rsi, qword ptr [rsp + 0]                       # unop
                         mov              rdx, qword ptr [rsp + 8]
@@ -53,14 +53,14 @@ n3_assign_α:            mov              rsi, qword ptr [rsp + 0]              
                         mov              r8,   qword ptr [r11 + 40]
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
-                        mov              r11,  qword ptr [r11 + 64]; jmp   n4_statement_end_α
+                        mov              r11,  qword ptr [r11 + 64];          jmp   n4_statement_end_α
 .Lx9_0:                 .quad            .Lx9_0_s
 .Lx9_0_s:               .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_statement_end_α:     add              rsp, 32;                   jmp   main_γ
+n4_statement_end_α:     add              rsp, 32;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
-                                                                    jmp   main_ω
+                                                                              jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
                         xor              edi, edi
