@@ -16,12 +16,15 @@ extern "C" {
  * parameterizes ONE shape instead of growing a fourth spelling of the same three instructions.  The pad arithmetic (((K+8+15) & ~15) - 8) keeps rsp 16-aligned mod 16 ACROSS the pushed rbp, which is what
  * preserves the ambient call-site alignment the bare-call idiom depends on -- the same argument as the CSTACK k16 rounding. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rbp_kill_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RBP_KILL"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ RBP-KILL killswitch (Lon s51): DEFAULT OFF -- with SCRIP_RBP_KILL unset this file is byte-identical to HEAD, so the arm ships dormant per the killswitch law and costs nothing until measured.  SCRIP_RBP_KILL=1 runs the RSP-only experiment; the board's BROKEN set under that arm is the empirical license set.  File-static env cache, single read, no g_* writes. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_enter() {
     /* GLUE-3 (Lon s21x-o): NO x86_begin() here BY DESIGN.  x86_begin mints a fresh x86_uid from g_flat_node_id in TEXT medium, and that uid names the box's RO constant labels (.Lx<uid>_0).  The glue is not a
      * top-level box template -- it is a FRAGMENT emitted inside another box's alpha/beta/gamma/omega port, so it must inherit that box's uid rather than mint one.  Calling x86_begin advanced the counter once
      * per port and renumbered every downstream label, which is exactly what the byte-identity A/B caught: instructions identical, .Lx5_0 became .Lx8_0.  A pure label rename is harmless to execution and would
      * have been invisible in a run-only test -- and would then have churned every committed .s artifact for no reason, which is precisely the kind of unexplained diff the artifact discipline exists to prevent. */
     if (!PLATFORM_X86) return std::string();
+    if (rbp_kill_on()) return x86("sub", "rsp", ((_.op_fc_bytes + 8 + 15) & ~15L) - 8);   /* ⭐ RBP-KILL (Lon s51 directive: "establish EVERYTHING as RSP and when it breaks turn it into an RBP") -- the EMPIRICAL license discovery, replacing the predicate-first approach.  Keep the carve (the cell region is real and its consumers read it), drop ONLY the base-pointer ceremony.  The BROKEN set of board_patterns_set.sh under this arm IS the license set: whatever fails here is a construct that genuinely reads a cell across an unknown-size span and earns its frame back; whatever still passes never needed one.  This cannot under-detect the way earn_hazard_in does (measured: it returns 0 for 95/95 ASSIGN_SAVE nodes -- a capture family that never once earns across 122 pattern programs is a stuck classifier, not a measurement). */
     return x86("push", "rbp")
          + x86("mov", "rbp", "rsp")
          + x86("sub", "rsp", ((_.op_fc_bytes + 8 + 15) & ~15L) - 8);
@@ -33,6 +36,7 @@ std::string bb_glue_framed_enter() {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_framed_leave() {
     if (!PLATFORM_X86) return std::string();
+    if (rbp_kill_on()) return std::string();   /* RBP-KILL: the enter arm emitted no push and no pin, so there is nothing to discard -- and `mov rsp,rbp` against a base this arm never established would load a STALE rbp into rsp, which is the exact failure bb_glue_framed.cpp's own header names ("Reversing (1)/(3) or omitting (1) while keeping (3) loads the CRT caller's rbp into rsp").  The statement-terminal op_zgpop release is the sole authority for freeing the carve under this arm, which is what the FORTH-spine model says it always should have been. */
     return x86("mov", "rsp", "rbp")
          + x86("pop", "rbp");
 }
