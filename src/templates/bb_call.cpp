@@ -297,10 +297,12 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         }
         {
             std::string fl = std::string(".Lbynamefnzd") + std::to_string((long long)_.nid);
+            bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+            if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
             s += x86("directive", ".section .rodata");
             s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
             s += x86("directive", ".section .text");
-            s += x86("directive", ".intel_syntax noprefix");
+            s += x86("directive", ".intel_syntax noprefix"); }
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
         if (narg > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
@@ -349,10 +351,12 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "esi", (long)narg);
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
     } else {
+        { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+          if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
            + x86("directive", ".section .text")
-           + x86("directive", ".intel_syntax noprefix");
+           + x86("directive", ".intel_syntax noprefix"); } }
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)narg);
@@ -400,10 +404,12 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     bool scansync = x86_is_scan_builtin_name(fn);
     if (scansync) s += x86_scan_sync_out_force();
     s += x86("def", L(60));
+    { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+      if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
     s += x86("directive", ".section .rodata")
        + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
        + x86("directive", ".section .text")
-       + x86("directive", ".intel_syntax noprefix");
+       + x86("directive", ".intel_syntax noprefix"); } }
     s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
     s += x86("lea", "rsi", FRQ(argbase));
     s += x86("mov32", "edx", (long)narg);
