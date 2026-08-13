@@ -22,7 +22,7 @@ n1_var_α:
 n2_match_begin_α:
                         mov              rdi, qword ptr [rsp + 0]                       # var
                         mov              rsi, qword ptr [rsp + 8]
-                        mov              qword ptr [rsp + -1], rsp                      # old_fb5
+                        mov              qword ptr [rsp + 72], rsp                      # old____
                         mov              qword ptr [rsp + 48], r13                      # outer_Σ
                         mov              qword ptr [rsp + 56], r14                      # outer_δ
                         mov              qword ptr [rsp + 64], r15                      # outer_Δ
@@ -84,7 +84,7 @@ n2_match_begin_af:
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                        add              rsp, 16                                        # old_fb5
+                        add              rsp, 16                                        # old____
                                                                                         jmp   n17_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_integer_α:
@@ -110,7 +110,7 @@ n4_match_pos_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 0], r14d
                                                                                         jmp   n6_match_arbno_α
 n5_match_assign_save_β:
                         add              rsp, 16
@@ -118,26 +118,26 @@ n5_match_assign_save_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n6_match_arbno_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + -1], r14d
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n7_match_assign_cond_α
 n6_match_arbno_β:
                                                                                         jmp   n16_match_lit_α
 n6_match_arbno_as:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 4]
                         cmp              r14d, eax
                                                                                         je    n16_match_lit_β
-                        mov              dword ptr [rsp + -1], r14d
+                        mov              dword ptr [rsp + 4], r14d
                                                                                         jmp   n7_match_assign_cond_α
 n6_match_arbno_af:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 0]
                         cmp              r14d, eax
                                                                                         jne   n16_match_lit_β
                         add              rsp, 16
                                                                                         jmp   n5_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n7_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + -1]
+                        mov              eax, dword ptr [rsp + 16]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
@@ -598,9 +598,7 @@ main:
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 88
+                        sub              rsp, 0
 #=======================================================================================================================
 #         DEFINE('MATCHIT(S)') :(MATCHIT_END)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -844,10 +842,12 @@ main_β:
                                                                                         jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
 main_γ:
+                        add              rsp, 0
                         xor              edi, edi
                         call             exit@PLT
 #-----------------------------------------------------------------------------------------------------------------------
 main_ω:
+                        add              rsp, 0
                         mov              edi, 1
                         call             exit@PLT
                         .section         .rodata
