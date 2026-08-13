@@ -38,12 +38,7 @@ n3_binop_α:
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 16]                      # lit_integer
                         mov              rcx, qword ptr [rsp + 24]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -80,12 +75,7 @@ n6_save_restore_α:
                         mov              ecx, 0
                                                                                         jmp   rax
 .Lx16_0:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -96,7 +86,6 @@ n6_save_restore_α:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
@@ -108,12 +97,7 @@ proc_LBL__bumpit_β:
                                                                                         jmp   proc_LBL__bumpit_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_γ:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -124,17 +108,11 @@ proc_LBL__bumpit_γ:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_LBL__bumpit_ω:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -145,7 +123,6 @@ proc_LBL__bumpit_ω:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 8]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
@@ -157,13 +134,8 @@ n17_save_restore_α:
                         mov              rdi, rcx
                         mov              rsi, rdx
                         lea              rdx, [rsp + 0]
-                        mov              rcx, rbp
-                        mov              qword ptr [g_rtcc_block + 0], rax
+                        mov              rcx, rsp
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -177,12 +149,7 @@ n17_save_restore_α:
 #-----------------------------------------------------------------------------------------------------------------------
 n18_goto_deferred_α:
                         mov              rdi, qword ptr [rip + .Lx22_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -208,12 +175,7 @@ proc_bumpit_β:
                                                                                         jmp   proc_bumpit_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_γ:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -224,17 +186,11 @@ proc_bumpit_γ:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_bumpit_ω:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -245,7 +201,6 @@ proc_bumpit_ω:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 8]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 proc_startup:
@@ -331,6 +286,8 @@ main:
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
+                        push             rbp
+                        mov              rbp, rsp
 #=======================================================================================================================
 #         DEFINE('bumpit(v)', .bumpit)                                :(bumpend)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -371,12 +328,7 @@ n29_call_α:
                         mov              edi, 0
                         mov              rsi, qword ptr [rsp + 16]                      # lit_integer
                         mov              rdx, qword ptr [rsp + 24]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -398,12 +350,7 @@ n29_call_α:
                         mov              rdi, qword ptr [rip + .Lx45_0]
                         mov              esi, 1
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -420,12 +367,7 @@ n29_call_α:
                         mov              qword ptr [r9 + 16], rax                       # v
                         mov              rax, qword ptr [r8 + 8]
                         mov              qword ptr [r9 + 24], rax
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -450,12 +392,7 @@ n29_call_α:
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 24], rax
                         add              rsp, 32
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -476,12 +413,7 @@ n29_call_α:
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 24], rax
                         add              rsp, 32
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -515,12 +447,7 @@ n30_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx46_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11

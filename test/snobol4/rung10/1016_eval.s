@@ -9,13 +9,8 @@ n0_save_restore_α:
                         mov              rdi, rcx
                         mov              rsi, rdx
                         lea              rdx, [rsp + 0]
-                        mov              rcx, rbp
-                        mov              qword ptr [g_rtcc_block + 0], rax
+                        mov              rcx, rsp
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -57,12 +52,7 @@ n3_binop_α:
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 16]
                         mov              rcx, qword ptr [rsp + 24]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -92,12 +82,7 @@ proc_EXPR$0_β:
                                                                                         jmp   proc_EXPR$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_γ:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -108,17 +93,11 @@ proc_EXPR$0_γ:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$0_ω:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -129,7 +108,6 @@ proc_EXPR$0_ω:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 8]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
@@ -141,13 +119,8 @@ n11_save_restore_α:
                         mov              rdi, rcx
                         mov              rsi, rdx
                         lea              rdx, [rsp + 0]
-                        mov              rcx, rbp
-                        mov              qword ptr [g_rtcc_block + 0], rax
+                        mov              rcx, rsp
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -183,12 +156,7 @@ proc_EXPR$1_β:
                                                                                         jmp   proc_EXPR$1_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_γ:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -199,17 +167,11 @@ proc_EXPR$1_γ:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$1_ω:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -220,7 +182,6 @@ proc_EXPR$1_ω:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 8]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
@@ -232,13 +193,8 @@ n18_save_restore_α:
                         mov              rdi, rcx
                         mov              rsi, rdx
                         lea              rdx, [rsp + 0]
-                        mov              rcx, rbp
-                        mov              qword ptr [g_rtcc_block + 0], rax
+                        mov              rcx, rsp
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -286,12 +242,7 @@ n21_call_α:
                         lea              rdi, [rip + .Lrkfnzd28]
                         lea              rsi, [rsp + 0]
                         mov              edx, 2
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -332,12 +283,7 @@ proc_EXPR$2_β:
                                                                                         jmp   proc_EXPR$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_γ:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -348,17 +294,11 @@ proc_EXPR$2_γ:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 0]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_ω:
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -369,7 +309,6 @@ proc_EXPR$2_ω:
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
                         mov              rcx, qword ptr [rax + 8]
-                        mov              rbp, qword ptr [rax + 24]
                         mov              rsp, qword ptr [rax + 16]
                                                                                         jmp   rcx
 proc_startup:
@@ -502,6 +441,8 @@ main:
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
+                        push             rbp
+                        mov              rbp, rsp
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_begin_α:
                                                                                         jmp   n31_statement_end_α
@@ -544,12 +485,7 @@ n34_call_α:
                         lea              rdi, [rip + .Lrkfnzd103]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -614,12 +550,7 @@ n39_call_α:
                         lea              rdi, [rip + .Lrkfnzd111]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -678,12 +609,7 @@ n41_call_α:
                         lea              rdi, [rip + .Lrkfnzd114]
                         lea              rsi, [rsp + 0]
                         mov              edx, 2
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -733,12 +659,7 @@ n45_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx120_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -828,12 +749,7 @@ n55_call_α:
                         lea              rdi, [rip + .Lrkfnzd137]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -898,12 +814,7 @@ n60_call_α:
                         lea              rdi, [rip + .Lrkfnzd145]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -962,12 +873,7 @@ n62_call_α:
                         lea              rdi, [rip + .Lrkfnzd148]
                         lea              rsi, [rsp + 0]
                         mov              edx, 2
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -1017,12 +923,7 @@ n66_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx154_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -1083,12 +984,7 @@ n72_call_α:
                         lea              rdi, [rip + .Lrkfnzd165]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -1153,12 +1049,7 @@ n77_call_α:
                         lea              rdi, [rip + .Lrkfnzd173]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -1210,12 +1101,7 @@ n81_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx179_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
@@ -1266,12 +1152,7 @@ n87_assign_α:
                         mov              rsi, qword ptr [rsp + 0]                       # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx189_0]
-                        mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
-                        mov              qword ptr [rax + 8],  rcx
-                        mov              qword ptr [rax + 16], rdx
-                        mov              qword ptr [rax + 24], rsi
-                        mov              qword ptr [rax + 32], rdi
                         mov              qword ptr [rax + 40], r8
                         mov              qword ptr [rax + 56], r10
                         mov              qword ptr [rax + 64], r11
