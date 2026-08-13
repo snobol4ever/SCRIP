@@ -6,8 +6,8 @@ extern "C" {
 #include "bb_templates.h"
 #include "ab_abi.h"
 #include "pin_va.h"
-void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb5);
-void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb5, void *r12v);
+void  rt_flat_wire_adopt(void *gw, void *ww, void *rsp, void *fb);
+void  rt_flat_wire_adopt_isle(void *gw, void *ww, void *rsp, void *fb, void *r12v);
 void *rt_flat_ret_snap(void);
 long  rt_proc_call_open_slim(const char *name, int np, int nargs);
 int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
@@ -36,7 +36,7 @@ std::string bb_save_restore() {
     if (role == 3) {
         int kt = g_emit.flat_frame_bytes;
         /* ZW-0 stage 2: island wire-adopt arm (rt_flat_wire_adopt_isle) deleted -- unreachable under ZC_FRAME_RSP default */
-        if (!emit_jmp_pin_legacy()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static, WIREREG): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, caller fb5 live -> open pcall record")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
+        if (!emit_jmp_pin_legacy()) return x86("comment", "IR_SAVE_RESTORE wire-adopt (depth-static, WIREREG): wires READ FROM THE REGISTERS THE CALLER PASSES THEM IN (rcx=gamma, rdx=omega), entry rsp = rsp, caller ___ live -> open pcall record")   /* ⛔⭐⭐ WIREREG (s22u): the [rsp+kt-24]/[rsp+kt-16] header reads this arm used to do were CARVE-ERAD CASUALTIES — those bytes were written by xa_flat's jmp-entry prologue, which CARVE-KILL (s22o) deleted, so the box marshalled CALLER STACK GARBAGE into the wire quad and every DEFINE'd function returned through a wild jmp (witness: roman.sno, both modes, rc=139 with zero output, gamma wire = 0x7ffff4dba3d8 inside libscrip_rt's zero pages).  The wires never needed storage: BOTH call paths (rt_proc_call_open classic and rt_proc_call_open_slim) do `lea rcx,<gamma>; lea rdx,<omega>; jmp rax`, the s22o wire contract, and the wire-adopt box is the FIRST box of the stub blob, so rcx/rdx are still live and rsp is still the blob-entry rsp.  Reading them from the registers is THE MODEL applied: zero header, zero carve, zero prologue dependency.  Marshal order is load-bearing — rdi<-rcx and rsi<-rdx MUST precede the rdx/rcx overwrites. */
              + x86_alpha()
              + x86("mov", "rdi", "rcx")
              + x86("mov", "rsi", "rdx")
@@ -46,7 +46,7 @@ std::string bb_save_restore() {
              + x86("call", "rt_flat_wire_adopt", (uint64_t)(uintptr_t)(void *)rt_flat_wire_adopt)
              + x86_align_leave()
              + x86_gamma();
-        return x86("comment", "IR_SAVE_RESTORE wire-adopt: header wires + entry rsp + caller fb5 -> open pcall record")
+        return x86("comment", "IR_SAVE_RESTORE wire-adopt: header wires + entry rsp + caller ___ -> open pcall record")
              + x86_alpha()
              + x86("mov", "rdi", RDQ("rsp", -1))
              + x86("mov", "rsi", RDQ("rsp", -1))

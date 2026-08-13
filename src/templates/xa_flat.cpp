@@ -12,11 +12,9 @@ extern "C" void rt_jmp_frame_lexprep2(void *, long, long);   /* PL-REGAIN-4: laz
 extern "C" void rt_pl_zf_resume_clear(void);   /* PL-FR-4: clear g_pl_zf_pending_cursor after epilogue intercept */
 extern "C" void *g_pl_zf_pending_cursor;       /* PL-FR-4: pending resume cursor (0 = none) */
 extern "C" void rt_main_args_fetch(void);   /* ICNBENCH-ARGS-RSP: returns the staged main(args) DESCR in rax:rdx (true return type is DESCR_t; declared void here — the template only takes its ADDRESS, the emitted call site honors the real ABI) */
-extern "C" void rt_gen_save_caller_fb5(void *gen_fb5, void *caller_fb5);   /* ICN-FR-5: save caller____ keyed by gen____; pcall scan by fb */
-extern "C" void *rt_gen_get_caller_fb5(void *gen_fb5);                     /* ICN-FR-5: retrieve caller____ for gen____ */
-extern "C" void rt_gen_save_wires(void *gen_fb5, void *gw, void *ww);      /* ICN-FR-5: save γ/ω wires keyed by gen____ */
-extern "C" void *rt_gen_get_gamma_wire(void *gen_fb5);                     /* ICN-FR-5: retrieve saved γ-wire for gen____ */
-extern "C" void *rt_gen_get_omega_wire(void *gen_fb5);                     /* ICN-FR-5: retrieve saved ω-wire for gen____ */
+extern "C" void rt_gen_save_wires(void *gen_fb, void *gw, void *ww);      /* ICN-FR-5: save γ/ω wires keyed by gen____ */
+extern "C" void *rt_gen_get_gamma_wire(void *gen_fb);                     /* ICN-FR-5: retrieve saved γ-wire for gen____ */
+extern "C" void *rt_gen_get_omega_wire(void *gen_fb);                     /* ICN-FR-5: retrieve saved ω-wire for gen____ */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
@@ -157,7 +155,7 @@ static std::string xaf_anchor_leave_bin(void) {
 static std::string xaf_anchor_leave_text(void) {
     if (!x86_port_cstack()) return std::string();
     if (x86_zc_frame() == ZC_FRAME_RSP && !xaf_deep()) return std::string();   /* FLATDISP-5 GATE (s193: condition unified into xaf_deep, see its comment): this reset is the BULK unwind that returns rsp to the activation base from whatever depth the arrival happened to land at.  When no arrival can be deep, the LIFO balance has already returned rsp to base and the reset is a provable no-op — so it is DELETED rather than re-spelled, and with it the last reader of ___ in a determinate graph.  FALSIFIABLE BY CONSTRUCTION: if any depth-static graph does arrive off-base this drops rsp reconstruction entirely and the crosscheck fails loudly at once, which is exactly the intended tripwire. */
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string("mov rsp, fb5\n");   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed ___=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading ___ keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
+    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();   /* ALIGN-INV-3: under RSP fb IS the snapshot — U1/U2/s79 seed ___=base at every frame-active activation, so the s90 frame-base READ collapses to the register (the s90 hazard was rsp-RELATIVE reads at depth; reading ___ keeps its cure).  Enter store retained: s142 NOFILL dead-store-cut assumes it overwrites; reader sweep owed before retiring it. */
     char b[160]; snprintf(b, sizeof b, "mov rsp, qword ptr [%s + %d]\n", x86_zr(), xaf_anchor_off()); return std::string(b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -326,7 +324,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
-    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller_fb5 + pin fb5=rsp")
+    std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
@@ -362,14 +360,10 @@ static std::string xa_flat_zframe_prologue_str(void) {
                  * Wire values at [___+kt-24] and [___+kt-16] are written at prologue top (before lexprep2)
                  * and survive — lexprep2 seeds only [___+0..___+kt-32), leaving the header triple intact. */
                 uint64_t _sw_fp;  { void (*_f)(void *, void *, void *) = rt_gen_save_wires;      _sw_fp  = (uint64_t)(uintptr_t)(void *)_f; }
-                uint64_t _sav_fp; { void (*_f)(void *, void *)         = rt_gen_save_caller_fb5; _sav_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                s += x86("mov", "rdi", "rsp")               /* gen____ */
-                   + x86("mov", "rsi", FB5RAWQ(kt - 24))   /* γ-wire */
-                   + x86("mov", "rdx", FB5RAWQ(kt - 16))   /* ω-wire */
-                   + x86("call", "rt_gen_save_wires", _sw_fp)
-                   + x86("mov", "rdi", "rsp")               /* gen____ */
-                   + x86("mov", "rsi", FB5RAWQ(kt - 8))    /* caller____ */
-                   + x86("call", "rt_gen_save_caller_fb5", _sav_fp);
+                                s += x86("mov", "rdi", "rsp")               /* gen____ */
+                   + x86("mov", "rsi", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")   /* γ-wire */
+                   + x86("mov", "rdx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")   /* ω-wire */
+                   + x86("call", "rt_gen_save_wires", _sw_fp);
             }
         }
     } else {   /* PL-FR-2 FRAME_RSP ARM: non-lex graphs (Prolog main / outer graphs) have no pcall record; zero-fill the data region with rep stosb so named variables (G0, G1...) start as NULVCL (= DT_SNUL = unbound). Mirrors anchor FRAME_RSP arm (rep stosb + 65544 floor). Harmless for Icon (Icon never stamps non-lex zframe graphs except via dc-stub which has its own path in the stub code above). */
@@ -427,7 +421,6 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          * between γ-exit and the prologue of the NEXT activation (Prolog uses WAM-style choice points,
          * not the single-active-generator model that makes globals safe for Icon). */
         uint64_t _ggw_fp; { void *(*_f)(void *) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        uint64_t _gcr_fp; { void *(*_f)(void *) = rt_gen_get_caller_fb5; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
         /* ICN-FR-5 ROOT-CAUSE FIX — NO RSP UNWIND IN GENERATOR γ-EPILOGUE.
          * ROOT CAUSE: the `lea rsp,[___+kt]` (entry_rsp unwind) was the origin of ALL frame-clobber bugs.
          * With rsp at entry_rsp, any C call from the L(3) landing (rt_proc_call_epilogue_γ, rt_call_arr,
@@ -442,14 +435,11 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          * BYTE-IDENTICAL for non-generator zframe graphs (they fall through to the ICN-FR-2 path below
          * which DOES unwind — non-generators never have a do-body and their L(3) callers are not
          * affected since no live generator frame sits between the activation frame and the caller). */
-        return x86("comment", "ICN-FR-5 no-unwind epilogue-γ: r14=gen_fb5; get γ-wire(r14)→r15; get caller_fb5(r14)→fb5 (rsp stays at gen_fb5); rdi:rsi=[r14+0/8]; rax=gen_fb5; jmp r15")
+        return x86("comment", "ICN-FR-5 no-unwind epilogue-γ: r14=gen____; get γ-wire(r14)→r15; get caller____(r14)→___ (rsp stays at gen____); rdi:rsi=[r14+0/8]; rax=gen____; jmp r15")
              + x86("mov", "r14", "rsp")                /* save generator____ in callee-saved r14 */
              + x86("mov", "rdi", "r14")                /* ICN-FR-5: gen____ as first arg for keyed lookup */
              + x86("call", "rt_gen_get_gamma_wire", _ggw_fp)  /* → rax = γ-wire */
              + x86("mov", "r15", "rax")                /* γ-wire in callee-saved r15 */
-             + x86("mov", "rdi", "r14")                /* ICN-FR-5: gen____ for caller____ lookup */
-             + x86("call", "rt_gen_get_caller_fb5", _gcr_fp)  /* → rax = caller____ */
-             + std::string("")                /* restore caller____ into ___ */
              /* NO lea rsp,[___+kt] — rsp stays at gen____ (the deep frontier); L(3) is ___-relative */
              + x86("mov", "rdi", "[r14 + 0]")          /* yield v-field from generator frame via r14 */
              + x86("mov", "rsi", "[r14 + 8]")          /* yield i-field from generator frame via r14 */
@@ -476,23 +466,23 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("test", "r11", "r11")
              + x86("je", L(50))                     /* 0 = no pending resume, normal γ-exit */
              /* pending resume: write cursor into [___+resume_slot] (overrides α_body's clause-1 cursor) */
-             + x86("mov", "[fb5 + " + std::to_string(rs) + "]", "r11")   /* cursor = pending cursor */
+             + x86("mov", "qword ptr [rsp# + " + std::to_string(rs) + "]", "r11")   /* cursor = pending cursor */
              + x86("call", "rt_pl_zf_resume_clear", _clear_fp)            /* clear the pending flag */
-             + x86("jmp", "[fb5 + " + std::to_string(rs) + "]")           /* jmp cursor (= n15_suspend_β) */
+             + x86("mov", "rax", "qword ptr [rsp# + " + std::to_string(rs) + "]") + x86("jmp", "rax")           /* jmp cursor (= n15_suspend_β) */
              + x86("def", L(50))
              /* normal γ-exit path */
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
-             + x86("lea", "rsp", "[fb5 + " + std::to_string(kt) + "]")
-             + x86("mov", "rcx", FB5RAWQ(kt - 24))
+             + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
+             + x86("add", "rsp", (long)kt)
              + std::string("")
              + x86("jmp", "rcx");
     }
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller fb5 from header; jmp γ wire")
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller ___ from header; jmp γ wire")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
-         + x86("lea", "rsp", "[fb5 + " + std::to_string(kt) + "]")
-         + x86("mov", "rcx", FB5RAWQ(kt - 24))
+         + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
+         + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
 }
@@ -505,30 +495,25 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     int kt = xa_flat_wire_hdr_base();
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {   /* ICN-FR-5: GATED icn_zframe_gen. */
         uint64_t _gow_fp; { void *(*_f)(void *) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        uint64_t _gcr_fp; { void *(*_f)(void *) = rt_gen_get_caller_fb5; _gcr_fp = (uint64_t)(uintptr_t)(void *)_f; }
         uint64_t _sw_fp;  { void  (*_f)(void *, void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
         /* ICN-FR-5 ROOT-CAUSE FIX — NO RSP UNWIND IN GENERATOR ω-EPILOGUE (same as γ).
          * At ω entry, rsp is already at gen____ (add rsp,claim ran before jmp proc_upto_ω).
          * Don't unwind to entry_rsp; ω's fail-path callers are also ___-relative and harmless. */
-        return x86("comment", "ICN-FR-5 no-unwind epilogue-ω: r14=gen_fb5; get ω-wire→r15; get caller_fb5→rbx; pop gen state stack; fb5=rbx; jmp r15")
+        return x86("comment", "ICN-FR-5 no-unwind epilogue-ω: r14=gen____; get ω-wire→r15; get caller____→rbx; pop gen state stack; ___=rbx; jmp r15")
              + x86("mov", "r14", "rsp")                        /* save gen____ before any call clobbers ___ */
              + x86("mov", "rdi", "r14")                        /* gen____ for ω-wire lookup */
              + x86("call", "rt_gen_get_omega_wire", _gow_fp)   /* rax = ω-wire keyed by gen____ */
              + x86("mov", "r15", "rax")                        /* ω-wire in callee-saved r15 */
-             + x86("mov", "rdi", "r14")                        /* gen____ for caller____ lookup */
-             + x86("call", "rt_gen_get_caller_fb5", _gcr_fp)   /* rax = caller____ (while entry still live) */
-             + x86("mov", "rbx", "rax")                        /* save caller____ in callee-saved rbx */
              + x86("mov", "rdi", "r14")                        /* gen____ for pop sentinel */
              + x86("xor", "esi", "esi")                        /* gw = NULL → pop sentinel */
              + x86("xor", "edx", "edx")                        /* ww = NULL */
              + x86("call", "rt_gen_save_wires", _sw_fp)        /* pop this generator's stack entry */
              /* NO lea rsp,[___+kt] — rsp stays at gen____; caller manages its own rsp */
-             + std::string("")                        /* restore caller____ from saved rbx */
              + x86("jmp", "r15");
     }
-    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller fb5; jmp")
-         + x86("lea", "rsp", "[fb5 + " + std::to_string(kt) + "]")
-         + x86("mov", "rcx", FB5RAWQ(kt - 16))
+    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller ___; jmp")
+         + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
+         + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
 }

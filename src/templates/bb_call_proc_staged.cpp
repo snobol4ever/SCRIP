@@ -25,7 +25,7 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 void   *rt_gen_get_fb(void);   /* ICN-FR-4: returns generator frame base (pcall.fb) for zframe β-resume dispatch */
-void   *rt_gen_get_cont(void *gen_fb5); /* ICN-FR-5: returns continuation ptr keyed by gen____ (pcall scan by fb) */
+void   *rt_gen_get_cont(void *gen____); /* ICN-FR-5: returns continuation ptr keyed by gen____ (pcall scan by fb) */
 int     zls_g_resume_by_name(const char *name);   /* ICN-FR-4: emit-time callee resume-slot lookup by name (zeta_storage.c; scans zg[] once per call-site; result baked as immediate) */
 int     zls_g_icn_zframe_gen_by_name(const char *name);   /* ICN-FR-5 BUG1: callee's icn_zframe_gen flag by name — 1 = Icon zframe generator; 0 = Prolog or non-generator (zeta_storage.c) */
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);   /* PL-FR-4 s12: callee's pl_trail_mark_off by name — >0 = frame slot of $trail_mark result; 0 = absent (zeta_storage.c) */
@@ -64,14 +64,14 @@ void bb_slot_register(IR_t * nd, int off);
  * staged arg based at 20 (this box uses L(1)..L(7)); capped at 8 args so the pair range stays 20..35.  Kill switch: SCRIP_NO_SINK=1 at emit time. */
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
     bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;   /* PL-ZK-5B: pl_cells_graph needs ___RAWQ(slot) not FRQ(slot) -- see dual-write fix. */
-    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", plc ? FB5RAWQ(slot) : FRQ(slot)) + x86("mov", "rdx", plc ? FB5RAWQ(slot + 8) : FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
+    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
          + x86("mov", "eax", "dword ptr [r8 + 0]")
          + x86("test", "eax", "eax")
          + x86("jne", L(20 + i * 2))
-         + x86("mov", "rax", plc ? FB5RAWQ(slot) : FRQ(slot))
-         + x86("mov", "rdx", plc ? FB5RAWQ(slot + 8) : FRQ(slot + 8))
+         + x86("mov", "rax", FRQ(slot))
+         + x86("mov", "rdx", FRQ(slot + 8))
          + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
@@ -511,7 +511,7 @@ static std::string bcps_det_arm() {
               }()
             : std::string(""))
          + (dc
-            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? FB5RAWQ(slot) : FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [___+slot] (FRQ(slot) under pinned ___). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb____=0 — causing all args to LEA [rsp+0] identically. ___RAWQ(slot) bypasses the refinement and directly names [___+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's ___ pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
+            ? FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })   /* PL-ZK-5B DC-ARG-FIX (Bug 5): on pl_cells_graph, dual-write placed arg values at [___+slot] (FRQ(slot) under pinned ___). FRQ(slot) routes through FB-STMT refinement (x86_fb_data) which can select rsp-relative addressing when op_fb____=0 — causing all args to LEA [rsp+0] identically. ___RAWQ(slot) bypasses the refinement and directly names [___+slot], which is always correct for Prolog ZLS frame slots under the zframe prologue's ___ pin. SN4/Icon: pl_cells_graph=0 → FRQ path unchanged — byte-identical. ONE AUTHORITY. */
             + x86_call_dc(dc_name, dc_slot)
             + x86("jmp", L(2))
             : std::string(""))

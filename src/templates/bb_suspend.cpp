@@ -6,7 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-extern "C" void rt_gen_save_cont(void *gen_fb5, void *cont);   /* ICN-FR-5: save continuation ptr keyed by gen____ (pcall scan by fb) */
+extern "C" void rt_gen_save_cont(void *gen_fb, void *cont);   /* ICN-FR-5: save continuation ptr keyed by gen____ (pcall scan by fb) */
 extern "C" void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);   /* PL-FR-4 ZFRAME: save {trail_mark_lo, trail_mark_hi, cont_addr} triple at each Prolog zframe yield */
 extern "C" void *g_pl_zf_pending_cursor;   /* PL-FR-4 ZFRAME: set by bcps β arm to signal pending resume */
 extern "C" int   g_pl_zf_target_pcall_top;   /* PL-FR-4 BUG-FIX s14: pcall_top snapshot at resume_set time; intercept fires only when g_pcall_top == this+1 */
