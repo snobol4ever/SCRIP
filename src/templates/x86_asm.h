@@ -1599,7 +1599,7 @@ inline std::string x86_4col(const std::string & s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
-inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_4col(x86_core_(mnem, xa, xb, xc, xd)); }
+inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }   /* ⛔ PER-LINE x86_4col ERADICATED (Lon 2026-08-13 s62, in-chat: "I like eradicating pests"): this funnel used to format EVERY dispatched line, and the emit_text_n sink then re-parsed and re-formatted the same line from scratch — idempotent, so invisible, but the whole pass was thrown away.  Since the deferred-newline JOIN landed, a single line cannot join anything by construction (the join is a property of a line and its NEIGHBOUR), so the per-line pass could not even see the work.  Formatting is now ONE application at ONE place: the sink, where the whole assembled body is visible.  Byte-identical output, verified by md5 over the demo corpus. */
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
     if (!strcmp(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string(xa.s ? xa.s : "") + ":\n");
