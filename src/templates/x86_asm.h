@@ -29,6 +29,8 @@ static inline int x86_tabs_on(void) { static int t = -1; if (t < 0) { const char
 inline std::string x86_rec(const char * op) { return x86_tabs_on() ? (std::string("\t") + op + "\t") : (std::string(" ") + op + " "); }
 inline std::string x86_recn(const char * op) { return x86_tabs_on() ? (std::string("\t") + op) : (std::string(" ") + op); }
 inline std::string x86_reclbl(const std::string & nm) { return x86_tabs_on() ? (nm + ":\t") : (nm + ":"); }
+static inline int x86_4col_joinon(void) { static int j = -1; if (j < 0) { const char * e = getenv("SCRIP_ASM_JOIN"); j = (e && *e == '0') ? 0 : 1; } return j; }
+static inline int x86_col4(void) { return x86_4col_joinon() ? 78 : 88; }   /* ⛔ COLUMN 4 IS ONE COLUMN (Lon s64, in-chat: "line up those comments and JMP's inside column 4").  The BB format is FOUR columns -- LABEL / OPCODE / OPERANDS / GOTO -- and the GOTO column holds whatever the statement hands off to: a jump OR the object note.  Holding jumps at 78 and notes at 88 was FIVE columns wearing a four-column name.  ONE AUTHORITY so the two can never drift apart again; the note/jump exclusion is already guaranteed by the drop-on-join rule below, which is exactly why they CAN share. */
 enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };
 #define PORT_ALPHA   "\xCE\xB1"
 #define PORT_BETA    "\xCE\xB2"
@@ -1522,13 +1524,12 @@ static inline void x86_argnote(std::string & o) {
     std::string out; out.reserve(o.size() + o.size() / 8);
     for (size_t L = 0; L < beg.size(); L++) {
         out.append(o, beg[L], end[L] - beg[L]);
-        if (ann[L]) { int w = x86_disp_w(o.data() + beg[L], end[L] - beg[L]); int pd = 88 - w; if (pd < 1) pd = 1; out.append((size_t)pd, ' '); out.append("# "); out.append(ann[L]); }
+        if (ann[L]) { int w = x86_disp_w(o.data() + beg[L], end[L] - beg[L]); int pd = x86_col4() - w; if (pd < 1) pd = 1; out.append((size_t)pd, ' '); out.append("# "); out.append(ann[L]); }
         if (end[L] < o.size()) out.append(1, '\n');
     }
     o.swap(out);
 }
 static inline void x86_4col_to(std::string & o, size_t ls, int col) { int w = x86_disp_w(o.data() + ls, o.size() - ls); int pd = col - w; if (pd < 1) pd = 1; o.append((size_t)pd, ' '); }
-static inline int x86_4col_joinon(void) { static int j = -1; if (j < 0) { const char * e = getenv("SCRIP_ASM_JOIN"); j = (e && *e == '0') ? 0 : 1; } return j; }
 /* TAB RECORD (Lon 2026-08-13 s62b, verbatim: "would it not be best to have all x86_*() and x*() use TAB character delineated four columns with NO padding, and do formatting later on output like your second   */
 /* pass is doing -- strings would take LESS MEMORY").  Every x86_*() encoder emits its line as TAB-DELIMITED FIELDS -- `label \t opcode \t operands` -- carrying ZERO padding, and the sink splits on TAB and     */
 /* applies the columns ONCE, on output.  Field occupancy is then EXPLICIT, which deletes the whole whitespace-sniffing layer: no first-token scan, no ':' label detection, no rep/lock prefix special case (a      */
@@ -1573,7 +1574,7 @@ static inline int x86_rec_kind(const x86_rec_t & r) { if (r.marg) return r.al ? 
 inline std::string x86_4col(const std::string & s) {
     if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
-    const int jn = x86_4col_joinon(); const int CJ = jn ? 78 : 88;   /* GOTO column (Lon s62: 68 was TOO FAR LEFT -- 12 of 167 jump lines overran it and landed ragged at 69-70; +10 restores a clean column with headroom) */
+    const int jn = x86_4col_joinon(); const int CJ = x86_col4();   /* GOTO column (Lon s62: 68 was TOO FAR LEFT -- 12 of 167 jump lines overran it and landed ragged at 69-70; +10 restores a clean column with headroom) */
     std::string o; o.reserve(s.size() + s.size() / 2);
     std::string note, prevnote;   /* RUN-DEDUP (s23f): prevnote = the name standing on the previous INSTRUCTION line; both reset per x86_4col call (per chunk) so a run cannot leak across a bb_emit_x86 boundary. */
     size_t i = 0, n = s.size();
@@ -1606,7 +1607,7 @@ inline std::string x86_4col(const std::string & s) {
                 else { x86_4col_pad(o, r.op, r.ol, 17); o.append(r.ar, r.al); inst = 1; }
             }
         }
-        if (inst && !note.empty()) { int drop = isj || (willjoin && x86_disp_w(o.data() + ls, o.size() - ls) + 1 < CJ); if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, 88); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
+        if (inst && !note.empty()) { int drop = isj || (willjoin && x86_disp_w(o.data() + ls, o.size() - ls) + 1 < CJ); if (!drop && note != prevnote && o.find('#', ls) == std::string::npos) { x86_4col_to(o, ls, CJ); o.append("# "); o.append(note); prevnote = note; } if (!drop) { if (note != prevnote) prevnote.clear(); } note.clear(); }   /* ⛔ RUN-DEDUP (Lon s23f, verbatim: "do not repeat that comment. Just one will do."): a DESCR_t is TWO 8-byte halves and every template annotates both, so one object reference printed its name twice in a row.  The name belongs to the OBJECT, not to each half, so a note identical to the one on the previous INSTRUCTION line is suppressed and the run reads once at its head.  A jump takes no note by the drop-on-jump rule, and an instruction about to ABSORB a jump takes none either -- the GOTO column at 68 sits left of the note column at 88, so a note there would be overrun by its own line's jump. */
         pend = (ck == 0 || ck == 4) ? 4 : ck; pls = ls;
         i = inext;
     }
