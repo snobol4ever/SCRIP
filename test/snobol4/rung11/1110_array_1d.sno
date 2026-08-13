@@ -25,8 +25,8 @@ e003
 e004
 
 *       PROTOTYPE returns dimension string
-        DIFFER(PROTOTYPE(a), '3')                   :f(e005)
-        OUTPUT = 'FAIL 1110/005: prototype(array(3))=3' :(END)
+        DIFFER(PROTOTYPE(a), 3)                   :f(e005)
+        OUTPUT = 'FAIL 1110/005: prototype(array(3)) is integer 3' :(END)
 e005
 
 *       array created from numeric string
@@ -37,8 +37,8 @@ e005
 e006
 
 *       array with string dimension prototype
-        DIFFER(PROTOTYPE(b), '3')                   :f(e007)
-        OUTPUT = 'FAIL 1110/007: prototype string-dim array' :(END)
+        DIFFER(PROTOTYPE(b), 3)                   :f(e007)
+        OUTPUT = 'FAIL 1110/007: prototype string-dim is integer' :(END)
 e007
 
 *       assign real into array

@@ -4,38 +4,38 @@
 * (CSNOBOL4 returns uppercase type names; SPITBOL/scrip-cc return lowercase;
 *  SPITBOL -f/-F fold switches also affect case). User field values untouched.
 
-        DATA('node(val,lson,rson)')
+        DATA('NODE(VAL,LSON,RSON)')
 
-        a = node('x', 'y', 'z')
+        A = NODE('x', 'y', 'z')
 
-        DIFFER(REPLACE(DATATYPE(a),&LCASE,&UCASE), 'NODE')   :f(e001)
+        DIFFER(REPLACE(DATATYPE(A),&LCASE,&UCASE), 'NODE')   :f(e001)
         OUTPUT = 'FAIL 1115/001: datatype of node'            :(END)
 e001
 
-        DIFFER(val(a), 'x')                   :f(e002)
+        DIFFER(VAL(A), 'x')                   :f(e002)
         OUTPUT = 'FAIL 1115/002: field accessor val'   :(END)
 e002
 
 *       constructor with no args: all fields null
-        b = node()
-        DIFFER(rson(b))            :f(e003)
+        B = NODE()
+        DIFFER(RSON(B))            :f(e003)
         OUTPUT = 'FAIL 1115/003: unset field is null'  :(END)
 e003
 
 *       field mutator: accessor on left side of =
-        lson(b) = a
-        DIFFER(rson(lson(b)), 'z')                   :f(e004)
+        LSON(B) = A
+        DIFFER(RSON(LSON(B)), 'z')                   :f(e004)
         OUTPUT = 'FAIL 1115/004: nested accessor after mutate' :(END)
 e004
 
 *       VALUE() retrieves value of a named variable
-        DIFFER(VALUE('b'), b)                   :f(e005)
+        DIFFER($'B', B)                   :f(e005)
         OUTPUT = 'FAIL 1115/005: value() by variable name' :(END)
 e005
 
 *       mutate val field
-        val(a) = 'new'
-        DIFFER(val(a), 'new')                   :f(e006)
+        VAL(A) = 'new'
+        DIFFER(VAL(A), 'new')                   :f(e006)
         OUTPUT = 'FAIL 1115/006: mutate field and read back' :(END)
 e006
 
