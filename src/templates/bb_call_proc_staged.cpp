@@ -119,6 +119,33 @@ static int bcps_result_slot() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int c2farm() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }   /* CALL2BB 3b: fc-registered value-spine call (the dispatch preamble armed the RESULT window base=own quad) -- the one arg rides the TOP cell at alpha ([rsp + scc_sb] above the save block), the result replaces it IN PLACE at L(2) (net-zero rsp), and the L(2) FRQ stores self-rebase through the window */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bcps_fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* SIG (s66, Lon: "a static SIGNATURE ARRAY used by the SHIM so that it can REACH DOWN the stack himself and avoid the middle man pushes"): =1 default — sites publish {K, γcont, ωcont, off_i…} as per-site rodata quads and pass the sig address in rcx; the shim reaches the actuals in the CALLER'S OWN cells through entry-relative offsets, so the record and its gather copies are GONE.  =0 restores the s58 record protocol verbatim, BOTH halves (site + role-4 shim read this same predicate — two coherent worlds, never mixed). */
+static long bcps_sig_disp(int slot) {   /* SIG: entry-rsp-relative displacement of a frame cell, derived from THE ONE OPERAND ADDRESS AUTHORITY itself (FRQB with bump 0 — the identical resolution the record gather used, minus the record's live carve) so no regime logic is re-derived here.  Returns -1 unless the authority renders a plain non-negative [rsp(+N)] form: pinned ___ / island / dynamic-depth spellings DECLINE, and the caller falls to the slim arm — sig only where the address is a static truth. */
+    const char * t = FRQB(slot, 0); const char * p = strstr(t, "[rsp");
+    if (!p) return -1;
+    p += 4; if (*p == '#') p++;
+    while (*p == ' ') p++;
+    if (*p == ']') return 0;
+    if (*p != '+') return -1;
+    p++; while (*p == ' ') p++;
+    if (*p < '0' || *p > '9') return -1;
+    long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+    return (*p == ']') ? v : -1;
+}
+static long bcps_parse_rsp(const char * t) {   /* SIG: shared [rsp(+N)] text parse for the two displacement extractors */
+    const char * p = strstr(t, "[rsp");
+    if (!p) return -1;
+    p += 4; if (*p == '#') p++;
+    while (*p == ' ') p++;
+    if (*p == ']') return 0;
+    if (*p != '+') return -1;
+    p++; while (*p == ' ') p++;
+    if (*p < '0' || *p > '9') return -1;
+    long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+    return (*p == ']') ? v : -1;
+}
+static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }   /* SIG ZD twin: entry-rsp-relative displacement of a ZD cell — x86_zref with bias 0 (the record's live carve removed), same decline rule as bcps_sig_disp */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_SAVE_RESTORE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
  * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_SAVE_RESTORE template (bb_save_restore.cpp) and this consumer compute the SAME answer from the SAME inputs —
  * structural agreement, no drift (a disagreement bombs loudly below).  !is_generator is explicit here: the det arm arrives pre-filtered by its dispatch but role-0 has no such gate, and open_slim's
@@ -253,6 +280,31 @@ static std::string bcps_det_arm() {
                     if (!_ntz && MEDIUM_TEXT && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
                         /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
                         std::string laz = std::string(_.op_sval) + "_alpha";
+                        if (bcps_fnsig()) {
+                            /* SIG s66 ZD twin — same protocol and same eligibility guard as the non-ZD sig arm below (see its full comment): entry-relative offsets of the ZD cells, derived from the
+                             * SAME authority the gather would have used with the record bias removed (x86_zref bias 0); any half that does not render a static consecutive [rsp+N] pair, or that sits in
+                             * the fc window, DECLINES TINY ENTIRELY (the sig-only shim must never receive a record entry) and falls to slim/legacy exactly as a tiny-declined site always has. */
+                            long soffz[29]; int sigokz = ((long)_.op_ival <= 29);
+                            for (int i = 0; sigokz && i < (int)_.op_ival; i++) {
+                                int zs = _.op_zread[i];
+                                if (x86_fc_hit(zs) || x86_fc_hit(zs + 8)) { sigokz = 0; break; }
+                                long dlo = bcps_zref_disp(zs), dhi = bcps_zref_disp(zs + 8);
+                                if (dlo < 0 || dhi != dlo + 8) { sigokz = 0; break; }
+                                soffz[i] = dlo; }
+                            if (sigokz) {
+                                std::string l2z = x86_internal_name(2);
+                                std::string snmz = std::string(".Lsig") + std::to_string((long)_.x86_uid) + "z";   /* per-uid+twin interned name — see the non-ZD arm's collision note */
+                                std::string sz = x86("lea", "rcx", std::string("[rip + __]"), (uint64_t)0, snmz.c_str())
+                                     + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, laz.c_str())
+                                     + x86("jmp", "rax")
+                                     + x86_def_ext(emit_label_intern(snmz.c_str()))
+                                     + x86(".quad", (uint64_t)_.op_ival)
+                                     + x86(".quad", l2z, l2z.c_str())
+                                     + x86(".quad", l2z, l2z.c_str());
+                                for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
+                                return sz;
+                            }
+                        } else {
                         long Kbz = 16L * (long)_.op_ival + 32;
                         auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
                         return x86("sub", "rsp", Kbz)
@@ -263,6 +315,7 @@ static std::string bcps_det_arm() {
                              + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
                              + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, laz.c_str())
                              + x86("jmp", "rax");
+                        }
                     }
                     if (!scc_z) return std::string();   /* s58: tiny declined AND no scc shape — legacy fall-through, byte-identical to the old gate */
                     _tiny_declined_z: ;
@@ -498,6 +551,39 @@ static std::string bcps_det_arm() {
                      * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
                     std::string la = std::string(_.op_sval) + "_alpha";
+                    if (bcps_fnsig()) {
+                        /* ⭐⭐⭐ SIG s66 (Lon in-chat: "at each call site ... a static SIGNATURE ARRAY used by the SHIM so that it can REACH DOWN the stack himself and avoid the middle man pushes ...
+                         * Instead of having a length on the stack and variable length contiguous, you'd have whatever it is and a STATIC MAP of how to reach them all").  The record and its gather are
+                         * DELETED: the actuals stay in the CALLER'S OWN operand cells (each at a compile-time-known depth this very emitter already resolved — the knowledge was being spent on 4
+                         * mov-instructions per arg, now it is spent on one .quad of DATA per arg), and the site collapses to lea rcx,sig + lea/jmp.  Sig = {K, γcont, ωcont, off_i…} all-quads in the
+                         * site's own chain, entry-rsp-relative (rsp AT the jmp — the shim's entry rsp — is the ONE stated reference point).  The shim swaps [entry+off_i] ↔ formal-GVA in place, so the
+                         * old formal parks in the caller's own cell — same pushdown-by-swap as s58, one copy fewer, and the K-dependent frame geometry on the shim dies (see bb_save_restore s66).
+                         * Consequences: over-arity extras never move and are released by statement_end like every other operand cell; the shim release is a CONSTANT.  ELIGIBILITY: every operand half
+                         * must resolve to a static consecutive [rsp+N] pair AND be outside the fc window (a parked old-formal in a rotating window is a clobber hazard unproven this rung) — otherwise
+                         * DECLINE TINY ENTIRELY and fall to slim, so the sig-only shim never receives a record-shaped entry.  γcont==ωcont==L(2) kept this rung (the DT_FAIL cmp routes; the γ≠ω split
+                         * is a separable follow-up).  SCRIP_FN_SIG=0 restores the s58 record protocol below, byte-identical. */
+                        long soff[29]; int sigok = ((long)_.op_ival <= 29);
+                        for (int i = 0; sigok && i < (int)_.op_ival; i++) {
+                            int slot = bcps_arg_slot(_.node, argblks, i);
+                            if (x86_fc_hit(slot) || x86_fc_hit(slot + 8)) { sigok = 0; break; }
+                            long dlo = bcps_sig_disp(slot), dhi = bcps_sig_disp(slot + 8);
+                            if (dlo < 0 || dhi != dlo + 8) { sigok = 0; break; }
+                            soff[i] = dlo; }
+                        if (sigok) {
+                            std::string l2 = x86_internal_name(2);
+                            std::string snm = std::string(".Lsig") + std::to_string((long)_.x86_uid);   /* own namespace: L(3)/L(4) are the legacy arm's landing labels in this node family, and the two twins of one box may BOTH emit — per-uid+twin interned name, collision-free by construction */
+                            std::string s = x86("lea", "rcx", std::string("[rip + __]"), (uint64_t)0, snm.c_str())
+                                 + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, la.c_str())
+                                 + x86("jmp", "rax")
+                                 + x86_def_ext(emit_label_intern(snm.c_str()))
+                                 + x86(".quad", (uint64_t)_.op_ival)
+                                 + x86(".quad", l2, l2.c_str())
+                                 + x86(".quad", l2, l2.c_str());
+                            for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
+                            return s;
+                        }
+                        /* SIG-ineligible site under SIG mode: the shim speaks sig ONLY, so this site must NOT jmp <fn>_alpha — fall through to slim/legacy exactly as a tiny-declined site always has */
+                    } else {
                     long Kb = 16L * (long)_.op_ival + 32;
                     return x86("sub", "rsp", Kb)
                          + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
@@ -509,6 +595,7 @@ static std::string bcps_det_arm() {
                          + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
                          + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, la.c_str())
                          + x86("jmp", "rax");
+                    }
                 }
                 if (!scc) return std::string();   /* s58: tiny declined AND no scc shape — fall through to the legacy path outside this lambda, byte-identical to the old gate */
                 /* AB-3b path: when this program has DEFINE activation blocks (SCRIP_AB on, ab_n>0),
