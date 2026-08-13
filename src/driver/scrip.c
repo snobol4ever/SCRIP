@@ -928,7 +928,7 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
-                proc_names_buf[n_procs++] = pname;
+                proc_names_buf[n_procs++] = pname ? strdup(pname) : NULL;   /* s62 SAFETY: strdup so the name pointer survives any arena reset between the proc loop and the post-main backfill at line 1309 */
                 free(pn);
             }
             int n_cls_emit = 0;
@@ -1154,7 +1154,7 @@ int main(int argc, char **argv)
                     ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
                     if (pe->dyn_scope) continue;   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_ab_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                    { const char *_rn = proc_names_buf[i]; if (_rn && strncmp(_rn, "LBL__", 5) == 0) _rn = asm_sym_name(_rn + 5); emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _rn); }   /* STATEMENT-ORDER (s62): LBL__<N> rows register under the entry-label name (strip prefix) — ARG(.jlab,1) looks up "jlab", not "LBL__jlab"; registering under "LBL__jlab" left the lookup empty and ARG returned wrong results */
                     if (pe->dyn_scope) {
                         for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
                             emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
@@ -1243,6 +1243,7 @@ int main(int argc, char **argv)
                 emit_textf("  add rsp, 8\n");
                 emit_textf("  ret\n");
             }
+            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }   /* s62 SAFETY: free strdup'd names */
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
@@ -1297,6 +1298,7 @@ int main(int argc, char **argv)
                 { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
                   if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
                       if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
+                          if (bbg->n_balias >= _na) break;   /* bounds guard: _na counted the same predicate, but duplicates or race could produce more — never write past the allocation */
                           IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
                           char _ab[300]; snprintf(_ab, sizeof _ab, "%s_body", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }   /* BODY-ALIAS (Lon s62): chase each LBL__ entry through the transparent relays to its statement_begin — the SAME chase codegen's HQ-s26 entry bind uses — and stamp the alias pair on main's graph; the emitter renames that statement's α to <FN>_body at its source position.  Consumers already speak this name: role-4 shim fold target, bb_goto_dyn fold arm, and the LBL__ set_fn lea. */
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
@@ -1305,6 +1307,8 @@ int main(int argc, char **argv)
                 /* LADDER AB (AB-1): emit IR_FUNC_ACTIVATE activation blocks as dead-code .text after the main chain.
                  * These are jump-target-only until AB-3 flips call sites.  Blocks carry fn_cell$.data + α frame stub. */
                 { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
+                /* STATEMENT-ORDER FB-BACKFILL (s62): LBL__ rows share main's frame — ARG/LOCAL read frame_bytes at runtime to index formals/locals.  At record time (line 926) we wrote 0 because the LBL__ standalone chain no longer emits and g_last_flat_frame_bytes was stale from the prior proc; now main has emitted, g_last_flat_frame_bytes holds its true value, and every LBL__ row that shares main's bb_idx gets that value so the registration call is emitted correctly.  Use proc_table directly (proc_names_buf may be corrupted by emission-time arena activity on large programs). */
+                { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
             }
             g_gva_active = 0;
             g_frame_active = 0;
