@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "emit.h"
 extern "C" int bb_tiny_shim_ok(const char *, int);   /* s59 ONE-AUTHORITY: shim emits iff the shared site predicate (bb_call_proc_staged.cpp) says so — a jmp <fn>_alpha can never dangle */
+static int fnrbp(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_RBP"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* s63 RBP-FUNCTION killswitch: =0 restores the s58 BOMB floaters + frameless shim tail for the descent instrument; one predicate gates BOTH halves of the bracket (writer + readers), drift-proof by shared condition */
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
@@ -77,6 +78,7 @@ std::string bb_save_restore() {
         std::string la = std::string(fn4) + "_alpha", lb = std::string(fn4) + "_gamma", lo = std::string(fn4) + "_omega";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly */
         std::string blb = std::string(en4) + "_body";   /* BARE-CHAIN (Lon s62): the body chain's one label — proc_LBL__<FN>_α wrapper is gone */
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
+        /* s63 fnrbp: SCRIP_FN_RBP=0 restores the s58 BOMB floaters (the descent instrument) and the frameless shim tail — one predicate, both halves of the bracket, drift-proof */
         auto RESTORE4 = [&](int lid) {   /* shared beta/omega restore body: needs rsp at tail base; leaves rcx=K r8=ext-base; clobbers rax; preserves rdi/rsi; lid = per-instantiation label-id base (beta/omega emit this twice in ONE box — ids must not collide) */
             return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
                  + SCALE16()
@@ -121,6 +123,12 @@ std::string bb_save_restore() {
                         + x86_deflabel_id(41 + i); })
              + x86("lea", "r10", std::string("[rip + __]"), (uint64_t)0, lb.c_str())
              + x86("lea", "r11", std::string("[rip + __]"), (uint64_t)0, lo.c_str())
+             + IF(fnrbp(), x86("comment", "s63 RBP-FUNCTION WRITER (Lon: ONE frame, FUNCTION linkage): pin the return point.  Frame [rbp+0]=enclosing rbp (recursion chain, LIFO)  [rbp+8]=gamma  [rbp+16]=omega  [rbp+24]=pad (reserved: RESULT base).  32B keeps C-call 16-alignment parity for the whole body.  rbp is SysV callee-saved: survives every C crossing; the ONLY other rbp writers product-wide are nested instances of this same bracket.  Readers: the RETURN/FRETURN/NRETURN floaters — mov rsp,rbp restores the UNKNOWN body depth to alpha-end depth P, pops the frame, jmps the banked landing; gamma/omega are pure functions of rsp==P (RESTORE4 rederives rcx=K and r8 from rsp).  Interior carves stay SILENT-NO-WHACK: nothing between here and the floater releases anything, the frame pop discards it wholesale.")
+                         + x86("sub", "rsp", (long)8)
+                         + x86("push", "r11")
+                         + x86("push", "r10")
+                         + x86("push", "rbp")
+                         + x86("mov", "rbp", "rsp"))
              + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, blb.c_str())
              + x86("jmp", "rax")
              + x86_def_ext(emit_label_intern(lb.c_str()))
@@ -156,6 +164,21 @@ std::string bb_save_restore() {
          * need RBP" — maybe RBP, maybe something else; the bombs make every UNKNOWN-STACK-DEPTH spot self-evident).  The coming-out side is FROZEN: RETURN arrives at a depth no one can know without a
          * frame anchor (the measured −16 class), so the jmp-r10/r11 wires are replaced by loud named bombs.  Reaching the RETURN bomb IS the descent test passing: args installed, body ran, transfer
          * arrived.  git revert is the undo when the depth mechanism lands. */
+        if (fnrbp())
+            /* s63 RBP-FUNCTION READERS (Lon: "RETURN, FRETURN, and NRETURN can restore an unknown stack depth and immediately return to the SHIM at the proper stack depth by POPPING the RBP stack frame").
+             * rbp = innermost activation's pin (the shim's writer); [rbp+0]=enclosing rbp  [rbp+8]=gamma  [rbp+16]=omega  [rbp+24]=pad.  After the full 32B pop rsp == alpha-end depth P — exactly what
+             * gamma/omega's rsp-derived RESTORE4 + constant release assume.  The floaters are program-wide singletons and discover the callee DYNAMICALLY through rbp — this is the whole point of the frame.
+             * NRETURN rides gamma (manual: success by name; the result cell holds a NAME descr, deref is the consumer's business — 1013 is the witness).  rcx is free here (gamma reloads K itself).
+             * ⛔ KNOWN EDGE: a top-level :(RETURN) with no active frame jumps through whatever rbp holds — pre-rung it bombed; SPITBOL errors there too ("&FNCLEVEL==0" class).  Accepted, noted. */
+            return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (s63: pop the RBP frame, land on gamma)" :
+                                   role == 2 ? "IR_SAVE_RESTORE FRETURN floater (s63: pop the RBP frame, land on omega)" :
+                                               "IR_SAVE_RESTORE NRETURN floater (s63: pop the RBP frame, land on gamma — by-name result)")
+                 + x86_alpha()
+                 + x86("mov", "rsp", "rbp")
+                 + x86("pop", "rbp")
+                 + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx") + x86("add", "rsp", (long)8)
+                              : x86("pop", "rcx") + x86("add", "rsp", (long)16))
+                 + x86("jmp", "rcx");
         return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (s58: BOMB — coming-out frozen)" :
                                role == 2 ? "IR_SAVE_RESTORE FRETURN floater (s58: BOMB — coming-out frozen)" :
                                            "IR_SAVE_RESTORE NRETURN floater (s58: BOMB — coming-out frozen)")
