@@ -434,8 +434,8 @@ n26_match_any_α:
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         mov              edi, esi
-                        mov              rsi, qword ptr [rsp + 40]                      # coerce_string
-                        mov              edx, dword ptr [rsp + 36]
+                        mov              rsi, qword ptr [rsp + 72]                      # coerce_string
+                        mov              edx, dword ptr [rsp + 68]
                         mov              qword ptr [g_rtcc_block + 0], rax
                         mov              rax, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              qword ptr [rax + 8],  rcx
@@ -1486,7 +1486,7 @@ n59_match_begin_af:
                                                                                         jmp   n58_coerce_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n60_match_pos_α:
-                        mov              rax, qword ptr [rsp + 8]
+                        mov              rax, qword ptr [rsp + 40]
                         cmp              r14d, eax
                                                                                         jne   n59_match_begin_β
                                                                                         jmp   n61_match_len_α
