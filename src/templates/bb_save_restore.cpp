@@ -38,10 +38,12 @@ std::string bb_save_restore() {
          * s12).  Entry-rsp banking moves to the SPINE (stack-resident record), not a parallel global — that
          * half is the next seat's WREG-3 shape; until it lands, RETURN-from-interior-growth is KNOWN BROKEN
          * (Lon: "worry not about breakage").  git revert is the undo. */
-        return x86("comment", "IR_SAVE_RESTORE wire-adopt (s54 LON RULING: globals GONE — wires ride r10/r11, no g_pcall bank)")
+        /* ⭐ FUNCTION LINKAGE s55 (Lon in-chat): "Can you not use R10 and R11 for success and fail return address
+         * for FUNCTION linkage?  Just like any BB BLOB interface."  YES — the call sites now speak r10/r11 DIRECTLY
+         * (bb_glue_pass_wires_blob), so the rcx/rdx→r10/r11 adopt hop is DELETED.  This box emits nothing: the wire
+         * pair arrives already seated.  rcx/rdx remain the chain contract (rt_chain_enter, EVAL/CODE) only. */
+        return x86("comment", "IR_SAVE_RESTORE wire-adopt (s55: EMPTY — sites set r10/r11 directly, adopt hop deleted)")
              + x86_alpha()
-             + x86("mov", "r10", "rcx")
-             + x86("mov", "r11", "rdx")
              + x86_gamma();
     }
     if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
