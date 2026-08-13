@@ -13,7 +13,7 @@ extern "C" long *rt_anchor_ptr(void);   /* ZW-4: g_anchor demoted to static in k
 }
 #include "x86_asm.h"
 /* CAS-SENTINEL-CLEAN: g_patstk_sp extern removed — no pattern stack island */
-extern "C" uint32_t g_cap_gen;
+/* CAPGEN-ERAD COMPLETION: `extern "C" uint32_t g_cap_gen;` DELETED -- this template no longer names the symbol.  ⛔ THE DEFINITION IN pattern_match.c:747 STAYS, AND STAYS DEFAULT-VISIBILITY: the flat rt_cap lane (rt_cap_push/pop/top) still gen-checks it in 10 artifacts, and its own comment records that re-hiding it broke the LINK of 173/316 mode-4 programs while mode 3 stayed green. */
 #define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
 #define subjc() (_.op_subj_cell)
 static int hpin(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_HEAD_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* HEAD-PIN killswitch (s22z): =0 restores the unpinned armed head for A/B */
@@ -49,9 +49,7 @@ std::string bb_match_begin() {
          + x86("note", HKN(1)) + x86("mov", stfh() ? HKQ(1) : FRQ(_.op_off + 48), "r13")   /* PATCTX (Lon directive 2026-07-29): save the OUTER Σ/δ/Δ before rt_match_enter sets them anew; both exits restore.  α depth == the FRQ-baked depth (the hfc 32B cell is carved below), so the plain slot spelling is valid in every port/frame arm. */
          + x86("note", HKN(2)) + x86("mov", stfh() ? HKQ(2) : FRQ(_.op_off + 56), "r14")
          + x86("note", HKN(3)) + x86("mov", stfh() ? HKQ(3) : FRQ(_.op_off + 64), "r15")
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_cap_gen, "g_cap_gen")
-         + x86("mov", "eax", RDD("rcx", 0))
-         + x86("note", HKN(4)) + x86("mov", stfh() ? HKQ(4) : FRQ(_.op_off + 72), "rax")   /* PATCTX-2: the capture generation id is pattern context too -- read BEFORE rt_match_enter draws a fresh id from the well; both exits hand it back via rt_match_ctx_restore arg 3 */
+         /* CAPGEN-ERAD COMPLETION (this rung): the PATCTX-2 save is DELETED -- 3 instructions (lea/mov/mov) that fed a value nobody reads.  rt_match_ctx_restore stopped WRITING g_cap_gen at CAPGEN-ERAD (2026-08-08, rtx_match.S:394 + gen_runtime.c:146 `(void)capgen`); bb_match_end.cpp:72 dropped arg3 in that same commit, this file did not, so alpha kept minting a value for a parameter both implementations discard.  MEASURED before cutting, not inferred (the s50 FACT RULE): 335 rt_match_enter sites / 224 programs read g_cap_gen at alpha, and the only consumers of the generation stamp -- rt_cap_push/pop/top -- appear in 10 of 1272 emitted artifacts.  head.capgen_save (+72) stays ALLOCATED in zeta_storage.c so op_off accounting does not ripple; reclaim is a named follow-up, same treatment head.incoming____ (+40) got at REG-2. */
          + IF(_.flat_deep_arrival && !rpin(), x86("note", HKN(0)) + x86("mov", stfh() ? HKQ(0) : FRQ(_.op_off + 40), "rsp"))   /* REPL-PIN: complementary to the widened pin on the SAME hpin() -- the old !(subjc&&hpin) guard let this raw flat save fire BESIDE the pin for the zres population, a stray write the pin's rsp-relative old____ slot made redundant; exclusive-by-predicate now, per the pin comment's own "exclusive by construction" law. */   /* BRACKET-GATE (s193): the +40 save exists to bracket the ARBNO zv() borrow (and any deep repoint); a depth-static graph has no repointer, so save AND both restores gate together on the same predicate the outer quartet reads — drift-proof by shared condition.  HEAD-PIN (s22z): under the pin the slot already holds the OLD ___ (written rsp-relatively before the pin above); this FRQ save would overwrite it with the NEW base and turn both exit restores into self-no-ops — the exact disease the pin cures — so the arms are exclusive by construction. */
          /* ZW-0 stage 2: island arm deleted -- unreachable under ZC_FRAME_RSP default */
          + IF(!_.op_zres && !subjc(), rpin()
@@ -64,7 +62,7 @@ std::string bb_match_begin() {
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
          + x86("rtcc_rl")
-         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("mov", RDQ("r12", 16), (long)0) + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-SENTINEL-CLEAN: [+0]=tag0,[+8]=rsp_mark,[+16]=0(was patstk,dead pad); CAS-MARKER (Lon s8): tag-0 sentinel at match start; RELEASE/fail scan to it depth-free. */
+         + x86("note", "cas_top") + x86("mov", RDQ("r12", 0), (long)0) + x86("note", "cas_rsp_mark") + x86("mov", RDQ("r12", 8), "rsp") + x86("note", "cas_top") + x86("add", "r12", (long)24)   /* CAS-SENTINEL-CLEAN: [+0]=tag0,[+8]=rsp_mark; CAS-MARKER (Lon s8): tag-0 sentinel at match start; RELEASE/fail scan to it depth-free.  DEAD-PAD CUT (this rung): the [+16] zero store is DELETED -- its own comment already read "(was patstk, dead pad)" since the pattern-stack island was removed, and nothing reads +16 in any template or .S (the rt_patstk_lazy_init restore was cut in the same CAS-SENTINEL-CLEAN commit).  STRIDE UNCHANGED at 24: the sentinel keeps its size so every `sub r12,24` / tag-0 scan in bb_match_begin, bb_match_end and the release pump is untouched -- this cuts the STORE, not the SLOT, and shrinking the stride is a separate rung with a much wider blast radius. */
          + IF(x86_zc_frame() == ZC_FRAME_RSP, (hfc() ? x86("mov", "rax", "rsp")
                                                 + x86_zclaim(32)
                                                 + x86("note", "rsp_mark") + x86("mov", stfh() ? HKM() : FRQ(_.op_off + 16), "rax")
@@ -102,8 +100,8 @@ std::string bb_match_begin() {
          + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
-         + x86("note", HKN(4)) + x86("mov", "rdx", stfh() ? HKQ(4) : FRQ(_.op_off + 72))
-         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror (pattern_match.c / runtime_eval.c readers) */
+         /* CAPGEN-ERAD COMPLETION: the rdx stage is DELETED -- arg3 is discarded by BOTH implementations, so this load fed nothing.  bb_match_end.cpp:72 has passed 2 args since CAPGEN-ERAD; the two exits now agree, which is the property that let this rot survive unseen for a week. */
+         + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror -- STILL LOAD-BEARING, do not cut: live readers are pattern_match.c:798 (capture resolution base), :999-1000 (literal compare), rt.c:540-562 (AB frame snapshot/restore) and gc_heap.c (Σ as a GC scan root) */
          + IF(_.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))   /* BRACKET-GATE (s193): restore only if the save above ran.  HEAD-PIN (s22z): under the pin this restore MOVES to the statement-terminal cut (x86_asm.h) -- the sole release authority -- because the direct af/β fail edges bypass this tail entirely (the 061 m3 witness: `add rsp,K; jmp NO` with ___ left on the region); restoring here TOO would leave the cut's [___+off] read pointing into the restored OLD frame. */
          + IF(emit_match_begin_stfh_k() > 0, x86_zrelease((long)emit_match_begin_stfh_k()))   /* ⭐ MB-ω OWN-K (09h, THE UNWIND clause 2): the zls restore above lands rsp on the POST-carve mark (deliberate -- the HKQ/HKM/HKD zone must stay ABOVE rsp through the rt_match_ctx_restore C call), so own-K is released HERE, last before jmp pred_β, after every ___-relative read of the zone.  Amount through THE ONE AUTHORITY (emit_match_begin_stfh_k, the parallel-landed ZD-8·STFH-CARVE spelling adopted at the 09h rebase): 0 under flat_stmt_frame and SCRIP_OS_CAP=0 -- byte-identical killswitch. */
          + x86_omega();
