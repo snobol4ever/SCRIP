@@ -2034,6 +2034,7 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label) {
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
+    gd->seal = 1;   /* ⭐ DEFINE-FOLD (s53): fold-eligible mark -- this goto's target is the CONSTANT entry label of a DEFINE, whose LBL__ body proc exists in this same compilation.  bb_goto_dyn's fold arm reads it (staged as op_ival at the dispatch) and emits the DIRECT transfer `lea rdi,[rip+proc_LBL__<name>_α]; call rt_chain_enter`, deleting the per-call rt_goto_transfer string lookup while preserving the chain protocol (callee-save pushes + fall-off landing) verbatim.  seal is free on this kind (no other consumer). */
     IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller ___ into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
     g->entry = ad;
     return g;

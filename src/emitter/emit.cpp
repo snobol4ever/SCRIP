@@ -921,7 +921,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
     if (nd->op == IR_STATEMENT_BEGIN || nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_emit.op_stno = (int32_t)IR_LIT(nd).ival;   /* MON-RE (SE-6 session): op_stno was promoted from IR_LIT(nd).ival for EVERY kind, but that field is the shared payload union -- a LEN count, a POS offset, ARBNO's ival=1, an ALT arity.  op_stno was therefore clobbered continuously during the walk, and the monitor LABEL tap baked whatever value happened to be resident when a STATEMENT_BEGIN emitted (nc.sno: statement 2 taps as stno=6).  Only the statement-bracket kinds carry a statement number, so only they may promote it; the tap's `op_stno > 0` guard was selecting accidents, not statements. */
-    g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : IR_LIT(nd).ival;
+    g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : (nd->op == IR_GOTO_DEFERRED ? (int64_t)nd->seal : IR_LIT(nd).ival);   /* ⭐ DEFINE-FOLD (s53): GOTO_DEFERRED's ival half of the union is CLOBBERED by the sval heap pointer; the fold-eligible mark rides nd->seal instead, staged here so the drive-phase value survives to the template. */
     if (nd->op == IR_SAVE_RESTORE) { int64_t r = (int64_t)zd_sr_role(nd); g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }   /* CALL2BB UNION-TAG: IR.h's sval/ival/dval are ONE union — roles 1-3 write ival and never sval; role 0 writes sval (the callee, an lp_strdup heap pointer) and never ival.  A heap pointer is never 1..3, so the arm read back IS the role; normalize HERE (the single dispatch point) so op_ival is a clean 0..3 and op_sval is name-or-null — templates never see the raw union.  The slice-1 code was accidentally correct (the pointer fell past the 1/2/3 role checks into the role-0 body); this makes the tag explicit and keeps the raw union read out of every other op_sval consumer. */
     g_emit.op_node_kind = (int)nd->op;
     g_emit.op_cap_anchor = 0;   /* FB-STMT per-node bit (Lon 2026-07-29) — twin lives in DRIVE_FILL; OS-2 anchor bit cleared per node, staged only at the capture-family dispatch */
@@ -1394,7 +1394,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_GOTO_DEFERRED: {
-        g_emit.op_sval = IR_LIT(nd).sval; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+        g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_ival = nd->seal; DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;   /* ⭐ DEFINE-FOLD (s53): op_ival carries the fold-eligible seal (1 = constant DEFINE entry label, bb_goto_dyn emits the direct chain transfer) */
     }
     case IR_SAVE_RESTORE: {
         { int64_t v = IR_LIT(nd).ival; int64_t r = (v == 1 || v == 2 || v == 3) ? v : 0; g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }   /* UNION-TAG normalization, twin of the dispatch-point block (which runs later and would otherwise re-poison these from the raw union) */
