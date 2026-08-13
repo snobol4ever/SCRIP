@@ -161,21 +161,22 @@ n7_match_assign_save_β:
                                                                                         jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_alternate_α:
-                        mov              dword ptr [rsp + 176], r14d
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
                         lea              rax, [rip + .Lx39_21]
-                        mov              qword ptr [rsp + 192], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n17_match_lit_α
 .Lx39_21:
                         lea              rax, [rip + .Lx39_19]
-                        mov              qword ptr [rsp + 192], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n16_match_lit_α
 n8_match_alternate_s0:
                         lea              rax, [rip + .Lx39_40]
-                        mov              qword ptr [rsp + 184], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_match_alternate_as
 n8_match_alternate_s1:
                         lea              rax, [rip + .Lx39_41]
-                        mov              qword ptr [rsp + 184], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n8_match_alternate_as
 .Lx39_40:
                                                                                         jmp   n17_match_lit_β
@@ -184,13 +185,14 @@ n8_match_alternate_s1:
 n8_match_alternate_as:
                                                                                         jmp   n9_match_assign_cond_α
 n8_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 184]
+                        mov              rax, qword ptr [rsp + 8]
                                                                                         jmp   rax
 n8_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 176]
-                        mov              rax, qword ptr [rsp + 192]
+                        mov              r14d, dword ptr [rsp + 0]
+                        mov              rax, qword ptr [rsp + 16]
                                                                                         jmp   rax
 .Lx39_19:
+                        add              rsp, 32
                                                                                         jmp   n7_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_assign_cond_α:

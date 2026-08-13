@@ -446,21 +446,22 @@ n21_statement_end_β:
                                                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n22_match_alternate_α:
-                        mov              dword ptr [rsp + 272], r14d
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
                         lea              rax, [rip + .Lx67_21]
-                        mov              qword ptr [rsp + 288], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n24_match_lit_α
 .Lx67_21:
                         lea              rax, [rip + .Lx67_19]
-                        mov              qword ptr [rsp + 288], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n23_match_lit_α
 n22_match_alternate_s0:
                         lea              rax, [rip + .Lx67_40]
-                        mov              qword ptr [rsp + 280], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n22_match_alternate_as
 n22_match_alternate_s1:
                         lea              rax, [rip + .Lx67_41]
-                        mov              qword ptr [rsp + 280], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n22_match_alternate_as
 .Lx67_40:
                                                                                         jmp   n24_match_lit_β
@@ -469,13 +470,14 @@ n22_match_alternate_s1:
 n22_match_alternate_as:
                                                                                         jmp   n10_match_arbno_as
 n22_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 280]
+                        mov              rax, qword ptr [rsp + 8]
                                                                                         jmp   rax
 n22_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 272]
-                        mov              rax, qword ptr [rsp + 288]
+                        mov              r14d, dword ptr [rsp + 0]
+                        mov              rax, qword ptr [rsp + 16]
                                                                                         jmp   rax
 .Lx67_19:
+                        add              rsp, 32
                                                                                         jmp   n10_match_arbno_af
 #-----------------------------------------------------------------------------------------------------------------------
 n23_match_lit_α:

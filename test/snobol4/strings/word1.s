@@ -67,21 +67,22 @@ n3_match_assign_cond_β:
                                                                                         jmp   n2_match_arb_β
 #-----------------------------------------------------------------------------------------------------------------------
 n4_match_alternate_α:
-                        mov              dword ptr [rsp + 96], r14d
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
                         lea              rax, [rip + .Lx16_21]
-                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n6_match_lit_α
 .Lx16_21:
                         lea              rax, [rip + .Lx16_19]
-                        mov              qword ptr [rsp + 112], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n5_match_lit_α
 n4_match_alternate_s0:
                         lea              rax, [rip + .Lx16_40]
-                        mov              qword ptr [rsp + 104], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_match_alternate_as
 n4_match_alternate_s1:
                         lea              rax, [rip + .Lx16_41]
-                        mov              qword ptr [rsp + 104], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n4_match_alternate_as
 .Lx16_40:
                                                                                         jmp   n6_match_lit_β
@@ -90,13 +91,14 @@ n4_match_alternate_s1:
 n4_match_alternate_as:
                                                                                         jmp   proc_PAT$0_γ
 n4_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 104]
+                        mov              rax, qword ptr [rsp + 8]
                                                                                         jmp   rax
 n4_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 96]
-                        mov              rax, qword ptr [rsp + 112]
+                        mov              r14d, dword ptr [rsp + 0]
+                        mov              rax, qword ptr [rsp + 16]
                                                                                         jmp   rax
 .Lx16_19:
+                        add              rsp, 32
                                                                                         jmp   n3_match_assign_cond_β
 #-----------------------------------------------------------------------------------------------------------------------
 n5_match_lit_α:

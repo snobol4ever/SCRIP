@@ -2291,21 +2291,22 @@ n230_match_defer_β:
                                                                                         jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n231_match_alternate_α:
-                        mov              dword ptr [rsp + 32], r14d
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
                         lea              rax, [rip + .Lx240_21]
-                        mov              qword ptr [rsp + 48], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n235_var_α
 .Lx240_21:
                         lea              rax, [rip + .Lx240_19]
-                        mov              qword ptr [rsp + 48], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n232_var_α
 n231_match_alternate_s0:
                         lea              rax, [rip + .Lx240_40]
-                        mov              qword ptr [rsp + 40], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n231_match_alternate_as
 n231_match_alternate_s1:
                         lea              rax, [rip + .Lx240_41]
-                        mov              qword ptr [rsp + 40], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n231_match_alternate_as
 .Lx240_40:
                                                                                         jmp   n237_match_value_β
@@ -2314,13 +2315,14 @@ n231_match_alternate_s1:
 n231_match_alternate_as:
                                                                                         jmp   proc_PAT$0_γ
 n231_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 40]
+                        mov              rax, qword ptr [rsp + 8]
                                                                                         jmp   rax
 n231_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 32]
-                        mov              rax, qword ptr [rsp + 48]
+                        mov              r14d, dword ptr [rsp + 0]
+                        mov              rax, qword ptr [rsp + 16]
                                                                                         jmp   rax
 .Lx240_19:
+                        add              rsp, 32
                                                                                         jmp   proc_PAT$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n232_var_α:

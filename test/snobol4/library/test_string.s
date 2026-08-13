@@ -1360,21 +1360,22 @@ n165_match_pos_β:
                                                                                         jmp   n163_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n166_match_alternate_α:
-                        mov              dword ptr [rsp + 1424], r14d
+                        sub              rsp, 32
+                        mov              dword ptr [rsp + 0], r14d
                         lea              rax, [rip + .Lx204_21]
-                        mov              qword ptr [rsp + 1440], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n175_match_span_α
 .Lx204_21:
                         lea              rax, [rip + .Lx204_19]
-                        mov              qword ptr [rsp + 1440], rax
+                        mov              qword ptr [rsp + 16], rax
                                                                                         jmp   n174_match_lit_α
 n166_match_alternate_s0:
                         lea              rax, [rip + .Lx204_40]
-                        mov              qword ptr [rsp + 1432], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n166_match_alternate_as
 n166_match_alternate_s1:
                         lea              rax, [rip + .Lx204_41]
-                        mov              qword ptr [rsp + 1432], rax
+                        mov              qword ptr [rsp + 8], rax
                                                                                         jmp   n166_match_alternate_as
 .Lx204_40:
                                                                                         jmp   n175_match_span_β
@@ -1383,13 +1384,14 @@ n166_match_alternate_s1:
 n166_match_alternate_as:
                                                                                         jmp   n167_match_assign_save_α
 n166_match_alternate_β:
-                        mov              rax, qword ptr [rsp + 1432]
+                        mov              rax, qword ptr [rsp + 8]
                                                                                         jmp   rax
 n166_match_alternate_af:
-                        mov              r14d, dword ptr [rsp + 1424]
-                        mov              rax, qword ptr [rsp + 1440]
+                        mov              r14d, dword ptr [rsp + 0]
+                        mov              rax, qword ptr [rsp + 16]
                                                                                         jmp   rax
 .Lx204_19:
+                        add              rsp, 32
                                                                                         jmp   n165_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n167_match_assign_save_α:
