@@ -33,6 +33,11 @@ stack_init_alpha:       mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [rsp + 32], rcx
                         lea              r10, [rip + stack_init_gamma]
                         lea              r11, [rip + stack_init_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_init_body];        jmp   rax
 stack_init_gamma:       mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
@@ -141,6 +146,11 @@ stack_push_alpha:       mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 40], 0
 .Lx17_41:               lea              r10, [rip + stack_push_gamma]
                         lea              r11, [rip + stack_push_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_push_body];        jmp   rax
 stack_push_gamma:       mov              rdi, qword ptr [r9 + 16]             # stack_push
                         mov              rsi, qword ptr [r9 + 24]
@@ -267,6 +277,11 @@ stack_pop_alpha:        mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 72], 0
 .Lx26_41:               lea              r10, [rip + stack_pop_gamma]
                         lea              r11, [rip + stack_pop_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_pop_body];         jmp   rax
 stack_pop_gamma:        mov              rdi, qword ptr [r9 + 48]             # stack_pop
                         mov              rsi, qword ptr [r9 + 56]
@@ -378,6 +393,11 @@ stack_peek_alpha:       mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [rsp + 32], rcx
                         lea              r10, [rip + stack_peek_gamma]
                         lea              r11, [rip + stack_peek_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_peek_body];        jmp   rax
 stack_peek_gamma:       mov              rdi, qword ptr [r9 + 80]
                         mov              rsi, qword ptr [r9 + 88]
@@ -471,6 +491,11 @@ stack_top_alpha:        mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [rsp + 32], rcx
                         lea              r10, [rip + stack_top_gamma]
                         lea              r11, [rip + stack_top_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_top_body];         jmp   rax
 stack_top_gamma:        mov              rdi, qword ptr [r9 + 96]
                         mov              rsi, qword ptr [r9 + 104]
@@ -579,6 +604,11 @@ stack_depth_alpha:      mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 136], 0
 .Lx53_41:               lea              r10, [rip + stack_depth_gamma]
                         lea              r11, [rip + stack_depth_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + stack_depth_body];       jmp   rax
 stack_depth_gamma:      mov              rdi, qword ptr [r9 + 112]            # stack_depth
                         mov              rsi, qword ptr [r9 + 120]
@@ -3174,13 +3204,16 @@ n329_assign_α:          mov              rsi, qword ptr [rsp + 2864]
 #-----------------------------------------------------------------------------------------------------------------------
 n330_statement_end_α:                                                         jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 lea              rdi, [rip + .S2]
-                        call             rt_bomb@PLT
-                        ud2
+RETURN:                 mov              rsp, rbp
+                        pop              rbp
+                        pop              rcx
+                        add              rsp, 16;                             jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
-FRETURN:                lea              rdi, [rip + .S3]
-                        call             rt_bomb@PLT
-                        ud2
+FRETURN:                mov              rsp, rbp
+                        pop              rbp
+                        add              rsp, 8
+                        pop              rcx
+                        add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 NRETURN:                sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
@@ -3235,7 +3268,5 @@ main_ω:
                         .section         .rodata
 .S0:                    .string          "w1"
 .S1:                    .string          "w2"
-.S2:                    .string          "BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
-.S3:                    .string          "BOMB-FRETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
                         .text
                         .section         .note.GNU-stack,"",@progbits

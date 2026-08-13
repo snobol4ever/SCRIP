@@ -69,6 +69,11 @@ swap_alpha:             mov              rcx, qword ptr [rsp + 0]
                         mov              qword ptr [r9 + 40], 0
 .Lx8_42:                lea              r10, [rip + swap_gamma]
                         lea              r11, [rip + swap_omega]
+                        sub              rsp, 8
+                        push             r11
+                        push             r10
+                        push             rbp
+                        mov              rbp, rsp
                         lea              rax, [rip + swap_body];              jmp   rax
 swap_gamma:             mov              rdi, qword ptr [r9 + 0]              # swap
                         mov              rsi, qword ptr [r9 + 8]
@@ -448,9 +453,10 @@ n37_call_β:                                                                   j
 #-----------------------------------------------------------------------------------------------------------------------
 n38_statement_end_α:    add              rsp, 48;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
+RETURN:                 mov              rsp, rbp
+                        pop              rbp
+                        pop              rcx
+                        add              rsp, 16;                             jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω
@@ -462,7 +468,4 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
-                        .section         .rodata
-.S0:                    .string          "BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) \342\200\224 UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"
-                        .text
                         .section         .note.GNU-stack,"",@progbits
