@@ -7,7 +7,7 @@ proc_LBL__stack_init_α_body:
 n0_statement_begin_α:
                                                                                         jmp   n1_lit_string_α
 n0_statement_begin_β:
-                                                                                        jmp   n4_save_restore_α
+                                                                                        jmp   n4_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:
                         sub              rsp, 16
@@ -29,9 +29,9 @@ n2_assign_α:
                                                                                         jmp   n3_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n3_statement_end_α:
-                                                                                        jmp   n4_save_restore_α
+                                                                                        jmp   n4_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n4_save_restore_α:
+n4_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
@@ -134,7 +134,7 @@ n18_statement_end_α:
 n19_statement_begin_α:
                                                                                         jmp   n20_var_α
 n19_statement_begin_β:
-                                                                                        jmp   n24_lit_string_α
+                                                                                        jmp   n24_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_var_α:
                         sub              rsp, 16
@@ -181,9 +181,9 @@ n22_assign_α:
                                                                                         jmp   n23_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n23_statement_end_α:
-                                                                                        jmp   n24_lit_string_α
+                                                                                        jmp   n24_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n24_lit_string_α:
+n24_NRETURN_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 0
@@ -224,22 +224,22 @@ n25_call_α:
                                                                                         jne   .Lx45_240
                         add              rsp, 16
                         add              rsp, 48
-                                                                                        jmp   n27_save_restore_α
+                                                                                        jmp   n27_FRETURN_α
 .Lx45_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n26_save_restore_α
+                                                                                        jmp   n26_RETURN_α
 n25_call_β:
                         add              rsp, 16
                         add              rsp, 48
-                                                                                        jmp   n27_save_restore_α
+                                                                                        jmp   n27_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n26_save_restore_α:
+n26_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n27_save_restore_α:
+n27_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
@@ -263,7 +263,7 @@ proc_LBL__stack_pop_α_body:
 n51_statement_begin_α:
                                                                                         jmp   n52_var_α
 n51_statement_begin_β:
-                                                                                        jmp   n89_save_restore_α
+                                                                                        jmp   n89_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n52_var_α:
                         sub              rsp, 16
@@ -440,7 +440,7 @@ n63_statement_end_α:
 n64_statement_begin_α:
                                                                                         jmp   n65_var_α
 n64_statement_begin_β:
-                                                                                        jmp   n88_save_restore_α
+                                                                                        jmp   n88_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n65_var_α:
                         sub              rsp, 16
@@ -499,7 +499,7 @@ n67_assign_α:
                                                                                         jmp   n68_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n68_statement_end_α:
-                                                                                        jmp   n88_save_restore_α
+                                                                                        jmp   n88_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n69_statement_begin_α:
                                                                                         jmp   n70_var_α
@@ -659,7 +659,7 @@ n80_statement_end_α:
 n81_statement_begin_α:
                                                                                         jmp   n82_lit_string_α
 n81_statement_begin_β:
-                                                                                        jmp   n86_lit_string_α
+                                                                                        jmp   n86_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n82_lit_string_α:
                         mov              qword ptr [rsp + 880], 2                       # result
@@ -710,9 +710,9 @@ n84_assign_α:
                                                                                         jmp   n85_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n85_statement_end_α:
-                                                                                        jmp   n86_lit_string_α
+                                                                                        jmp   n86_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n86_lit_string_α:
+n86_NRETURN_α:
                         mov              qword ptr [rsp + 32], 2                        # result
                         mov              dword ptr [rsp + 36], 0
                         mov              rax, qword ptr [rip + .Lx147_0]
@@ -743,22 +743,22 @@ n87_call_α:
                         mov              qword ptr [rsp + 48], rax
                         mov              qword ptr [rsp + 56], rdx
                         cmp              eax, 104
-                                                                                        je    n89_save_restore_α
+                                                                                        je    n89_FRETURN_α
                         mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              r8,   qword ptr [r11 + 40]
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   n88_save_restore_α
+                                                                                        jmp   n88_RETURN_α
 n87_call_β:
-                                                                                        jmp   n89_save_restore_α
+                                                                                        jmp   n89_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n88_save_restore_α:
+n88_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n89_save_restore_α:
+n89_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
@@ -782,7 +782,7 @@ proc_LBL__stack_peek_α_body:
 n154_statement_begin_α:
                                                                                         jmp   n155_var_α
 n154_statement_begin_β:
-                                                                                        jmp   n164_save_restore_α
+                                                                                        jmp   n164_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n155_var_α:
                         sub              rsp, 16
@@ -837,7 +837,7 @@ n157_statement_end_α:
 n158_statement_begin_α:
                                                                                         jmp   n159_var_α
 n158_statement_begin_β:
-                                                                                        jmp   n163_save_restore_α
+                                                                                        jmp   n163_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n159_var_α:
                         sub              rsp, 16
@@ -896,14 +896,14 @@ n161_assign_α:
                                                                                         jmp   n162_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n162_statement_end_α:
-                                                                                        jmp   n163_save_restore_α
+                                                                                        jmp   n163_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n163_save_restore_α:
+n163_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n164_save_restore_α:
+n164_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
@@ -927,7 +927,7 @@ proc_LBL__stack_top_α_body:
 n184_statement_begin_α:
                                                                                         jmp   n185_var_α
 n184_statement_begin_β:
-                                                                                        jmp   n196_save_restore_α
+                                                                                        jmp   n196_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n185_var_α:
                         sub              rsp, 16
@@ -982,7 +982,7 @@ n187_statement_end_α:
 n188_statement_begin_α:
                                                                                         jmp   n189_var_α
 n188_statement_begin_β:
-                                                                                        jmp   n193_lit_string_α
+                                                                                        jmp   n193_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n189_var_α:
                         sub              rsp, 16
@@ -1032,9 +1032,9 @@ n191_assign_α:
                                                                                         jmp   n192_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n192_statement_end_α:
-                                                                                        jmp   n193_lit_string_α
+                                                                                        jmp   n193_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n193_lit_string_α:
+n193_NRETURN_α:
                         sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2                         # result
                         mov              dword ptr [rsp + 4], 0
@@ -1075,22 +1075,22 @@ n194_call_α:
                                                                                         jne   .Lx212_240
                         add              rsp, 16
                         add              rsp, 80
-                                                                                        jmp   n196_save_restore_α
+                                                                                        jmp   n196_FRETURN_α
 .Lx212_240:
                         mov              qword ptr [rsp + 0], rax                       # result
                         mov              qword ptr [rsp + 8], rdx
-                                                                                        jmp   n195_save_restore_α
+                                                                                        jmp   n195_RETURN_α
 n194_call_β:
                         add              rsp, 16
                         add              rsp, 80
-                                                                                        jmp   n196_save_restore_α
+                                                                                        jmp   n196_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n195_save_restore_α:
+n195_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n196_save_restore_α:
+n196_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
@@ -1162,7 +1162,7 @@ n226_statement_begin_α:
                                                                                         jmp   n227_var_α
 n226_statement_begin_β:
                         add              rsp, 32
-                                                                                        jmp   n241_save_restore_α
+                                                                                        jmp   n241_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n227_var_α:
                         sub              rsp, 16
@@ -1345,7 +1345,7 @@ n240_statement_end_α:
                         add              rsp, 144
                                                                                         jmp   n226_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n241_save_restore_α:
+n241_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
@@ -4886,7 +4886,7 @@ n533_statement_end_α:
 n534_statement_begin_α:
                                                                                         jmp   n535_lit_string_α
 n534_statement_begin_β:
-                                                                                        jmp   n539_lit_string_α
+                                                                                        jmp   n539_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n535_lit_string_α:
                         mov              qword ptr [rsp + 880], 2                       # result
@@ -4937,9 +4937,9 @@ n537_assign_α:
                                                                                         jmp   n538_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n538_statement_end_α:
-                                                                                        jmp   n539_lit_string_α
+                                                                                        jmp   n539_NRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n539_lit_string_α:
+n539_NRETURN_α:
                         mov              qword ptr [rsp + 32], 2                        # result
                         mov              dword ptr [rsp + 36], 0
                         mov              rax, qword ptr [rip + .Lx932_0]
@@ -4970,22 +4970,22 @@ n540_call_α:
                         mov              qword ptr [rsp + 48], rax
                         mov              qword ptr [rsp + 56], rdx
                         cmp              eax, 104
-                                                                                        je    n542_save_restore_α
+                                                                                        je    n542_FRETURN_α
                         mov              r11, qword ptr [rip + g_rtcc_block@GOTPCREL]
                         mov              r8,   qword ptr [r11 + 40]
                         mov              r9,   qword ptr [r11 + 48]
                         mov              r10,  qword ptr [r11 + 56]
                         mov              r11,  qword ptr [r11 + 64]
-                                                                                        jmp   n541_save_restore_α
+                                                                                        jmp   n541_RETURN_α
 n540_call_β:
-                                                                                        jmp   n542_save_restore_α
+                                                                                        jmp   n542_FRETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
-n541_save_restore_α:
+n541_RETURN_α:
                         lea              rdi, [rip + .S0]
                         call             rt_bomb@PLT
                         ud2
 #-----------------------------------------------------------------------------------------------------------------------
-n542_save_restore_α:
+n542_FRETURN_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
@@ -5013,7 +5013,7 @@ n546_goto_β:
 n547_statement_begin_α:
                                                                                         jmp   n548_var_α
 n547_statement_begin_β:
-                                                                                        jmp   n541_save_restore_α
+                                                                                        jmp   n541_RETURN_α
 #-----------------------------------------------------------------------------------------------------------------------
 n548_var_α:
                         mov              rax, qword ptr [r9 + 128]                      # sd
