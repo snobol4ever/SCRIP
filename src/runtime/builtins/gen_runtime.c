@@ -141,10 +141,6 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void c_rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen) {
-    extern const char *Σ; extern int Σlen;
-    Σ = (const char *)(uintptr_t)sig; Σlen = (int)len; (void)capgen;   /* CAPGEN-ERAD (Lon 2026-08-08): g_cap_gen write DELETED -- CAS-regime capture scoping is structural (R12 LIFO); arg3 retained in the signature only so the asm twin and any stale caller stay ABI-safe; the flat rt_cap lane keeps its per-match bump, loses nested-restore until M-2 re-homes it to CAS */
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) int g_repl_trace = -1;   /* RTX-8 SLICE 9: was a function-local `static int _rpt` inside the body below, which a .S cannot reach at all. static->hidden is a WIDENING (absent from the dynamic table, direct [rip+sym], interposition-proof) — NOT the g_cap_gen default->hidden NARROWING that cost 173/316 mode-4 LINK failures. -1 means unresolved, so the FIRST call of every process delegates to C by design; that is the s223 lazy-resolution shape and a probe must be sized from COMMITS, never entries */
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {

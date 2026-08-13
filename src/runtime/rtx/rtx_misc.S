@@ -17,7 +17,6 @@ RTX_GATE_DEF(misc)
  *   Return pair: rax = (slen << 32) | v = 99, rdx = value = 0.
  */
 RTX_FUNC(rt_faildescr)
-    RTX_GATE(misc, c_rt_faildescr)
     mov     eax, DT_FAIL                /* rax = (0 << 32) | 99  */
     xor     edx, edx                    /* value = 0             */
     ret
@@ -48,7 +47,6 @@ RTX_ENDF(rt_faildescr)
  *   Hence: setne (ordered-unequal) OR setp (unordered) — covers both.
  */
 RTX_FUNC(rt_is_truthy)
-    RTX_GATE(misc, c_rt_is_truthy)
     xor     eax, eax                    /* default result 0                    */
     cmp     edi, DT_FAIL
     je      .Lit_ret                    /* FAIL   -> 0                         */
