@@ -724,12 +724,6 @@ long c_rt_dcap_step(DESCR_t nm)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void c_rt_dcap_end_ok_close(void)
-{
-    /* ___-dcap: the ctx pops; the TRUNCATION is the box's own `mov ___, mark` + mirror store after this
-     * returns (bb_match_end exit) — no C-side stack state remains to reset. */
-    if (g_dcf_top > 0) g_dcf_top--;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* DEAD EXPORT, PARKED NOT DELETED (PARK-NEVER-DELETE): zero callers at NCB-1c.  Its body was the C-side flush
  * loop whose *VAR arm was a C→BB pathway; that pathway is now the box's (rt_dcap_end_ok_open/step/close).  A
@@ -751,7 +745,6 @@ _Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.S hardcode
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.S hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
 _Static_assert(sizeof(uint32_t) == 4, "rtx_match.S scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void c_rt_cap_match_begin(void) { g_cap_gen = ++g_cap_gen_next; if (!g_cap_gen) g_cap_gen = g_cap_gen_next = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_push(void *slot, int delta)
@@ -777,9 +770,7 @@ void rt_cap_push(void *slot, int delta)
     s->buf[1 + s->sp++] = (uint32_t)delta;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void c_rt_cap_pop(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; if (s->gen == g_cap_gen && s->sp) s->sp--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int c_rt_cap_top(void *slot) { rt_cap_stk_t *s = (rt_cap_stk_t *)slot; return (s->gen == g_cap_gen && s->sp) ? (int)s->buf[s->sp] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M2 (2026-07-11): rt_cap_assign_cursor split into strict leaves — the computed-name (*VAR) transfer
  * moves OUT of C into the emitted capture box (the NCB-1b arm).  rt_cap_open does everything up to the

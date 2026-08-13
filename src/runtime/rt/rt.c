@@ -322,14 +322,6 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int c_rt_cmp_d(const DESCR_t *a, const DESCR_t *b) {
-    if ((a->v == DT_S || a->v == DT_SNUL) && (b->v == DT_S || b->v == DT_SNUL)) {
-        int c = strcmp((a->v == DT_S && a->s) ? a->s : "", (b->v == DT_S && b->s) ? b->s : "");
-        return (c < 0) ? -1 : (c > 0) ? 1 : 0; }
-    if (a->v == DT_I && b->v == DT_I) return (a->i < b->i) ? -1 : (a->i > b->i) ? 1 : 0;
-    { double x = (a->v == DT_R) ? a->r : (double)a->i; double y = (b->v == DT_R) ? b->r : (double)b->i;
-      return (x < y) ? -1 : (x > y) ? 1 : 0; }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
@@ -1316,15 +1308,12 @@ const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt
  * counter must be re-raised for the span of each resumed run.  The caller's β edge calls _resume_enter before jmp [rsp]; the resumed-delivery landings call the pass leaves (γ marshals the rdi:rsi
  * result through to rax:rdx, ω synthesizes FAILDESCR) which take the counter back down.  Nested resumed generators compose: each hop is ±1 around its own resume span.  Strict leaves in the s22 sense —
  * no frame, no transfer, one counter and a marshal. */
-DESCR_t c_rt_gen_spine_pass_γ(DESCR_t v) { rt_k_level--; return v; }
 /* ICN-FR-4 NOTE: the resumed-delivery DESCR_t correctness is now ensured by xa_flat_zframe_epilogue_γ
  * loading rdi:rsi from [___+0]:[___+8] (= FRQ(0/8) = bb_suspend's stored yield value) rather than from
  * rax:rdx (where rax = last FRQ(op_sa+8) load = i-field only).  This pass_γ function is a strict
  * pass-through in BOTH C and RTX forms — the fix lives in the epilogue that feeds rdi:rsi. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_gen_spine_pass_ω(void) { rt_k_level--; return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void c_rt_gen_spine_resume_enter(void) { rt_k_level++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_gen_get_fb(void) { return (void *)0; }   /* GLOBALS-GONE s55: pcall record eradicated; Icon FR-4 resume OWED a stack-resident carrier */   /* FR-4 ZFRAME GENERATOR RESUME: return generator frame base from top pcall record; template does jmp [rax+cont_off] to reach the stored continuation label in the generator's own frame. Strict leaf. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

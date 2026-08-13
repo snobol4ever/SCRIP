@@ -56,7 +56,6 @@ RTX_GATE_DEF(icngen)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* rt_gen_spine_resume_enter(void) -- the resume hop's +1. Canonical twin: interp.r:960. */
 RTX_FUNC(rt_gen_spine_resume_enter)
-    RTX_GATE(icngen, c_rt_gen_spine_resume_enter)
     inc     dword ptr [rip + rt_k_level]
     ret
 RTX_ENDF(rt_gen_spine_resume_enter)
@@ -65,7 +64,6 @@ RTX_ENDF(rt_gen_spine_resume_enter)
 /* rt_gen_spine_pass_γ(v) -- the success return edge: take the level back down, pass the
  * descriptor through untouched. rdi:rsi is already the incoming pair, rax:rdx is the outgoing one. */
 RTX_FUNC(rt_gen_spine_pass_γ)
-    RTX_GATE(icngen, c_rt_gen_spine_pass_γ)
     dec     dword ptr [rip + rt_k_level]
     mov     rax, rdi
     mov     rdx, rsi
@@ -75,7 +73,6 @@ RTX_ENDF(rt_gen_spine_pass_γ)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* rt_gen_spine_pass_ω(void) -- the failure return edge: level back down, synthesize FAILDESCR. */
 RTX_FUNC(rt_gen_spine_pass_ω)
-    RTX_GATE(icngen, c_rt_gen_spine_pass_ω)
     dec     dword ptr [rip + rt_k_level]
     mov     eax, DT_FAIL
     xor     edx, edx

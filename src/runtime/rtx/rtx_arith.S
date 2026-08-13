@@ -52,7 +52,6 @@ RTX_GATE_DEF(arith)
  * int rt_cmp_d(const DESCR_t *a, const DESCR_t *b)
  */
 RTX_FUNC(rt_cmp_d)
-    RTX_GATE(arith, c_rt_cmp_d)
     mov     eax, dword ptr [rdi]        /* a->v                                */
     mov     ecx, dword ptr [rsi]        /* b->v                                */
     /* ---- HOT ARM: both DT_I. Measured shape of LT/GT/LE/GE on counters. ---- */

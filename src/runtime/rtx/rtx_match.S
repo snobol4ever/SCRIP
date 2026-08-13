@@ -59,7 +59,6 @@ RTX_GATE_DEF(match)
  * sentinel invariant holds.
  */
 RTX_FUNC(rt_cap_match_begin)
-    RTX_GATE(match, c_rt_cap_match_begin)
     mov     eax, dword ptr [rip + g_cap_gen_next]
     add     eax, 1
     je      .Lcmb_wrap                  /* ZF: incremented to 0 -> wrap both   */
@@ -84,7 +83,6 @@ RTX_ENDF(rt_cap_match_begin)
  * matching the C, which must not stamp gen on a pop.
  */
 RTX_FUNC(rt_cap_pop)
-    RTX_GATE(match, c_rt_cap_pop)
     mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
     mov     eax, dword ptr [r10]
     cmp     eax, dword ptr [rdi + 8]    /* s->gen                              */
@@ -110,7 +108,6 @@ RTX_ENDF(rt_cap_pop)
  * the memory operand needs no explicit widening.
  */
 RTX_FUNC(rt_cap_top)
-    RTX_GATE(match, c_rt_cap_top)
     xor     eax, eax                    /* default 0 for both failing guards   */
     mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
     mov     ecx, dword ptr [r10]
@@ -386,7 +383,6 @@ RTX_ENDF(rt_defer_close)
  * stmt_exec.o, 4 bytes wide) and that is precisely the class of bug that links fine and passes short tests.
  *===================================================================================================================*/
 RTX_FUNC(rt_match_ctx_restore)
-    RTX_GATE(match, c_rt_match_ctx_restore)
     mov     r10, qword ptr [rip + Σ@GOTPCREL]       /* &Σ   -- exported, GOT-indirect per 0(c)   */
     mov     qword ptr [r10], rdi                        /* Σ = (const char *)sig                        */
     mov     r10, qword ptr [rip + Σlen@GOTPCREL]     /* &Σlen                                     */
@@ -687,7 +683,6 @@ RTX_FUNC(rt_dcap_end_ok_open)
 RTX_ENDF(rt_dcap_end_ok_open)                            /* rsp unchanged since entry, rax already the return reg    */
 
 RTX_FUNC(rt_dcap_end_ok_close)
-    RTX_GATE(match, c_rt_dcap_end_ok_close)
     cmp     dword ptr [rip + g_dcf_top], 0               /* ARM split; precedes every write in this function */
     jle     .Lrtx_deoc_ret                               /* ARM 1: pop with nothing pushed -- no-op          */
     dec     dword ptr [rip + g_dcf_top]                  /* ARM 2 HOT: the ctx pop. int => dword ptr         */
