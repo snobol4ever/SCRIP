@@ -115,7 +115,7 @@ myfunc_omega:           mov              rcx, qword ptr [rsp + 16]
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
-.Lstartup_pname0:       .string          "LBL__myfunc2"
+.Lstartup_pname0:       .string          "myfunc2"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]

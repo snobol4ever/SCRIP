@@ -237,7 +237,7 @@ jlab_omega:             mov              rcx, qword ptr [rsp + 80]
 proc_startup:
                         sub              rsp, 8
                         .section         .rodata
-.Lstartup_pname0:       .string          "LBL__jlab"
+.Lstartup_pname0:       .string          "jlab"
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
