@@ -2028,11 +2028,19 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
  *--- runtime, the same wire CODE fragments use to jump back into the body), and the stub carries its own exitnd/failnd
  *--- so RETURN/FRETURN unwind to THIS proc's epilogue, not the program exit.  emit_chain on the 1-node stub is cheap
  *--- and collision-free (no shared node re-walked).  O(1) per DEFINE. ---*/
-static IR_graph_t * sno_build_call_stub(const char * entry_label) {
+static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * fname) {
     IR_graph_t * g = IR_alloc(64);
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
-    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, failnd);
+    /* TINY-REAL s58 (Lon): the per-DEFINE role-4 SHIM (<fn>_alpha swap/extend, <fn>_gamma/<fn>_omega restore) rides THIS chain, γ-linked after the fold box — MEASURED: the emission walker is
+     * reachability-based (a port-orphan node minted into the main graph emitted 0 definitions against 6 site references), and the fold box ends in an unconditional `jmp rax`, so the shim is emitted
+     * yet control-dead inline; sites enter it by NAME only.  Placement at the DEFINE statement's comment (Lon) rides the stub-suppression rung — this lands the label the sites need first. */
+    IR_t * sh4 = fname ? lc_build(g, IR_SAVE_RESTORE, exitnd, failnd) : (IR_t *)0;
+    if (sh4) { IR_LIT(sh4).ival = 4;
+        IR_t * s41 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s41).sval = (char *) fname;
+        IR_t * s42 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s42).sval = (char *) entry_label;
+        ir_operand_push(sh4, s41); ir_operand_push(sh4, s42); }
+    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, sh4 ? sh4 : exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
     gd->seal = 1;   /* ⭐ DEFINE-FOLD (s53): fold-eligible mark -- this goto's target is the CONSTANT entry label of a DEFINE, whose LBL__ body proc exists in this same compilation.  bb_goto_dyn's fold arm reads it (staged as op_ival at the dispatch) and emits the DIRECT transfer `lea rdi,[rip+proc_LBL__<name>_α]; call rt_chain_enter`, deleting the per-call rt_goto_transfer string lookup while preserving the chain protocol (callee-save pushes + fall-off landing) verbatim.  seal is free on this kind (no other consumer). */
     IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller ___ into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
@@ -2665,7 +2673,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             int eidx = -1;
             for (int i = 0; i < nst; i++) { const char * lbl = sfind_str(st[i], ":lbl"); if (lbl && !strcmp(lbl, defs[di].entry)) { eidx = i; break; } }
             if (eidx < 0) continue; /* entry label doesn't exist anywhere: this DEFINE is dead (never callable); SPITBOL only resolves an entry at call time, not at DEFINE time, so a program that never calls it must still run (132_pat_fence_eps_recur_shallow) */
-            gf = sno_build_call_stub(defs[di].entry);   /* SN4-FLAT-PROC (s176): the extraction regime is retired — the body statements live ONLY in the one main graph; the stub is the callable citizen (jmp-entry prologue carves a fresh MAIN-layout frame via the driver's frame floor, WIRE-ADOPT records the way home, IR_GOTO_DEFERRED transfers to the entry label at CALL time through the same registry rt_goto_transfer serves).  (void)rn: the proc record below still carries result_name for the epilogue leaves. */
+            gf = sno_build_call_stub(defs[di].entry, defs[di].fname);   /* SN4-FLAT-PROC (s176): the extraction regime is retired — the body statements live ONLY in the one main graph; the stub is the callable citizen (jmp-entry prologue carves a fresh MAIN-layout frame via the driver's frame floor, WIRE-ADOPT records the way home, IR_GOTO_DEFERRED transfers to the entry label at CALL time through the same registry rt_goto_transfer serves).  (void)rn: the proc record below still carries result_name for the epilogue leaves. */
         }
         int fpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[fpi].name = defs[di].fname;

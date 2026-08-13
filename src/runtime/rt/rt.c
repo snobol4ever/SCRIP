@@ -1876,7 +1876,7 @@ void rt_define_site(const char *name, const char *params_csv, int nparams, int n
 int rt_define_tiny_ok(const char *name, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined && p->nformals > 0 && nargs == p->nformals) ? 1 : 0;
+    (void)nargs; return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined) ? 1 : 0;   /* s58: arity clauses DROPPED — the real protocol fills missing formals with null and discards extras (manual Ch.8); the count rides the stack */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out)

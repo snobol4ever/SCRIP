@@ -229,31 +229,29 @@ static std::string bcps_det_arm() {
         return x86_alpha()
              + x86_scan_sync_out()
              + x86_anchor_enter()
-             + (scc_z
+             + ((scc_z || (_.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)))
+                /* s58 OVER-ARITY ROUTING, ZD twin — same as the non-ZD gate: K>nf sites reach the tiny arm (the shim discards extras); tiny-declined non-scc sites return empty and fall through. */
                 ? [&]() -> std::string {
-                    /* TINY-SITE s57 ZD twin (Lon in-chat: one-shot glue to the DEFINE shim; ASM staging, no veneers, no open_slim/epilogue crossings).  Same gate, arm and residue notes as the non-ZD twin below; args read from their ZD cells (ZOPQ). */
+                    /* TINY-REAL s58 ZD twin (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  Same protocol as the non-ZD twin
+                     * below: sub-rsp pushdown block, save-set spill BEFORE install (the r_keepn recursion law), actuals install DIRECT into formal GVA cells from their ZD cells (ZOPQC bias compensates
+                     * the live carve — the AB-3b spelling), locals+result NULVCL, site wires, ONE jmp to the body α; landings capture the result into rdi:rsi then reverse-restore.  Shim + g_call_args
+                     * GONE from this path.  TEXT-only this seat (m3 owed: cross-chain body-α target). */
                     static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
-                    if (!_ntz && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-SITE s57: TEXT-only this seat (m3 cross-chain rel32 owed) */
-                        std::string shim = std::string(_.op_sval) + "_shim";
-                       /* TINY-SITE s57 m3 LIMITATION (owed): X-record rel32 cannot patch across per-chain buffers, so BINARY takes tiny only when the shim is already defined in THIS emission session (stub-before-main ordering); otherwise the byte-identical slim arm below. TEXT: gas resolves the name at assembly. */
-                        int rgz = scc_res_gk_z < 0 ? 0 : scc_res_gk_z;
-                        auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w, 1); };
-                        return FOR(0, (int)_.op_ival, [&](int i) {
-                                   return x86("mov", "rax", ZOPQT(i, 0)) + x86("mov", "rdx", ZOPQT(i, 8))
-                                        + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-                                        + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
-                                        + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx"); })
-                             + x86("lea", "r10", L(6))
-                             + x86("lea", "r11", L(7))
-                             + x86_jmp_ext(emit_label_intern(shim.c_str()))
-                             + x86("def", L(6))
-                             + x86("note", gva_name(rgz)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rgz, 0) : ABSQ(RT_GVA_VA + (unsigned long)rgz * 16))
-                             + x86("note", gva_name(rgz)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rgz, 8) : ABSQ(RT_GVA_VA + (unsigned long)rgz * 16 + 8))
-                             + x86("jmp", L(2))
-                             + x86("def", L(7))
-                             + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
-                             + x86("jmp", L(2));
+                    if (!_ntz && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                        /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
+                        std::string laz = std::string(_.op_sval) + "_alpha";
+                        long Kbz = 16L * (long)_.op_ival + 32;
+                        auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
+                        return x86("sub", "rsp", Kbz)
+                             + FOR(0, (int)_.op_ival, [&](int i) {
+                                   return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQT(i, 0)) + x86_rsp_store64(32 + 16 * i, "rax")
+                                        + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQT(i, 8)) + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
+                             + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
+                             + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
+                             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, laz.c_str())
+                             + x86("jmp", "rax");
                     }
+                    if (!scc_z) return std::string();   /* s58: tiny declined AND no scc shape — legacy fall-through, byte-identical to the old gate */
                     _tiny_declined_z: ;
                     /* RTX-FUNC-0 (ZD AB-3b): when this program has DEFINE activation blocks (ab_n>0), replace
                      * rt_arg_stage×n + open_slim + open_fn + epilogue with: save-set spill (same as non-ZD),
@@ -465,37 +463,40 @@ static std::string bcps_det_arm() {
             + x86("def", L(5))
             + IF(c2farm(), x86("call", "rt_c2b_arm_trap", trap_fp))
             : std::string(""))
-         + (scc && !c2
+         + ((scc || (_.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival))) && !c2
+            /* s58 OVER-ARITY ROUTING: scc admission is nargs<=nformals, but the role-4 shim discards extras per the manual — a tiny-eligible K>nf site must reach the tiny arm, not fall to the
+             * eradicated legacy path (measured: SEGV, no bomb).  Inside, a non-scc site that the tiny gate ALSO declines returns empty and falls through to legacy exactly as before. */
             ? [&]() -> std::string {
-                /* ⭐⭐⭐ TINY-SITE s57 (Lon in-chat, roman.s n201: "That needs all be DELETED and REPLACED with a simple ONE-SHOT GLUE to the SHIM that is created by DEFINE. The CALL sites are TINY.
-                 * You have it backwards."  And: "Is rt_arg_stage a C function? If so then NOT. Make it ASM and DO NOT have RTCC VENEERS there").  The folded full-arity class collapses to: inline
-                 * g_call_args stores (raw ASM — rt_arg_stage crossing and its RTCC veneers DELETED from this arm) + site-set r10/r11 wires + ONE direct jmp-ext to the DEFINE-created <FN>_shim
-                 * (bb_save_restore role 3), which installs formals and falls into the fold transfer.  γ landing reads the result GVA cell inline; ω loads FAILDESCR inline — open_slim and both
-                 * epilogue_slim crossings DELETED here.  Eligibility EMIT-TIME (rt_define_tiny_ok: registered dyn_scope !gen !variadic !redefined, nargs==nformals>0); everything else keeps the slim
-                 * arm below (its NULVCL under-arity pad still matters there).  Residue owed to the return-side rung: k_level, result/locals NULVCL, GC-pending shield on the stores.  SCRIP_NO_TINY=1
-                 * restores the slim arm byte-identically. */
+                /* ⭐⭐⭐ TINY-REAL s58 (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  The shim and its g_call_args transport are
+                 * DELETED; the site now carries the REAL SPITBOL going-in protocol (manual Ch.8 p.104: "any existing values ... will be saved on a pushdown stack ... set to the null string ... when
+                 * the function returns ... restored to their previous values") entirely on the RSP stack, pure ASM, zero C crossings, zero globals: (1) sub rsp carves the pushdown block; (2) the
+                 * save-set's old GVA cell values (formals + locals + result name per bb_scc_probe) spill into it; (3) actuals install DIRECTLY into the formal GVA cells (FRQB compensates the live
+                 * carve); (4) locals + result clear to NULVCL (all-zero quads, DT_SNUL==0 static-asserted); (5) site-set r10/r11 wires + ONE jmp to the body α — the fold target itself, no shim
+                 * between.  γ landing captures the result from the result cell into rdi:rsi BEFORE the reverse restore pops the pushdown block back into the cells (rax is the restore scratch); ω
+                 * restores likewise and loads FAILDESCR.  Recursion works by construction: each site's block is LIFO on RSP, so the inner call's restore hands the outer its cells back untouched.
+                 * Eligibility EMIT-TIME (rt_define_tiny_ok: registered dyn_scope !gen !variadic !redefined, nargs==nformals>0) — no runtime decline arm exists; everything else keeps the slim arm
+                 * below (its NULVCL under-arity pad still matters there).  Residue owed to the return-side rung: k_level, GC-pending shield on the installs.  SCRIP_NO_TINY=1 restores the slim arm.
+                 * TEXT-only this seat (m3 owed: cross-chain body-α target, the same class as the fold arm's sealed-cell slice-2). */
                 static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
                 { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
-                if (!_ntiny && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-SITE s57: TEXT-only this seat */
-                    std::string shim = std::string(_.op_sval) + "_shim";
-                       /* TINY-SITE s57 m3 LIMITATION (owed): X-record rel32 cannot patch across per-chain buffers, so BINARY takes tiny only when the shim is already defined in THIS emission session (stub-before-main ordering); otherwise the byte-identical slim arm below. TEXT: gas resolves the name at assembly. */
-                    int rg = scc_res_gk < 0 ? 0 : scc_res_gk;
-                    return FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
-                               return x86("mov", "rax", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8))
-                                    + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-                                    + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
-                                    + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx"); })
-                         + x86("lea", "r10", L(6))
-                         + x86("lea", "r11", L(7))
-                         + x86_jmp_ext(emit_label_intern(shim.c_str()))
-                         + x86("def", L(6))
-                         + x86("note", gva_name(rg)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rg, 0) : ABSQ(RT_GVA_VA + (unsigned long)rg * 16))
-                         + x86("note", gva_name(rg)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(rg, 8) : ABSQ(RT_GVA_VA + (unsigned long)rg * 16 + 8))
-                         + x86("jmp", L(2))
-                         + x86("def", L(7))
-                         + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
-                         + x86("jmp", L(2));
+                if (!_ntiny && MEDIUM_TEXT && _.op_sval && rt_define_tiny_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                    /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
+                     * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
+                     * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
+                    std::string la = std::string(_.op_sval) + "_alpha";
+                    long Kb = 16L * (long)_.op_ival + 32;
+                    return x86("sub", "rsp", Kb)
+                         + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
+                               return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot, (int)Kb)))
+                                    + x86_rsp_store64(32 + 16 * i, "rax")
+                                    + (x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot + 8, (int)Kb)))
+                                    + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
+                         + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
+                         + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
+                         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, la.c_str())
+                         + x86("jmp", "rax");
                 }
+                if (!scc) return std::string();   /* s58: tiny declined AND no scc shape — fall through to the legacy path outside this lambda, byte-identical to the old gate */
                 /* AB-3b path: when this program has DEFINE activation blocks (SCRIP_AB on, ab_n>0),
                  * replace open_slim+open_fn+arg-install with: save-set spill, install actuals into
                  * formal GVA cells, pass wires rcx/rdx, jmp [fn_cell$FN] → FN_act_α.

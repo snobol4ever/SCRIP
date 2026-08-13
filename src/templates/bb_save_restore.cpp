@@ -10,11 +10,8 @@ long  rt_proc_call_open_slim(const char *name, int np, int nargs);
 int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 int   bb_scc_handoff_arm(void);
 int   bb_scc_handoff_room(void);
+int   rt_proc_nformals(const char *);
 void  bb_scc_handoff_pending_clear(void);
-const char *rt_define_query(const char *, int *, int *, int *, void **);
-int gva_index_of(const char *);
-extern int g_gva_active;
-extern DESCR_t g_call_args[];
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -46,31 +43,104 @@ std::string bb_save_restore() {
          * for FUNCTION linkage?  Just like any BB BLOB interface."  YES — the call sites now speak r10/r11 DIRECTLY
          * (bb_glue_pass_wires_blob), so the rcx/rdx→r10/r11 adopt hop is DELETED.  This box emits nothing: the wire
          * pair arrives already seated.  rcx/rdx remain the chain contract (rt_chain_enter, EVAL/CODE) only. */
-        return x86("comment", "IR_SAVE_RESTORE wire-adopt (s55: EMPTY — sites set r10/r11 directly, adopt hop deleted)")
+        /* ⭐⭐⭐ SHIM DELETED s58 (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  The <FN>_shim and its g_call_args transport
+         * are GONE: tiny sites (bb_call_proc_staged TINY-REAL arm) now carry the whole going-in protocol themselves — save-set spill to an RSP pushdown block, direct actual→formal GVA install,
+         * locals/result NULVCL, wires, one jmp to the body α.  This stub blob remains only for the goto-transfer customers (EVAL/CODE/$X) flowing α→γ into IR_GOTO_DEFERRED. */
+        return x86("comment", "IR_SAVE_RESTORE wire-adopt (s58: EMPTY — shim deleted, tiny sites carry the pushdown protocol; s55: sites set r10/r11 directly)")
              + x86_alpha()
-             + x86_gamma()
-             + [&]() -> std::string {
-                   /* ⭐⭐⭐ TINY-SITE SHIM s57 (Lon in-chat: "a simple ONE-SHOT GLUE to the SHIM that is created by DEFINE. The CALL sites are TINY. You have it backwards."): the per-DEFINE activation
-                    * lives HERE, once — <FN>_shim installs g_call_args[0..nf) into the formal GVA cells (pure ASM, zero C crossings, zero RTCC veneers per ruling) and falls into the fold transfer via γ.
-                    * The fallback (open_slim) path flows α→γ ABOVE and never touches the shim, so its own site-side install + NULVCL pad stay correct for under-arity; only the tiny sites jmp-ext here,
-                    * and they are full-arity by eligibility.  Residue owed to the return-side rung: save-set spill, locals/result NULVCL, k_level. */
-                   const char * fname = _.op_sval; int np = 0, nf = 0, fb = 0; void * fn = 0;
-                   const char * csv = fname ? rt_define_query(fname, &np, &nf, &fb, &fn) : (const char *)0;
-                   if (!(fname && csv && *csv && nf > 0 && g_gva_active)) return std::string();
-                   char buf[512]; snprintf(buf, sizeof buf, "%s", csv); char * sv = 0; int k = 0, ok = 1; int gk[64];
-                   for (char * t = strtok_r(buf, ",", &sv); t && k < nf && k < 64; t = strtok_r((char *)0, ",", &sv)) { gk[k] = gva_index_of(t); if (gk[k] < 0) ok = 0; k++; }
-                   if (!ok || k != nf) return std::string();
-                   std::string shim = std::string(fname) + "_shim";
-                   (void)fname; (void)csv; (void)shim; if (!MEDIUM_TEXT) return std::string();
-                   return x86_def_ext(emit_label_intern(shim.c_str()))
-                        + x86("lea", "r8", std::string("[rip + __]"), (uint64_t)(uintptr_t)g_call_args, "g_call_args")
-                        + FOR(0, nf, [&](int i) {
-                              return x86("mov", "rax", RDQ("r8", i * 16))
-                                   + x86("note", gva_name(gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk[i], 0) : ABSQ(RT_GVA_VA + (unsigned long)gk[i] * 16), "rax")
-                                   + x86("mov", "rax", RDQ("r8", i * 16 + 8))
-                                   + x86("note", gva_name(gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)gk[i] * 16 + 8), "rax"); })
-                        + x86_gamma();
-               }();
+             + x86_gamma();
+    }
+    if (role == 4) {
+        /* ⭐⭐⭐ TINY-REAL s58 SHIM (Lon in-chat: "Remove stupid TEST_shim and make it real... push on the stack via RSP"; "the SHIM... swaps all the globals with actuals, and save the globals in those
+         * same stack locations"; "push val, push val, then push 2 if two args are passed. And the shim handles the 4 parameters from the 2 it was given and extends the stack in place").  Emitted ONCE
+         * per DEFINE, AT the DEFINE statement (role-4 IR_SAVE_RESTORE spliced by the lowerer; unreachable inline — the statement's goto skips it; entered only by name).  THE PROTOCOL — site pushes
+         * {K}{succ,fail conts}{actual_i at [32+i*16]} and jmps <fn>_alpha with r10/r11 UNTOUCHED (they are the ENCLOSING activation's return ports and ride the record).  alpha: read K, extend the
+         * block in place to full arity (max carve + give back K*16 — no shl encoder needed), spill+null locals/result into its own tail, bank the enclosing wires + a K copy, then per formal i ONE
+         * cmp/jbe: supplied ⇒ SWAP actual↔old-global in the site's own slot (manual Ch.8 p.104 pushdown), missing ⇒ old-global into its extension slot + formal←null; set r10=<fn>_beta r11=<fn>_omega
+         * (the floaters stay bare jmp r10/r11) and jmp the body α.  beta: capture the result from the result-name cell BEFORE restoring, mirror-restore every cell, re-establish the enclosing wires
+         * (recursion is LIFO by construction — this is what kills the measured return-ladder), fetch the site cont, release the CONSTANT frame (T+32+nf*16, since D+K=nf), jmp cont.  omega: same with
+         * FAILDESCR.  Record from alpha's post-carve rsp: [0..extra*16) locals+result olds | [extra*16]={r10,r11} | [+16]={K} || [T..T+D*16) missing-formal olds | {K}{conts}{K supplied actuals}.
+         * Addressing base r8 = extension base (= site rsp − nf*16): missing_i=[r8+i*16] (valid iff i>=K), count=[r8+nf*16], conts=[+16,+24], supplied_i=[r8+nf*16+32+i*16] — every disp positive+static.
+         * Over-arity (K>nf, manual: extras evaluated+ignored) stays on the classic arm this rung — owed.  TEXT-only this seat (m3 cross-chain body-α, same owed class as fold slice-2).  Hatch
+         * SCRIP_NO_TINY=1 empties this box (sites fall to slim which never jmps here). */
+        static int _nt4 = -1; if (_nt4 < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _nt4 = (_e && *_e == '1') ? 1 : 0; }
+        const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4;
+        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
+        int ok4 = (!_nt4 && MEDIUM_TEXT && fn4 && en4) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
+        int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
+        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ x86("comment", "IR_SAVE_RESTORE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma();
+        int xt4 = ns4 - nf4;   /* extra = locals + unshadowed result name (probe layout: gk[0..np)=formals then locals, gk[np..ns)=result iff unshadowed) */
+        long T4 = 16L * xt4 + 32;   /* tail: extras' olds + {r10,r11} + {K,spare} */
+        int rgx = rg4 < 0 ? 0 : rg4;
+        auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
+        auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
+        std::string la = std::string(fn4) + "_alpha", lb = std::string(fn4) + "_gamma", lo = std::string(fn4) + "_omega";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly */
+        std::string blb = std::string("proc_LBL__") + en4 + "_\xce\xb1";
+        auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
+        auto RESTORE4 = [&](int lid) {   /* shared beta/omega restore body: needs rsp at tail base; leaves rcx=K r8=ext-base; clobbers rax; preserves rdi/rsi; lid = per-instantiation label-id base (beta/omega emit this twice in ONE box — ids must not collide) */
+            return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
+                 + SCALE16()
+                 + x86("cmp", "rcx", (long)nf4) + x86_jcc_id("jbe", lid - 5) + x86("mov32", "eax", 16L * nf4) + x86_deflabel_id(lid - 5)   /* r8 = site_rsp - nf*16 in ALL arities: clamp like alpha */
+                 + x86("lea", "r8", std::string("[rsp + ") + std::to_string(T4) + "]") + x86("sub", "r8", "rax")
+                 + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
+                       return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(gk4[nf4 + k])) + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
+                            + x86_rsp_load64("rax", 16 * k + 8) + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
+                 + FOR(0, nf4, [&](int i) {
+                       return x86("cmp", "rcx", (long)i) + x86_jcc_id("jbe", lid + i)
+                            + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i)) + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
+                            + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8)) + x86("mov", GQ(gk4[i], 8), "rax")
+                            + x86_jmp_id(lid + 30 + i)
+                            + x86_deflabel_id(lid + i)
+                            + x86("mov", "rax", R8Q(16L * i)) + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
+                            + x86("mov", "rax", R8Q(16L * i + 8)) + x86("mov", GQ(gk4[i], 8), "rax")
+                            + x86_deflabel_id(lid + 30 + i); })
+                 + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
+        return x86("comment", "IR_SAVE_RESTORE role 4: TINY-REAL s58 per-DEFINE shim (alpha=swap/extend, beta/omega=restore)")
+             + x86_alpha()
+             + x86_def_ext(emit_label_intern(la.c_str()))
+             + x86_rsp_load64("rcx", 0)
+             + x86("mov", "r8", "rsp") + x86("sub", "r8", 16L * nf4)
+             + SCALE16()
+             + x86("cmp", "rcx", (long)nf4) + x86_jcc_id("jbe", 2) + x86("mov32", "eax", 16L * nf4) + x86_deflabel_id(2)   /* over-arity (K>nf, manual: extras evaluated+ignored): no extension exists — clamp the give-back to nf*16 */
+             + x86("sub", "rsp", T4 + 16L * nf4)
+             + x86("add", "rsp", "rax")
+             + FOR(0, xt4, [&](int k) {
+                   return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
+                        + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
+                        + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
+             + x86_rsp_store64(16 * xt4, "r10") + x86_rsp_store64(16 * xt4 + 8, "r11") + x86_rsp_store64(16 * xt4 + 16, "rcx")
+             + FOR(0, nf4, [&](int i) {
+                   return x86("cmp", "rcx", (long)i) + x86_jcc_id("jbe", 10 + i)
+                        + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i)) + x86("note", gva_name(gk4[i])) + x86("mov", "rdx", GQ(gk4[i], 0)) + x86("mov", GQ(gk4[i], 0), "rax") + x86("mov", R8Q(16L * nf4 + 32 + 16L * i).c_str(), "rdx")
+                        + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8)) + x86("mov", "rdx", GQ(gk4[i], 8)) + x86("mov", GQ(gk4[i], 8), "rax") + x86("mov", R8Q(16L * nf4 + 32 + 16L * i + 8).c_str(), "rdx")
+                        + x86_jmp_id(41 + i)
+                        + x86_deflabel_id(10 + i)
+                        + x86("note", gva_name(gk4[i])) + x86("mov", "rax", GQ(gk4[i], 0)) + x86("mov", R8Q(16L * i).c_str(), "rax")
+                        + x86("mov", "rax", GQ(gk4[i], 8)) + x86("mov", R8Q(16L * i + 8).c_str(), "rax")
+                        + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[i], 8), (long)0)
+                        + x86_deflabel_id(41 + i); })
+             + x86("lea", "r10", std::string("[rip + __]"), (uint64_t)0, lb.c_str())
+             + x86("lea", "r11", std::string("[rip + __]"), (uint64_t)0, lo.c_str())
+             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, blb.c_str())
+             + x86("jmp", "rax")
+             + x86_def_ext(emit_label_intern(lb.c_str()))
+             + x86("note", gva_name(rgx)) + x86("mov", "rdi", GQ(rgx, 0)) + x86("mov", "rsi", GQ(rgx, 8))
+             + RESTORE4(80)
+             + x86("mov32", "eax", T4 + 32 + 16L * nf4)
+             + x86("cmp", "rcx", (long)nf4) + x86_jcc_id("jbe", 3) + SCALE16() + x86("add", "rax", T4 + 32) + x86_deflabel_id(3)   /* over-arity release: T+32+K*16 */
+             + x86("mov", "rcx", R8Q(16L * nf4 + 16))
+             + x86("add", "rsp", "rax")
+             + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
+             + x86("jmp", "rcx")
+             + x86_def_ext(emit_label_intern(lo.c_str()))
+             + RESTORE4(150)
+             + x86("mov32", "eax", T4 + 32 + 16L * nf4)
+             + x86("cmp", "rcx", (long)nf4) + x86_jcc_id("jbe", 4) + SCALE16() + x86("add", "rax", T4 + 32) + x86_deflabel_id(4)
+             + x86("mov", "rcx", R8Q(16L * nf4 + 24))
+             + x86("add", "rsp", "rax")
+             + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+             + x86("jmp", "rcx")
+             + x86_gamma();
     }
     if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
         /* ⛔⭐⭐⭐ LON RULING s54: globals GONE.  The RT_AB_ANCHOR global read and the rt_flat_ret_snap
@@ -82,11 +152,17 @@ std::string bb_save_restore() {
          * per-activation spine capture (WREG-3's law: pendings capture {r10,r11} at push, β restores).
          * Lon: "worry not about breakage."  The save-set restore stays caller-side (role 0's own rsp slots
          * + the landing epilogue) — already stack-resident. */
-        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (s54: jmp r10, globals GONE)" :
-                               role == 2 ? "IR_SAVE_RESTORE FRETURN floater (s54: jmp r11, globals GONE)" :
-                                           "IR_SAVE_RESTORE NRETURN floater (s54: jmp r10, globals GONE)")
+        /* ⭐⭐⭐ s58 RSP-ONLY DESCENT MODE (Lon in-chat: "put BOMBS in RETURN, FRETURN, and NRETURN... We want to run the entire test suite in RSP only mode... be left with only all the spots that
+         * need RBP" — maybe RBP, maybe something else; the bombs make every UNKNOWN-STACK-DEPTH spot self-evident).  The coming-out side is FROZEN: RETURN arrives at a depth no one can know without a
+         * frame anchor (the measured −16 class), so the jmp-r10/r11 wires are replaced by loud named bombs.  Reaching the RETURN bomb IS the descent test passing: args installed, body ran, transfer
+         * arrived.  git revert is the undo when the depth mechanism lands. */
+        return x86("comment", role == 1 ? "IR_SAVE_RESTORE RETURN floater (s58: BOMB — coming-out frozen)" :
+                               role == 2 ? "IR_SAVE_RESTORE FRETURN floater (s58: BOMB — coming-out frozen)" :
+                                           "IR_SAVE_RESTORE NRETURN floater (s58: BOMB — coming-out frozen)")
              + x86_alpha()
-             + (role == 2 ? x86("jmp", "r11") : x86("jmp", "r10"));
+             + (role == 1 ? x86_bomb("BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor")
+              : role == 2 ? x86_bomb("BOMB-FRETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor")
+                          : x86_bomb("BOMB-NRETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"));
     }
     /* role 0 — CALL2BB slice 2 (Lon s21x-c: "Have each BB allocate its RESULT value… its LOCAL STORAGE needs… by one instruction, decrement RSP"; "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs:
      * an IR_SAVE_RESTORE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never ___-indexed),
