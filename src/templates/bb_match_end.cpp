@@ -30,13 +30,15 @@ static std::string release_pump() {
          + x86_xfer_enter()
          + x86_anchor_enter()
          + x86("mov",  "rsi", "r12")   /* CAS-R12-UNIFY: top IS r12 -- cell read deleted.  CAS-MARKER: mark is recovered by scanning down to HEAD's tag-0 marker (r8 walks a COPY; r12 must stay at top -- the pump consumes the entries above the marker); one config-blind mechanism serves every basis */
-         + x86("mov",  "r8", "rsi")
-         + x86("def",  L(5))
-         + x86("sub",  "r8", (long)24)
-         + x86("mov",  "rax", RDQ("r8", 0))
-         + x86("test", "rax", "rax")
-         + x86("jne",  L(5))
-         + x86("lea",  "rdi", RDQ("r8", 24))
+         + (emit_match_rbp()
+             ? x86("note", "cas_mark") + x86("mov", "rdi", RDQ("rbp", -8))   /* MATCH-RBP (s65e): the walk floor IS the saved mark — one mov replaces the L(5) tag-0 scan; no sentinel exists to skip, so no +24 */
+             : x86("mov",  "r8", "rsi")
+             + x86("def",  L(5))
+             + x86("sub",  "r8", (long)24)
+             + x86("mov",  "rax", RDQ("r8", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne",  L(5))
+             + x86("lea",  "rdi", RDQ("r8", 24)))
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
          + x86("def",  L(1))
@@ -63,13 +65,19 @@ static std::string release_pump() {
          + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86_anchor_leave()
          + x86_xfer_leave()
-         + x86("note", "cas_mark") + x86("def", L(10)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(10))   /* ⭐ CAS-POP-SCAN (09h, supersedes W-1c.3 NO-SCAN, MEASURED): the single sub was arithmetic against a CALLEE-SAVED register the C pump cannot move -- gdb over 1000 ASSIGN_COND hits: r12 drifts exactly 24 B/capture-match, arena wall ~700k (pattern_bt_deep); pattern_bt "OK" at 500k was 12 MB of margin.  Fence law licenses the tag-0 marker scan (L(5)/L(9) discipline): MATCH_END is the commit, everything above the HEAD marker is dead post-pump.  ORIGINAL PREMISE RETIRED: */   /* W-1c.3 NO-SCAN L(6): post-pump LIFO arithmetic -- pump has consumed every entry via rt_dcap_step; nested matches inside pumped assignments push balanced markers so r12 returns at top callee-saved; one sub lands on the marker, assignment IS the wholesale pop. L(5) above is the structural scan (range-locator before pump runs, count runtime-variable); it is the only real scan left in this template. */
-         + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* M-2 BUG-6 FIX: PATCTX-DESCENT sub rsp,80 deleted. After CAS restore rsp=cas_rsp_mark=pre-32B-carve rsp (MATCH_BEGIN stores cas_rsp_mark BEFORE x86_zclaim(32), and saves r13/r14/r15/___ also pre-carve at [rsp+48/56/64/40]). No descent needed: FRQ(op_off+48) resolves to [rsp+48] = the exact save address. The prior 80B bracket was left over from a reverted HFC-CLAIM REORDER (9368fac6) that would have done sub rsp,80 BEFORE the saves; that reorder was superseded but the MATCH_END descent/ascent bracket was never removed, causing the 32R crash population. */   /* PATCTX restore on success -- AFTER the pump, which still needs the INNER Σ (rt_dcap_end_ok_open's rdx) and may itself run nested matches that push/pop their own saves LIFO.  The end cursor was already stashed at +24 before r14 is overwritten.  M-2: with cas_rsp_mark=pre-sub, sub rsp,80 above re-establishes the slot base. */
-         + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
-         + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
+         + (emit_match_rbp()
+             ? x86("note", "cas_mark") + x86("mov", "r12", RDQ("rbp", -8))   /* MATCH-RBP: SPIN the CAS to the MARK — one mov replaces the L(10) tag-0 pop scan */
+             + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))
+             + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
+             + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
+             : x86("note", "cas_mark") + x86("def", L(10)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(10))   /* ⭐ CAS-POP-SCAN (09h, supersedes W-1c.3 NO-SCAN, MEASURED): the single sub was arithmetic against a CALLEE-SAVED register the C pump cannot move -- gdb over 1000 ASSIGN_COND hits: r12 drifts exactly 24 B/capture-match, arena wall ~700k (pattern_bt_deep); pattern_bt "OK" at 500k was 12 MB of margin.  Fence law licenses the tag-0 marker scan (L(5)/L(9) discipline): MATCH_END is the commit, everything above the HEAD marker is dead post-pump. */
+             + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* M-2 BUG-6 FIX: PATCTX-DESCENT sub rsp,80 deleted. After CAS restore rsp=cas_rsp_mark=pre-32B-carve rsp (MATCH_BEGIN stores cas_rsp_mark BEFORE x86_zclaim(32), and saves r13/r14/r15/___ also pre-carve at [rsp+48/56/64/40]). No descent needed: FRQ(op_off+48) resolves to [rsp+48] = the exact save address. */
+             + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
+             + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64)))
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror; CAPGEN-ERAD: arg3 dropped, restore no longer writes g_cap_gen */
+         + IF(emit_match_rbp(), x86("note", "frame_whack") + x86("mov", "rsp", "rbp") + x86("pop", "rbp"))   /* MATCH-RBP: the whole-frame WHACK — releases the frame AND every in-bracket ζ-cell in two ops; supersedes the [r8+8] rsp recovery, the zls2 slot, and the planner's carve accounting (stfh_k reads 0 through the wrapper) */
          + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  HEAD-PIN (s22z): under the pin the restore rides the terminal cut instead.  M-2 BUG-6 NOTE: !op_tail exclusion removed — PAIR(2) ___RAWD reads (bb_match_arbno.cpp PAIR(2)) fire BEFORE MATCH_END α; by the time release_pump runs, PAIR(2) is complete and HEAD-PIN ___ is safe to restore.  Tail path does NOT restore at ARBNO omega (L(2) only runs on full exhaust, not on first-match-success). */
          /* M-2 BUG-6 FIX: PATCTX-ASCENT add rsp,80 deleted (paired with DESCENT deletion above). After PATCTX restores rsp remains at pre-32B-carve level; STATEMENT_END's add rsp,16 releases the subject var cell correctly. */
          + x86_gamma();
@@ -84,17 +92,19 @@ std::string bb_match_end() {
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
          + x86_alpha()
-         + x86("mov", "r8", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r8 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
-         + x86("def", L(8))
-         + x86("sub", "r8", (long)24)
-         + x86("mov", "rax", RDQ("r8", 0))
-         + x86("test", "rax", "rax")
-         + x86("jne", L(8))
-         + x86("mov", "rsp", RDQ("r8", 8))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed; rsp restore from [r8+8] kept */
+         + (emit_match_rbp()
+             ? std::string()   /* MATCH-RBP (s65e): no sentinel to scan, no rsp to recover here — the pump reads the mark off rbp; the frame whack after ctx_restore releases rsp */
+             : x86("mov", "r8", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r8 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
+             + x86("def", L(8))
+             + x86("sub", "r8", (long)24)
+             + x86("mov", "rax", RDQ("r8", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne", L(8))
+             + x86("mov", "rsp", RDQ("r8", 8)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed; rsp restore from [r8+8] kept */
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha()
-         + IF(x86_zc_frame() == ZC_FRAME_RSP, x86("mov", "r8", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r8 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r8 survives to the unwind below: rfc reads [r8+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
+         + IF(x86_zc_frame() == ZC_FRAME_RSP && !emit_match_rbp(), x86("mov", "r8", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r8 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r8 survives to the unwind below: rfc reads [r8+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
                                                + x86("def", L(9))
                                                + x86("sub", "r8", (long)24)
                                                + x86("mov", "rax", RDQ("r8", 0))
@@ -108,7 +118,8 @@ std::string bb_match_end() {
                                                      : x86("mov", FRQ(_.op_off + 24), "r14"))
                 : std::string())
          /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
-         + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", "rsp", RDQ("r8", 8))   /* s53 RSP-ONLY: BOTH arms unwind via the arena -- the L(9) walk above already found this activation's begin marker in r8, and [r8+8] is the rsp bb_match_begin BANKED there (depth-IMMUNE).  The old non-rfc HKM read ([rsp#+8]) was depth-static and any surviving interior record (DEFER's {pad,resume} success pair -- the r8.sno conviction: rsp loaded a CODE address) displaced it.  One value, one home, two spellings collapsed to the banked one. */
+         + (emit_match_rbp() ? std::string()   /* MATCH-RBP: rsp untouched here — the frame whack after ctx_restore in the pump tail is the sole release */
+            : x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", "rsp", RDQ("r8", 8))   /* s53 RSP-ONLY: BOTH arms unwind via the arena -- the L(9) walk above already found this activation's begin marker in r8, and [r8+8] is the rsp bb_match_begin BANKED there (depth-IMMUNE).  The old non-rfc HKM read ([rsp#+8]) was depth-static and any surviving interior record (DEFER's {pad,resume} success pair -- the r8.sno conviction: rsp loaded a CODE address) displaced it.  One value, one home, two spellings collapsed to the banked one. */
             : (rfc() ? x86("mov", "rsp", RDQ("r8", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
                : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16))))
          + x86_align_leave()
