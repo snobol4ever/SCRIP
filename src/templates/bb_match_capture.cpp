@@ -14,6 +14,7 @@ extern "C" void rt_cap_push(void *slot, int delta);
 extern "C" void rt_cap_pop(void *slot);
 extern "C" int rt_cap_top(void *slot);
 #include "x86_asm.h"
+static inline int  actframe()  { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_CAP_ACTFRAME"); on = (e && *e == '1') ? 1 : 0; } return on; }   /* s82 ACTIVATION-FRAME killswitch, default OFF (NOT YET CORRECT — see the arm's own header comment): routes op_frame_need==1 SAVE/IMM/COND (a capture crossing a non-static DEFER or MATCH_VALUE, per earn_hazard_in) through a dedicated RBP frame instead of the ZD-cell (ZRESD/ZOPD) RSP-relative link -- gdb-measured (s82) to read two different physical addresses when the intervening DEFER carves stack without self-releasing before its wire-return. ⛔ KNOWN BROKEN AS WRITTEN, DEFAULT OFF ON PURPOSE: earn_hazard_in walks a node's OWN operand subtree, so IMM (whose operand[0] contains the DEFER) correctly gets need=1, but SAVE (a pure producer, no relevant operands) never does -- SAVE therefore falls through to the OLD ZD-cell arm untouched while IMM reads an RBP slot nobody wrote, producing an EMPTY capture (worse than the pre-existing ABC bug, not a fix). REAL FIX NEEDED: propagate IMM/COND's need=1 verdict back onto its SAVE operand (nd->operands[1]) via a small additive pre-pass alongside zd_plan's existing call site (emit.cpp:2418, "the ONE execution-order walk... before any emission") -- a parallel array in the zd_out/g_zd_read style, NOT a new IR_t field (RULES.md PEERS RULE: IR_t stays lean). NOT DONE THIS SESSION. SCRIP_CAP_ACTFRAME=1 re-enables the broken arm for continued debugging only -- do not use for correctness. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-FC-3c (ARCH-ZETA S13 Tier C, CAPTURES; plan of record = the s47 COND-CROSS-BOX-READ finding): when
  * LOWER registered the capture (linear inner, no ARBNO either direction), SAVE owns a 16-byte rsp cell --
@@ -40,6 +41,15 @@ std::string bb_match_capture() {
          : !(_.op_sval ? _.op_sval : "")[0]
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_ASSIGN: empty capture variable name") )
+         : (int)_.op_phase == 0 && actframe() && _.op_frame_need
+         ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE activation frame (EARN-1: crosses unbounded stack growth, RESULT moves off ZETA-SPINE per the s81/s82 ruling)")
+           + x86_alpha()
+           + x86("push", "rbp")
+           + x86("mov",  "rbp", "rsp")
+           + x86("sub",  "rsp", 8L)
+           + x86("mov",  RDD("rbp", -8), "r14d")
+           + x86_gamma()
+           + x86_beta_trampoline() )
          : (int)_.op_phase == 0 && _.op_cap_anchor
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE anchor")   /* ⭐ OS-2·SLICE-1 (ONE-SYSTEM): δ home = the SAVE node's own ZLS slot through THE ONE OFFSET FUNCTION -- pinned graphs (every match stmt with DEFER via deep_arrival, every blob via flat_pat) resolve [___+off] = depth-immune, per-activation by the frame itself (blob α self-allocates, BLOB-GRANT s22z), so nesting and *VAR recursion cannot alias: X/Y/Z are three nodes = three slots, recursive same-node activations live in distinct blob frames.  β trampolines: no cell of ours to release (the fc grant's hook cell is dead ballast under this arm). */
            + x86_alpha()
@@ -62,6 +72,37 @@ std::string bb_match_capture() {
            + x86_beta()
            + x86("sub",  "r12", (long)24)
            + x86_omega() )
+         : (int)_.op_phase == 2 && actframe() && _.op_frame_need
+         ? ( x86("comment", "IR_MATCH_CAPTURE_IMM activation frame (EARN-1: reads SAVE's RBP-relative slot, immune to the DEFER's own carve -- s82)")
+           + x86_alpha()
+           + x86("mov",  "eax", RDD("rbp", -8))
+           + x86("mov",  "rsp", "rbp")
+           + x86("pop",  "rbp")
+           + x86_anchor_enter()
+           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
+           + x86("mov",  "esi", "eax")
+           + x86("mov",  "edx", "r14d")
+           + x86("mov",  "ecx", (long)1)
+           + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + x86("test", "rax", "rax")
+           + x86("je",   L(1))
+           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
+           + bb_glue_pass_wires(2, 3)
+           + x86("def",  L(2))
+           + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
+           + x86("mov",  "rdi", "rax")
+           + x86("mov",  "rsi", "rdx")
+           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + x86("jmp",  L(1))
+           + x86("def",  L(3))
+           + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
+           + x86("mov",  "rdi", "rax")
+           + x86("mov",  "rsi", "rdx")
+           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + x86("def",  L(1))
+           + x86_anchor_leave()
+           + x86_gamma()
+           + x86_beta_trampoline() )
          : (int)_.op_phase == 2 && _.op_cap_anchor
          ? ( x86("comment", "IR_MATCH_CAPTURE_IMM anchor")   /* ⭐ OS-2·SLICE-1: FR read BEFORE the anchor window (window pushes 16 -- an FR-rsp-arm read inside would be 16 low; eax survives, the cfc placement law verbatim); rt_cap_open/finish protocol unchanged. */
            + x86_alpha()
