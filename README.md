@@ -299,62 +299,80 @@ Frames are **immutable plain JS arrays** — transitions create new arrays,
 old ones are GC'd. No `memcpy`, no snapshot/restore, no arena. The GC *is*
 the stack allocator.
 
-### Benchmark: SCRIP vs SPITBOL — 2026-08-09, HEAD `26cbd86a` (09h)
+### Benchmark: SCRIP vs SPITBOL — 2026-08-13 s68, SCRIP `b3a57714`
 
-Benchmark corpus (`corpus/benchmarks/snobol4/*.sno`, now 23 programs) vs the
-SPITBOL x64 oracle (`sbl -b`). Program-reported `TIME()` ms; SCRIP = mode-4
-`--compile`, gcc `-O0`, default regime. ⚠ NOT run under `setarch -R` this pass
-(the s22l ±2-program ASLR caveat applies). **ratio > 1.00x = SCRIP faster.**
-Suite state this HEAD: **OK=20 FAIL=0 CRASH=3 of 23** — up from 17 after three
-09h fixes (MATCH_BEGIN stfh-carve accounting via the `emit_match_begin_stfh_k`
-one-authority; the DEFER/VALUE hit-store environ smash gated; CAS-POP-SCAN
-replacing the falsified 24 B/capture arena leak — FINDING-2026-08-09h).
+Benchmark corpus (`corpus/benchmarks/snobol4/*.sno`, 23 programs) vs the SPITBOL
+x64 oracle (`sbl -b`). Program-reported `TIME()` ms both sides — semantics
+verified to match rather than assumed: the manual (p.242) defines `TIME()` under
+Unix as time spent computing, excluding I/O wait, and SCRIP's is
+`clock()/CLOCKS_PER_SEC`, so both are CPU time. SCRIP = mode-4 `--compile`,
+`SCRIP_FN_RBP=1` (the standing RBP-FUNCTION debug mode). **MIN-OF-5**, spread
+reported per row. ⚠ NOT run under `setarch -R` (the s22l ±2-program ASLR caveat
+applies). **ratio > 1.00x = SCRIP faster.**
 
-| benchmark | SPITBOL (ms) | SCRIP (ms) | ratio |
-|---|---|---|---|
-| arith_int | 4857 | 1571 | 3.09x |
-| arith_loop | 48 | 15 | 3.20x |
-| arith_mixed | 2375 | 768 | 3.09x |
-| arith_str | 350 | 467 | 0.75x |
-| eval_dynamic | — | hang 30s | — |
-| eval_fixed | 277 | 316 | 0.88x |
-| fibonacci | 192 | 514 | 0.37x |
-| func_call | 977 | 2005 | 0.49x |
-| func_call_overhead | 996 | 1926 | 0.52x |
-| mixed_workload | 188 | 2464 | 0.08x |
-| op_dispatch | 132 | 41 | 3.22x |
-| pattern_bt | 526 | 279 | 1.89x |
-| pattern_bt_deep | 8196 | 5104 | 1.61x |
-| roman | 128* | CRASH | — |
-| string_concat | 144 | 10 | 14.40x |
-| string_manip | 658 | 2850 | 0.23x |
-| string_pattern | 682* | CRASH | — |
-| table_access | 356 | 2886 | 0.12x |
-| table_churn | 338 | 1211 | 0.28x |
-| var_access | 1557 | 417 | 3.73x |
+⛔ **`RT_OPT=-O0`** — the Makefile default (FACT RULE O0-DEV). The runtime `.so`
+is UNOPTIMIZED in these numbers. This is not a footnote: see the reading below.
 
-(`cap_imm_nret`, `indirect_dispatch` run OK, no `TIME()` loop; * = 07-31 sbl
-figure, not re-timed.)
+Suite state this HEAD, m4, graded against the LIVE oracle: **16 PASS / 7 SIG11
+of 23.** Timing rows exist only for the 16 that pass — a crashing program's
+time is not a measurement.
 
-**The bimodal reading holds.** Scalar/dispatch/concat: 3.1–14.4× faster.
-Pattern backtracking is ahead (`pattern_bt` 1.89×, `_deep` 1.61×) — and both
-were CRASH at session open; they land already-faster the day they first run.
-The losing cluster is unchanged and coherent: **aggregates + string building**
-(`mixed_workload` 0.08×, `table_access` 0.12×, `string_manip` 0.23×,
-`table_churn` 0.28×) — allocation/copy-dominated, an RTX-ladder story — plus
-the DEFINE call protocol (`func_call` ~0.5×, `fibonacci` 0.37×), LADDER AB's
-exact customer.
+| benchmark | SPITBOL (ms) | SCRIP (ms) | ratio | spread |
+|---|---|---|---|---|
+| func_call_overhead | 875 | 229 | **3.82x** | 4.3% |
+| func_call | 864 | 230 | **3.75x** | 3.4% |
+| op_dispatch | 116 | 32 | **3.62x** | 6.2% |
+| fibonacci | 169 | 47 | **3.59x** | 4.2% |
+| var_access | 1281 | 379 | **3.37x** | 7.9% |
+| arith_mixed | 2111 | 660 | **3.19x** | 6.3% |
+| arith_int | 4256 | 1371 | **3.10x** | 4.5% |
+| arith_loop | 43 | 14 | **3.07x** | 0% |
+| arith_str | 312 | 385 | 0.81x | 5.4% |
+| pattern_bt | 222 | 198 | 1.12x | ⚠ 29.7% |
+| pattern_bt_deep | 3614 | 3547 | ~1.02x | (n=3) |
+| string_concat | 137 | 8 | 17.12x | ⚠ 75% |
+| string_manip | 653 | 1876 | 0.34x | ⚠ 50.6% |
+| table_churn | 318 | 1081 | 0.29x | ⚠ 129% |
+| table_access | 335 | 1163 | 0.28x | ⚠ 142% |
 
-**Regressions vs 07-31 named, not hidden:** `roman` and `string_pattern` ran at
-`a679d993` and CRASH now — the REPLACE-class positive-home family (environ
-smash; slot census + capture-δ collision constraint in FINDING-2026-08-09h §4,
-routed to OS-2·SLICE-REPLACE). `string_pattern` additionally hides an m3 hang
-at ~500 replacements that the arena leak was masking. `eval_dynamic` still
-hangs both modes.
+(`cap_imm_nret`/`cap_imm_nret2`, `eval_dynamic`, `eval_fixed`, `mixed_workload`,
+`roman`, `string_pattern` = SIG11, no row. `indirect_dispatch` passes but has no
+`TIME()` loop.)
 
-⛔ **Do not quote a single headline multiplier.** Spread runs 0.08×–14.4×; the
-defensible summary is unchanged: "faster on scalar/dispatch/pattern work,
-slower on aggregate/string-building and calls, EVAL and REPLACE unfixed."
+⚠ **The five flagged rows exceed `bench_min_of_n.sh`'s own SPREAD_WARN=15% and
+are NOT point estimates.** `table_access`/`table_churn` spread >100% means min
+and max differ by more than 2× on one binary — allocation/GC behaviour, not a
+stable figure. Quoting them as a multiplier would be quoting noise.
+
+**Geomean: 2.92x over the nine clean rows; 3.43x over arithmetic/call/var-access;
+1.83x over all fifteen.**
+
+**The split tracks EMITTED CODE vs RUNTIME C, and `-O0` sits on exactly one side
+of it.** Arithmetic, calls, variable access and dispatch — all emitted x86 — run
+3.1–3.8× faster. Tables and string building — all work done inside
+`libscrip_rt.so` — run 3–3.6× slower, and that `.so` is the object compiled at
+`-O0`. ⛔ **The losing cluster is therefore CONFOUNDED and must not be read as a
+design verdict until re-measured with `RT_OPT="-O2 …"`.** That build is
+perf-only, explicit opt-in (O2-DIRECTED-ONLY).
+
+⛔ **Do not quote a single headline multiplier.** Spread runs 0.28×–3.8× on
+trustworthy rows. Defensible summary: "≈3× faster on scalar, dispatch and call
+work; at parity on pattern backtracking; slower on aggregate/string building at
+an `-O0` runtime; EVAL, REPLACE-family and deferred-capture programs do not run."
+
+**Movement vs the 2026-08-09 pass (`26cbd86a`), named not hidden.** The DEFINE
+call protocol INVERTED and is now the strongest family: `func_call` 0.49× →
+3.75×, `func_call_overhead` 0.52× → 3.82×, `fibonacci` 0.37× → 3.59× — the
+TINY-REAL/SIG linkage rungs (s57/s58/s66) landing. Against that, the passing set
+moved 20 → 16: `cap_imm_nret`, `cap_imm_nret2`, `eval_fixed` and
+`mixed_workload` ran on 08-09 and SIG11 now, joining `roman`, `string_pattern`
+and `eval_dynamic`. The seven sort into exactly three shapes — REPLACE-form
+match (`string_pattern`, `mixed_workload`, `roman`), EVAL (`eval_dynamic`,
+`eval_fixed`), and deferred/immediate capture (`cap_imm_nret{,2}`) — with clean
+controls on both sides: DEFINE-with-recursion-but-no-match passes 4/4, and bare
+matching with alternation, SPAN and `.` capture passes 2/2. Note this window
+spans the RBP eradication (s51/s52) and the RBP-FUNCTION re-introduction (s63),
+so the two passes are not the same machine.
 
 
 ### Demo suite: SCRIP vs SPITBOL — 2026-08-09 s34, HEAD `a5c2264` (counter-loop rail)
