@@ -17,18 +17,30 @@ OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
 : "${SWEEP_JOBS:=1}"
 : "${SWEEP_ORACLE:=/home/claude/x64/bin/sbl}"
 : "${SWEEP_CORPUS:=/home/claude/corpus}"
-export ROOT SWEEP_ORACLE SWEEP_CORPUS
+# s68: SWEEP_NORM + SWEEP_RUN_TO.  BOTH DEFAULT TO THE PRE-EXISTING BEHAVIOUR (norm off, 8s run) so every existing caller is byte-identical.
+# SWEEP_NORM=1 rewrites ONLY a whole line of the exact form "ms: <digits>" to "ms: <T>" on BOTH sides before comparison.  WHY IT IS NOT A CHEAT:
+# the benchmark corpus prints an ELAPSED TIME line by construction (20 of 23 programs), so a byte-compare against the oracle reads DIFF for a
+# CORRECT engine and DIFF for a BROKEN one -- the arms COINCIDE, which is the STANDING INSTRUMENT RULE's own definition of an instrument that is
+# DARK for the class under test.  Elapsed milliseconds are not a semantic property of the program; the deterministic checksum line beside it is,
+# and those stay byte-compared.  The pattern is anchored (^ms: [0-9]+$) so no result line, no numeric output, and no ms-bearing DATA can be caught.
+: "${SWEEP_NORM:=0}"
+: "${SWEEP_RUN_TO:=8}"
+export ROOT SWEEP_ORACLE SWEEP_CORPUS SWEEP_NORM SWEEP_RUN_TO
+sweep_norm() { if [ "$SWEEP_NORM" = 1 ]; then sed -E 's/^ms: [0-9]+$/ms: <T>/'; else cat; fi; }
+export -f sweep_norm
 classify_one() {
   f=$1
   case "$f" in /*) src=$f;; *) src=$ROOT/$f;; esac
   tag=$$-$(printf '%s' "$f" | md5sum | cut -c1-10)
   S=/tmp/dsw.$tag.s; X=/tmp/dsw.$tag.x; CE=/tmp/dsw.$tag.cerr; GE=/tmp/dsw.$tag.gerr; RE=/tmp/dsw.$tag.rerr
   ORA=$(cd "$SWEEP_CORPUS" && timeout 30 "$SWEEP_ORACLE" -b "$src" </dev/null 2>/dev/null); ost=$?
+  ORA=$(printf '%s\n' "$ORA" | sweep_norm)
   st=
   if ! SNO_LIB="$SWEEP_CORPUS" timeout 30 "$ROOT/scrip" --compile "$src" </dev/null > $S 2>$CE; then st=COMPILE_FAIL
   elif ! gcc -no-pie $S -L "$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o $X 2>$GE; then st=ASM_FAIL
   else
-    RO=$(timeout 8 $X </dev/null 2>$RE); rc=$?
+    RO=$(timeout "$SWEEP_RUN_TO" $X </dev/null 2>$RE); rc=$?
+    RO=$(printf '%s\n' "$RO" | sweep_norm)
     if grep -q "BOMB-RETURN" $RE; then
       case "$ORA" in "$RO"*) st=DESCENT_OK;; *) st=BOMB_RETURN_BAD;; esac
     elif grep -q "BOMB-FRETURN" $RE; then st=BOMB_FRETURN
