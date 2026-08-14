@@ -100,11 +100,7 @@ n6_match_begin_β:       mov              rsp, qword ptr [r12 + -16]           #
                                                                               jmp   .Lx37_0
 .Lx37_1:
 n6_match_begin_af:      sub              r12, 24                              # cas_mark
-                        mov              rax, qword ptr [r12 + 8]             # arbno_rbp_unwind
-.Lx37_11:               cmp              rbp, rax;                            jae   .Lx37_12
-                        test             rbp, rbp;                            je    .Lx37_12
-                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx37_11
-.Lx37_12:               mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
+                        mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
                         mov              r13, qword ptr [rsp + 48]            # outer_Σ
                         mov              r14, qword ptr [rsp + 56]            # outer_δ
                         mov              r15, qword ptr [rsp + 64]            # outer_Δ
@@ -124,27 +120,18 @@ n8_match_assign_save_α: sub              rsp, 16
                         mov              dword ptr [rsp + 0], r14d;           jmp   n9_match_arbno_α
 n8_match_assign_save_β: add              rsp, 16;                             jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n9_match_arbno_α:       push             rbp
-                        sub              rsp, 24
-                        mov              rbp, rsp
-                        mov              dword ptr [rbp + 0], r14d
-                        mov              dword ptr [rbp + 4], r14d
-                        mov              dword ptr [rbp + 16], 0;             jmp   n10_match_assign_cond_α
-n9_match_arbno_β:                                                             jmp   n14_match_alternate_α
-n9_match_arbno_as:      mov              eax, dword ptr [rbp + 4]
-                        cmp              r14d, eax;                           je    n14_match_alternate_β
-                        mov              dword ptr [rbp + 4], r14d
-                        add              dword ptr [rbp + 16], 1;             jmp   n10_match_assign_cond_α
-n9_match_arbno_af:      mov              eax, dword ptr [rbp + 16]
-                        sub              eax, 1;                              js    .Lx42_2
-                        mov              dword ptr [rbp + 16], eax;           jmp   n14_match_alternate_β
-.Lx42_2:                mov              r14d, dword ptr [rbp + 0]
-                        lea              rsp, [rbp + 24]
-                        pop              rbp;                                 jmp   n8_match_assign_save_β
+n9_match_arbno_α:       lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+n9_match_arbno_β:       lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+n9_match_arbno_as:
+n9_match_arbno_af:
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 32]
-                        lea              rcx, [rip + .S0]
+                        mov              eax, dword ptr [rsp + 16]
+                        lea              rcx, [rip + .S2]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
                         mov              qword ptr [r12 + 8], rsi
@@ -166,11 +153,7 @@ n12_match_end_α:        mov              r8, r12
 .Lx47_8:                sub              r8, 24
                         mov              rax, qword ptr [r8 + 0]
                         test             rax, rax;                            jne   .Lx47_8
-                        mov              rax, qword ptr [r8 + 8]              # arbno_rbp_unwind
-.Lx47_11:               cmp              rbp, rax;                            jae   .Lx47_12
-                        test             rbp, rbp;                            je    .Lx47_12
-                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx47_11
-.Lx47_12:               mov              rsp, qword ptr [r8 + 8]
+                        mov              rsp, qword ptr [r8 + 8]
                         push             r14
                         push             r15
                         push             r13
@@ -255,7 +238,7 @@ n12_match_end_α:        mov              r8, r12
                         mov              r10, qword ptr [rip + rtccb+56];     jmp   n13_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_statement_end_α:    add              rsp, 16;                             jmp   n17_statement_begin_α
-n13_statement_end_β:    add              rsp, 64;                             jmp   n23_statement_begin_α
+n13_statement_end_β:    add              rsp, 48;                             jmp   n23_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n14_match_alternate_α:  sub              rsp, 32
                         mov              dword ptr [rsp + 0], r14d
@@ -376,6 +359,8 @@ main_ω:
                         mov              edi, 1
                         call             exit@PLT
                         .section         .rodata
-.S0:                    .string          "V"
+.S0:                    .string          "IR_MATCH_ARBNO: unreachable beta (k0-defer decline)"
+.S1:                    .string          "IR_MATCH_ARBNO: body contains a write-once DEFER -- K0 frontier-invariance not established for a runtime-invoked body (W-7 companion)"
+.S2:                    .string          "V"
                         .text
                         .section         .note.GNU-stack,"",@progbits
