@@ -52,11 +52,8 @@ max_alpha:              sub              rsp, 64
                         mov              qword ptr [r9 + 24], 0
 .Lx8_42:                lea              r10, [rip + max_gamma]
                         lea              r11, [rip + max_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + max_body];               jmp   rax
 max_gamma:              mov              rdi, qword ptr [r9 + 0]              # max
                         mov              rsi, qword ptr [r9 + 8]
@@ -175,11 +172,8 @@ min_alpha:              sub              rsp, 64
                         mov              qword ptr [r9 + 24], 0
 .Lx17_42:               lea              r10, [rip + min_gamma]
                         lea              r11, [rip + min_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + min_body];               jmp   rax
 min_gamma:              mov              rdi, qword ptr [r9 + 32]             # min
                         mov              rsi, qword ptr [r9 + 40]
@@ -281,11 +275,8 @@ abs_alpha:              sub              rsp, 48
                         mov              qword ptr [r9 + 56], 0
 .Lx26_41:               lea              r10, [rip + abs_gamma]
                         lea              r11, [rip + abs_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + abs_body];               jmp   rax
 abs_gamma:              mov              rdi, qword ptr [r9 + 48]
                         mov              rsi, qword ptr [r9 + 56]
@@ -365,11 +356,8 @@ sign_alpha:             sub              rsp, 48
                         mov              qword ptr [r9 + 72], 0
 .Lx35_41:               lea              r10, [rip + sign_gamma]
                         lea              r11, [rip + sign_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + sign_body];              jmp   rax
 sign_gamma:             mov              rdi, qword ptr [r9 + 64]
                         mov              rsi, qword ptr [r9 + 72]
@@ -472,11 +460,8 @@ gcd_alpha:              sub              rsp, 80
                         mov              qword ptr [r9 + 104], 0
 .Lx44_42:               lea              r10, [rip + gcd_gamma]
                         lea              r11, [rip + gcd_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + gcd_body];               jmp   rax
 gcd_gamma:              mov              rdi, qword ptr [r9 + 80]             # gcd
                         mov              rsi, qword ptr [r9 + 88]
@@ -615,11 +600,8 @@ lcm_alpha:              sub              rsp, 96
                         mov              qword ptr [r9 + 104], 0
 .Lx53_42:               lea              r10, [rip + lcm_gamma]
                         lea              r11, [rip + lcm_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + lcm_body];               jmp   rax
 lcm_gamma:              mov              rdi, qword ptr [r9 + 128]            # lcm
                         mov              rsi, qword ptr [r9 + 136]
@@ -2460,10 +2442,8 @@ n242_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 #-----------------------------------------------------------------------------------------------------------------------
 n243_statement_end_α:   add              rsp, 544;                            jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 mov              rsp, rbp
-                        pop              rbp
-                        pop              rcx
-                        add              rsp, 16;                             jmp   rcx
+RETURN:                 pop              rcx
+                        add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω

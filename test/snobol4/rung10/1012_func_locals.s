@@ -93,11 +93,8 @@ lfunc_alpha:            sub              rsp, 144
                         mov              qword ptr [r9 + 56], 0
 .Lx8_43:                lea              r10, [rip + lfunc_gamma]
                         lea              r11, [rip + lfunc_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + lfunc_body];             jmp   rax
 lfunc_gamma:            mov              rdi, qword ptr [r9 + 0]              # lfunc
                         mov              rsi, qword ptr [r9 + 8]
@@ -259,11 +256,8 @@ checklocal_alpha:       sub              rsp, 64
                         mov              qword ptr [r9 + 136], 0
 .Lx17_41:               lea              r10, [rip + checklocal_gamma]
                         lea              r11, [rip + checklocal_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + checklocal_body];        jmp   rax
 checklocal_gamma:       mov              rdi, qword ptr [r9 + 112]            # checklocal
                         mov              rsi, qword ptr [r9 + 120]
@@ -807,7 +801,7 @@ n73_assign_α:           mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 0], rax              # lfunc
                         mov              qword ptr [r9 + 8], rdx;             jmp   n74_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n74_statement_end_α:                                                          jmp   RETURN
+n74_statement_end_α:    add              rsp, 80;                             jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n75_statement_begin_α:                                                        jmp   n76_statement_end_α
 n75_statement_begin_β:                                                        jmp   n77_statement_begin_α
@@ -1406,10 +1400,8 @@ n156_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 #-----------------------------------------------------------------------------------------------------------------------
 n157_statement_end_α:   add              rsp, 16;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 mov              rsp, rbp
-                        pop              rbp
-                        pop              rcx
-                        add              rsp, 16;                             jmp   rcx
+RETURN:                 pop              rcx
+                        add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω
