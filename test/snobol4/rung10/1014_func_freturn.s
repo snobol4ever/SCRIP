@@ -24,11 +24,8 @@ always_fail_alpha:      sub              rsp, 48
                         lea              r8, [rsp + 48]
                         lea              r10, [rip + always_fail_gamma]
                         lea              r11, [rip + always_fail_omega]
-                        sub              rsp, 8
                         push             r11
                         push             r10
-                        push             rbp
-                        mov              rbp, rsp
                         lea              rax, [rip + always_fail_body];       jmp   rax
 always_fail_gamma:      mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
@@ -236,11 +233,8 @@ n29_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_end_α:    add              rsp, 16;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-FRETURN:                mov              rsp, rbp
-                        pop              rbp
-                        add              rsp, 8
-                        pop              rcx
-                        add              rsp, 8;                              jmp   rcx
+FRETURN:                add              rsp, 8
+                        pop              rcx;                                 jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω
