@@ -114,16 +114,23 @@ n7_match_pos_α:         mov              rax, 0
                                                                               jmp   n8_match_arbno_α
 n7_match_pos_β:                                                               jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n8_match_arbno_α:       sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d
-                        mov              dword ptr [rsp + 4], r14d;           jmp   n9_match_rpos_α
+n8_match_arbno_α:       push             rbp
+                        sub              rsp, 24
+                        mov              rbp, rsp
+                        mov              dword ptr [rbp + 0], r14d
+                        mov              dword ptr [rbp + 4], r14d
+                        mov              dword ptr [rbp + 16], 0;             jmp   n9_match_rpos_α
 n8_match_arbno_β:                                                             jmp   n12_match_alternate_α
-n8_match_arbno_as:      mov              eax, dword ptr [rsp + 4]
+n8_match_arbno_as:      mov              eax, dword ptr [rbp + 4]
                         cmp              r14d, eax;                           je    n12_match_alternate_β
-                        mov              dword ptr [rsp + 4], r14d;           jmp   n9_match_rpos_α
-n8_match_arbno_af:      mov              eax, dword ptr [rsp + 0]
-                        cmp              r14d, eax;                           jne   n12_match_alternate_β
-                        add              rsp, 16;                             jmp   n7_match_pos_β
+                        mov              dword ptr [rbp + 4], r14d
+                        add              dword ptr [rbp + 16], 1;             jmp   n9_match_rpos_α
+n8_match_arbno_af:      mov              eax, dword ptr [rbp + 16]
+                        sub              eax, 1;                              js    .Lx36_2
+                        mov              dword ptr [rbp + 16], eax;           jmp   n12_match_alternate_β
+.Lx36_2:                mov              r14d, dword ptr [rbp + 0]
+                        lea              rsp, [rbp + 24]
+                        pop              rbp;                                 jmp   n7_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_rpos_α:        mov              rax, 0
                         mov              ecx, r15d
@@ -221,7 +228,7 @@ n10_match_end_α:        mov              r8, r12
                         mov              r10, qword ptr [rip + rtccb+56];     jmp   n11_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:    add              rsp, 16;                             jmp   n15_statement_begin_α
-n11_statement_end_β:    add              rsp, 32;                             jmp   n19_statement_begin_α
+n11_statement_end_β:    add              rsp, 48;                             jmp   n19_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_alternate_α:  sub              rsp, 32
                         mov              dword ptr [rsp + 0], r14d

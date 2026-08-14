@@ -246,19 +246,26 @@ n16_match_assign_save_α:
 n16_match_assign_save_β:
                         add              rsp, 16;                             jmp   n14_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n17_match_arbno_α:      sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d
-                        mov              dword ptr [rsp + 4], r14d;           jmp   n18_match_assign_cond_α
+n17_match_arbno_α:      push             rbp
+                        sub              rsp, 24
+                        mov              rbp, rsp
+                        mov              dword ptr [rbp + 0], r14d
+                        mov              dword ptr [rbp + 4], r14d
+                        mov              dword ptr [rbp + 16], 0;             jmp   n18_match_assign_cond_α
 n17_match_arbno_β:                                                            jmp   n22_match_lit_α
-n17_match_arbno_as:     mov              eax, dword ptr [rsp + 4]
+n17_match_arbno_as:     mov              eax, dword ptr [rbp + 4]
                         cmp              r14d, eax;                           je    n22_match_lit_β
-                        mov              dword ptr [rsp + 4], r14d;           jmp   n18_match_assign_cond_α
-n17_match_arbno_af:     mov              eax, dword ptr [rsp + 0]
-                        cmp              r14d, eax;                           jne   n22_match_lit_β
-                        add              rsp, 16;                             jmp   n16_match_assign_save_β
+                        mov              dword ptr [rbp + 4], r14d
+                        add              dword ptr [rbp + 16], 1;             jmp   n18_match_assign_cond_α
+n17_match_arbno_af:     mov              eax, dword ptr [rbp + 16]
+                        sub              eax, 1;                              js    .Lx54_2
+                        mov              dword ptr [rbp + 16], eax;           jmp   n22_match_lit_β
+.Lx54_2:                mov              r14d, dword ptr [rbp + 0]
+                        lea              rsp, [rbp + 24]
+                        pop              rbp;                                 jmp   n16_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 16]
+                        mov              eax, dword ptr [rsp + 32]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
