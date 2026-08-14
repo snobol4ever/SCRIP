@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# test_sweep_arbno_rbp_md5.sh — COMPILE-TIME BLAST RADIUS for the ARBNO-RBP rung (Lon in-chat 2026-08-14).
+# Same instrument as test_sweep_startd_md5.sh (s66 ruling: md5 radius, never a single board run — the
+# board's noise floor is ~5 and flips green->red). One "md5<TAB>program" row per program, sorted.
+# Usage: bash scripts/test_sweep_arbno_rbp_md5.sh <outfile.tsv> [arm]
+#   arm = value for SCRIP_ARBNO_RBP (default 1).
+set -uo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+OUT="${1:?usage: $0 <outfile.tsv> [arm]}"
+ARM="${2:-1}"
+CORPUS="${CORPUS:-/home/claude/corpus}"
+: > "$OUT"
+n=0
+while IFS= read -r f; do
+    s=$(SCRIP_ARBNO_RBP="$ARM" timeout 30s "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)
+    if [ -z "$s" ]; then m="EMPTY_OR_FAIL"; else m=$(printf '%s' "$s" | md5sum | cut -d' ' -f1); fi
+    printf '%s\t%s\n' "$m" "${f#$CORPUS/}" >> "$OUT"
+    n=$((n+1))
+done < <(find "$CORPUS/probe" "$CORPUS/programs/snobol4/demo" -name '*.sno' | sort)
+sort -o "$OUT" "$OUT"
+echo "swept=$n arm=$ARM out=$OUT"

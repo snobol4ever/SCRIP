@@ -202,6 +202,50 @@ static std::string bb_match_arbno_tail() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_rbp() {
+    /* ⭐ ARBNO-RBP (Lon in-chat 2026-08-14, verbatim: "For ARBNO, ALWAYS create an RBP on ALPHA to carve out RESULT and ONE LOCAL, an integer counter of # instances which when goes negative then causes
+     * exhaustion thru OMEGA.  So in BB ARBNO at BETA, the BB LOCAL is directly accessed thru RBP+16 or +0 whichever.").  Layout is the IR_TO shape on an rbp base: α pushes caller rbp (frame chain --
+     * nested/sibling ARBNOs restore LIFO by the four-port retreat order), carves 24, sets rbp=rsp, so RESULT rides [rbp+0..15] {Δ0 dword@+0, yield dword@+4}, the LOCAL counter rides [rbp+16], and the
+     * saved caller rbp rides [rbp+24]; total Δ32, C-call 16-alignment preserved, zd_k(ARBNO)=32 under emit_arbno_rbp() (THE ONE AUTHORITY, emit.cpp).  Every read site is a FIXED rbp offset -- depth-
+     * immune at ANY ζ frontier -- which retires by construction the k0=0-body-on-FRAMELESS class (arb1 FINDING-2026-08-11e: the [rsp+4] dword cursor write assumed a frontier that K>0 members, DEFER
+     * records, and instance peeling all move; measured stomp on a 64-bit resume address).  Counter protocol: σ +1 per committed instance (null-progress je pumps the body without counting, exactly the
+     * frameless law), φ -1 per peel; a retry cycle is φ then σ, net 0, so count always == #currently-committed; count going NEGATIVE at φ == the ε (null-match) baseline itself retried away == Lon's
+     * goes-negative exhaustion -- the deleted NARY arm's count==0 pre-test restructured as sub+js, sign flag free from the decrement.  φ pops nothing: failed attempts' members freed own K retreating
+     * (THE MODEL), committed members' K stays on the spine per the non-popping law (released by bracket whacks / the op_stmt_dyn terminal), and ARBNO itself pushes no per-instance cell -- the counter
+     * replaces the ζ-displacement-as-count trick, dissolving the D-1 zero-width-body constraint.  Exhaust ω restores δ:=Δ0 (the Δ-assert made explicit, NARY's law), then lea rsp,[rbp+24] + pop rbp:
+     * the whole-frame WHACK, robust to any residual drift below.  Suspension holds rbp live across γ (β/σ/φ re-enter through it, per the directive); rbp is callee-saved so C crossings and the
+     * balanced FN_RBP function bracket preserve it; MATCH-RBP frames never coexist (emit_match_rbp excludes the ARBNO family wholesale).  Killswitch SCRIP_ARBNO_RBP=0: legacy byte-identical. */
+    return x86("comment", "IR_MATCH_ARBNO_RBP (Lon 2026-08-14: rbp frame, RESULT@[rbp+0..15], count@[rbp+16], negative=>exhaust)")
+         + x86_alpha()
+         + x86("push", "rbp")
+         + x86("sub", "rsp", 24L)
+         + x86("mov", "rbp", "rsp")
+         + x86("mov", RDD("rbp", 0), "r14d")
+         + x86("mov", RDD("rbp", 4), "r14d")
+         + x86("mov", RDD("rbp", 16), 0L)
+         + x86_gamma()
+         + x86_beta()
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "eax", RDD("rbp", 4))
+         + x86("cmp", "r14d", "eax")
+         + x86("je",  PAIR(1))
+         + x86("mov", RDD("rbp", 4), "r14d")
+         + x86("add", RDD("rbp", 16), 1L)
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("mov", "eax", RDD("rbp", 16))
+         + x86("sub", "eax", 1L)
+         + x86("js",  L(2))
+         + x86("mov", RDD("rbp", 16), "eax")
+         + x86("jmp", PAIR(1))
+         + x86("def", L(2))
+         + x86("mov", "r14d", RDD("rbp", 0))
+         + x86("lea", "rsp", RDQ("rbp", 24))
+         + x86("pop", "rbp")
+         + x86_omega();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void arbno_arm_diag(const char * arm) { static int d = -1; if (d < 0) { const char * e = getenv("SCRIP_ARBNO_DIAG"); d = (e && *e == '1') ? 1 : 0; } if (d) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arbno() {
@@ -211,9 +255,9 @@ std::string bb_match_arbno() {
      * the body's staged ΣK is zero.  THE ONE THING ARBNO MAY NOT DELEGATE is a NONZERO per-instance frontier delta: the ζ displacement IS the committed-instance count (no counter exists), so a zero-width
      * body makes the retract cascade bail at the base test without unwinding a single committed instance -- measured on corpus/probe/bb/test_sno_arbno_csl1a.c, CELLSZ=0 leaves Δ=3 where 0 is correct.
      * zd_k(ARBNO)=16 is that floor and it is already THE ONE AUTHORITY; frameless_k bills committed growth as kk+16 per instance, so a K0 body still advances by ARBNO's own cell. */
-    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : "FRAMELESS");
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? (_.op_arbno_rbp ? "RBP(kk)" : "FRAMELESS_K") : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : (_.op_arbno_rbp ? "RBP" : "FRAMELESS"));
     return _.op_arbno_body_kk > 0
-             ? bb_match_arbno_frameless_k()
+             ? (_.op_arbno_rbp ? bb_match_arbno_rbp() : bb_match_arbno_frameless_k())   /* ⭐ ARBNO-RBP (Lon 2026-08-14): both live arms reroute on the ONE staged predicate; bombs 2/3/4 below stay IN FRONT (same population declines under both arms -- defer-unsafe lift is a separate measured step); OFF = legacy byte-identical */
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
@@ -234,7 +278,7 @@ std::string bb_match_arbno() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a suspend-capable DEFER (pat_static=0) -- anchor-relative slot not yet implemented (W-4)")
                             + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe decline)")
                             + x86("def", PAIR(2)) + x86("def", PAIR(3))
-             : bb_match_arbno_frameless();
+             : (_.op_arbno_rbp ? bb_match_arbno_rbp() : bb_match_arbno_frameless());
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_DELETED_ARMS() {
