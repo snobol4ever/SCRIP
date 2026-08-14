@@ -100,6 +100,7 @@ std::string bb_match_end() {
              + x86("mov", "rax", RDQ("r8", 0))
              + x86("test", "rax", "rax")
              + x86("jne", L(8))
+             + IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r8", 8, 11, 12))   /* ⭐ ARBNO-RBP EPILOGUE (E-1): the SUCCESS exit. r8 holds the head sentinel and [r8+8] is the banked match-entry rsp -- the value the very next instruction loads -- so it is exactly the MARK the walk needs: above every ARBNO frame (all carved after the match began) and at/below the pre-match rbp. IN FRONT of the whack by design: once rsp moves the dead frames are below it. rax is dead here (the L(8) scan above exits holding tag 0). */
              + x86("mov", "rsp", RDQ("r8", 8)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed; rsp restore from [r8+8] kept */
          + release_pump()
          : x86("comment", "IR_MATCH_END")
@@ -119,7 +120,7 @@ std::string bb_match_end() {
                 : std::string())
          /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
          + (emit_match_rbp() ? std::string()   /* MATCH-RBP: rsp untouched here — the frame whack after ctx_restore in the pump tail is the sole release */
-            : x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", "rsp", RDQ("r8", 8))   /* s53 RSP-ONLY: BOTH arms unwind via the arena -- the L(9) walk above already found this activation's begin marker in r8, and [r8+8] is the rsp bb_match_begin BANKED there (depth-IMMUNE).  The old non-rfc HKM read ([rsp#+8]) was depth-static and any surviving interior record (DEFER's {pad,resume} success pair -- the r8.sno conviction: rsp loaded a CODE address) displaced it.  One value, one home, two spellings collapsed to the banked one. */
+            : x86_zc_frame() == ZC_FRAME_RSP ? IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r8", 8, 11, 12)) + x86("mov", "rsp", RDQ("r8", 8))   /* ⭐ ARBNO-RBP EPILOGUE (E-1): same walk on the non-tail success arm -- the L(9) scan above leaves the same r8 sentinel and the same dead rax, so the MARK and the scratch are identical to the tail arm. The two arms are mutually exclusive ternary branches, so reusing L(11)/L(12) cannot collide. *//* s53 RSP-ONLY: BOTH arms unwind via the arena -- the L(9) walk above already found this activation's begin marker in r8, and [r8+8] is the rsp bb_match_begin BANKED there (depth-IMMUNE).  The old non-rfc HKM read ([rsp#+8]) was depth-static and any surviving interior record (DEFER's {pad,resume} success pair -- the r8.sno conviction: rsp loaded a CODE address) displaced it.  One value, one home, two spellings collapsed to the banked one. */
             : (rfc() ? x86("mov", "rsp", RDQ("r8", 8))   /* CAS-MARKER-CARRY unwind: depth-free; marker NOT popped -- the pump walks the pend entries above it and its L(6) scan pops the lot */
                : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16))))
          + x86_align_leave()
