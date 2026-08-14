@@ -147,6 +147,32 @@ inline std::string x86_movq_xmm_r64(const char * dst, const char * src) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movq") + dst + ", " + src + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SSE2 scalar-double register-direct encoders -- serve the SCRIP_DEF_ARITH_FUSE inline arms in
+ * bb_binop_arith.cpp (s70, Lon in-chat directive: inline IR_BINOP arithmetic that coerces in few
+ * instructions).  F2-prefixed family: the mandatory prefix precedes REX, which precedes 0F (SDM Vol.2
+ * ordering; same convention the 66-prefixed movq helpers above already follow).  Register-direct only:
+ * the fused arms speak xmm0/xmm1/xmm2 + GPRs, memory forms stay unbuilt until a template needs one. */
+inline std::string x86_sse2_xx(const char * mnem, uint8_t op, const char * xd, const char * xs) {
+    int d = (xd && !strncmp(xd, "xmm", 3)) ? atoi(xd + 3) : 0; int s = (xs && !strncmp(xs, "xmm", 3)) ? atoi(xs + 3) : 0;
+    std::string code; code += (char)0xF2; uint8_t rex = 0x40; if (d >= 8) rex |= 0x04; if (s >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
+    code += (char)0x0F; code += (char)op; code += (char)(0xC0 | ((d & 7) << 3) | (s & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec(mnem) + xd + ", " + xs + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_cvtsi2sd_xmm_r64(const char * xd, const char * src) {
+    int d = (xd && !strncmp(xd, "xmm", 3)) ? atoi(xd + 3) : 0; int m = x86_rnum(src);
+    std::string code; code += (char)0xF2; uint8_t rex = 0x48; if (d >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01; code += (char)rex;
+    code += (char)0x0F; code += (char)0x2A; code += (char)(0xC0 | ((d & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cvtsi2sd") + xd + ", " + src + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_movq_r64_xmm(const char * dst, const char * xs) {
+    int s = (xs && !strncmp(xs, "xmm", 3)) ? atoi(xs + 3) : 0; int m = x86_rnum(dst);
+    uint8_t rex = 0x48; if (s >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
+    std::string code; code += (char)0x66; code += (char)rex; code += (char)0x0F; code += (char)0x7E; code += (char)(0xC0 | ((s & 7) << 3) | (m & 7));
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movq") + dst + ", " + xs + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_set_xmm0_double(double d) {
     uint64_t bits = 0; memcpy(&bits, &d, sizeof bits);
     return x86_movabs_r64("rax", bits) + x86_movq_xmm0_r64("rax");
@@ -1425,7 +1451,13 @@ inline int x86_is_reg(const char * s) {
     static const char * regs[] = { "rax","rbx","rcx","rdx","rsi","rdi","rsp","rb" "p","r8","r9","r10","r11","r12","r13","r14","r15",
                                    "eax","ebx","ecx","edx","esi","edi","esp","ebp","r8d","r9d","r10d","r11d","r12d","r13d","r14d","r15d",
                                    "al","cl","dl","bl","sil","dil","spl","bpl","r8b","r9b","r10b","r11b","r12b","r13b","r14b","r15b",
-                                   "xmm0","xmm1" };
+                                   "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7" };
+    /* ⛔ xmm2..xmm7 ADDED s70: the table stopped at xmm1, and x86_parse's unknown-name path yields
+     * XK_NONE, which every dispatch case answers with an EMPTY STRING -- so `x86("movq","xmm2","rdx")`
+     * emitted NOTHING and the SCRIP_DEF_I2D_MAGIC splice silently lost its `subsd`, producing 2^52+v
+     * instead of v (witness: 1+2.3 printed 4503599627370499).  A SILENT DROP, not a build or emit error.
+     * ⭐ xmm8-15 are DELIBERATELY still absent: ARCH-ICON's register contract claims them for the VM, and
+     * a template reaching for one should keep failing rather than quietly clobber VM state. */
     for (size_t i = 0; i < sizeof regs / sizeof *regs; i++) if (!strcmp(s, regs[i])) return 1;
     return 0;
 }
@@ -1870,7 +1902,8 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
-    if (!strcmp(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); return std::string(); }
+    if (!strcmp(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt); return std::string(); }
+    if (!strcmp(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); return std::string(); }
     if (!strcmp(mnem, "cmp")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_cmp(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);
@@ -1911,8 +1944,13 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (!strcmp(mnem, "movq")) {
         if (a.kind == XK_REG && b.kind == XK_REG && a.txt && !strncmp(a.txt, "xmm", 3)) return x86_movq_xmm_r64(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_REG && b.txt && !strncmp(b.txt, "xmm", 3)) return x86_movq_r64_xmm(a.txt, b.txt);
         return std::string();
     }
+    if (!strcmp(mnem, "addsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("addsd", 0x58, a.txt, b.txt); return std::string(); }
+    if (!strcmp(mnem, "subsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("subsd", 0x5C, a.txt, b.txt); return std::string(); }
+    if (!strcmp(mnem, "mulsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("mulsd", 0x59, a.txt, b.txt); return std::string(); }
+    if (!strcmp(mnem, "cvtsi2sd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_cvtsi2sd_xmm_r64(a.txt, b.txt); return std::string(); }
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
