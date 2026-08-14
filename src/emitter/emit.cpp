@@ -687,6 +687,10 @@ void bb_prepare(IR_t *nd) {
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
     g_emit.bb_lk = -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_classify_node(IR_t *nd) {                                                                /* ⭐ s68 STAGING GAP CLOSED: this block used to live inside bb_prepare, which is called by only 29 of walk_bb_node_inner's 108 dispatch arms -- so for 79 op kinds frame_need_of NEVER RAN and no [CLS:NOWHACK] line could ever be emitted, making nw=0 an ABSENCE OF MEASUREMENT rather than a verdict of safety.  Seven of those unstaged arms carve stack in their own templates (MATCH_BEGIN 1 · SAVE_RESTORE 4 · CALL_PROC_STAGED 7 · CALL 1 · FUNC_ACTIVATE 1 · MATCH_ALTERNATE 1 · MAKE_LIST 1), which is exactly Lon's "un-whacked STATEMENTS and MATCHES being IGNORED": every node of the 4-line SET-A leak witness test_sno_stmt_frame_1.sno is an unstaged carver, so it staged 0 nodes and read nw=0 while leaking.  It also voids s67's "ALT-CAP confirmed non-causal" inference -- MATCH_ALTERNATE (op 98) never reached the classifier, so no repair to it could ever have moved ledger 2.  Called once from walk_bb_node_inner immediately before the dispatch switch: ordering is provably identical to the old call for the 29 arms (nothing executes between that point and the arm body but the switch dispatch itself), and it is the same "ONE choke every template invocation passes through" idiom as op_pair_rejoin/op_zdepth two lines up.  BYTE-INERT: op_frame_need has NO codegen reader (emit.h:628 DORMANT; the only reads are the two env-gated stderr diags below), so the sole observable effect is diag lines under SCRIP_EARN_DIAG / SCRIP_CLASS_DIAG. */
+    if (!PLATFORM_X86) return;
     g_emit.op_frame_need = frame_need_of(nd);                                                    /* EARN-1: staged at the ONE choke; DORMANT -- nothing reads it yet */
     { static int _ed = -1; if (_ed < 0) { const char * e = getenv("SCRIP_EARN_DIAG"); _ed = (e && *e == '1') ? 1 : 0; }
       if (_ed && nd) fprintf(stderr, "[EARN] op=%d need=%d haz=%d pat_static=%d n_op=%d\n", nd->op, g_emit.op_frame_need, earn_hazard_in(nd, 0), nd->pat_static, nd->n_operands); }
@@ -956,6 +960,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { if (g_emit.op_src && *g_emit.op_src) emit_sep_rule('=');
       if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("srccomment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
       emit_sep_rule('-'); }
+    bb_classify_node(nd);                                                                        /* ⭐ s68: the ONE staging choke, actually one -- every dispatch arm passes here, so all 108 op kinds are classified, not the 29 that happen to call bb_prepare */
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
