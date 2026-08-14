@@ -98,11 +98,7 @@ n6_match_begin_β:       mov              rsp, qword ptr [r12 + -16]           #
                                                                               jmp   .Lx33_0
 .Lx33_1:
 n6_match_begin_af:      sub              r12, 24                              # cas_mark
-                        mov              rax, qword ptr [r12 + 8]             # arbno_rbp_unwind
-.Lx33_11:               cmp              rbp, rax;                            jae   .Lx33_12
-                        test             rbp, rbp;                            je    .Lx33_12
-                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx33_11
-.Lx33_12:               mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
+                        mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
                         mov              r13, qword ptr [rsp + 48]            # outer_Σ
                         mov              r14, qword ptr [rsp + 56]            # outer_δ
                         mov              r15, qword ptr [rsp + 64]            # outer_Δ
@@ -118,23 +114,14 @@ n7_match_pos_α:         mov              rax, 0
                                                                               jmp   n8_match_arbno_α
 n7_match_pos_β:                                                               jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n8_match_arbno_α:       push             rbp
-                        sub              rsp, 24
-                        mov              rbp, rsp
-                        mov              dword ptr [rbp + 0], r14d
-                        mov              dword ptr [rbp + 4], r14d
-                        mov              dword ptr [rbp + 16], 0;             jmp   n9_match_rpos_α
-n8_match_arbno_β:                                                             jmp   n12_match_alternate_α
-n8_match_arbno_as:      mov              eax, dword ptr [rbp + 4]
-                        cmp              r14d, eax;                           je    n12_match_alternate_β
-                        mov              dword ptr [rbp + 4], r14d
-                        add              dword ptr [rbp + 16], 1;             jmp   n9_match_rpos_α
-n8_match_arbno_af:      mov              eax, dword ptr [rbp + 16]
-                        sub              eax, 1;                              js    .Lx36_2
-                        mov              dword ptr [rbp + 16], eax;           jmp   n12_match_alternate_β
-.Lx36_2:                mov              r14d, dword ptr [rbp + 0]
-                        lea              rsp, [rbp + 24]
-                        pop              rbp;                                 jmp   n7_match_pos_β
+n8_match_arbno_α:       lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
+n8_match_arbno_β:       lea              rdi, [rip + .S0]
+                        call             rt_bomb@PLT
+                        ud2
+n8_match_arbno_as:
+n8_match_arbno_af:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_rpos_α:        mov              rax, 0
                         mov              ecx, r15d
@@ -147,11 +134,7 @@ n10_match_end_α:        mov              r8, r12
 .Lx39_8:                sub              r8, 24
                         mov              rax, qword ptr [r8 + 0]
                         test             rax, rax;                            jne   .Lx39_8
-                        mov              rax, qword ptr [r8 + 8]              # arbno_rbp_unwind
-.Lx39_11:               cmp              rbp, rax;                            jae   .Lx39_12
-                        test             rbp, rbp;                            je    .Lx39_12
-                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx39_11
-.Lx39_12:               mov              rsp, qword ptr [r8 + 8]
+                        mov              rsp, qword ptr [r8 + 8]
                         push             r14
                         push             r15
                         push             r13
@@ -236,7 +219,7 @@ n10_match_end_α:        mov              r8, r12
                         mov              r10, qword ptr [rip + rtccb+56];     jmp   n11_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_end_α:    add              rsp, 16;                             jmp   n15_statement_begin_α
-n11_statement_end_β:    add              rsp, 48;                             jmp   n19_statement_begin_α
+n11_statement_end_β:    add              rsp, 32;                             jmp   n19_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_match_alternate_α:  sub              rsp, 32
                         mov              dword ptr [rsp + 0], r14d
@@ -344,4 +327,8 @@ main_ω:
                         add              rsp, 0
                         mov              edi, 1
                         call             exit@PLT
+                        .section         .rodata
+.S0:                    .string          "IR_MATCH_ARBNO: unreachable beta (k0-defer decline)"
+.S1:                    .string          "IR_MATCH_ARBNO: body contains a write-once DEFER -- K0 frontier-invariance not established for a runtime-invoked body (W-7 companion)"
+                        .text
                         .section         .note.GNU-stack,"",@progbits
