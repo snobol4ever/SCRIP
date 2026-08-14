@@ -255,9 +255,9 @@ std::string bb_match_arbno() {
      * the body's staged ΣK is zero.  THE ONE THING ARBNO MAY NOT DELEGATE is a NONZERO per-instance frontier delta: the ζ displacement IS the committed-instance count (no counter exists), so a zero-width
      * body makes the retract cascade bail at the base test without unwinding a single committed instance -- measured on corpus/probe/bb/test_sno_arbno_csl1a.c, CELLSZ=0 leaves Δ=3 where 0 is correct.
      * zd_k(ARBNO)=16 is that floor and it is already THE ONE AUTHORITY; frameless_k bills committed growth as kk+16 per instance, so a K0 body still advances by ARBNO's own cell. */
-    arbno_arm_diag(_.op_arbno_body_kk > 0 ? (_.op_arbno_rbp ? "RBP(kk)" : "FRAMELESS_K") : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : (_.op_arbno_rbp ? "RBP" : "FRAMELESS"));
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : !_.op_arbno_body_k0 ? "bomb-defer-k0" : "FRAMELESS");
     return _.op_arbno_body_kk > 0
-             ? (_.op_arbno_rbp ? bb_match_arbno_rbp() : bb_match_arbno_frameless_k())   /* ⭐ ARBNO-RBP (Lon 2026-08-14): both live arms reroute on the ONE staged predicate; bombs 2/3/4 below stay IN FRONT (same population declines under both arms -- defer-unsafe lift is a separate measured step); OFF = legacy byte-identical */
+             ? bb_match_arbno_frameless_k()   /* ⭐⭐⭐ ZETA-ACTIVATION UNIFICATION (this session): the RBP arm is retired -- frameless_k is the sole K16 destination now. */
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
@@ -278,7 +278,19 @@ std::string bb_match_arbno() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a suspend-capable DEFER (pat_static=0) -- anchor-relative slot not yet implemented (W-4)")
                             + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe decline)")
                             + x86("def", PAIR(2)) + x86("def", PAIR(3))
-             : (_.op_arbno_rbp ? bb_match_arbno_rbp() : bb_match_arbno_frameless());
+         : !_.op_arbno_body_k0
+             /* ⭐⭐⭐ ZETA-ACTIVATION UNIFICATION K0-DEFER BOMB (this session, arb1.sno root-cause): op_arbno_body_k0 is FALSE here for exactly one remaining reason once op_arbno_body_kk<=0 and the W-7
+              * pat_static==0 guard above already declined -- a pat_static==1 (write-once) IR_MATCH_DEFER member, which the emit.cpp K0 scan now excludes unconditionally (see its own comment) because a
+              * static zd_k()==0 on a DEFER node is a claim about that node's OWN alpha carve, not about whether the deferred call's BODY moves the ζ frontier at runtime -- arb1.sno T2 (exhaust+peel) is
+              * exactly this: the plain-frameless [rsp+4] cursor write silently aliased a live 64-bit resume address once the frontier moved under a write-once DEFER's dynamic body.  No sound K0-class
+              * arm exists yet for ANY DEFER-bearing body (the K16 arm also declines DEFER via its own _sq containment scan) -- bomb rather than silently re-admit the aliasing class.  Same treatment as
+              * the W-7 guard immediately above, same PAIR(2)/PAIR(3) forward-reference requirement, narrower population (measured: 0 of the 16-probe pat_static==1 K0 passer set carries a DEFER member --
+              * they were K0 because their bodies are pure scanner-register matchers, per the emit.h op_arbno_body_k0 field note -- so this bomb's population is DISJOINT from that passer set by
+              * construction, not a floor regression on it). */
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a write-once DEFER -- K0 frontier-invariance not established for a runtime-invoked body (W-7 companion)")
+                            + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (k0-defer decline)")
+                            + x86("def", PAIR(2)) + x86("def", PAIR(3))
+             : bb_match_arbno_frameless();
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_DELETED_ARMS() {
