@@ -224,7 +224,11 @@ n14_match_begin_β:      mov              rsp, qword ptr [r12 + -16]           #
                                                                               jmp   .Lx49_0
 .Lx49_1:
 n14_match_begin_af:     sub              r12, 24                              # cas_mark
-                        mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
+                        mov              rax, qword ptr [r12 + 8]             # arbno_rbp_unwind
+.Lx49_11:               cmp              rbp, rax;                            jae   .Lx49_12
+                        test             rbp, rbp;                            je    .Lx49_12
+                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx49_11
+.Lx49_12:               mov              rsp, qword ptr [r12 + 8]             # cas_rsp_mark
                         mov              r13, qword ptr [rsp + 48]            # outer_Σ
                         mov              r14, qword ptr [rsp + 56]            # outer_δ
                         mov              r15, qword ptr [rsp + 64]            # outer_Δ
@@ -287,7 +291,11 @@ n20_match_end_α:        mov              r8, r12
 .Lx59_8:                sub              r8, 24
                         mov              rax, qword ptr [r8 + 0]
                         test             rax, rax;                            jne   .Lx59_8
-                        mov              rsp, qword ptr [r8 + 8]
+                        mov              rax, qword ptr [r8 + 8]              # arbno_rbp_unwind
+.Lx59_11:               cmp              rbp, rax;                            jae   .Lx59_12
+                        test             rbp, rbp;                            je    .Lx59_12
+                        mov              rbp, qword ptr [rbp + 24];           jmp   .Lx59_11
+.Lx59_12:               mov              rsp, qword ptr [r8 + 8]
                         push             r14
                         push             r15
                         push             r13
