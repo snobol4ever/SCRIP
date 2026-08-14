@@ -669,14 +669,18 @@ static int earn_hazard_in(const IR_t * nd, int depth) {                         
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY, DORMANT (no reader).  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
+static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY.  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
     if (!nd) return 0;
     switch (nd->op) {
     case IR_MATCH_ARBNO:        return 1;
     case IR_MATCH_FENCE1:       return 1;
+    case IR_MATCH_ASSIGN_SAVE:  {                                                                /* ⭐ s83 SAVE-PROPAGATION FIX: earn_hazard_in walks a node's OWN operand subtree, but SAVE is a pure producer with no relevant operands of its own -- the hazard (a DEFER/VALUE between SAVE and its reader) lives entirely in the PAIRED COND/IMM's operand[0], which SAVE has no pointer to (the link runs the other way: COND/IMM.operands[1] == this SAVE, per lower_snobol4.c:1509/1546).  s82 MEASURED this asymmetry directly (gdb: cur_delta correct, saved_delta garbage) after IMM alone reported need=1 and SAVE's own frame_need_of() unconditionally read 0.  FIX: scan g_emit_cfg->all[] (the SAME whole-graph accessor stmt_has_proc_invoke in bb_match_begin.cpp already uses for an analogous forward-reference walk -- no new global, no new IR_t field, PEERS RULE respected) for the COND/IMM whose operands[1] IS this SAVE, and borrow ITS verdict.  Bounded scan: g_emit_cfg->n is one statement/chain's node count, not the whole program. */
+        if (!g_emit_cfg) return 0;
+        for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _c = g_emit_cfg->all[_i];
+            if (_c && (_c->op == IR_MATCH_ASSIGN_COND || _c->op == IR_MATCH_ASSIGN_IMM) && _c->n_operands > 1 && _c->operands[1] == nd) return earn_hazard_in(_c, 0); }
+        return 0; }
     case IR_MATCH_ASSIGN_IMM:
-    case IR_MATCH_ASSIGN_COND:
-    case IR_MATCH_ASSIGN_SAVE:  return earn_hazard_in(nd, 0);
+    case IR_MATCH_ASSIGN_COND:  return earn_hazard_in(nd, 0);
     default:                    return earn_hazard_in(nd, 0);                                    /* ⭐ s68 SYMMETRY: earn_hazard_in already rules ARBNO / non-static DEFER / MATCH_VALUE to be hazardous material, but the old default:0 consulted it ONLY for the three ASSIGN kinds -- so the SAME node was hazardous as someone else's operand and safe as a node in its own right.  MEASURED over 2917 staged nodes (probe/bb + earn0): exactly 22 carry haz=1 need=0, in exactly two ops -- IR_MATCH_DEFER x20 and IR_MATCH_ALTERNATE x2 -- and those 22 are the entire blast radius of this line.  ALTERNATE is s66's ALT-CAP node, whose 32B carve is real (bb_match_alternate.cpp:65) while fc_geom calls it 0; DEFER's extent is not compile-time known at all (manual Ch.11 Quickscan/Fullscan: matching is exhaustive and deferred expressions are NOT assumed to match at least one character).  Both are precisely 'byte distance to RSP is not a compile-time constant', which is this function's stated LAW.  Conservative by construction: a node with no hazardous subtree still returns 0, so no statement/call carver flips here -- the STATEMENT half of the ignored class needs its own depth-drift predicate and is NOT addressed by this line. */
     }
 }
