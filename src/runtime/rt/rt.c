@@ -775,6 +775,7 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -797,7 +798,18 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
         return rt_proc_call_epilogue_ret(fret);
     }
-    return rt_proc_enter((void *)p->fn);
+    return rt_proc_enter(rt_dyn_alpha_fn(name, (void *)p->fn));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* DYN ALPHA TARGET (s104) — the by-name dyn transfer for m3 DEFINEs: p->fn from rt_define_site is the generic entry thunk (rt_goto_transfer into a label chain, wrong protocol for emitted bodies —
+ * rip=5 crash class, APPLY('F') repro).  The WORKING staged sites jump via the alpha$<FN> cell m3_seal_entry_cells fills with <FN>_alpha; prefer that same target here.  WIP, DEFAULT OFF (opt-in SCRIP_DYN_ALPHA=1): the cell target still needs the staged rcx-record entry contract. */
+void *rt_dyn_alpha_fn(const char *name, void *fallback)
+{
+    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = (e && e[0] == '1') ? 1 : 0; }
+    if (!live || !name) return fallback;
+    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
+      void **cell = (void **)bb_ab_fn_cell_ptr(cn);
+      return (cell && *cell) ? *cell : fallback; }
 }
 #define RT_INITIAL_MAX 8192
 static int64_t g_initial_fired[RT_INITIAL_MAX];
@@ -1584,6 +1596,15 @@ long rt_proc_call_open(const char *name, int nargs)
      * the lexically-scoped frontends' formals. */
     if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FN-RET OPEN (s104) — the s55 rax-channel contract for the transfer consumers (rt_dcap_pump COND flush, rt_cap_open IMM): admitted == nonzero == THE TRANSFER TARGET.  c_rt_proc_open_fn was eradicated
+ * at s55 (returns 0) but these two consumers were never migrated: every computed-name (*VAR/NRETURN) capture transfer since then loaded fbytes, nulled it through open_fn, and jumped 0. */
+void *rt_proc_call_open_fnret(const char *name, int nargs)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p || !p->fn) return (void *)0;
+    return rt_proc_call_open(name, nargs) ? (void *)p->fn : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* DET OPEN LEAF (PL-REGAIN-1 slice A, 2026-07-19 s100) — the emit-time-resolved det call site's fused open: the caller lowered a LITERAL !dyn callee, resolved its dense registry index at emission

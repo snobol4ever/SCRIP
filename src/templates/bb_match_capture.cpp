@@ -54,6 +54,7 @@ extern "C" void rt_cap_finish(DESCR_t fret);
  * deletion in favor of ordinary BB RESULT/operand dataflow, but that is BLOCKED on the :(NRETURN) lowering bug
  * (s82: does not compile at all today) and is not attempted here; a computed-name capture bombs honestly. */
 static inline int havehome(void) { return _.op_zres || _.op_cap_anchor; }
+static inline int nret_cap_live(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NRET_CAP"); v = (e && e[0] == '1') ? 1 : 0; } return v; }
 static inline const char * writehome(void) { return _.op_zres ? ZRESD(0) : FR(_.op_off); }
 static inline const char * readhome(void)  { return _.op_zres ? ZOPD(1, 0) : FR(_.op_off); }
 std::string bb_match_capture() {
@@ -86,10 +87,10 @@ std::string bb_match_capture() {
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_SAVE: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)")
            + x86_beta_trampoline() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- a port-less bomb whose sibling references β is a LINK BUG (m1_alt_* witnesses), never a decline */
-         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*'
+         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*' && !nret_cap_live()
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")
-           + x86_beta() )   /* s104: FIRST phase-1 arm -- s103 hoisted this guard above the SPINE arm only; a DEFER-hazard subject (epsilon . *F(), semantic/counter's shape) sets op_frame_need via the s101 widening and took the frame-slot arm below, pend-pushing the literal "*F" as a varname => the MATCH_END CAS flush deref'd it => SIG11 (jmp through 0). The guard must precede EVERY live phase-1 arm. */
+           + x86_beta() )   /* s104: WIP arm, DEFAULT OFF (opt-in SCRIP_NRET_CAP=1) pending the dyn-entry protocol fix (see s104 cursor): '*' targets fall through to the ordinary frame/spine pend-push arms -- rt_dcap_pump's '*' transfer (pattern_match.c NCB-1c) opens the proc want_name=1 and rt_dcap_step assigns through the returned NAME. */
          : (int)_.op_phase == 1 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND activation-frame SLOT (THREE ZETAS s87: reads the registered slot, no pop of its own -- the frame it lives in is released by whoever established it, MATCH_BEGIN/DEFER)")
            + x86_alpha()
@@ -130,7 +131,7 @@ std::string bb_match_capture() {
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
            + x86_beta() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- ALT's β does jmp [resume_ptr] into this box's β (n8_match_assign_cond_β was the M1 link failure), never leave it undefined */
-         : (_.op_sval && _.op_sval[0] == '*')
+         : (_.op_sval && _.op_sval[0] == '*' && !nret_cap_live())
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment") )
          : (int)_.op_phase == 2 && _.op_frame_need && _.op_cap_frame_off != -1
@@ -145,7 +146,6 @@ std::string bb_match_capture() {
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
-           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
            + bb_glue_pass_wires(2, 3)
            + x86("def",  L(2))
            + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
@@ -178,7 +178,6 @@ std::string bb_match_capture() {
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
-           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
            + bb_glue_pass_wires(2, 3)
            + x86("def",  L(2))
            + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)

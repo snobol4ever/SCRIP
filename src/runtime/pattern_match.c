@@ -684,12 +684,15 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
             rt_g_want_name = 1;
-            long fb = rt_proc_call_open(e->varname + 1, 0);
-            if (!fb) { rt_g_want_name = 0; fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' is not an invocable proc; conditional assignment skipped\n", e->varname); continue; }
-            if (!strncmp(e->varname + 1, "EXPR$", 5)) rt_g_want_name = 1;
-            c->pending = d;
-            return fb;
+            DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
+            rt_g_want_name = 0;
+            if (IS_FAIL_fn(nm)) { fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
+            if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
+            else rt_assign_var(nm, d);
+            continue;
         }
         if (e->varname && e->varname[0]) NV_SET_fn(e->varname, d);
     }
@@ -791,15 +794,14 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
     if (varname[0] != '*') { NV_SET_fn(varname, matched); return 0; }
-    extern long rt_proc_call_open(const char *name, int nargs);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
     rt_g_want_name = 1;
-    long fbytes = rt_proc_call_open(varname + 1, 0);
-    if (!fbytes) { rt_g_want_name = 0; return 0; }
-    if (!g_capx) { g_capx = (DESCR_t *)rt_cas_carve((size_t)RT_CAS_CAPX_MAX * sizeof(DESCR_t)); g_capx_cap = RT_CAS_CAPX_MAX; }
-    if (g_capx_top >= g_capx_cap) { fprintf(stderr, "rt_cas: capx overflow (%d) — raise RT_CAS_CAPX_MAX\n", g_capx_cap); abort(); }
-    g_capx[g_capx_top++] = matched;
-    return fbytes;
+    DESCR_t nm = rt_call_proc_descr(varname + 1, 0);
+    rt_g_want_name = 0;
+    if (!IS_FAIL_fn(nm)) { if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm, matched); }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_finish(DESCR_t nm)
