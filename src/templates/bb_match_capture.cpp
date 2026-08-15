@@ -86,6 +86,10 @@ std::string bb_match_capture() {
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_SAVE: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)")
            + x86_beta_trampoline() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- a port-less bomb whose sibling references β is a LINK BUG (m1_alt_* witnesses), never a decline */
+         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*'
+         ? ( x86_alpha()
+           + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")
+           + x86_beta() )   /* s104: FIRST phase-1 arm -- s103 hoisted this guard above the SPINE arm only; a DEFER-hazard subject (epsilon . *F(), semantic/counter's shape) sets op_frame_need via the s101 widening and took the frame-slot arm below, pend-pushing the literal "*F" as a varname => the MATCH_END CAS flush deref'd it => SIG11 (jmp through 0). The guard must precede EVERY live phase-1 arm. */
          : (int)_.op_phase == 1 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND activation-frame SLOT (THREE ZETAS s87: reads the registered slot, no pop of its own -- the frame it lives in is released by whoever established it, MATCH_BEGIN/DEFER)")
            + x86_alpha()
@@ -102,10 +106,6 @@ std::string bb_match_capture() {
            + x86_beta()
            + x86("sub",  "r12", (long)24)
            + x86_omega() )
-         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*'
-         ? ( x86_alpha()
-           + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")
-           + x86_beta() )   /* s103: without this guard COND fell into the live spine arm below and pend-pushed the literal "*F" as a varname; the MATCH_END CAS flush deref'd it => SIG11. */
          : (int)_.op_phase == 1 && _.op_frame_need
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
