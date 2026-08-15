@@ -707,6 +707,19 @@ static int cap_in_alt_arm(const IR_t * nd) {   /* ⭐⭐⭐ R-0 (s93, GOAL-SNOBO
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int cap_in_repeat_body(const IR_t * nd) {   /* ⭐⭐⭐ R-4(a) SLICE 1 (s95, GOAL-SNOBOL4-100 bb_probes class A, 15/20 m4 failures): the DUAL of the line-732 nested-span scan and the SIBLING of cap_in_alt_arm -- a capture pair whose SAVE (or the pair node itself) lies INSIDE the body span of an IR_MATCH_ARBNO ([operands[1]..operands[2]] in all[]-order, THE containment idiom the DEFER-unsafe scan / arbno_frame_candidate / the K16 prelude all use) or an IR_MATCH_FENCE1 ([operands[0]..operands[1]], lower_snobol4.c:1360 pe/p_tail) has NO ζ-SPINE home: zd_plan denies the body interior exactly like the ALT arm interior (MEASURED N04: K16 route stages kk=16 for the SAVE's own carve, the SAVE box carves it, then bombs -- classifier and plan disagree, the bomb text's own words), so it rides a ζ-STANDING slot (frame_need_of()==1 -> capture_frame_slot()) like the DEFER-hazard and ALT-arm classes.  Per-iteration LAST-WRITER-WINS is exactly SPITBOL's conditional-assignment law (manual pp.62-63: assigns the substring bound on the SUCCESSFUL path; Ch.18 p.207: each ARBNO instance is a distinct stacked choice point) for bodies with no INTERNAL re-enterable choice point; a body that backtracks INTO an earlier iteration's own alternatives after a later SAVE overwrote the slot is the s93-named UNSOUND shape and is R-4(a)'s per-iteration ACTIVATION -- this predicate does not pretend to solve it, the oracle-diffed suite convicts any such probe as a DIFF, never a silent pass. PURE, plan-independent, no new global. */
+    if (!nd || !g_emit_cfg) return 0;
+    const IR_t * save = (nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
+    int ni = -1, si = -1; for (int i = 0; i < g_emit_cfg->n; i++) { if (g_emit_cfg->all[i] == nd) ni = i; if (save && g_emit_cfg->all[i] == save) si = i; }
+    for (int a = 0; a < g_emit_cfg->n; a++) { IR_t * C = g_emit_cfg->all[a]; if (!C) continue; int lo = -1, hi = -1;
+        if (C->op == IR_MATCH_ARBNO && C->n_operands >= 3) { for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == C->operands[1]) lo = k; if (g_emit_cfg->all[k] == C->operands[2]) hi = k; } }
+        else if (C->op == IR_MATCH_FENCE1 && C->n_operands >= 2) { for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == C->operands[0]) lo = k; if (g_emit_cfg->all[k] == C->operands[1]) hi = k; } }
+        else continue;
+        if (lo < 0 || hi < 0) continue; if (lo > hi) { int t = lo; lo = hi; hi = t; }
+        if ((ni >= lo && ni <= hi) || (si >= lo && si <= hi)) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY.  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
     if (!nd) return 0;
     switch (nd->op) {
@@ -732,6 +745,7 @@ static int frame_need_of(const IR_t * nd) {                                     
                     if (_m && (_m->op == IR_MATCH_ARBNO || (_m->op == IR_MATCH_DEFER && !_m->pat_static) || _m->op == IR_MATCH_VALUE)) h = 1; } }
         }
         if (!h) h = cap_in_alt_arm(nd);   /* ⭐ R-0 (s93): the ALT-arm-interior class joins the frame-need verdict here, at THE ONE AUTHORITY -- SAVE propagation (above) and capture_frame_slot() follow automatically */
+        if (!h) h = cap_in_repeat_body(nd);   /* ⭐ R-4(a) SLICE 1 (s95): the ARBNO/FENCE1-body-interior class joins at the same ONE AUTHORITY, same propagation, same slot registry -- no second spelling of the fact anywhere */
         return h; }
     default:                    return earn_hazard_in(nd, 0);                                    /* ⭐ s68 SYMMETRY: earn_hazard_in already rules ARBNO / non-static DEFER / MATCH_VALUE to be hazardous material, but the old default:0 consulted it ONLY for the three ASSIGN kinds -- so the SAME node was hazardous as someone else's operand and safe as a node in its own right.  MEASURED over 2917 staged nodes (probe/bb + earn0): exactly 22 carry haz=1 need=0, in exactly two ops -- IR_MATCH_DEFER x20 and IR_MATCH_ALTERNATE x2 -- and those 22 are the entire blast radius of this line.  ALTERNATE is s66's ALT-CAP node, whose 32B carve is real (bb_match_alternate.cpp:65) while fc_geom calls it 0; DEFER's extent is not compile-time known at all (manual Ch.11 Quickscan/Fullscan: matching is exhaustive and deferred expressions are NOT assumed to match at least one character).  Both are precisely 'byte distance to RSP is not a compile-time constant', which is this function's stated LAW.  Conservative by construction: a node with no hazardous subtree still returns 0, so no statement/call carver flips here -- the STATEMENT half of the ignored class needs its own depth-drift predicate and is NOT addressed by this line. */
     }
