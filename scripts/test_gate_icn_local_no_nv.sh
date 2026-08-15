@@ -37,18 +37,18 @@ if grep -qiE '\[SMX\]' "$TMP/locals.s" "$TMP/locals.err"; then
     exit 2
 fi
 nv=$(grep -icE 'call[[:space:]]+NV_GET|call[[:space:]]+NV_SET' "$TMP/locals.s")
-r12=$(grep -icE 'r12[[:space:]]*\+' "$TMP/locals.s")
+cells=$(grep -icE 'rsp[[:space:]]*[+]' "$TMP/locals.s"); leak=$(grep -icE 'r9[[:space:]]*[+]' "$TMP/locals.s")
 if [ "$nv" -ne 0 ]; then
     echo "LVA-1 LOCK 1 FAIL: locals-only program emitted $nv NV_GET/NV_SET call(s) — a local leaked onto the hash"
     fail=1
 else
     echo "LVA-1 LOCK 1 OK: locals-only program has zero NV_GET/NV_SET calls"
 fi
-if [ "$r12" -eq 0 ]; then
-    echo "LVA-1 LOCK 2 FAIL: locals-only program uses no [r12+off] — locals are not ζ-frame slotted"
+if [ "$cells" -eq 0 ] || [ "$leak" -ne 0 ]; then
+    echo "LVA-1 LOCK 2 FAIL: locals not on ζ-SPINE cells or leaked into the r9 GVA arena (rsp refs=$cells, r9 refs=$leak)"
     fail=1
 else
-    echo "LVA-1 LOCK 2 OK: locals use the ζ-frame ([r12+off], $r12 refs)"
+    echo "LVA-1 LOCK 2 OK: locals ride ζ-SPINE [rsp+off] cells ($cells refs), zero r9 arena refs"
 fi
 
 # --- LOCK 3: a program WITH a global uses GVA ---
@@ -64,13 +64,13 @@ if grep -qiE '\[SMX\]' "$TMP/global.s" "$TMP/global.err"; then
     echo "LVA-1 SKIP: global program declined (cannot check LOCK 3)"
     exit 2
 fi
-rbx=$(grep -icE 'rbx[[:space:]]*\+' "$TMP/global.s")
-greg=$(grep -c 'gva_register' "$TMP/global.s")
-if [ "$rbx" -eq 0 ] || [ "$greg" -eq 0 ]; then
-    echo "LVA-1 LOCK 3 FAIL: global program did not use the GVA array (rbx refs=$rbx, gva_register=$greg) — globals not on [rbx+k*16]"
+gva=$(grep -icE 'r9[[:space:]]*[+]' "$TMP/global.s")
+greg=$(grep -cE 'gva_register|[.]Lgvan' "$TMP/global.s")
+if [ "$gva" -eq 0 ] || [ "$greg" -eq 0 ]; then
+    echo "LVA-1 LOCK 3 FAIL: global program did not use the GVA arena (r9 refs=$gva, gva markers=$greg) — globals not on [r9+k*16]"
     fail=1
 else
-    echo "LVA-1 LOCK 3 OK: global uses the GVA array ([rbx+k*16], $rbx refs; gva_register present)"
+    echo "LVA-1 LOCK 3 OK: global uses the GVA arena ([r9+k*16], $gva refs; gva markers present)"
 fi
 
 if [ "$fail" -ne 0 ]; then
@@ -79,5 +79,5 @@ if [ "$fail" -ne 0 ]; then
     exit 1
 fi
 echo "---"
-echo "PASS: Icon locals stay ζ-frame ([r12+off], no NV); globals use the [rbx+k*16] GVA array."
+echo "PASS: Icon locals ride ζ-SPINE [rsp+off] cells (no NV, no r9 leak); globals use the [r9+k*16] GVA arena."
 exit 0

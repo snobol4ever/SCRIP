@@ -1223,7 +1223,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         succ = entry; fail = entry;
     }
     g->entry = succ;
-    { static int _ic = -1; if (_ic < 0) { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } if (_ic) g->icn_cells_graph = 1; }   /* ZK-0 (s212): opt-IN stamp per R-ZK-A. SCRIP_ICN_CELLS=1 routes this graph to the per-BB RSP FORTH cells arm. Unset = today's ZD path byte-identical. Every other lowerer produces icn_cells_graph=0 by calloc; this is the ONE setter (no second spelling). */
+    { static int _ic = -1; if (_ic < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } else _ic = 1; } if (_ic) g->icn_cells_graph = 1; }   /* ⭐ Z-1 UNIFIED ROUTING (s230, Lon's THREE-ZETAS ruling): the ζ-SPINE cells substrate (ZK-0..5) is THE Icon routing — every graph stamps icn_cells_graph=1 by DEFAULT, which via the R-ZK-A conjunct below suppresses all zframe stamping, so the env-var dual-arm regime is retired as a default.  Transition killswitch SCRIP_ICN_LEGACY=1 restores the s229-era routing byte-exactly (opt-in cells via SCRIP_ICN_CELLS=1, default zframe per SCRIP_ICN_ZFRAME) until Z-8 deletes all three switches.  This remains the ONE setter for lower_proc_body graphs (no second spelling); the stub-graph arm below and the ZK-3 conjunct in emit.cpp are the two mirrors, all keyed on the SAME env pair. */
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1297,7 +1297,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; } return g; }   /* ICN-FR-3: stamp nparams/pnames/nlocals/lnames on the graph so graph_has_local is correct for zframe graphs; WITHOUT this, graph_has_local returns 0 for every local, IR_VAR takes the global arm (op_sa=-1), and local reads address wrong memory (the static/initial null-read bug). Parallel to stage-2 lines 1396/1410/1418 which set these for the precompiled path; this covers the jmp-entry lower_proc_body path. lnv holds [params(0..np-1), locals(np..nln-1)] in that order per the fill loops above. */
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
-    { static int _ic2 = -1; if (_ic2 < 0) { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } if (_ic2) g->icn_cells_graph = 1; }   /* ZK-0 stub-graph arm, same law as lower_proc_body. */
+    { static int _ic2 = -1; if (_ic2 < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } else _ic2 = 1; } if (_ic2) g->icn_cells_graph = 1; }   /* ZK-0 stub-graph arm, same law as lower_proc_body — Z-1 UNIFIED (mirror of the lower_proc_body setter above; SCRIP_ICN_LEGACY=1 restores s229 routing). */
     return g;
 }
 #include "bb_program.h"
