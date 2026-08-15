@@ -22,7 +22,8 @@ static std::string sp_rtest(long u, long i) { return sp_rlo[i] == sp_rhi[i] ? x8
 static std::string sp_rmemb(long u, long i) { return i >= sp_rn ? x86("jmp", L(1)) + x86("def", L(10 + u)) : sp_rtest(u, i) + sp_rmemb(u, i + 1); }
 static long sp_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long sp_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) + x86("mov", "r9d", FR(_.op_sa + 4)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "r9d", CSK()); }
+static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (sp_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
+static std::string sp_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", FR(_.op_sa + 4)) : x86("mov32", "eax", CSK()); }
 static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
 static long sp_chainp() { return sp_gu() && !sp_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long sp_tablep() { return sp_gu() && !sp_rangep() && !sp_chainp(); }
@@ -81,9 +82,11 @@ std::string bb_match_span() {
          * the same 16B fc_geom already carves/frees at alpha/omega -- NO second carve, so the pre-existing
          * op_wpop/op_fc_bytes bookkeeping this node was staged with (ZD-armed even though op_sa<0 for a
          * TT_VAR arg with no pre-chain slot -- measured this session, op_zres=1 op_wpop=16 on a shallow
-         * probe) stays correct with zero extra frees to reconcile.  Once loaded, ptr/len move into r8/r9d
-         * for the loop (r8/r9 are not clobbered inside the loop -- no further calls -- so they stay live
-         * without a second call-safe spill).  op_wpop/op_fc_bytes are exactly the SAME cell used by the
+         * probe) stays correct with zero extra frees to reconcile.  Once loaded, ptr moves into r8 for the
+         * loop (r8 is not clobbered inside the loop -- no further calls -- so it stays live without a
+         * second call-safe spill); len is reloaded into eax each outer pass from the scratch stash,
+         * because r9 is the live GVA claim (RC-5) and templates never scratch it.
+         * op_wpop/op_fc_bytes are exactly the SAME cell used by the
          * INLINE arm below, so both arms' auto-carve/auto-free arithmetic agree by construction. */
         return x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
@@ -94,7 +97,6 @@ std::string bb_match_span() {
              + x86("test",   "rax", "rax")
              + x86_omega("js")
              + x86("mov",    "r8",  FRQ(_.x86_scratch_off))
-             + x86("mov",    "r9d", FR(_.x86_scratch_off + 8))
              + x86("mov",    FR(_.x86_scratch_off), (long)0)
              + x86("def",    L(0))
              + x86("mov",    "eax", "r14d")
@@ -103,9 +105,10 @@ std::string bb_match_span() {
              + x86("jge",    L(1))
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "esi", "[r13+rcx]")
+             + x86("mov",    "eax", FR(_.x86_scratch_off + 8))
              + x86("mov",    "edx", (long)0)
              + x86("def",    L(2))
-             + x86("cmp",    "edx", "r9d")
+             + x86("cmp",    "edx", "eax")
              + x86("jge",    L(1))
              + x86("movzx",  "edi", "[r8+rdx]")
              + x86("cmp",    "esi", "edi")
@@ -139,9 +142,10 @@ std::string bb_match_span() {
             + x86("jge",    L(1))
             + x86("movsxd", "rcx", "eax")
             + x86("movzx",  "esi", "[r13+rcx]")
+            + sp_len_eax()
             + x86("mov",    "edx", (long)0)
             + x86("def",    L(2))
-            + x86("cmp",    "edx", "r9d")
+            + x86("cmp",    "edx", "eax")
             + x86("jge",    L(1))
             + x86("movzx",  "edi", "[r8+rdx]")
             + x86("cmp",    "esi", "edi")

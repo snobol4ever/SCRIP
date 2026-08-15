@@ -59,8 +59,13 @@ for claim in $LIVE_CLAIMS; do
 
   # Destination-position writes: x86("<mnem>", "<reg>", ...) — the AB-2 defect shape.
   # Plus RDQ("<reg>", ...) — using the claimed register as a NON-GVA base pointer, equally a collision.
-  wpat="x86\\(\"(mov|movzx|movsx|lea|pop|xor|and|or|add|sub|imul|shl|shr|neg|not|inc|dec)\", *\"$reg\""
-  rpat="RDQ\\(\"$reg\""
+  # Sub-register spellings ($reg d/w/b) are writes to the SAME claimed register (a 32-bit write zeroes the
+  # upper half) — the s101 match-family hole: bb_match_{any,break,notany,span,span_var,breakx} carried
+  # needle-len in "r9d" for sessions, invisible to the exact-"r9" pattern, and every SPAN/BREAK/ANY INLINE
+  # box killed the GVA base for whatever GVA reader ran next without an intervening veneer reload
+  # (json/treebank/calculator/claws5 demo SIG11 class, witness corpus/probe/rtcc/rtcc_span_gva_defer).
+  wpat="x86\\(\"(mov|mov32|movabs|movzx|movsx|lea|pop|xor|and|or|add|sub|imul|shl|shr|neg|not|inc|dec)\", *\"$reg[dwb]?\""
+  rpat="RDQ\\(\"$reg[dwb]?\""
 
   writers=""; surface=0
   for f in "$TPL"/*.cpp; do
