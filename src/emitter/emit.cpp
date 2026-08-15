@@ -38,10 +38,19 @@ static bb_label_t ** g_label_pool      = NULL;
 static int           g_label_pool_n    = 0;
 static int           g_label_pool_max  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};   /* s91: hoisted above the pool reset so the floater singletons die with the pool they point into (they dangled across chains before) */
 void emit_label_pool_reset(void)
 {
     for (int i = 0; i < g_label_pool_n; i++) free(g_label_pool[i]);
     g_label_pool_n = 0;
+    g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int emit_label_lookup_offset(const char * name)   /* s91 M3-UNIFY: first DEFINED label of that name in the live pool (alias defs are emit_label_alloc'd, so a same-name unresolved reference object may precede the def) or -1 */
+{
+    if (!name) return -1;
+    for (int i = 0; i < g_label_pool_n; i++) if (g_label_pool[i] && g_label_pool[i]->offset != BB_LABEL_UNRESOLVED && strcmp(g_label_pool[i]->name, name) == 0) return g_label_pool[i]->offset;
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
@@ -54,7 +63,6 @@ extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op);
  * referenced-scan at the seed does not count the floaters' own internal wiring as an outside reference.  Bombs today; the coming-out restore (the pop-rbp dance) is a LATER rung — no RBP here yet. */
 static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_SAVE_RESTORE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_SAVE_RESTORE && IR_LIT(n).ival == 2) return 2; if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
 static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1; if (n->op == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1; return 0; }
-static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};
 static bb_label_t * emit_floater_label(int k) { static const char * fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0; if (!g_flt_lbl[k]) g_flt_lbl[k] = emit_label_alloc("%s", fn[k]); return g_flt_lbl[k]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
@@ -503,7 +511,7 @@ extern cap_t    * bb_cap_new_call           (bb_box_fn child_fn, void *child_sta
 extern cap_t    * bb_cap_new                (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
-#define FLAT_BUF_MAX  (1024 * 1024)
+#define FLAT_BUF_MAX  (4 * 1024 * 1024)   /* s91 (Fable, MILESTONE-1 push): 1MB -> 4MB. beauty.sno main chain in STATEMENT ORDER is ~1MB of code; the m3 statement-order chain (bare LBL__ bodies inline, no per-label suffix re-emission) needs headroom */
 int g_flat_node_id   = 0;
 
 int g_last_flat_frame_bytes = 0;
@@ -2519,7 +2527,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
      * Block ORDER is therefore byte-identical to v1/BFS; only the order WITHIN a block changes. */
 #define RPO_FLUSH() do { for (int _i = pn - 1; _i >= 0; _i--) { if (n >= CH_MAX) { fprintf(stderr, "[GZ-7] FATAL chain exceeds CH_MAX\n"); abort(); } nodes[n++] = postv[_i]; } pn = 0; } while (0)
     /* pass 1: entry + enterable-chain roots (SN4-FLAT-PROC s176: DEFINE bodies, RETURN/FRETURN floaters) */
-    int _stmt_seed = 0; if (g_is_text && g_emit_cfg && entry_is_own_graph_root) for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sn = g_emit_cfg->all[_ss]; if (_sn && _sn->op == IR_STATEMENT_BEGIN) { _stmt_seed = 1; break; } }   /* ⭐⭐⭐ STATEMENT-ORDER (Lon s62 in-chat: "You process each STATEMENT, ONE at a TIME, and in ORDER of the source."): a graph that carries IR_STATEMENT_BEGIN nodes is the SN4-family ONE shared statement stream, and its graph-root emission walks the statements in all[] CREATION ORDER — which is source order, because the lowerer lowers the statement array sequentially into the one graph (no extraction, no lexical body regions, no END_* delimitation; the LBL__ pseudo-proc is just proc_entry_node = the label's anchor IN this same graph).  Each statement_begin seeds its OWN root block (direct queue write, the floater precedent, bypassing RPO_PUSH's begin-refusal conjunct), so DEFINE bodies land BETWEEN the DEFINE statement and its goto target exactly as written, entered only through the shim/registry, jumped over by the statement's own goto.  Emission-order only — every inter-statement edge is an explicit jmp, so behavior is byte-for-byte the same program in source order.  TEXT-gated this seat: the m3 driver still emits LBL__ standalone chains (its registration takes slab fn pointers from that emission), and re-walking the shared graph here would double-emit those nodes — the SAME owed m3 slice as the s58 tiny shim / fold arm; deleting the m3 standalone + intern-record registration + lifting this gate is ONE coherent future rung. */
+    int _stmt_seed = 0; if (g_emit_cfg && entry_is_own_graph_root) for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sn = g_emit_cfg->all[_ss]; if (_sn && _sn->op == IR_STATEMENT_BEGIN) { _stmt_seed = 1; break; } }   /* ⭐⭐⭐ STATEMENT-ORDER (Lon s62 in-chat: "You process each STATEMENT, ONE at a TIME, and in ORDER of the source."): a graph that carries IR_STATEMENT_BEGIN nodes is the SN4-family ONE shared statement stream, and its graph-root emission walks the statements in all[] CREATION ORDER — which is source order, because the lowerer lowers the statement array sequentially into the one graph (no extraction, no lexical body regions, no END_* delimitation; the LBL__ pseudo-proc is just proc_entry_node = the label's anchor IN this same graph).  Each statement_begin seeds its OWN root block (direct queue write, the floater precedent, bypassing RPO_PUSH's begin-refusal conjunct), so DEFINE bodies land BETWEEN the DEFINE statement and its goto target exactly as written, entered only through the shim/registry, jumped over by the statement's own goto.  Emission-order only — every inter-statement edge is an explicit jmp, so behavior is byte-for-byte the same program in source order.  TEXT-gated this seat: the m3 driver still emits LBL__ standalone chains (its registration takes slab fn pointers from that emission), and re-walking the shared graph here would double-emit those nodes — the SAME owed m3 slice as the s58 tiny shim / fold arm; deleting the m3 standalone + intern-record registration + lifting this gate is ONE coherent future rung. */
     if (_stmt_seed) { if (qt < Q_MAX) queue[qt++] = entry; RPO_DRAIN(); RPO_FLUSH(); for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sb = g_emit_cfg->all[_ss]; if (!_sb || _sb->op != IR_STATEMENT_BEGIN || RPO_VISITED(_sb)) continue; if (qt < Q_MAX) { queue[qt++] = _sb; RPO_DRAIN(); RPO_FLUSH(); } } }
     else { RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH(); }
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
