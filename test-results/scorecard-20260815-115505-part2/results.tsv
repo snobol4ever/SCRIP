@@ -89,3 +89,358 @@ csnobol4_suite	programs/csnobol4-suite/punch.sno	PASS	PASS	0	1
 csnobol4_suite	programs/csnobol4-suite/random.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin-only
 csnobol4_suite	programs/csnobol4-suite/repl.sno	PASS	PASS	0	0	pin!=live
 csnobol4_suite	programs/csnobol4-suite/reverse.sno	DIFF	DIFF	0	0	
+csnobol4_suite	programs/csnobol4-suite/openo2.sno	TIMEOUT	TIMEOUT	20	21	pin!=live
+csnobol4_suite	programs/csnobol4-suite/roman.sno	COMPILE_FAIL	SIG11	0	1	
+csnobol4_suite	programs/csnobol4-suite/scanerr.sno	RC1	COMPILE_FAIL	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/rewind1.sno	TIMEOUT	TIMEOUT	20	20	pin!=live
+csnobol4_suite	programs/csnobol4-suite/setexit.sno	RC1	RC1	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/setexit2.sno	PASS	PASS	0	1	pin!=live
+csnobol4_suite	programs/csnobol4-suite/setexit3.sno	DIFF	DIFF	1	0	
+csnobol4_suite	programs/csnobol4-suite/setexit4.sno	RC1	RC1	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/setexit5.sno	RC1	RC1	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/setexit7.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/setexit6.sno	COMPILE_FAIL	RC1	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/space.sno	RC1	RC1	0	0	
+csnobol4_suite	programs/csnobol4-suite/space2.sno	PASS	PASS	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/spit.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/str.sno	PASS	PASS	0	0	
+csnobol4_suite	programs/csnobol4-suite/substr.sno	DIFF	DIFF	0	0	
+csnobol4_suite	programs/csnobol4-suite/sleep.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/sudoku.sno	COMPILE_FAIL	PASS	0	1	pin!=live
+csnobol4_suite	programs/csnobol4-suite/tab.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/t.sno	RC1	RC1	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/time.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin-only
+csnobol4_suite	programs/csnobol4-suite/trace1.sno	DIFF	DIFF	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/trace2.sno	DIFF	DIFF	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/trim0.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/trim1.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/trfunc.sno	COMPILE_FAIL	DIFF	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/uneval2.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/uneval.sno	PASS	PASS	0	1	
+csnobol4_suite	programs/csnobol4-suite/unsc.sno	PASS	PASS	0	1	
+csnobol4_suite	programs/csnobol4-suite/update.sno	RC1	RC1	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/vdiffer.sno	PASS	PASS	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/words.sno	PASS	PASS	0	0	pin!=live
+csnobol4_suite	programs/csnobol4-suite/words1.sno	PASS	PASS	0	0	pin!=live
+gimpel	programs/gimpel/AI.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/AGT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/AOPA.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ARC.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ASM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ASM360.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BAL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BALREV.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BASE10.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BASEB.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BCD_EBCD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BLANKS.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BLEND.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BNORM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BREAKX.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BRKREM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/BSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/CARDPAK.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/CATA.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/CH.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/COMB.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/COPYL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/COUNT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/CRACK.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/DAY.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/DECOMB.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/DEXP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/DEXTERN.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/DIFF.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FASTBAL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FIND.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FLD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FLOOR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FORTPUT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FORTREAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FPROFILE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FRSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/FTRACE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/GPM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/HEX.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/HSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/HYPHENAT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/IMAGE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INFINIP_lib.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INFINIP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INORM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INSERT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INSERTB.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/INSULATE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/IP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LAST.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LIKE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LEXGT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LINE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LINEARIZ.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LPAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LOG.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LPERM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LPROG.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/LSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/L_ONE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/L_TWO.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/MDY.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/MFREAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/MINP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/MSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/NOT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ONCE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ONEWAY.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ORBREAK.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/OR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ORDER.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ORSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ORVISUAL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PARAGRAP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PEEL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PERM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PERMUTAT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PERMS.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PHRASE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PHRASES.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PHYSICAL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PLI_STMT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/POKER.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/POKEV.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PUSH.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/POL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/PUT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/QUEST.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/QUOTE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RAISE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RAMM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RANDOM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RCHAR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/READ.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/READL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/READRL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/REDEFINE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/REORDER.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/REPL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RESOLUTI.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/REVERSE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/REVL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ROTATER.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/ROMAN.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RPAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RPERMUTE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RSEASON.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RPOEM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RSEASON_lib.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RSELECT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RSTORY.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RSENTENC.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SEQ.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/RWORD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SKIM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SNOPUT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SNOREAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SPACING.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SPELL.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SQRT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/STACK.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/STONE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/STATEF.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/STRINGOU.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SUBSTR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SWAP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/SYSTEM.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TEMP.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TEST.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TICTACTO.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TIMEGC.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TIMER.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TPROFILE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TREE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TREEREAD.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TRIG.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TRUNC.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/TUPLE.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/UPLO.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+gimpel	programs/gimpel/VISIT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Activists.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Analysis.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Backtype.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Contains.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Decorate.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Extractor.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Arrow.sno	SIG11	DIFF	1	0	
+lon	programs/lon/rinky/Geo.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Bing.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Blogs.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2CityGrid.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/FishBowl.sno	RC1	ASM_FAIL	0	0	
+lon	programs/lon/rinky/Listen2Facebook.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Foursquare.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Gnip.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Google+.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2GooglePlus.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Radian6.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2TwitterSearch.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2TwitterFiles.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2WordPress.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2TwitterStream.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Yahoo.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Listen2Yelp.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/MobyThesaurus2sql.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Subscriptions.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/PARSER.sno	RC1	COMPILE_FAIL	0	0	
+lon	programs/lon/rinky/Technorati-search.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/Technorati.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/WordNet.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/YelpReviews.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/rinky/hollerith.sno	DIFF	DIFF	0	0	
+lon	programs/lon/rinky/rinky.sno	DIFF	DIFF	0	1	
+lon	programs/lon/rinky/utf-global.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+lon	programs/lon/rinky/wn2sql.sno	RC1	RC1	0	0	
+lon	programs/lon/sno/Blogzilla.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/Bouvier.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/Dict.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/Dictionary.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/HTML.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/BCPTest.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=231
+lon	programs/lon/sno/OConners.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/TZ.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/XML.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/acc.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/aclsprof.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/OConners-Generator.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+lon	programs/lon/sno/addMsg.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/atif.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/blob.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/bom.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/bootstrap.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/branch.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/attr31.sno	COMPILE_FAIL	ASM_FAIL	1	0	
+lon	programs/lon/sno/cb.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/build.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+lon	programs/lon/sno/ck4dups.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/change.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+lon	programs/lon/sno/cksscomments.sno	PASS	PASS	0	0	
+lon	programs/lon/sno/cksslinks.sno	PASS	PASS	0	1	
+lon	programs/lon/sno/codecnt.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+lon	programs/lon/sno/cksspaths.sno	PASS	PASS	0	0	
+lon	programs/lon/sno/csvauto.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/crlf.sno	RC1	RC1	0	0	
+lon	programs/lon/sno/cypher.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/debug.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+lon	programs/lon/sno/dep.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/dsw.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/dsw99.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ebnf.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/csvmerge.sno	PASS	PASS	0	0	
+lon	programs/lon/sno/gelderen.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ls-l.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/english.sno	PASS	PASS	0	1	
+lon	programs/lon/sno/maxm.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/mkblddir.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/mm.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/msl2c.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/mangle.sno	RC1	SIG11	0	0	
+lon	programs/lon/sno/rc.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/rcdiff.sno	COMPILE_FAIL	RC1	0	0	
+lon	programs/lon/sno/rcver.sno	RC1	RC1	0	1	
+lon	programs/lon/sno/snobol4.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/snocase.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/snodoc.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ssdb.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/sshist.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ssls.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ssls2.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ssmerge.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/ssreorg.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/texans.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/tictac.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+lon	programs/lon/sno/tpl2c.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/transl8.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/treebank.sno	COMPILE_FAIL	SIG11	0	1	pin!=live
+lon	programs/lon/sno/tsql.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/verify.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+lon	programs/lon/sno/peg_solitaire.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=124
+misc	programs/aisnobol/ATN.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/BUILDLIB.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/HSORT.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/ENDING.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/KALAH.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/SIR.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/TEST.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/aisnobol/WANG.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/dotnet/1brc.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+misc	programs/dotnet/SourceLines001.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/dotnet/SourceLines002.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/dotnet/SourceLines003.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/dotnet/Test.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/dotnet/asgn1.sno	RC1	RC1	0	0	
+misc	programs/dotnet/chap7.sno	PASS	PASS	0	0	
+misc	programs/dotnet/chap8_funcs.sno	COMPILE_FAIL	PASS	0	0	
+misc	programs/dotnet/Test2.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/dotnet/code.sno	COMPILE_FAIL	PASS	0	1	
+misc	programs/dotnet/expr_parser_stub.sno	COMPILE_FAIL	ASM_FAIL	0	0	
+misc	programs/dotnet/pattern_demo.sno	PASS	PASS	0	0	
+misc	programs/dotnet/palin.sno	TIMEOUT	TIMEOUT	20	20	
+misc	programs/snobol4/bench/test_icon.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f01_core_labels_goto.sno	PASS	PASS	0	1	
+misc	programs/snobol4/feat/f02_string_ops.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f03_numeric.sno	PASS	PASS	0	0	
+misc	programs/dotnet/temp.sno	TIMEOUT	TIMEOUT	21	20	
+misc	programs/snobol4/feat/f04_pattern_primitives.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f05_capture.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f06_builtins_predicates.sno	PASS	PASS	0	1	
+misc	programs/snobol4/feat/f07_keywords.sno	PASS	PASS	0	1	
+misc	programs/snobol4/feat/f08_data_array_table.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f09_functions.sno	COMPILE_FAIL	PASS	0	0	
+misc	programs/snobol4/feat/f10_io_basic.sno	DIFF	DIFF	0	0	
+misc	programs/snobol4/feat/f11_io_file.sno	RC1	RC1	0	0	
+misc	programs/snobol4/feat/f13_eval_code.sno	COMPILE_FAIL	COMPILE_FAIL	0	0	
+misc	programs/snobol4/feat/f12_load_unload.sno	COMPILE_FAIL	SIG11	0	0	
+misc	programs/snobol4/feat/f14_dyn_opt.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f14_opsyn.sno	DIFF	DIFF	0	1	
+misc	programs/snobol4/feat/f15_trace_dump.sno	DIFF	DIFF	0	1	
+misc	programs/snobol4/feat/f16_cli_switches.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f17_include.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f19_real_numbers.sno	RC1	RC1	0	0	
+misc	programs/snobol4/feat/f20_alphabet_unicode.sno	PASS	PASS	0	0	
+misc	programs/snobol4/jvm_j3/dupl_test.sno	PASS	PASS	0	0	
+misc	programs/snobol4/jvm_j3/goto_f.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/jvm_j3/goto_s.sno	PASS	PASS	0	0	
+misc	programs/snobol4/jvm_j3/input_test.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/jvm_j3/remdr_test.sno	PASS	PASS	0	0	
+misc	programs/snobol4/feat/f18_error_handling.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+misc	programs/snobol4/jvm_j3/size_test.sno	PASS	PASS	0	0	
+misc	programs/snobol4/linker/ancestor/ancestor_main.sno	RC1	RC1	0	0	
+misc	programs/snobol4/linker/greet_lib.sno	COMPILE_FAIL	PASS	0	0	
+misc	programs/snobol4/linker/greet_main.sno	RC1	RC1	0	0	
+misc	programs/snobol4/parser/arith_add_mul.sno	PASS	PASS	0	1	
+misc	programs/snobol4/parser/arith_chain_long.sno	PASS	PASS	1	0	
+misc	programs/snobol4/parser/arith_lassoc.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/arith_lassoc_div.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/arith_mixed_addsub.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/arith_paren.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/arith_pow_chain.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/arith_unary.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/assign_int.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/assign_mixed.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/assign_seq.sno	PASS	PASS	0	1	
+misc	programs/snobol4/parser/assign_str.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/assign_var.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/atom_id.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/atom_int.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/atom_str.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/binary_opsyn.sno	RC1	RC1	0	0	
+misc	programs/snobol4/parser/cf_bare_goto.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/parser/blank_line.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/cf_goto_f.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/parser/cf_goto_sf.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/parser/cf_goto_u.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=1
+misc	programs/snobol4/parser/cf_goto_computed.sno	SIG11	SIG11	0	0	
+misc	programs/snobol4/parser/cf_label_bare.sno	PASS	PASS	0	0	
+misc	programs/snobol4/parser/cf_label_only.sno	PASS	PASS	0	0	
