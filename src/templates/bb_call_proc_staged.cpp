@@ -47,6 +47,7 @@ int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
 DESCR_t rt_proc_call_epilogue_slim_ω(void);
+DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: by-name consult at value-position det landings (manual p.133) */
 int  rt_proc_nparams(const char *name);
 const char *rt_proc_pname(const char *name, int k);
 const char *rt_proc_result_name_get(const char *name);
@@ -120,6 +121,23 @@ static int bcps_result_slot() {
 static inline int c2farm() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }   /* CALL2BB 3b: fc-registered value-spine call (the dispatch preamble armed the RESULT window base=own quad) -- the one arg rides the TOP cell at alpha ([rsp + scc_sb] above the save block), the result replaces it IN PLACE at L(2) (net-zero rsp), and the L(2) FRQ stores self-rebase through the window */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* SIG (s66, Lon: "a static SIGNATURE ARRAY used by the SHIM so that it can REACH DOWN the stack himself and avoid the middle man pushes"): =1 default — sites publish {K, γcont, ωcont, off_i…} as per-site rodata quads and pass the sig address in rcx; the shim reaches the actuals in the CALLER'S OWN cells through entry-relative offsets, so the record and its gather copies are GONE.  =0 restores the s58 record protocol verbatim, BOTH halves (site + role-4 shim read this same predicate — two coherent worlds, never mixed). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {   /* s98 NRETURN by-name consult (manual p.133): a det value-position landing derefs a DT_N result when the floater set the flag; wn=0 = value site.  3-instruction fall-through when clear; veneer carries the claimed tier when set.  Runs BEFORE the landing's own stores — the taken arm re-seats rax:rdx from the fixed cell so the untouched store+DT_FAIL tail serves both arms. */
+    extern int rt_g_ret_by_name;
+    uint64_t fix_fp; { DESCR_t (*fp)(DESCR_t, int) = rt_nret_fix; fix_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86("note", std::string("NRETURN by-name consult wn=0"))
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + x86("mov", "ecx", RDD("rcx", 0))
+         + x86("cmp", "ecx", (long)0)
+         + x86("je", L(29))
+         + x86("mov", "rdi", "rax")
+         + x86("mov", "rsi", "rdx")
+         + x86("mov32", "edx", 0L)
+         + x86_rtcc_call_descr_ops("rt_nret_fix", fix_fp, r0, r8)
+         + x86("mov", "rax", r0.c_str())
+         + x86("mov", "rdx", r8.c_str())
+         + x86("def", L(29));
+}
 static long bcps_sig_disp(int slot) {   /* SIG: entry-rsp-relative displacement of a frame cell, derived from THE ONE OPERAND ADDRESS AUTHORITY itself (FRQB with bump 0 — the identical resolution the record gather used, minus the record's live carve) so no regime logic is re-derived here.  Returns -1 unless the authority renders a plain non-negative [rsp(+N)] form: pinned ___ / island / dynamic-depth spellings DECLINE, and the caller falls to the slim arm — sig only where the address is a static truth. */
     const char * t = FRQB(slot, 0); const char * p = strstr(t, "[rsp");
     if (!p) return -1;
@@ -436,6 +454,7 @@ static std::string bcps_det_arm() {
              + x86("def", L(2))
              + x86_anchor_leave()
              + x86_scan_sync_in_rr()
+             + bcps_nret_consult(std::string(ZRES(0)), std::string(ZRES(8)))
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86("cmp", "eax", (long)DT_FAIL)
@@ -754,6 +773,7 @@ static std::string bcps_det_arm() {
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
+         + bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8)))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", (long)DT_FAIL)
@@ -906,6 +926,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
+         + bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8)))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "eax", (long)DT_FAIL)

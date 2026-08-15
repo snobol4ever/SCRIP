@@ -1049,6 +1049,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("srccomment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
       emit_sep_rule('-'); }
     bb_classify_node(nd);                                                                        /* ⭐ s68: the ONE staging choke, actually one -- every dispatch arm passes here, so all 108 op kinds are classified, not the 29 that happen to call bb_prepare */
+    if (emit_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }   /* NRETURN FLOATER (s98): the lit+SNO$NRET planned-offset body wrote [rsp+K] at zd_plan's ONE depth but is jumped to from ARBITRARY depths (from inside a TINY body it clobbered the α carve's saved wires + call record → F_gamma read rcx=0, the beauty_suite 15-driver SIG11 class); body = GOT/abs flag store only, glue jmp continues at RETURN — depth-agnostic like its RETURN/FRETURN siblings */
     switch (nd->op) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
@@ -2559,7 +2560,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #define RPO_VISITED(p) ({ int _v = 0; for (int _vi = 0; _vi < sn; _vi++) if (seen[_vi] == (p)) { _v = 1; break; } _v; })
 #define RPO_MARK(p)    do { if (sn < CH_MAX) seen[sn++] = (const IR_t *)(p); } while (0)
 #define RPO_TAG_EMIT   ((IR_t *)1)
-#define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !emit_floater_kind(p) && !(_stmt_seed && (p)->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)   /* FLOATERS: never pulled into a chain's flow — seeded once as the graph-root call's final root blocks below */   /* STATEMENT-ORDER (Lon s62): under _stmt_seed every IR_STATEMENT_BEGIN is its own root block seeded in all[] source order below — successor pushes refuse them so a statement's interior collection stops at the next statement's door */
+#define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !emit_floater_member(p) && !(_stmt_seed && (p)->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)   /* FLOATERS: never pulled into a chain's flow — seeded once as the graph-root call's final root blocks below */   /* STATEMENT-ORDER (Lon s62): under _stmt_seed every IR_STATEMENT_BEGIN is its own root block seeded in all[] source order below — successor pushes refuse them so a statement's interior collection stops at the next statement's door */
 #define RPO_PUSH_SUCCS(c) \
         /* γ FIRST = popped LAST = finishes last = immediately follows (c) after the reversal */ \
         RPO_PUSH((c)->γ.node); \
@@ -2867,6 +2868,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             break;
         }
         { int _flk = emit_floater_kind(gtgt); if (_flk && node_γ == &lbl_γ) node_γ = emit_floater_label(_flk); }   /* FLOATERS: a jump into a floater from ANY chain resolves to the ONE bare program-wide label — the floater is excluded from this chain's nodes[], so the k-scan above cannot find it */
+        { if (gtgt && gtgt->op == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }   /* NRETURN FLOATER (s98): the head's γ = its SNO$NRET member — never collected (RPO_PUSH refuses members), its body folded into the head's inline by-name mark — so control continues at RETURN, whose pop/jmp is the depth-agnostic exit the mark inherits */
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;

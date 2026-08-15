@@ -519,7 +519,7 @@ __attribute__((constructor)) static void rt_pin_init(void) {
 /* AB-2: forward declarations needed by the strict leaves (defined further down in this file) */
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
-__attribute__((visibility("hidden"))) DESCR_t rt_nret_fix(DESCR_t r, int wn);
+DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: EXPORTED — the staged-call det landings consult it through the RTCC veneer (by-name deref at value sites, manual p.133); was hidden while only rt.c-internal */
 int rt_value_trail_mark(void);
 void rt_value_trail_tidy_dead_window(int mark, void *fb, void *top);
 /* rt_ab_enter_env: called from α AFTER the frame is established and the save-set is spilled.                                                                                                          */
@@ -762,7 +762,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
-__attribute__((visibility("hidden"))) DESCR_t rt_nret_fix(DESCR_t r, int wn);
+DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: EXPORTED — the staged-call det landings consult it through the RTCC veneer (by-name deref at value sites, manual p.133); was hidden while only rt.c-internal */
 DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
 /* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
 long    rt_proc_call_open(const char *name, int nargs);
