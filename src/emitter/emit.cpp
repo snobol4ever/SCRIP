@@ -151,6 +151,19 @@ void bb_emit_patch_rel32(bb_label_t *lbl)
     bb_patch_count++;
     bb_emit_u32(0x00000000);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void bb_emit_patch_abs64(bb_label_t *lbl)   /* R-1 s94: 8-byte ABSOLUTE code address of a same-chain label -- the binary twin of TEXT `.quad <label>` (SIG blob γ/ω continuations); forward refs resolve at define like rel32 */
+{
+    lbl = bb_label_fold(lbl);
+    if (!MEDIUM_BINARY) { fprintf(stderr, "bb_emit_patch_abs64: TEXT-mode reach (target='%s')\n", lbl->name); abort(); }
+    if (bb_label_defined(lbl)) { bb_emit_u64((uint64_t)(uintptr_t)(bb_emit_buf + lbl->offset)); return; }
+    if (bb_patch_count >= BB_PATCH_MAX) { bb_emit_overflow = 1; return; }
+    bb_patch_list[bb_patch_count].site  = bb_emit_pos;
+    bb_patch_list[bb_patch_count].label = lbl;
+    bb_patch_list[bb_patch_count].kind  = PATCH_ABS64;
+    bb_patch_count++;
+    bb_emit_u64(0);
+}
 int bb_emit_overflow = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_emit_byte(uint8_t b)
@@ -253,6 +266,9 @@ void bb_label_define(bb_label_t *lbl)
                 abort();
             }
             bb_emit_buf[p->site] = (uint8_t)(int8_t)disp;
+        } else if (p->kind == PATCH_ABS64) {
+            uint64_t a = (uint64_t)(uintptr_t)(bb_emit_buf + target);
+            for (int j = 0; j < 8; j++) bb_emit_buf[p->site + j] = (uint8_t)(a >> (8 * j));
         } else {
             int disp = target - (p->site + 4);
             uint32_t u;

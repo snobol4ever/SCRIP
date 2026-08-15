@@ -122,7 +122,7 @@ typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
 #define BB_PATCH_MAX   65536
 #define EMIT_PATCH_MAX BB_PATCH_MAX
-typedef enum { PATCH_REL8, PATCH_REL32 } bb_patch_kind_t;
+typedef enum { PATCH_REL8, PATCH_REL32, PATCH_ABS64 } bb_patch_kind_t;   /* R-1 s94: ABS64 = 8-byte absolute code address of a same-chain label (.quad L(n) data under SIG mode) */
 typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
 typedef int emitter_t;
 extern bb_emit_mode_t  bb_emit_mode;
@@ -138,6 +138,7 @@ extern int             g_emit_text_mode;
 void     bb_emit_begin      (bb_buf_t buf, int size);
 int      bb_emit_end        (void);
 void     bb_emit_patch_rel32(bb_label_t * lbl);
+void     bb_emit_patch_abs64(bb_label_t * lbl);
 void     bb_emit_byte       (uint8_t b);
 void     bb_emit_u32        (uint32_t v);
 void     bb_emit_u64        (uint64_t v);

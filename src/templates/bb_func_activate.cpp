@@ -56,20 +56,21 @@ void rt_define_site(const char *, const char *, int, int, int, void *);
 /* op_ival = nsave = 1 + nformals + nlocals                                                                                                                                                           */
 /* op_arg_slot[k] = GVA index of save-set member k {fname, formal0..np-1, local0..nl-1}; -1 = no GVA */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define AB_FNCELL_MAX 256
+#define AB_FNCELL_MAX 1024   /* R-1 s94: 256 -> 1024.  The ONE allocator now also serves the TINY cross-chain cells alpha$<FN> / body$<ENTRY> (x86_jmp_via_cell): 3 cells per DEFINE, and 100func.sno alone has 100 DEFINEs */
 static void * g_ab_fn_cells[AB_FNCELL_MAX];
 static int    g_ab_fn_cell_n = 0;
 static char   g_ab_fn_names[AB_FNCELL_MAX][64];
 /* AB-3a: the ONE slot allocator, shared by the block template and the role-2 bind so bind-before-block ordering (main chain emits first, blocks post-chain) is immaterial — first request by fname allocates and initialises to the undef stub. */
 static int bb_ab_slot_for(const char * fname) {
     for (int i = 0; i < g_ab_fn_cell_n; i++) if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
-    int idx = g_ab_fn_cell_n < AB_FNCELL_MAX ? g_ab_fn_cell_n++ : 0;
+    if (g_ab_fn_cell_n >= AB_FNCELL_MAX) { fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: the old arm aliased slot 0 SILENTLY, the corruption class this abort replaces)\n", AB_FNCELL_MAX, fname); abort(); }
+    int idx = g_ab_fn_cell_n++;
     snprintf(g_ab_fn_names[idx], sizeof g_ab_fn_names[idx], "%s", fname);
     g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
     return idx;
 }
 static void * bb_ab_cell_addr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
-void * bb_ab_fn_cell_ptr(const char * fname) { return bb_ab_cell_addr(fname); }   /* AB-3b: non-static accessor for call-site template (bb_call_proc_staged.cpp) — same slot the block and bind use, ONE allocator */
+extern "C" void * bb_ab_fn_cell_ptr(const char * fname) { return bb_ab_cell_addr(fname); }   /* AB-3b: non-static accessor for call-site template (bb_call_proc_staged.cpp) — same slot the block and bind use, ONE allocator */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_func_activate() {
     x86_begin();

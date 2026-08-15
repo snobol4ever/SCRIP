@@ -438,6 +438,16 @@ static void bbj_edge(FILE * fp, int * first, int gi, int i, const char * fp_name
     fprintf(fp, "%s\n  {\"from\":\"b%d_%d\",\"fp\":\"%s\",\"to\":\"b%d_%d\",\"tp\":\"%s\"}", *first ? "" : ",", gi, i, fp_name, gi, j, tp);
     *first = 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face) {   /* R-1 s94 (Fable 5) THE CELL FILL, one authority for both directions of the TINY cross-chain crossing (x86_jmp_via_cell): the just-sealed chain's label pool is live until the next bb_emit_begin, so <FN>_alpha (DEFINE stub seal, alpha_face=1) / <ENTRY>_body (main seal, alpha_face=0) resolve by name to a stable cell of the ONE allocator (bb_ab_fn_cell_ptr) that the sites/shim already jump through -- no new global, no ordering coupling */
+    extern int emit_label_lookup_offset(const char *); extern void * bb_ab_fn_cell_ptr(const char *);
+    if (!pname || !fnbase) return;
+    char lbl[300], cell[300];
+    if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_alpha", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }   /* raw: the role-4 shim interns fn4+"_alpha" verbatim; _body aliases are asm_sym_name'd (BODY-ALIAS build) */
+    else            { snprintf(lbl, sizeof lbl, "%s_body",  asm_sym_name(pname)); snprintf(cell, sizeof cell, "body$%s",  pname); }
+    int off = emit_label_lookup_offset(lbl); if (off < 0) return;
+    *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
+}
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -1617,6 +1627,7 @@ int main(int argc, char **argv)
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }   /* s91: LBL__ rows take MAIN's geometry after main emits (m4 FB-BACKFILL twin) */
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);   /* R-1 s94: alpha$<FN> <- &<FN>_alpha (DEFINE stub shim face) */
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 in-process twin of the m4 printed rt_proc_set_zstatic — makes SNO$MKPAT-minted DT_P carry real zstatic in --run */
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* PL-DC s108: seal registration — the fixed slot the m3 sites call through */
@@ -1654,7 +1665,8 @@ int main(int argc, char **argv)
               for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
                 char _ab[300]; snprintf(_ab, sizeof _ab, "%s_body", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
                 if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
-                rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb); } }
+                rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb);
+                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }   /* R-1 s94: body$<ENTRY> <- &<ENTRY>_body (the shim's transfer target) */
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {
@@ -1747,6 +1759,7 @@ int main(int argc, char **argv)
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);   /* R-1 s94: alpha$<FN> <- &<FN>_alpha (DEFINE stub shim face) */
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 twin (second proc loop — block/EVAL-thunk phase) */
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
             }
