@@ -5181,6 +5181,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
             } else t="procedure"; }
     }
     else if (av.v==DT_X)     t="EXPRESSION";
+    else if (av.v==DT_N)     t="name";
     else if (av.v==DT_P)     t="PATTERN";
     else if (av.v==DT_SNUL)  t="null";
     else t="string";

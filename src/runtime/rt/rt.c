@@ -289,6 +289,7 @@ void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     DESCR_t v = *in;
     if (v.v == DT_S && v.s && v.s[0]) { *out = v; out->slen = (uint32_t)strlen(v.s); return; }
     if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
+    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = (uint32_t)strlen(v.s); return; }
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
@@ -764,6 +765,7 @@ int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: EXPORTED — the staged-call det landings consult it through the RTCC veneer (by-name deref at value sites, manual p.133); was hidden while only rt.c-internal */
 DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
+DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; DESCR_t o = rt_nret_fix(r, wn); rt_g_want_name = 0; return o; }
 /* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
