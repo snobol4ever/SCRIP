@@ -729,6 +729,14 @@ static int fence_body_kk(const IR_t * nd) {   /* ⭐ R-4(a) SLICE 2 (s95): IR_MA
         kk += zd_k(m); }
     return kk;
 }
+static int fence_frame_candidate(const IR_t * nd) {   /* ⭐ R-4(f) SLICE 3 (s96): IR_MATCH_FENCE1 whose body span [operands[0]..operands[1]] holds a container/transfer member (the SAME exclusion list fence_body_kk declines on -- a body that is not the static-K class): its watermark cannot be read RSP-relative at any static offset (H08 FENCE(ARBNO(LEN(1))): α stores the quad, ARBNO's K16 commit leaves the frontier 16B/instance deeper at σ; H29 FENCE(TAB(2) $ OUTPUT | ABORT): the taken ALT arm carves 32B), so it rides a shared-registry slot in the CURRENT ACTIVATION FRAME. Pure, plan-independent, no new global. */
+    if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
+    int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
+    if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
+    for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
+        if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) return 1; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY.  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
     if (!nd) return 0;
@@ -1169,7 +1177,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ASSIGN_IMM:     { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] IMM nd=%p fc_disp=%d anchor=%d off=%d pin=%d refine=%d deep=%d pat=%d frame_off=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_cap_anchor, g_emit.op_off, emit_jmp_pin_legacy(), g_emit.flat_fb_refine, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.op_cap_frame_off); bb_emit_x86(bb_match_capture()); } return 0;               /* $ immediate capture + ZB-FC-3c (identical mechanism, phase 2); ⭐ OS-2·SLICE-1: D-FAMILY _fb/_adj block DELETED WHOLE (mirrors COND -- emit-time distance prediction across a dynamic extent); anchor arm reads SAVE's slot via THE ONE OFFSET FUNCTION. */
     case IR_MATCH_ASSIGN_SAVE:    { bb_prepare(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_cap_anchor ? -1 : g_emit.op_off; } } { extern int fc_save_active(const IR_t *); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld port=%d anchor=%d frame_off=%d\n", (void*)nd, fc_save_active(nd), (long)g_emit.op_fc_bytes, (int)x86_port_mode(), g_emit.op_cap_anchor, g_emit.op_cap_frame_off); } bb_emit_x86(bb_match_capture()); } return 0;               /* SN4-PAT-3h phase-0 SAVE + ZB-FC-3c fixed-cell grant (δ at cell+0); ⭐ OS-2·SLICE-1: anchor bit staged from THE ONE ROUTING AUTHORITY (producer symmetric with COND/IMM by construction); op_fc_bytes stays staged so the α hook's sub rsp,16 and every neighbor's fp prefix math are unchanged, but op_fc_base is NULLED under anchor -- x86_fc_hit keys regime 2 on base>=0, and leaving it armed captured the anchor arm's FR(op_off) into the legacy rsp cell spelling (producer/consumer desync, measured); the dead 16B carve is slice-tolerated, δ lives in the node's own ZLS slot via FR(op_off) instead. */
     case IR_MATCH_ALTERNATE:      { bb_emit_x86(bb_match_alternate()); } return 0;                   /* SN4-PAT-3h ALT; ALT-FLAT s202 -- zero-cell box, address-dispatch template, no fc staging */
-    case IR_MATCH_FENCE1:          { bb_prepare(nd); g_emit.op_fence_body_kk = fence_body_kk(nd); bb_emit_x86(bb_match_fence1()); } return 0;     /* SYNC-POINT ζ RELEASE sync point 2: NO fc_geom BY DESIGN — the watermark quad must stay [___+off] (depth-immune) because the σ glue reads it at the dynamic post-P depth */
+    case IR_MATCH_FENCE1:          { bb_prepare(nd); g_emit.op_fence_body_kk = fence_body_kk(nd); g_emit.op_fence_frame_off = fence_frame_slot(nd); bb_emit_x86(bb_match_fence1()); } return 0;     /* SYNC-POINT ζ RELEASE sync point 2: NO fc_geom BY DESIGN — the watermark quad must stay [___+off] (depth-immune) because the σ glue reads it at the dynamic post-P depth */
     case IR_MATCH_ABORT:           { bb_emit_x86(bb_match_abort()); } return 0;      /* ABORT-NODE (s193): first live constructor is lower_snobol4.c TT_ABORT (was bare IR_GOTO); template pre-existed, flat_trivial_beta already anticipated the kind */
     case IR_SCAN_SEQUENCE:        { bb_emit_x86(bb_scan_sequence()); } return 0;   /* Icon scan concat: value = slice into own slot */
     case IR_SCAN_ALTERNATE:       { bb_emit_x86(bb_scan_alternate()); } return 0;  /* Icon scan alternation: bb_match_alternate wiring, value = slice into own slot */
@@ -1270,7 +1278,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_cap_anchor = 0; g_emit.op_arbno_rbp = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_fence_frame_off = -1; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_cap_anchor = 0; g_emit.op_arbno_rbp = 0; \
     /* ⛔⭐ CARVE-DATA-ERAD (s23a, Lon 2026-08-01 "delete the ENTIRE data structure that stores the whole-graph data ... it is GONE NOW"): the fc_leaf_disp fill is DELETED -- op_flat_disp is permanently 0, the whole-graph displacement table has NO consumer, and the +op_flat_disp terms downstream are arithmetically dead pending janitorial code deletion.  The ⛔ step-2 falsification's 3-program cost is accepted by the directive. */ \
     bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=_fs__->name; g_emit.lbl_ω=_ff__->name; g_emit.lbl_β=(b)->name; \
@@ -2247,6 +2255,7 @@ static int frame_slot_is_candidate(const IR_t * nd) {   /* ⭐⭐⭐ ACTIVATION-
     if (!nd) return 0;
     if (nd->op == IR_MATCH_ARBNO) return arbno_frame_candidate(nd);
     if (nd->op == IR_MATCH_ASSIGN_SAVE) return frame_need_of(nd);
+    if (nd->op == IR_MATCH_FENCE1) return fence_frame_candidate(nd);   /* ⭐ R-4(f) SLICE 3 (s96): FENCE1 watermark = the registry's third customer (see fence_frame_slot) */
     return 0;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2279,6 +2288,12 @@ int arbno_frame_slot(const IR_t * arbno_nd) {   /* ⭐ ARBNO-FRAME SLOT (THREE Z
     return -(64 + 16 * idx);
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int fence_frame_slot(const IR_t * fence_nd) {   /* ⭐ R-4(f) SLICE 3 (s96): see emit.h op_fence_frame_off. -1 unless emit_match_rbp() AND fence_frame_candidate() AND an enclosing MATCH_BEGIN exists (a FENCE inside a stored blob has no MATCH_BEGIN in its graph -- R-4(b), sized into the DEFER activation later); offset = -(64 + 16*index) in the SHARED numbering, so a fence watermark, an ARBNO cell and a capture SAVE can never collide however they nest. */
+    if (!emit_match_rbp() || !fence_frame_candidate(fence_nd)) return -1;
+    int idx = -1; if (!frame_slot_scan(fence_nd, &idx, NULL) || idx < 0) return -1;
+    return -(64 + 16 * idx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int capture_frame_slot(const IR_t * cap_nd) {   /* ⭐⭐⭐ ACTIVATION-FRAME SLOT REGISTRY (THREE ZETAS s87): THE REPLACEMENT for bb_match_capture.cpp's own transient push-rbp/pop-rbp arm (s81/s83) -- SAME shared
      * numbering as arbno_frame_slot(), so a capture SAVE and an ARBNO can never collide even when one is textually nested inside the other's span (D11's exact shape: SAVE, then ARBNO(*P), then IMM -- SAVE
      * and ARBNO are BOTH candidates in the SAME MATCH_BEGIN scope, get DIFFERENT slots, and neither one's frame lifetime can clip the other's because NEITHER pushes anything anymore; both just read/write a
