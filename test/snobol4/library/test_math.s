@@ -1800,7 +1800,25 @@ n158_call_α:            sub              rsp, 16
                         .quad            .Lx416_2
                         .quad            32
                         .quad            16
-.Lx416_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx416_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx416_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx416_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx416_240
                         add              rsp, 16;                             jmp   n157_var_β
@@ -1989,7 +2007,25 @@ n183_call_α:            sub              rsp, 16
                         .quad            .Lx455_2
                         .quad            32
                         .quad            16
-.Lx455_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx455_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx455_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx455_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx455_240
                         add              rsp, 16;                             jmp   n182_lit_integer_β
@@ -2041,7 +2077,25 @@ n189_call_α:            sub              rsp, 16
                         .quad            .Lx464_2
                         .quad            32
                         .quad            16
-.Lx464_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx464_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx464_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx464_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx464_240
                         add              rsp, 16;                             jmp   n188_lit_integer_β
@@ -2091,7 +2145,25 @@ n195_call_α:            sub              rsp, 16
                         .quad            .Lx473_2
                         .quad            32
                         .quad            16
-.Lx473_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx473_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx473_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx473_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx473_240
                         add              rsp, 16
@@ -2142,7 +2214,25 @@ n201_call_α:            sub              rsp, 16
                         .quad            .Lx482_2
                         .quad            32
                         .quad            16
-.Lx482_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx482_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx482_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx482_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx482_240
                         add              rsp, 16
@@ -2202,7 +2292,25 @@ n207_call_α:            sub              rsp, 16
                         .quad            .Lx491_2
                         .quad            .Lx491_2
                         .quad            16
-.Lx491_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx491_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx491_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx491_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx491_240
                         add              rsp, 16;                             jmp   n206_unop_β
@@ -2245,7 +2353,25 @@ n212_call_α:            sub              rsp, 16
                         .quad            .Lx499_2
                         .quad            .Lx499_2
                         .quad            16
-.Lx499_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx499_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx499_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx499_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx499_240
                         add              rsp, 16
@@ -2289,7 +2415,25 @@ n217_call_α:            sub              rsp, 16
                         .quad            .Lx507_2
                         .quad            .Lx507_2
                         .quad            16
-.Lx507_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx507_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx507_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx507_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx507_240
                         add              rsp, 16
@@ -2349,7 +2493,25 @@ n223_call_α:            sub              rsp, 16
                         .quad            .Lx516_2
                         .quad            .Lx516_2
                         .quad            16
-.Lx516_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx516_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx516_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx516_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx516_240
                         add              rsp, 16;                             jmp   n222_unop_β
@@ -2401,7 +2563,25 @@ n229_call_α:            sub              rsp, 16
                         .quad            .Lx525_2
                         .quad            32
                         .quad            16
-.Lx525_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx525_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx525_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx525_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx525_240
                         add              rsp, 16;                             jmp   n228_lit_integer_β
@@ -2453,7 +2633,25 @@ n235_call_α:            sub              rsp, 16
                         .quad            .Lx534_2
                         .quad            32
                         .quad            16
-.Lx534_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx534_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx534_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx534_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx534_240
                         add              rsp, 16;                             jmp   n234_lit_integer_β
@@ -2505,7 +2703,25 @@ n241_call_α:            sub              rsp, 16
                         .quad            .Lx543_2
                         .quad            32
                         .quad            16
-.Lx543_2:               mov              qword ptr [rsp + 0], rax             # result
+.Lx543_2:               mov              rcx, qword ptr [rip + rt_g_ret_by_name@GOTPCREL] # NRETURN by-name consult wn=0
+                        mov              ecx, dword ptr [rcx + 0]
+                        cmp              ecx, 0;                              je    .Lx543_29
+                        mov              rdi, rax
+                        mov              rsi, rdx
+                        mov              edx, 0
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_nret_fix@PLT
+                        mov              qword ptr [rsp + 0], rax
+                        mov              qword ptr [rsp + 8], rdx
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rax, qword ptr [rsp + 0]
+                        mov              rdx, qword ptr [rsp + 8]
+.Lx543_29:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
                         cmp              eax, 104;                            jne   .Lx543_240
                         add              rsp, 16;                             jmp   n240_lit_integer_β
