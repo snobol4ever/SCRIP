@@ -336,7 +336,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
         if (g_flat_dc_np >= 0) {   /* DC-STUB PATH: no pcall record; zero frame first (named vars start as NULVCL = unbound), then rt_icn_zframe_args_install reads g_call_args[0..np-1] directly */
             if (kt > 48) {   /* zero the data region [___+0..___+kt-32) before installing args */
                 int data_bytes = kt - 32;
-                s += x86("lea", "rdi", "[rsp - 1]")
+                s += x86("mov", "rdi", "rsp")   /* frame base = rsp post-grant; [rsp-1] (a50037ae) is the dynamic-depth sentinel — no lea arm, silently emitted nothing (ZB-FC-1) */
                    + x86("xor", "eax", "eax")
                    + x86("mov32", "ecx", (long)data_bytes)
                    + x86("rep_stosb");
@@ -369,7 +369,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
     } else {   /* PL-FR-2 FRAME_RSP ARM: non-lex graphs (Prolog main / outer graphs) have no pcall record; zero-fill the data region with rep stosb so named variables (G0, G1...) start as NULVCL (= DT_SNUL = unbound). Mirrors anchor FRAME_RSP arm (rep stosb + 65544 floor). Harmless for Icon (Icon never stamps non-lex zframe graphs except via dc-stub which has its own path in the stub code above). */
         if (kt > 48) {   /* data region = [___+0..___+kt-32); floor at 48 has 16B data region which is just slot0 — skip rep stosb for the minimum frame */
             int data_bytes = kt - 32;   /* bytes below the 32B wire-header+pad: γ(8B)+ω(8B)+caller____(8B)+8B_align = 32B; data occupies [___+0..___+kt-32) */
-            s += x86("lea", "rdi", "[rsp - 1]")   /* destination = frame base */
+            s += x86("mov", "rdi", "rsp")   /* frame base = rsp post-grant; [rsp-1] (a50037ae) is the dynamic-depth sentinel — no lea arm, silently emitted nothing (ZB-FC-1) */
                + x86("xor", "eax", "eax")          /* value = 0 (NULVCL = DT_SNUL = 0) */
                + x86("mov32", "ecx", (long)data_bytes)
                + x86("rep_stosb");   /* rep stosb: byte-zero [rdi..rdi+rcx) */
