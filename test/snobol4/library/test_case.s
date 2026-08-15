@@ -1476,9 +1476,9 @@ n113_match_pos_β:                                                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n114_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d;           jmp   n115_match_any_α
-n114_match_assign_save_β:
-                        add              rsp, 16;                             jmp   n112_match_begin_β
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
 #-----------------------------------------------------------------------------------------------------------------------
 n115_match_any_α:       mov              eax, r14d
                         cmp              eax, r15d;                           jl    .Lx332_239
@@ -1493,17 +1493,9 @@ n115_match_any_β:       sub              r14d, 1
                         add              rsp, 16;                             jmp   n112_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n116_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 0]
-                        lea              rcx, [rip + .S1]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   n117_match_end_α
-n116_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n115_match_any_β
+                        lea              rdi, [rip + .S2]
+                        call             rt_bomb@PLT
+                        ud2
 #-----------------------------------------------------------------------------------------------------------------------
 n117_match_end_α:       mov              r8, r12
 .Lx336_9:               sub              r8, 24
@@ -1734,9 +1726,9 @@ n131_match_pos_β:                                                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n132_match_assign_save_α:
                         sub              rsp, 16
-                        mov              dword ptr [rsp + 0], r14d;           jmp   n133_match_len_α
-n132_match_assign_save_β:
-                        add              rsp, 16;                             jmp   n130_match_begin_β
+                        lea              rdi, [rip + .S1]
+                        call             rt_bomb@PLT
+                        ud2
 #-----------------------------------------------------------------------------------------------------------------------
 n133_match_len_α:       mov              eax, r14d
                         add              eax, 1
@@ -1747,17 +1739,9 @@ n133_match_len_β:       sub              r14d, 1
                         add              rsp, 16;                             jmp   n130_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n134_match_assign_cond_α:
-                        mov              eax, dword ptr [rsp + 0]
-                        lea              rcx, [rip + .S2]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   n135_match_end_α
-n134_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n133_match_len_β
+                        lea              rdi, [rip + .S2]
+                        call             rt_bomb@PLT
+                        ud2
 #-----------------------------------------------------------------------------------------------------------------------
 n135_match_end_α:       mov              r8, r12
 .Lx364_9:               sub              r8, 24
@@ -3131,8 +3115,8 @@ main_ω:
                         call             exit@PLT
                         .section         .rodata
 .S0:                    .string          "PAT$0$V0"
-.S1:                    .string          "letter"
-.S2:                    .string          "ch"
+.S1:                    .string          "IR_MATCH_CAPTURE_SAVE: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_push array this used to fall back to is deliberately not rebuilt (s83)"
+.S2:                    .string          "IR_MATCH_CAPTURE_COND: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_top array this used to fall back to is deliberately not rebuilt (s83)"
                         .text
                         .section         .rodata
 .C0:                    .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
