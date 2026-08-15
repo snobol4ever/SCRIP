@@ -11,13 +11,17 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
 std::string bb_match_replace() {
     x86_begin();
     return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || _.op_sa < 0 || (_.op_sb < 0 && !_.op_zres)) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
+         : (_.op_off < 0 || (_.op_sa < 0 && !(_.op_zres && _.op_zread[2] >= 0)) || (_.op_sb < 0 && !_.op_zres)) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
          : x86("comment", "IR_MATCH_REPLACE")
          + x86_alpha()
          + x86_align_enter()
          + x86("mov",  "rdi", ROQ(0))
-         + x86("mov",  "rsi", FRQ(_.op_sa))
-         + x86("mov",  "rdx", FRQ(_.op_sa + 8))   /* ZD-5 HEAD-FOLD: armed and declined read the SAME op_sa subject slot -- the armed head mirrors the consumed subject DESCR there at fold time, restoring the OFF-world dataflow, so this arm is regime-blind again. */
+         + IF(_.op_zres && _.op_zread[2] >= 0,
+                x86("note", ZOPN(2)) + x86("mov", "rsi", ZOPQ(2, 0))
+              + x86("note", ZOPN(2)) + x86("mov", "rdx", ZOPQ(2, 8)))   /* ⭐ R-3(c) SUBJECT SEAT (s99 "fourth seat"): the armed splice reads the subject from its producer's LIVE spine cell via the staged op_zread[2] (emit.cpp REPLACE choke -- zunder + producer-below-head offset, physically exact post-whack), per the ZD-5 MATCH-SPINE ZOPQ(2) design of record.  The op_sa flat slot has NO writer in the armed world since s97 deleted the head's mirror from both arms (the deletion was right -- the mirror wrote unbacked flat coordinates -- the READER was the half left behind). */
+         + IF(!(_.op_zres && _.op_zread[2] >= 0),
+                x86("mov",  "rsi", FRQ(_.op_sa))
+              + x86("mov",  "rdx", FRQ(_.op_sa + 8)))   /* legacy/declined + -1-sentinel fallback: byte-identical to the pre-fix read -- degrade never die. */
          + [&]() -> std::string { int _dispc = _.op_zfc ? _.op_off : (_.op_off - _.op_zpat); int _dispe = _.op_zfc ? (_.op_off + 24) : (_.op_off + 24 - _.op_zpat);
               std::string _cur = FR(_dispc); std::string _end = FRQ(_dispe);
               if (getenv("SCRIP_REPL_ADDR_DIAG")) fprintf(stderr, "[ADDR] cursor=%s end=%s op_off=%d op_zpat=%d op_zfc=%d\n", _cur.c_str(), _end.c_str(), _.op_off, _.op_zpat, _.op_zfc);
