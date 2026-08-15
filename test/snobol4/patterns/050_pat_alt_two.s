@@ -156,14 +156,6 @@ n10_match_end_α:        push             r14
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx42_1:                test             rax, rax;                            je    .Lx42_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx42_3]
                         lea              rdx, [rip + .Lx42_4];                jmp   rax
 .Lx42_3:                mov              qword ptr [rip + rtccb+40], r8

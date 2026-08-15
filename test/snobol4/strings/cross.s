@@ -330,14 +330,6 @@ n28_match_end_α:        mov              eax, dword ptr [rbp + -40]           #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx138_1:               test             rax, rax;                            je    .Lx138_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx138_3]
                         lea              rdx, [rip + .Lx138_4];               jmp   rax
 .Lx138_3:               mov              qword ptr [rip + rtccb+40], r8
@@ -652,14 +644,6 @@ n43_match_end_α:        mov              eax, dword ptr [rbp + -40]           #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx160_1:               test             rax, rax;                            je    .Lx160_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx160_3]
                         lea              rdx, [rip + .Lx160_4];               jmp   rax
 .Lx160_3:               mov              qword ptr [rip + rtccb+40], r8
@@ -902,14 +886,6 @@ n62_match_end_α:        mov              eax, dword ptr [rbp + -40]           #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx189_1:               test             rax, rax;                            je    .Lx189_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx189_3]
                         lea              rdx, [rip + .Lx189_4];               jmp   rax
 .Lx189_3:               mov              qword ptr [rip + rtccb+40], r8
@@ -1100,14 +1076,6 @@ n72_match_end_α:        mov              eax, dword ptr [rbp + -40]           #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx206_1:               test             rax, rax;                            je    .Lx206_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx206_3]
                         lea              rdx, [rip + .Lx206_4];               jmp   rax
 .Lx206_3:               mov              qword ptr [rip + rtccb+40], r8

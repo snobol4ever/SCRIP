@@ -132,14 +132,6 @@ n8_match_end_α:         mov              eax, dword ptr [rbp + -40]           #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
 .Lx30_1:                test             rax, rax;                            je    .Lx30_2
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_proc_open_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64]
                         lea              rcx, [rip + .Lx30_3]
                         lea              rdx, [rip + .Lx30_4];                jmp   rax
 .Lx30_3:                mov              qword ptr [rip + rtccb+40], r8
