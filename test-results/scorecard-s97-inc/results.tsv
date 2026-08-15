@@ -1,0 +1,18 @@
+beauty_self	programs/snobol4/demo/beauty/beauty.sno	SIG11	SIG11	4	5	
+beauty_suite	programs/snobol4/beauty_suite/Gen_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/Qize_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/ReadWrite_driver.sno	SIG11	SIG11	0	1	pin!=live
+beauty_suite	programs/snobol4/beauty_suite/ShiftReduce_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/TDump_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/XDump_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/assign_driver.sno	SIG11	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/case_driver.sno	SIG11	SIG11	0	0	
+beauty_suite	programs/snobol4/beauty_suite/counter_driver.sno	SIG11	SIG11	1	0	
+beauty_suite	programs/snobol4/beauty_suite/fence_driver.sno	PASS	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/global_driver.sno	PASS	SIG11	0	1	
+beauty_suite	programs/snobol4/beauty_suite/match_driver.sno	SIG11	SIG11	0	0	
+beauty_suite	programs/snobol4/beauty_suite/omega_driver.sno	SIG11	SIG11	1	1	
+beauty_suite	programs/snobol4/beauty_suite/semantic_driver.sno	SIG11	SIG11	1	0	
+beauty_suite	programs/snobol4/beauty_suite/stack_driver.sno	SIG11	SIG11	1	0	
+beauty_suite	programs/snobol4/beauty_suite/trace_driver.sno	SIG11	SIG11	0	1	pin!=live
+beauty_suite	programs/snobol4/beauty_suite/tree_driver.sno	PASS	SIG11	0	1	pin!=live
