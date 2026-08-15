@@ -113,10 +113,10 @@ std::string bb_match_end() {
                                                + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed */
          + (_.op_dval != 0.0
                 ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
-                          + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + 32)), "eax")
+                          + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "eax")
                                                       : x86("mov", stfh() ? HKD() : FR(_.op_off), "eax")))
-                + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + 32)), "r14")
-                                                     : x86("mov", FRQ(_.op_off + 24), "r14"))
+                + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "r14")
+                                                     : x86("mov", FRQ(_.op_off + 24), "r14"))   /* ⭐ R-3(c)/L-3b MRBP WRITE-SIDE (third instance of the 64B mrbp hole; gdb-measured on l3_spl_break_nonterm: writer start@..e960/end@..e978, reader FR(op_off) reads @..e980/..e998 -- delta exactly 32 on both slots): the formula's +32 constant IS the legacy stfh/hfc head carve the s38 STEP-0' triangulation anchored on; under emit_match_rbp() the head moves RSP 64 (push rbp+4 pushes+sub 24) so the writer landed 32 BELOW the s38 fixed absolute the reader still targets -- rt_match_replace then received slen=0 + garbage cursors (SCRIP_REPL_TRACE witness) and replaced the WHOLE subject.  Same law as the zd_read cross-head fix at emit.cpp: the two head geometries are mutually exclusive branches of bb_match_begin:34, 64 replaces 32, never adds to it. */
                 : std::string())
          /* ZW-0 stage 2: island rt_zls_release_to arm deleted -- unreachable under ZC_FRAME_RSP default */
          + (emit_match_rbp() ? std::string()   /* MATCH-RBP: rsp untouched here — the frame whack after ctx_restore in the pump tail is the sole release */
