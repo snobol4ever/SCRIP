@@ -164,6 +164,8 @@ main:
 main_α:
 main_α_body:
                         sub              rsp, 0
+#=======================================================================================================================
+#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n11_statement_begin_α:                                                        jmp   n12_statement_end_α
 n11_statement_begin_β:                                                        jmp   n13_statement_begin_α
@@ -479,8 +481,6 @@ n46_assign_β:                                                                 j
 #-----------------------------------------------------------------------------------------------------------------------
 n47_match_begin_α:      mov              rdi, qword ptr [rsp + 16]            # var
                         mov              rsi, qword ptr [rsp + 24]
-                        mov              qword ptr [rsp + 496], rdi
-                        mov              qword ptr [rsp + 504], rsi
                         push             rbp
                         mov              rbp, rsp
                         push             r12                                  # cas_mark

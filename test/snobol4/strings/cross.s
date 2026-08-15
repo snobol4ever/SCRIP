@@ -43,6 +43,8 @@ main:
 main_α:
 main_α_body:
                         sub              rsp, 0
+#=======================================================================================================================
+#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -215,8 +217,6 @@ n22_coerce_string_β:    add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n23_match_begin_α:      mov              rdi, qword ptr [rsp + 32]            # var
                         mov              rsi, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 384], rdi
-                        mov              qword ptr [rsp + 392], rsi
                         push             rbp
                         mov              rbp, rsp
                         push             r12                                  # cas_mark
@@ -475,8 +475,6 @@ n39_assign_β:                                                                 j
 #-----------------------------------------------------------------------------------------------------------------------
 n40_match_begin_α:      mov              rdi, qword ptr [rsp + 16]            # var
                         mov              rsi, qword ptr [rsp + 24]
-                        mov              qword ptr [rsp + 592], rdi
-                        mov              qword ptr [rsp + 600], rsi
                         push             rbp
                         mov              rbp, rsp
                         push             r12                                  # cas_mark
@@ -818,8 +816,6 @@ n58_coerce_integer_β:   add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n59_match_begin_α:      mov              rdi, qword ptr [rsp + 32]            # var
                         mov              rsi, qword ptr [rsp + 40]
-                        mov              qword ptr [rsp + 800], rdi
-                        mov              qword ptr [rsp + 808], rsi
                         push             rbp
                         mov              rbp, rsp
                         push             r12                                  # cas_mark
@@ -994,8 +990,6 @@ n67_var_α:              sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n68_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             # var
                         mov              rsi, qword ptr [rsp + 8]
-                        mov              qword ptr [rsp + 992], rdi
-                        mov              qword ptr [rsp + 1000], rsi
                         push             rbp
                         mov              rbp, rsp
                         push             r12                                  # cas_mark
