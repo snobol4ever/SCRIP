@@ -22,14 +22,29 @@ extern "C" void rt_cap_finish(DESCR_t fret);
  * (a C rt_cap_push/rt_cap_top array) which is NOT rebuilt here -- BOMBS explicitly rather than guessing which
  * of the two homes might coincidentally work, or reintroducing the C array Lon separately directed deleted.
  *
- * THE LAW (s81 ruling, for the CROSSING case): RSP owns ZETA-SPINE for ordinary captures (either home above);
- * a capture whose SAVE and IMM/COND straddle unbounded stack growth (a non-static DEFER or MATCH_VALUE between
- * them, per op_frame_need -- EARN-1, and its s83 SAVE-propagation fix in emit.cpp's frame_need_of) moves into a
- * ZETA-ACTIVATION-FRAME on RBP instead, one per syntactic instance. SAVE establishes the frame (push rbp; mov
- * rbp,rsp) and writes its delta at [rbp-8]; IMM/COND read it back and tear the frame down (mov rsp,rbp; pop rbp)
- * before doing anything else. gdb-measured root cause (s82): ZRESD/ZOPD and FR(op_off) are BOTH ultimately
- * RSP-relative ([rsp#+N]) -- sound only when SAVE and its reader see the SAME rsp, which a non-self-releasing
- * DEFER call breaks. RBP does not move across that call, so it is immune by construction.
+ * THE LAW (s81 ruling, for the CROSSING case, REVISED s88): RSP owns ZETA-SPINE for ordinary captures (either
+ * home above); a capture whose SAVE and IMM/COND straddle unbounded stack growth (a non-static DEFER or
+ * MATCH_VALUE between them, per op_frame_need -- EARN-1, and its s83 SAVE-propagation fix in emit.cpp's
+ * frame_need_of) needs storage that survives that crossing. gdb-measured root cause (s82): ZRESD/ZOPD and
+ * FR(op_off) are BOTH ultimately RSP-relative ([rsp#+N]) -- sound only when SAVE and its reader see the SAME
+ * rsp, which a non-self-releasing DEFER call breaks.
+ *
+ * ⛔ s88 REVERT (Lon in-chat: "I tried creating BBs each with their own transient RBP frame for ARBNO and
+ * *P $ VAR and *P . VAR, but it failed when a crossover landed where an RBP was the nested one not the outer
+ * one -- CAPTURE can never work like that"): CAPTURE NEVER PUSHES ITS OWN RBP FRAME. THE ONLY TWO operator-BBs
+ * permitted to push rbp, product-wide, are IR_MATCH_BEGIN (ζ-STANDING, S ? P) and IR_MATCH_DEFER (ζ-FRAME, *P)
+ * -- see ARCH-SCRIP.md's ζ-tier table. Every other construct is ζ-SPINE by default (RSP, this file's havehome()
+ * arm) and, when it needs a cell that survives a DEFER crossing, REGISTERS A SLOT in the closest already-live
+ * ζ-STANDING/ζ-FRAME activation (op_cap_frame_off, capture_frame_slot() in emit.cpp) rather than establishing
+ * a frame of its own. The s81/s83 arm this comment used to describe (SAVE does push rbp; mov rbp,rsp and writes
+ * [rbp-8]; IMM/COND read it back and mov rsp,rbp; pop rbp) is DELETED: measured (D11 probe, THREE ZETAS s86/s87)
+ * to collide with an ARBNO textually nested inside its own SAVE..IMM span -- ARBNO's alpha, assuming "the rbp
+ * live right now IS ζ-STANDING" (a correct assumption once ARBNO itself stopped pushing frames, s79/s80), wrote
+ * its cell relative to CAPTURE's tiny transient frame instead; CAPTURE's own IMM then popped that frame out
+ * from under ARBNO before ARBNO's own retries were done, corrupting the yield cursor on backtrack. When
+ * op_cap_frame_off == -1 (no enclosing MATCH_BEGIN in scope -- the PAT$N stored-pattern-blob boundary; or
+ * SCRIP_MATCH_RBP=0), CAPTURE now BOMBS honestly instead of reaching for its own frame -- the identical decline
+ * bb_match_arbno.cpp's own ARBNO-FRAME arm already takes at the same boundary (arbno_frame_off == -1).
  *
  * COND (`.` conditional assign) parks {varname, start, len} on the r12 CAS pend-array -- pure asm, no C call
  * (CAS-R12-UNIFY: r12 IS the live pend top on every arm). IMM (`$` immediate assign) calls rt_cap_open for the
@@ -58,14 +73,9 @@ std::string bb_match_capture() {
            + x86_gamma()
            + x86_beta_trampoline() )
          : (int)_.op_phase == 0 && _.op_frame_need
-         ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE activation frame (s81/s83: crosses unbounded stack growth) -- FALLBACK: op_cap_frame_off==-1 (emit_match_rbp() off, no shared frame to register into)")
-           + x86_alpha()
-           + x86("push", "rbp")
-           + x86("mov",  "rbp", "rsp")
-           + x86("sub",  "rsp", 8L)
-           + x86("mov",  RDD("rbp", -8), "r14d")
-           + x86_gamma()
-           + x86_beta_trampoline() )
+         ? ( x86_alpha()
+           + x86_bomb("IR_MATCH_CAPTURE_SAVE: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable (no enclosing MATCH_BEGIN in scope, or SCRIP_MATCH_RBP=0) -- CAPTURE never pushes its own activation frame (s88 revert: the s81/s83 own-transient-rbp arm crossed over with an ARBNO nested in its own span and corrupted the yield cursor, D11). Honest decline, matching bb_match_arbno.cpp's identical boundary bomb.")
+           + x86_beta_trampoline() )   /* dead code after the bomb's abort/ud2 -- beta is unreachable at runtime (alpha always bombs first) but the label must still be DEFINED for any sibling box's forward jump to it to resolve at emit-end, same discipline as bb_match_arbno.cpp's bomb arm defining PAIR(2)/PAIR(3). */
          : (int)_.op_phase == 0 && havehome()
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE spine (ordinary, unchanged mechanism)")
            + x86_alpha()
@@ -92,23 +102,9 @@ std::string bb_match_capture() {
            + x86("sub",  "r12", (long)24)
            + x86_omega() )
          : (int)_.op_phase == 1 && _.op_frame_need
-         ? ( x86("comment", "IR_MATCH_CAPTURE_COND activation frame (s81/s83) -- FALLBACK: op_cap_frame_off==-1")
-           + x86_alpha()
-           + x86("mov",  "eax", RDD("rbp", -8))
-           + x86("mov",  "rsp", "rbp")
-           + x86("pop",  "rbp")
-           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  RDQ("r12", 0), "rcx")
-           + x86("mov",  "esi", "eax")
-           + x86("mov",  RDQ("r12", 8), "rsi")
-           + x86("mov",  "edx", "r14d")
-           + x86("sub",  "edx", "eax")
-           + x86("mov",  RDQ("r12", 16), "rdx")
-           + x86("add",  "r12", (long)24)
-           + x86_gamma()
-           + x86_beta()
-           + x86("sub",  "r12", (long)24)
-           + x86_omega() )
+         ? ( x86_alpha()
+           + x86_bomb("IR_MATCH_CAPTURE_COND: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
+           + x86_beta() )   /* dead code after the bomb -- see IR_MATCH_CAPTURE_SAVE's identical note; COND's live arms use the bare x86_beta() define (not the trampoline), so that is what's mirrored here. */
          : (int)_.op_phase == 1 && havehome()
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND spine (ordinary, unchanged mechanism: r12 CAS pend-push, pure asm)")
            + x86_alpha()
@@ -161,36 +157,9 @@ std::string bb_match_capture() {
            + x86_gamma()
            + x86_beta_trampoline() )
          : (int)_.op_phase == 2 && _.op_frame_need
-         ? ( x86("comment", "IR_MATCH_CAPTURE_IMM activation frame (s81/s83) -- FALLBACK: op_cap_frame_off==-1")
-           + x86_alpha()
-           + x86("mov",  "eax", RDD("rbp", -8))
-           + x86("mov",  "rsp", "rbp")
-           + x86("pop",  "rbp")
-           + x86_anchor_enter()
-           + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
-           + x86("mov",  "esi", "eax")
-           + x86("mov",  "edx", "r14d")
-           + x86("mov",  "ecx", (long)1)
-           + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
-           + x86("test", "rax", "rax")
-           + x86("je",   L(1))
-           + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-           + bb_glue_pass_wires(2, 3)
-           + x86("def",  L(2))
-           + x86("call", "rt_proc_call_epilogue_γ", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(DESCR_t))rt_proc_call_epilogue_γ)
-           + x86("mov",  "rdi", "rax")
-           + x86("mov",  "rsi", "rdx")
-           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
-           + x86("jmp",  L(1))
-           + x86("def",  L(3))
-           + x86("call", "rt_proc_call_epilogue_ω", (uint64_t)(uintptr_t)(void *)(DESCR_t (*)(void))rt_proc_call_epilogue_ω)
-           + x86("mov",  "rdi", "rax")
-           + x86("mov",  "rsi", "rdx")
-           + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
-           + x86("def",  L(1))
-           + x86_anchor_leave()
-           + x86_gamma()
-           + x86_beta_trampoline() )
+         ? ( x86_alpha()
+           + x86_bomb("IR_MATCH_CAPTURE_IMM: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
+           + x86_beta_trampoline() )   /* dead code after the bomb -- see IR_MATCH_CAPTURE_SAVE's identical note; IMM's live arms end x86_beta_trampoline() same as SAVE. */
          : havehome()
          ? ( x86("comment", "IR_MATCH_CAPTURE_IMM spine (ordinary, unchanged mechanism)")
            + x86_alpha()
