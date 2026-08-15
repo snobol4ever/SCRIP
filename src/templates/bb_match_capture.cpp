@@ -84,7 +84,8 @@ std::string bb_match_capture() {
            + x86_beta_trampoline() )
          : (int)_.op_phase == 0
          ? ( x86_alpha()
-           + x86_bomb("IR_MATCH_CAPTURE_SAVE: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_push array this used to fall back to is deliberately not rebuilt (s83)") )
+           + x86_bomb("IR_MATCH_CAPTURE_SAVE: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)")
+           + x86_beta_trampoline() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- a port-less bomb whose sibling references β is a LINK BUG (m1_alt_* witnesses), never a decline */
          : (int)_.op_phase == 1 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND activation-frame SLOT (THREE ZETAS s87: reads the registered slot, no pop of its own -- the frame it lives in is released by whoever established it, MATCH_BEGIN/DEFER)")
            + x86_alpha()
@@ -123,7 +124,8 @@ std::string bb_match_capture() {
            + x86_omega() )
          : (int)_.op_phase == 1
          ? ( x86_alpha()
-           + x86_bomb("IR_MATCH_CAPTURE_COND: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_top array this used to fall back to is deliberately not rebuilt (s83)") )
+           + x86_bomb("IR_MATCH_CAPTURE_COND: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
+           + x86_beta() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- ALT's β does jmp [resume_ptr] into this box's β (n8_match_assign_cond_β was the M1 link failure), never leave it undefined */
          : (_.op_sval && _.op_sval[0] == '*')
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment") )
@@ -190,5 +192,6 @@ std::string bb_match_capture() {
            + x86_gamma()
            + x86_beta_trampoline() )
          : ( x86_alpha()
-           + x86_bomb("IR_MATCH_CAPTURE_IMM: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_top array this used to fall back to is deliberately not rebuilt (s83)") );
+           + x86_bomb("IR_MATCH_CAPTURE_IMM: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
+           + x86_beta_trampoline() );   /* R-0 (s93): dead code after the bomb, but β is DEFINED, same discipline as the SAVE/COND fallbacks */
 }
