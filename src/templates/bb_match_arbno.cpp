@@ -113,6 +113,41 @@ static std::string bb_match_arbno_frameless() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_match_arbno_frame() {
+    /* ⭐⭐⭐ ARBNO-FRAME SLOT (THREE ZETAS s86): the ONE cell of bb_match_arbno_frameless() above, RELOCATED off ζ-STANDING (rbp) instead of carved fresh at this node's own rsp alpha -- for exactly the
+     * two classes that arm cannot serve (W-7's suspend-capable DEFER, and the K0-DEFER companion's write-once DEFER): a body member that transfers control through a separately-compiled proc blob's
+     * jmp-entry wire (bb_match_defer.cpp) moves the ζ FRONTIER underneath any rsp-relative cell placed before it, which is exactly what made bb_match_arbno_frameless()'s [rsp+0]/[rsp+4] spelling unsound
+     * for these two classes (arb1.sno FINDING-2026-08-11e, D12/D13 FINDING-2026-08-12k) -- and exactly what does NOT touch rbp: DEFER's own jmp-entry wire is a bare `jmp`, never a `call`, into a callee
+     * whose interior carves are rsp-relative and never move OUR rbp (bb_match_defer.cpp's own s85 comment makes the identical argument for its ζ-FRAME).  ARBNO itself never pushes a frame (emit_arbno_rbp()
+     * is permanently 0, ZETA-ACTIVATION UNIFICATION, this goal's earlier rung) -- the rbp live at this node's own alpha IS already the nearest enclosing activation (ζ-STANDING at MATCH_BEGIN; an ARBNO node
+     * and any DEFER member of its own body always share ONE g_emit_cfg run, since a DEFER's TARGET pattern is a separately-compiled proc blob, never inlined here, so a *P DEFER's own ζ-FRAME can never
+     * textually enclose an ARBNO node -- see arbno_frame_candidate()'s own comment, emit.cpp).  op_arbno_frame_off (arbno_frame_slot(), staged at the drive case) is that fixed rbp-relative offset --
+     * emit_match_begin_frame_extra() widened the SAME MATCH_BEGIN's own carve by 16 bytes per candidate so this cell is reserved for the frame's ENTIRE life, survives every retry (STANDING's retry resets
+     * to [rbp-56-extra], strictly BELOW every ARBNO-FRAME cell), and self-releases with the whole frame at MATCH_END/fail-tail's `mov rsp,rbp; pop rbp` whack -- no separate carve, no separate release,
+     * nothing for a DEFER body member's frontier movement to alias, by the same construction that already makes STANDING's own PATCTX quartet immune. Layout at [rbp+off]: Δ0 dword @+0, yield dword @+4
+     * (the frameless arm's identical pair) -- the retired per-construct op_arbno_rbp layout's extra counter cell @+8/+16 is NOT needed here: this arm keeps the frameless arm's proven sigma/exhaust algebra
+     * (instance k's sigma entry IS the (k-1)th yield, no counter, delta==DELTA0 iff nothing committed) verbatim, just re-homed. */
+    int off = _.op_arbno_frame_off;
+    return x86("comment", "IR_MATCH_ARBNO_FRAME (ARBNO-FRAME SLOT: frameless-arm cell, rbp-relative -- immune to a DEFER body member's frontier movement)")
+         + x86_alpha()
+         + x86("mov", RDD("rbp", off + 0), "r14d")
+         + x86("mov", RDD("rbp", off + 4), "r14d")
+         + x86_gamma()
+         + x86_beta()
+         + x86("jmp", PAIR(0))
+         + x86("def", PAIR(2))
+         + x86("mov", "eax", RDD("rbp", off + 4))
+         + x86("cmp", "r14d", "eax")
+         + x86("je",  PAIR(1))
+         + x86("mov", RDD("rbp", off + 4), "r14d")
+         + x86_gamma()
+         + x86("def", PAIR(3))
+         + x86("mov", "eax", RDD("rbp", off + 0))
+         + x86("cmp", "r14d", "eax")
+         + x86("jne", PAIR(1))
+         + x86_omega();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_tail() {
     /* R12-EXIT-1 CARRY-THE-TAIL (Lon s68 static-size proof; design of record at zeta_storage.c fc_tail_*).  Element = [0,span) body window + [span,span+rspan) right-spine window + 16B header
      * {entry-cursor@+0, yield-cursor@+4, elem0-flag@+8} + 16B bracket copy {patstk mark@+16, rsp mark@+24} + one 16B WRAP-CAPTURE slot per ARBNO(body).V pair at [HDRB+32+16j] (delta at slot+0, alpha
@@ -255,40 +290,27 @@ std::string bb_match_arbno() {
      * the body's staged ΣK is zero.  THE ONE THING ARBNO MAY NOT DELEGATE is a NONZERO per-instance frontier delta: the ζ displacement IS the committed-instance count (no counter exists), so a zero-width
      * body makes the retract cascade bail at the base test without unwinding a single committed instance -- measured on corpus/probe/bb/test_sno_arbno_csl1a.c, CELLSZ=0 leaves Δ=3 where 0 is correct.
      * zd_k(ARBNO)=16 is that floor and it is already THE ONE AUTHORITY; frameless_k bills committed growth as kk+16 per instance, so a K0 body still advances by ARBNO's own cell. */
-    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : _.op_arbno_body_defer_unsafe ? "bomb-defer-unsafe" : !_.op_arbno_body_k0 ? "bomb-defer-k0" : "FRAMELESS");
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0) ? (_.op_arbno_frame_off == -1 ? "bomb-defer-unframed" : "ARBNO-FRAME") : "FRAMELESS");
     return _.op_arbno_body_kk > 0
              ? bb_match_arbno_frameless_k()   /* ⭐⭐⭐ ZETA-ACTIVATION UNIFICATION (this session): the RBP arm is retired -- frameless_k is the sole K16 destination now. */
          : _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
-         : _.op_arbno_body_defer_unsafe
-             /* W-7 INTERIM GUARD (HOME-WIRES s38): body carries an IR_MATCH_DEFER with pat_static==0 -- can transitively recurse
-              * back through this ARBNO's activation (manual p.122's *X idiom), which the plain-frameless arm below does not model:
-              * that arm's [rsp+4] yield-cursor write assumes the frontier never moves inside the activation.  D12/D13 are this
-              * class (gdb-confirmed stomp on a live CLASS-D resume-record landing address, FINDING-2026-08-12k).  Declining here
-              * converts silent stack corruption into a loud compile-time refusal; the real fix needs an anchor-relative ARBNO
-              * cell (W-4's arena layout).  Floor-neutral: the 16-probe pat_static==1 passer set never sets this flag (see
-              * emit.h field note), so this arm is never reached for them.
-              * PAIR(1)/PAIR(2)/PAIR(3) (β/na_s/na_f) are all registered UNCONDITIONALLY for every node (betas[i] in the generic
-              * per-node label pass, emit.cpp ~2412) and for every IR_MATCH_ARBNO with operands (na_s/na_f, flat_drive_match_alt,
-              * emit.cpp ~1201) -- sibling boxes' forward references to them exist independent of which arm this dispatcher
-              * picks, so the bomb path must still `def` all three (dead code after `ud2`, never reached, but required for
-              * bb_emit_end's forward-reference resolution to succeed at all). */
-             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a suspend-capable DEFER (pat_static=0) -- anchor-relative slot not yet implemented (W-4)")
+         : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0) && _.op_arbno_frame_off != -1
+             /* ⭐⭐⭐ ARBNO-FRAME SLOT (THREE ZETAS s86): W-7 (suspend-capable DEFER) and the K0-DEFER companion (write-once DEFER) both route HERE now instead of bombing, PROVIDED arbno_frame_slot()
+              * (emit.cpp) actually granted an rbp-relative offset -- which requires emit_match_rbp() to be on (the legacy stfh/HKQ/FRQ MATCH_BEGIN carve has no rbp for a slot to attach to; SCRIP_MATCH_RBP=0
+              * keeps both classes bombing exactly as before this rung, see the fallback arm immediately below). See bb_match_arbno_frame()'s own header comment for the full architecture. */
+             ? bb_match_arbno_frame()
+         : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0)
+             /* FALLBACK BOMB (W-7 / K0-DEFER companion, HOME-WIRES s38 / this session): reached only when emit_match_rbp()==0 -- ζ-STANDING is not an rbp frame under the legacy carve, so arbno_frame_slot()
+              * declined and there is nowhere immune to a DEFER body member's frontier movement to put this cell.  Same two named classes, same D12/D13 / arb1.sno conviction the ARBNO-FRAME arm above now
+              * cures under emit_match_rbp()==1 -- converts silent stack corruption into a loud compile-time refusal rather than silently re-admitting the aliasing class.
+              * PAIR(1)/PAIR(2)/PAIR(3) (β/na_s/na_f) are all registered UNCONDITIONALLY for every node (betas[i] in the generic per-node label pass, emit.cpp ~2412) and for every IR_MATCH_ARBNO with operands
+              * (na_s/na_f, flat_drive_match_alt, emit.cpp ~1201) -- sibling boxes' forward references to them exist independent of which arm this dispatcher picks, so the bomb path must still `def` all
+              * three (dead code after `ud2`, never reached, but required for bb_emit_end's forward-reference resolution to succeed at all). */
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a DEFER unsafe for the plain-frameless arm, and emit_match_rbp() is off -- ARBNO-FRAME slot unavailable (SCRIP_MATCH_RBP=0)")
                             + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe decline)")
-                            + x86("def", PAIR(2)) + x86("def", PAIR(3))
-         : !_.op_arbno_body_k0
-             /* ⭐⭐⭐ ZETA-ACTIVATION UNIFICATION K0-DEFER BOMB (this session, arb1.sno root-cause): op_arbno_body_k0 is FALSE here for exactly one remaining reason once op_arbno_body_kk<=0 and the W-7
-              * pat_static==0 guard above already declined -- a pat_static==1 (write-once) IR_MATCH_DEFER member, which the emit.cpp K0 scan now excludes unconditionally (see its own comment) because a
-              * static zd_k()==0 on a DEFER node is a claim about that node's OWN alpha carve, not about whether the deferred call's BODY moves the ζ frontier at runtime -- arb1.sno T2 (exhaust+peel) is
-              * exactly this: the plain-frameless [rsp+4] cursor write silently aliased a live 64-bit resume address once the frontier moved under a write-once DEFER's dynamic body.  No sound K0-class
-              * arm exists yet for ANY DEFER-bearing body (the K16 arm also declines DEFER via its own _sq containment scan) -- bomb rather than silently re-admit the aliasing class.  Same treatment as
-              * the W-7 guard immediately above, same PAIR(2)/PAIR(3) forward-reference requirement, narrower population (measured: 0 of the 16-probe pat_static==1 K0 passer set carries a DEFER member --
-              * they were K0 because their bodies are pure scanner-register matchers, per the emit.h op_arbno_body_k0 field note -- so this bomb's population is DISJOINT from that passer set by
-              * construction, not a floor regression on it). */
-             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a write-once DEFER -- K0 frontier-invariance not established for a runtime-invoked body (W-7 companion)")
-                            + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (k0-defer decline)")
                             + x86("def", PAIR(2)) + x86("def", PAIR(3))
              : bb_match_arbno_frameless();
 }
