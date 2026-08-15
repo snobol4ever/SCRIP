@@ -1611,13 +1611,14 @@ int main(int argc, char **argv)
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }   /* PL-DC s108: m3 twin of the m4 arming (pat blobs excluded structurally) */
                 { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — m3 proc loop. PL-FR-4: added is_prolog. */
-                bb_box_fn pfn = emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
+                int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;   /* s91 M3-UNIFY (the s62-owed rung, Fable): LBL__ pseudo-procs are NOT emitted standalone in m3 either -- their bodies live inline in main's STATEMENT-ORDER chain (mirror of the m4 loop above); registered from main's label pool after main emits */
+                bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
+                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }   /* s91: LBL__ rows take MAIN's geometry after main emits (m4 FB-BACKFILL twin) */
                 if (pfn) rt_proc_set_fn(pname, pfn);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 in-process twin of the m4 printed rt_proc_set_zstatic — makes SNO$MKPAT-minted DT_P carry real zstatic in --run */
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* PL-DC s108: seal registration — the fixed slot the m3 sites call through */
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
@@ -1642,7 +1643,18 @@ int main(int argc, char **argv)
             { extern void (*g_emit_chain_posthook)(void); extern void bb_ab_emit_nodes(IR_graph_t*, int); extern int g_gva_active;
               g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;
               g_emit_chain_posthook = bb_ab_posthook; }
+            { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;   /* s91 M3-UNIFY: BODY-ALIAS build, twin of the m4 block (Lon s62) -- each LBL__ entry chased through the transparent relays to its statement_begin, stamped <name>_body on main's graph so the emitter names that statement's alpha */
+              if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
+                  if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
+                      if (bbg->n_balias >= _na) break;
+                      IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
+                      char _ab[300]; snprintf(_ab, sizeof _ab, "%s_body", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
+            if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;   /* s91 M3-UNIFY: register every LBL__ row at its inline body label (main's label pool is live until the next bb_emit_begin); frame_bytes = main's (LBL__ rows share main's frame, ARG/LOCAL index off it) */
+              for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
+                char _ab[300]; snprintf(_ab, sizeof _ab, "%s_body", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
+                if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
+                rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb); } }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {
