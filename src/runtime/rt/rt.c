@@ -1425,6 +1425,7 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
  * The tail-jmp hands rax:rdx (DESCR_t) straight back to the C caller. */
 #if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
 /* R12-ERAD s65: under rsp-frames the blob's LIFO exits fully unwind BEFORE the jmp (γ delivers frame0 in rdi:rsi pre-unwind), so both landings arrive at the pre-jmp rsp — the r12 anchor is deleted. */
+/* ⭐ EXPR-THUNK EXITS (GOAL-SNOBOL4-100 bb_probes class B, s96): the wires ride r10/r11 (Lon s55: "R10 and R11 for success and fail return address ... just like any BB BLOB interface"; role-3 WIRE-ADOPT is EMPTY since s55) and every emitted body exits bb_glue_wire_γ/ω = `jmp r10`/`jmp r11` -- yet this C-side opener still delivered its landings ONLY in rcx/rdx and the RTCC inbound load then seated the CALLER's written-back wires (or 0) in r10/r11 last.  MEASURED (`S BREAK(',') *DIFFER(X)`, every *EXPR pattern element via c_rt_defer_get_pat_fn -> rt_call_proc_descr -> here): the EXPR$ thunk unwound cleanly to this frame and jumped through wire 0.  Both arms now seat r10=2f/r11=3f AFTER the load; rcx/rdx kept (chain contract readers).  A fresh C-entered activation OWNS its ports; the caller's wires survive in rtccb and reload at its own crossing return. */
 __asm__(
 ".text\n"
 ".globl rt_proc_enter\n"
@@ -1451,6 +1452,8 @@ __asm__(
 "  movq 48(%r10), %r9\n"
 "  movq 56(%r10), %r10\n"
 "4:\n"
+"  leaq 2f(%rip), %r10\n"
+"  leaq 3f(%rip), %r11\n"
 "  jmp *%rax\n"
 "2:\n"
 "  popq %r15\n"
@@ -1494,6 +1497,8 @@ __asm__(
 "  movq 48(%r10), %r9\n"
 "  movq 56(%r10), %r10\n"
 "4:\n"
+"  leaq 2f(%rip), %r10\n"
+"  leaq 3f(%rip), %r11\n"
 "  jmp *%rax\n"
 "2:\n"
 "  movq 8(%rsp), %rax\n"
