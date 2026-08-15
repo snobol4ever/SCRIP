@@ -112,7 +112,7 @@ std::string bb_match_end() {
                                                + x86("test", "rax", "rax")
                                                + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed */
          + (_.op_dval != 0.0
-                ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
+                ? IF(rfc(), (emit_match_rbp() ? x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -40)) : x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp)))   /* ⭐ R-3(c) START-SOURCE (the FOURTH instance of the mrbp geometry hole, discovered while landing the SUBJECT SEAT -- A/B: legacy raw_start=1 correct, mrbp raw_start=0): op_fc_disp is the LEGACY head's in-match rsp slot for the attempt start; under emit_match_rbp() that slot is never written -- the ONE authority for the attempt start is start_δ at [rbp-40] (bb_match_begin.cpp:34 layout), live here because the frame whack runs after this in the pump tail.  Mutually exclusive branches, never additive, per the s99 law. */
                           + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "eax")
                                                       : x86("mov", stfh() ? HKD() : FR(_.op_off), "eax")))
                 + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "r14")
