@@ -60,15 +60,15 @@ n3_match_span_α:        sub              rsp, 16
                         test             rax, rax;                            jns   .Lx10_239
                         add              rsp, 16;                             jmp   n2_match_break_β
 .Lx10_239:              mov              r8, qword ptr [rsp + 0]
-                        mov              r9d, dword ptr [rsp + 8]
                         mov              dword ptr [rsp + 0], 0
 .Lx10_0:                mov              eax, r14d
                         add              eax, dword ptr [rsp + 0]
                         cmp              eax, r15d;                           jge   .Lx10_1
                         movsxd           rcx, eax
                         movzx            esi, byte ptr [r13+rcx]
+                        mov              eax, dword ptr [rsp + 8]
                         mov              edx, 0
-.Lx10_2:                cmp              edx, r9d;                            jge   .Lx10_1
+.Lx10_2:                cmp              edx, eax;                            jge   .Lx10_1
                         movzx            edi, byte ptr [r8 + rdx]
                         cmp              esi, edi;                            je    .Lx10_3
                         add              edx, 1;                              jmp   .Lx10_2

@@ -2871,15 +2871,15 @@ n189_match_span_α:      lea              rdi, [rip + .S1]
                         mov              r11, qword ptr [rip + rtccb+64]
                         test             rax, rax;                            js    n180_match_alternate_af
                         mov              r8, qword ptr [rsp + 1440]
-                        mov              r9d, dword ptr [rsp + 1448]
                         mov              dword ptr [rsp + 1440], 0
 .Lx622_0:               mov              eax, r14d
                         add              eax, dword ptr [rsp + 1440]
                         cmp              eax, r15d;                           jge   .Lx622_1
                         movsxd           rcx, eax
                         movzx            esi, byte ptr [r13+rcx]
+                        mov              eax, dword ptr [rsp + 1448]
                         mov              edx, 0
-.Lx622_2:               cmp              edx, r9d;                            jge   .Lx622_1
+.Lx622_2:               cmp              edx, eax;                            jge   .Lx622_1
                         movzx            edi, byte ptr [r8 + rdx]
                         cmp              esi, edi;                            je    .Lx622_3
                         add              edx, 1;                              jmp   .Lx622_2
