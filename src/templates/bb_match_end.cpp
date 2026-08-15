@@ -25,6 +25,14 @@ static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1)
 static const char * HKM() { return "qword ptr [rsp# + 8]"; }   /* ⭐ SLACK-RIDER RE-HOME (this session): the bb_match_begin twin, verbatim -- zls2_mark's negative home.  DELIBERATELY DUPLICATED rather than shared, exactly as HKQ already is across these two files: the pair is the head's ABI with itself and the existing file-local spelling is the established house shape here.  A drift between these two lines is the split-ends failure HKN(k) exists to catch, so both files name the slot through HKN(5) at every use. */
 static const char * HKD() { return "dword ptr [rsp# + 0]"; }   /* ⭐ SLACK-RIDER RE-HOME (this session): the bb_match_begin twin, verbatim -- start_δ's negative home.  RELEASE runs inside the SAME bracket as the head's α, so [___-64] is depth-free at the post-unwind write exactly as it was at the write that seeded it -- the same argument HKQ's own comment makes for the quartet, and the reason this cell can move homes without any change to WHEN it is read. */   /* SUBJ-ARM-2: the head's statement-bracket ___ housekeeping slots (bb_match_begin.cpp twin, same k map: 0=deep-___ 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [___-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string mend_bank_cursors() {   /* ⭐ R-3(c) CURSOR ARENA-RIDE, bank half (mrbp + has_repl only): {start,end} banked at alpha in the STANDING frame's reserved RESULT pair [rbp-48]/[rbp-56] (bb_match_begin.cpp:34 layout -- "the slot exists so wiring it is a template edit not a layout ripple"; frame_slot_scan slots start at -(64+16k), no collision) while r14=delta is still live -- the pump's C calls clobber it and the pump-tail reload seats OUTER delta.  ROOT CAUSE this retires for mrbp: the legacy rfc stash writes at raw-rsp op_off coordinates that are claim-backed ONLY in main-shaped graphs; inside a DEFINE body they alias the save_restore record (gdb on rd_min: R_gamma jumped through 0x300000002 = the subject descr tagword; the s99 op_off=42480 un-rebased flat coord is the same family).  The pair crosses the frame whack on the R12 ARENA (push half in release_pump), which the whack cannot touch. */
+    return (emit_match_rbp() && _.op_dval != 0.0)
+         ? x86("note", "repl_start") + x86("mov", "eax", RDD("rbp", -40))
+         + x86("note", "repl_start") + x86("mov", RDD("rbp", -48), "eax")
+         + x86("note", "repl_end")   + x86("mov", RDQ("rbp", -56), "r14")
+         : std::string();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
@@ -74,6 +82,12 @@ static std::string release_pump() {
              + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))   /* M-2 BUG-6 FIX: PATCTX-DESCENT sub rsp,80 deleted. After CAS restore rsp=cas_rsp_mark=pre-32B-carve rsp (MATCH_BEGIN stores cas_rsp_mark BEFORE x86_zclaim(32), and saves r13/r14/r15/___ also pre-carve at [rsp+48/56/64/40]). No descent needed: FRQ(op_off+48) resolves to [rsp+48] = the exact save address. */
              + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
              + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64)))
+         + IF(emit_match_rbp() && _.op_dval != 0.0,
+               x86("note", "repl_start") + x86("mov", "eax", RDD("rbp", -48))
+             + x86("mov", RDD("r12", 0), "eax")
+             + x86("note", "repl_end")   + x86("mov", "rax", RDQ("rbp", -56))
+             + x86("mov", RDQ("r12", 8), "rax")
+             + x86("add", "r12", (long)16))   /* ⭐ R-3(c) CURSOR ARENA-RIDE, push half: after the pump reseated r12 to the MARK, push the banked {start(dword),end(qword)} pair 16B onto the capture arena -- mmap'd, stack-discipline, UNTOUCHED by the frame whack two lines below, LIFO-paired with bb_match_replace's pop.  Post-pump placement is mandatory: pushed at alpha the pair would sit in (mark, top] and rt_dcap_end_ok_open would misparse it as a capture record.  KNOWN LEAK, accepted correctness-first: a replacement chain that FAILS (e.g. `S 'b' = F()` with F failing) orphans one 16B pair below the next mark -- nothing scans the arena absolutely under mrbp (marks are saved values), so it is dead bytes, not corruption; the drain edge is R-5 inventory territory. */
          + x86("mov", "rdi", "r13")
          + x86("mov", "rsi", "r15")
          + x86("call", "rt_match_ctx_restore", (uint64_t)(uintptr_t)(void *)rt_match_ctx_restore)   /* re-sync the C-side Σ/Σlen mirror; CAPGEN-ERAD: arg3 dropped, restore no longer writes g_cap_gen */
@@ -91,7 +105,7 @@ std::string bb_match_end() {
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")
-         + x86_alpha()
+         + x86_alpha() + mend_bank_cursors()
          + (emit_match_rbp()
              ? std::string()   /* MATCH-RBP (s65e): no sentinel to scan, no rsp to recover here — the pump reads the mark off rbp; the frame whack after ctx_restore releases rsp */
              : x86("mov", "r8", "r12")   /* CAS-R12-UNIFY: seed the recovery scan from r12 (the one authority); r8 walks a COPY -- marker NOT popped here, the pump's L(6) scan pops the lot */
@@ -104,15 +118,15 @@ std::string bb_match_end() {
              + x86("mov", "rsp", RDQ("r8", 8)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed; rsp restore from [r8+8] kept */
          + release_pump()
          : x86("comment", "IR_MATCH_END")
-         + x86_alpha()
+         + x86_alpha() + mend_bank_cursors()
          + IF(x86_zc_frame() == ZC_FRAME_RSP && !emit_match_rbp(), x86("mov", "r8", "r12")   /* ⭐ W-1c.3 Part B: rfc/non-rfc fork DELETED -- both arms now scan via r8 (L(9)); the non-rfc slot read at FRQ(op_off+8) is removed (slot no longer written at alpha since the patstk slot-save was deleted from bb_match_begin).  r8 survives to the unwind below: rfc reads [r8+8] for rsp; non-rfc uses x86_zls2_release_to_call(op_off+16). */
                                                + x86("def", L(9))
                                                + x86("sub", "r8", (long)24)
                                                + x86("mov", "rax", RDQ("r8", 0))
                                                + x86("test", "rax", "rax")
                                                + x86("jne", L(9)))   /* CAS-SENTINEL-CLEAN: patstk restore from [r8+16] removed */
-         + (_.op_dval != 0.0
-                ? IF(rfc(), (emit_match_rbp() ? x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -40)) : x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp)))   /* ⭐ R-3(c) START-SOURCE (the FOURTH instance of the mrbp geometry hole, discovered while landing the SUBJECT SEAT -- A/B: legacy raw_start=1 correct, mrbp raw_start=0): op_fc_disp is the LEGACY head's in-match rsp slot for the attempt start; under emit_match_rbp() that slot is never written -- the ONE authority for the attempt start is start_δ at [rbp-40] (bb_match_begin.cpp:34 layout), live here because the frame whack runs after this in the pump tail.  Mutually exclusive branches, never additive, per the s99 law. */
+         + (_.op_dval != 0.0 && !emit_match_rbp()
+                ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
                           + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "eax")
                                                       : x86("mov", stfh() ? HKD() : FR(_.op_off), "eax")))
                 + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "r14")
