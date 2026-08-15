@@ -102,6 +102,10 @@ std::string bb_match_capture() {
            + x86_beta()
            + x86("sub",  "r12", (long)24)
            + x86_omega() )
+         : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*'
+         ? ( x86_alpha()
+           + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")
+           + x86_beta() )   /* s103: without this guard COND fell into the live spine arm below and pend-pushed the literal "*F" as a varname; the MATCH_END CAS flush deref'd it => SIG11. */
          : (int)_.op_phase == 1 && _.op_frame_need
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
