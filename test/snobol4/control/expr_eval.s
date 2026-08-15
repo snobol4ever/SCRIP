@@ -1687,10 +1687,9 @@ proc_PAT$5_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n100_match_assign_save_α:
                         sub              rsp, 16
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
-                        mov              dword ptr [rbp + -8], r14d;          jmp   n101_match_alternate_α
+                        lea              rdi, [rip + .S10]
+                        call             rt_bomb@PLT
+                        ud2
 n100_match_assign_save_β:
                         add              rsp, 16;                             jmp   proc_PAT$5_ω
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1717,19 +1716,10 @@ n101_match_alternate_af:
 .Lx108_19:              add              rsp, 32;                             jmp   n100_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n102_match_assign_cond_α:
-                        mov              eax, dword ptr [rbp + -8]
-                        mov              rsp, rbp
-                        pop              rbp
-                        lea              rcx, [rip + .S9]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   proc_PAT$5_γ
+                        lea              rdi, [rip + .S11]
+                        call             rt_bomb@PLT
+                        ud2
 n102_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n101_match_alternate_β
 #-----------------------------------------------------------------------------------------------------------------------
 n103_match_defer_α:     mov              rax, qword ptr [r9 + 528]            # PAT$5$V1
                         mov              rdx, qword ptr [r9 + 536]
@@ -1756,7 +1746,7 @@ n103_match_defer_α:     mov              rax, qword ptr [r9 + 528]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S10]
+                        lea              rdi, [rip + .S12]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -1859,7 +1849,7 @@ n104_match_defer_α:     mov              rax, qword ptr [r9 + 512]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S11]
+                        lea              rdi, [rip + .S13]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2018,7 +2008,7 @@ n116_match_defer_α:     mov              rax, qword ptr [r9 + 336]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S12]
+                        lea              rdi, [rip + .S14]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2130,7 +2120,7 @@ n118_match_defer_α:     mov              rax, qword ptr [r9 + 544]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S13]
+                        lea              rdi, [rip + .S15]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2277,7 +2267,7 @@ n129_match_defer_α:     mov              rax, qword ptr [r9 + 288]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S14]
+                        lea              rdi, [rip + .S16]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2383,7 +2373,7 @@ n131_match_defer_α:     mov              rax, qword ptr [r9 + 560]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S15]
+                        lea              rdi, [rip + .S17]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2462,10 +2452,9 @@ n131_match_defer_α:     mov              rax, qword ptr [r9 + 560]            #
 n131_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n132_match_assign_save_α:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
-                        mov              dword ptr [rbp + -8], r14d;          jmp   n133_match_defer_α
+                        lea              rdi, [rip + .S10]
+                        call             rt_bomb@PLT
+                        ud2
 n132_match_assign_save_β:
                                                                               jmp   n128_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2494,7 +2483,7 @@ n133_match_defer_α:     mov              rax, qword ptr [r9 + 304]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S16]
+                        lea              rdi, [rip + .S18]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2573,19 +2562,10 @@ n133_match_defer_α:     mov              rax, qword ptr [r9 + 304]            #
 n133_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n134_match_assign_cond_α:
-                        mov              eax, dword ptr [rbp + -8]
-                        mov              rsp, rbp
-                        pop              rbp
-                        lea              rcx, [rip + .S17]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   n128_match_alternate_s0
+                        lea              rdi, [rip + .S11]
+                        call             rt_bomb@PLT
+                        ud2
 n134_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n133_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$7_res:
                         mov              r10, qword ptr [rsp + 8]
@@ -2656,7 +2636,7 @@ n146_match_defer_α:     mov              rax, qword ptr [r9 + 304]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S16]
+                        lea              rdi, [rip + .S18]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2762,7 +2742,7 @@ n148_match_defer_α:     mov              rax, qword ptr [r9 + 304]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S16]
+                        lea              rdi, [rip + .S18]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2865,7 +2845,7 @@ n149_match_defer_α:     mov              rax, qword ptr [r9 + 576]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S18]
+                        lea              rdi, [rip + .S19]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -2944,10 +2924,9 @@ n149_match_defer_α:     mov              rax, qword ptr [r9 + 576]            #
 n149_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n150_match_assign_save_α:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
-                        mov              dword ptr [rbp + -8], r14d;          jmp   n151_match_defer_α
+                        lea              rdi, [rip + .S10]
+                        call             rt_bomb@PLT
+                        ud2
 n150_match_assign_save_β:
                                                                               jmp   n145_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2976,7 +2955,7 @@ n151_match_defer_α:     mov              rax, qword ptr [r9 + 320]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S19]
+                        lea              rdi, [rip + .S20]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -3055,19 +3034,10 @@ n151_match_defer_α:     mov              rax, qword ptr [r9 + 320]            #
 n151_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n152_match_assign_cond_α:
-                        mov              eax, dword ptr [rbp + -8]
-                        mov              rsp, rbp
-                        pop              rbp
-                        lea              rcx, [rip + .S20]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   n145_match_alternate_s0
+                        lea              rdi, [rip + .S11]
+                        call             rt_bomb@PLT
+                        ud2
 n152_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n151_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$8_res:
                         mov              r10, qword ptr [rsp + 8]
@@ -3138,7 +3108,7 @@ n165_match_defer_α:     mov              rax, qword ptr [r9 + 320]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S19]
+                        lea              rdi, [rip + .S20]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -3244,7 +3214,7 @@ n167_match_defer_α:     mov              rax, qword ptr [r9 + 320]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S19]
+                        lea              rdi, [rip + .S20]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -3426,10 +3396,9 @@ n168_match_defer_α:     mov              rax, qword ptr [r9 + 592]            #
 n168_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n169_match_assign_save_α:
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
-                        mov              dword ptr [rbp + -8], r14d;          jmp   n170_match_defer_α
+                        lea              rdi, [rip + .S10]
+                        call             rt_bomb@PLT
+                        ud2
 n169_match_assign_save_β:
                                                                               jmp   n164_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
@@ -3458,7 +3427,7 @@ n170_match_defer_α:     mov              rax, qword ptr [r9 + 336]            #
                         push             r15
                         push             r13
                         sub              rsp, 8
-                        lea              rdi, [rip + .S12]
+                        lea              rdi, [rip + .S14]
                         xor              esi, esi
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
@@ -3537,19 +3506,10 @@ n170_match_defer_α:     mov              rax, qword ptr [r9 + 336]            #
 n170_match_defer_β:                                                           jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n171_match_assign_cond_α:
-                        mov              eax, dword ptr [rbp + -8]
-                        mov              rsp, rbp
-                        pop              rbp
-                        lea              rcx, [rip + .S20]
-                        mov              qword ptr [r12 + 0], rcx
-                        mov              esi, eax
-                        mov              qword ptr [r12 + 8], rsi
-                        mov              edx, r14d
-                        sub              edx, eax
-                        mov              qword ptr [r12 + 16], rdx
-                        add              r12, 24;                             jmp   n164_match_alternate_s0
+                        lea              rdi, [rip + .S11]
+                        call             rt_bomb@PLT
+                        ud2
 n171_match_assign_cond_β:
-                        sub              r12, 24;                             jmp   n170_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 proc_PAT$9_res:
                         mov              r10, qword ptr [rsp + 8]
@@ -6412,17 +6372,17 @@ main_ω:
 .S7:                    .string          "PAT$2$V2"
 .S8:                    .string          "PAT$2$V1"
 .S9:                    .string          "*Push"
-.S10:                   .string          "PAT$5$V1"
-.S11:                   .string          "PAT$5$V0"
-.S12:                   .string          "expr"
-.S13:                   .string          "PAT$6$V0"
-.S14:                   .string          "primary"
-.S15:                   .string          "PAT$7$V0"
-.S16:                   .string          "factor"
-.S17:                   .string          "*Unary"
-.S18:                   .string          "PAT$8$V0"
-.S19:                   .string          "term"
-.S20:                   .string          "*Binary"
+.S10:                   .string          "IR_MATCH_CAPTURE_SAVE: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable (no enclosing MATCH_BEGIN in scope, or SCRIP_MATCH_RBP=0) -- CAPTURE never pushes its own activation frame (s88 revert: the s81/s83 own-transient-rbp arm crossed over with an ARBNO nested in its own span and corrupted the yield cursor, D11). Honest decline, matching bb_match_arbno.cpp's identical boundary bomb."
+.S11:                   .string          "IR_MATCH_CAPTURE_COND: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale."
+.S12:                   .string          "PAT$5$V1"
+.S13:                   .string          "PAT$5$V0"
+.S14:                   .string          "expr"
+.S15:                   .string          "PAT$6$V0"
+.S16:                   .string          "primary"
+.S17:                   .string          "PAT$7$V0"
+.S18:                   .string          "factor"
+.S19:                   .string          "PAT$8$V0"
+.S20:                   .string          "term"
 .S21:                   .string          "PAT$9$V0"
 .S22:                   .string          "PATV$0"
                         .text

@@ -71,7 +71,7 @@ n6_match_begin_α:       mov              rdi, qword ptr [rsp + 0]             #
                         push             r13                                  # outer_Σ
                         push             r14                                  # outer_δ
                         push             r15                                  # outer_Δ
-                        sub              rsp, 24
+                        sub              rsp, 40
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -84,7 +84,7 @@ n6_match_begin_α:       mov              rdi, qword ptr [rsp + 0]             #
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
 .Lx33_0:                mov              r14d, dword ptr [rbp + -40];         jmp   n7_match_pos_α
-n6_match_begin_β:       lea              rsp, [rbp + -56]                     # retry_whack
+n6_match_begin_β:       lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx33_1
@@ -111,14 +111,15 @@ n7_match_pos_α:         mov              rax, 0
                                                                               jmp   n8_match_arbno_α
 n7_match_pos_β:                                                               jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n8_match_arbno_α:       lea              rdi, [rip + .S1]
-                        call             rt_bomb@PLT
-                        ud2
-n8_match_arbno_β:       lea              rdi, [rip + .S0]
-                        call             rt_bomb@PLT
-                        ud2
-n8_match_arbno_as:
-n8_match_arbno_af:
+n8_match_arbno_α:       mov              dword ptr [rbp + -64], r14d
+                        mov              dword ptr [rbp + -60], r14d;         jmp   n9_match_rpos_α
+n8_match_arbno_β:                                                             jmp   n12_match_alternate_α
+n8_match_arbno_as:      mov              eax, dword ptr [rbp + -60]
+                        cmp              r14d, eax;                           je    n12_match_alternate_β
+                        mov              dword ptr [rbp + -60], r14d;         jmp   n9_match_rpos_α
+n8_match_arbno_af:      mov              eax, dword ptr [rbp + -64]
+                        cmp              r14d, eax;                           jne   n12_match_alternate_β
+                                                                              jmp   n7_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_rpos_α:        mov              rax, 0
                         mov              ecx, r15d
@@ -315,8 +316,4 @@ main_ω:
                         add              rsp, 0
                         mov              edi, 1
                         call             exit@PLT
-                        .section         .rodata
-.S0:                    .string          "IR_MATCH_ARBNO: unreachable beta (k0-defer decline)"
-.S1:                    .string          "IR_MATCH_ARBNO: body contains a write-once DEFER -- K0 frontier-invariance not established for a runtime-invoked body (W-7 companion)"
-                        .text
                         .section         .note.GNU-stack,"",@progbits
