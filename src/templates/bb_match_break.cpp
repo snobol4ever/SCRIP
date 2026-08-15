@@ -40,7 +40,7 @@ std::string bb_match_break() {
              + x86("mov",    "edi", "r14d")
              + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
              + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
-             + x86("call",   "rt_sg_scan_nonmember", (uint64_t)(uintptr_t)(void *)rt_sg_scan_nonmember)
+             + x86("call",   "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)   /* ⭐ R-3(a) part 2 (unmasked by the MRBP cross-head fix): BREAK advances TO the first char IN the charset -- scan_member, exactly as the legacy call arm below (:84) already does; this ZD arm shipped with SPAN's nonmember scanner, unreachable until the dynamic-needle read stopped crashing (witness /tmp v_d step1: subject 'line1\n' needle '\n' returned 0 = 'l' not-in-needle, BREAK matched zero and captured empty) */
              + x86("cmp",    "eax", "r15d")
              + x86_omega("jge")
              + x86("mov",    FR(_.x86_scratch_off), "r14d")
