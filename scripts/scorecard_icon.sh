@@ -17,7 +17,7 @@ run_suite(){ local s="$1" out="$2" r=""
   case "$s" in
     rungs_m3)       r="$(cd "$SD" && bash scripts/test_icon_all_rungs.sh 2>/dev/null | parse_rungs)";;
     rungs_m3_cells) r="$(cd "$SD" && SCRIP_ICN_CELLS=1 bash scripts/test_icon_all_rungs.sh 2>/dev/null | parse_rungs)";;
-    rungs_m4)       r="$(cd "$SD" && bash scripts/test_icon_x64_all_rungs.sh "$CORPUS/programs/icon" 2>/dev/null | sed -n 's/.*Results: \([0-9]*\) passed, \([0-9]*\) failed.*/\1 \2/p' | tail -1 | awk '{print $1, $1+$2}')";;
+    rungs_m4)       r="$(cd "$SD" && bash scripts/test_icon_x64_all_rungs.sh --corpus "$CORPUS/programs/icon" 2>/dev/null | parse_rungs)";;
     bench_correct)  r="$( { [ -d "$ORACLE_BIN" ] && export PATH="$ORACLE_BIN:$PATH"; cd "$SD" && SCRIPDIR="$SD" timeout 900 bash scripts/honest_icon_correctness.sh 2>/dev/null; } | awk -F'|' '/^[a-z0-9_]+ *\|/{t++; if ($0 ~ /IDENTICAL/) p++} END{print p+0, t+0}')";;
     smoke)          r="$(cd "$SD" && timeout 600 bash scripts/test_smoke_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\) *\/ *\([0-9]*\).*/\1 \3/p' | awk '{p+=$1; t+=$2} END{print p+0, t+0}')";;
     crosscheck)     r="$(cd "$SD" && timeout 600 bash scripts/test_crosscheck_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\).*/\1 \2/p' | tail -1 | awk '{print $1, $1+$2}')";;
