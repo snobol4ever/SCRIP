@@ -90,3 +90,4 @@ corpus
 SCRIP
 test-results/scorecard-*/list.*
 test-results/scorecard-*/noise.log
+test-results/
