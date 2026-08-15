@@ -34,6 +34,7 @@ std::string bb_match_replace() {
          + IF(!_.op_zres, x86("lea",  "r9",  FRQ(_.op_sb)))
          + x86("call", "rt_match_replace", (uint64_t)(uintptr_t)(void *)rt_match_replace)
          + x86_align_leave()
+         + IF(_.op_zres && _.op_zdepth > 0, x86("note", "repl_subtree_free") + x86("add", "rsp", (long)_.op_zdepth))   /* ⭐ R-3(c) SPLICE CONSUMES ITS SUBTREE (the DEFINE RETURN-linkage root cause, gdb-stepped on rd_min: RETURN reached at delta -16 from R_body entry, the floater's pop rcx loaded a statement cell descr tagword 0x300000002 and jumped into it): the replacement subtree's zunder bytes (op_zdepth, staged at the choke) were released by NOBODY -- the MEND whack frees only the frame, statement_end's add rsp,16 is the SUBJECT cell (M-2 BUG-6 comment), and the planner already models post-REPLACE depth as if the subtree were gone (statement_end emitted 16, not 16+zunder) -- so the template owed the model exactly this one release.  Post-call placement: the ZOPQ(2) subject read, the arena cursor pop, and r9's lea of rv's cell all consume BEFORE the call; after it the subtree is dead per the MODEL's WHACK law.  Main-shaped graphs tolerated the leak silently (the s97 INCLUDE-leak flavor); the RETURN floater's depth-exact pop could not. */
          + x86_jmp_id(1)
          + x86("def",    L(0))
          + x86(".quad",  LS(0), _.op_sval ? _.op_sval : "")
