@@ -1,0 +1,4 @@
+demos	programs/snobol4/demo/arithmetic.sno	PASS	PASS	0	0	
+demos	programs/snobol4/demo/calculator-1-match-fence.sno	PASS	PASS	0	0	
+demos	programs/snobol4/demo/calculator-1-match.sno	TIMEOUT	TIMEOUT	90	90	
+demos	programs/snobol4/demo/calculator-1.sno	SIG11	SIG11	0	0	
