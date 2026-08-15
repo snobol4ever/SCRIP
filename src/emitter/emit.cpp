@@ -687,7 +687,7 @@ int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implem
 static int earn_hazard_in(const IR_t * nd, int depth) {                                          /* EARN-1 (___-EARN s47): hazardous material test -- OPAQUE (*E / runtime pattern value) or ARBNO (unknown count => unknown size, ONE class per s28).  Conservative: null/over-deep = hazardous. */
     if (!nd || depth > 32) return 1;
     if (nd->op == IR_MATCH_ARBNO) return 1;
-    if (nd->op == IR_MATCH_DEFER && !nd->pat_static) return 1;                                   /* pat_static calloc-default 0 covers the s29 BINOP dropped-operand trap conservatively */
+    if (nd->op == IR_MATCH_DEFER) { const char * _e = getenv("SCRIP_DEFER_HAZ_STATIC"); if (_e && _e[0] == '1' && nd->pat_static) return 0; return 1; }   /* s101 (GOAL-SNOBOL4-100 dv class): pat_static is NOT a sound hazard exemption -- the defer's slow path exits gamma with a 16B {pad,resume} record retained on the spine (measured, dv_cap_defer_bare asm .Lx53_6) and the fast path retains the target's own suspended records, so a SAVE..COND span crossing ANY defer has no compile-time-constant RSP distance; s100's shuffle evidence against widening predates the s101 r9/GVA fix and is re-measured green. SCRIP_DEFER_HAZ_STATIC=1 restores the s47 exemption for A/B. pat_static calloc-default 0 still covers the s29 BINOP dropped-operand trap. */
     if (nd->op == IR_MATCH_VALUE) return 1;
     for (int i = 0; i < nd->n_operands; i++) if (earn_hazard_in(nd->operands[i], depth + 1)) return 1;
     return 0;
