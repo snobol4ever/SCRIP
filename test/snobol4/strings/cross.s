@@ -282,8 +282,8 @@ n26_match_any_α:        mov              eax, r14d
 .Lx134_239:             movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         mov              edi, esi
-                        mov              rsi, qword ptr [rsp + 72]            # coerce_string
-                        mov              edx, dword ptr [rsp + 68]
+                        mov              rsi, qword ptr [rsp + 104]           # coerce_string
+                        mov              edx, dword ptr [rsp + 100]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -312,8 +312,8 @@ n27_match_assign_cond_β:
                         sub              r12, 24;                             jmp   n26_match_any_β
 #-----------------------------------------------------------------------------------------------------------------------
 n28_match_end_α:        mov              eax, dword ptr [rsp + 16]
-                        mov              dword ptr [rsp + 224], eax
-                        mov              qword ptr [rsp + 248], r14
+                        mov              dword ptr [rsp + 256], eax
+                        mov              qword ptr [rsp + 280], r14
                         push             r14
                         push             r15
                         push             r13
@@ -856,7 +856,7 @@ n59_match_begin_af:     mov              r12, qword ptr [rbp + -8]            # 
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   n58_coerce_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
-n60_match_pos_α:        mov              rax, qword ptr [rsp + 40]
+n60_match_pos_α:        mov              rax, qword ptr [rsp + 72]
                         cmp              r14d, eax;                           jne   n59_match_begin_β
                                                                               jmp   n61_match_len_α
 n60_match_pos_β:                                                              jmp   n59_match_begin_β
@@ -868,8 +868,8 @@ n61_match_len_α:        mov              eax, r14d
 n61_match_len_β:        sub              r14d, 1;                             jmp   n59_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n62_match_end_α:        mov              eax, dword ptr [rsp + 0]
-                        mov              dword ptr [rsp + 688], eax
-                        mov              qword ptr [rsp + 712], r14
+                        mov              dword ptr [rsp + 720], eax
+                        mov              qword ptr [rsp + 744], r14
                         push             r14
                         push             r15
                         push             r13
@@ -1059,8 +1059,8 @@ n71_match_assign_cond_β:
                         sub              r12, 24;                             jmp   n70_match_len_β
 #-----------------------------------------------------------------------------------------------------------------------
 n72_match_end_α:        mov              eax, dword ptr [rsp + 16]
-                        mov              dword ptr [rsp + 880], eax
-                        mov              qword ptr [rsp + 904], r14
+                        mov              dword ptr [rsp + 912], eax
+                        mov              qword ptr [rsp + 936], r14
                         push             r14
                         push             r15
                         push             r13

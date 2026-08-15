@@ -112,8 +112,8 @@ n7_match_lit_α:         mov              eax, r14d
 n7_match_lit_β:         sub              r14d, 5;                             jmp   n6_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_end_α:         mov              eax, dword ptr [rsp + 0]
-                        mov              dword ptr [rsp + 80], eax
-                        mov              qword ptr [rsp + 104], r14
+                        mov              dword ptr [rsp + 112], eax
+                        mov              qword ptr [rsp + 136], r14
                         push             r14
                         push             r15
                         push             r13

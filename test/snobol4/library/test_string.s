@@ -2736,8 +2736,8 @@ n183_match_assign_cond_β:
                         sub              r12, 24;                             jmp   n182_match_rem_β
 #-----------------------------------------------------------------------------------------------------------------------
 n184_match_end_α:       mov              eax, dword ptr [rsp + 32]
-                        mov              dword ptr [rsp + 1360], eax
-                        mov              qword ptr [rsp + 1384], r14
+                        mov              dword ptr [rsp + 1392], eax
+                        mov              qword ptr [rsp + 1416], r14
                         push             r14
                         push             r15
                         push             r13
@@ -3411,8 +3411,8 @@ n236_match_any_α:       mov              eax, r14d
                         movsxd           rcx, r14d
                         movzx            esi, byte ptr [r13+rcx]
                         mov              edi, esi
-                        mov              rsi, qword ptr [rsp + 40]            # coerce_string
-                        mov              edx, dword ptr [rsp + 36]
+                        mov              rsi, qword ptr [rsp + 72]            # coerce_string
+                        mov              edx, dword ptr [rsp + 68]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -3987,12 +3987,12 @@ n285_match_begin_af:    mov              r12, qword ptr [rbp + -8]            # 
 #-----------------------------------------------------------------------------------------------------------------------
 n286_match_break_α:     sub              rsp, 16
                         mov              edi, r14d
-                        mov              rsi, qword ptr [rsp + 24]            # coerce_string
-                        mov              edx, dword ptr [rsp + 20]
+                        mov              rsi, qword ptr [rsp + 88]            # coerce_string
+                        mov              edx, dword ptr [rsp + 84]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_sg_scan_nonmember@PLT
+                        call             rt_sg_scan_member@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -4944,12 +4944,12 @@ n336_match_assign_save_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n337_match_break_α:     sub              rsp, 16
                         mov              edi, r14d
-                        mov              rsi, qword ptr [rsp + 72]            # coerce_string
-                        mov              edx, dword ptr [rsp + 68]
+                        mov              rsi, qword ptr [rsp + 104]           # coerce_string
+                        mov              edx, dword ptr [rsp + 100]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_sg_scan_nonmember@PLT
+                        call             rt_sg_scan_member@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]

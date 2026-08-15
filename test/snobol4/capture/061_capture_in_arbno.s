@@ -144,7 +144,7 @@ n12_match_begin_af:     mov              r12, qword ptr [rbp + -8]            # 
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   n11_coerce_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
-n13_match_pos_α:        mov              rax, qword ptr [rsp + 40]
+n13_match_pos_α:        mov              rax, qword ptr [rsp + 72]
                         cmp              r14d, eax;                           jne   n12_match_begin_β
                                                                               jmp   n14_match_assign_save_α
 n13_match_pos_β:                                                              jmp   n12_match_begin_β
