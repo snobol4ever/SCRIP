@@ -2614,6 +2614,25 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_rtcc_call_descr_ops — the FRQ-slot sibling above hard-wires its capture spelling; this twin takes the   */
+/* two result-cell operands as ALREADY-RENDERED strings (ZRES/FRQ ring buffers recycle — snapshot at call).    */
+/* Same RETURN-BEFORE-RELOAD LAW, same killswitch OFF arm.  s98: minted for the NRETURN by-name consult.       */
+inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const std::string & r0, const std::string & r8) {
+    std::string cap = x86("mov", r0.c_str(), "rax") + x86("mov", r8.c_str(), "rdx");
+    if (!g_rtcc_on) return x86_call_ro(sym, ptr) + cap;
+    unsigned m = x86_rtcc_clob(sym);
+    if (m == 0) return x86_call_ro(sym, ptr) + cap;
+    uint64_t block = (uint64_t)(uintptr_t)rtccb;
+    if (MEDIUM_BINARY) m |= RTCC_C_R10;
+    if (MEDIUM_BINARY) {
+        std::string call_b;
+        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr);
+        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
+    }
+    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {
     if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
     bb_label_t internal[X86_INTERNAL_MAX];

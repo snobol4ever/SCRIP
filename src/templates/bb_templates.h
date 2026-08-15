@@ -101,6 +101,7 @@ std::string bb_keyword_snobol4();
 std::string bb_keyword_assign();
 std::string bb_goto_dyn();
 std::string bb_save_restore();
+std::string bb_nreturn_mark();   /* NRETURN floater body (s98): depth-agnostic by-name mark — GOT/abs store of rt_g_ret_by_name=1, glue jmp continues at RETURN */
 std::string bb_func_activate();   /* LADDER AB (2026-08-08): per-DEFINE activation block */
 std::string bb_ab_bind();   /* AB-3a: role-2 DEFINE residual bind — fn_cell$<FN> <- &<FN>_act_α */
 extern "C" void * bb_ab_fn_cell_ptr(const char * fname);   /* R-1 s94: C linkage so the m3 driver (scrip.c) fills alpha$<FN>/body$<ENTRY> at the seals -- ONE allocator, one name */   /* AB-3b: fn_cell$<FN> binary slot pointer for the call-site indirect jmp; TEXT uses the label string directly */
