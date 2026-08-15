@@ -68,7 +68,7 @@ std::string bb_save_restore() {
          * SCRIP_NO_TINY=1 empties this box (sites fall to slim which never jmps here). */
         const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4;
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
-        int ok4 = (MEDIUM_TEXT && fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
+        int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;   /* R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted; the shim's faces are same-chain extlbl, its body transfer rides the body$<ENTRY> cell (x86_jmp_via_cell) */
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
         if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ x86("comment", "IR_SAVE_RESTORE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma();
         int xt4 = ns4 - nf4;   /* extra = locals + unshadowed result name (probe layout: gk[0..np)=formals then locals, gk[np..ns)=result iff unshadowed) */
@@ -78,6 +78,8 @@ std::string bb_save_restore() {
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         std::string la = std::string(fn4) + "_alpha", lb = std::string(fn4) + "_gamma", lo = std::string(fn4) + "_omega";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly */
         std::string blb = std::string(en4) + "_body";   /* BARE-CHAIN (Lon s62): the body chain's one label — proc_LBL__<FN>_α wrapper is gone */
+        const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());   /* R-1 s94: the gamma/omega faces interned ONCE -- lea (extlbl) and def share the object, both media */
+        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());   /* R-1 s94: filled by the m3 driver after main seals (LBL__ registration twin); TEXT never reads it */
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
         /* s63 fnrbp: SCRIP_FN_RBP=0 restores the s58 BOMB floaters (the descent instrument) and the frameless shim tail — one predicate, both halves of the bracket, drift-proof */
         auto RESTORE4 = [&](int lid) {   /* shared beta/omega restore body: needs rsp at tail base; leaves rcx=K r8=ext-base; clobbers rax; preserves rdi/rsi; lid = per-instantiation label-id base (beta/omega emit this twice in ONE box — ids must not collide) */
@@ -152,8 +154,8 @@ std::string bb_save_restore() {
                             + x86("mov", "rax", GQ(gk4[i], 8)) + x86("mov", EXTQ(16L * i + 8).c_str(), "rax")
                             + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[i], 8), (long)0)
                             + x86_deflabel_id(41 + i); })
-                 + x86("lea", "r10", std::string("[rip + __]"), (uint64_t)0, lb.c_str())
-                 + x86("lea", "r11", std::string("[rip + __]"), (uint64_t)0, lo.c_str())
+                 + x86("lea", "r10", "extlbl", (uint64_t)(uintptr_t)lbl_b)
+                 + x86("lea", "r11", "extlbl", (uint64_t)(uintptr_t)lbl_o)
                  + IF(fnrbp() == 1, x86("comment", "s63 RBP-FUNCTION WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("sub", "rsp", (long)8)
                              + x86("push", "r11")
@@ -163,16 +165,15 @@ std::string bb_save_restore() {
                  + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "r11")
                              + x86("push", "r10"))
-                 + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, blb.c_str())
-                 + x86("jmp", "rax")
-                 + x86_def_ext(emit_label_intern(lb.c_str()))
+                 + x86("jmp", "[rip@cell + __]", body_cell, blb.c_str())
+                 + x86_def_ext(lbl_b)
                  + x86("note", gva_name(rgx)) + x86("mov", "rdi", GQ(rgx, 0)) + x86("mov", "rsi", GQ(rgx, 8))
                  + FRESTORE(80)
                  + x86("mov", "rcx", SIGQ(8))
                  + x86("add", "rsp", F4)
                  + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
                  + x86("jmp", "rcx")
-                 + x86_def_ext(emit_label_intern(lo.c_str()))
+                 + x86_def_ext(lbl_o)
                  + FRESTORE(150)
                  + x86("mov", "rcx", SIGQ(16))
                  + x86("add", "rsp", F4)
@@ -204,8 +205,8 @@ std::string bb_save_restore() {
                         + x86("mov", "rax", GQ(gk4[i], 8)) + x86("mov", R8Q(16L * i + 8).c_str(), "rax")
                         + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[i], 8), (long)0)
                         + x86_deflabel_id(41 + i); })
-             + x86("lea", "r10", std::string("[rip + __]"), (uint64_t)0, lb.c_str())
-             + x86("lea", "r11", std::string("[rip + __]"), (uint64_t)0, lo.c_str())
+             + x86("lea", "r10", "extlbl", (uint64_t)(uintptr_t)lbl_b)
+             + x86("lea", "r11", "extlbl", (uint64_t)(uintptr_t)lbl_o)
              + IF(fnrbp() == 1, x86("comment", "s63 RBP-FUNCTION WRITER (Lon: ONE frame, FUNCTION linkage): pin the return point.  Frame [rbp+0]=enclosing rbp (recursion chain, LIFO)  [rbp+8]=gamma  [rbp+16]=omega  [rbp+24]=pad (reserved: RESULT base).  32B keeps C-call 16-alignment parity for the whole body.  rbp is SysV callee-saved: survives every C crossing; the ONLY other rbp writers product-wide are nested instances of this same bracket.  Readers: the RETURN/FRETURN/NRETURN floaters — mov rsp,rbp restores the UNKNOWN body depth to alpha-end depth P, pops the frame, jmps the banked landing; gamma/omega are pure functions of rsp==P (RESTORE4 rederives rcx=K and r8 from rsp).  Interior carves stay SILENT-NO-WHACK: nothing between here and the floater releases anything, the frame pop discards it wholesale.")
                          + x86("sub", "rsp", (long)8)
                          + x86("push", "r11")
@@ -215,9 +216,8 @@ std::string bb_save_restore() {
              + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
                          + x86("push", "r11")
                          + x86("push", "r10"))
-             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, blb.c_str())
-             + x86("jmp", "rax")
-             + x86_def_ext(emit_label_intern(lb.c_str()))
+             + x86("jmp", "[rip@cell + __]", body_cell, blb.c_str())
+             + x86_def_ext(lbl_b)
              + x86("note", gva_name(rgx)) + x86("mov", "rdi", GQ(rgx, 0)) + x86("mov", "rsi", GQ(rgx, 8))
              + RESTORE4(80)
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
@@ -226,7 +226,7 @@ std::string bb_save_restore() {
              + x86("add", "rsp", "rax")
              + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
              + x86("jmp", "rcx")
-             + x86_def_ext(emit_label_intern(lo.c_str()))
+             + x86_def_ext(lbl_o)
              + RESTORE4(150)
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4) + x86_jcc_id("jbe", 4) + SCALE16() + x86("add", "rax", T4 + 32) + x86_deflabel_id(4)

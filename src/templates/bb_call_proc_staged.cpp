@@ -277,7 +277,7 @@ static std::string bcps_det_arm() {
                      * the live carve — the AB-3b spelling), locals+result NULVCL, site wires, ONE jmp to the body α; landings capture the result into rdi:rsi then reverse-restore.  Shim + g_call_args
                      * GONE from this path.  TEXT-only this seat (m3 owed: cross-chain body-α target). */
                     static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
-                    if (!_ntz && MEDIUM_TEXT && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                    if (!_ntz && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                         /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
                         std::string laz = std::string(_.op_sval) + "_alpha";
                         if (bcps_fnsig()) {
@@ -292,15 +292,14 @@ static std::string bcps_det_arm() {
                                 if (dlo < 0 || dhi != dlo + 8) { sigokz = 0; break; }
                                 soffz[i] = dlo; }
                             if (sigokz) {
-                                std::string l2z = x86_internal_name(2);
                                 std::string snmz = std::string(".Lsig") + std::to_string((long)_.x86_uid) + "z";   /* per-uid+twin interned name — see the non-ZD arm's collision note */
-                                std::string sz = x86("lea", "rcx", std::string("[rip + __]"), (uint64_t)0, snmz.c_str())
-                                     + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, laz.c_str())
-                                     + x86("jmp", "rax")
-                                     + x86_def_ext(emit_label_intern(snmz.c_str()))
+                                const struct bb_label_t * sigl_z = emit_label_intern(snmz.c_str());   /* R-1 s94: interned ONCE, defined below, referenced by the lea -- same-chain extlbl in both media */
+                                std::string sz = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
+                                     + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
+                                     + x86_def_ext(sigl_z)
                                      + x86(".quad", (uint64_t)_.op_ival)
-                                     + x86(".quad", l2z, l2z.c_str())
-                                     + x86(".quad", l2z, l2z.c_str());
+                                     + x86(".quad", L(2))
+                                     + x86(".quad", L(2));
                                 for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
                                 return sz;
                             }
@@ -313,8 +312,7 @@ static std::string bcps_det_arm() {
                                         + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQT(i, 8)) + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
                              + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
                              + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
-                             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, laz.c_str())
-                             + x86("jmp", "rax");
+                             + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
                         }
                     }
                     if (!scc_z) return std::string();   /* s58: tiny declined AND no scc shape — legacy fall-through, byte-identical to the old gate */
@@ -546,7 +544,7 @@ static std::string bcps_det_arm() {
                  * TEXT-only this seat (m3 owed: cross-chain body-α target, the same class as the fold arm's sealed-cell slice-2). */
                 static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
                 { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
-                if (!_ntiny && MEDIUM_TEXT && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58: TEXT-only this seat */
+                if (!_ntiny && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                     /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
                      * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
@@ -570,15 +568,14 @@ static std::string bcps_det_arm() {
                             if (dlo < 0 || dhi != dlo + 8) { sigok = 0; break; }
                             soff[i] = dlo; }
                         if (sigok) {
-                            std::string l2 = x86_internal_name(2);
                             std::string snm = std::string(".Lsig") + std::to_string((long)_.x86_uid);   /* own namespace: L(3)/L(4) are the legacy arm's landing labels in this node family, and the two twins of one box may BOTH emit — per-uid+twin interned name, collision-free by construction */
-                            std::string s = x86("lea", "rcx", std::string("[rip + __]"), (uint64_t)0, snm.c_str())
-                                 + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, la.c_str())
-                                 + x86("jmp", "rax")
-                                 + x86_def_ext(emit_label_intern(snm.c_str()))
+                            const struct bb_label_t * sigl = emit_label_intern(snm.c_str());   /* R-1 s94: interned ONCE, defined below, referenced by the lea -- same-chain extlbl in both media */
+                            std::string s = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
+                                 + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
+                                 + x86_def_ext(sigl)
                                  + x86(".quad", (uint64_t)_.op_ival)
-                                 + x86(".quad", l2, l2.c_str())
-                                 + x86(".quad", l2, l2.c_str());
+                                 + x86(".quad", L(2))
+                                 + x86(".quad", L(2));
                             for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
                             return s;
                         }
@@ -593,8 +590,7 @@ static std::string bcps_det_arm() {
                                     + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
                          + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
                          + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
-                         + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, la.c_str())
-                         + x86("jmp", "rax");
+                         + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str());
                     }
                 }
                 if (!scc) return std::string();   /* s58: tiny declined AND no scc shape — fall through to the legacy path outside this lambda, byte-identical to the old gate */

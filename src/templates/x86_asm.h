@@ -900,6 +900,19 @@ inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl)
     if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
     return x86_rec(mnem) + (lbl ? lbl->name : "?") + "\n";
 }
+inline std::string x86_lea_ext(const char * dst, const struct bb_label_t * lbl) {   /* R-1 s94: lea r64,[rip + <externally-owned label>] -- same-chain named label (SIG blob, shim's own gamma/omega faces).  Byte template = x86_lea_rip_id; the rel32 rides the 'X' record exactly as x86_jmp_ext/x86_jcc_ext do */
+    if (MEDIUM_BINARY) { int g = x86_rnum(dst); std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); std::string r = x86_Lrec(c); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
+    return x86_rec("lea") + dst + ", [rip + " + (lbl && lbl->name ? lbl->name : "?") + "]\n";
+}
+inline std::string x86_jmp_via_cell(const char * label, uint64_t cell) {   /* R-1 s94 THE CROSS-CHAIN CROSSING (m3 twin of the assembler-resolved TEXT symbol): TEXT = `lea rax,[rip+label]; jmp rax` BYTE-IDENTICAL to the pre-R-1 tiny arms; BINARY = movabs rax,<stable cell>; mov rax,[rax]; jmp rax -- the cell (bb_ab_fn_cell_ptr, ONE allocator) is filled by the driver when the owning chain SEALS (alpha$<FN> at the stub seal, body$<ENTRY> after main), so emission ORDER is immaterial in both directions.  rax is the scratch both arms already clobbered. */
+    if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0xB8; c += u64le(cell); return x86_Lrec(c) + x86_Lrec(std::string("\x48\x8B\x00", 3)) + x86_Lrec(std::string("\xFF\xE0", 2)); }
+    return x86_rec("lea") + "rax, [rip + " + (label ? label : "??") + "]\n" + x86_rec("jmp") + "rax\n";
+}
+inline std::string x86_quad_ilbl(int n) {   /* R-1 s94: .quad <internal label L(n)> -- 8-byte ABSOLUTE code address; TEXT names the label (assembler resolves), BINARY = 'Q' record -> bb_emit_patch_abs64 (SIG blob gamma/omega continuation quads) */
+    int id = x86_internal_id(n);
+    if (MEDIUM_BINARY) { std::string r; r += (char)'Q'; r += (char)(unsigned char)id; return r; }
+    return std::string(" .quad ") + x86_internal_name(n) + "\n";
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_rip_id(const char * reg, int n) {
     /* lea r64, [rip + L(n)] — materialize an internal label's code address (ALT-RESUME continuation cells).  REX.W 8D /r mod=00 rm=101; the rel32 is the instruction's last 4 bytes, so the same
@@ -1431,7 +1444,7 @@ struct xop {
     xop(unsigned long v)     : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT, XK_RIPCELL };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -1498,6 +1511,7 @@ inline void x86_parse(const xop & x, opnd & o) {
           if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
     if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
     if (!strcmp(s, "[rip@got + __]"))          { o.kind = XK_RIPGOT; return; }
+    if (!strcmp(s, "[rip@cell + __]"))         { o.kind = XK_RIPCELL; return; }   /* R-1 s94: jmp through a STABLE runtime cell (BINARY) / lea+jmp the label (TEXT) -- see x86_jmp_via_cell */
     if (!strncmp(s, "f64:", 4))                {
         o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
     }
@@ -1696,6 +1710,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
     if (!strcmp(mnem, ".quad")) {
+        if (a.kind == XK_ILBL) return x86_quad_ilbl(a.lbl);   /* R-1 s94: x86(".quad", L(n)) -- absolute address of an internal label, both media */
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
         return std::string();
@@ -1716,6 +1731,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_PAIR) return x86_jmp_pair(a.lbl);
         if (a.kind == XK_FR64) return x86_jmp_frame64(a.off);
         if (a.kind == XK_EXTLBL && xb.tag == 2) return x86_jmp_ext((const struct bb_label_t *)(uintptr_t)xb.u);
+        if (a.kind == XK_RIPCELL && xb.tag == 2 && xc.tag == 1) return x86_jmp_via_cell(xc.s, xb.u);   /* R-1 s94: x86("jmp","[rip@cell + __]",(uint64_t)cell,"LABEL") */
         if (a.kind == XK_REG) {   /* SN4-FLAT-PROC (s176): jmp through a register — FF /4 (modrm 0xE0|r), REX.B for r8+; the floater's wire transfer.  Mirror of the call XK_REG arm below. */
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xE0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
             return MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1, (char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("jmp") + a.txt + "\n");
@@ -1859,6 +1875,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_ILBL)                  return x86_lea_rip_id(a.txt, b.lbl);
         if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_RIPGOT)                return x86_load_got(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_EXTLBL && xc.tag == 2) return x86_lea_ext(a.txt, (const struct bb_label_t *)(uintptr_t)xc.u);   /* R-1 s94 */
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
@@ -2607,6 +2624,7 @@ inline void bb_emit_x86(const std::string & s) {
         if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal)); }
         else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal)); }
+        else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal)); }   /* R-1 s94: .quad L(n) absolute */
         else if (tag == 'E') { int idx = (unsigned char)s[i++]; if (g_emit.xa_bb_emit_pair_define[idx]) bb_label_define(g_emit.xa_bb_emit_pair_define[idx]); }
         else if (tag == 'F') { int idx = (unsigned char)s[i++]; bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
