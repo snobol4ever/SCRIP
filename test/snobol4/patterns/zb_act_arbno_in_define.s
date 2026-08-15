@@ -194,7 +194,7 @@ n14_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         push             r13                                  # outer_Σ
                         push             r14                                  # outer_δ
                         push             r15                                  # outer_Δ
-                        sub              rsp, 24
+                        sub              rsp, 40
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -207,7 +207,7 @@ n14_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
 .Lx49_0:                mov              r14d, dword ptr [rbp + -40];         jmp   n15_match_pos_α
-n14_match_begin_β:      lea              rsp, [rbp + -56]                     # retry_whack
+n14_match_begin_β:      lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx49_1
@@ -236,10 +236,7 @@ n15_match_pos_β:                                                              j
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_assign_save_α:
                         sub              rsp, 16
-                        push             rbp
-                        mov              rbp, rsp
-                        sub              rsp, 8
-                        mov              dword ptr [rbp + -8], r14d;          jmp   n17_match_arbno_α
+                        mov              dword ptr [rbp + -64], r14d;         jmp   n17_match_arbno_α
 n16_match_assign_save_β:
                         add              rsp, 16;                             jmp   n14_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
@@ -255,9 +252,7 @@ n17_match_arbno_af:     mov              eax, dword ptr [rsp + 0]
                         add              rsp, 16;                             jmp   n16_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n18_match_assign_cond_α:
-                        mov              eax, dword ptr [rbp + -8]
-                        mov              rsp, rbp
-                        pop              rbp
+                        mov              eax, dword ptr [rbp + -64]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
