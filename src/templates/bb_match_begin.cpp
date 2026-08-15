@@ -31,7 +31,9 @@ static const char * HKD() { return "dword ptr [rsp# + 0]"; }   /* ⭐⭐⭐ SLAC
 std::string bb_match_begin() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    if (emit_match_rbp()) {   /* ⭐ MATCH-RBP (s65e, Lon's design verbatim): one RBP frame, one allocation family.  Layout: [rbp-8]=saved r12 (THE MARK — the one fact END/af/pump cannot recompute), [rbp-16/24/32]=outer Σ/δ/Δ (PATCTX), [rbp-40]=retry cursor (dword), [rbp-48]=RESULT (reserved for the (SUBJ ? PAT) expression value — not yet wired, the slot exists so wiring it is a template edit not a layout ripple), [rbp-56]=pad (frame total 64 ⇒ C-call parity preserved: push rbp+4 pushes+sub 24 = 64 ≡ the legacy sub 64).  SENTINEL DELETED on this arm: no tag-0 push, no [r12+8] rsp_mark, no zls2/cas slots — β retries via lea rsp,[rbp-56] (depth-free, replaces CLIMB-RSP-FIX + cas_rsp_mark), af/END teardown via mov rsp,rbp + pop rbp (the whole-frame WHACK, Lon's FUNCTION philosophy at MATCH scope).  Subject is read BEFORE the frame so op_sa/zread spellings are byte-identical to legacy alpha. */
+    if (emit_match_rbp()) {   /* ⭐ MATCH-RBP (s65e, Lon's design verbatim): one RBP frame, one allocation family.  Layout: [rbp-8]=saved r12 (THE MARK — the one fact END/af/pump cannot recompute), [rbp-16/24/32]=outer Σ/δ/Δ (PATCTX), [rbp-40]=retry cursor (dword), [rbp-48]=RESULT (reserved for the (SUBJ ? PAT) expression value — not yet wired, the slot exists so wiring it is a template edit not a layout ripple), [rbp-56]=pad (frame total 64 ⇒ C-call parity preserved: push rbp+4 pushes+sub 24 = 64 ≡ the legacy sub 64).  SENTINEL DELETED on this arm: no tag-0 push, no [r12+8] rsp_mark, no zls2/cas slots — β retries via lea rsp,[rbp-56-extra] (depth-free, replaces CLIMB-RSP-FIX + cas_rsp_mark), af/END teardown via mov rsp,rbp + pop rbp (the whole-frame WHACK, Lon's FUNCTION philosophy at MATCH scope).  Subject is read BEFORE the frame so op_sa/zread spellings are byte-identical to legacy alpha.
+         * ⭐ ARBNO-FRAME SLOT (THREE ZETAS s86): `extra` = staged op_frame_extra (emit_match_begin_frame_extra(nd), computed at plan time in emit.cpp) -- 16 bytes per DEFER-unsafe IR_MATCH_ARBNO textually in this match's scope (bb_match_arbno.cpp's ARBNO-FRAME arm, arbno_frame_slot()), reserved BELOW the fixed 64B layout as ONE static widening of the SAME carve, so retry's reset point moves with it and every ARBNO-FRAME cell survives every retry untouched -- there is no separate per-ARBNO carve to drift out of step with this one. extra=0 (the overwhelming majority of matches, and every match containing no DEFER-unsafe ARBNO) reproduces the s65e layout byte-for-byte. */
+        int extra = _.op_frame_extra;
         return x86("comment", "IR_MATCH_BEGIN (MATCH-RBP frame; mark=[rbp-8])")
              + x86_alpha()
              + IF(_.op_zres, x86("note", ZOPN(0)) + x86("mov", "rdi", x86_zref(_.op_zread[0] + 0, 1))
@@ -49,7 +51,7 @@ std::string bb_match_begin() {
              + x86("note", HKN(1)) + x86("push", "r13")
              + x86("note", HKN(2)) + x86("push", "r14")
              + x86("note", HKN(3)) + x86("push", "r15")
-             + x86("sub",  "rsp", (long)24)
+             + x86("sub",  "rsp", (long)(24 + extra))   /* ARBNO-FRAME SLOT: widen the fixed 24 by extra (16 per DEFER-unsafe ARBNO site) -- carves the ARBNO-FRAME cells below the s65e layout in the SAME sub, so they exist for the whole frame's life and self-release with it. */
              + x86("rtcc_wb")
              + x86("call_bare", "rt_match_enter", (uint64_t)(uintptr_t)(void *)rt_match_enter)
              + x86("mov", "r13", "rax")
@@ -60,7 +62,7 @@ std::string bb_match_begin() {
              + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -40))
              + x86_gamma()
              + x86_beta()
-             + x86("note", "retry_whack") + x86("lea", "rsp", RDQ("rbp", -56))   /* discard the failed attempt's ζ-cells in ONE depth-free op — the rbp-relative twin of the FUNCTION whack */
+             + x86("note", "retry_whack") + x86("lea", "rsp", RDQ("rbp", -56 - extra))   /* discard the failed attempt's ζ-cells in ONE depth-free op — the rbp-relative twin of the FUNCTION whack.  ARBNO-FRAME SLOT: the reset point widens by extra so it lands BELOW every ARBNO-FRAME cell, never on top of one -- those cells are per-MATCH (survive every retry), not per-attempt. */
              + x86("note", "start_δ") + x86("add", RDD("rbp", -40), (long)1)
              + x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -40))
              + x86("cmp", "eax", "r15d")
