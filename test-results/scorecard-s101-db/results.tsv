@@ -1,0 +1,47 @@
+demos	programs/snobol4/demo/arithmetic.sno	PASS	PASS	0	1	
+demos	programs/snobol4/demo/claws5-match-fence.sno	SIG11	SIG11	0	1	pin!=live
+demos	programs/snobol4/demo/calculator-1-match-fence.sno	PASS	PASS	1	0	
+demos	programs/snobol4/demo/claws5-match.sno	SIG11	SIG11	0	1	pin!=live
+demos	programs/snobol4/demo/counter.sno	PASS	PASS	0	0	
+demos	programs/snobol4/demo/calculator-1.sno	SIG11	SIG11	1	1	
+demos	programs/snobol4/demo/claws5.sno	SIG11	SIG11	1	1	
+demos	programs/snobol4/demo/hello.sno	PASS	PASS	0	1	
+demos	programs/snobol4/demo/json.sno	SIG11	DIFF	1	2	
+demos	programs/snobol4/demo/expression.sno	ORACLE_FAIL	ORACLE_FAIL	0	0	sbl rc=139
+demos	programs/snobol4/demo/pattern_test.sno	PASS	PASS	0	1	
+demos	programs/snobol4/demo/roman.sno	PASS	PASS	0	1	
+demos	programs/snobol4/demo/treebank-array.sno	SIG11	SIG11	1	1	
+demos	programs/snobol4/demo/porter.sno	SIG11	ASM_FAIL	1	2	
+demos	programs/snobol4/demo/treebank-list.sno	SIG11	SIG11	0	2	
+demos	programs/snobol4/demo/treebank-match-fence.sno	PASS	PASS	0	1	pin!=live
+demos	programs/snobol4/demo/treebank-match.sno	PASS	PASS	0	1	pin!=live
+demos	programs/snobol4/demo/wordcount.sno	PASS	PASS	0	1	
+demos	programs/snobol4/demo/calculator-2-match.sno	TIMEOUT	TIMEOUT	90	91	
+demos	programs/snobol4/demo/calculator-2-match-fence.sno	TIMEOUT	TIMEOUT	90	91	
+demos	programs/snobol4/demo/calculator-1-match.sno	TIMEOUT	TIMEOUT	90	90	
+demos	programs/snobol4/demo/calculator-2.sno	TIMEOUT	TIMEOUT	90	91	
+demos	programs/snobol4/demo/json-match-fence.sno	TIMEOUT	TIMEOUT	90	91	pin!=live
+demos	programs/snobol4/demo/json-match.sno	TIMEOUT	TIMEOUT	90	90	pin!=live
+benchmarks	benchmarks/snobol4/cap_imm_nret2.sno	COMPILE_FAIL	ASM_FAIL	0	1	
+benchmarks	benchmarks/snobol4/cap_imm_nret.sno	SIG11	SIG11	0	1	
+benchmarks	benchmarks/snobol4/arith_loop.sno	PASS	PASS	0	1	pin!=live
+benchmarks	benchmarks/snobol4/fibonacci.sno	PASS	PASS	1	2	pin!=live
+benchmarks	benchmarks/snobol4/eval_fixed.sno	SIG11	SIG11	1	0	pin!=live
+benchmarks	benchmarks/snobol4/indirect_dispatch.sno	SIG11	SIG11	0	1	
+benchmarks	benchmarks/snobol4/eval_dynamic.sno	SIG11	SIG11	0	0	pin!=live
+benchmarks	benchmarks/snobol4/op_dispatch.sno	PASS	PASS	1	1	pin!=live
+benchmarks	benchmarks/snobol4/arith_str.sno	PASS	PASS	4	4	pin!=live
+benchmarks	benchmarks/snobol4/func_call.sno	PASS	PASS	3	2	pin!=live
+benchmarks	benchmarks/snobol4/func_call_overhead.sno	PASS	PASS	2	3	pin!=live
+benchmarks	benchmarks/snobol4/pattern_bt.sno	PASS	PASS	3	3	pin!=live
+benchmarks	benchmarks/snobol4/string_concat.sno	PASS	PASS	0	1	pin!=live
+benchmarks	benchmarks/snobol4/mixed_workload.sno	PASS	SIG11	13	1	pin!=live
+benchmarks	benchmarks/snobol4/roman.sno	PASS	PASS	8	8	pin!=live
+benchmarks	benchmarks/snobol4/arith_mixed.sno	PASS	PASS	5	7	pin!=live
+benchmarks	benchmarks/snobol4/var_access.sno	PASS	PASS	3	3	pin!=live
+benchmarks	benchmarks/snobol4/arith_int.sno	PASS	PASS	9	10	pin!=live
+benchmarks	benchmarks/snobol4/string_pattern.sno	PASS	SIG11	38	1	pin!=live
+benchmarks	benchmarks/snobol4/table_churn.sno	PASS	PASS	28	15	pin!=live
+benchmarks	benchmarks/snobol4/string_manip.sno	PASS	PASS	30	16	pin!=live
+benchmarks	benchmarks/snobol4/table_access.sno	PASS	PASS	28	14	pin!=live
+benchmarks	benchmarks/snobol4/pattern_bt_deep.sno	PASS	PASS	6	5	pin!=live
