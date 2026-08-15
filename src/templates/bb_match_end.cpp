@@ -52,8 +52,7 @@ static std::string release_pump() {
          + x86("def",  L(1))
          + x86("test", "rax", "rax")
          + x86("je",   L(2))
-         + x86("call", "rt_proc_open_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_proc_open_fn)
-         /* ZW-0 stage 2: island push/restore arms deleted -- unreachable under ZC_FRAME_RSP default */
+         /* s104 FN-RET OPEN: rax already IS the transfer target (rt_proc_call_open_fnret via the pump); the s55-eradicated rt_proc_open_fn call (returned 0, jumped 0) is deleted */
          + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x): dormant legacy anchor hoisted above the glue; byte-identical at the ZC_FRAME_RSP default */
          + x86("def",  L(3))
          /* ZW-0 stage 2: island rsp/zr dance deleted */
