@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_gate_icn_global_no_nv_m3.sh — M3-ARENA-4: lock Icon mode-3 globals onto the [rbx+k*16] GVA arena.
+# test_gate_icn_global_no_nv_m3.sh — M3-ARENA-4: lock Icon mode-3 globals onto the [r9+k*16] GVA arena. (s230: base register is r9, the RC-5 claim — rbx is the heap frontier; the stale rbx grep was repaired this session, see d70fe6fc claimed-regs gate.)
 #
 # Behavioral output alone cannot catch an NV fallback (the NV path also returns the correct value), so this
 # gate asserts THREE things for a globals program:
@@ -31,13 +31,13 @@ end
 EOF
 EXPECT=$'3\n42'
 rc=0
-echo "=== M3-ARENA-4 gate: Icon m3 globals on [rbx+k*16] arena ==="
+echo "=== M3-ARENA-4 gate: Icon m3 globals on [r9+k*16] arena ==="
 
 # LOCK 1 — m4 emission uses the gva arm, no NV on the global path.
 S="$TMP/g.s"
 "$SCRIP" --compile --target=x86 "$PROG" < /dev/null > "$S" 2>/dev/null
-if grep -q 'rbx +' "$S" && ! grep -qE 'NV_GET_fn|NV_SET_fn' "$S"; then
-    echo "  PASS  LOCK 1: m4 globals via [rbx+...], zero NV on global path"
+if grep -qE 'r9 \+ [0-9]+\].*# counter' "$S" && ! grep -qE 'NV_GET_fn|NV_SET_fn' "$S"; then
+    echo "  PASS  LOCK 1: m4 globals via [r9+...] gva arena, zero NV on global path"
 else
     echo "  FAIL  LOCK 1: m4 globals did not reach the gva arm (or NV present)"
     rc=1
