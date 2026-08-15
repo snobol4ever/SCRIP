@@ -1476,6 +1476,8 @@ n114_match_assign_save_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
+n114_match_assign_save_β:
+                        add              rsp, 16;                             jmp   n112_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n115_match_any_α:       mov              eax, r14d
                         cmp              eax, r15d;                           jl    .Lx332_239
@@ -1493,6 +1495,7 @@ n116_match_assign_cond_α:
                         lea              rdi, [rip + .S2]
                         call             rt_bomb@PLT
                         ud2
+n116_match_assign_cond_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n117_match_end_α:       mov              eax, dword ptr [rsp + 16]
                         mov              dword ptr [rsp + 960], eax
@@ -1714,6 +1717,8 @@ n132_match_assign_save_α:
                         lea              rdi, [rip + .S1]
                         call             rt_bomb@PLT
                         ud2
+n132_match_assign_save_β:
+                        add              rsp, 16;                             jmp   n130_match_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n133_match_len_α:       mov              eax, r14d
                         add              eax, 1
@@ -1727,6 +1732,7 @@ n134_match_assign_cond_α:
                         lea              rdi, [rip + .S2]
                         call             rt_bomb@PLT
                         ud2
+n134_match_assign_cond_β:
 #-----------------------------------------------------------------------------------------------------------------------
 n135_match_end_α:       mov              eax, dword ptr [rsp + 16]
                         mov              dword ptr [rsp + 1232], eax
@@ -3047,8 +3053,8 @@ main_ω:
                         call             exit@PLT
                         .section         .rodata
 .S0:                    .string          "PAT$0$V0"
-.S1:                    .string          "IR_MATCH_CAPTURE_SAVE: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_push array this used to fall back to is deliberately not rebuilt (s83)"
-.S2:                    .string          "IR_MATCH_CAPTURE_COND: neither op_zres nor op_cap_anchor granted a home -- the legacy C rt_cap_top array this used to fall back to is deliberately not rebuilt (s83)"
+.S1:                    .string          "IR_MATCH_CAPTURE_SAVE: no home -- neither a \316\266-SPINE cell (op_zres) nor a \316\266-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)"
+.S2:                    .string          "IR_MATCH_CAPTURE_COND: no home -- neither a \316\266-SPINE cell (op_zres) nor a \316\266-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)"
                         .text
                         .section         .rodata
 .C0:                    .byte            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
