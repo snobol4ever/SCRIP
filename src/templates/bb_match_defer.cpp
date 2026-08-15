@@ -42,7 +42,11 @@ std::string bb_match_defer() {
      * the same restore, keeping the frontier LIFO exact for the left neighbour).  CSTACK/FORTH only — other ports keep the untouched original body. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + IF(_.op_seal == 1 && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+               x86("comment", "THREE ZETAS ζ-FRAME (s85): *P DEFER establishes its own RBP activation frame at alpha -- the SECOND and LAST operator-BB (with MATCH_BEGIN/ζ-STANDING) permitted to push rbp.  Replaces the s137 rsp-watermark save (FRQ(op_off)=rsp, restored rsp-relatively at every exit): that save/restore pair is Defect C -- both ends compute [rsp#+op_off] against WHATEVER rsp happens to be AT THAT POINT, sound only if the deferred target's own body never carves stack without self-releasing before jumping back through the wire, which the non-popping ζ-SPINE law (committed growth released only by bracket whacks) guarantees it does NOT.  rbp does not move across the jmp-entry wire transfer (the callee's own carves are rsp-relative, never touch our rbp), so a push here is immune by construction -- the exact argument bb_match_capture.cpp's s81/s83 activation-frame arm already uses for the SAVE/IMM-or-COND capture-family crossing.  No slot registration for spine-only BBs is added here: the frame exists so THEY can register into it (ARBNO's chained-K0/K16-defer bodies, per bb_match_arbno.cpp's own op_frame_need consultation), not so this box owns extra state of its own -- op_off is unused on this arm; the WHOLE FRAME is the watermark.")
+             + x86("push", "rbp")
+             + x86("mov",  "rbp", "rsp"))
+         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
                x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
              + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(ci >= 0,
@@ -90,7 +94,9 @@ std::string bb_match_defer() {
                x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
              + x86("mov",  "r10", FRQ(_.op_off))
              + x86("mov",  "r11", FRQ(_.op_off + 8)))
-         + IF(_.op_seal == 1 && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+               x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
+         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
@@ -104,7 +110,9 @@ std::string bb_match_defer() {
                x86("comment", "s44 WIRE-RESTORE (exhaust): without this, x86_omega() below reads r11 == this node's own dead L(5) -- the s43a closed loop")
              + x86("mov",  "r10", FRQ(_.op_off))
              + x86("mov",  "r11", FRQ(_.op_off + 8)))
-         + IF(_.op_seal == 1 && x86_port_cstack(),
+         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+               x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
+         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
@@ -165,7 +173,7 @@ std::string bb_match_defer() {
          + x86_omega()
          + x86_beta()
          + ((_.op_seal == 1 && x86_port_cstack())
-              ? (x86("mov", "rsp", FRQ(_.op_off)) + x86_omega())
+              ? ((emit_defer_rbp() ? (x86("mov", "rsp", "rbp") + x86("pop", "rbp")) : x86("mov", "rsp", FRQ(_.op_off))) + x86_omega())
               : (_.op_defer_leaf_susp > 0
                    ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")   /* PS-3 s153 ZERO-GUARDED β (priced tail-candidate leaf only): the ε-resume cascade re-enters every body box's β on the PHANTOM FPB pad,
                                                                 * which is zeros -- granted leaves read a zero cell and fail benignly, but the raw `jmp [rsp+0]` is a jump through NULL (t3 rip=0).

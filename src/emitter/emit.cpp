@@ -2112,16 +2112,31 @@ int emit_match_begin_stfh_k_raw(void) {   /* MATCH-RBP (s65e): the graph-qualifi
     for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (!_nd) continue; if (_nd->op == IR_MATCH_REPLACE || _nd->op == IR_MATCH_FENCE1 || _nd->op == IR_MATCH_ABORT || _nd->op == IR_MATCH_ARBNO) return 0; }   /* has_replace equivalent — same four opcodes as has_replace_l() in bb_match_begin.cpp */
     return 64;
 }
-int emit_match_rbp(void) {   /* ⭐⭐⭐ ZETA-ACTIVATION UNIFICATION (Lon in-chat, this session): "remove the RBP used for ARBNO and for ASSIGN_*IMM/COND with *P DEFER -- in EVERY case where an RBP was needed it now MOVES
-     * into the ACTIVATION FRAME."  THE MATCH-RBP ARM IS RETIRED -- forced OFF unconditionally, same treatment S-2 gave function-linkage RBP this session.  Every consumer of this predicate (bb_match_begin.cpp,
-     * bb_match_end.cpp, emit_match_begin_stfh_k below, emit_arbno_rbp_unwind below) already carries a legacy non-rbp arm as its else-branch, and that arm is not an improvised fallback: it IS the ζ-ACTIVATION-
-     * FRAME form -- HKQ()/HKD()/FRQ()/FR() slots inside the pinned MATCH_BEGIN statement bracket (the stfh() carve, `[rsp#+N]` activation-relative addressing), the identical per-construct-frame storage class
-     * ARBNO's frameless_k arm already used before this session (see emit_arbno_rbp below, similarly retired).  This is not "delete a mechanism and leave a gap" -- every slot the RBP frame owned ([rbp-8] MARK,
-     * [rbp-16/24/32] PATCTX, [rbp-40] retry cursor, [rbp-48] reserved RESULT) already has a byte-accounted twin in the activation frame's own slot table (zeta_storage.c), because the RBP arm was always a
-     * SECOND storage family duplicating what the activation frame could already hold -- not a capability the activation frame lacked.  Env read kept for forensic re-derivation ONLY; SCRIP_MATCH_RBP no longer
-     * has any live effect on codegen. */
-    (void)getenv("SCRIP_MATCH_RBP");
-    return 0;
+int emit_match_rbp(void) {   /* ⭐⭐⭐ THREE ZETAS S-85 REACTIVATION: s79/s80's "RETIRED, forced OFF" ruling was ITSELF SUPERSEDED by s81's later-same-day final register ruling (Lon in-chat, verbatim: "RSP for
+     * ZETA SPINE, RBP for ZETA ACTIVATION FRAMES, and RBP for ZETA STANDING AREA") -- s81 explicitly named this a "DELIBERATE REVERSAL of emit_match_rbp()/emit_arbno_rbp()'s retirement, NOT a repeat of the
+     * mechanism they retired": the OLD arm this comment used to describe was several separate, mutually-exclusive, per-construct RBP frames (mrbp excluding ARBNO by conjunct, ARBNO excluding mrbp the same
+     * way) competing with the RSP/stfh()/HKQ/FRQ carve as a SECOND, redundant family -- that objection does not transfer to the ONE unified RBP frame family s81 ruled for: every activation chained together
+     * off a single shared ζ-STANDING root, REPLACING the stfh()/HKQ/FRQ carve as the activation frame's storage method rather than duplicating it alongside it.  ζ-STANDING is that root: established here,
+     * at MATCH_BEGIN (mrbp's own layout, unchanged from s65e -- [rbp-8]=MARK, [rbp-16/24/32]=outer PATCTX Σ/δ/Δ, [rbp-40]=retry cursor, [rbp-48]=reserved RESULT), and is the base every nested ACTIVATION
+     * (ARBNO frame per emit_arbno_rbp() below, DEFER save/restore per bb_match_defer.cpp) chains above and carries a copied-down pointer to, per s81(2)'s ladder ruling: "an ordinary value, NOT a dedicated
+     * register ... you'll just need to keep passing it down to each new activation frame."  SCRIP_MATCH_RBP is a LIVE killswitch again (=0 restores the legacy stfh()/HKQ/FRQ activation-relative arm
+     * byte-identically for A/B) -- NOT forensic-only as the superseded s79 comment claimed. */
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MATCH_RBP"); v = (e && *e == '0') ? 0 : 1; }
+    return v;
+}
+int emit_defer_rbp(void) {   /* ⭐⭐⭐ THREE ZETAS S-85: the SECOND (and per Lon's explicit ruling in-chat this session, LAST) operator-BB permitted to push its own RBP activation frame -- IR_MATCH_DEFER (*P), the
+     * ONE construct whose body crosses an arbitrary, callee-controlled jmp-entry transfer (bb_glue_pass_wires_blob: a bare jmp, not a call, into a separately-compiled proc blob whose own interior carves
+     * ζ-SPINE freely and does not self-release before returning through the wire -- the non-popping law, committed growth released only by bracket whacks).  Every OTHER BB kind stays ζ-SPINE-only (RSP,
+     * alpha-allocate / omega-self-free-on-fail / whack-free-on-fence-or-success, unchanged) UNLESS it needs a storage cell that must survive that exact crossing, in which case it does NOT push its own
+     * frame -- it registers a slot in the CLOSEST already-live activation frame (ζ-STANDING at MATCH_BEGIN, or the innermost live ζ-FRAME established by an enclosing *P DEFER).  ARBNO is the first
+     * confirmed customer (frame_need_of()/op_frame_need already unconditionally returns 1 for IR_MATCH_ARBNO, EARN-1 s47 -- the classifier has known this for two goals' worth of sessions; only the template
+     * consumer was never built, see bb_match_arbno.cpp's two W-4/W-7 bombs).  CAPTURE (bb_match_capture.cpp, s81/s83) is NOT changed by this ruling: its SAVE/COND/IMM crossing-case arm already pushes and
+     * pops its OWN transient rbp frame at exactly the SAVE-to-reader lifetime, which is correct and independent of whether a DEFER happens to also be live underneath it (rbp does not move across the jmp-
+     * entry wire regardless of WHOSE rbp it is) -- it is not reclassified as a "spine BB borrowing DEFER's frame" and gets no changes here.  Killswitch SCRIP_DEFER_RBP=0 restores the legacy s137 rsp-
+     * watermark save/restore (FRQ(op_off)=rsp / mov rsp,FRQ(op_off)) byte-identically for A/B -- that mechanism is Defect C (s79/s82's root cause, both ends compute [rsp#+op_off] against whatever rsp is
+     * AT THAT POINT, unsound the moment the deferred target carves without self-releasing). */
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_RBP"); v = (e && *e == '0') ? 0 : 1; }
+    return v;
 }
 int emit_match_owns_startd(void) { return emit_match_begin_stfh_k_raw() > 0; }   /* ⭐ START-δ HOME (s68): the HOME question, asked of the RAW graph class — both head-frame flavors (legacy stfh carve → HKD; MATCH-RBP frame → [rbp-40]) own start_δ, and only the carve-less legacy graphs leave it in the positive zls slot.  Deliberately NOT the stfh_k() wrapper: that one answers the PLANNER's byte-accounting question and mrbp zeroes it, which is what let the DEFER/VALUE writeback escape its suppression (s68 measurement in emit.h). */
 int emit_match_begin_stfh_k(void) { return emit_match_rbp() ? 0 : emit_match_begin_stfh_k_raw(); }   /* MATCH-RBP: under the rbp frame the 64B carve does not exist, so the planner must not account it — zd_k and the M-2 BUG-2 STATEMENT_END formula read 0 through this ONE wrapper and release only the pre-match producers; the frame releases ITSELF via mov rsp,rbp / pop rbp at both exits. */
