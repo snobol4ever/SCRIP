@@ -670,6 +670,19 @@ static int earn_hazard_in(const IR_t * nd, int depth) {                         
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int fc_pair_extent(const IR_t *);                   /* zeta_storage.c -- FLATDISP-LEAF-ORDER: exclusive upper g_emit_cfg index bound of a COND/IMMs OWN inner span, registered at lowering time (lower_snobol4.c:1532/1560, inner allocation ends here); -1 = unregistered. */
+static IR_t * zd_chase(IR_t * t);   /* forward: defined below (ZD-1 GOTO chase); cap_in_alt_arm walks an ALT arm through the same edge-following authority the planner uses */
+static int cap_in_alt_arm(const IR_t * nd) {   /* ⭐⭐⭐ R-0 (s93, GOAL-SNOBOL4-100 M1 ROOT CAUSE): a capture pair whose SAVE..COND/IMM span lies INSIDE an ALT arm has NO ζ-SPINE home -- zd_plan grants per RUN and the arm interior is the s66/s71 "ungranted ALT arm" denial class -- so it rides a ζ-STANDING slot (frame_need_of()==1 -> capture_frame_slot()) exactly like the DEFER-hazard class.
+     * PURE and plan-independent: every IR_MATCH_ALTERNATE in the statement is walked arm by arm, arm j = the γ-chain from operands[2j] (entry) to operands[2j+1] (resume; the SN4-NARY-ALT layout at the classify dispatch), and nd or its own SAVE on that chain is the verdict.
+     * A capture WRAPPING an ALT ((A|B) . Y) sits before/after the arms and is never on one (control witnesses stay spine). Nested ALT/ARBNO/DEFER inside an arm are single chain steps (their γ is their rejoin): a capture inside an INNER ALT is found by that ALT's own walk; inside an ARBNO body it is R-4's class. */
+    if (!nd || !g_emit_cfg) return 0;
+    const IR_t * save = (nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
+    for (int a = 0; a < g_emit_cfg->n; a++) { IR_t * A = g_emit_cfg->all[a]; if (!A || A->op != IR_MATCH_ALTERNATE) continue;
+        int N = (int)(A->n_operands / 2);
+        for (int j = 0; j < N; j++) { IR_t * cur = A->operands[2 * j]; IR_t * res = A->operands[2 * j + 1]; int guard = 0;
+            while (cur && guard++ <= g_emit_cfg->n) { if (cur == nd || (save && cur == save)) return 1; if (cur == res) break; cur = zd_chase(cur->γ.node); } } }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_need_of(const IR_t * nd) {                                                      /* ⭐ EARN-1 SLICE 1 -- THE ONE AUTHORITY.  THE LAW: a cell needs a frame iff its byte distance to RSP is not a compile-time constant at some reading site.  Verdict map + placeholder caveats documented on op_frame_need (emit.h). */
     if (!nd) return 0;
     switch (nd->op) {
@@ -694,6 +707,7 @@ static int frame_need_of(const IR_t * nd) {                                     
                     if (getenv("SCRIP_CAP_NEST_DIAG")) fprintf(stderr, "[CAPNEST]   scan[%d] op=%d pat_static=%d\n", _i, _m ? (int)_m->op : -1, _m ? _m->pat_static : -1);
                     if (_m && (_m->op == IR_MATCH_ARBNO || (_m->op == IR_MATCH_DEFER && !_m->pat_static) || _m->op == IR_MATCH_VALUE)) h = 1; } }
         }
+        if (!h) h = cap_in_alt_arm(nd);   /* ⭐ R-0 (s93): the ALT-arm-interior class joins the frame-need verdict here, at THE ONE AUTHORITY -- SAVE propagation (above) and capture_frame_slot() follow automatically */
         return h; }
     default:                    return earn_hazard_in(nd, 0);                                    /* ⭐ s68 SYMMETRY: earn_hazard_in already rules ARBNO / non-static DEFER / MATCH_VALUE to be hazardous material, but the old default:0 consulted it ONLY for the three ASSIGN kinds -- so the SAME node was hazardous as someone else's operand and safe as a node in its own right.  MEASURED over 2917 staged nodes (probe/bb + earn0): exactly 22 carry haz=1 need=0, in exactly two ops -- IR_MATCH_DEFER x20 and IR_MATCH_ALTERNATE x2 -- and those 22 are the entire blast radius of this line.  ALTERNATE is s66's ALT-CAP node, whose 32B carve is real (bb_match_alternate.cpp:65) while fc_geom calls it 0; DEFER's extent is not compile-time known at all (manual Ch.11 Quickscan/Fullscan: matching is exhaustive and deferred expressions are NOT assumed to match at least one character).  Both are precisely 'byte distance to RSP is not a compile-time constant', which is this function's stated LAW.  Conservative by construction: a node with no hazardous subtree still returns 0, so no statement/call carver flips here -- the STATEMENT half of the ignored class needs its own depth-drift predicate and is NOT addressed by this line. */
     }
