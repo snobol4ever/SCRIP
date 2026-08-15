@@ -23,5 +23,6 @@ DESCR_t descr_to_str(DESCR_t d)
         return STRVAL(nbuf);
     }
     if (IS_STR_fn(d) || d.v == DT_SNUL) return d;
+    if (d.v == DT_N && d.slen == 0 && d.s) return STRVAL(d.s);
     return FAILDESCR;
 }

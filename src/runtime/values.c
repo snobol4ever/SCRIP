@@ -19,6 +19,11 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     int b_cset = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
     if (a_cset != b_cset) return 0;
     if (a.v != b.v) return 0;
+    if (a.v == DT_N) {
+        if (a.slen == 0 && b.slen == 0) return (a.s && b.s) ? (strcmp(a.s, b.s) == 0) : (a.s == b.s);
+        if (a.slen != b.slen) return 0;
+        return a.p == b.p;
+    }
     if (a.v == DT_I) return a.i == b.i;
     if (a.v == DT_R) return a.r == b.r;
     if (a.v == DT_T) return a.tbl == b.tbl;

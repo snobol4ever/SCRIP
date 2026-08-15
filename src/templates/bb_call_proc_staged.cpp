@@ -48,6 +48,7 @@ void **rt_pl_dc_slot(long idx);
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
 DESCR_t rt_proc_call_epilogue_slim_ω(void);
 DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: by-name consult at value-position det landings (manual p.133) */
+DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx);   /* s104: live want-name consult-and-consume for TINY landings */
 int  rt_proc_nparams(const char *name);
 const char *rt_proc_pname(const char *name, int k);
 const char *rt_proc_result_name_get(const char *name);
@@ -124,8 +125,8 @@ static int bcps_fnsig(void) { static int v = -1; if (v < 0) { const char * e = g
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {   /* s98 NRETURN by-name consult (manual p.133): a det value-position landing derefs a DT_N result when the floater set the flag; wn=0 = value site.  3-instruction fall-through when clear; veneer carries the claimed tier when set.  Runs BEFORE the landing's own stores — the taken arm re-seats rax:rdx from the fixed cell so the untouched store+DT_FAIL tail serves both arms. */
     extern int rt_g_ret_by_name;
-    uint64_t fix_fp; { DESCR_t (*fp)(DESCR_t, int) = rt_nret_fix; fix_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("note", std::string("NRETURN by-name consult wn=0"))
+    uint64_t fix_fp; { DESCR_t (*fp)(DESCR_t, int) = rt_nret_fix_tiny; fix_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    return x86("note", std::string("NRETURN by-name consult (live wn, consumed)"))
          + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
@@ -133,7 +134,7 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov32", "edx", 0L)
-         + x86_rtcc_call_descr_ops("rt_nret_fix", fix_fp, r0, r8)
+         + x86_rtcc_call_descr_ops("rt_nret_fix_tiny", fix_fp, r0, r8)
          + x86("mov", "rax", r0.c_str())
          + x86("mov", "rdx", r8.c_str())
          + x86("def", L(29));
