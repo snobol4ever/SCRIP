@@ -1,6 +1,23 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 15
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 15
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         .section         .rodata
 .Lclassspec0:           .string          "slink(snext,sval)"
@@ -45,28 +62,9 @@ __gva_names:
                         .quad            .Lgvan14
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 15
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 15
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -116,14 +114,12 @@ n4_call_α:              sub              rsp, 16
 n4_call_β:              add              rsp, 16
                         add              rsp, 16;                             jmp   n2_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n5_statement_end_α:     add              rsp, 32;                             jmp   n6_statement_begin_α
-#=======================================================================================================================
-#         stack_push(99)
+n5_statement_end_α:                                                           jmp   n6_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_statement_begin_α:                                                         jmp   n7_statement_end_α
-n6_statement_begin_β:                                                         jmp   n8_statement_begin_α
+n6_statement_begin_β:   add              rsp, 32;                             jmp   n8_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_statement_end_α:                                                           jmp   n8_statement_begin_α
+n7_statement_end_α:     add              rsp, 32;                             jmp   n8_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = myvar                  ;* 99
 #-----------------------------------------------------------------------------------------------------------------------
@@ -150,6 +146,7 @@ n9_define_β:                                                                  j
 .Lx298_1:               .quad            .Lx298_1_s
 .Lx298_1_s:             .string          ""
                                                                               jmp   .Lx299_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_init_α:           sub              rsp, 48
                         mov              rax, qword ptr [r9 + 0]              # stack_init
                         mov              qword ptr [rsp + 0], rax
@@ -251,6 +248,7 @@ n18_define_β:                                                                 j
 .Lx315_1:               .quad            .Lx315_1_s
 .Lx315_1_s:             .string          "x"
                                                                               jmp   .Lx316_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_push_α:           sub              rsp, 64
                         mov              rax, qword ptr [r9 + 16]             # stack_push
                         mov              qword ptr [rsp + 0], rax
@@ -467,6 +465,7 @@ n34_define_β:                                                                 j
 .Lx342_1:               .quad            .Lx342_1_s
 .Lx342_1_s:             .string          "var"
                                                                               jmp   .Lx343_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_pop_α:            sub              rsp, 64
                         mov              rax, qword ptr [r9 + 48]             # stack_pop
                         mov              qword ptr [rsp + 0], rax
@@ -964,6 +963,7 @@ n74_define_β:                                                                 j
 .Lx410_1:               .quad            .Lx410_1_s
 .Lx410_1_s:             .string          ""
                                                                               jmp   .Lx411_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_peek_α:           sub              rsp, 48
                         mov              rax, qword ptr [r9 + 80]             # stack_peek
                         mov              qword ptr [rsp + 0], rax
@@ -1136,6 +1136,7 @@ n88_define_β:                                                                 j
 .Lx436_1:               .quad            .Lx436_1_s
 .Lx436_1_s:             .string          ""
                                                                               jmp   .Lx437_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_top_α:            sub              rsp, 48
                         mov              rax, qword ptr [r9 + 96]             # stack_top
                         mov              qword ptr [rsp + 0], rax
@@ -1298,6 +1299,7 @@ n102_define_β:                                                                j
 .Lx461_1:               .quad            .Lx461_1_s
 .Lx461_1_s:             .string          "sd"
                                                                               jmp   .Lx462_245
+#-----------------------------------------------------------------------------------------------------------------------
 stack_depth_α:          sub              rsp, 64
                         mov              rax, qword ptr [r9 + 112]            # stack_depth
                         mov              qword ptr [rsp + 0], rax
@@ -1587,8 +1589,6 @@ n127_statement_begin_α:                                                       j
 n127_statement_begin_β:                                                       jmp   n129_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n128_statement_end_α:                                                         jmp   n129_statement_begin_α
-#=======================================================================================================================
-#         <stmt 35, line 87: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n129_statement_begin_α:                                                       jmp   n130_statement_end_α
 n129_statement_begin_β:                                                       jmp   n131_statement_begin_α
@@ -1648,14 +1648,12 @@ n134_call_α:            sub              rsp, 16
                         mov              qword ptr [rsp + 8], rdx;            jmp   n135_statement_end_α
 n134_call_β:            add              rsp, 16;                             jmp   n133_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
-n135_statement_end_α:   add              rsp, 48;                             jmp   n136_statement_begin_α
-#=======================================================================================================================
-#         <stmt 37, line 90: source not in main file (INCLUDE)>
+n135_statement_end_α:                                                         jmp   n136_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n136_statement_begin_α:                                                       jmp   n137_statement_end_α
-n136_statement_begin_β:                                                       jmp   n138_statement_begin_α
+n136_statement_begin_β: add              rsp, 48;                             jmp   n138_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n137_statement_end_α:                                                         jmp   n138_statement_begin_α
+n137_statement_end_α:   add              rsp, 48;                             jmp   n138_statement_begin_α
 #=======================================================================================================================
 #         <stmt 38, line 93: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2169,14 +2167,12 @@ n175_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 .Lx586_0:               .quad            .Lx586_0_s
 .Lx586_0_s:             .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n176_statement_end_α:   add              rsp, 16;                             jmp   n177_statement_begin_α
-#=======================================================================================================================
-#         <stmt 48, line 102: source not in main file (INCLUDE)>
+n176_statement_end_α:                                                         jmp   n177_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n177_statement_begin_α:                                                       jmp   n178_statement_end_α
-n177_statement_begin_β:                                                       jmp   n179_statement_begin_α
+n177_statement_begin_β: add              rsp, 16;                             jmp   n179_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n178_statement_end_α:                                                         jmp   n179_statement_begin_α
+n178_statement_end_α:   add              rsp, 16;                             jmp   n179_statement_begin_α
 #=======================================================================================================================
 #         <stmt 49, line 105: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2533,14 +2529,12 @@ n209_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 .Lx646_0:               .quad            .Lx646_0_s
 .Lx646_0_s:             .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n210_statement_end_α:   add              rsp, 16;                             jmp   n211_statement_begin_α
-#=======================================================================================================================
-#         <stmt 58, line 115: source not in main file (INCLUDE)>
+n210_statement_end_α:                                                         jmp   n211_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n211_statement_begin_α:                                                       jmp   n212_statement_end_α
-n211_statement_begin_β:                                                       jmp   n213_statement_begin_α
+n211_statement_begin_β: add              rsp, 16;                             jmp   n213_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n212_statement_end_α:                                                         jmp   n213_statement_begin_α
+n212_statement_end_α:   add              rsp, 16;                             jmp   n213_statement_begin_α
 #=======================================================================================================================
 #         <stmt 59, line 118: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2753,14 +2747,12 @@ n230_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 .Lx683_0:               .quad            .Lx683_0_s
 .Lx683_0_s:             .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n231_statement_end_α:   add              rsp, 16;                             jmp   n232_statement_begin_α
-#=======================================================================================================================
-#         <stmt 64, line 122: source not in main file (INCLUDE)>
+n231_statement_end_α:                                                         jmp   n232_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n232_statement_begin_α:                                                       jmp   n233_statement_end_α
-n232_statement_begin_β:                                                       jmp   n234_statement_begin_α
+n232_statement_begin_β: add              rsp, 16;                             jmp   n234_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n233_statement_end_α:                                                         jmp   n234_statement_begin_α
+n233_statement_end_α:   add              rsp, 16;                             jmp   n234_statement_begin_α
 #=======================================================================================================================
 #         <stmt 65, line 125: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------

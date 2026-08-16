@@ -1,6 +1,23 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 9
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 9
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         add              rsp, 8
                         ret
@@ -27,28 +44,9 @@ __gva_names:
                         .quad            .Lgvan8
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 9
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 9
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -80,6 +78,7 @@ n3_define_β:                                                                  j
 .Lx148_1:               .quad            .Lx148_1_s
 .Lx148_1_s:             .string          "a,b,c,d,e,f"
                                                                               jmp   .Lx149_245
+#-----------------------------------------------------------------------------------------------------------------------
 lfunc_α:                sub              rsp, 144
                         mov              rax, qword ptr [r9 + 64]             # d
                         mov              qword ptr [rsp + 0], rax
@@ -720,14 +719,12 @@ n65_assign_α:           mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 64], rax             # d
                         mov              qword ptr [r9 + 72], rdx;            jmp   n66_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n66_statement_end_α:    add              rsp, 16;                             jmp   n67_statement_begin_α
-#=======================================================================================================================
-#         d = 'global_d'
+n66_statement_end_α:                                                          jmp   n67_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n67_statement_begin_α:                                                        jmp   n68_statement_end_α
-n67_statement_begin_β:                                                        jmp   n69_statement_begin_α
+n67_statement_begin_β:  add              rsp, 16;                             jmp   n69_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n68_statement_end_α:                                                          jmp   n69_statement_begin_α
+n68_statement_end_α:    add              rsp, 16;                             jmp   n69_statement_begin_α
 #=======================================================================================================================
 #         DIFFER(lfunc('p', 'q', 'r'), 'aabbdd')                   :f(e004)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1083,6 +1080,7 @@ n106_define_β:                                                                j
 .Lx314_1:               .quad            .Lx314_1_s
 .Lx314_1_s:             .string          "x"
                                                                               jmp   .Lx315_245
+#-----------------------------------------------------------------------------------------------------------------------
 checklocal_α:           sub              rsp, 64
                         mov              rax, qword ptr [r9 + 112]            # checklocal
                         mov              qword ptr [rsp + 0], rax

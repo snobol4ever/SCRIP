@@ -1,23 +1,12 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
-                        sub              rsp, 8
-                        add              rsp, 8
-                        ret
-                        .section         .rodata
-.Lgvan0:                .string          "always_fail"
-                        .align           8
-__gva_names:
-                        .quad            .Lgvan0
-                        .section         .text
-                        .intel_syntax    noprefix
                         .globl           main
 main:
                         sub              rsp, 8
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
-                        call             proc_startup
+                        call             main_init
                         mov              edi, 1
                         call             rt_gva_island@PLT
                         mov              rsi, rax
@@ -28,11 +17,20 @@ main:
                         call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                               jmp   main_α
+main_init:
+                        sub              rsp, 8
+                        add              rsp, 8
+                        ret
+                        .section         .rodata
+.Lgvan0:                .string          "always_fail"
+                        .align           8
+__gva_names:
+                        .quad            .Lgvan0
+                        .section         .text
+                        .intel_syntax    noprefix
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -64,6 +62,7 @@ n3_define_β:                                                                  j
 .Lx30_1:                .quad            .Lx30_1_s
 .Lx30_1_s:              .string          ""
                                                                               jmp   .Lx31_245
+#-----------------------------------------------------------------------------------------------------------------------
 always_fail_α:          sub              rsp, 48
                         mov              rax, qword ptr [r9 + 0]              # always_fail
                         mov              qword ptr [rsp + 0], rax

@@ -1,12 +1,5 @@
                         .intel_syntax    noprefix
                         .text
-                        .section         .rodata
-.Lgvan0:                .string          "x"
-                        .align           8
-__gva_names:
-                        .quad            .Lgvan0
-                        .section         .text
-                        .intel_syntax    noprefix
                         .globl           main
 main:
                         sub              rsp, 8
@@ -23,11 +16,16 @@ main:
                         call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                               jmp   main_α
+                        .section         .rodata
+.Lgvan0:                .string          "x"
+                        .align           8
+__gva_names:
+                        .quad            .Lgvan0
+                        .section         .text
+                        .intel_syntax    noprefix
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -52,14 +50,12 @@ n4_assign_α:            mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 0], rax              # x
                         mov              qword ptr [r9 + 8], rdx;             jmp   n5_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n5_statement_end_α:     add              rsp, 16;                             jmp   n6_statement_begin_α
-#=======================================================================================================================
-#         x = 'hello'
+n5_statement_end_α:                                                           jmp   n6_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_statement_begin_α:                                                         jmp   n7_statement_end_α
-n6_statement_begin_β:                                                         jmp   n8_statement_begin_α
+n6_statement_begin_β:   add              rsp, 16;                             jmp   n8_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_statement_end_α:                                                           jmp   n8_statement_begin_α
+n7_statement_end_α:     add              rsp, 16;                             jmp   n8_statement_begin_α
 #=======================================================================================================================
 #         DIFFER(x '', x)                   :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------

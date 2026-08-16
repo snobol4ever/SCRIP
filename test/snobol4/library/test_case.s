@@ -367,7 +367,24 @@ proc_PAT$0_ω:
                         mov              r11, qword ptr [rbp + -16]
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 10
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 10
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         .section         .rodata
 .Lstartup_pname8:       .string          "PAT$0"
@@ -415,29 +432,10 @@ __gva_names:
                         .quad            .Lgvan9
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 10
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 10
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
                         sub              rsp, 0
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n9_statement_begin_α:                                                         jmp   n10_statement_end_α
 n9_statement_begin_β:                                                         jmp   n11_statement_begin_α
@@ -469,6 +467,7 @@ n12_define_β:                                                                 j
 .Lx205_1:               .quad            .Lx205_1_s
 .Lx205_1_s:             .string          "lwr"
                                                                               jmp   .Lx206_245
+#-----------------------------------------------------------------------------------------------------------------------
 lwr_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -661,6 +660,7 @@ n24_define_β:                                                                 j
 .Lx226_1:               .quad            .Lx226_1_s
 .Lx226_1_s:             .string          "upr"
                                                                               jmp   .Lx227_245
+#-----------------------------------------------------------------------------------------------------------------------
 upr_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -853,6 +853,7 @@ n36_define_β:                                                                 j
 .Lx247_1:               .quad            .Lx247_1_s
 .Lx247_1_s:             .string          "cap"
                                                                               jmp   .Lx248_245
+#-----------------------------------------------------------------------------------------------------------------------
 cap_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -1222,6 +1223,7 @@ n58_define_β:                                                                 j
 .Lx281_1:               .quad            .Lx281_1_s
 .Lx281_1_s:             .string          "str,letter,ch"
                                                                               jmp   .Lx282_245
+#-----------------------------------------------------------------------------------------------------------------------
 icase_α:                sub              rsp, 96
                         mov              rax, qword ptr [r9 + 80]             # letter
                         mov              qword ptr [rsp + 0], rax
@@ -1989,8 +1991,6 @@ n106_statement_begin_α:                                                       j
 n106_statement_begin_β:                                                       jmp   n108_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n107_statement_end_α:                                                         jmp   n108_statement_begin_α
-#=======================================================================================================================
-#         <stmt 18, line 50: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n108_statement_begin_α:                                                       jmp   n109_statement_end_α
 n108_statement_begin_β:                                                       jmp   n110_statement_begin_α
@@ -2050,14 +2050,12 @@ n113_call_α:            sub              rsp, 16
                         mov              qword ptr [rsp + 8], rdx;            jmp   n114_statement_end_α
 n113_call_β:            add              rsp, 16;                             jmp   n112_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
-n114_statement_end_α:   add              rsp, 48;                             jmp   n115_statement_begin_α
-#=======================================================================================================================
-#         <stmt 20, line 53: source not in main file (INCLUDE)>
+n114_statement_end_α:                                                         jmp   n115_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n115_statement_begin_α:                                                       jmp   n116_statement_end_α
-n115_statement_begin_β:                                                       jmp   n117_statement_begin_α
+n115_statement_begin_β: add              rsp, 48;                             jmp   n117_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n116_statement_end_α:                                                         jmp   n117_statement_begin_α
+n116_statement_end_α:   add              rsp, 48;                             jmp   n117_statement_begin_α
 #=======================================================================================================================
 #         <stmt 21, line 55: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
@@ -2249,14 +2247,12 @@ n130_assign_α:          mov              rsi, qword ptr [rsp + 0]             #
 .Lx397_0:               .quad            .Lx397_0_s
 .Lx397_0_s:             .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n131_statement_end_α:   add              rsp, 32;                             jmp   n132_statement_begin_α
-#=======================================================================================================================
-#         <stmt 24, line 57: source not in main file (INCLUDE)>
+n131_statement_end_α:                                                         jmp   n132_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n132_statement_begin_α:                                                       jmp   n133_statement_end_α
-n132_statement_begin_β:                                                       jmp   n134_statement_begin_α
+n132_statement_begin_β: add              rsp, 32;                             jmp   n134_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n133_statement_end_α:                                                         jmp   n134_statement_begin_α
+n133_statement_end_α:   add              rsp, 32;                             jmp   n134_statement_begin_α
 #=======================================================================================================================
 #         <stmt 25, line 60: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
