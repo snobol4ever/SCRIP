@@ -232,7 +232,7 @@ static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
     { extern void bb_pool_init(void); bb_pool_init(); }
-    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); }
+    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
     char *src = (char *)rt_ws_alloc(n + 4);
     if (!src) return NULL;
@@ -398,7 +398,7 @@ DESCR_t code(const char *src)
 {
     if (!src || !*src) return FAILDESCR;
     { extern void bb_pool_init(void); bb_pool_init(); }
-    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); }
+    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
     extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx);
     extern const char *sno_stmt_label(const tree_t *s);
