@@ -320,7 +320,7 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 /* ⛔ H2 — THE R9/GVA SLOT IS NOT WRITTEN BACK (s8 2026-08-10).  rtcc_init.c seeds slot 6 with RT_GVA_VA once and    */
 /* documents it as a BLOCK-CANONICAL EXCEPTION needing "no companion writes anywhere".  This writeback WAS a companion */
 /* write: it stored r9 on EVERY crossing, so the exception silently held only while nothing ever clobbered r9.  When   */
-/* something did (bb_func_activate movzx r9,cl) the clobbered value entered the canonical slot and the reload spread   */
+/* something did (bb_define movzx r9,cl) the clobbered value entered the canonical slot and the reload spread   */
 /* it -- RT_GVA_VA dead process-wide, every [r9+k*16] near-null.  PROVEN: AB=1 RTCC=1 fibonacci SIGSEGV.  Skipping the */
 /* store makes the documented exception TRUE: r9 is a read-only cache of a constant, the reload always restores the    */
 /* pristine seed, and a template clobber of r9 becomes SELF-HEALING at the next crossing instead of fatal.             */
@@ -2100,7 +2100,7 @@ inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, in
  * SCRIP/seed/test_sno_stmt_frame_1.s and _2.s, incl. recursion + FRETURN).  GLUE-4 (s21x-p): x86_stmt_enter/leave -- the STATEMENT bracket -- are DELETED; the bracket lives as bb_glue_framed_enter/
  * leave at K=0 (bb_glue_framed.cpp), and the emit.cpp head stubs + chain-exit cuts call the glue directly, so the FOUR ___ CONSTRUCTS (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4) parameterize ONE
  * shape instead of a fourth spelling of the same three instructions.  x86_call_frame_enter = BB IR_CALL: the 32B header {[___+0] pad · [___+8] caller ___ · [___+16] γ wire · [___+24] ω wire}, wires
- * as internal labels; the jmp into the body and the IR_SAVE_RESTORE slot carve (x86_alpha_carve, above) stay template business.  x86_return/freturn_floater = IR_SAVE_RESTORE roles 1/2: cut to the
+ * as internal labels; the jmp into the body and the IR_DEFINE slot carve (x86_alpha_carve, above) stay template business.  x86_return/freturn_floater = IR_DEFINE roles 1/2: cut to the
  * frame from ANY statement/BB depth, restore caller ___, jmp the wire.  Composed ENTIRELY of pre-verified encoders (push/pop/mov/add/sub dispatch arms + the named disp32 family + x86_lea_rip_id +
  * x86_jmp_reg): ZERO new byte encodings by design, so the keystone byte-verify obligation is discharged by construction.  x86_call_frame_enter clobbers rcx/rdx; the floaters clobber rcx and
  * FLAGS (add). */

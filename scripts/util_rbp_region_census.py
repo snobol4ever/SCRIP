@@ -39,7 +39,7 @@ CEREM_RE  = re.compile(r'\bmov\s+\[rsp\s*\+\s*\d+\]\s*,\s*rbp\b|\bmov\s+rbp\s*,\
 # written as a plain register VALUE is not a frame reference: CLASS D (`mov rbp,[gpr+N]`,
 # scratch destination) and the wire-adopt marshal (`mov rcx, rbp`, the depth-static arm
 # deliberately passing the caller's LIVE rbp because no [kt-8] save slot exists -- see
-# bb_save_restore.cpp role 3) both read/write the register without naming a frame.  Counting
+# bb_define.cpp role 3) both read/write the register without naming a frame.  Counting
 # either makes zero unreachable, which is the exact failure mode this instrument replaces.
 RBP_RE    = re.compile(r'\[\s*rbp\s*[+\-\]]')
 

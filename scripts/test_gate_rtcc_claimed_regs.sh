@@ -5,7 +5,7 @@
 # A register claim is a GLOBAL fact about the whole emitted program, but templates are edited by many
 # concurrent seats, and NOTHING in the build objects when a template grabs a claimed register as scratch.
 # That is not hypothetical: RC-5-GVA claimed r9 = RT_GVA_VA, AB-2 then used r9 as anchor scratch in
-# bb_save_restore.cpp, and the resulting fibonacci SIGSEGV cost sessions s6 and s7 (bisect + one-line fix,
+# bb_define.cpp, and the resulting fibonacci SIGSEGV cost sessions s6 and s7 (bisect + one-line fix,
 # FINDING-2026-08-09-CLAUDE-SN46-RTCC-RC5-FLOATER-R9-RCX-FIX.md).  This gate makes that class MECHANICAL.
 #
 # THE INVARIANT.  Under RTCC_GLOBAL_R9_GVA with the killswitch ON, r9 holds RT_GVA_VA at EVERY point in
@@ -76,7 +76,7 @@ for claim in $LIVE_CLAIMS; do
   # ⛔ NEVER `| grep -q` UNDER pipefail (s11): grep -q exits on first match, closing the pipe; the upstream
   # sed|perl then takes SIGPIPE(141) and `set -o pipefail` propagates that, so a MATCH READS AS A MISS.
   # Measured on this tree: 3 large templates flipped (bb_call 14/20, bb_call_proc_staged 16/20,
-  # bb_func_activate 13/20), readers ranged 5..8 against a truth of 8 -- and the WORST offender is the very
+  # bb_define 13/20), readers ranged 5..8 against a truth of 8 -- and the WORST offender is the very
   # file s8 convicted.  grep -c reads to EOF, cannot SIGPIPE the upstream, and is what line ~67 already uses.
   gvausers=""
   for f in "$TPL"/*.cpp; do

@@ -52,7 +52,7 @@ extern "C" {
 /*   BLOCK-CANONICAL EXCEPTION: RT_GVA_VA is a compile-time constant (pin_va.h); never changes after mmap.   */
 /*   Block slot written ONCE at rtcc_init; no C-side companion writes needed.                                  */
 /*   Read sites: EVERY GVA variable access — bb_var_global, bb_assign_global, bb_binop_gvar_arith,            */
-/*     bb_call, bb_call_proc_staged, bb_save_restore, bb_func_activate (48 ABSQ sites → [r9+k*16+w]).         */
+/*     bb_call, bb_call_proc_staged, bb_define, bb_define (48 ABSQ sites → [r9+k*16+w]).         */
 /*   Census: 1038 ABSQ GVA accesses across 21 benchmark files.  disp8 covers k*16 for k≤7 (all roman.sno     */
 /*   variables).  Expected encoding win: 7B (ABSQ abs32+REX) → 4B ([r9+disp8]) per access.                   */
 /*   SysV arg5 (r9) is confirmed unused by rt calls per RC-0(c) census (zero ≥6-arg rt calls).               */
