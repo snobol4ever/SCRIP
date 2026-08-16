@@ -2,7 +2,7 @@
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
 FN__EXPR$0:
-proc_EXPR$0_α_body:
+EXPR$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_define_α:                                                                  jmp   n1_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -42,23 +42,23 @@ n4_assign_α:            mov              rax, qword ptr [rsp + 0]             #
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 64], rax             # EXPR$0
                         mov              qword ptr [r9 + 72], rdx
-                        add              rsp, 48;                             jmp   proc_EXPR$0_γ
+                        add              rsp, 48;                             jmp   EXPR$0_γ
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$0_res:
+EXPR$0_res:
                         add              rsp, 8
                         pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$0_β:
-                                                                              jmp   proc_EXPR$0_ω
+EXPR$0_β:
+                                                                              jmp   EXPR$0_ω
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$0_γ:
+EXPR$0_γ:
                                                                               jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$0_ω:
+EXPR$0_ω:
                                                                               jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 FN__EXPR$1:
-proc_EXPR$1_α_body:
+EXPR$1_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n11_define_α:                                                                 jmp   n12_var_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -72,23 +72,23 @@ n13_assign_α:           mov              rax, qword ptr [rsp + 0]             #
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 80], rax             # EXPR$1
                         mov              qword ptr [r9 + 88], rdx
-                        add              rsp, 16;                             jmp   proc_EXPR$1_γ
+                        add              rsp, 16;                             jmp   EXPR$1_γ
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$1_res:
+EXPR$1_res:
                         add              rsp, 8
                         pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$1_β:
-                                                                              jmp   proc_EXPR$1_ω
+EXPR$1_β:
+                                                                              jmp   EXPR$1_ω
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$1_γ:
+EXPR$1_γ:
                                                                               jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$1_ω:
+EXPR$1_ω:
                                                                               jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
 FN__EXPR$2:
-proc_EXPR$2_α_body:
+EXPR$2_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n18_define_α:                                                                 jmp   n19_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
@@ -132,29 +132,29 @@ n21_call_α:             sub              rsp, 16
                         add              rsp, 32
                         cmp              eax, 104;                            jne   .Lx27_240
                         add              rsp, 16
-                        add              rsp, 32;                             jmp   proc_EXPR$2_ω
+                        add              rsp, 32;                             jmp   EXPR$2_ω
 .Lx27_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n22_assign_α
 n21_call_β:             add              rsp, 16
-                        add              rsp, 32;                             jmp   proc_EXPR$2_ω
+                        add              rsp, 32;                             jmp   EXPR$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n22_assign_α:           mov              rax, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 96], rax             # EXPR$2
                         mov              qword ptr [r9 + 104], rdx
-                        add              rsp, 48;                             jmp   proc_EXPR$2_γ
+                        add              rsp, 48;                             jmp   EXPR$2_γ
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$2_res:
+EXPR$2_res:
                         add              rsp, 8
                         pop              rsp
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$2_β:
-                                                                              jmp   proc_EXPR$2_ω
+EXPR$2_β:
+                                                                              jmp   EXPR$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$2_γ:
+EXPR$2_γ:
                                                                               jmp   r10
 #-----------------------------------------------------------------------------------------------------------------------
-proc_EXPR$2_ω:
+EXPR$2_ω:
                                                                               jmp   r11
                         .globl           main
 main:
@@ -180,88 +180,67 @@ main_init:
                         .align           8
 .Lstartup_pnames0:
                         .quad            0
+                        .align           8
+.Lstartup_prec0:
+                        .quad            .Lstartup_pname0
+                        .quad            FN__EXPR$0
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames0
+                        .long            0
+                        .long            0
+                        .long            80
+                        .long            17
+                        .long            0
+                        .long            0
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + .Lstartup_pnames0]
-                        mov              edx, 0
-                        call             rt_proc_register@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 1
-                        call             rt_proc_set_dyn_scope@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + FN__EXPR$0]
-                        call             rt_proc_set_fn@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 0
-                        call             rt_proc_set_nparams@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 0
-                        call             rt_proc_set_nformals@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 80
-                        call             rt_proc_set_frame_bytes@PLT
-                        lea              rdi, [rip + .Lstartup_pname0]
-                        mov              esi, 1
-                        call             rt_proc_set_jmpentry@PLT
+                        lea              rdi, [rip + .Lstartup_prec0]
+                        call             rt_proc_register_rec@PLT
                         .section         .rodata
 .Lstartup_pname1:       .string          "EXPR$1"
                         .align           8
 .Lstartup_pnames1:
                         .quad            0
+                        .align           8
+.Lstartup_prec1:
+                        .quad            .Lstartup_pname1
+                        .quad            FN__EXPR$1
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames1
+                        .long            0
+                        .long            0
+                        .long            48
+                        .long            17
+                        .long            0
+                        .long            0
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + .Lstartup_pnames1]
-                        mov              edx, 0
-                        call             rt_proc_register@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 1
-                        call             rt_proc_set_dyn_scope@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + FN__EXPR$1]
-                        call             rt_proc_set_fn@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 0
-                        call             rt_proc_set_nparams@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 0
-                        call             rt_proc_set_nformals@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 48
-                        call             rt_proc_set_frame_bytes@PLT
-                        lea              rdi, [rip + .Lstartup_pname1]
-                        mov              esi, 1
-                        call             rt_proc_set_jmpentry@PLT
+                        lea              rdi, [rip + .Lstartup_prec1]
+                        call             rt_proc_register_rec@PLT
                         .section         .rodata
 .Lstartup_pname2:       .string          "EXPR$2"
                         .align           8
 .Lstartup_pnames2:
                         .quad            0
+                        .align           8
+.Lstartup_prec2:
+                        .quad            .Lstartup_pname2
+                        .quad            FN__EXPR$2
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames2
+                        .long            0
+                        .long            0
+                        .long            128
+                        .long            17
+                        .long            0
+                        .long            0
                         .section         .text
                         .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        lea              rsi, [rip + .Lstartup_pnames2]
-                        mov              edx, 0
-                        call             rt_proc_register@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 1
-                        call             rt_proc_set_dyn_scope@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        lea              rsi, [rip + FN__EXPR$2]
-                        call             rt_proc_set_fn@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 0
-                        call             rt_proc_set_nparams@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 0
-                        call             rt_proc_set_nformals@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 128
-                        call             rt_proc_set_frame_bytes@PLT
-                        lea              rdi, [rip + .Lstartup_pname2]
-                        mov              esi, 1
-                        call             rt_proc_set_jmpentry@PLT
+                        lea              rdi, [rip + .Lstartup_prec2]
+                        call             rt_proc_register_rec@PLT
                         add              rsp, 8
                         ret
                         .section         .rodata
