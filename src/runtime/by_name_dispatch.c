@@ -870,6 +870,12 @@ static const char *rk_real_str(double r, char *buf, int bufsz) {
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
     return icon_real_str(r, buf, bufsz);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ ICN-PAD-CONV (s241): STRING COERCION FOR THE PADDING FAMILY, IN ICON'S REAL CONVENTION -- the THIRD site of the s240 class after concat and image().  VARVAL_fn renders a real in SPITBOL's convention, which differs from Icon's in TWO ways that both corrupt a fixed-width field: an integral real prints "1." where Icon needs "1.0", and a magnitude below 0.1 prints in scientific form ("0.831412E-1") where Icon prints positional ("0.08314123188844123").  left()/right()/center() TRUNCATE their argument to a width, so the second one is the damaging one: left(atan(0.25,3),5) yielded "0.831" -- the mantissa's leading digits, a plausible-looking number that is off by a factor of ten -- against Icon's "0.083".  Witness rung36_jcon_fncs1, whose wf() is exactly `writes(left(v,5)," ")`.  These are Icon builtins reached by NAME/BID dispatch, so the convention is chosen here and no opcode is needed -- the same reasoning image() uses at its own site, and the same authority (icon_real_str) that write()/string() already reach.  ⛔ Applies ONLY to the DT_REAL arm: every other type falls through to VARVAL_fn UNCHANGED, so integers, strings, csets and the null/fail paths are byte-identical by construction. */
+static const char *icn_pad_str(DESCR_t d, char *buf, int bufsz) {
+    if (IS_REAL_fn(d)) return icon_real_str(d.r, buf, bufsz);
+    return VARVAL_fn(d);
+}
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5853,7 +5859,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_collect) && nargs <= 2) { extern long rt_gc_collect(void); rt_gc_collect(); *out = NULVCL; return 1; }
     L_bidjmp_5585: ;
     if ((_bid == BID_left) && nargs >= 1) {
-        const char *s=VARVAL_fn(args[0]); if(!s)s="";
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
@@ -5882,7 +5888,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5613: ;
     if ((_bid == BID_right) && nargs >= 1) {
-        const char *s=VARVAL_fn(args[0]); if(!s)s="";
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
@@ -5909,7 +5915,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5639: ;
     if ((_bid == BID_center) && nargs >= 1) {
-        const char *s=VARVAL_fn(args[0]); if(!s)s="";
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
