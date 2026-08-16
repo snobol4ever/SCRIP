@@ -411,6 +411,62 @@ static int xa_flat_class_zf(void) {
     if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
     return 0;
 }
+/* ⭐⭐⭐ CLASS-C ADMISSION PREDICATE — ONE AUTHORITY (s114, the s113 cursor's routed DEFECT C).  CLASS C = the chain-entered citizens of the
+ * EXIT-CLASS LEDGER (EVAL/CODE runtime fragments, rt_chain_enter/rt_chain_enter_v).  emit_jmp_entry_arm_region arms them flat_jmp_entry=1 and
+ * publishes flat_frame_bytes = (48 + jcon_value_region + 15) & ~15 — the LAYOUT every declined node's FRQ([rsp+off]) read addresses — but the
+ * prologue dispatch in emit.cpp has carried NO ARM for them since CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue, the PRODUCER half.
+ * The consumer half survived, so the chain addresses a frame nobody carved: it writes over its own caller, destroying the return address.
+ * MEASURED (SCRIP_LP_DIAG=1, corpus/probe/eval): ev_fn_literal armed=2 of 6 nodes, ev_fn_var armed=6 of 6 — IDENTICAL flags otherwise
+ * (jmp=1 pat=0 gen=0 region=64, kt=112).  The passing sibling survives only because it is FULLY ZD-armed and addresses no frame at all, which
+ * is why the symptom read as "literal vs variable" — that is a PROXY for ZD-ARMED vs DECLINED, never a semantic distinction.
+ * NARROW BY MEASUREMENT, NOT BY TASTE: flat_pat blobs carve at α_body through BLOB-GRANT (blob_frame_bytes), flat_lcl_proc and zframe_graph
+ * have their own prologue arms above, and DEFINE stubs (g_flat_frame_floor > 0, flat_stmt_frame with the kt=48 override) are CLASS P — their
+ * wire quad is filled by the role-3 wire-adopt box and their statements self-allocate.  Each is EXCLUDED because it already has a producer,
+ * not because it is uninteresting; widening this predicate is a separate rung that must re-prove the Icon watermark (GOAL-ICON-100.md). */
+static int xa_flat_class_c(void) {
+    if (!g_emit.flat_jmp_entry) return 0;
+    if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || g_emit.flat_stmt_frame) return 0;
+    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) return 0; }
+    return (g_emit.flat_frame_bytes >= 48) ? 1 : 0;
+}
+/* ⭐⭐⭐ CLASS-C PROLOGUE — THE RESTORED PRODUCER HALF.  Carves the frame the layout already promised and parks the {γ,ω} wires in the SAME
+ * header triple every other citizen uses ([kt-24]=γ [kt-16]=ω [kt-8]=caller-___), so the activation is IDENTICAL for every jmp-entry citizen
+ * exactly as emit_jmp_entry_arm_region's header claims.  ⛔ RBP IS DELIBERATELY NOT PINNED, AND THAT IS THE WHOLE REASON NO EPILOGUE CHANGES:
+ * rt_chain_enter/_v push rbx/r12-r15 and `jmp *rax` WITHOUT touching ___, so ___ still holds the ambient C frame pointer of the noinline
+ * eval_chain_enter_only — and CLASS C exits through bb_glue_outer_γ/ω's whack (`mov rsp,___; pop ___; ret`), which restores rsp ABSOLUTELY
+ * from that ambient base and therefore reclaims this carve at ANY depth, for free.  Pinning ___ here would instead destroy the documented m3
+ * return-to-C mechanism the s22u ___PAIR falsification already convicted (suppressing it broke 1016_eval and fixed nothing).  The header
+ * stores are inert for CLASS C's own exit (it returns, it does not jmp a wire) and are written for protocol uniformity, which is what would
+ * later let rt_chain_enter_v retire back into rt_chain_enter — a SEPARATE rung, deliberately not attempted in the same measurement.
+ * BOTH MEDIUM by construction: every instruction goes through x86(), zero raw bytes, per TEMPLATE-ONLY EMISSION.
+ * KILLSWITCH SCRIP_CHAIN_FRAME=0 restores the un-carved emission byte-identically. */
+static std::string xa_flat_chain_prologue_str(void) {
+    if (!PLATFORM_X86 || !xa_flat_class_c()) return std::string();
+    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
+    if (!_cf) return std::string();
+    { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
+    int kt = g_emit.flat_frame_bytes;
+    if (kt & 15) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", kt); abort(); }
+    return x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
+         + x86("sub", "rsp", (long)kt)
+         + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
+         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
+         + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp");
+}
+/* ⭐⭐⭐ CLASS-C EPILOGUE — THE MATCHING RELEASE, AND WHY IT IS NOT OPTIONAL.  MEASURED (gdb, ev_fn_var, killswitch OFF): a CLASS C chain exits
+ * `add $0x0,%rsp / mov $DT,%eax / ret` — bb_glue_outer_whack() is FALSE for these graphs, so there is NO `mov rsp,___; pop ___` to reclaim an
+ * α carve.  The chain BALANCES ITS OWN SPINE (the add is op_zgpop, 0 on an armed graph) and returns, so rsp at γ/ω equals rsp just after the
+ * α carve and a symmetric `add rsp,kt` restores the entry value exactly.  ⛔ THE FIRST ATTEMPT AT THIS RUNG OMITTED THIS HALF AND REGRESSED
+ * ev_fn_var / ev_min_arith PASS→SIG11: the carve leaked, the `ret` popped 112 bytes too deep, and the failure looked like a bad carve rather
+ * than a missing release.  CARVE AND RELEASE ARE ONE FACT AND THEY ARE SPELLED IN THIS FILE, TOGETHER, under the SAME killswitch — the s22k
+ * one-authority law, and the reason the pair cannot drift the way the GLUE-SYM enter/whack pair did. */
+static std::string xa_flat_chain_epilogue_str(void) {
+    if (!PLATFORM_X86 || !xa_flat_class_c()) return std::string();
+    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
+    if (!_cf) return std::string();
+    return x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
+         + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
+}
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
@@ -518,5 +574,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
          + x86("jmp", "rcx");
 }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
+extern "C" void xa_flat_chain_prologue(void) { bb_emit_x86(xa_flat_chain_prologue_str()); }   /* CLASS-C (s114): the restored producer half; self-gating (emits nothing unless xa_flat_class_c()) */
+extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }   /* CLASS-C (s114): the dispatch arm in emit.cpp asks THIS, so predicate and prologue can never disagree (s22k one-authority law) */
+extern "C" void xa_flat_chain_epilogue(void) { bb_emit_x86(xa_flat_chain_epilogue_str()); }   /* CLASS-C (s114): the release half; self-gating, same killswitch as the carve */
 extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
 extern "C" void xa_flat_zframe_epilogue_ω(void) { bb_emit_x86(xa_flat_zframe_epilogue_ω_str()); }
