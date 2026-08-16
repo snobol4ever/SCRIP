@@ -2215,3 +2215,25 @@ DESCR_t rt_proc_call_epilogue_named_γ(const char *name) { return c_rt_proc_call
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name) { return c_rt_proc_call_epilogue_named_ω(name); }
 void *rt_proc_open_fn(void) { return c_rt_proc_open_fn(); }
 void *rt_proc_call_open_det(long idx, int nargs) { return c_rt_proc_call_open_det(idx, nargs); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
+{   /* ONE-REG (Lon s119): replays EXACTLY the per-proc call sequence the pre-s119 m4 startup block emitted, in the same order, with the same skip conditions — behavior-identical by construction (every setter below is the same symbol the old block called via PLT).  _Static_asserts pin the record layout the scrip.c emitter spells in .quad/.long directives; a drift between the two is a compile error here, not a silent wrong-field read. */
+    _Static_assert(sizeof(rt_proc_reg_rec_t) == 64, "ONE-REG record is 64 bytes");
+    _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52, "ONE-REG field offsets are law");
+    if (!r || !r->name) return;
+    extern void rt_proc_set_dyn_scope(const char *, int); extern void rt_proc_set_result_name(const char *, const char *); extern void rt_proc_set_nparams(const char *, int); extern void rt_proc_set_nformals(const char *, int);
+    extern void rt_proc_set_pname(const char *, int, const char *); extern void rt_proc_set_jmpentry(const char *, int); extern void rt_proc_set_dcfn(const char *, void *);
+    if (r->flags & 1) { rt_proc_register(r->name, (const char **)r->pnames, r->nparams); rt_proc_set_dyn_scope(r->name, 1); if (r->result_name) rt_proc_set_result_name(r->name, r->result_name); }
+    if (r->fn) rt_proc_set_fn(r->name, (bb_box_fn)r->fn);
+    rt_proc_set_nparams(r->name, r->nparams);
+    rt_proc_set_nformals(r->name, r->nformals);
+    if (!(r->flags & 1) && r->pnames) for (int k = 0; k < r->nparams && r->pnames[k]; k++) rt_proc_set_pname(r->name, k, r->pnames[k]);   /* raku lex arm — array is exactly the ks the old block set, NULL-terminated */
+    if (r->frame_bytes > 0) rt_proc_set_frame_bytes(r->name, r->frame_bytes);
+    if (r->flags & 2) rt_proc_set_zstatic(r->name, 1);
+    if (r->flags & 4) rt_proc_set_variadic(r->name, 1);
+    if (r->rest_kind) rt_proc_set_rest_kind(r->name, r->rest_kind);
+    if (r->named_rest) rt_proc_set_named_rest(r->name, r->named_rest);
+    rt_proc_set_jmpentry(r->name, (r->flags >> 4) & 1);
+    if (r->dcfn) rt_proc_set_dcfn(r->name, r->dcfn);
+    if (r->flags & 8) rt_proc_set_generator(r->name, 1);
+}

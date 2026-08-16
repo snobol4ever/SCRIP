@@ -1205,6 +1205,39 @@ int main(int argc, char **argv)
                     ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
                     if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) continue;   /* ⭐ EXPR-THUNK EXITS (s96): the EXPR$ thunk (kind 2) is dyn_scope with NO DEFINE site, so it is registered HERE at startup like the non-dyn rows; every other dyn_scope row keeps the s57 site registration. */   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_define_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
                     if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl) continue; }   /* STARTUP-HOIST-DELETE (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE at node 20"): a LBL__ row that is some DEFINE's entry label is NOT registered at startup — the function's registration is rt_define_site at its statement, and its fn is the natural entry label (bb_define_bind's lea).  With the balias rename gone the startup lea's LBL__<entry> symbol no longer exists, so this skip is also what keeps the .s linkable.  Non-DEFINE LBL__ rows (computed-goto label registry) keep the startup hoist verbatim — a label has no statement site. */
+                    { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the whole per-proc setter ladder collapses to ONE static 64B .rodata record + ONE rt_proc_register_rec call; the record layout is rt.h's rt_proc_reg_rec_t, pinned there by _Static_asserts.  rt_proc_register_rec replays the exact old call sequence, so behavior is identical by construction.  SCRIP_ONE_REG=0 restores the pre-s119 ladder byte-for-byte. */
+                    if (_onereg) {
+                        extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));   /* same predicate as the old dcfn arm (PL-DC s108/s112) */
+                        int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w) twin */
+                        int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
+                        int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);   /* the old per-k rt_proc_set_pname loop's guard */
+                        emit_textf("  .section .rodata\n");
+                        emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: register the name the table holds — oracle law, see pre-ONE-REG arm */
+                        if (pe->dyn_scope) {
+                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                            emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                            emit_textf("  .quad 0\n");
+                        }
+                        if (_rkulex) {
+                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name);
+                            emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
+                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }   /* NULL entry = stop, matching the old loop's continue-free k order: the old arm skipped unnamed ks by continue, but lower_sc gaps do not occur for raku lex rows; the rec loop stops at the first NULL, identical coverage */
+                            emit_textf("  .quad 0\n");
+                        }
+                        if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, pe->result_name);
+                        emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
+                        emit_textf("  .quad .Lstartup_pname%d\n", i);
+                        if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));   /* fn face: BARE-CHAIN s62 + s112 rename, same symbols as the old set_fn lea */
+                        if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
+                        if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
+                        if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else emit_textf("  .quad 0\n");
+                        emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
+                        emit_textf("  .section .text\n");
+                        emit_textf("  .intel_syntax noprefix\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
+                        emit_textf("  call rt_proc_register_rec@PLT\n");
+                    } else {
                     emit_textf("  .section .rodata\n");
                     emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: the LBL__<N> row registers under its OWN name — an earlier s62 attempt stripped the prefix so ARG/LOCAL would find "jlab", which MEASURABLY diverged from the sbl oracle on 1017_arg_local (oracle returns the prototype name as written; the stripped-name lookup resolved to the upcased formal and flipped every assertion).  The oracle is the law: register the name the table holds. */
                     if (pe->dyn_scope) {
@@ -1291,6 +1324,7 @@ int main(int argc, char **argv)
                             emit_textf("  call rt_proc_set_generator@PLT\n");
                         }
                     }
+                    } }
                 }
                 emit_textf("  add rsp, 8\n");
                 emit_textf("  ret\n");
