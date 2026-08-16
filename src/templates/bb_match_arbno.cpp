@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
+extern "C" int sn4_defer_resume(void);   /* s123: ONE AUTHORITY in emit.cpp -- the beta route and this template's af edge are one mechanism, one killswitch */
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZB-ITER-3 (s85): zv() = the chain arm's ELEMENT VIEW register — ___ borrowed from the MATCH_BEGIN frame base.  FRQ() reads in the chain arm are ___-relative (depth-immune under the pinned MATCH_BEGIN frame),
@@ -144,7 +145,7 @@ static std::string bb_match_arbno_frame() {
          + x86("def", PAIR(3))
          + x86("mov", "eax", RDD("rbp", off + 0))
          + x86("cmp", "r14d", "eax")
-         + x86("jne", PAIR(1))
+         + IF(!sn4_defer_resume(), x86("jne", PAIR(1)))   /* ⭐⭐⭐ s123 THE OVER-POP EDGE.  af means "the body produced no further instance".  This edge said "so back one instance out via the body's beta" -- but the failing instance already returned through the fast-path glue `pop rbp; jmp <this>_af`, so ITS activation is gone, and the body's beta is written as "unwind MY OWN activation" (mov rsp,rbp; pop rbp).  It therefore eats the BLOB's saved caller-rbp, and each lap climbs one more caller frame: measured e8e8 -> e938 -> ea00 -> ea60 -> 0, then af reads [0-32] and SEGVs (gdb, witness 148).  Latent at default because beta never enters the ARBNO from outside; reachable the moment the s121 resume route lands, which is why the two are ONE killswitch.  Dropping it is CORRECT, not merely safe: ARBNO grows monotonically and never shrinks (manual p.121 `"" | PAT | PAT PAT | ...`), so exhaustion IS omega -- backing out instance-by-instance only ever existed to reach a previous instance's interior choice points, and no instance retains any today (that is R-4(a), witness probe/arbnostore/arbno_defer_altarg_red).  MEASURED +6/-0 by hand-patch before landing: 119/129/148/149 rc=139 -> PASS, 139/143 held, arbnostore 8/9 held. */
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
