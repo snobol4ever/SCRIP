@@ -60,7 +60,11 @@ if git diff --cached --quiet; then
     echo "  No changes — demo artifacts already current."
 else
     RUNG="${1:-regen}"
-    git commit -m "x64 demo artifacts: $RUNG"
-    echo "  Committed."
+    if git -c user.name="LCherryholmes" -c user.email="lcherryh@yahoo.com" \
+           commit -q -m "x64 demo artifacts: $RUNG"; then
+        echo "  Committed:"; git show --stat --oneline HEAD | sed -n '1,40p'
+    else
+        echo "  COMMIT FAILED — artifacts regenerated and STAGED but NOT committed."; exit 1
+    fi
 fi
 echo "Done."
