@@ -2743,16 +2743,27 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);   /* ZK-4 SLICE 2: cells-arm DC path uses this; reads g_call_args[] directly, no g_pcall dependency */
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;   /* ZK-4 SLICE 2 ONE AUTHORITY: cells-arm flat_lcl_proc procs entered via DC stub have g_pcall_top=0 (no pcall record pushed), so rt_lcl_proc_args_install reads nargs=0 and installs nothing; rt_icn_zframe_args_install reads g_call_args[] which rt_arg_stage populated. Predicate mirrors xa_flat_class_zf() + the DC stub condition. SNOBOL4/Prolog/Raku: icn_cells_graph=0, byte-identical. */
+        std::string _lseed;   /* ⭐ LCL-SEED (s241): THIS PROLOGUE NEVER SEEDED ITS NAMED LOCALS, SO EVERY LEXICAL LOCAL READ BEFORE ITS FIRST WRITE RETURNED STACK RESIDUE.  Both sibling arms in xa_flat.cpp (DC-stub and FRAME_RSP) zero their data region for exactly the reason their own comments state -- "named variables start as NULVCL (= DT_SNUL = unbound)" -- and the lex arm gets the same guarantee from rt_jmp_frame_lexprep2's suffix splat; this arm, minted later for jmp-entry lexical procs, inherited neither and carved a frame it left dirty.  The installer it calls nulls only [base+(np+j+1)*16] for j<nlocals, which is the BOTTOM of the frame and is not where the vslots live, and nlocals counts only explicit `local` declarations while the vslot grant covers every named variable -- so for an undeclared-locals procedure it nulls nothing at all.  WITNESS: 27 undeclared locals is where the residue starts (below that the fresh page happens to read zero); the run-to-run variation above that is the uninitialized-memory signature.  ZONE = [zls_g_locals(g), zls_g_region(g)) -- zls's own locals boundary, recorded unconditionally beside the vslot grant, so it covers declared and implicit locals alike by construction and cannot drift from the grant.  It is the SAME boundary emit_jmp_entry_arm_region already trusts for flat_seed_off, read here from the authority rather than from that flag because this arm admits graphs (cells-arm outer main) for which the jmp-entry region pass never ran.  ⛔ SEEDED BEFORE THE INSTALL CALL, NEVER AFTER: the ALIGN-INV-3c fact(n) regression is precisely a seed that ran after the bind and NULVCL'd the just-bound parameter.  REGISTERS: rcx/rdx are already parked in the wire header two instructions above and the install call clobbers both regardless, so rdi/rax/rcx are dead here.  BOTH-MEDIUM by construction: built once through x86() and handed to bb_emit_x86, never spelled per-medium.  KILLSWITCH SCRIP_LCL_SEED=0 leaves the string empty => byte-identical to pre-s241 HEAD. */
+        { extern int zls_g_locals(const IR_graph_t *); extern int zls_g_region(const IR_graph_t *);
+          static int _en = -1; if (_en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); _en = (_e && *_e == '0') ? 0 : 1; }
+          int _lo = (_en && g_emit_cfg) ? zls_g_locals(g_emit_cfg) : -1;
+          int _rg = (_en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
+          if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)   /* the wire header occupies the top 32B; a zone reaching into it would splat the γ/ω wires just parked there */
+              _lseed = x86("comment", "LCL-SEED: NULVCL the named-local vslot suffix [___+lo, ___+rg) so lexical locals read unbound, not stack residue")
+                     + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16, frame_total - 8);
-            _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
+            emit_text_n(_lp, strlen(_lp));
+            if (!_lseed.empty()) bb_emit_x86(_lseed);
+            _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
             if (frame_total <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)frame_total); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)frame_total); }
             { int _d = frame_total - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 8;  ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } }
+            if (!_lseed.empty()) bb_emit_x86(_lseed);   /* LCL-SEED: same position as the text arm — after the wire-header park, before the install call */
             ef_b3(0x48, 0x89, 0xE7);   /* mov rdi,rsp */
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);   /* mov esi,np (imm32) */
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);   /* mov edx,nl (imm32) */
