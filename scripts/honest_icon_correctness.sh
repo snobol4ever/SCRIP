@@ -5,11 +5,13 @@
 # "*** Benchmarking with output ***" and the "<name> elapsed time =" line.
 # We extract exactly that window from both engines and diff it.
 set -u
-SCRIPDIR="${SCRIPDIR:-/home/claude/work/SCRIP}"
+SCRIPDIR="${SCRIPDIR:-/home/claude/SCRIP}"
 SCRIP="$SCRIPDIR/scrip"; RTDIR="$SCRIPDIR/out"
-ICONM="${ICONM:-/home/claude/work/icon-master/icon-master}"
+ICONM="${ICONM:-${ORACLE_BIN:+${ORACLE_BIN%/bin}}}"; ICONM="${ICONM:-/home/claude/icon-build}"
 ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
-CORPUS_SRC="${CORPUS_SRC:-/home/claude/work/corpus/benchmarks/icon}"
+[ -x "$ICONT" ] && [ -x "$ICONX" ] || { echo "FATAL: no Icon oracle at $ICONM/bin (icont/iconx). Set ICONM= or ORACLE_BIN=." >&2; exit 2; }
+CORPUS_SRC="${CORPUS_SRC:-/home/claude/corpus/benchmarks/icon}"
+[ -d "$CORPUS_SRC" ] || { echo "FATAL: no benchmark corpus at $CORPUS_SRC. Set CORPUS_SRC=." >&2; exit 2; }
 WORK="$(mktemp -d /tmp/icn_corr_XXXXXX)"
 export PATH="$ICONM/bin:$PATH"
 mkdir -p "$WORK/corpus"
