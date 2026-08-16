@@ -39,7 +39,31 @@ n4_lit_real_α:          sub              rsp, 16
 .Lx39_0:                .quad            4611686018427387904
 #-----------------------------------------------------------------------------------------------------------------------
 n5_binop_α:             sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 32]            # lit_integer
+                        mov              eax, dword ptr [rsp + 32]            # lit_integer
+                        mov              ecx, dword ptr [rsp + 16]            # lit_real
+                        mov              edx, eax
+                        and              edx, ecx
+                        cmp              edx, 3;                              jne   .Lx40_2
+                        mov              rax, qword ptr [rsp + 40]            # lit_integer
+                        mov              rdx, qword ptr [rsp + 24]            # lit_real
+                        add              rax, rdx
+                        mov              qword ptr [rsp + 0], 3               # result
+                        mov              qword ptr [rsp + 8], rax;            jmp   .Lx40_7
+.Lx40_2:                and              edx, 1;                              jz    .Lx40_0
+                        mov              rsi, qword ptr [rsp + 40]            # lit_integer
+                        mov              rdi, qword ptr [rsp + 24]            # lit_real
+                        cmp              eax, 5;                              je    .Lx40_3
+                        cvtsi2sd         xmm0, rsi;                           jmp   .Lx40_4
+.Lx40_3:                movq             xmm0, rsi
+.Lx40_4:                cmp              ecx, 5;                              je    .Lx40_5
+                        cvtsi2sd         xmm1, rdi;                           jmp   .Lx40_6
+.Lx40_5:                movq             xmm1, rdi
+.Lx40_6:                addsd            xmm0, xmm1
+                        movq             rax, xmm0
+                        mov              qword ptr [rsp + 0], 5               # result
+                        mov              qword ptr [rsp + 8], rax
+.Lx40_7:                                                                      jmp   n6_lit_real_α
+.Lx40_0:                mov              rdi, qword ptr [rsp + 32]            # lit_integer
                         mov              rsi, qword ptr [rsp + 40]
                         mov              rdx, qword ptr [rsp + 16]            # lit_real
                         mov              rcx, qword ptr [rsp + 24]
