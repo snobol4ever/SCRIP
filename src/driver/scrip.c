@@ -449,6 +449,354 @@ static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face)
     int off = emit_label_lookup_offset(lbl); if (off < 0) return;
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⛔⭐⭐⭐ MODULE-INIT RELOCATION (s125) — ONE AUTHORITY for the ordering question s123 measured and could not answer without a ruling.  OFF (default) = pre-s125 verbatim: the block emits at its historical site under the name main_init, BEFORE the STATEMENT-ORDER FB-BACKFILL, so it reads proc_fb_buf PRE-patch and every LBL__ row that shares main bb_idx ships the stale 0.  ON = the block emits AFTER the backfill under the name module_init, so it reads the PATCHED values and the backfill stops being inert for the first time since s62.  THE ORDERING IS CIRCULAR IN THE OFF LAYOUT AND THAT IS WHY THE BACKFILL NEVER FIRED: the backfill needs g_last_flat_frame_bytes, which only main chain emission sets, and main emits AFTER this block — so no widening of the OFF site can ever see a patched value.  Fires on exactly 4 corpus programs (beauty 14 rows, porter 30, TDump_driver 6, Qize 2) and ZERO of the 72 benchmark+probe programs, so a benchmark-drawn witness set certifies it byte-identical and ships it blind — gate on those four, never the benchmarks. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {   /* body lifted VERBATIM from the historical scrip.c:989-1331 main_init site (s125); the only edit is the label name, which rides mi_name so the OFF arm stays byte-identical.  Emitted from exactly one of two call sites, chosen by sn4_module_init_bottom(). */
+    if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
+        emit_textf("%s:\n", mi_name);
+        emit_textf("  sub rsp, 8\n");
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              emit_textf("  .section .rodata\n");
+              emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
+              emit_textf(")\"\n");
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
+              emit_textf("  call record_register@PLT\n");
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              int np = dat_type_nparents(ci); if (np <= 0) continue;
+              emit_textf("  .section .rodata\n");
+              emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
+              for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
+              emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
+              for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
+              emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
+              emit_textf("  mov rdx, %d\n", np);
+              emit_textf("  call class_inherit_multi@PLT\n");
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                  if (!dat_type_field_has_default(ci, fj)) continue;
+                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                  DESCR_t dv = dat_type_field_default(ci, fj);
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  if (dv.v == DT_S) {
+                      const char *sv = dv.s ? dv.s : ""; emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                      emit_textf("0\n");
+                  }
+                  else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
+                  emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
+                  if (dv.v == DT_S) { emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_s@PLT\n"); }
+                  else if (dv.v == DT_R) { emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_r@PLT\n"); }
+                  else { emit_textf("  mov rdx, %lld\n", (long long)dv.i); emit_textf("  call dat_set_field_default_i@PLT\n"); }
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          extern int dat_type_field_required(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                  if (!dat_type_field_required(ci, fj)) continue;
+                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
+                  emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
+                  emit_textf("  call dat_set_field_required@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          extern int dat_type_field_rw(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                  if (!dat_type_field_rw(ci, fj)) continue;
+                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
+                  emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
+                  emit_textf("  call dat_set_field_rw@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          extern int dat_type_field_sigil(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                  int sg = dat_type_field_sigil(ci, fj); if (sg != '@' && sg != '%') continue;
+                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
+                  emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
+                  emit_textf("  mov rdx, %d\n", sg);
+                  emit_textf("  call dat_set_field_sigil@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
+          extern int dat_type_field_priv(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                  if (!dat_type_field_priv(ci, fj)) continue;
+                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
+                  emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
+                  emit_textf("  call dat_set_field_priv@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              int nm = dat_type_nmethods(ci); if (nm <= 0) continue;
+              for (int mj = 0; mj < nm; mj++) {
+                  const char *mn = dat_type_method_at(ci, mj); if (!mn || !*mn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
+                  emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
+                  emit_textf("  call dat_add_method@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int);
+          extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              if (!dat_type_has_build(ci)) continue;
+              emit_textf("  .section .rodata\n");
+              emit_textf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+              emit_textf("  .Lbldnull%d: .byte 0\n", ci);
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+              emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
+              emit_textf("  call dat_set_build_key@PLT\n");
+              int nk = dat_type_nbuild_keys(ci);
+              for (int kj = 0; kj < nk; kj++) {
+                  const char *kn = dat_type_build_key_at(ci, kj); if (!kn || !*kn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                  emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
+                  emit_textf("  call dat_set_build_key@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int);
+          extern const char *dat_type_handles_meth_at(int, int); extern const char *dat_type_handles_fld_at(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              int nh = dat_type_nhandles(ci); if (nh <= 0) continue;
+              for (int hj = 0; hj < nh; hj++) {
+                  const char *hm = dat_type_handles_meth_at(ci, hj); const char *hf = dat_type_handles_fld_at(ci, hj);
+                  if (!hm || !*hm || !hf || !*hf) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj); for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj); for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
+                  emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
+                  emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
+                  emit_textf("  call dat_add_handles@PLT\n");
+              }
+          } }
+        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
+          int n_cls = dat_type_count();
+          for (int ci = 0; ci < n_cls; ci++) {
+              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
+              int nr = dat_type_nroles(ci); if (nr <= 0) continue;
+              for (int rj = 0; rj < nr; rj++) {
+                  const char *rn = dat_type_role_at(ci, rj); if (!rn || !*rn) continue;
+                  emit_textf("  .section .rodata\n");
+                  emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                  emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
+                  emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
+                  emit_textf("  call class_compose_role@PLT\n");
+              }
+          } }
+        { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
+          int n_gram = rt_grammar_count();
+          for (int gi = 0; gi < n_gram; gi++) {
+              const char *qn = rt_grammar_qname(gi); const char *bd = rt_grammar_body(gi);
+              if (!qn || !bd) continue;
+              emit_textf("  .section .rodata\n");
+              emit_textf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+              emit_textf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              emit_textf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
+              emit_textf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
+              emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
+              emit_textf("  call rt_grammar_register@PLT\n");
+          } }
+        for (int i = 0; i < n_procs; i++) {
+            ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
+            if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) continue;   /* ⭐ EXPR-THUNK EXITS (s96): the EXPR$ thunk (kind 2) is dyn_scope with NO DEFINE site, so it is registered HERE at startup like the non-dyn rows; every other dyn_scope row keeps the s57 site registration. */   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_define_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
+            if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl) continue; }   /* STARTUP-HOIST-DELETE (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE at node 20"): a LBL__ row that is some DEFINE's entry label is NOT registered at startup — the function's registration is rt_define_site at its statement, and its fn is the natural entry label (bb_define_bind's lea).  With the balias rename gone the startup lea's LBL__<entry> symbol no longer exists, so this skip is also what keeps the .s linkable.  Non-DEFINE LBL__ rows (computed-goto label registry) keep the startup hoist verbatim — a label has no statement site. */
+            { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the whole per-proc setter ladder collapses to ONE static 64B .rodata record + ONE rt_proc_register_rec call; the record layout is rt.h's rt_proc_reg_rec_t, pinned there by _Static_asserts.  rt_proc_register_rec replays the exact old call sequence, so behavior is identical by construction.  SCRIP_ONE_REG=0 restores the pre-s119 ladder byte-for-byte. */
+            if (_onereg) {
+                extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));   /* same predicate as the old dcfn arm (PL-DC s108/s112) */
+                int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w) twin */
+                int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
+                int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);   /* the old per-k rt_proc_set_pname loop's guard */
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: register the name the table holds — oracle law, see pre-ONE-REG arm */
+                if (pe->dyn_scope) {
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                    emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                    emit_textf("  .quad 0\n");
+                }
+                if (_rkulex) {
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name);
+                    emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }   /* NULL entry = stop, matching the old loop's continue-free k order: the old arm skipped unnamed ks by continue, but lower_sc gaps do not occur for raku lex rows; the rec loop stops at the first NULL, identical coverage */
+                    emit_textf("  .quad 0\n");
+                }
+                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, pe->result_name);
+                emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
+                emit_textf("  .quad .Lstartup_pname%d\n", i);
+                if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));   /* fn face: BARE-CHAIN s62 + s112 rename, same symbols as the old set_fn lea */
+                if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
+                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
+                if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else emit_textf("  .quad 0\n");
+                emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
+                emit_textf("  .section .text\n");
+                emit_textf("  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
+                emit_textf("  call rt_proc_register_rec@PLT\n");
+            } else {
+            emit_textf("  .section .rodata\n");
+            emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: the LBL__<N> row registers under its OWN name — an earlier s62 attempt stripped the prefix so ARG/LOCAL would find "jlab", which MEASURABLY diverged from the sbl oracle on 1017_arg_local (oracle returns the prototype name as written; the stripped-name lookup resolved to the upcased formal and flipped every assertion).  The oracle is the law: register the name the table holds. */
+            if (pe->dyn_scope) {
+                for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
+                    emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                emit_textf("  .quad 0\n");
+            }
+            emit_textf("  .section .text\n");
+            emit_textf("  .intel_syntax noprefix\n");
+            if (pe->dyn_scope) {
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
+                emit_textf("  mov edx, %d\n", proc_nparams_buf[i]);
+                emit_textf("  call rt_proc_register@PLT\n");
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, 1\n");
+                emit_textf("  call rt_proc_set_dyn_scope@PLT\n");
+                if (pe->result_name && strcmp(pe->result_name, pe->name)) {
+                    emit_textf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
+                    emit_textf("  call rt_proc_set_result_name@PLT\n");
+                }
+            }
+            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+            if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));   /* BARE-CHAIN (Lon s62) + s112 rename: the body label's asm symbol IS the rt key, LBL__<entry> */
+            else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(proc_names_buf[i]));   /* s112 rename: the DEFINE wrapper face is FN__<FN> — proc_<FN>_\xce\xb1 removed */
+            emit_textf("  call rt_proc_set_fn@PLT\n");
+            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+            emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
+            emit_textf("  call rt_proc_set_nparams@PLT\n");
+            { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w): m4 startup mirrors the direct m3 registration — 0 for unsplit frontends, runtime falls back */
+              emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+              emit_textf("  mov esi, %d\n", _nf);
+              emit_textf("  call rt_proc_set_nformals@PLT\n"); }
+            { int _pi2 = proc_pidx_buf[i];
+              if (is_raku && _pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
+                if (!_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
+                    const char *_pn = _pe->lower_sc.e[k].name; if (!_pn) continue;
+                    emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  mov esi, %d\n", k);
+                    emit_textf("  lea rdx, [rip + .Lstartup_qp%d_%d]\n", i, k);
+                    emit_textf("  call rt_proc_set_pname@PLT\n");
+                } } }
+            if (proc_fb_buf[i] > 0) {
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
+                emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
+            }
+            if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {   /* PS-1b (s151): mode-4 printed twin of the m3 rt_proc_set_zstatic — only for PAT$ procs (the SNO$MKPAT consumer set) and only when statically proven; unregistered stays the conservative 0 */
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, 1\n");
+                emit_textf("  call rt_proc_set_zstatic@PLT\n");
+            }
+            if (pe->is_variadic) {
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, 1\n");
+                emit_textf("  call rt_proc_set_variadic@PLT\n");
+            }
+            if (pe->rest_kind) {   /* the m4 twin of the in-process rt_proc_set_rest_kind — WITHOUT this the standalone binary binds the slurpy tail as a DT_DATA list and .elems/subscripts read garbage, the exact silent-wrong-answer shape of the s2026-07-26b pname replay gap: the startup replay is an ALLOWLIST, not a snapshot, so m3 passing proves nothing about m4.  Emitted only when the fact is set, so every peer language's .s stays byte-identical. */
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, %d\n", pe->rest_kind);
+                emit_textf("  call rt_proc_set_rest_kind@PLT\n");
+            }
+            if (pe->named_rest) {   /* the m4 twin of the in-process rt_proc_set_named_rest — same ALLOWLIST law as rest_kind directly above: without it the standalone binary leaves the *%h collector slot unbound and every named-arg key silently vanishes while m3 reads clean.  Emits pe->named_rest, never a literal, so a second collector slot cannot be downgraded (the s2026-07-27 hardcoded-mov-esi-1 lesson). */
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, %d\n", pe->named_rest);
+                emit_textf("  call rt_proc_set_named_rest@PLT\n");
+            }
+            {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
+                emit_textf("  call rt_proc_set_jmpentry@PLT\n");
+                { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
+                    emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
+                if (pe->is_generator) {
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  mov esi, 1\n");
+                    emit_textf("  call rt_proc_set_generator@PLT\n");
+                }
+            }
+            } }
+        }
+        emit_textf("  add rsp, 8\n");
+        emit_textf("  ret\n");
+    }
+}
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -958,7 +1306,7 @@ int main(int argc, char **argv)
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-                emit_textf("  call main_init\n");
+                emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
@@ -986,351 +1334,7 @@ int main(int argc, char **argv)
                 emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
             } else
             emit_textf("  jmp main_\xce\xb1\n");
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
-                emit_textf("main_init:\n");
-                emit_textf("  sub rsp, 8\n");
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      emit_textf("  .section .rodata\n");
-                      emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
-                      emit_textf(")\"\n");
-                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                      emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
-                      emit_textf("  call record_register@PLT\n");
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      int np = dat_type_nparents(ci); if (np <= 0) continue;
-                      emit_textf("  .section .rodata\n");
-                      emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
-                      for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
-                      emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
-                      for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
-                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                      emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
-                      emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
-                      emit_textf("  mov rdx, %d\n", np);
-                      emit_textf("  call class_inherit_multi@PLT\n");
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                          if (!dat_type_field_has_default(ci, fj)) continue;
-                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          DESCR_t dv = dat_type_field_default(ci, fj);
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          if (dv.v == DT_S) {
-                              const char *sv = dv.s ? dv.s : ""; emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
-                              emit_textf("0\n");
-                          }
-                          else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
-                          emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
-                          if (dv.v == DT_S) { emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_s@PLT\n"); }
-                          else if (dv.v == DT_R) { emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_r@PLT\n"); }
-                          else { emit_textf("  mov rdx, %lld\n", (long long)dv.i); emit_textf("  call dat_set_field_default_i@PLT\n"); }
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  extern int dat_type_field_required(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                          if (!dat_type_field_required(ci, fj)) continue;
-                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
-                          emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
-                          emit_textf("  call dat_set_field_required@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  extern int dat_type_field_rw(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                          if (!dat_type_field_rw(ci, fj)) continue;
-                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
-                          emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
-                          emit_textf("  call dat_set_field_rw@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  extern int dat_type_field_sigil(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                          int sg = dat_type_field_sigil(ci, fj); if (sg != '@' && sg != '%') continue;
-                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
-                          emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
-                          emit_textf("  mov rdx, %d\n", sg);
-                          emit_textf("  call dat_set_field_sigil@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-                  extern int dat_type_field_priv(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                          if (!dat_type_field_priv(ci, fj)) continue;
-                          const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
-                          emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
-                          emit_textf("  call dat_set_field_priv@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      int nm = dat_type_nmethods(ci); if (nm <= 0) continue;
-                      for (int mj = 0; mj < nm; mj++) {
-                          const char *mn = dat_type_method_at(ci, mj); if (!mn || !*mn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
-                          emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
-                          emit_textf("  call dat_add_method@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int);
-                  extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      if (!dat_type_has_build(ci)) continue;
-                      emit_textf("  .section .rodata\n");
-                      emit_textf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                      emit_textf("  .Lbldnull%d: .byte 0\n", ci);
-                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                      emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                      emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
-                      emit_textf("  call dat_set_build_key@PLT\n");
-                      int nk = dat_type_nbuild_keys(ci);
-                      for (int kj = 0; kj < nk; kj++) {
-                          const char *kn = dat_type_build_key_at(ci, kj); if (!kn || !*kn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                          emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
-                          emit_textf("  call dat_set_build_key@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int);
-                  extern const char *dat_type_handles_meth_at(int, int); extern const char *dat_type_handles_fld_at(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      int nh = dat_type_nhandles(ci); if (nh <= 0) continue;
-                      for (int hj = 0; hj < nh; hj++) {
-                          const char *hm = dat_type_handles_meth_at(ci, hj); const char *hf = dat_type_handles_fld_at(ci, hj);
-                          if (!hm || !*hm || !hf || !*hf) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj); for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj); for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
-                          emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
-                          emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
-                          emit_textf("  call dat_add_handles@PLT\n");
-                      }
-                  } }
-                { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
-                  int n_cls = dat_type_count();
-                  for (int ci = 0; ci < n_cls; ci++) {
-                      const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-                      int nr = dat_type_nroles(ci); if (nr <= 0) continue;
-                      for (int rj = 0; rj < nr; rj++) {
-                          const char *rn = dat_type_role_at(ci, rj); if (!rn || !*rn) continue;
-                          emit_textf("  .section .rodata\n");
-                          emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                          emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                          emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
-                          emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
-                          emit_textf("  call class_compose_role@PLT\n");
-                      }
-                  } }
-                { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
-                  int n_gram = rt_grammar_count();
-                  for (int gi = 0; gi < n_gram; gi++) {
-                      const char *qn = rt_grammar_qname(gi); const char *bd = rt_grammar_body(gi);
-                      if (!qn || !bd) continue;
-                      emit_textf("  .section .rodata\n");
-                      emit_textf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                      emit_textf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                      emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                      emit_textf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
-                      emit_textf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
-                      emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
-                      emit_textf("  call rt_grammar_register@PLT\n");
-                  } }
-                for (int i = 0; i < n_procs; i++) {
-                    ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
-                    if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) continue;   /* ⭐ EXPR-THUNK EXITS (s96): the EXPR$ thunk (kind 2) is dyn_scope with NO DEFINE site, so it is registered HERE at startup like the non-dyn rows; every other dyn_scope row keeps the s57 site registration. */   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_define_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
-                    if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl) continue; }   /* STARTUP-HOIST-DELETE (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE at node 20"): a LBL__ row that is some DEFINE's entry label is NOT registered at startup — the function's registration is rt_define_site at its statement, and its fn is the natural entry label (bb_define_bind's lea).  With the balias rename gone the startup lea's LBL__<entry> symbol no longer exists, so this skip is also what keeps the .s linkable.  Non-DEFINE LBL__ rows (computed-goto label registry) keep the startup hoist verbatim — a label has no statement site. */
-                    { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the whole per-proc setter ladder collapses to ONE static 64B .rodata record + ONE rt_proc_register_rec call; the record layout is rt.h's rt_proc_reg_rec_t, pinned there by _Static_asserts.  rt_proc_register_rec replays the exact old call sequence, so behavior is identical by construction.  SCRIP_ONE_REG=0 restores the pre-s119 ladder byte-for-byte. */
-                    if (_onereg) {
-                        extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));   /* same predicate as the old dcfn arm (PL-DC s108/s112) */
-                        int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w) twin */
-                        int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
-                        int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);   /* the old per-k rt_proc_set_pname loop's guard */
-                        emit_textf("  .section .rodata\n");
-                        emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: register the name the table holds — oracle law, see pre-ONE-REG arm */
-                        if (pe->dyn_scope) {
-                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                            emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
-                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
-                            emit_textf("  .quad 0\n");
-                        }
-                        if (_rkulex) {
-                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name);
-                            emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
-                            for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }   /* NULL entry = stop, matching the old loop's continue-free k order: the old arm skipped unnamed ks by continue, but lower_sc gaps do not occur for raku lex rows; the rec loop stops at the first NULL, identical coverage */
-                            emit_textf("  .quad 0\n");
-                        }
-                        if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, pe->result_name);
-                        emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
-                        emit_textf("  .quad .Lstartup_pname%d\n", i);
-                        if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));   /* fn face: BARE-CHAIN s62 + s112 rename, same symbols as the old set_fn lea */
-                        if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
-                        if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
-                        if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else emit_textf("  .quad 0\n");
-                        emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
-                        emit_textf("  .section .text\n");
-                        emit_textf("  .intel_syntax noprefix\n");
-                        emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
-                        emit_textf("  call rt_proc_register_rec@PLT\n");
-                    } else {
-                    emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: the LBL__<N> row registers under its OWN name — an earlier s62 attempt stripped the prefix so ARG/LOCAL would find "jlab", which MEASURABLY diverged from the sbl oracle on 1017_arg_local (oracle returns the prototype name as written; the stripped-name lookup resolved to the upcased formal and flipped every assertion).  The oracle is the law: register the name the table holds. */
-                    if (pe->dyn_scope) {
-                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                            emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                        emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
-                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
-                        emit_textf("  .quad 0\n");
-                    }
-                    emit_textf("  .section .text\n");
-                    emit_textf("  .intel_syntax noprefix\n");
-                    if (pe->dyn_scope) {
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
-                        emit_textf("  mov edx, %d\n", proc_nparams_buf[i]);
-                        emit_textf("  call rt_proc_register@PLT\n");
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, 1\n");
-                        emit_textf("  call rt_proc_set_dyn_scope@PLT\n");
-                        if (pe->result_name && strcmp(pe->result_name, pe->name)) {
-                            emit_textf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
-                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            emit_textf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
-                            emit_textf("  call rt_proc_set_result_name@PLT\n");
-                        }
-                    }
-                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));   /* BARE-CHAIN (Lon s62) + s112 rename: the body label's asm symbol IS the rt key, LBL__<entry> */
-                    else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(proc_names_buf[i]));   /* s112 rename: the DEFINE wrapper face is FN__<FN> — proc_<FN>_\xce\xb1 removed */
-                    emit_textf("  call rt_proc_set_fn@PLT\n");
-                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
-                    emit_textf("  call rt_proc_set_nparams@PLT\n");
-                    { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w): m4 startup mirrors the direct m3 registration — 0 for unsplit frontends, runtime falls back */
-                      emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                      emit_textf("  mov esi, %d\n", _nf);
-                      emit_textf("  call rt_proc_set_nformals@PLT\n"); }
-                    { int _pi2 = proc_pidx_buf[i];
-                      if (is_raku && _pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
-                        if (!_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
-                            const char *_pn = _pe->lower_sc.e[k].name; if (!_pn) continue;
-                            emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
-                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            emit_textf("  mov esi, %d\n", k);
-                            emit_textf("  lea rdx, [rip + .Lstartup_qp%d_%d]\n", i, k);
-                            emit_textf("  call rt_proc_set_pname@PLT\n");
-                        } } }
-                    if (proc_fb_buf[i] > 0) {
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
-                        emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
-                    }
-                    if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {   /* PS-1b (s151): mode-4 printed twin of the m3 rt_proc_set_zstatic — only for PAT$ procs (the SNO$MKPAT consumer set) and only when statically proven; unregistered stays the conservative 0 */
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, 1\n");
-                        emit_textf("  call rt_proc_set_zstatic@PLT\n");
-                    }
-                    if (pe->is_variadic) {
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, 1\n");
-                        emit_textf("  call rt_proc_set_variadic@PLT\n");
-                    }
-                    if (pe->rest_kind) {   /* the m4 twin of the in-process rt_proc_set_rest_kind — WITHOUT this the standalone binary binds the slurpy tail as a DT_DATA list and .elems/subscripts read garbage, the exact silent-wrong-answer shape of the s2026-07-26b pname replay gap: the startup replay is an ALLOWLIST, not a snapshot, so m3 passing proves nothing about m4.  Emitted only when the fact is set, so every peer language's .s stays byte-identical. */
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, %d\n", pe->rest_kind);
-                        emit_textf("  call rt_proc_set_rest_kind@PLT\n");
-                    }
-                    if (pe->named_rest) {   /* the m4 twin of the in-process rt_proc_set_named_rest — same ALLOWLIST law as rest_kind directly above: without it the standalone binary leaves the *%h collector slot unbound and every named-arg key silently vanishes while m3 reads clean.  Emits pe->named_rest, never a literal, so a second collector slot cannot be downgraded (the s2026-07-27 hardcoded-mov-esi-1 lesson). */
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, %d\n", pe->named_rest);
-                        emit_textf("  call rt_proc_set_named_rest@PLT\n");
-                    }
-                    {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
-                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                        emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
-                        emit_textf("  call rt_proc_set_jmpentry@PLT\n");
-                        { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
-                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
-                            emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
-                        if (pe->is_generator) {
-                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            emit_textf("  mov esi, 1\n");
-                            emit_textf("  call rt_proc_set_generator@PLT\n");
-                        }
-                    }
-                    } }
-                }
-                emit_textf("  add rsp, 8\n");
-                emit_textf("  ret\n");
-            }
-            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }   /* s62 SAFETY: free strdup'd names */
-            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
+            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "main_init");   /* OFF arm — historical position, pre-backfill proc_fb_buf, historical label name */
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1368,7 +1372,11 @@ int main(int argc, char **argv)
                 { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
                 /* STATEMENT-ORDER FB-BACKFILL (s62): LBL__ rows share main's frame — ARG/LOCAL read frame_bytes at runtime to index formals/locals.  At record time (line 926) we wrote 0 because the LBL__ standalone chain no longer emits and g_last_flat_frame_bytes was stale from the prior proc; now main has emitted, g_last_flat_frame_bytes holds its true value, and every LBL__ row that shares main's bb_idx gets that value so the registration call is emitted correctly.  Use proc_table directly (proc_names_buf may be corrupted by emission-time arena activity on large programs). */
                 { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }   /* ⛔⭐⭐⭐ MODULE-INIT ORDERING BARRIER (measured s123, NOT a candidate for relocation): this loop WRITES proc_fb_buf, and the main_init/module_init block ABOVE (scrip.c:989-1331) READS proc_fb_buf at three sites (the .long proc record and the two `mov esi,<fb>` stores).  main_init is emitted BEFORE this patch runs, so it emits the PRE-PATCH values BY CONSTRUCTION.  Moving that block to the bottom — the s122 module_init design — therefore silently changes what it emits wherever this loop fires.  MEASURED over 292 programs: fires on 4 — beauty.sno(14) porter.sno(30) TDump_driver.sno(6) Qize.sno(2) — and ZERO on all 72 benchmark+probe programs, which is exactly why a witness set drawn from the benchmarks would have called the move byte-identical and shipped it.  beauty.sno is Milestone 1's own program.  Any module_init relocation must FIRST decide whether the post-patch values are the correct ones (this loop looks like a late fixup for LBL__ procs sharing main's bb_idx, so "after" may well be the RIGHT answer) and prove it against those four, not against the benchmarks. */
+                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "module_init");   /* ON arm — AFTER the FB-backfill above, so the LBL__ rows carry main frame_bytes instead of the stale 0 */
             }
+            /* ⛔ UAF FIX (s125, unconditional, byte-inert): these frees stood at the historical :1332-1333, ABOVE the FB-backfill that indexes proc_fb_buf and proc_pidx_buf — a use-after-free on both, gdb-confirmed s123 (nulling the freed pointers under a probe turned beauty rc=0 into rc=139 at the backfill).  Moving the free BELOW every reader fixes it in the direction that keeps the bug visible; moving the backfill below the free would have silenced the UAF and buried the inertness. */
+            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }   /* s62 SAFETY: free strdup'd names */
+            free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             g_gva_active = 0;
             g_frame_active = 0;
             extern void xa_emit_strtab_rodata(void);
