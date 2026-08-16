@@ -14,6 +14,8 @@ extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
 extern "C" void *rt_defer_get_pat_dtp(const char *varname, int ival_flag);
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag);
+extern "C" int rt_defer_run_all(const char *varname, int cur_delta);
+extern "C" int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta);
 extern "C" void *dtp_fn_of(void *headv);
 extern "C" uint64_t g_sno_defer_cells[4096];
 extern uint64_t g_scan_hit_start;
@@ -22,6 +24,7 @@ extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_r
 #include "x86_asm.h"
 #define dswap() (x86_zc_frame() == ZC_FRAME_RSP)
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* s142 DEFER-SITE DIET kill-switch (NOFILL precedent): =0 restores the uncached GVA dance for A/B and emergencies */
+static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ONE-DEFER (Lon s119): =0 restores the pre-s119 open/open_fn/epilogue-loop/step/close arm byte-for-byte */
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
@@ -146,7 +149,23 @@ std::string bb_match_defer() {
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
-         + x86("def",  "L0")
+         + (one_defer()
+             ? x86("def",  "L0")   /* ONE-DEFER arm: resolution + thunk-eval + literal-match close in ONE C call; the emitted open/open_fn/epilogue/step round-trips fold into rt_defer_run_all\047s rt_call_proc_descr (s117 by-name entry).  δ rides an ARG (r14d is untouched between α and here on this path), result comes back in eax with close\047s exact contract; the success tail below is shared with the legacy arm verbatim. */
+             + x86_xfer_enter()
+             + IF(vslot < 0,
+                   x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+                 + x86("mov",  "esi", "r14d"))
+             + IF(vslot >= 0,
+                   x86("mov",  "rdi", RDQ("rbp", -24))
+                 + x86("mov",  "esi", (long)vslot)
+                 + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+                 + x86("mov",  "ecx", "r14d"))
+             + x86_anchor_enter()
+             + IF(vslot < 0,  x86("call", "rt_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_defer_run_all))
+             + IF(vslot >= 0, x86("call", "rt_patv_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(void *, long, const char *, int))rt_patv_defer_run_all))
+             + x86_anchor_leave()
+             + x86_xfer_leave()
+             : x86("def",  "L0")
          + x86_xfer_enter()
          + IF(vslot < 0,
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
@@ -199,6 +218,7 @@ std::string bb_match_defer() {
          + x86_align_enter()
          + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)
          + x86_align_leave()
+         )
          + x86("test", "eax", "eax")
          + x86_omega("js")
          + x86("mov",  "r14d", "eax")

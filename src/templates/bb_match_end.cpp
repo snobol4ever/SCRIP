@@ -15,9 +15,11 @@ extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" long zvo_owner_dout(int cur_head);
+extern "C" long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer);
 #include "x86_asm.h"
 #define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
 #define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)   /* M-2: mirrors bb_match_begin's hfc() -- true when MATCH_BEGIN allocated the 80B hfc sentinel+PATCTX region */
+static int one_end(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_END"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ONE-END (Lon s119): =0 restores the pre-s119 open/epilogue-loop/close/ctx_restore pump byte-for-byte */
 static int oscap_l(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OS_CAP"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int has_replace_l(void) { if (!g_emit_cfg) return 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && (_nd->op == IR_MATCH_REPLACE || _nd->op == IR_MATCH_FENCE1 || _nd->op == IR_MATCH_ABORT || _nd->op == IR_MATCH_ARBNO)) return 1; } return 0; }   /* ⭐ FENCE1/ABORT joined (measured, H01/H04/H06/H18/H28): both whack rsp to the ___ floor mid-match, discarding the zclaim(48) that backs HKQ -- subsequent quartet traffic then aliases re-carved spine cells (SEGV).  Same law as the slot authority declines: whack-hazard graphs keep legacy homes.  ARBNO joined (measured, X10): the ARB-LON-K16 mechanism-2 statement release reads old____ through the POSITIVE [___+pin] slot (x86_asm.h HEAD-PIN restore), which the widened head abandons for HKQ(0) -- correct output then exit SEGV on the stale base.  ARBNO graphs keep the legacy quartet home until that restore reads through the one macro too (later rung). */
 #define stfh() (_.flat_stmt_frame || (oscap_l() && _.flat_deep_arrival && !_.flat_jmp_entry && !_.flat_lcl_proc && !_.zframe_graph && !_.flat_pat && !_.flat_gen && !has_replace_l()))   /* ⭐ OS-2·SLICE-1 QUARTET RE-HOME: the PATCTX/old____ quartet's FRQ(op_off+40..72) positive-off spelling on carve-less legacy deep MAINS rides finite CRT slack and was CAUGHT (hardware watchpoint) smashing environ[1] via the [___+312] old____ store when the head's ZLS off grew past ~336 (dc_recur m4) -- the s22r/s23a class, quartet family.  The stfh arm is the head's OWN correct negative-home protocol (HKQ [___-48..-8] backed by its zclaim(48)); widening its predicate to the GLUE-O legacy-deep-main class re-homes stores AND restores through the ONE macro in both files -- no split ends possible.  REPLACE graphs excluded: bb_match_replace.cpp:33 restores ___ from FRQ(op_off+40) directly and would read the abandoned slot; their quartet keeps legacy slack behavior (pre-existing risk, unchanged).  oscap_l: SCRIP_OS_CAP=0 restores the bare flat_stmt_frame predicate -- byte-identical legacy per the killswitch law.  Capture δ slots live at [___-64-16k], strictly BELOW this zone -- no overlap by construction. */
@@ -33,7 +35,7 @@ static std::string mend_bank_cursors() {   /* ⭐ R-3(c) CURSOR ARENA-RIDE, bank
          : std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string release_pump() {
+static std::string release_pump_legacy() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
@@ -95,6 +97,54 @@ static std::string release_pump() {
          /* M-2 BUG-6 FIX: PATCTX-ASCENT add rsp,80 deleted (paired with DESCENT deletion above). After PATCTX restores rsp remains at pre-32B-carve level; STATEMENT_END's add rsp,16 releases the subject var cell correctly. */
          + x86_gamma();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string release_pump_one() {   /* ONE-END arm (Lon s119): {open + [dead L3/L4 epilogue loop] + close + ctx_restore} folds to ONE rt_match_end_all call.  MARK derivation, outer-Σ/Δ slot homes, and the whole post-call tail (CAS spin, r13/14/15 reload, repl push, whack, γ) are copied from release_pump_legacy VERBATIM minus the ctx_restore call — deliberate twin duplication, the HKQ house pattern: a drift between the arms is what the killswitch A/B exists to catch. */
+    return std::string()
+         + x86_xfer_enter()
+         + x86_anchor_enter()
+         + (emit_match_rbp()
+             ? x86("note", "cas_mark") + x86("mov", "rdi", RDQ("rbp", -8))
+             + x86("note", HKN(3)) + x86("mov", "rax", RDQ("rbp", -32))
+             + x86("note", HKN(1)) + x86("mov", "rcx", RDQ("rbp", -16))
+             : x86("mov",  "r8", "r12")
+             + x86("def",  L(5))
+             + x86("sub",  "r8", (long)24)
+             + x86("mov",  "rax", RDQ("r8", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne",  L(5))
+             + x86("lea",  "rdi", RDQ("r8", 24))
+             + x86("note", HKN(3)) + x86("mov", "rax", stfh() ? HKQ(3) : FRQ(_.op_off + 64))
+             + x86("note", HKN(1)) + x86("mov", "rcx", stfh() ? HKQ(1) : FRQ(_.op_off + 48)))
+         + x86("push", "rax")
+         + x86("push", "rcx")
+         + x86("lea",  "rcx", RDQ("rsp", 0))
+         + x86("mov",  "rsi", "r12")
+         + x86("mov",  "rdx", "r13")
+         + x86("call", "rt_match_end_all", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *, const uint64_t *))rt_match_end_all)
+         + x86("add",  "rsp", (long)16)
+         + x86_anchor_leave()
+         + x86_xfer_leave()
+         + (emit_match_rbp()
+             ? x86("note", "cas_mark") + x86("mov", "r12", RDQ("rbp", -8))
+             + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))
+             + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))
+             + x86("note", HKN(3)) + x86("mov", "r15", RDQ("rbp", -32))
+             : x86("note", "cas_mark") + x86("def", L(10)) + x86("sub", "r12", (long)24) + x86("mov", "rax", RDQ("r12", 0)) + x86("test", "rax", "rax") + x86("jne", L(10))
+             + x86("note", HKN(1)) + x86("mov", "r13", stfh() ? HKQ(1) : FRQ(_.op_off + 48))
+             + x86("note", HKN(2)) + x86("mov", "r14", stfh() ? HKQ(2) : FRQ(_.op_off + 56))
+             + x86("note", HKN(3)) + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64)))
+         + IF(emit_match_rbp() && _.op_dval != 0.0,
+               x86("note", "repl_start") + x86("mov", "eax", RDD("rbp", -48))
+             + x86("mov", RDD("r12", 0), "eax")
+             + x86("note", "repl_end")   + x86("mov", "rax", RDQ("rbp", -56))
+             + x86("mov", RDQ("r12", 8), "rax")
+             + x86("add", "r12", (long)16))
+         + IF(emit_match_rbp(), x86("note", "frame_whack") + x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
+         + IF(_.op_dval == 0.0 && _.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
+         + x86_gamma();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string release_pump() { return one_end() ? release_pump_one() : release_pump_legacy(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_end() {
     x86_begin();
