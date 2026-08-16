@@ -76,8 +76,7 @@ RTX_GATE_DEF(icnrel)
  * A _Static_assert cannot reach an asm #define (the rtx_icncall.S DT_E=11 lesson, ICN-ZFRAME s15) -- re-verify
  * against descr.h on every edit of this file. Stale tags here are SILENT: every fast arm simply never matches
  * (perf-only) EXCEPT rt_str_coerce, whose identity arm then returns csets UNCONVERTED (wrong answers). */
-#define DT_S     0x02
-#define DT_I     0x03
+/* ⛔ NO TAG LITERALS HERE: DT_S/DT_I arrive from descr_tags.inc via rtx_abi.inc. Local defines agreed with descr.h at s237 but are the same shadowing class that made dat_field_get compare 100 against a live 0x70; removed so the gate can be exception-free. */
 
 RTX_FUNC(rt_jct_relop)
     RTX_GATE(icnrel, c_rt_jct_relop)

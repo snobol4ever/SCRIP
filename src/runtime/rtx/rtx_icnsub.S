@@ -114,17 +114,7 @@ RTX_GATE_DEF(icnsub)
 #define VCELL_LEN        64
 #define VCELL_SIZE       72
 #define DESCR_SIZE       16
-/* ⛔ rtx_abi.inc's tag list STOPS AT DT_FAIL 99 and has no DT_DATA. Defined here
- * rather than added there, because that header is shared state with SN4-RTX and a
- * tag-list edit is a needless rebase point. ⚠ AND THE OMISSION IS A LIVE TRAP, not
- * a nuisance: with DT_DATA undefined, `cmp edi, DT_DATA` ASSEMBLES CLEANLY as a
- * relocation against an undefined external symbol -- only the memory-operand form
- * `cmp dword ptr [r9 + k], DT_DATA` is ambiguous enough to be rejected. So the
- * register compare that guards this entire arm would have linked against whatever
- * the loader resolved and admitted the wrong datatype, silently. The assembler
- * caught this by accident, one line out of two. Pinned by _Static_assert in
- * rtx_init.c. */
-#define DT_DATA         100
+/* ⛔ DT_DATA IS NOT DEFINED HERE -- it arrives from descr_tags.inc via rtx_abi.inc (s230: "THE tag numbers live there and ONLY there"). The rationale that stood here ("rtx_abi.inc's tag list STOPS AT DT_FAIL 99 and has no DT_DATA") WAS TRUE WHEN WRITTEN AND WAS FALSIFIED BY s230, but the `#define DT_DATA 100` it justified was never removed, so it SHADOWED the include. 100 was chosen as "just above DT_FAIL 99"; DT_FAIL is really 0x68 = 104, so the boundary sat BELOW it. Measured in the shipped .so at s237: dat_field_get compared $0x64 while every C site compared $0x70. The equality arms here (.Lsub_bail) simply never matched, so RTX-24's list fast path was silently dead. Deleted s237; do not reintroduce a tag literal in this file. */
 /* ⛔ Precomputed BYTE offsets into the instance field vector, NOT written as
  * k*DESCR_SIZE: GNU as Intel syntax parses `X*Y` inside brackets as index*scale,
  * so [r9 + 0*DESCR_SIZE] is an INDEX REGISTER 0 with scale 16 and fails to

@@ -1,4 +1,5 @@
 /* rt_gram_trampoline.S - RK-GRAM-3b scan-entry trampoline (runtime plumbing; emits no program code).        */
+#include "descr_tags.inc"
 /* DESCR_t rk_gram_enter_box(bb_box_fn fn, const char* Sigma, long Delta, void* zeta, long* out_delta)       */
 /* SysV x86-64 args: rdi=fn, rsi=Sigma, rdx=Delta, rcx=zeta, r8=out_delta.                                  */
 /*                                                                                                            */
@@ -51,7 +52,7 @@ rk_gram_enter_box:
     ret
 .Lgrambox_ω:
     /* ω: fail. Return FAILDESCR: rax=0x68 (DT_FAIL), rdx=0. */
-    movl  $0x68, %eax            /* DT_FAIL; movl zeros upper 32b of rax */
+    movl  $DT_FAIL, %eax         /* single source descr_tags.inc; movl zeros upper 32b of rax */
     xorl  %edx, %edx
     movq  %r14, (%rbx)           /* *out_delta = delta (unchanged on full fail = 0) */
     addq  $8, %rsp
