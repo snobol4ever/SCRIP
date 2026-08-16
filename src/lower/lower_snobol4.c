@@ -2058,8 +2058,7 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, sh4 ? sh4 : exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
     gd->seal = 1;   /* ⭐ DEFINE-FOLD (s53): fold-eligible mark -- this goto's target is the CONSTANT entry label of a DEFINE, whose LBL__ body proc exists in this same compilation.  bb_goto_dyn's fold arm reads it (staged as op_ival at the dispatch) and emits the DIRECT transfer `lea rdi,[rip+proc_LBL__<name>_α]; call rt_chain_enter`, deleting the per-call rt_goto_transfer string lookup while preserving the chain protocol (callee-save pushes + fall-off landing) verbatim.  seal is free on this kind (no other consumer). */
-    IR_t * ad = lc_build(g, IR_SAVE_RESTORE, gd, failnd); IR_LIT(ad).ival = 3;   /* SN4-FLAT-PROC (s176) WIRE-ADOPT: copy the prologue-saved γ/ω wires + blob-entry rsp + caller ___ into the open pcall record BEFORE transferring into the body, so the program-wide RETURN/FRETURN floaters can restore machine state and jmp home from ANY depth — the body's exits no longer pass through this stub's exitnd at all */
-    g->entry = ad;
+    g->entry = gd;   /* ROLE-3 DELETE (Lon s114 in-chat: "remove the IR_SAVE_RESTORE since it DOES NOTHING... The FUNCTION wiring is already done via the SHIM, so this must be some OLD code that never materialized. Clean it up."): the WIRE-ADOPT box has been an empty label + relay since s54/s55 moved wire seating to the sites (r10/r11) — the stub graph now ENTERS at the IR_GOTO_DEFERRED itself; proc_role3_kind reads that entry shape as kind 1.  EXPR$/PAT$ thunks (kind 2) keep their role-3 entry: it is their kind discriminator, and their registration/startup path is unchanged. */
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2123,7 +2122,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * fA = lc_build(g, IR_GOTO, fJ, NULL); asgn_land[i] = fA;   /* fA: untagged it chains fA->fJ->fT, byte-equivalent to the direct wire by the same chase-transparency the fB comment records; the post-loop beta-tag makes STATEMENT_BEGIN.beta the named failure landing for the assignment class (STATEMENT-PORT LAWS).  UNWIND clause 2 guarantees claim-base arrival, so the slice-3 per-depth ladder the 1980 comment awaited is DELETED, not built. */   /* ⛔ FAIL EDGE DELIBERATELY UNCHANGED IN SLICE 2.  The rung's admission gate is "all fail edges arrive at depth 0", and a depth-0 arrival needs NO release -- so the box's omega is genuinely dead until slice 3's per-depth stub ladder lands WITH its planner (s22h atomicity).  Checked before assuming: the wire port selector in `.sz` carries alpha (0xce 0xb1) and beta (0xce 0xb2) and the sigma marker read at emit.cpp:2285 -- there is NO omega-ARRIVAL convention, so routing fail edges into the box is not a wiring detail that was skipped, it IS the slice-3 ladder. */
         if (is_def && is_def[i]) {
             /* LADDER AB (2026-08-08): mint the per-DEFINE ACTIVATION BLOCK node.  The block is jump-target-only dead code at this
-             * position -- nothing in the graph wires to it yet (AB-3 flips the call sites).  We build an IR_FUNC_ACTIVATE node
+             * position -- nothing in the graph wires to it yet (AB-3 flips the call sites).  We build an IR_DEFINE node
              * γ-wired to exitnd (the block's β is its own domain; exitnd is a safe dead sink here) and insert it off the side of
              * the anchor so the emitter lays it out as unreachable .text after the DEFINE skip.  The node carries op_sval=fname
              * and IR_LIT_STRING operands for each save-set member name so the emit-time drive can call gva_index_of on them.
@@ -2135,16 +2134,16 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 if (pnode && sno_qlit_fold(pnode)) {
                     sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
                     int nsave = 1 + d.nnames;   /* fname + formals + locals; encoded as n_operands by ir_operand_push below */
-                    IR_t * ab = lc_build(g, IR_FUNC_ACTIVATE, exitnd, failnd);
+                    IR_t * ab = lc_build(g, IR_DEFINE, exitnd, failnd);
                     IR_LIT(ab).sval = lp_strdup(d.fname);   /* fname in the union; n_operands carries nsave via ir_operand_push */
-                    ab->seal = d.nformals;   /* AB-3b: nformals in seal field (never set on IR_FUNC_ACTIVATE nodes — seal is IR_MATCH_DEFER-specific); surfaced as op_ab_nformals by emitter dispatch */
+                    ab->seal = d.nformals;   /* AB-3b: nformals in seal field (never set on IR_DEFINE nodes — seal is IR_MATCH_DEFER-specific); surfaced as op_ab_nformals by emitter dispatch */
                     /* operands: IR_LIT_STRING nodes carrying the variable names; emit drive calls gva_index_of at emit time */
                     { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.fname); ir_operand_push(ab, nm); }
                     for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
                     /* register in g->ab_nodes[] for post-main-chain emission by the driver (jump-target-only dead code until AB-3) */
                     if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
                     else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
-                    { IR_t * bind = lc_build(g, IR_FUNC_ACTIVATE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); /* ROLE = n_operands==0 (bind) vs >=1 (block): IR_LIT is a union, ival and sval share storage — measured this session. */ lc_γ_to(anchor[i], bind); continue; }   /* AB-3a (this session): the DEFINE residual bind joins the LIVE chain — anchor -> bind -> sJ (γ), ω = fA per the statement fail convention (unused: DEFINE errors are fatal, not fail).  ival=2 selects the bind arm in the emit dispatch; sval carries fname for the fname-derived α label and the shared cell registry.  This replaces the bare skip ONLY on the folded-prototype + SCRIP_AB path; the shared legacy skip below still serves _ab=0 and unfolded shapes, keeping SCRIP_AB=0 byte-identical. */
+                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); /* ROLE = n_operands==0 (bind) vs >=1 (block): IR_LIT is a union, ival and sval share storage — measured this session. */ lc_γ_to(anchor[i], bind); continue; }   /* AB-3a (this session): the DEFINE residual bind joins the LIVE chain — anchor -> bind -> sJ (γ), ω = fA per the statement fail convention (unused: DEFINE errors are fatal, not fail).  ival=2 selects the bind arm in the emit dispatch; sval carries fname for the fname-derived α label and the shared cell registry.  This replaces the bare skip ONLY on the folded-prototype + SCRIP_AB path; the shared legacy skip below still serves _ab=0 and unfolded shapes, keeping SCRIP_AB=0 byte-identical. */
                 }
             }
             /* ⭐⭐⭐ DEFINE-SITE s57 (Lon in-chat: "the code for DEFINE comes directly after the statement comment ... move it there. This is shared code"): the folded DEFINE statement ALWAYS carries the
@@ -2153,7 +2152,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
              * prototypes fall through to the bare skip (they are outside the landed fold subset and fatal upstream at :776 anyway). */
             { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase); const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
               if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
-                IR_t * bind = lc_build(g, IR_FUNC_ACTIVATE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); lc_γ_to(anchor[i], bind); continue; } }
+                IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); lc_γ_to(anchor[i], bind); continue; } }
             lc_γ_to(anchor[i], sJ); continue;
         }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;   /* PS-3 (s152): any goto part ends the unconditional corridor for SUBSEQUENT statements */

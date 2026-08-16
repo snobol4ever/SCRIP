@@ -34,6 +34,7 @@ std::string bb_save_restore() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     long role = (long)_.op_ival;
+    int inl5 = (role == 5) ? 1 : 0; if (inl5) role = 4;   /* SHIM-AT-STATEMENT (Lon s114 in-chat: "Move all the SHIM code emission directly after the spot where the DEFINE statement is"): role 5 = the role-4 shim emitted INLINE by the bind dispatch at the DEFINE statement — no box ports (the bind owns the node), skip-wrapped so inline flow jumps over it (entered only by name at <FN>_α), and the body transfer targets _.lbl_t0 VERBATIM (the natural n<uid>_statement_begin_α deposited from the dentry stamp) instead of LBL__<entry>.  m4 TEXT only; the m3 stub-blob role-4 arm is byte-identical. */
     if (role == 3) {
         /* ⛔⭐⭐⭐ LON RULING s54 (in-chat, verbatim substance): "delete all of that global variables. GONE. DONE.
          * We do not do that here. We have registers R10 and R11 for linkage, and plan on using the stack to
@@ -70,14 +71,14 @@ std::string bb_save_restore() {
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;   /* R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted; the shim's faces are same-chain extlbl, its body transfer rides the body$<ENTRY> cell (x86_jmp_via_cell) */
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
-        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ x86("comment", "IR_SAVE_RESTORE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma();
+        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return inl5 ? x86("comment", "role 5: shim declined inline (hatch or probe/formals shape) — sites fall to the slim arm") :   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ (x86("comment", "IR_SAVE_RESTORE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
         int xt4 = ns4 - nf4;   /* extra = locals + unshadowed result name (probe layout: gk[0..np)=formals then locals, gk[np..ns)=result iff unshadowed) */
         long T4 = 16L * xt4 + 32;   /* tail: extras' olds + {r10,r11} + {K,spare} */
         int rgx = rg4 < 0 ? 0 : rg4;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly.  s112 Lon in-chat: port labels spell the Greek letters (<FN>_α/_γ/_ω), never the English words */
-        std::string blb = std::string("LBL__") + en4;   /* BARE-CHAIN (Lon s62) + s112 rename (Lon in-chat): the body chain's one label IS the rt key spelling, LBL__<entry> — the <entry>_body spelling is removed */
+        std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);   /* BARE-CHAIN (Lon s62) + s112 rename: the body chain's one label IS the rt key spelling, LBL__<entry>.  NATURAL-LABEL (Lon s114): under role 5, en4 arrives as the ALREADY-RESOLVED natural port label (n<uid>_statement_begin_α from the dentry stamp) and is the whole spelling — no prefix. */
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());   /* R-1 s94: the gamma/omega faces interned ONCE -- lea (extlbl) and def share the object, both media */
         uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());   /* R-1 s94: filled by the m3 driver after main seals (LBL__ registration twin); TEXT never reads it */
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
@@ -133,7 +134,8 @@ std::string bb_save_restore() {
                                 + x86_deflabel_id(lid + 30 + i); })
                      + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
             return x86("comment", "IR_SAVE_RESTORE role 4: SIG s66 per-DEFINE shim (alpha=swap-by-map, gamma/omega=restore-by-map, CONSTANT frame)")
-                 + x86_alpha()
+                 + IF(inl5, x86_jmp_id(245))   /* SHIM-AT-STATEMENT (Lon s114): inline flow jumps OVER the shim — the statement's own trailer continues after the skip landing; the shim is entered only by name */
+                 + IF(!inl5, x86_alpha())
                  + x86_def_ext(emit_label_intern(la.c_str()))
                  + x86("sub", "rsp", F4)
                  + FOR(0, xt4, [&](int k) {
@@ -179,10 +181,12 @@ std::string bb_save_restore() {
                  + x86("add", "rsp", F4)
                  + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
                  + x86("jmp", "rcx")
-                 + x86_gamma();
+                 + IF(inl5, x86_deflabel_id(245))
+                 + IF(!inl5, x86_gamma());
         }
         return x86("comment", "IR_SAVE_RESTORE role 4: TINY-REAL s58 per-DEFINE shim (alpha=swap/extend, beta/omega=restore)")
-             + x86_alpha()
+             + IF(inl5, x86_jmp_id(245))   /* SHIM-AT-STATEMENT (Lon s114): same skip wrap as the SIG arm */
+             + IF(!inl5, x86_alpha())
              + x86_def_ext(emit_label_intern(la.c_str()))
              + x86_rsp_load64("rcx", 0)
              + x86("mov", "r8", "rsp") + x86("sub", "r8", 16L * nf4)
@@ -234,7 +238,8 @@ std::string bb_save_restore() {
              + x86("add", "rsp", "rax")
              + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
              + x86("jmp", "rcx")
-             + x86_gamma();
+             + IF(inl5, x86_deflabel_id(245))
+             + IF(!inl5, x86_gamma());
     }
     if (role == 1 || role == 2 || role == -1 /* NRETURN */) {
         /* ⛔⭐⭐⭐ LON RULING s54: globals GONE.  The RT_AB_ANCHOR global read and the rt_flat_ret_snap

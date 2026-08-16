@@ -27,7 +27,7 @@ void rt_define_site(const char *, const char *, int, int, int, void *);
 #define AB_TC_REG   "r8"
 #define AB_TC_REG_D "r8d"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_FUNC_ACTIVATE — LADDER AB (2026-08-09 AB-2): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
+/* IR_DEFINE — LADDER AB (2026-08-09 AB-2): per-DEFINE ACTIVATION BLOCK.                                                                                                                      */
 /* SPITBOL manual Ch.8 pp.102-106: DEFINE'd function saves fname/formals/locals on a pushdown stack                                                                                                   */
 /* at entry (here: an ___ frame) and restores them on RETURN/FRETURN/NRETURN.  Ch.16: &FNCLEVEL++                                                                                                     */
 /* at call, -- at return.  ABI frozen in contracts/ab_abi.h (ONE AUTHORITY).                                                                                                                          */
@@ -366,7 +366,7 @@ std::string bb_func_activate() {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* bb_ab_emit_nodes — post-main-chain sweep: emit one IR_FUNC_ACTIVATE block per DEFINE fold.                                                                                                         */
+/* bb_ab_emit_nodes — post-main-chain sweep: emit one IR_DEFINE block per DEFINE fold.                                                                                                         */
 /* Called from scrip.c after both m3 and m4 main-chain emission.  Saves/restores g_emit and related                                                                                                   */
 /* globals so the sweep is side-effect-free from the caller's perspective.                                                                                                                             */
 std::string bb_ab_bind() {
@@ -388,7 +388,7 @@ std::string bb_ab_bind() {
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    std::string blbl = std::string("FN__") + fname;   /* s112 rename (Lon in-chat): the DEFINE wrapper face is FN__<FN>, unexported — proc_<FN>_\xce\xb1 removed (supersedes the s62 keep) */
+    std::string blbl = _.lbl_t0 ? std::string(_.lbl_t0) : (std::string("FN__") + fname);   /* NATURAL-LABEL (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE"; supersedes the s112 FN__ face): the fn registered by rt_define_site is the body-entry statement's NATURAL port label (n<uid>_statement_begin_α, deposited into lbl_t0 by the bind dispatch from the dentry stamp) — the pre-main FN__ relay face is deleted with the stub blob.  Fallback spelling serves only the m3/BINARY path, where the name operand is unused (movabs bakes _fn from the registry). */
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
          + x86_ro_load_q("rdi", 0)
          + x86_ro_load_q("rsi", 1)
@@ -431,7 +431,7 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
     char ab_lbl_α[128], ab_lbl_β[128], ab_lbl_γ[128], ab_lbl_ω[128];
     for (int i = 0; i < g->ab_n; i++) {
         IR_t *nd = g->ab_nodes[i];
-        if (!nd || nd->op != IR_FUNC_ACTIVATE) continue;
+        if (!nd || nd->op != IR_DEFINE) continue;
         g_emit         = saved_emit;
         g_emit_cfg     = g;
         g_emit.op_sval = IR_LIT(nd).sval;
