@@ -41,7 +41,7 @@
  */
 #include "rtx_abi.inc"
 
-#define DT_E            0x38        /* src/contracts/descr.h DT_E = 0x38 (s229 renumber); old layout had 11 -- stale copies caught this session */
+/* ⛔ NO TAG LITERALS HERE: DT_E arrives from descr_tags.inc via rtx_abi.inc (removed s237, same shadowing class as the DT_DATA 100 defect). */
 #define PROCVAL_SLEN    0xFFFFFFFE
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

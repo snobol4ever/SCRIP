@@ -17,8 +17,7 @@
  * bit-identical to that pair, so rdi/rsi carry it unchanged and no repacking is owed.
  */
 #include "rtx_abi.inc"
-
-#define DT_DATA  100
+/* ⛔ DT_DATA IS NOT DEFINED HERE. It arrives from descr_tags.inc via rtx_abi.inc (s230: "THE tag numbers live there and ONLY there"). A local `#define DT_DATA 100` stood here and SHADOWED that include, baking cmp $0x64 into dat_field_get while every C site compared $0x70 -- one binary, two values for one tag. The guard is a RANGE test (v < DT_DATA -> C), and DT_FAIL is 0x68 = 104, so the stale boundary sat BELOW DT_FAIL and admitted a FAIL descriptor into the record walk. Deleted s237; do not reintroduce a tag literal in this file. */
 
 RTX_GATE_DEF(icnagg)
 
