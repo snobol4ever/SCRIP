@@ -68,7 +68,9 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t de
     if (!s) s = "";
     scan_subj = s;
     scan_pos  = 1;
-    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    uint64_t L;
+    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
+    else L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
