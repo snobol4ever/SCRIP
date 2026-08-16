@@ -855,7 +855,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
      * epilogue leaf — with the frame still made by C (alloca / zls2) rather than by an rsp bump, and the
      * transfer still a C indirect call rather than an emitted one.  The open leaf selects the protocol, so the
      * dyn_scope delegation to rt_call_named_proc is gone: dyn and lexical now differ only INSIDE the leaves. */
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn); return rt_tiny_record_enter(afn); } }   /* s104 TINY RECORD ENTER: sealed alpha$ target speaks the record contract and owns its own bookkeeping — no C open */
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn); return rt_tiny_record_enter(afn); } }   /* s104 TINY RECORD ENTER: sealed alpha$ target speaks the record contract and owns its own bookkeeping — no C open.  s117: the record's first quad is `.quad nargs` per this shim's own contract, and it was being written as a hardcoded 0 — every by-name call filled all formals with null (the `GOT-` vs `GOT-ab` class).  The count now rides in, matching the emitted TINY call site the shim was measured from. */
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
@@ -1934,6 +1934,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
+    { const char *_ba = getenv("SCRIP_BYNAME_ALPHA"); void *afn = (_ba && *_ba && *_ba != '0' && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0; if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn); } }   /* SPELLED-TWICE FIX (s117): p->fn from rt_define_site is the GENERIC ENTRY THUNK — the wrong protocol for an emitted body, so rt_proc_enter's wire jmp lands wild (rip=_rtld_global: the OPSYN `&` SIGSEGV, and every other by-name route to a DEFINE'd proc).  s104/s108 installed the sealed alpha$<FN> target in the sibling rt_call_proc_descr ONLY; this is that same arm, verbatim — the sealed target speaks the record contract and owns its own bookkeeping, so it is entered BEFORE (never after) any C open/prologue.  The C-array args this entry point carries are staged into the g_call_args channel the sealed target reads, which the emitted callers of the sibling fill themselves.  Falls through to the pre-s117 path untouched when no alpha$ cell exists or SCRIP_DYN_ALPHA=0. */
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
     return rt_proc_enter((void *)p->fn);
 }
@@ -1946,7 +1947,7 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    return rt_proc_enter((void *)p->fn);
+    return rt_proc_enter((void *)p->fn);   /* s117 SUSPECTED TWIN, NOT LANDED: this is the third by-name path and carries the same generic-entry-thunk hazard rt_call_named_proc does (see its SCRIP_BYNAME_ALPHA arm), but this session minted no witness that reaches it, so it is left verbatim rather than changed blind. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)
