@@ -77,7 +77,7 @@ n1_match_alternate_as:                                                        jm
 n1_match_alternate_β:   mov              rax, qword ptr [rsp + 8];            jmp   rax
 n1_match_alternate_af:  mov              r14d, dword ptr [rsp + 0]
                         mov              rax, qword ptr [rsp + 16];           jmp   rax
-.Lx6_19:                add              rsp, 32;                             jmp   PAT$0_ω
+.Lx6_19:                add              rsp, 32;                             jmp   n0_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n2_match_defer_α:       mov              rdi, qword ptr [rbp + -24]
                         mov              esi, 2

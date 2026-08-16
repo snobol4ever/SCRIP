@@ -4042,9 +4042,9 @@ n224_match_defer_β:                                                           j
 n225_match_rpos_α:      mov              rax, 0
                         mov              ecx, r15d
                         sub              ecx, eax
-                        cmp              r14d, ecx;                           jne   n223_match_begin_β
+                        cmp              r14d, ecx;                           jne   n224_match_defer_β
                                                                               jmp   n226_match_end_α
-n225_match_rpos_β:                                                            jmp   n223_match_begin_β
+n225_match_rpos_β:                                                            jmp   n224_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n226_match_end_α:       push             r14
                         push             r15
