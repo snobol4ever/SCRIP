@@ -624,6 +624,7 @@ static std::string bb_define_sr() {
                      + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
             return x86("comment", "IR_DEFINE role 4: SIG s66 per-DEFINE shim (alpha=swap-by-map, gamma/omega=restore-by-map, CONSTANT frame)")
                  + IF(inl5, x86_jmp_id(245))   /* SHIM-AT-STATEMENT (Lon s114): inline flow jumps OVER the shim — the statement's own trailer continues after the skip landing; the shim is entered only by name */
+                 + x86("commentrule", std::string(119, '-'))   /* Lon s116 in-chat: line-break rule directly before the <FN>_Î± label */
                  + IF(!inl5, x86_alpha())
                  + x86_def_ext(emit_label_intern(la.c_str()))
                  + x86("sub", "rsp", F4)
@@ -675,6 +676,7 @@ static std::string bb_define_sr() {
         }
         return x86("comment", "IR_DEFINE role 4: TINY-REAL s58 per-DEFINE shim (alpha=swap/extend, beta/omega=restore)")
              + IF(inl5, x86_jmp_id(245))   /* SHIM-AT-STATEMENT (Lon s114): same skip wrap as the SIG arm */
+             + x86("commentrule", std::string(119, '-'))   /* Lon s116 in-chat: line-break rule directly before the <FN>_Î± label */
              + IF(!inl5, x86_alpha())
              + x86_def_ext(emit_label_intern(la.c_str()))
              + x86_rsp_load64("rcx", 0)
