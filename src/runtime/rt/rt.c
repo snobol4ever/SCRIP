@@ -56,6 +56,16 @@ __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
         "  pop %r12\n"
         "  ret\n"
         ".size rt_outer_call, .-rt_outer_call\n");
+/* ICN-FR-5 RESTORE (s238): zero the delta cursor register (r14) once at program entry, then tail-jump into the shared outer thunk unchanged.  &pos compiles to r14+1 in bb_keyword_icon.cpp UNCONDITIONALLY (the g_scan_regs_live gate was deleted deliberately: a ?-less scanning callee runs inline scan primitives on the caller's ambient subject, and the emit-time in_scan flag reads 0 there while the registers are live at runtime -- routing that read through the scan_pos global returned a stale cursor).  That template therefore rests on a stated invariant, "outside any scan r14 is 0 so &pos reads 1", which nothing established on this path: at main entry r14 holds libc residue, so &pos read garbage (measured 4304233 == 0x41B069) outside any scan.  The two original ICN-FR-5 sites (icn_zf_main_call below, and the mode-4 text preamble in scrip.c) are both gated on zframe_graph && !icn_cells_graph; Z-1 stamped icn_cells_graph=1 by DEFAULT for every Icon graph, which turned that gate permanently false and silently disabled the initialization on every arm.  Separate symbol rather than an edit to rt_outer_call because that thunk is SHARED with SNOBOL4/Prolog/Pascal/Raku and the SN4 match family also uses r14 -- the driver selects this variant only for Icon, so every other language stays byte-identical BY CONSTRUCTION.  r14 is callee-saved and rt_outer_call never touches it, so the zero survives into the graph.  No new global: this is a function symbol, not file-scope mutable state.                                                          */
+/* ICN-FR-5 ABI HARDENING (s238-b): the first cut of this thunk was `xor %r14d,%r14d; jmp rt_outer_call`, which RETURNS to its C caller with r14 destroyed.  r14 is CALLEE-SAVED under SysV and rt_outer_call returns normally (unlike icn_zf_main_call below, whose jmp is correct precisely because fn never returns), so the tail-jump form silently broke the contract toward driver code.  MEASURED at the time of writing: `main` allocates r14 zero times, so it did not bite -- but this is exactly the latent class the ICN-FR-5 CLOBBER-FIX note below records being bitten by once already (GCC's clobber-driven r14 spill around the call site corrupted the stack), and `main` is a large function under concurrent edit.  push/pop costs two instructions and removes the hazard permanently.  ALIGNMENT: entry rsp%16==8, push makes it 0, so the inner call arrives at the ABI-standard 8 -- the same parity rt_outer_call's own sub/add $8 bracket is calibrated for.  */
+__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
+        "rt_outer_call_delta0:\n"
+        "  push %r14\n"
+        "  xor %r14d, %r14d\n"
+        "  call rt_outer_call\n"
+        "  pop %r14\n"
+        "  ret\n"
+        ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \

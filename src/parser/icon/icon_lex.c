@@ -551,13 +551,23 @@ static char *pp_subst_span(const char *s, size_t len, const PpDef *defs, int nde
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char icn_pp_dir[1024] = ".";
+static char icn_pp_src[1024] = "";
+/* ICN-PROGNAME (s238): this static now holds the FULL source path, not the directory slice it held before.  NO NEW GLOBAL -- the storage is the same single file-scope array, repurposed; the include-resolution reader below derives its directory into a stack buffer, and icn_pp_source_base() derives the stem.  &progname needs the program STEM (Arizona init.r:212 `prog_name = name`, published as kywd_prog and read by keyword.r:384), which the directory slice had thrown away; keeping two arrays would have been a parallel-array global and is exactly what the FACT RULE forbids.                                                                                       */
 void icn_pp_set_source_path(const char *path) {
-    if (!path) { icn_pp_dir[0] = '.'; icn_pp_dir[1] = 0; return; }
-    const char *slash = strrchr(path, '/');
-    if (!slash) { icn_pp_dir[0] = '.'; icn_pp_dir[1] = 0; return; }
-    size_t dl = (size_t)(slash - path); if (dl >= sizeof icn_pp_dir) dl = sizeof icn_pp_dir - 1;
-    memcpy(icn_pp_dir, path, dl); icn_pp_dir[dl] = 0;
+    if (!path) { icn_pp_src[0] = 0; return; }
+    size_t pl = strlen(path); if (pl >= sizeof icn_pp_src) pl = sizeof icn_pp_src - 1;
+    memcpy(icn_pp_src, path, pl); icn_pp_src[pl] = 0;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Program stem for &progname: basename with one trailing extension stripped, matching `icont -s foo.icn -x` whose icode file (and therefore &progname) is `foo`.  VERIFIED against a live Arizona Icon 9.5.25a built from refs/icon-master: a probe named rung36_jcon_kwds_probe.icn printed progname=rung36_jcon_kwds_probe.  Writes into a caller buffer so no storage is added.                                                                                                                                                                                                                                */
+void icn_pp_source_base(char *out, size_t n) {
+    if (!out || n == 0) return;
+    const char *slash = strrchr(icn_pp_src, '/');
+    const char *base  = slash ? slash + 1 : icn_pp_src;
+    const char *dot   = strrchr(base, '.');
+    size_t bl = dot ? (size_t)(dot - base) : strlen(base);
+    if (bl >= n) bl = n - 1;
+    memcpy(out, base, bl); out[bl] = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pp_expand(const char *body, const PpDef *defs, int ndefs) {
@@ -604,7 +614,7 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
                         memcpy(nm, src + fs, fl); nm[fl] = 0;
                         char path[1600];
                         if (nm[0] == '/') snprintf(path, sizeof path, "%s", nm);
-                        else snprintf(path, sizeof path, "%s/%s", icn_pp_dir, nm);
+                        else { char dir[1024]; const char *sl = strrchr(icn_pp_src, '/'); if (sl) { size_t dl = (size_t)(sl - icn_pp_src); if (dl >= sizeof dir) dl = sizeof dir - 1; memcpy(dir, icn_pp_src, dl); dir[dl] = 0; } else { dir[0] = '.'; dir[1] = 0; } snprintf(path, sizeof path, "%s/%s", dir, nm); }   /* ICN-PROGNAME (s238): directory derived on demand from the full path now held in icn_pp_src; identical resolution to the old directory-only static, including the "." fallback when the path carries no slash. */
                         FILE *f = fopen(path, "rb");
                         if (f) {
                             fseek(f, 0, SEEK_END); long fz = ftell(f); fseek(f, 0, SEEK_SET);

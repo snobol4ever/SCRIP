@@ -137,6 +137,7 @@ typedef struct {
     int         had_error;
 } IcnLexer;
 void icn_pp_set_source_path(const char *path);
+void icn_pp_source_base(char *out, size_t n);   /* ICN-PROGNAME (s238): program stem for &progname (basename, one extension stripped). */
 void icn_lex_init(IcnLexer *lex, const char *src);
 IcnToken icn_lex_next(IcnLexer *lex);
 IcnToken icn_lex_peek(IcnLexer *lex);
