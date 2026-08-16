@@ -4000,12 +4000,15 @@ n287_match_defer_α:     lea              rdi, [rip + .S2]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_defer_get_pat_fn@PLT
+                        call             rt_defer_get_pat_dtp@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
-                        test             rax, rax;                            jz    .Lx777_0
+                        mov              rdx, rax
+                        test             rax, rax;                            je    .Lx777_14
+                        mov              rax, qword ptr [rdx + 0]
+.Lx777_14:              test             rax, rax;                            jz    .Lx777_0
                         mov              r8d, 0
                         lea              r10, [rip + .Lx777_4]
                         lea              r11, [rip + .Lx777_5];               jmp   rax
@@ -4290,12 +4293,15 @@ n301_match_defer_α:     lea              rdi, [rip + .S3]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_defer_get_pat_fn@PLT
+                        call             rt_defer_get_pat_dtp@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
-                        test             rax, rax;                            jz    .Lx800_0
+                        mov              rdx, rax
+                        test             rax, rax;                            je    .Lx800_14
+                        mov              rax, qword ptr [rdx + 0]
+.Lx800_14:              test             rax, rax;                            jz    .Lx800_0
                         mov              r8d, 0
                         lea              r10, [rip + .Lx800_4]
                         lea              r11, [rip + .Lx800_5];               jmp   rax
@@ -4575,12 +4581,15 @@ n314_match_defer_α:     lea              rdi, [rip + .S4]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_defer_get_pat_fn@PLT
+                        call             rt_defer_get_pat_dtp@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
-                        test             rax, rax;                            jz    .Lx822_0
+                        mov              rdx, rax
+                        test             rax, rax;                            je    .Lx822_14
+                        mov              rax, qword ptr [rdx + 0]
+.Lx822_14:              test             rax, rax;                            jz    .Lx822_0
                         mov              r8d, 0
                         lea              r10, [rip + .Lx822_4]
                         lea              r11, [rip + .Lx822_5];               jmp   rax
