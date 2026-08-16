@@ -246,7 +246,16 @@ static eval_chain_fn eval_build_chain(const char *s)
     var->v.sval = rt_ws_strdup(EVAL_TMP);
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
-    ast_push(st, ast_attr_int(":stno", 1));
+/* ⭐ s115 MON-CAP -- THE EVAL CHAIN'S LABEL EVENT HAS NO SPITBOL COUNTERPART.  eval_build_chain stamps its SYNTHESIZED statement :stno 1, so the bb_statement monitor tap fires `LABEL
+ * stno=INT=1` every time a chain executes -- an event the oracle never emits, because the oracle has no such statement.  EVERY EVAL-BEARING PROGRAM THEREFORE "DIVERGES" AT THE CHAIN'S FIRST
+ * STATEMENT WHETHER OR NOT IT IS CORRECT: s114 measured ev_fn_literal reporting the identical step-5 divergence before AND after a real fix, so the monitor could not grade the fix that cured
+ * it.  This is the exact disease the MON-RE GOTO-tap note at emit.cpp:1189 already records ("a LABEL at PURE WIRING nodes has no counterpart in SPITBOL's wire, so every program -- passing ones
+ * included -- diverged within 3 steps and the monitor could not bracket ANY bug"), one node class over.  RULES.md: a monitor blind to the divergence CLASS must be extended before the hunt it
+ * is blind to.  ONE AUTHORITY, NOT A SECOND RULE: the tap staging at emit.cpp:1202 already reads `op_stno > 0`, so a synthesized statement only has to stop CLAIMING to be source statement 1 --
+ * no new suppression predicate, no monitor-side filter, nothing to keep in sync with the emitter.  0 is the honest value: this statement has no source counterpart.  Killswitch
+ * SCRIP_MON_CHAIN_STNO=1 restores the old claim for A/B.  Beauty is EVAL-bearing, so this stands between the monitor and Milestone 1. */
+    { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
+      ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
     ast_push(st, ast_attr_expr(":subj", var));
     ast_push(st, ast_attr_leaf(":eq", ""));
     ast_push(st, ast_attr_expr(":repl", e));
