@@ -29,7 +29,7 @@ are excluded from both counts: ceremony is not a frame reference.
 import re, sys, os, subprocess, tempfile
 
 REGION_RE = re.compile(r'^([A-Za-z_$.][A-Za-z0-9_$.\u03b1-\u03c9]*):')
-ENTRY_RE  = re.compile(r'^(proc_.*_\u03b1|main|proc_startup)\s*:')
+ENTRY_RE  = re.compile(r'^(proc_.*_\u03b1|main|main_init)\s*:')
 SEED_RE   = re.compile(r'\bmov\s+rbp\s*,\s*rsp\b')
 CLASSD_RE = re.compile(r'\bmov\s+rbp\s*,\s*(qword ptr\s*)?\[r(ax|bx|cx|dx|si|di|8|9|1[0-5])')
 # ceremony: caller-rbp save into the header pad, the seed, the restores, push/pop
