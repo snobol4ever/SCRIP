@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_always_fail_α
-proc_always_fail_α:
+FN__always_fail:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + always_fail_body];       jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__always_fail];       jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-always_fail_alpha:      sub              rsp, 48
+always_fail_α:          sub              rsp, 48
                         mov              rax, qword ptr [r9 + 0]              # always_fail
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -22,12 +21,12 @@ always_fail_alpha:      sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + always_fail_gamma]
-                        lea              r11, [rip + always_fail_omega]
+                        lea              r10, [rip + always_fail_γ]
+                        lea              r11, [rip + always_fail_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + always_fail_body];       jmp   rax
-always_fail_gamma:      mov              rdi, qword ptr [r9 + 0]
+                        lea              rax, [rip + LBL__always_fail];       jmp   rax
+always_fail_γ:          mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -42,7 +41,7 @@ always_fail_gamma:      mov              rdi, qword ptr [r9 + 0]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-always_fail_omega:      mov              rcx, qword ptr [rsp + 32]
+always_fail_ω:          mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         mov              rax, qword ptr [rsp + 0]
@@ -63,7 +62,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + always_fail_body]
+                        lea              rsi, [rip + LBL__always_fail]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -121,7 +120,7 @@ n12_func_activate_α:    mov              rdi, qword ptr [rip + .Lx39_0]
                         mov              edx, 0
                         mov              ecx, 0
                         mov              r8d, 0
-                        lea              r9, [rip + proc_always_fail_α]
+                        lea              r9, [rip + FN__always_fail]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -140,7 +139,7 @@ n13_statement_end_α:                                                          j
 #=======================================================================================================================
 # always_fail                                            :(FRETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-always_fail_body:                                                             jmp   n15_statement_end_α
+LBL__always_fail:                                                             jmp   n15_statement_end_α
 n14_statement_begin_β:                                                        jmp   FRETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n15_statement_end_α:                                                          jmp   FRETURN
@@ -159,7 +158,7 @@ n18_statement_begin_β:                                                        j
 #-----------------------------------------------------------------------------------------------------------------------
 n19_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig53z]
-                        lea              rax, [rip + always_fail_alpha];      jmp   rax
+                        lea              rax, [rip + always_fail_α];          jmp   rax
 .Lsig53z:               .quad            0
                         .quad            .Lx53_2
                         .quad            .Lx53_2

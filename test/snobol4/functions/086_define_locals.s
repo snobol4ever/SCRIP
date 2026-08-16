@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_swap_α
-proc_swap_α:
+FN__swap:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + swap_body];              jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__swap];              jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-swap_alpha:             sub              rsp, 96
+swap_α:                 sub              rsp, 96
                         mov              rax, qword ptr [r9 + 48]             # tmp
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 56]
@@ -62,12 +61,12 @@ swap_alpha:             sub              rsp, 96
                         mov              qword ptr [rsp + 88], rax
                         mov              qword ptr [r9 + 32], 0
                         mov              qword ptr [r9 + 40], 0
-.Lx8_42:                lea              r10, [rip + swap_gamma]
-                        lea              r11, [rip + swap_omega]
+.Lx8_42:                lea              r10, [rip + swap_γ]
+                        lea              r11, [rip + swap_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + swap_body];              jmp   rax
-swap_gamma:             mov              rdi, qword ptr [r9 + 0]              # swap
+                        lea              rax, [rip + LBL__swap];              jmp   rax
+swap_γ:                 mov              rdi, qword ptr [r9 + 0]              # swap
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 48]
                         mov              rdx, qword ptr [rcx + 0]
@@ -108,7 +107,7 @@ swap_gamma:             mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 96
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-swap_omega:             mov              rcx, qword ptr [rsp + 48]
+swap_ω:                 mov              rcx, qword ptr [rsp + 48]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 96]
                         mov              rax, qword ptr [rsp + 16]
@@ -155,7 +154,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + swap_body]
+                        lea              rsi, [rip + LBL__swap]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -212,7 +211,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx43_0]
                         mov              edx, 3
                         mov              ecx, 2
                         mov              r8d, 0
-                        lea              r9, [rip + proc_swap_α]
+                        lea              r9, [rip + FN__swap]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -231,7 +230,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # swap    tmp = a
 #-----------------------------------------------------------------------------------------------------------------------
-swap_body:                                                                    jmp   n13_var_α
+LBL__swap:                                                                    jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -392,7 +391,7 @@ n36_lit_string_β:       add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n37_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig83z]
-                        lea              rax, [rip + swap_alpha];             jmp   rax
+                        lea              rax, [rip + swap_α];                 jmp   rax
 .Lsig83z:               .quad            2
                         .quad            .Lx83_2
                         .quad            .Lx83_2

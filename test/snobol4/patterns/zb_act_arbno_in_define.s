@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_MATCHIT_α
-proc_MATCHIT_α:
+FN__MATCHIT:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + MATCHIT_body];           jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__MATCHIT];           jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-MATCHIT_alpha:          sub              rsp, 64
+MATCHIT_α:              sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # MATCHIT
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ MATCHIT_alpha:          sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + MATCHIT_gamma]
-                        lea              r11, [rip + MATCHIT_omega]
+.Lx8_41:                lea              r10, [rip + MATCHIT_γ]
+                        lea              r11, [rip + MATCHIT_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + MATCHIT_body];           jmp   rax
-MATCHIT_gamma:          mov              rdi, qword ptr [r9 + 0]              # MATCHIT
+                        lea              rax, [rip + LBL__MATCHIT];           jmp   rax
+MATCHIT_γ:              mov              rdi, qword ptr [r9 + 0]              # MATCHIT
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ MATCHIT_gamma:          mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-MATCHIT_omega:          mov              rcx, qword ptr [rsp + 32]
+MATCHIT_ω:              mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + MATCHIT_body]
+                        lea              rsi, [rip + LBL__MATCHIT]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -158,7 +157,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx42_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_MATCHIT_α]
+                        lea              r9, [rip + FN__MATCHIT]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -177,7 +176,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # MATCHIT S POS(0) ARBNO('a') . V RPOS(0)                            :S(MI_YES)
 #-----------------------------------------------------------------------------------------------------------------------
-MATCHIT_body:                                                                 jmp   n13_var_α
+LBL__MATCHIT:                                                                 jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   n23_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -412,7 +411,7 @@ n34_lit_string_α:       sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n35_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig84z]
-                        lea              rax, [rip + MATCHIT_alpha];          jmp   rax
+                        lea              rax, [rip + MATCHIT_α];              jmp   rax
 .Lsig84z:               .quad            1
                         .quad            .Lx84_2
                         .quad            .Lx84_2

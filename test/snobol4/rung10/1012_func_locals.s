@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_lfunc_α
-proc_lfunc_α:
+FN__lfunc:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + lfunc_body];             jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__lfunc];             jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-lfunc_alpha:            sub              rsp, 144
+lfunc_α:                sub              rsp, 144
                         mov              rax, qword ptr [r9 + 64]             # d
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 72]
@@ -91,12 +90,12 @@ lfunc_alpha:            sub              rsp, 144
                         mov              qword ptr [rsp + 136], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-.Lx8_43:                lea              r10, [rip + lfunc_gamma]
-                        lea              r11, [rip + lfunc_omega]
+.Lx8_43:                lea              r10, [rip + lfunc_γ]
+                        lea              r11, [rip + lfunc_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + lfunc_body];             jmp   rax
-lfunc_gamma:            mov              rdi, qword ptr [r9 + 0]              # lfunc
+                        lea              rax, [rip + LBL__lfunc];             jmp   rax
+lfunc_γ:                mov              rdi, qword ptr [r9 + 0]              # lfunc
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 80]
                         mov              rdx, qword ptr [rcx + 0]
@@ -156,7 +155,7 @@ lfunc_gamma:            mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 144
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-lfunc_omega:            mov              rcx, qword ptr [rsp + 80]
+lfunc_ω:                mov              rcx, qword ptr [rsp + 80]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 144]
                         mov              rax, qword ptr [rsp + 48]
@@ -216,16 +215,15 @@ lfunc_omega:            mov              rcx, qword ptr [rsp + 80]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_checklocal_α
-proc_checklocal_α:
+FN__checklocal:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_save_restore_α:                                                            jmp   n10_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n10_goto_deferred_α:    lea              rax, [rip + checklocal_body];        jmp   rax
+n10_goto_deferred_α:    lea              rax, [rip + LBL__checklocal];        jmp   rax
                                                                               jmp   n11_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_save_restore_α:
-checklocal_alpha:       sub              rsp, 64
+checklocal_α:           sub              rsp, 64
                         mov              rax, qword ptr [r9 + 112]            # checklocal
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 120]
@@ -254,12 +252,12 @@ checklocal_alpha:       sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 128], 0
                         mov              qword ptr [r9 + 136], 0
-.Lx17_41:               lea              r10, [rip + checklocal_gamma]
-                        lea              r11, [rip + checklocal_omega]
+.Lx17_41:               lea              r10, [rip + checklocal_γ]
+                        lea              r11, [rip + checklocal_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + checklocal_body];        jmp   rax
-checklocal_gamma:       mov              rdi, qword ptr [r9 + 112]            # checklocal
+                        lea              rax, [rip + LBL__checklocal];        jmp   rax
+checklocal_γ:           mov              rdi, qword ptr [r9 + 112]            # checklocal
                         mov              rsi, qword ptr [r9 + 120]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -285,7 +283,7 @@ checklocal_gamma:       mov              rdi, qword ptr [r9 + 112]            # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-checklocal_omega:       mov              rcx, qword ptr [rsp + 32]
+checklocal_ω:           mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -317,7 +315,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + lfunc_body]
+                        lea              rsi, [rip + LBL__lfunc]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -333,7 +331,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + checklocal_body]
+                        lea              rsi, [rip + LBL__checklocal]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 0
@@ -407,7 +405,7 @@ n21_func_activate_α:    mov              rdi, qword ptr [rip + .Lx166_0]
                         mov              edx, 6
                         mov              ecx, 3
                         mov              r8d, 0
-                        lea              r9, [rip + proc_lfunc_α]
+                        lea              r9, [rip + FN__lfunc]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -426,7 +424,7 @@ n22_statement_end_α:                                                          j
 #=======================================================================================================================
 # lfunc  <stmt 3, line 6: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-lfunc_body:                                                                   jmp   n24_statement_end_α
+LBL__lfunc:                                                                   jmp   n24_statement_end_α
 n23_statement_begin_β:                                                        jmp   n25_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n24_statement_end_α:                                                          jmp   n25_statement_begin_α
@@ -899,7 +897,7 @@ n90_lit_string_β:       add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n91_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig276z]
-                        lea              rax, [rip + lfunc_alpha];            jmp   rax
+                        lea              rax, [rip + lfunc_α];                jmp   rax
 .Lsig276z:              .quad            3
                         .quad            .Lx276_2
                         .quad            .Lx276_2
@@ -1204,7 +1202,7 @@ n124_func_activate_α:   mov              rdi, qword ptr [rip + .Lx331_0]
                         mov              edx, 1
                         mov              ecx, 0
                         mov              r8d, 0
-                        lea              r9, [rip + proc_checklocal_α]
+                        lea              r9, [rip + FN__checklocal]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1223,7 +1221,7 @@ n125_statement_end_α:                                                         j
 #=======================================================================================================================
 # checklocal  <stmt 30, line 42: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-checklocal_body:                                                              jmp   n127_statement_end_α
+LBL__checklocal:                                                              jmp   n127_statement_end_α
 n126_statement_begin_β:                                                       jmp   n128_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n127_statement_end_α:                                                         jmp   n128_statement_begin_α
@@ -1332,7 +1330,7 @@ n144_statement_begin_β:                                                       j
 #-----------------------------------------------------------------------------------------------------------------------
 n145_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig368z]
-                        lea              rax, [rip + checklocal_alpha];       jmp   rax
+                        lea              rax, [rip + checklocal_α];           jmp   rax
 .Lsig368z:              .quad            0
                         .quad            .Lx368_2
                         .quad            .Lx368_2

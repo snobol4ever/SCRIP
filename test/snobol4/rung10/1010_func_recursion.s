@@ -1,32 +1,29 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_fact_α
-proc_fact_α:
+FN__fact:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + fact_body];              jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__fact];              jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:                                                            jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_facto_α
-proc_facto_α:
+FN__facto:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_save_restore_α:                                                            jmp   n10_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n10_goto_deferred_α:    lea              rax, [rip + fact_body];              jmp   rax
+n10_goto_deferred_α:    lea              rax, [rip + LBL__fact];              jmp   rax
                                                                               jmp   n11_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_save_restore_α:                                                           jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_fact2_α
-proc_fact2_α:
+FN__fact2:
 #-----------------------------------------------------------------------------------------------------------------------
 n18_save_restore_α:                                                           jmp   n19_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n19_goto_deferred_α:    lea              rax, [rip + fact2_entry_body];       jmp   rax
+n19_goto_deferred_α:    lea              rax, [rip + LBL__fact2_entry];       jmp   rax
                                                                               jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_save_restore_α:                                                           jmp   main_ω
@@ -37,7 +34,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + fact_body]
+                        lea              rsi, [rip + LBL__fact]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -53,7 +50,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + fact2_entry_body]
+                        lea              rsi, [rip + LBL__fact2_entry]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 0
@@ -117,7 +114,7 @@ n30_func_activate_α:    mov              rdi, qword ptr [rip + .Lx146_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_fact_α]
+                        lea              r9, [rip + FN__fact]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -136,7 +133,7 @@ n31_statement_end_α:                                                          j
 #=======================================================================================================================
 # fact    fact = EQ(n, 1) 1                              :s(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-fact_body:                                                                    jmp   n33_var_α
+LBL__fact:                                                                    jmp   n33_var_α
 n32_statement_begin_β:                                                        jmp   n42_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n33_var_α:              sub              rsp, 16
@@ -1004,7 +1001,7 @@ n95_func_activate_α:    mov              rdi, qword ptr [rip + .Lx253_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_fact2_α]
+                        lea              r9, [rip + FN__fact2]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1023,7 +1020,7 @@ n96_statement_end_α:                                                          j
 #=======================================================================================================================
 # fact2_entry  <stmt 16, line 24: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-fact2_entry_body:                                                             jmp   n98_statement_end_α
+LBL__fact2_entry:                                                             jmp   n98_statement_end_α
 n97_statement_begin_β:                                                        jmp   n99_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n98_statement_end_α:                                                          jmp   n99_statement_begin_α

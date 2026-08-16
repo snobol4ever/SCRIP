@@ -1,8 +1,7 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$0_α
-proc_PAT$0_α:
+FN__PAT$0:
 proc_PAT$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_match_pos_α:         mov              rax, 0
@@ -172,7 +171,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + proc_PAT$0_α]
+                        lea              rsi, [rip + FN__PAT$0]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
