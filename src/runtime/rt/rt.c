@@ -1728,12 +1728,17 @@ void *c_rt_proc_call_open_det(long idx, int nargs)
 /* FUSED DET OPEN FAMILY (PL-REGAIN-4, 2026-07-19) — staging folded INTO the det open: the site passes CALLER-FRAME CELL POINTERS (lea [___+slot]) and the leaf copies them into g_call_args, then runs
  * the same guarded lex prologue as rt_proc_call_open_det.  ONE crossing replaces {rt_arg_stage × nargs + open_det}; g_call_args stays the arg MEDIUM (the REGAIN-1 slice-B residency decision — slab
  * rehome vs register ABI — is untouched: only the number of crossings that feed it changes).  Guards precede every copy so a decline (bad idx / no body / dyn) is side-effect-free per the SCC arm's
- * discipline; nargs > 4 keeps the classic stage chain at the site (no hot-path pred exceeds 4 today — tak/4 is the ceiling). */
+ * discipline; nargs > 4 keeps the classic stage chain at the site (no hot-path pred exceeds 4 today — tak/4 is the ceiling).
+ * ICN-ARG-NULL (s239): each leaf ALSO seeds g_call_args[N .. p->nparams) with NULVCL before the prologue.  The classic path this family replaced performs that fill in rt_frame_bind_args (`for i in [nargs,npc): NULVCL`, :770); folding
+ * the staging into the open dropped it, so an UNDER-SUPPLIED call left the missing parameter holding the PREVIOUS activation's argument — g_call_args is a process-lifetime medium and nothing else rewrites the tail.  The Icon
+ * ζ-frame installer reads g_call_args[0..np-1] verbatim (rt_icn_zframe_args_install, "no pcall-nargs clamp"), so the stale word reached the callee's parameter slot: `try(p,a)` against `procedure try(p,a,b)` saw b = the prior
+ * call's b, making `\b` succeed and `atan(x)` silently evaluate as atan(x,10.0).  Keyed on the callee record's arity, never on a language — the fill is the same contract rt_frame_bind_args already states for every frontend. */
 void *rt_proc_call_open_det0(long idx)
 {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
+      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 0; i < _np; i++) g_call_args[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 0, wn);
         return (void *)p->fn; } }
@@ -1745,6 +1750,7 @@ void *rt_proc_call_open_det1(long idx, DESCR_t *a0)
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
       g_call_args[0] = *a0;
+      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 1; i < _np; i++) g_call_args[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 1, wn);
         return (void *)p->fn; } }
@@ -1756,6 +1762,7 @@ void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1)
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
       g_call_args[0] = *a0; g_call_args[1] = *a1;
+      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 2; i < _np; i++) g_call_args[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 2, wn);
         return (void *)p->fn; } }
@@ -1767,6 +1774,7 @@ void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2)
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
       g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2;
+      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 3; i < _np; i++) g_call_args[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 3, wn);
         return (void *)p->fn; } }
@@ -1778,6 +1786,7 @@ void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DE
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
       g_call_args[0] = *a0; g_call_args[1] = *a1; g_call_args[2] = *a2; g_call_args[3] = *a3;
+      { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = 4; i < _np; i++) g_call_args[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
         (void)rt_proc_call_prologue_lex(p, 4, wn);
         return (void *)p->fn; } }
