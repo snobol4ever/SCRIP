@@ -556,6 +556,8 @@ typedef struct {
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
     struct bb_label_t *          flat_β_p;
+    struct bb_label_t *          flat_main_body_p;    /* TOP-PORTS (s122): the outer main graph's α_body label, handed to bb_main_entry_bridge so the hoisted top section can jmp past itself into the body.  STAGED/CLEARED around the hoist emission exactly as xa_strtab_* is staged around XA_STRTAB_RODATA (emit.cpp:447-454) — the window is a few lines wide, so no per-graph reset can reach it. */
+    struct bb_label_t *          flat_main_ω_p;       /* TOP-PORTS (s122): the outer main graph's ω port, handed to bb_main_β (β = jmp ω for CLASS O).  Chain-level, NOT the per-box lbl_ω_p the DRIVE_PAIR macros stage. */
     struct bb_label_t *          flat_dc_body_p;      /* PL-DC (REGAIN-1C s108): the graph's α_body label, handed to xa_flat_dc_stub so the per-proc direct-call stub can 'X'-jmp the shared body (same emission session — the pointer is the chain-body local, live through the stub emission).  NULL outside dc-eligible graphs. */
     const char **                xa_label_names;
     int *                        xa_label_pcs;

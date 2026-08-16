@@ -61,6 +61,8 @@ std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + ___ activat
 std::string bb_glue_framed_leave();
 std::string bb_glue_outer_γ();
 std::string bb_glue_outer_ω();
+std::string bb_main_entry_bridge();   /* TOP-PORTS (s122): the hoisted top section's first emission — jmp past the ports into α_body.  MANDATORY in BINARY: emit_chain returns the buffer base as the entry point. */
+std::string bb_main_β();              /* TOP-PORTS (s122): CLASS-O main β = jmp ω.  γ/ω bodies delegate to bb_glue_outer_γ/ω above — bb_main.cpp carries no MEDIUM_* of its own. */
 std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the open pcall record, restore caller rsp/___(/r12 island) from it, jmp the port's wire -- gw for γ (RETURN), ww for ω (FRETURN).  ONE authority; the role-1/2 floaters and the stub-blob shared ports both consume it. */
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();

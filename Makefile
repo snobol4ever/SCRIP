@@ -111,6 +111,7 @@ RT_PIC_SRCS := \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/templates/bb_glue_flat.cpp \
+    $(SRC)/templates/bb_main.cpp \
     $(SRC)/templates/bb_glue_framed.cpp \
     $(SRC)/templates/bb_lit.cpp \
     $(SRC)/templates/bb_define.cpp \
