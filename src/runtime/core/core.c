@@ -283,10 +283,28 @@ void mon_emit_label_bin(int64_t stno) {
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s112 MON-CAP — IS THIS NAME A COMPILER-MINTED INTERNAL?  ONE AUTHORITY for both VALUE fire-points (mon_emit_value_bin and comm_var's binary arm); they are separate code paths and this seat
+ * measured the cost of fixing only one — the filter went into mon_emit_value_bin, the rebuild was clean, and beauty.sno's divergence did not move ONE STEP, because the events came out of the other path.
+ * Every name the SNOBOL4 lowerer mints for itself carries an embedded '$' after an identifier head: PAT$n, PAT$n$A<i>, PAT$n$V<i>, PATV$k, PATTMP$n, EXPR$n, IGT$n, SNO$*.  The oracle has no such
+ * variables, so each emitted a VALUE event with no counterpart and desynced the trace (beauty step 951: `spl @663 VALUE DQ` vs `scr @663 VALUE PAT$9$A0`).
+ * ⛔ THE HEAD TEST IS LOAD-BEARING, AND A NAIVE strchr(name,'$') IS WRONG — THIS SEAT SHIPPED THAT VERSION AND BEAUTY FALSIFIED IT IN ONE RUN.  `$` is SPITBOL's indirect-reference OPERATOR, so a name
+ * cannot be WRITTEN with one — but indirect assignment CREATES variables named by arbitrary strings, and beauty.sno:104 is literally `$'$' = *White '$' *White`, i.e. a user variable whose whole name is
+ * "$".  Suppressing on '$' anywhere killed that legitimate event and moved the divergence to step 1007 instead of past it.  Requiring an identifier HEAD ([A-Za-z_] then [A-Za-z0-9_]* then '$') keeps
+ * every minted form and spares punctuation-named user variables ($, !, **) — the exact shapes beauty builds its operator table from.
+ * RESIDUAL RISK, STATED RATHER THAN PAPERED OVER: a user CAN still collide via `$('A$B')`, an identifier-headed name containing '$'.  Nothing in the corpus does, and no name written in source can
+ * reach this shape, but this filter is a HEURISTIC over a namespace the lowerer shares with the user — not a proof.  The durable fix is a mint-time marker on compiler names; until then, keep it here. */
+static int mon_name_is_internal(const char *name)
+{
+    if (!name || !name[0] || name[0] == '<') return 0;
+    if (!((name[0] >= 'A' && name[0] <= 'Z') || (name[0] >= 'a' && name[0] <= 'z') || name[0] == '_')) return 0;
+    { const char *q = name + 1; while (*q && ((*q >= 'A' && *q <= 'Z') || (*q >= 'a' && *q <= 'z') || (*q >= '0' && *q <= '9') || *q == '_')) q++; return *q == '$'; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_value_bin(const char *name, DESCR_t val) {
     if (monitor_fd < 0 || !g_monitor_bin || !monitor_ready) return;
     if (!name || !name[0] || name[0] == '_' || name[0] == '&' || NV_PTR_fn(name) == NULL) return;
+    if (mon_name_is_internal(name)) return;
     uint32_t name_id = intern_name_bin(name, (int)strlen(name));
     if (name_id == MW_NAME_ID_NONE) return;
     uint8_t type = scrip_tag_to_wire(val.v);
@@ -445,6 +463,7 @@ void comm_var(const char *name, DESCR_t val) {
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
+    if (g_monitor_bin && mon_name_is_internal(name)) return;   /* s112 MON-CAP: same suppression as mon_emit_value_bin — comm_var is the SECOND VALUE fire-point (the &TRACE path) and is the one beauty.sno's step-951 events were actually coming out of.  Scoped to the monitor regime so ordinary &TRACE output is byte-unchanged. */
     if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(name, (int)strlen(name));
         if (name_id == MW_NAME_ID_NONE) return;
