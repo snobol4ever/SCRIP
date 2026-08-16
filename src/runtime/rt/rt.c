@@ -785,27 +785,62 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* TINY RECORD ENTER (s104) — the C twin of the emitted TINY dyn call site (measured verbatim from the PASSING `RV = G()` asm: `sub rsp,16; lea rcx,[rip+sig]; lea rax,[rip+G_alpha]; jmp rax` with
- * sig = {.quad nargs, .quad gamma, .quad omega}): NO C open — the alpha face owns its own GVA-window save and level bookkeeping.  Contract in: rdi = fn (the sealed alpha$ cell content).  Contract at
- * jmp: rsp = &result cell (16B), rcx = &record.  Contract back: callee stores DESCR into the cell and jmps the recorded landing; the landing re-seats rax:rdx from the cell and runs the same NRETURN
- * consult the emitted landings run (rt_nret_fix_tiny).  Stack record + cell = 48B below five callee-saved pushes: entry rsp≡8 (mod 16), +40 ⇒ ≡0, −48 ⇒ ≡0 at the jmp, matching the blob world. */
+/* TINY RECORD ENTER (s104; ARG CONTRACT CORRECTED s118) — the C twin of the emitted TINY dyn call site, re-measured verbatim from the PASSING 2-arg `R('a','b')` asm (probe/opsyn/a_reg_only): the
+ * record is FIVE quads {nargs, gamma, omega, argbytes, argbase} and the ARGS RIDE THE STACK ABOVE THE RESULT CELL IN REVERSE ORDER (last arg nearest, at [rsp+16]) — the callee computes formal i at
+ * `caller_rsp + argbytes - 16*i` (`lea r8,[rsp+own]; mov rdi,[rcx+24]; add rdi,r8`) and NEVER adds argbase, so the arg block is PINNED at [rsp+16) and cannot be relocated.  s104-s117 wrote a THREE-quad
+ * record AT [rsp+16] — i.e. on top of the arg block — so a by-name call published nargs=0 and every formal bound null (the `GOT-` vs `GOT-ab` class); widening that 0 alone makes the callee read the
+ * record's own gamma/omega quads as args (SIGSEGV), which is why the count and the layout must move together.  Contract in: rdi = fn (sealed alpha$ cell content), rsi = nargs; args come from the staged
+ * g_call_args channel (the REGAIN-1 arg medium) — no new state.  Contract at jmp: rsp = &result cell (16B), [rsp+16 .. 16+16n) = args reversed, rcx = &record (parked ABOVE the args, callee-read-only).
+ * Contract back: callee restores rsp to its jmp-time value, stores the DESCR into the cell and jmps the recorded landing; the landing re-seats rax:rdx and runs the same NRETURN consult the emitted
+ * landings run (rt_nret_fix_tiny).  Frame is now VARIABLE (56+16n), so the landings unwind off RBP rather than a constant: rbp is NOT in the VM register contract (rbx/r9/r10/r11/r12/r13/r14/r15 are) and
+ * emitted bodies either never touch it or push/pop it symmetrically per the zeta-STANDING discipline.  Alignment: entry rsp≡8 (mod 16), +8 rbp ⇒ ≡0, +40 five pushes ⇒ ≡8, −(56+16n) ⇒ ≡0 at the jmp. */
 __asm__(
 ".text\n"
 ".globl rt_tiny_record_enter\n"
 "rt_tiny_record_enter:\n"
+"  pushq %rbp\n"
+"  movq %rsp, %rbp\n"
 "  pushq %rbx\n"
 "  pushq %r12\n"
 "  pushq %r13\n"
 "  pushq %r14\n"
 "  pushq %r15\n"
 "  movq %rdi, %rax\n"
-"  subq $48, %rsp\n"
-"  movq $0, 16(%rsp)\n"
+"  movq %rsi, %rdx\n"
+"  shlq $4, %rdx\n"
+"  leaq 56(%rdx), %rcx\n"
+"  subq %rcx, %rsp\n"
+"  movq g_call_args@GOTPCREL(%rip), %r10\n"
+"  xorq %rdi, %rdi\n"
+"  cmpq $0, %rsi\n"
+"  jle 6f\n"
+"5:\n"
+"  movq %rsi, %r8\n"
+"  subq $1, %r8\n"
+"  subq %rdi, %r8\n"
+"  shlq $4, %r8\n"
+"  addq %r10, %r8\n"
+"  movq 0(%r8), %rcx\n"
+"  movq 8(%r8), %rdx\n"
+"  movq %rdi, %r9\n"
+"  shlq $4, %r9\n"
+"  leaq 16(%rsp,%r9,1), %r9\n"
+"  movq %rcx, 0(%r9)\n"
+"  movq %rdx, 8(%r9)\n"
+"  addq $1, %rdi\n"
+"  cmpq %rsi, %rdi\n"
+"  jl 5b\n"
+"6:\n"
+"  movq %rsi, %rdx\n"
+"  shlq $4, %rdx\n"
+"  leaq 16(%rsp,%rdx,1), %rcx\n"
+"  movq %rsi, 0(%rcx)\n"
 "  leaq 2f(%rip), %r10\n"
-"  movq %r10, 24(%rsp)\n"
+"  movq %r10, 8(%rcx)\n"
 "  leaq 3f(%rip), %r10\n"
-"  movq %r10, 32(%rsp)\n"
-"  leaq 16(%rsp), %rcx\n"
+"  movq %r10, 16(%rcx)\n"
+"  movq %rdx, 24(%rcx)\n"
+"  movq $16, 32(%rcx)\n"
 "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
 "  cmpb $0, (%r10)\n"
 "  je 4f\n"
@@ -822,20 +857,22 @@ __asm__(
 "  movq %rax, %rdi\n"
 "  movq %rdx, %rsi\n"
 "  xorl %edx, %edx\n"
-"  addq $48, %rsp\n"
+"  leaq -40(%rbp), %rsp\n"
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
 "  popq %r12\n"
 "  popq %rbx\n"
+"  popq %rbp\n"
 "  jmp rt_nret_fix_tiny\n"
 "3:\n"
-"  addq $48, %rsp\n"
+"  leaq -40(%rbp), %rsp\n"
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
 "  popq %r12\n"
 "  popq %rbx\n"
+"  popq %rbp\n"
 "  jmp rt_ret_faildescr\n"
 );
 DESCR_t rt_ret_faildescr(void) { rt_g_want_name = 0; rt_g_ret_by_name = 0; return FAILDESCR; }
@@ -855,7 +892,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
      * epilogue leaf — with the frame still made by C (alloca / zls2) rather than by an rsp bump, and the
      * transfer still a C indirect call rather than an emitted one.  The open leaf selects the protocol, so the
      * dyn_scope delegation to rt_call_named_proc is gone: dyn and lexical now differ only INSIDE the leaves. */
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn); return rt_tiny_record_enter(afn); } }   /* s104 TINY RECORD ENTER: sealed alpha$ target speaks the record contract and owns its own bookkeeping — no C open.  s117: the record's first quad is `.quad nargs` per this shim's own contract, and it was being written as a hardcoded 0 — every by-name call filled all formals with null (the `GOT-` vs `GOT-ab` class).  The count now rides in, matching the emitted TINY call site the shim was measured from. */
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }   /* s104 TINY RECORD ENTER: sealed alpha$ target speaks the record contract and owns its own bookkeeping — no C open.  s118: the arity now rides in AND the shim lays the args out where the callee reads them; the pre-s118 comment here claimed the count already rode in while the shim hardcoded 0 and the entry point took no count at all — code and comment disagreeing, the file's own spelled-twice hazard.  Args are already staged in g_call_args by this entry point's callers (the same channel rt_proc_call_open reads at :1701). */
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
@@ -1943,7 +1980,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
-    { const char *_ba = getenv("SCRIP_BYNAME_ALPHA"); void *afn = (_ba && *_ba && *_ba != '0' && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0; if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn); } }   /* SPELLED-TWICE FIX (s117): p->fn from rt_define_site is the GENERIC ENTRY THUNK — the wrong protocol for an emitted body, so rt_proc_enter's wire jmp lands wild (rip=_rtld_global: the OPSYN `&` SIGSEGV, and every other by-name route to a DEFINE'd proc).  s104/s108 installed the sealed alpha$<FN> target in the sibling rt_call_proc_descr ONLY; this is that same arm, verbatim — the sealed target speaks the record contract and owns its own bookkeeping, so it is entered BEFORE (never after) any C open/prologue.  The C-array args this entry point carries are staged into the g_call_args channel the sealed target reads, which the emitted callers of the sibling fill themselves.  Falls through to the pre-s117 path untouched when no alpha$ cell exists or SCRIP_DYN_ALPHA=0. */
+    { const char *_ba = getenv("SCRIP_BYNAME_ALPHA"); void *afn = (_ba && *_ba && *_ba != '0' && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0; if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0; for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }   /* SPELLED-TWICE FIX (s117): p->fn from rt_define_site is the GENERIC ENTRY THUNK — the wrong protocol for an emitted body, so rt_proc_enter's wire jmp lands wild (rip=_rtld_global: the OPSYN `&` SIGSEGV, and every other by-name route to a DEFINE'd proc).  s104/s108 installed the sealed alpha$<FN> target in the sibling rt_call_proc_descr ONLY; this is that same arm, verbatim — the sealed target speaks the record contract and owns its own bookkeeping, so it is entered BEFORE (never after) any C open/prologue.  The C-array args this entry point carries are staged into the g_call_args channel the sealed target reads, which the emitted callers of the sibling fill themselves.  Falls through to the pre-s117 path untouched when no alpha$ cell exists or SCRIP_DYN_ALPHA=0. */
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
     return rt_proc_enter((void *)p->fn);
 }
