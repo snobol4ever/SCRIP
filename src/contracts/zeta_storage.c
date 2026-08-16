@@ -359,7 +359,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
         IR_t * x = g->all[j];
         if (!x) continue;
         int op = (int)x->op;
-        if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_SAVE_RESTORE ||
+        if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (op == IR_DEFINE && ir_define_sr_citizen(x)) ||
             op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
             op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END ||
             op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY ||
@@ -430,7 +430,7 @@ static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** po
     return 0; }   /* ZB-VAL-4/5: post-order collect + validate -- int-lit and global-var leaves, ADD/SUB/MUL internals, depth-capped (24 x 16B = 384B max rsp excursion) */
 void zls_build(IR_graph_t * g) {
     if (!g) return;
-    { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_INDIRECT_GOTO || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if (x->op == IR_SAVE_RESTORE) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_BUILTIN_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
+    { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_INDIRECT_GOTO || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_BUILTIN_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;   /* ZB-VAL-0/1: POST-OPTIMIZER value-spine scan -- lower-time pointer registration dies to node rebuild/fold; gamma-adjacency IS the fence */
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }   /* ZB-VAL-1: consumer MUST route to bb_assign_global (the only vfc release arm) -- mirrors the walk's routing predicate; a local-assign consumer would strand the carve (closes the ZB-VAL-0 latent) */
         IR_t * r = a->operands[0];
@@ -443,7 +443,7 @@ void zls_build(IR_graph_t * g) {
             { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && _ts && pn > 0) fprintf(stderr, "[FCC] tree ts=%d pn=%d tail_is_r=%d\n", _ts, pn, (post[pn-1] == r) ? 1 : 0); }
             if (_ts && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
-                for (int i = 0; i + 1 < pn; i++) { const IR_t * gx = post[i]->γ.node; if (gx == post[i + 1]) continue; if (gx && gx->op == IR_SAVE_RESTORE && gx->γ.node == post[i + 1] && (post[i + 1]->op == IR_CALL || post[i + 1]->op == IR_CALL_PROC_STAGED)) { long long v = IR_LIT(gx).ival; if (!(v == 1 || v == 2 || v == 3)) continue; } ok = 0; break; }   /* CALL2BB 3b: the role-0 sr0 prefix (slice 2) is threaded ON THE GAMMA SPINE between the last arg producer and its call (measured: LIT.gamma -> IR_SAVE_RESTORE(role 0) -> CALL) -- it is the call cluster's own protocol box, rsp-balanced across the committed edge by the c2 landings' restore+release, so the adjacency fence treats exactly this shape as transparent; the predicate (gamma-chained + role-0 by UNION-TAG + next-is-the-registered-call-kind) mirrors the emit-side sr0 pairing at the dispatch (nd->gamma keying) verbatim, keeping planner and emitter in structural agreement */
+                for (int i = 0; i + 1 < pn; i++) { const IR_t * gx = post[i]->γ.node; if (gx == post[i + 1]) continue; if (gx && gx->op == IR_DEFINE && gx->γ.node == post[i + 1] && (post[i + 1]->op == IR_CALL || post[i + 1]->op == IR_CALL_PROC_STAGED)) { long long v = IR_LIT(gx).ival; if (!(v == 1 || v == 2 || v == 3)) continue; } ok = 0; break; }   /* CALL2BB 3b: the role-0 sr0 prefix (slice 2) is threaded ON THE GAMMA SPINE between the last arg producer and its call (measured: LIT.gamma -> IR_DEFINE(role 0) -> CALL) -- it is the call cluster's own protocol box, rsp-balanced across the committed edge by the c2 landings' restore+release, so the adjacency fence treats exactly this shape as transparent; the predicate (gamma-chained + role-0 by UNION-TAG + next-is-the-registered-call-kind) mirrors the emit-side sr0 pairing at the dispatch (nd->gamma keying) verbatim, keeping planner and emitter in structural agreement */
                 for (int i = 0; i < pn; i++) { if (post[i]->op == IR_BINOP || post[i]->op == IR_UNOP) B++; else L++; }   /* ZB-VAL-6b: unops share the fvb operator registry, so they must be counted against ITS cap, not the leaf cap -- a miscount here is the exact shape of the ZB-VAL-0 partial-quartet latent */
                 { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && pn > 1) fprintf(stderr, "[FCC] ok=%d cap=%d p0g=%p p1=%p\n", ok, fc_vcap(L, 1, B, pn), (void*)(pn > 1 ? post[0]->γ.node : 0), (void*)(pn > 1 ? post[1] : 0)); if (dbg && pn > 1 && post[0]->γ.node) fprintf(stderr, "[FCC] p0=%p p0op=%d p0g_op=%d r=%p rop=%d\n", (void*)post[0], (int)post[0]->op, (int)post[0]->γ.node->op, (void*)r, (int)r->op); }
                 if (ok && fc_vcap(L, 1, B, pn)) {
@@ -1112,7 +1112,7 @@ long zw_carve_k(const IR_t * nd) {
     if (!_ba || !nd) return 0;
     _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC);
     if (_spine || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0;
-    if (!_all && (nd->op == IR_SAVE_RESTORE || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;   /* RK-GRAM-3d: grammar-box nodes use [___+N] frame slots exclusively; never participate in RSP FORTH-spine carve */
+    if (!_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;   /* RK-GRAM-3d: grammar-box nodes use [___+N] frame slots exclusively; never participate in RSP FORTH-spine carve */
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd); if (_k <= 0) return 0;
     { int _nid = bb_node_id((IR_t *)nd); if (_bo && *_bo && !zw_nid_listed_c(_bo, _nid)) return 0; if (zw_nid_listed_c(_bs, _nid)) return 0; }

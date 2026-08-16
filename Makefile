@@ -113,8 +113,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_glue_flat.cpp \
     $(SRC)/templates/bb_glue_framed.cpp \
     $(SRC)/templates/bb_lit.cpp \
-    $(SRC)/templates/bb_save_restore.cpp \
-    $(SRC)/templates/bb_func_activate.cpp \
+    $(SRC)/templates/bb_define.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb_conjunction.cpp \
     $(SRC)/templates/bb_subscript.cpp \

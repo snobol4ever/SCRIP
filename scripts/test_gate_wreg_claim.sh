@@ -18,7 +18,7 @@
 # reproduces EXACTLY at bce9a4b0 — but it is NOT the whole surface.  r10d/r11d/r10b/r11b name the SAME PHYSICAL
 # REGISTERS and are invisible to a "r10"-shaped grep.  That blind spot is not theoretical: it is how the ONE
 # pre-existing r10 claim in the product hid from the design's census —
-#     src/templates/bb_func_activate.cpp:25-26
+#     src/templates/bb_define.cpp:25-26
 #       #define AB_TC_REG   ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10"  : "r9")
 #       #define AB_TC_REG_D ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10d" : "r9d")
 # — the AB return type-code register, moved r9 -> r10 by the s8 RTCC-safety fix precisely BECAUSE r10 was, in

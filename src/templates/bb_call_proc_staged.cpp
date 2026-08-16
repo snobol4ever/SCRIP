@@ -182,8 +182,8 @@ static long bcps_parse_rsp(const char * t) {   /* SIG: shared [rsp(+N)] text par
 }
 static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }   /* SIG ZD twin: entry-rsp-relative displacement of a ZD cell — x86_zref with bias 0 (the record's live carve removed), same decline rule as bcps_sig_disp */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_SAVE_RESTORE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
- * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_SAVE_RESTORE template (bb_save_restore.cpp) and this consumer compute the SAME answer from the SAME inputs —
+/* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_DEFINE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
+ * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_DEFINE template (bb_define.cpp) and this consumer compute the SAME answer from the SAME inputs —
  * structural agreement, no drift (a disagreement bombs loudly below).  !is_generator is explicit here: the det arm arrives pre-filtered by its dispatch but role-0 has no such gate, and open_slim's
  * runtime guard declines generators anyway, so the conjunct is redundant-true for this file and load-bearing for role-0.  The handoff is a template-file static (the fc_pair_extent side-table idiom —
  * PEERS RULE: not an IR_t field; not g_emit: DRIVE_FILL owns that lifecycle): role-0 sets it as its string is built, and THIS box consumes-and-clears on its very next build (sx_call_named chains
@@ -202,7 +202,7 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
     if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return scc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTHORITY: the role-4 shim's exact emit condition, shared by every tiny site — a site may jmp <fn>_alpha iff this returns 1, so the shim and its consumers can never drift (1010 linked jmps to a shim the role-4 box had declined). env+probe+formals-bounds mirror bb_save_restore verbatim; nargs kept for signature stability (arity routing stays rt_define_tiny_ok's job inside). */
+extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTHORITY: the role-4 shim's exact emit condition, shared by every tiny site — a site may jmp <fn>_alpha iff this returns 1, so the shim and its consumers can never drift (1010 linked jmps to a shim the role-4 box had declined). env+probe+formals-bounds mirror bb_define verbatim; nargs kept for signature stability (arity routing stays rt_define_tiny_ok's job inside). */
     static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
     if (_nt || !fname) return 0;
     if (!rt_define_tiny_ok(fname, nargs)) return 0;
@@ -542,7 +542,7 @@ static std::string bcps_det_arm() {
          + (c2 ? IF(g_scan_regs_live, x86("push", "rax") + x86("push", "rax")) + x86_scan_sync_out() + IF(g_scan_regs_live, x86("pop", "rax") + x86("pop", "rax")) : x86_scan_sync_out())   /* c2: rax carries sr0's open_slim outcome across the box edge; sync_out's C call clobbers it, so the pair (two pushes = alignment held) shields it — emits nothing when the site is not scan-live */
          + x86_anchor_enter()
          + (c2
-            /* CALL2BB slice 2 — STAGED-BOX SKIP: the role-0 IR_SAVE_RESTORE box just ahead of this one carved the save block (still LIVE at rsp on the committed path), spilled the save-set, ran
+            /* CALL2BB slice 2 — STAGED-BOX SKIP: the role-0 IR_DEFINE box just ahead of this one carved the save block (still LIVE at rsp on the committed path), spilled the save-set, ran
              * open_slim, and installed the staged args into the NV globals.  rax==1 = slim record OPEN → transfer here (landings restore + release sr0's block through the slim epilogues, exactly the
              * merged shape); rax==0 = runtime decline (redefined / fastpath-off / prototype drift) → sr0 already released its block → fall to L(5) = the classic sequence verbatim, at base depth. */
             ? x86("test", "rax", "rax")
@@ -585,7 +585,7 @@ static std::string bcps_det_arm() {
                 { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
                 if (!_ntiny && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                     /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
-                     * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
+                     * result) lives in the role-4 shim (bb_define).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
                     std::string la = std::string(_.op_sval) + "_\xce\xb1";
                     if (bcps_fnsig()) {
@@ -594,7 +594,7 @@ static std::string bcps_det_arm() {
                          * DELETED: the actuals stay in the CALLER'S OWN operand cells (each at a compile-time-known depth this very emitter already resolved — the knowledge was being spent on 4
                          * mov-instructions per arg, now it is spent on one .quad of DATA per arg), and the site collapses to lea rcx,sig + lea/jmp.  Sig = {K, γcont, ωcont, off_i…} all-quads in the
                          * site's own chain, entry-rsp-relative (rsp AT the jmp — the shim's entry rsp — is the ONE stated reference point).  The shim swaps [entry+off_i] ↔ formal-GVA in place, so the
-                         * old formal parks in the caller's own cell — same pushdown-by-swap as s58, one copy fewer, and the K-dependent frame geometry on the shim dies (see bb_save_restore s66).
+                         * old formal parks in the caller's own cell — same pushdown-by-swap as s58, one copy fewer, and the K-dependent frame geometry on the shim dies (see bb_define s66).
                          * Consequences: over-arity extras never move and are released by statement_end like every other operand cell; the shim release is a CONSTANT.  ELIGIBILITY: every operand half
                          * must resolve to a static consecutive [rsp+N] pair AND be outside the fc window (a parked old-formal in a rotating window is a clobber hazard unproven this rung) — otherwise
                          * DECLINE TINY ENTIRELY and fall to slim, so the sig-only shim never receives a record-shaped entry.  γcont==ωcont==L(2) kept this rung (the DT_FAIL cmp routes; the γ≠ω split
@@ -681,7 +681,7 @@ static std::string bcps_det_arm() {
                                + (c2farm() ? x86_rsp_load64("rax", (int)scc_sb + 8) : x86_fc_hit(slot + 8) ? x86_rsp_load64("rax", slot + 8 - _.op_fc_base + (int)scc_sb) : x86("mov", "rax", FRQB(slot + 8, (int)scc_sb)))
                                + x86("note", gva_name(scc_gk[i])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[i], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[i] * 16 + 8), "rax"); })
                     + x86("mov", "rax", "r10")   /* FUNCTION LINKAGE s55: rt_proc_open_fn crossing DELETED */
-                    + [&]{ static int _sp = -1; if (_sp < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp = (e && *e == (char)49) ? 1 : 0; } return _sp ? x86("note", "s110 floater pair: fnrbp2 RETURN/FRETURN floaters pop {gamma,omega} AT TOS (bb_save_restore role-1/2 s64 arm); this non-TINY site pushed NOTHING, so :(RETURN) popped enclosing-frame bytes and jumped junk (rip=_rtld_global, the omega_driver signature; witness probe/mon/mon_define_call_min).  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the floater consumes 16 so L(6)/L(7) arrive at today's post-carve depth unchanged.  Wires below stay seated for blob-exit spellings.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
+                    + [&]{ static int _sp = -1; if (_sp < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp = (e && *e == (char)49) ? 1 : 0; } return _sp ? x86("note", "s110 floater pair: fnrbp2 RETURN/FRETURN floaters pop {gamma,omega} AT TOS (bb_define role-1/2 s64 arm); this non-TINY site pushed NOTHING, so :(RETURN) popped enclosing-frame bytes and jumped junk (rip=_rtld_global, the omega_driver signature; witness probe/mon/mon_define_call_min).  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the floater consumes 16 so L(6)/L(7) arrive at today's post-carve depth unchanged.  Wires below stay seated for blob-exit spellings.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
                     + bb_glue_pass_wires_blob(6, 7)
                     + x86("def", L(6))
                     + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))

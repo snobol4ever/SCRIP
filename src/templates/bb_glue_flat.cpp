@@ -120,7 +120,7 @@ std::string bb_glue_outer_ω() {
  * cell holds whatever was assigned, null if nothing); ω rides the ww wire (FRETURN semantics: the caller's :F() sees the failure).  This retires the whack+exit@PLT landing on stub blobs, which (a)
  * whacked an ___ NO authority had pinned for this class (the α pin guard excludes jmp-entry; the ___PAIR falsification s22u proved suppressing the whack alone is NOT the cure) and (b) reported
  * exit(0) -- a SILENT SUCCESS -- on the γ arm of a path that means the transfer machinery fell through.  Level-0 arrival dies loudly inside rt_flat_ret_snap (error 18, "return from level zero"),
- * strictly better than the silent exit.  ONE AUTHORITY: bb_save_restore.cpp's role-1/2 floaters consume this same function for their tails, so the wire-exit sequence exists exactly once. */
+ * strictly better than the silent exit.  ONE AUTHORITY: bb_define.cpp's role-1/2 floaters consume this same function for their tails, so the wire-exit sequence exists exactly once. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
     if (!PLATFORM_X86) return std::string();

@@ -13,7 +13,7 @@
  * ON for proc graphs that CARRY A BODY (nparams > 0 or resumable_callable — the body STILL benefits from fold
  * because its lit operands are not yet on the FORTH cell ladder).  ⛔ CORRECTED s205 (MEASURED, not argued): this
  * arm NEVER FIRES FOR SNOBOL4 and that is CORRECT, not a defect.  A SNOBOL4 DEFINE lowers to the HOOK ONLY
- * (IR_SAVE_RESTORE + an IR_CALL kind); under SN4-FLAT-PROC (s176) the function BODY is ordinary labelled
+ * (IR_DEFINE + an IR_CALL kind); under SN4-FLAT-PROC (s176) the function BODY is ordinary labelled
  * statements living in the ONE MAIN GRAPH, so a DEFINE contains nothing foldable and its body is governed by
  * the expression arm (OFF) by construction.  Measured with SCRIP_OPT_STATS: body-only and spine-only foldable
  * programs BOTH fold in graph #1; the stub graph folds 0.  The prior wording ("ALWAYS ON for DEFINE proc

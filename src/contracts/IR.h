@@ -32,8 +32,7 @@ typedef enum {
     IR_CALL_BUILTIN_PROLOG,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
-    IR_SAVE_RESTORE,   /* SN4-FLAT-PROC (s176) linkage family — SPITBOL manual Ch.8 save/restore protocol citizens, role in ival: 0 = site OPEN (reserved, next slice), 1 = RETURN floater (peek wires, restore rsp/___, jmp γ wire), 2 = FRETURN floater (same, ω wire), 3 = WIRE-ADOPT (stub entry: copy header wires + entry-rsp + caller-___ into the open pcall record) */
-    IR_DEFINE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = ___-framed entry: push ___; mov ___,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}. */
+    IR_DEFINE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = ___-framed entry: push ___; mov ___,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}.  s116 ONE-IR (Lon in-chat: "There is only one IR and one BB.  There is no IR_SAVE_RESTORE.  There is no IR_FUNC_ACTIVATE."): the Ch.8 save/restore citizens ride THIS kind, role in ival -- 1 RETURN floater, 2 FRETURN floater, 3 wire-adopt, 4 per-DEFINE shim; site-0 = sval + γ IS its paired call (CALL2BB); bind = sval + zero operands; activation = sval + operands; role-8 dynamic DEFINE(variable) -> rt_define RESERVED until the runtime leaf lands. */
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,
@@ -227,6 +226,8 @@ struct IR_t {
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))
+static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }   /* s116 ONE-IR: Ch.8 role read -- bind/activation/site-0 carry sval and lp heap pointers are >=8-aligned, so the union read is never 1..4 */
+static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }   /* citizen = ch8 role OR the CALL2BB site-0 box (its γ IS the paired call per the lower mint); the bind's γ is its statement successor, never call-kind -- the old IR_SAVE_RESTORE population survives the kind merge EXACTLY */
 typedef struct {
     const char * sval;
     int64_t      ival;
@@ -254,7 +255,7 @@ struct IR_graph_t {
     IR_t        ** balias_node;   /* BODY-ALIAS (Lon s62): DEFINE entry statements in the ONE shared graph — the m4 driver fills these before main's emit_chain; the emitter renames that statement_begin's α to <FN>_body IN PLACE, so the entry label is bound AT the statement, at its source position, and the standalone pre-main body-chain emission is deleted.  Parallel arrays, n_balias entries; zero for every other graph (IR_alloc callocs). */
     const char  ** balias_name;
     int            n_balias;
-    IR_t        ** dentry_node;   /* FN-FACE-DELETE + NATURAL-LABEL (Lon s114 in-chat: "DELETE this label FN__ROMAN"; "Change the label LBL__ROMAN to be n25_statement_begin_α as it was before"): per-DEFINE bind boxes in the ONE shared graph, paired with the body-entry STATEMENT NODE (dentry_entry, the balias chase's landing) — the m4 driver stamps these BEFORE the balias build (which now skips DEFINE-linked rows so the entry keeps its natural port label), codegen_flat_chain_body fills dentry_name with the node's allocated natural label name at alloc time, the bind dispatch deposits it into g_emit.lbl_t0, and both bb_ab_bind's rt_define_site fn lea and the inline role-5 shim's body jmp target it.  Same parallel-array-on-the-graph shape as balias_node above (the s62 precedent); zero for every other graph (IR_alloc callocs). */
+    IR_t        ** dentry_node;   /* FN-FACE-DELETE + NATURAL-LABEL (Lon s114 in-chat: "DELETE this label FN__ROMAN"; "Change the label LBL__ROMAN to be n25_statement_begin_α as it was before"): per-DEFINE bind boxes in the ONE shared graph, paired with the body-entry STATEMENT NODE (dentry_entry, the balias chase's landing) — the m4 driver stamps these BEFORE the balias build (which now skips DEFINE-linked rows so the entry keeps its natural port label), codegen_flat_chain_body fills dentry_name with the node's allocated natural label name at alloc time, the bind dispatch deposits it into g_emit.lbl_t0, and both bb_define_bind's rt_define_site fn lea and the inline role-5 shim's body jmp target it.  Same parallel-array-on-the-graph shape as balias_node above (the s62 precedent); zero for every other graph (IR_alloc callocs). */
     IR_t        ** dentry_entry;
     const char  ** dentry_name;
     int            n_dentry;

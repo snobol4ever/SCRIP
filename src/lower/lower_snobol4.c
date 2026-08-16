@@ -195,13 +195,13 @@ static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, in
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
-    /* CALL2BB slice 1 (Lon directive s21x: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: IR_SAVE_RESTORE and IR_CALL") — behind SCRIP_CALL2BB=1 the call site becomes the two-BB pair: role-0
-     * IR_SAVE_RESTORE (carves its OWN slots, saves the fname/formals/locals save-set, opens the pcall residue, installs staged args into the NV globals) chained γ-wise INTO the slimmed IR_CALL (frame
+    /* CALL2BB slice 1 (Lon directive s21x: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: IR_DEFINE and IR_CALL") — behind SCRIP_CALL2BB=1 the call site becomes the two-BB pair: role-0
+     * IR_DEFINE (carves its OWN slots, saves the fname/formals/locals save-set, opens the pcall residue, installs staged args into the NV globals) chained γ-wise INTO the slimmed IR_CALL (frame
      * dance + transfer + restore landings).  sr0 carries the SAME sval (shared strdup, read-only) and the SAME arg operand list so its drive arm marshals slots exactly like the call family; args chain
      * terminates at sr0 instead of call.  Gate OFF = this function byte-identical to its prior body (sr0 never built, tail == call). */
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     IR_t * sr0 = NULL; static int c2bb = -1; if (c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); c2bb = (e2 && *e2 == '1') ? 1 : 0; }
-    if (c2bb) { sr0 = lc_build(cx->g, IR_SAVE_RESTORE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }   /* UNION-TAG (IR.h: sval/ival alias): writing sval IS the role-0 mark — the slice-1 `ival = 0` here was a dead store the sval write clobbered; the dispatch normalizes pointer-vs-1..3 back to role 0..3 */
+    if (c2bb) { sr0 = lc_build(cx->g, IR_DEFINE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }   /* UNION-TAG (IR.h: sval/ival alias): writing sval IS the role-0 mark — the slice-1 `ival = 0` here was a dead store the sval write clobbered; the dispatch normalizes pointer-vs-1..3 back to role 0..3 */
     IR_t * tail = sr0 ? sr0 : call;
     int nargs = t ? (t->n - argbase) : 0;
     IR_t * prev = NULL; IR_t * entry = tail;
@@ -2050,7 +2050,7 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
     /* TINY-REAL s58 (Lon): the per-DEFINE role-4 SHIM (<fn>_alpha swap/extend, <fn>_gamma/<fn>_omega restore) rides THIS chain, γ-linked after the fold box — MEASURED: the emission walker is
      * reachability-based (a port-orphan node minted into the main graph emitted 0 definitions against 6 site references), and the fold box ends in an unconditional `jmp rax`, so the shim is emitted
      * yet control-dead inline; sites enter it by NAME only.  Placement at the DEFINE statement's comment (Lon) rides the stub-suppression rung — this lands the label the sites need first. */
-    IR_t * sh4 = fname ? lc_build(g, IR_SAVE_RESTORE, exitnd, failnd) : (IR_t *)0;
+    IR_t * sh4 = fname ? lc_build(g, IR_DEFINE, exitnd, failnd) : (IR_t *)0;
     if (sh4) { IR_LIT(sh4).ival = 4;
         IR_t * s41 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s41).sval = (char *) fname;
         IR_t * s42 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s42).sval = (char *) entry_label;
@@ -2058,7 +2058,7 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, sh4 ? sh4 : exitnd, failnd);
     IR_LIT(gd).sval = lp_strdup(entry_label);
     gd->seal = 1;   /* ⭐ DEFINE-FOLD (s53): fold-eligible mark -- this goto's target is the CONSTANT entry label of a DEFINE, whose LBL__ body proc exists in this same compilation.  bb_goto_dyn's fold arm reads it (staged as op_ival at the dispatch) and emits the DIRECT transfer `lea rdi,[rip+proc_LBL__<name>_α]; call rt_chain_enter`, deleting the per-call rt_goto_transfer string lookup while preserving the chain protocol (callee-save pushes + fall-off landing) verbatim.  seal is free on this kind (no other consumer). */
-    g->entry = gd;   /* ROLE-3 DELETE (Lon s114 in-chat: "remove the IR_SAVE_RESTORE since it DOES NOTHING... The FUNCTION wiring is already done via the SHIM, so this must be some OLD code that never materialized. Clean it up."): the WIRE-ADOPT box has been an empty label + relay since s54/s55 moved wire seating to the sites (r10/r11) — the stub graph now ENTERS at the IR_GOTO_DEFERRED itself; proc_role3_kind reads that entry shape as kind 1.  EXPR$/PAT$ thunks (kind 2) keep their role-3 entry: it is their kind discriminator, and their registration/startup path is unchanged. */
+    g->entry = gd;   /* ROLE-3 DELETE (Lon s114 in-chat: "remove the IR_DEFINE since it DOES NOTHING... The FUNCTION wiring is already done via the SHIM, so this must be some OLD code that never materialized. Clean it up."): the WIRE-ADOPT box has been an empty label + relay since s54/s55 moved wire seating to the sites (r10/r11) — the stub graph now ENTERS at the IR_GOTO_DEFERRED itself; proc_role3_kind reads that entry shape as kind 1.  EXPR$/PAT$ thunks (kind 2) keep their role-3 entry: it is their kind discriminator, and their registration/startup path is unchanged. */
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2086,8 +2086,8 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
      * existing epilogue leaves on those wires perform the pop+restore+result protocol verbatim.  ANY goto — direct or $-computed — reaches them through this registry for free.  Level-0 transfer is a
      * runtime error inside rt_flat_ret_snap.  Def-body graphs (result_name != NULL) stay self-contained on their own exitnd/failnd exactly as before: their bodies are not statements of this graph. */
     if (!result_name) {
-        IR_t * rf = lc_build(g, IR_SAVE_RESTORE, exitnd, failnd); IR_LIT(rf).ival = 1;
-        IR_t * ff = lc_build(g, IR_SAVE_RESTORE, exitnd, failnd); IR_LIT(ff).ival = 2;
+        IR_t * rf = lc_build(g, IR_DEFINE, exitnd, failnd); IR_LIT(rf).ival = 1;
+        IR_t * ff = lc_build(g, IR_DEFINE, exitnd, failnd); IR_LIT(ff).ival = 2;
         if (!bb_label_landing("RETURN"))  bb_label_registry_add(lp_strdup("RETURN"),  rf);
         if (!bb_label_landing("FRETURN")) bb_label_registry_add(lp_strdup("FRETURN"), ff);
         if (!bb_label_landing("NRETURN")) { IR_t * nrl = lc_build(g, IR_LIT_STRING, NULL, ff); IR_LIT(nrl).sval = (char *) ""; IR_t * nnd = lc_build(g, IR_CALL, rf, ff); IR_LIT(nnd).sval = (char *) "SNO$NRET"; lc_γ_to(nrl, nnd); ir_operand_push(nnd, nrl); bb_label_registry_add(lp_strdup("NRETURN"), nrl); }
@@ -2147,7 +2147,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 }
             }
             /* ⭐⭐⭐ DEFINE-SITE s57 (Lon in-chat: "the code for DEFINE comes directly after the statement comment ... move it there. This is shared code"): the folded DEFINE statement ALWAYS carries the
-             * bind box in the shared chain (anchor -> bind -> sJ; sJ carries the :(...) goto), independent of SCRIP_AB — the box's registration half (bb_ab_bind) is the DEFINE code AT the statement,
+             * bind box in the shared chain (anchor -> bind -> sJ; sJ carries the :(...) goto), independent of SCRIP_AB — the box's registration half (bb_define_bind) is the DEFINE code AT the statement,
              * replacing the m4 startup hoist for dyn_scope procs.  The AB=1 path above continues before reaching here (bind already minted with the cell store); this arm serves AB=0.  Non-literal
              * prototypes fall through to the bare skip (they are outside the landed fold subset and fatal upstream at :776 anyway). */
             { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase); const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
@@ -2468,7 +2468,7 @@ void sno_expr_thunks_build(int x0) {
         IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
         ir_operand_push(asn, vr);
         if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
-        { IR_t * ad = lc_build(gx, IR_SAVE_RESTORE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }   /* ⭐ EXPR-CLASSP (2026-08-09, the h2 silent-success-drop root): every live EXPR$ caller is the WIRE loop (dcap pump / rt_defer_open both do rt_proc_call_open then lea rcx,γ; lea rdx,ω; jmp rax — a pcall record is ALWAYS open), yet the graph exited CLASS C (bb_glue_outer_γ: mov rsp,___; pop ___; mov eax,DT; ret) against an ___ NO prologue established — the GLUE-SYM disease verbatim, a fossil of the deleted C-side rt_dcap_flush.  Prepending the role-3 WIRE-ADOPT makes the graph satisfy the driver's EXISTING CLASS P floor predicate (scrip.c ×4: entry==IR_SAVE_RESTORE && ival==3), so exits become bb_glue_wire_γ/ω → rt_flat_ret_snap → the adopted wires — the same one authority DEFINE stubs use; zero driver/pump edits. */
+        { IR_t * ad = lc_build(gx, IR_DEFINE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }   /* ⭐ EXPR-CLASSP (2026-08-09, the h2 silent-success-drop root): every live EXPR$ caller is the WIRE loop (dcap pump / rt_defer_open both do rt_proc_call_open then lea rcx,γ; lea rdx,ω; jmp rax — a pcall record is ALWAYS open), yet the graph exited CLASS C (bb_glue_outer_γ: mov rsp,___; pop ___; mov eax,DT; ret) against an ___ NO prologue established — the GLUE-SYM disease verbatim, a fossil of the deleted C-side rt_dcap_flush.  Prepending the role-3 WIRE-ADOPT makes the graph satisfy the driver's EXISTING CLASS P floor predicate (scrip.c ×4: entry==IR_DEFINE && ival==3), so exits become bb_glue_wire_γ/ω → rt_flat_ret_snap → the adopted wires — the same one authority DEFINE stubs use; zero driver/pump edits. */
         int xpi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[xpi].name = g_sno_exprs[xi].name;
         g_stage2.proc_table[xpi].proc = NULL;

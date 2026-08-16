@@ -12,7 +12,7 @@
 # FORMAT (whitespace-separated):
 #   <basename.cpp>   <who/session>   <how-cleared: probe or monitor invocation>   <one-line justification>
 #
-# EMPTY BY DESIGN at creation (2026-08-10).  bb_func_activate.cpp is in the collision class and is
+# EMPTY BY DESIGN at creation (2026-08-10).  bb_define.cpp is in the collision class and is
 # deliberately NOT cleared here: its `movzx r9, cl` (line 205) was flagged in passing by RTX-FUNC-0's
 # commit message (22a61ccf: "beta movzx r9,cl vs RTCC_GLOBAL_R9_GVA r9=GVA-base claim") and never probed.
 # The owning seat clears it or fixes it; the gate stays INFORMATIONAL until then so it blocks nobody.
