@@ -1744,6 +1744,19 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
          * compiled pattern fn, a scalar is a literal match.  Killing the per-occurrence sno_reg_var(tmpn) is what
          * removes the GLOBAL_MAX/zls flood (PATTMP$P3128) that blocked beauty self-host; each match node's value
          * lives in its own per-node slot, so nested/sequential eager calls no longer clobber a shared name. */
+        /* SN4-PAT-EAGER-CALL (2026-08-15 s106): the MATCH_VALUE arm below splices the call's evaluation chain INTO THE PATTERN GRAPH, so for a pattern that is BUILT (stored) rather
+         * than matched in place, the call lands inside the PAT$ blob and runs at MATCH time.  The manual gives the opposite law: a bare call is evaluated when the pattern is
+         * CONSTRUCTED -- p.86 "NPAT captures the value of variable N at the time of pattern construction"; p.134 "Without it, PUSH() is called when the pattern is first constructed".
+         * Deferral is exactly what the unary * operator is FOR, and a bare call must not receive it.  Witnesses corpus/probe/mv/: mv_alt_call_build_order is the pure ordering
+         * divergence with NO crash (top level, side-effecting callee); mv_alt_builtin_call_infn and mv_alt_call_infn_matched_infn are the SIG11 face of the same root inside a
+         * DEFINE body.  FIX rides the EXISTING PB-1s stage-2 snapshot: register the whole call tree as a cx->pre[] entry, whose drain (~2005) already lowers cx->pre[].arg
+         * GENERICALLY via sx_lower -- so the call is evaluated ONCE at the BUILD site into the hidden PATV$k global and the blob DEFERs a by-name read of the frozen result.
+         * ONE mechanism, no second path, no new global (env read via function-static).  Killswitch SCRIP_PAT_EAGER_CALL=0 restores the MATCH_VALUE arm verbatim. */
+        { static int _ec = -1; if (_ec < 0) { const char * e = getenv("SCRIP_PAT_EAGER_CALL"); _ec = (!e || *e != '0') ? 1 : 0; }
+          if (_ec && cx->npre >= 0 && cx->npre < 64) {
+            IR_t * mvd = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_ω_to(mvd, fail);
+            cx->pre[cx->npre].arg = t; cx->pre[cx->npre].prim = mvd; cx->pre[cx->npre].str = 0; cx->pre[cx->npre].codes = 0; cx->pre[cx->npre].snapg = name ? name : "$fnc"; cx->npre++;
+            return mvd; } }
         IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL); sno_ω_to(mv, fail);
         IR_t * vr = NULL; IR_t * ec = sx_lower(cx, t, mv, fail, &vr);
         if (vr) ir_operand_push(mv, vr);
