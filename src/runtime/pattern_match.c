@@ -276,7 +276,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
+static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     if (arr.v == DT_A) {
         int i = (int)to_int(idx);
         if (i < arr.arr->lo || i > arr.arr->hi) return 0;
@@ -342,6 +342,14 @@ int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     core_runtime_error(3, NULL);
     return 0;
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s112 MON-CAP — THE SUBSCRIPTED-LVALUE VALUE TAP.  MEASURED on beauty.sno: the sync-step monitor's FIRST divergence (step 49, global.inc:29 `UTF[CHAR(194) CHAR(160)] = 'NO_BREAK_SPACE'`) was the oracle
+ * emitting `VALUE <lval> = STRING(14)='NO_BREAK_SPACE'` where SCRIP emitted NOTHING and ran straight on to the next LABEL.  IT IS NOT A PROGRAM DEFECT — the discriminating probe stores and reads back
+ * table AND array subscripts oracle-identically; SCRIP was simply DARK for this assignment class, which RULES.md names explicitly ("blind to the divergence CLASS ... reinstating/extending it comes
+ * FIRST").  The simple-name taps live on the NV_SET family in rt.c; a subscripted store never passes through NV_SET, so it had no tap anywhere.  SPELLING IS THE ORACLE'S, NOT INVENTED: `<lval>` is
+ * verbatim what the x64 `sbl` fire-point prints for a non-simple target (measured on a 4-form probe covering table, array, simple and indirect targets).  Wrapped rather than patched at each `return`
+ * so every success path taps exactly once and the arms stay ONE AUTHORITY — `_body` keeps the whole original decision tree byte-for-byte.  Fires only under g_monitor_bin: zero cost when dark. */
+int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
     long ii = (long)to_int(i), ee = (long)to_int(end);
@@ -391,7 +399,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
+static int subscript_set2_body(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     if (arr.v == DT_A) {
         int ii = (int)to_int(i), jj = (int)to_int(j);
         if (ii < arr.arr->lo || ii > arr.arr->hi) return 0;
@@ -401,6 +409,8 @@ int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     }
     return 0;
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
     (void)min_args; (void)max_args;
@@ -1318,7 +1328,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR: asm entry is rt_assign_var (rtx_icnvar.S); this is the gate-off body */
+static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR: asm entry is rt_assign_var (rtx_icnvar.S); this is the gate-off body */
     { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
@@ -1352,6 +1362,19 @@ DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR: asm entry i
         return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = rs };
     }
     return FAILDESCR;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s112 MON-CAP — THE SUBSCRIPTED-LVALUE VALUE TAP (fire point 2 of 2).  SNOBOL4 does NOT reach subscript_set for `T[k] = v`: the front-end lowers a subscripted target to rt_subscript_var, which
+ * returns a NAMETRAP lvalue, and the store lands HERE — measured from the emitted asm of a 4-form probe (rt_subscript_var/rt_assign_var, never subscript_set).  This is where beauty.sno's step-49
+ * blindness actually lived.  ONLY NON-SIMPLE TARGETS TAP: the `DT_N slen==0` arm is a plain NAME (`$'Y' = ...`), whose event is already emitted by rt_indirect_assign_* in rt.c under the REAL variable
+ * name, so tapping it here too would double-emit and desync the very instrument this rung exists to fix.  Cell/table/tvsubs targets have no other tap anywhere and get the oracle's `<lval>` spelling.
+ * FAIL results do not tap — the oracle emits no VALUE for a store that did not happen.  Wrapped, not patched per-return, so the original decision tree stays byte-for-byte ONE AUTHORITY. */
+DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val)
+{
+    int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
+    DESCR_t r = c_rt_assign_var_body(var, val);
+    if (!simple && g_monitor_bin && !IS_FAIL_fn(r)) mon_emit_value_bin("<lval>", val);
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static VCELL_t * vcell_ultimate(DESCR_t d) {
