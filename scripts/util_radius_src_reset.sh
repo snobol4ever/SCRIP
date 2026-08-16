@@ -12,9 +12,16 @@
 # before the killswitch is defaulted on.
 #
 # Usage: bash scripts/util_radius_src_reset.sh [DIR ...]
+#   KILLSWITCH=SCRIP_FOO  bash scripts/util_radius_src_reset.sh [DIR ...]
+# KILLSWITCH names the env var A/B'd (default SCRIP_SRC_RESET, this script's
+# original subject).  s116 generalised it rather than mint a near-duplicate
+# script: the radius METHOD — compile the same corpus twice on ONE binary and
+# md5 the two .s streams — is identical for every killswitch, and a second copy
+# would be the "spelled-twice disease" the goal file's ONE AUTHORITY law names.
 set -u
 SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_src_reset}
+KILLSWITCH=${KILLSWITCH:-SCRIP_SRC_RESET}
 rm -rf "$OUT"; mkdir -p "$OUT"
 DIRS=${*:-"/home/claude/corpus/probe/bb /home/claude/corpus/programs/snobol4 /home/claude/corpus/crosscheck /home/claude/corpus/probe/eval /home/claude/corpus/programs/icon /home/claude/corpus/programs/prolog"}
 tot=0; diffn=0; failn=0
@@ -22,8 +29,8 @@ for d in $DIRS; do
     [ -d "$d" ] || continue
     for f in $(find "$d" \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' \) | sort); do
         b=$(echo "$f" | md5sum | cut -c1-12)
-        SCRIP_SRC_RESET=1 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
-        SCRIP_SRC_RESET=0 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
+        env "$KILLSWITCH=1" timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
+        env "$KILLSWITCH=0" timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
         if [ ! -s "$OUT/$b.on.s" ] || [ ! -s "$OUT/$b.off.s" ]; then failn=$((failn+1)); rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"; continue; fi
         tot=$((tot+1))
         a=$(md5sum < "$OUT/$b.on.s" | cut -d' ' -f1)
