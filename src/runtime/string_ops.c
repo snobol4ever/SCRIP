@@ -56,6 +56,18 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Concatenation for consumers whose real->string convention carries a mandatory fraction digit ("10.0"), as against str_concat_d's SPITBOL trailing-point convention ("10.").  Canonical cater()
+ * (refs/icon-master/src/runtime/ocat.r) settles both halves of the shape: cnv:string is applied to BOTH operands UNCONDITIONALLY -- so a real is converted even when the other operand is the null string,
+ * and abstract{return string} means the result is a string, never the type-preserving passthrough str_concat_d owes SPITBOL (manual Ch.3 p.22: (20-17) '' is the INTEGER 3).  Only the real arms differ,
+ * so this pre-coerces exactly those and delegates the rest to str_concat_d UNCHANGED -- which keeps one authority for pattern routing, list concatenation, the null-string identity on non-real operands,
+ * the string extend-in-place path, and the rtx_str.S fast path, and leaves every SNOBOL4/Snocone caller of str_concat_d byte-identical BY CONSTRUCTION rather than by measurement.  Coercing before the
+ * delegate is GC-safe: allocation only raises g_gc_pending (gc_heap.c), collection runs at the explicit gc point inside str_concat_d, and both converted DESCRs are live arguments to it by then. */
+DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
+    if (IS_REAL_fn(a)) a = descr_to_str_fracdigit(a);
+    if (IS_REAL_fn(b)) b = descr_to_str_fracdigit(b);
+    return str_concat_d(a, b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
     { extern void rt_gc_point_arr(DESCR_t *, int, const char **); DESCR_t sh[2]; sh[0] = s; sh[1] = n; rt_gc_point_arr(sh, 2, (const char **)0); s = sh[0]; n = sh[1]; }
     if (IS_FAIL_fn(s) || IS_FAIL_fn(n)) return FAILDESCR;

@@ -126,9 +126,9 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         case BINOP_GE: *rel_fail = !(either_real ? ld >= rd : li >= ri); return *rel_fail ? FAILDESCR : rv;
         case BINOP_EQ: *rel_fail = !(either_real ? ld == rd : li == ri); return *rel_fail ? FAILDESCR : rv;
         case BINOP_NE: *rel_fail = !(either_real ? ld != rd : li != ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_CONCAT: {
-            DESCR_t ls_d; ls_d = descr_to_str(lv);
-            DESCR_t rs_d; rs_d = descr_to_str(rv);
+        case BINOP_CONCAT: case BINOP_CONCAT_FRACDIGIT: {
+            DESCR_t ls_d; ls_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(lv) : descr_to_str(lv);
+            DESCR_t rs_d; rs_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(rv) : descr_to_str(rv);
             if (IS_FAIL_fn(ls_d) || IS_FAIL_fn(rs_d)) return FAILDESCR;
             const char *ls = ls_d.s ? ls_d.s : "";
             const char *rs = rs_d.s ? rs_d.s : "";
