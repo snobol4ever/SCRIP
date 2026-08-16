@@ -737,6 +737,15 @@ long c_rt_dcap_step(DESCR_t nm)
     return rt_dcap_pump();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer)
+{   /* ONE-END (Lon s119 in-chat: "reduce blocks like n64_match_end_alpha down to ONE RT call"): open + close + ctx_restore in ONE call.  The box's transfer loop (glue_pass_wires(3,4) + epilogue_gamma/omega + rt_dcap_step) was MEASURED STATICALLY DEAD this seat: the pump's *VAR arm went C-complete (rt_call_proc_descr, the s117-fixed by-name entry) in a prior session, so c_rt_dcap_end_ok_open and c_rt_dcap_step both return rt_dcap_pump() == 0 unconditionally -- the L(3)/L(4) arms were unreachable plumbing.  A nested match during a *VAR transfer flushes its own disjoint [mark,top) range exactly as before (same pump, same LIFO ctx).  close = the ctx pop (rtx_match.S slice 7: "one test, one decrement").  ctx_restore takes the OUTER sig/len the box used to reload r13/r15 from its saved slots -- passed by value so this call is home-agnostic (mrbp [rbp-16]/[rbp-32] or legacy HKQ/FRQ). */
+    extern void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
+    (void)c_rt_dcap_end_ok_open(mark, top, subj);
+    if (g_dcf_top > 0) g_dcf_top--;
+    rt_match_ctx_restore(outer[0], outer[1], 0);   /* outer pair rides ONE stack-built pointer (rcx): SysV arg5 is r8 and the x86("call") encoder OWNS r8 (rtccb spill) -- an r8-staged arg saves the argument over the VM global and reloads it back (caught by .s inspection this seat, never executed) */   /* arg3 discarded since CAPGEN-ERAD (gen_runtime.c (void)capgen); the emitted 2-reg call passed garbage rdx into the same discard */
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* DEAD EXPORT, PARKED NOT DELETED (PARK-NEVER-DELETE): zero callers at NCB-1c.  Its body was the C-side flush
  * loop whose *VAR arm was a C→BB pathway; that pathway is now the box's (rt_dcap_end_ok_open/step/close).  A
@@ -1004,6 +1013,40 @@ int c_rt_defer_close(int cur_delta)
         return cur_delta + llen;
     }
     return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
+{   /* ONE-DEFER shared tail: rt_defer_step's val handling for a DESCR-call result -- FAIL sets failed; a SECOND DT_X (first already consumed dtx_used) stores as val exactly as step does (close then -1s it); else val=r.  Twinned with rt_defer_step above; a drift between them is the spelled-twice disease, so both are three lines on purpose. */
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    if (IS_FAIL_fn(r)) { s->failed = 1; return; }
+    if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; DESCR_t r2 = rt_call_proc_descr(r.s ? r.s : "", 0); if (IS_FAIL_fn(r2)) { s->failed = 1; return; } s->val = r2; return; }
+    s->val = r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_defer_run_all(const char *varname, int cur_delta)
+{   /* ONE-DEFER (Lon s119 in-chat: "reduce blocks like n63_match_defer_alpha down to ONE RT call"): c_rt_defer_open's resolution, with every rt_proc_call_open(nm,0)+wire-enter+epilogue+rt_defer_step round replaced by ONE rt_call_proc_descr(nm,0) -- the s117-fixed C-complete by-name entry into emitted EXPR$ thunks (sealed alpha$ + tiny-record; rt.c:875's named hazard, cured s104/s108/s117).  This is the NCB-1c arc closing: the pump went box-driven BECAUSE the C-to-BB pathway was broken; that pathway is now the runtime's own front door, so the loop folds home.  Resolution arms mirror c_rt_defer_open line-for-line (FAIL literal, g_spk FIFO, ival NAMEVAL/NAMEPTR deref, DT_X thunk); tail = c_rt_defer_close(cur_delta).  Returns the new cursor or -1, exactly close's contract. */
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
+    if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
+    if (varname && varname[0] == '*') {
+        for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; } else if (r.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(r.s ? r.s : "", 0)); } else s->val = r; return c_rt_defer_close(cur_delta); } }
+        s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(varname + 1, 0)); return c_rt_defer_close(cur_delta);
+    }
+    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    if (val.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    s->val = val;
+    return c_rt_defer_close(cur_delta);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
+int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
+{   /* ONE-DEFER patv twin: rt_patv_defer_open's slot read + the same descr-call substitution + close.  PB-1s: the $V slot is frozen-per-construction; a DT_X slot still owes its call. */
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
+    DESCR_t val = patv_slot(hv, i, fb, 0);   /* ival measured 0 at every emitted site (all xor esi/ecx in bb_match_defer.cpp) -- the deref arm is c_rt_defer_open business, not this fold's */
+    if (val.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    s->val = val;
+    return c_rt_defer_close(cur_delta);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
