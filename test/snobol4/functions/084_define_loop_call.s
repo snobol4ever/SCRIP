@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_bump_α
-proc_bump_α:
+FN__bump:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + bump_body];              jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__bump];              jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-bump_alpha:             sub              rsp, 64
+bump_α:                 sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # bump
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ bump_alpha:             sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + bump_gamma]
-                        lea              r11, [rip + bump_omega]
+.Lx8_41:                lea              r10, [rip + bump_γ]
+                        lea              r11, [rip + bump_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + bump_body];              jmp   rax
-bump_gamma:             mov              rdi, qword ptr [r9 + 0]              # bump
+                        lea              rax, [rip + LBL__bump];              jmp   rax
+bump_γ:                 mov              rdi, qword ptr [r9 + 0]              # bump
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ bump_gamma:             mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-bump_omega:             mov              rcx, qword ptr [rsp + 32]
+bump_ω:                 mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + bump_body]
+                        lea              rsi, [rip + LBL__bump]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -159,7 +158,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx58_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_bump_α]
+                        lea              r9, [rip + FN__bump]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -178,7 +177,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # bump    bump = v + 1                                               :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-bump_body:                                                                    jmp   n13_var_α
+LBL__bump:                                                                    jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -360,7 +359,7 @@ n32_binop_β:            add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n33_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig92z]
-                        lea              rax, [rip + bump_alpha];             jmp   rax
+                        lea              rax, [rip + bump_α];                 jmp   rax
 .Lsig92z:               .quad            1
                         .quad            .Lx92_2
                         .quad            .Lx92_2

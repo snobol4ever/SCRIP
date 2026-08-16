@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_jlab_α
-proc_jlab_α:
+FN__jlab:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + jlab_body];              jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__jlab];              jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-jlab_alpha:             sub              rsp, 144
+jlab_α:                 sub              rsp, 144
                         mov              rax, qword ptr [r9 + 64]             # d
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 72]
@@ -91,12 +90,12 @@ jlab_alpha:             sub              rsp, 144
                         mov              qword ptr [rsp + 136], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-.Lx8_43:                lea              r10, [rip + jlab_gamma]
-                        lea              r11, [rip + jlab_omega]
+.Lx8_43:                lea              r10, [rip + jlab_γ]
+                        lea              r11, [rip + jlab_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + jlab_body];              jmp   rax
-jlab_gamma:             mov              rdi, qword ptr [r9 + 0]              # jlab
+                        lea              rax, [rip + LBL__jlab];              jmp   rax
+jlab_γ:                 mov              rdi, qword ptr [r9 + 0]              # jlab
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 80]
                         mov              rdx, qword ptr [rcx + 0]
@@ -156,7 +155,7 @@ jlab_gamma:             mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 144
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-jlab_omega:             mov              rcx, qword ptr [rsp + 80]
+jlab_ω:                 mov              rcx, qword ptr [rsp + 80]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 144]
                         mov              rax, qword ptr [rsp + 48]
@@ -222,7 +221,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + jlab_body]
+                        lea              rsi, [rip + LBL__jlab]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -278,13 +277,13 @@ main_α_body:
 #         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n9_statement_begin_α:                                                         jmp   n10_statement_end_α
-n9_statement_begin_β:                                                         jmp   jlab_body
+n9_statement_begin_β:                                                         jmp   LBL__jlab
 #-----------------------------------------------------------------------------------------------------------------------
-n10_statement_end_α:                                                          jmp   jlab_body
+n10_statement_end_α:                                                          jmp   LBL__jlab
 #=======================================================================================================================
 # jlab    DEFINE('jlab(a,b,c)d,e,f')
 #-----------------------------------------------------------------------------------------------------------------------
-jlab_body:                                                                    jmp   n12_func_activate_α
+LBL__jlab:                                                                    jmp   n12_func_activate_α
 n11_statement_begin_β:                                                        jmp   n14_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_func_activate_α:    mov              rdi, qword ptr [rip + .Lx131_0]
@@ -292,7 +291,7 @@ n12_func_activate_α:    mov              rdi, qword ptr [rip + .Lx131_0]
                         mov              edx, 6
                         mov              ecx, 3
                         mov              r8d, 0
-                        lea              r9, [rip + proc_jlab_α]
+                        lea              r9, [rip + FN__jlab]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11

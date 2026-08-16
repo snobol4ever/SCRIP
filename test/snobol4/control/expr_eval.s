@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_Push_α
-proc_Push_α:
+FN__Push:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + Push_body];              jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__Push];              jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-Push_alpha:             sub              rsp, 64
+Push_α:                 sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # Push
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ Push_alpha:             sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + Push_gamma]
-                        lea              r11, [rip + Push_omega]
+.Lx8_41:                lea              r10, [rip + Push_γ]
+                        lea              r11, [rip + Push_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + Push_body];              jmp   rax
-Push_gamma:             mov              rdi, qword ptr [r9 + 0]              # Push
+                        lea              rax, [rip + LBL__Push];              jmp   rax
+Push_γ:                 mov              rdi, qword ptr [r9 + 0]              # Push
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ Push_gamma:             mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-Push_omega:             mov              rcx, qword ptr [rsp + 32]
+Push_ω:                 mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -96,16 +95,15 @@ Push_omega:             mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_Pop_α
-proc_Pop_α:
+FN__Pop:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_save_restore_α:                                                            jmp   n10_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n10_goto_deferred_α:    lea              rax, [rip + Pop_body];               jmp   rax
+n10_goto_deferred_α:    lea              rax, [rip + LBL__Pop];               jmp   rax
                                                                               jmp   n11_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_save_restore_α:
-Pop_alpha:              sub              rsp, 48
+Pop_α:                  sub              rsp, 48
                         mov              rax, qword ptr [r9 + 32]             # Pop
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 40]
@@ -117,12 +115,12 @@ Pop_alpha:              sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + Pop_gamma]
-                        lea              r11, [rip + Pop_omega]
+                        lea              r10, [rip + Pop_γ]
+                        lea              r11, [rip + Pop_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + Pop_body];               jmp   rax
-Pop_gamma:              mov              rdi, qword ptr [r9 + 32]
+                        lea              rax, [rip + LBL__Pop];               jmp   rax
+Pop_γ:                  mov              rdi, qword ptr [r9 + 32]
                         mov              rsi, qword ptr [r9 + 40]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -137,7 +135,7 @@ Pop_gamma:              mov              rdi, qword ptr [r9 + 32]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-Pop_omega:              mov              rcx, qword ptr [rsp + 32]
+Pop_ω:                  mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         mov              rax, qword ptr [rsp + 0]
@@ -152,16 +150,15 @@ Pop_omega:              mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_Unary_α
-proc_Unary_α:
+FN__Unary:
 #-----------------------------------------------------------------------------------------------------------------------
 n18_save_restore_α:                                                           jmp   n19_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n19_goto_deferred_α:    lea              rax, [rip + Unary_body];             jmp   rax
+n19_goto_deferred_α:    lea              rax, [rip + LBL__Unary];             jmp   rax
                                                                               jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_save_restore_α:
-Unary_alpha:            sub              rsp, 80
+Unary_α:                sub              rsp, 80
                         mov              rax, qword ptr [r9 + 48]             # Unary
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 56]
@@ -207,12 +204,12 @@ Unary_alpha:            sub              rsp, 80
                         mov              qword ptr [rsp + 72], rax
                         mov              qword ptr [r9 + 80], 0
                         mov              qword ptr [r9 + 88], 0
-.Lx26_42:               lea              r10, [rip + Unary_gamma]
-                        lea              r11, [rip + Unary_omega]
+.Lx26_42:               lea              r10, [rip + Unary_γ]
+                        lea              r11, [rip + Unary_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + Unary_body];             jmp   rax
-Unary_gamma:            mov              rdi, qword ptr [r9 + 48]             # Unary
+                        lea              rax, [rip + LBL__Unary];             jmp   rax
+Unary_γ:                mov              rdi, qword ptr [r9 + 48]             # Unary
                         mov              rsi, qword ptr [r9 + 56]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -249,7 +246,7 @@ Unary_gamma:            mov              rdi, qword ptr [r9 + 48]             # 
                         add              rsp, 80
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-Unary_omega:            mov              rcx, qword ptr [rsp + 32]
+Unary_ω:                mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 80]
                         mov              rax, qword ptr [rsp + 0]
@@ -286,16 +283,15 @@ Unary_omega:            mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_Binary_α
-proc_Binary_α:
+FN__Binary:
 #-----------------------------------------------------------------------------------------------------------------------
 n27_save_restore_α:                                                           jmp   n28_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n28_goto_deferred_α:    lea              rax, [rip + Binary_body];            jmp   rax
+n28_goto_deferred_α:    lea              rax, [rip + LBL__Binary];            jmp   rax
                                                                               jmp   n29_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n29_save_restore_α:
-Binary_alpha:           sub              rsp, 96
+Binary_α:               sub              rsp, 96
                         mov              rax, qword ptr [r9 + 96]             # Binary
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 104]
@@ -358,12 +354,12 @@ Binary_alpha:           sub              rsp, 96
                         mov              qword ptr [rsp + 88], rax
                         mov              qword ptr [r9 + 128], 0
                         mov              qword ptr [r9 + 136], 0
-.Lx35_43:               lea              r10, [rip + Binary_gamma]
-                        lea              r11, [rip + Binary_omega]
+.Lx35_43:               lea              r10, [rip + Binary_γ]
+                        lea              r11, [rip + Binary_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + Binary_body];            jmp   rax
-Binary_gamma:           mov              rdi, qword ptr [r9 + 96]             # Binary
+                        lea              rax, [rip + LBL__Binary];            jmp   rax
+Binary_γ:               mov              rdi, qword ptr [r9 + 96]             # Binary
                         mov              rsi, qword ptr [r9 + 104]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -411,7 +407,7 @@ Binary_gamma:           mov              rdi, qword ptr [r9 + 96]             # 
                         add              rsp, 96
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-Binary_omega:           mov              rcx, qword ptr [rsp + 32]
+Binary_ω:               mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 96]
                         mov              rax, qword ptr [rsp + 0]
@@ -459,8 +455,7 @@ Binary_omega:           mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$0_α
-proc_PAT$0_α:
+FN__PAT$0:
 proc_PAT$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n36_match_span_α:       sub              rsp, 16
@@ -495,8 +490,7 @@ proc_PAT$0_γ:
 proc_PAT$0_ω:
                                                                               jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$1_α
-proc_PAT$1_α:
+FN__PAT$1:
 proc_PAT$1_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -778,8 +772,7 @@ proc_PAT$1_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$2_α
-proc_PAT$2_α:
+FN__PAT$2:
 proc_PAT$2_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -1610,8 +1603,7 @@ proc_PAT$2_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$3_α
-proc_PAT$3_α:
+FN__PAT$3:
 proc_PAT$3_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n82_match_assign_save_α:
@@ -1663,8 +1655,7 @@ proc_PAT$3_γ:
 proc_PAT$3_ω:
                                                                               jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$4_α
-proc_PAT$4_α:
+FN__PAT$4:
 proc_PAT$4_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
 n91_match_assign_save_α:
@@ -1716,8 +1707,7 @@ proc_PAT$4_γ:
 proc_PAT$4_ω:
                                                                               jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$5_α
-proc_PAT$5_α:
+FN__PAT$5:
 proc_PAT$5_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -2000,8 +1990,7 @@ proc_PAT$5_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$6_α
-proc_PAT$6_α:
+FN__PAT$6:
 proc_PAT$6_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -2286,8 +2275,7 @@ proc_PAT$6_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$7_α
-proc_PAT$7_α:
+FN__PAT$7:
 proc_PAT$7_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -2676,8 +2664,7 @@ proc_PAT$7_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$8_α
-proc_PAT$8_α:
+FN__PAT$8:
 proc_PAT$8_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -3170,8 +3157,7 @@ proc_PAT$8_ω:
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_PAT$9_α
-proc_PAT$9_α:
+FN__PAT$9:
 proc_PAT$9_α_body:
                         push             rbp
                         mov              rbp, rsp
@@ -3670,7 +3656,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + Push_body]
+                        lea              rsi, [rip + LBL__Push]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -3686,7 +3672,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + Pop_body]
+                        lea              rsi, [rip + LBL__Pop]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 0
@@ -3702,7 +3688,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname2]
-                        lea              rsi, [rip + Unary_body]
+                        lea              rsi, [rip + LBL__Unary]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname2]
                         mov              esi, 0
@@ -3718,7 +3704,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname3]
-                        lea              rsi, [rip + Binary_body]
+                        lea              rsi, [rip + LBL__Binary]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname3]
                         mov              esi, 0
@@ -3734,7 +3720,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname8]
-                        lea              rsi, [rip + proc_PAT$0_α]
+                        lea              rsi, [rip + FN__PAT$0]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname8]
                         mov              esi, 0
@@ -3756,7 +3742,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname9]
-                        lea              rsi, [rip + proc_PAT$1_α]
+                        lea              rsi, [rip + FN__PAT$1]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname9]
                         mov              esi, 0
@@ -3775,7 +3761,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname10]
-                        lea              rsi, [rip + proc_PAT$2_α]
+                        lea              rsi, [rip + FN__PAT$2]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname10]
                         mov              esi, 0
@@ -3794,7 +3780,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname11]
-                        lea              rsi, [rip + proc_PAT$3_α]
+                        lea              rsi, [rip + FN__PAT$3]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname11]
                         mov              esi, 0
@@ -3816,7 +3802,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname12]
-                        lea              rsi, [rip + proc_PAT$4_α]
+                        lea              rsi, [rip + FN__PAT$4]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname12]
                         mov              esi, 0
@@ -3838,7 +3824,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname13]
-                        lea              rsi, [rip + proc_PAT$5_α]
+                        lea              rsi, [rip + FN__PAT$5]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname13]
                         mov              esi, 0
@@ -3857,7 +3843,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname14]
-                        lea              rsi, [rip + proc_PAT$6_α]
+                        lea              rsi, [rip + FN__PAT$6]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname14]
                         mov              esi, 0
@@ -3876,7 +3862,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname15]
-                        lea              rsi, [rip + proc_PAT$7_α]
+                        lea              rsi, [rip + FN__PAT$7]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname15]
                         mov              esi, 0
@@ -3895,7 +3881,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname16]
-                        lea              rsi, [rip + proc_PAT$8_α]
+                        lea              rsi, [rip + FN__PAT$8]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname16]
                         mov              esi, 0
@@ -3914,7 +3900,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname17]
-                        lea              rsi, [rip + proc_PAT$9_α]
+                        lea              rsi, [rip + FN__PAT$9]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname17]
                         mov              esi, 0
@@ -4050,7 +4036,7 @@ n186_func_activate_α:   mov              rdi, qword ptr [rip + .Lx450_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_Push_α]
+                        lea              r9, [rip + FN__Push]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -4103,7 +4089,7 @@ n191_statement_end_α:   add              rsp, 16;                             j
 #=======================================================================================================================
 # Push     stk[0]   =  stk[0] + 1
 #-----------------------------------------------------------------------------------------------------------------------
-Push_body:                                                                    jmp   n193_var_α
+LBL__Push:                                                                    jmp   n193_var_α
 n192_statement_begin_β:                                                       jmp   n204_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n193_var_α:             sub              rsp, 16
@@ -4432,7 +4418,7 @@ n222_func_activate_α:   mov              rdi, qword ptr [rip + .Lx501_0]
                         mov              edx, 0
                         mov              ecx, 0
                         mov              r8d, 0
-                        lea              r9, [rip + proc_Pop_α]
+                        lea              r9, [rip + FN__Pop]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -4451,7 +4437,7 @@ n223_statement_end_α:                                                         j
 #=======================================================================================================================
 # Pop      Pop      =  stk[stk[0]]
 #-----------------------------------------------------------------------------------------------------------------------
-Pop_body:                                                                     jmp   n225_var_α
+LBL__Pop:                                                                     jmp   n225_var_α
 n224_statement_begin_β:                                                       jmp   n234_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n225_var_α:             sub              rsp, 16
@@ -4728,7 +4714,7 @@ n249_func_activate_α:   mov              rdi, qword ptr [rip + .Lx537_0]
                         mov              edx, 2
                         mov              ecx, 0
                         mov              r8d, 0
-                        lea              r9, [rip + proc_Unary_α]
+                        lea              r9, [rip + FN__Unary]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -4747,12 +4733,12 @@ n250_statement_end_α:                                                         j
 #=======================================================================================================================
 # Unary    arg      =  Pop()
 #-----------------------------------------------------------------------------------------------------------------------
-Unary_body:                                                                   jmp   n252_call_α
+LBL__Unary:                                                                   jmp   n252_call_α
 n251_statement_begin_β:                                                       jmp   n255_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n252_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig543z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig543z:              .quad            0
                         .quad            .Lx543_2
                         .quad            .Lx543_2
@@ -4797,7 +4783,7 @@ n255_statement_begin_β:                                                       j
 #-----------------------------------------------------------------------------------------------------------------------
 n256_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig550z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig550z:              .quad            0
                         .quad            .Lx550_2
                         .quad            .Lx550_2
@@ -4880,7 +4866,7 @@ n261_call_β:            add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n262_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig560z]
-                        lea              rax, [rip + Push_alpha];             jmp   rax
+                        lea              rax, [rip + Push_α];                 jmp   rax
 .Lsig560z:              .quad            0
                         .quad            .Lx560_2
                         .quad            .Lx560_2
@@ -5059,7 +5045,7 @@ n277_func_activate_α:   mov              rdi, qword ptr [rip + .Lx584_0]
                         mov              edx, 3
                         mov              ecx, 0
                         mov              r8d, 0
-                        lea              r9, [rip + proc_Binary_α]
+                        lea              r9, [rip + FN__Binary]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -5078,12 +5064,12 @@ n278_statement_end_α:                                                         j
 #=======================================================================================================================
 # Binary   right    =  Pop()
 #-----------------------------------------------------------------------------------------------------------------------
-Binary_body:                                                                  jmp   n280_call_α
+LBL__Binary:                                                                  jmp   n280_call_α
 n279_statement_begin_β:                                                       jmp   n283_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n280_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig590z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig590z:              .quad            0
                         .quad            .Lx590_2
                         .quad            .Lx590_2
@@ -5128,7 +5114,7 @@ n283_statement_begin_β:                                                       j
 #-----------------------------------------------------------------------------------------------------------------------
 n284_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig597z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig597z:              .quad            0
                         .quad            .Lx597_2
                         .quad            .Lx597_2
@@ -5173,7 +5159,7 @@ n287_statement_begin_β:                                                       j
 #-----------------------------------------------------------------------------------------------------------------------
 n288_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig604z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig604z:              .quad            0
                         .quad            .Lx604_2
                         .quad            .Lx604_2
@@ -5256,7 +5242,7 @@ n293_call_β:            add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n294_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig614z]
-                        lea              rax, [rip + Push_alpha];             jmp   rax
+                        lea              rax, [rip + Push_α];                 jmp   rax
 .Lsig614z:              .quad            0
                         .quad            .Lx614_2
                         .quad            .Lx614_2
@@ -6659,7 +6645,7 @@ n432_statement_begin_β:                                                       j
 #-----------------------------------------------------------------------------------------------------------------------
 n433_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig813z]
-                        lea              rax, [rip + Pop_alpha];              jmp   rax
+                        lea              rax, [rip + Pop_α];                  jmp   rax
 .Lsig813z:              .quad            0
                         .quad            .Lx813_2
                         .quad            .Lx813_2

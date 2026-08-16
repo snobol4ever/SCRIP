@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_myfunc_α
-proc_myfunc_α:
+FN__myfunc:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + myfunc2_body];           jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__myfunc2];           jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-myfunc_alpha:           sub              rsp, 48
+myfunc_α:               sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
@@ -33,12 +32,12 @@ myfunc_alpha:           sub              rsp, 48
                         mov              qword ptr [rsp + 40], rax
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
-.Lx8_41:                lea              r10, [rip + myfunc_gamma]
-                        lea              r11, [rip + myfunc_omega]
+.Lx8_41:                lea              r10, [rip + myfunc_γ]
+                        lea              r11, [rip + myfunc_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + myfunc2_body];           jmp   rax
-myfunc_gamma:           mov              rdi, qword ptr [r9 + 0]
+                        lea              rax, [rip + LBL__myfunc2];           jmp   rax
+myfunc_γ:               mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
@@ -60,7 +59,7 @@ myfunc_gamma:           mov              rdi, qword ptr [r9 + 0]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-myfunc_omega:           mov              rcx, qword ptr [rsp + 16]
+myfunc_ω:               mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         cmp              rdx, 0;                              jbe   .Lx8_150
@@ -88,7 +87,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + myfunc2_body]
+                        lea              rsi, [rip + LBL__myfunc2]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -148,7 +147,7 @@ n12_func_activate_α:    mov              rdi, qword ptr [rip + .Lx89_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_myfunc_α]
+                        lea              r9, [rip + FN__myfunc]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -253,7 +252,7 @@ n23_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n24_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig108z]
-                        lea              rax, [rip + myfunc_alpha];           jmp   rax
+                        lea              rax, [rip + myfunc_α];               jmp   rax
 .Lsig108z:              .quad            1
                         .quad            .Lx108_2
                         .quad            .Lx108_2
@@ -476,7 +475,7 @@ n45_statement_end_α:                                                          j
 #=======================================================================================================================
 # myfunc2 myfunc = NE(myfunc, 1) myfunc * myfunc(myfunc - 1) :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-myfunc2_body:                                                                 jmp   n47_var_α
+LBL__myfunc2:                                                                 jmp   n47_var_α
 n46_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n47_var_α:              sub              rsp, 16
@@ -622,7 +621,7 @@ n55_binop_β:            add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n56_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig160z]
-                        lea              rax, [rip + myfunc_alpha];           jmp   rax
+                        lea              rax, [rip + myfunc_α];               jmp   rax
 .Lsig160z:              .quad            1
                         .quad            .Lx160_2
                         .quad            .Lx160_2
@@ -740,7 +739,7 @@ n64_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n65_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig174z]
-                        lea              rax, [rip + myfunc_alpha];           jmp   rax
+                        lea              rax, [rip + myfunc_α];               jmp   rax
 .Lsig174z:              .quad            1
                         .quad            .Lx174_2
                         .quad            .Lx174_2

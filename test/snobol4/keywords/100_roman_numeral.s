@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_roman_α
-proc_roman_α:
+FN__roman:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + roman_body];             jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__roman];             jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-roman_alpha:            sub              rsp, 128
+roman_α:                sub              rsp, 128
                         mov              rax, qword ptr [r9 + 32]             # s
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 40]
@@ -63,12 +62,12 @@ roman_alpha:            sub              rsp, 128
                         mov              qword ptr [rsp + 120], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + roman_gamma]
-                        lea              r11, [rip + roman_omega]
+.Lx8_41:                lea              r10, [rip + roman_γ]
+                        lea              r11, [rip + roman_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + roman_body];             jmp   rax
-roman_gamma:            mov              rdi, qword ptr [r9 + 0]              # roman
+                        lea              rax, [rip + LBL__roman];             jmp   rax
+roman_γ:                mov              rdi, qword ptr [r9 + 0]              # roman
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 96]
                         mov              rdx, qword ptr [rcx + 0]
@@ -110,7 +109,7 @@ roman_gamma:            mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 128
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-roman_omega:            mov              rcx, qword ptr [rsp + 96]
+roman_ω:                mov              rcx, qword ptr [rsp + 96]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 128]
                         mov              rax, qword ptr [rsp + 64]
@@ -158,7 +157,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + roman_body]
+                        lea              rsi, [rip + LBL__roman]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -219,7 +218,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx293_0]
                         mov              edx, 5
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_roman_α]
+                        lea              r9, [rip + FN__roman]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -238,7 +237,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # roman   s = ''
 #-----------------------------------------------------------------------------------------------------------------------
-roman_body:                                                                   jmp   n13_lit_string_α
+LBL__roman:                                                                   jmp   n13_lit_string_α
 n12_statement_begin_β:                                                        jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_string_α:       sub              rsp, 16
@@ -2595,7 +2594,7 @@ n260_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n261_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig629z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig629z:              .quad            1
                         .quad            .Lx629_2
                         .quad            .Lx629_2
@@ -2657,7 +2656,7 @@ n265_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n266_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig637z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig637z:              .quad            1
                         .quad            .Lx637_2
                         .quad            .Lx637_2
@@ -2719,7 +2718,7 @@ n270_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n271_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig645z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig645z:              .quad            1
                         .quad            .Lx645_2
                         .quad            .Lx645_2
@@ -2781,7 +2780,7 @@ n275_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n276_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig653z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig653z:              .quad            1
                         .quad            .Lx653_2
                         .quad            .Lx653_2
@@ -2843,7 +2842,7 @@ n280_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n281_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig661z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig661z:              .quad            1
                         .quad            .Lx661_2
                         .quad            .Lx661_2
@@ -2905,7 +2904,7 @@ n285_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n286_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig669z]
-                        lea              rax, [rip + roman_alpha];            jmp   rax
+                        lea              rax, [rip + roman_α];                jmp   rax
 .Lsig669z:              .quad            1
                         .quad            .Lx669_2
                         .quad            .Lx669_2

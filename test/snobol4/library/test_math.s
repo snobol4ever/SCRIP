@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_max_α
-proc_max_α:
+FN__max:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + max_body];               jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__max];               jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-max_alpha:              sub              rsp, 64
+max_α:                  sub              rsp, 64
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
@@ -50,12 +49,12 @@ max_alpha:              sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_42:                lea              r10, [rip + max_gamma]
-                        lea              r11, [rip + max_omega]
+.Lx8_42:                lea              r10, [rip + max_γ]
+                        lea              r11, [rip + max_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + max_body];               jmp   rax
-max_gamma:              mov              rdi, qword ptr [r9 + 0]              # max
+                        lea              rax, [rip + LBL__max];               jmp   rax
+max_γ:                  mov              rdi, qword ptr [r9 + 0]              # max
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
@@ -88,7 +87,7 @@ max_gamma:              mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-max_omega:              mov              rcx, qword ptr [rsp + 16]
+max_ω:                  mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         cmp              rdx, 0;                              jbe   .Lx8_150
@@ -121,16 +120,15 @@ max_omega:              mov              rcx, qword ptr [rsp + 16]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_min_α
-proc_min_α:
+FN__min:
 #-----------------------------------------------------------------------------------------------------------------------
 n9_save_restore_α:                                                            jmp   n10_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n10_goto_deferred_α:    lea              rax, [rip + min_body];               jmp   rax
+n10_goto_deferred_α:    lea              rax, [rip + LBL__min];               jmp   rax
                                                                               jmp   n11_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n11_save_restore_α:
-min_alpha:              sub              rsp, 64
+min_α:                  sub              rsp, 64
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
@@ -170,12 +168,12 @@ min_alpha:              sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx17_42:               lea              r10, [rip + min_gamma]
-                        lea              r11, [rip + min_omega]
+.Lx17_42:               lea              r10, [rip + min_γ]
+                        lea              r11, [rip + min_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + min_body];               jmp   rax
-min_gamma:              mov              rdi, qword ptr [r9 + 32]             # min
+                        lea              rax, [rip + LBL__min];               jmp   rax
+min_γ:                  mov              rdi, qword ptr [r9 + 32]             # min
                         mov              rsi, qword ptr [r9 + 40]
                         mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
@@ -208,7 +206,7 @@ min_gamma:              mov              rdi, qword ptr [r9 + 32]             # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-min_omega:              mov              rcx, qword ptr [rsp + 16]
+min_ω:                  mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         cmp              rdx, 0;                              jbe   .Lx17_150
@@ -241,16 +239,15 @@ min_omega:              mov              rcx, qword ptr [rsp + 16]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_abs_α
-proc_abs_α:
+FN__abs:
 #-----------------------------------------------------------------------------------------------------------------------
 n18_save_restore_α:                                                           jmp   n19_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n19_goto_deferred_α:    lea              rax, [rip + abs_body];               jmp   rax
+n19_goto_deferred_α:    lea              rax, [rip + LBL__abs];               jmp   rax
                                                                               jmp   n20_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n20_save_restore_α:
-abs_alpha:              sub              rsp, 48
+abs_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
@@ -273,12 +270,12 @@ abs_alpha:              sub              rsp, 48
                         mov              qword ptr [rsp + 40], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-.Lx26_41:               lea              r10, [rip + abs_gamma]
-                        lea              r11, [rip + abs_omega]
+.Lx26_41:               lea              r10, [rip + abs_γ]
+                        lea              r11, [rip + abs_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + abs_body];               jmp   rax
-abs_gamma:              mov              rdi, qword ptr [r9 + 48]
+                        lea              rax, [rip + LBL__abs];               jmp   rax
+abs_γ:                  mov              rdi, qword ptr [r9 + 48]
                         mov              rsi, qword ptr [r9 + 56]
                         mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
@@ -300,7 +297,7 @@ abs_gamma:              mov              rdi, qword ptr [r9 + 48]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-abs_omega:              mov              rcx, qword ptr [rsp + 16]
+abs_ω:                  mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         cmp              rdx, 0;                              jbe   .Lx26_150
@@ -322,16 +319,15 @@ abs_omega:              mov              rcx, qword ptr [rsp + 16]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_sign_α
-proc_sign_α:
+FN__sign:
 #-----------------------------------------------------------------------------------------------------------------------
 n27_save_restore_α:                                                           jmp   n28_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n28_goto_deferred_α:    lea              rax, [rip + sign_body];              jmp   rax
+n28_goto_deferred_α:    lea              rax, [rip + LBL__sign];              jmp   rax
                                                                               jmp   n29_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n29_save_restore_α:
-sign_alpha:             sub              rsp, 48
+sign_α:                 sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
@@ -354,12 +350,12 @@ sign_alpha:             sub              rsp, 48
                         mov              qword ptr [rsp + 40], rax
                         mov              qword ptr [r9 + 64], 0
                         mov              qword ptr [r9 + 72], 0
-.Lx35_41:               lea              r10, [rip + sign_gamma]
-                        lea              r11, [rip + sign_omega]
+.Lx35_41:               lea              r10, [rip + sign_γ]
+                        lea              r11, [rip + sign_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + sign_body];              jmp   rax
-sign_gamma:             mov              rdi, qword ptr [r9 + 64]
+                        lea              rax, [rip + LBL__sign];              jmp   rax
+sign_γ:                 mov              rdi, qword ptr [r9 + 64]
                         mov              rsi, qword ptr [r9 + 72]
                         mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
@@ -381,7 +377,7 @@ sign_gamma:             mov              rdi, qword ptr [r9 + 64]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-sign_omega:             mov              rcx, qword ptr [rsp + 16]
+sign_ω:                 mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         cmp              rdx, 0;                              jbe   .Lx35_150
@@ -403,16 +399,15 @@ sign_omega:             mov              rcx, qword ptr [rsp + 16]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_gcd_α
-proc_gcd_α:
+FN__gcd:
 #-----------------------------------------------------------------------------------------------------------------------
 n36_save_restore_α:                                                           jmp   n37_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n37_goto_deferred_α:    lea              rax, [rip + gcd_body];               jmp   rax
+n37_goto_deferred_α:    lea              rax, [rip + LBL__gcd];               jmp   rax
                                                                               jmp   n38_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n38_save_restore_α:
-gcd_alpha:              sub              rsp, 80
+gcd_α:                  sub              rsp, 80
                         mov              rax, qword ptr [r9 + 112]            # r
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 120]
@@ -458,12 +453,12 @@ gcd_alpha:              sub              rsp, 80
                         mov              qword ptr [rsp + 72], rax
                         mov              qword ptr [r9 + 96], 0
                         mov              qword ptr [r9 + 104], 0
-.Lx44_42:               lea              r10, [rip + gcd_gamma]
-                        lea              r11, [rip + gcd_omega]
+.Lx44_42:               lea              r10, [rip + gcd_γ]
+                        lea              r11, [rip + gcd_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + gcd_body];               jmp   rax
-gcd_gamma:              mov              rdi, qword ptr [r9 + 80]             # gcd
+                        lea              rax, [rip + LBL__gcd];               jmp   rax
+gcd_γ:                  mov              rdi, qword ptr [r9 + 80]             # gcd
                         mov              rsi, qword ptr [r9 + 88]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -500,7 +495,7 @@ gcd_gamma:              mov              rdi, qword ptr [r9 + 80]             # 
                         add              rsp, 80
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-gcd_omega:              mov              rcx, qword ptr [rsp + 32]
+gcd_ω:                  mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 80]
                         mov              rax, qword ptr [rsp + 0]
@@ -537,16 +532,15 @@ gcd_omega:              mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
                                                                               jmp   main_ω
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_lcm_α
-proc_lcm_α:
+FN__lcm:
 #-----------------------------------------------------------------------------------------------------------------------
 n45_save_restore_α:                                                           jmp   n46_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n46_goto_deferred_α:    lea              rax, [rip + lcm_body];               jmp   rax
+n46_goto_deferred_α:    lea              rax, [rip + LBL__lcm];               jmp   rax
                                                                               jmp   n47_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n47_save_restore_α:
-lcm_alpha:              sub              rsp, 96
+lcm_α:                  sub              rsp, 96
                         mov              rax, qword ptr [r9 + 160]            # g
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 168]
@@ -598,12 +592,12 @@ lcm_alpha:              sub              rsp, 96
                         mov              qword ptr [rsp + 88], rax
                         mov              qword ptr [r9 + 96], 0
                         mov              qword ptr [r9 + 104], 0
-.Lx53_42:               lea              r10, [rip + lcm_gamma]
-                        lea              r11, [rip + lcm_omega]
+.Lx53_42:               lea              r10, [rip + lcm_γ]
+                        lea              r11, [rip + lcm_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + lcm_body];               jmp   rax
-lcm_gamma:              mov              rdi, qword ptr [r9 + 128]            # lcm
+                        lea              rax, [rip + LBL__lcm];               jmp   rax
+lcm_γ:                  mov              rdi, qword ptr [r9 + 128]            # lcm
                         mov              rsi, qword ptr [r9 + 136]
                         mov              rcx, qword ptr [rsp + 48]
                         mov              rdx, qword ptr [rcx + 0]
@@ -644,7 +638,7 @@ lcm_gamma:              mov              rdi, qword ptr [r9 + 128]            # 
                         add              rsp, 96
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-lcm_omega:              mov              rcx, qword ptr [rsp + 48]
+lcm_ω:                  mov              rcx, qword ptr [rsp + 48]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 96]
                         mov              rax, qword ptr [rsp + 16]
@@ -691,7 +685,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + max_body]
+                        lea              rsi, [rip + LBL__max]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -707,7 +701,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname1]
-                        lea              rsi, [rip + min_body]
+                        lea              rsi, [rip + LBL__min]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname1]
                         mov              esi, 0
@@ -723,7 +717,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname2]
-                        lea              rsi, [rip + abs_body]
+                        lea              rsi, [rip + LBL__abs]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname2]
                         mov              esi, 0
@@ -739,7 +733,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname3]
-                        lea              rsi, [rip + sign_body]
+                        lea              rsi, [rip + LBL__sign]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname3]
                         mov              esi, 0
@@ -755,7 +749,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname4]
-                        lea              rsi, [rip + gcd_body]
+                        lea              rsi, [rip + LBL__gcd]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname4]
                         mov              esi, 0
@@ -771,7 +765,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname5]
-                        lea              rsi, [rip + lcm_body]
+                        lea              rsi, [rip + LBL__lcm]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname5]
                         mov              esi, 0
@@ -849,7 +843,7 @@ n57_func_activate_α:    mov              rdi, qword ptr [rip + .Lx252_0]
                         mov              edx, 2
                         mov              ecx, 2
                         mov              r8d, 0
-                        lea              r9, [rip + proc_max_α]
+                        lea              r9, [rip + FN__max]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -868,7 +862,7 @@ n58_statement_end_α:                                                          j
 #=======================================================================================================================
 # max  <stmt 3, line 42: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-max_body:                                                                     jmp   n60_var_α
+LBL__max:                                                                     jmp   n60_var_α
 n59_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n60_var_α:              sub              rsp, 16
@@ -995,7 +989,7 @@ n72_func_activate_α:    mov              rdi, qword ptr [rip + .Lx277_0]
                         mov              edx, 2
                         mov              ecx, 2
                         mov              r8d, 0
-                        lea              r9, [rip + proc_min_α]
+                        lea              r9, [rip + FN__min]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1014,7 +1008,7 @@ n73_statement_end_α:                                                          j
 #=======================================================================================================================
 # min  <stmt 6, line 46: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-min_body:                                                                     jmp   n75_var_α
+LBL__min:                                                                     jmp   n75_var_α
 n74_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n75_var_α:              sub              rsp, 16
@@ -1141,7 +1135,7 @@ n87_func_activate_α:    mov              rdi, qword ptr [rip + .Lx302_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_abs_α]
+                        lea              r9, [rip + FN__abs]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1160,7 +1154,7 @@ n88_statement_end_α:                                                          j
 #=======================================================================================================================
 # abs  <stmt 9, line 50: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-abs_body:                                                                     jmp   n90_var_α
+LBL__abs:                                                                     jmp   n90_var_α
 n89_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n90_var_α:              sub              rsp, 16
@@ -1302,7 +1296,7 @@ n103_func_activate_α:   mov              rdi, qword ptr [rip + .Lx328_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_sign_α]
+                        lea              r9, [rip + FN__sign]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1321,7 +1315,7 @@ n104_statement_end_α:                                                         j
 #=======================================================================================================================
 # sign  <stmt 12, line 54: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-sign_body:                                                                    jmp   n106_var_α
+LBL__sign:                                                                    jmp   n106_var_α
 n105_statement_begin_β:                                                       jmp   n116_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n106_var_α:             sub              rsp, 16
@@ -1575,7 +1569,7 @@ n129_func_activate_α:   mov              rdi, qword ptr [rip + .Lx369_0]
                         mov              edx, 3
                         mov              ecx, 2
                         mov              r8d, 0
-                        lea              r9, [rip + proc_gcd_α]
+                        lea              r9, [rip + FN__gcd]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1594,7 +1588,7 @@ n130_statement_end_α:                                                         j
 #=======================================================================================================================
 # gcd  <stmt 16, line 59: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-gcd_body:                                                                     jmp   n132_var_α
+LBL__gcd:                                                                     jmp   n132_var_α
 n131_statement_begin_β:                                                       jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n132_var_α:             sub              rsp, 16
@@ -1724,7 +1718,7 @@ n145_statement_end_α:   add              rsp, 16;                             j
 #         <stmt 19, line 62: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n146_statement_begin_α:                                                       jmp   n147_var_α
-n146_statement_begin_β:                                                       jmp   gcd_body
+n146_statement_begin_β:                                                       jmp   LBL__gcd
 #-----------------------------------------------------------------------------------------------------------------------
 n147_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 112]            # r
@@ -1737,7 +1731,7 @@ n148_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 96], rax             # b
                         mov              qword ptr [r9 + 104], rdx;           jmp   n149_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n149_statement_end_α:   add              rsp, 16;                             jmp   gcd_body
+n149_statement_end_α:   add              rsp, 16;                             jmp   LBL__gcd
 #=======================================================================================================================
 # gcd_end  <stmt 20, line 64: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1756,7 +1750,7 @@ n153_func_activate_α:   mov              rdi, qword ptr [rip + .Lx408_0]
                         mov              edx, 3
                         mov              ecx, 2
                         mov              r8d, 0
-                        lea              r9, [rip + proc_lcm_α]
+                        lea              r9, [rip + FN__lcm]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1775,7 +1769,7 @@ n154_statement_end_α:                                                         j
 #=======================================================================================================================
 # lcm  <stmt 22, line 66: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-lcm_body:                                                                     jmp   n156_var_α
+LBL__lcm:                                                                     jmp   n156_var_α
 n155_statement_begin_β:                                                       jmp   n161_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n156_var_α:             sub              rsp, 16
@@ -1794,7 +1788,7 @@ n157_var_β:             add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n158_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig416z]
-                        lea              rax, [rip + gcd_alpha];              jmp   rax
+                        lea              rax, [rip + gcd_α];                  jmp   rax
 .Lsig416z:              .quad            2
                         .quad            .Lx416_2
                         .quad            .Lx416_2
@@ -2025,7 +2019,7 @@ n182_lit_integer_β:     add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n183_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig455z]
-                        lea              rax, [rip + max_alpha];              jmp   rax
+                        lea              rax, [rip + max_α];                  jmp   rax
 .Lsig455z:              .quad            2
                         .quad            .Lx455_2
                         .quad            .Lx455_2
@@ -2095,7 +2089,7 @@ n188_lit_integer_β:     add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n189_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig464z]
-                        lea              rax, [rip + min_alpha];              jmp   rax
+                        lea              rax, [rip + min_α];                  jmp   rax
 .Lsig464z:              .quad            2
                         .quad            .Lx464_2
                         .quad            .Lx464_2
@@ -2163,7 +2157,7 @@ n194_lit_real_α:        sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n195_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig473z]
-                        lea              rax, [rip + max_alpha];              jmp   rax
+                        lea              rax, [rip + max_α];                  jmp   rax
 .Lsig473z:              .quad            2
                         .quad            .Lx473_2
                         .quad            .Lx473_2
@@ -2232,7 +2226,7 @@ n200_lit_real_α:        sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n201_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig482z]
-                        lea              rax, [rip + min_alpha];              jmp   rax
+                        lea              rax, [rip + min_α];                  jmp   rax
 .Lsig482z:              .quad            2
                         .quad            .Lx482_2
                         .quad            .Lx482_2
@@ -2311,7 +2305,7 @@ n206_unop_β:            add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n207_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig491z]
-                        lea              rax, [rip + abs_alpha];              jmp   rax
+                        lea              rax, [rip + abs_α];                  jmp   rax
 .Lsig491z:              .quad            1
                         .quad            .Lx491_2
                         .quad            .Lx491_2
@@ -2372,7 +2366,7 @@ n211_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n212_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig499z]
-                        lea              rax, [rip + sign_alpha];             jmp   rax
+                        lea              rax, [rip + sign_α];                 jmp   rax
 .Lsig499z:              .quad            1
                         .quad            .Lx499_2
                         .quad            .Lx499_2
@@ -2434,7 +2428,7 @@ n216_lit_integer_α:     sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n217_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig507z]
-                        lea              rax, [rip + sign_alpha];             jmp   rax
+                        lea              rax, [rip + sign_α];                 jmp   rax
 .Lsig507z:              .quad            1
                         .quad            .Lx507_2
                         .quad            .Lx507_2
@@ -2512,7 +2506,7 @@ n222_unop_β:            add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n223_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig516z]
-                        lea              rax, [rip + sign_alpha];             jmp   rax
+                        lea              rax, [rip + sign_α];                 jmp   rax
 .Lsig516z:              .quad            1
                         .quad            .Lx516_2
                         .quad            .Lx516_2
@@ -2581,7 +2575,7 @@ n228_lit_integer_β:     add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n229_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig525z]
-                        lea              rax, [rip + gcd_alpha];              jmp   rax
+                        lea              rax, [rip + gcd_α];                  jmp   rax
 .Lsig525z:              .quad            2
                         .quad            .Lx525_2
                         .quad            .Lx525_2
@@ -2651,7 +2645,7 @@ n234_lit_integer_β:     add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n235_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig534z]
-                        lea              rax, [rip + gcd_alpha];              jmp   rax
+                        lea              rax, [rip + gcd_α];                  jmp   rax
 .Lsig534z:              .quad            2
                         .quad            .Lx534_2
                         .quad            .Lx534_2
@@ -2721,7 +2715,7 @@ n240_lit_integer_β:     add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n241_call_α:            sub              rsp, 16
                         lea              rcx, [rip + .Lsig543z]
-                        lea              rax, [rip + lcm_alpha];              jmp   rax
+                        lea              rax, [rip + lcm_α];                  jmp   rax
 .Lsig543z:              .quad            2
                         .quad            .Lx543_2
                         .quad            .Lx543_2

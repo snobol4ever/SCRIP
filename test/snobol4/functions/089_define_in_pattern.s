@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_upcase_α
-proc_upcase_α:
+FN__upcase:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + upcase_body];            jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__upcase];            jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-upcase_alpha:           sub              rsp, 64
+upcase_α:               sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # upcase
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ upcase_alpha:           sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + upcase_gamma]
-                        lea              r11, [rip + upcase_omega]
+.Lx8_41:                lea              r10, [rip + upcase_γ]
+                        lea              r11, [rip + upcase_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + upcase_body];            jmp   rax
-upcase_gamma:           mov              rdi, qword ptr [r9 + 0]              # upcase
+                        lea              rax, [rip + LBL__upcase];            jmp   rax
+upcase_γ:               mov              rdi, qword ptr [r9 + 0]              # upcase
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ upcase_gamma:           mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-upcase_omega:           mov              rcx, qword ptr [rsp + 32]
+upcase_ω:               mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + upcase_body]
+                        lea              rsi, [rip + LBL__upcase]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -155,7 +154,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx35_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_upcase_α]
+                        lea              r9, [rip + FN__upcase]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -174,7 +173,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-upcase_body:                                                                  jmp   n13_var_α
+LBL__upcase:                                                                  jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -280,7 +279,7 @@ n22_lit_string_α:       sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n23_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig56z]
-                        lea              rax, [rip + upcase_alpha];           jmp   rax
+                        lea              rax, [rip + upcase_α];               jmp   rax
 .Lsig56z:               .quad            1
                         .quad            .Lx56_2
                         .quad            .Lx56_2
@@ -344,7 +343,7 @@ n27_lit_string_α:       sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n28_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig64z]
-                        lea              rax, [rip + upcase_alpha];           jmp   rax
+                        lea              rax, [rip + upcase_α];               jmp   rax
 .Lsig64z:               .quad            1
                         .quad            .Lx64_2
                         .quad            .Lx64_2

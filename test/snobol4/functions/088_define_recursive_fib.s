@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_fib_α
-proc_fib_α:
+FN__fib:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + fib_body];               jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__fib];               jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-fib_alpha:              sub              rsp, 64
+fib_α:                  sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # fib
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ fib_alpha:              sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + fib_gamma]
-                        lea              r11, [rip + fib_omega]
+.Lx8_41:                lea              r10, [rip + fib_γ]
+                        lea              r11, [rip + fib_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + fib_body];               jmp   rax
-fib_gamma:              mov              rdi, qword ptr [r9 + 0]              # fib
+                        lea              rax, [rip + LBL__fib];               jmp   rax
+fib_γ:                  mov              rdi, qword ptr [r9 + 0]              # fib
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ fib_gamma:              mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-fib_omega:              mov              rcx, qword ptr [rsp + 32]
+fib_ω:                  mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + fib_body]
+                        lea              rsi, [rip + LBL__fib]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -155,7 +154,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx61_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_fib_α]
+                        lea              r9, [rip + FN__fib]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -174,7 +173,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # fib     LE(n, 1)                                                   :S(base)
 #-----------------------------------------------------------------------------------------------------------------------
-fib_body:                                                                     jmp   n13_var_α
+LBL__fib:                                                                     jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   n19_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -318,7 +317,7 @@ n22_binop_β:            add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n23_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig82z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig82z:               .quad            1
                         .quad            .Lx82_2
                         .quad            .Lx82_2
@@ -409,7 +408,7 @@ n26_binop_β:            add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n27_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig87z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig87z:               .quad            1
                         .quad            .Lx87_2
                         .quad            .Lx87_2
@@ -528,7 +527,7 @@ n38_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n39_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig106z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig106z:              .quad            1
                         .quad            .Lx106_2
                         .quad            .Lx106_2
@@ -590,7 +589,7 @@ n43_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n44_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig114z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig114z:              .quad            1
                         .quad            .Lx114_2
                         .quad            .Lx114_2
@@ -652,7 +651,7 @@ n48_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n49_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig122z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig122z:              .quad            1
                         .quad            .Lx122_2
                         .quad            .Lx122_2
@@ -714,7 +713,7 @@ n53_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n54_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig130z]
-                        lea              rax, [rip + fib_alpha];              jmp   rax
+                        lea              rax, [rip + fib_α];                  jmp   rax
 .Lsig130z:              .quad            1
                         .quad            .Lx130_2
                         .quad            .Lx130_2

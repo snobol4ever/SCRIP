@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_double_α
-proc_double_α:
+FN__double:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + double_body];            jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__double];            jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-double_alpha:           sub              rsp, 64
+double_α:               sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # double
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ double_alpha:           sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + double_gamma]
-                        lea              r11, [rip + double_omega]
+.Lx8_41:                lea              r10, [rip + double_γ]
+                        lea              r11, [rip + double_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + double_body];            jmp   rax
-double_gamma:           mov              rdi, qword ptr [r9 + 0]              # double
+                        lea              rax, [rip + LBL__double];            jmp   rax
+double_γ:               mov              rdi, qword ptr [r9 + 0]              # double
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ double_gamma:           mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-double_omega:           mov              rcx, qword ptr [rsp + 32]
+double_ω:               mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + double_body]
+                        lea              rsi, [rip + LBL__double]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -155,7 +154,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx34_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_double_α]
+                        lea              r9, [rip + FN__double]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -174,7 +173,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # double  double = 2 * s                                             :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-double_body:                                                                  jmp   n13_lit_integer_α
+LBL__double:                                                                  jmp   n13_lit_integer_α
 n12_statement_begin_β:                                                        jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_integer_α:      sub              rsp, 16
@@ -260,7 +259,7 @@ n21_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n22_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig53z]
-                        lea              rax, [rip + double_alpha];           jmp   rax
+                        lea              rax, [rip + double_α];               jmp   rax
 .Lsig53z:               .quad            1
                         .quad            .Lx53_2
                         .quad            .Lx53_2
@@ -322,7 +321,7 @@ n26_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n27_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig61z]
-                        lea              rax, [rip + double_alpha];           jmp   rax
+                        lea              rax, [rip + double_α];               jmp   rax
 .Lsig61z:               .quad            1
                         .quad            .Lx61_2
                         .quad            .Lx61_2

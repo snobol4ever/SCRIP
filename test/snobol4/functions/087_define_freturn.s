@@ -1,16 +1,15 @@
                         .intel_syntax    noprefix
                         .text
 #-----------------------------------------------------------------------------------------------------------------------
-                        .globl           proc_ispos_α
-proc_ispos_α:
+FN__ispos:
 #-----------------------------------------------------------------------------------------------------------------------
 n0_save_restore_α:                                                            jmp   n1_goto_deferred_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_goto_deferred_α:     lea              rax, [rip + ispos_body];             jmp   rax
+n1_goto_deferred_α:     lea              rax, [rip + LBL__ispos];             jmp   rax
                                                                               jmp   n2_save_restore_α
 #-----------------------------------------------------------------------------------------------------------------------
 n2_save_restore_α:
-ispos_alpha:            sub              rsp, 64
+ispos_α:                sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # ispos
                         mov              qword ptr [rsp + 0], rax
                         mov              rax, qword ptr [r9 + 8]
@@ -39,12 +38,12 @@ ispos_alpha:            sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx8_41:                lea              r10, [rip + ispos_gamma]
-                        lea              r11, [rip + ispos_omega]
+.Lx8_41:                lea              r10, [rip + ispos_γ]
+                        lea              r11, [rip + ispos_ω]
                         push             r11
                         push             r10
-                        lea              rax, [rip + ispos_body];             jmp   rax
-ispos_gamma:            mov              rdi, qword ptr [r9 + 0]              # ispos
+                        lea              rax, [rip + LBL__ispos];             jmp   rax
+ispos_γ:                mov              rdi, qword ptr [r9 + 0]              # ispos
                         mov              rsi, qword ptr [r9 + 8]
                         mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
@@ -70,7 +69,7 @@ ispos_gamma:            mov              rdi, qword ptr [r9 + 0]              # 
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
-ispos_omega:            mov              rcx, qword ptr [rsp + 32]
+ispos_ω:                mov              rcx, qword ptr [rsp + 32]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
                         mov              rax, qword ptr [rsp + 0]
@@ -102,7 +101,7 @@ proc_startup:
                         .section         .text
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lstartup_pname0]
-                        lea              rsi, [rip + ispos_body]
+                        lea              rsi, [rip + LBL__ispos]
                         call             rt_proc_set_fn@PLT
                         lea              rdi, [rip + .Lstartup_pname0]
                         mov              esi, 0
@@ -155,7 +154,7 @@ n10_func_activate_α:    mov              rdi, qword ptr [rip + .Lx55_0]
                         mov              edx, 1
                         mov              ecx, 1
                         mov              r8d, 0
-                        lea              r9, [rip + proc_ispos_α]
+                        lea              r9, [rip + FN__ispos]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -174,7 +173,7 @@ n11_statement_end_α:                                                          j
 #=======================================================================================================================
 # ispos   GT(x, 0)                                                   :S(RETURN)F(FRETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-ispos_body:                                                                   jmp   n13_var_α
+LBL__ispos:                                                                   jmp   n13_var_α
 n12_statement_begin_β:                                                        jmp   FRETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n13_var_α:              sub              rsp, 16
@@ -274,7 +273,7 @@ n22_lit_integer_α:      sub              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n23_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig78z]
-                        lea              rax, [rip + ispos_alpha];            jmp   rax
+                        lea              rax, [rip + ispos_α];                jmp   rax
 .Lsig78z:               .quad            1
                         .quad            .Lx78_2
                         .quad            .Lx78_2
@@ -403,7 +402,7 @@ n37_unop_β:             add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n38_call_α:             sub              rsp, 16
                         lea              rcx, [rip + .Lsig102z]
-                        lea              rax, [rip + ispos_alpha];            jmp   rax
+                        lea              rax, [rip + ispos_α];                jmp   rax
 .Lsig102z:              .quad            1
                         .quad            .Lx102_2
                         .quad            .Lx102_2
