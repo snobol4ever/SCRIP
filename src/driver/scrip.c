@@ -181,7 +181,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             }
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
-        if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV; if (bc != BINOP_CONCAT && !is_rel) return 0; }
+        if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV; if (!binop_is_concat((long)bc) && !is_rel) return 0; }
         if (nd->op == IR_OP_COUNT) {
             IR_graph_t *ssg = (IR_graph_t *)0;
             IR_graph_t *bsg = (IR_graph_t *) 0;
@@ -216,7 +216,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
     if (r->op == IR_BINOP_RELOP_VAL) return 1;   /* RK-ZC-6: bool_compare_store uses BINOP_RELOP_VAL as assign RHS; template bb_binop_relop_val() already handles it; gate was blocking with SMX. */
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
-                               || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_CONCAT))
+                               || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival)))
         return 1;
     if (ir_norm_call_kind(r->op) == IR_CALL || r->op == IR_UNOP || r->op == IR_FIELD_GET || r->op == IR_PROC_GEN) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;

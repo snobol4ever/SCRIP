@@ -71,13 +71,13 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
     bb_label_t * beta_tgt = bb_call_write_beta_target();
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }
-    if (MEDIUM_BINARY) return (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
+    if (MEDIUM_BINARY) return (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival))
                               ? bcws_binop_concat_bin(off, beta_tgt)
                               : bcws_binop_int_bin(off, beta_tgt);
     if (MEDIUM_TEXT) {
         std::string tail = x86("label", std::string(_.lbl_β))
                          + x86("jmp", beta_tgt && beta_tgt->name[0] ? beta_tgt->name : _.lbl_ω);
-        if (a0->op == IR_BINOP && IR_LIT(a0).ival == BINOP_CONCAT)
+        if (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival))
             return x86_alpha()
                  + x86("mov", "rdi", "[" + std::string(x86_zr()) + " + " + std::to_string(off) + "]")
                  + x86("mov", "rsi", "[" + std::string(x86_zr()) + " + " + std::to_string(off + 8) + "]")

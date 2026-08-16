@@ -32,7 +32,7 @@ int cf_run(IR_graph_t * g) {
             if (nd->op == IR_BINOP && nd->n_operands == 2 && nd->operands[0] && nd->operands[1]) {
                 IR_t * a = nd->operands[0], * b = nd->operands[1];
                 long code = (long)IR_LIT(nd).ival;
-                if (code == BINOP_CONCAT) {
+                if (binop_is_concat(code)) {
                     if (a->op == IR_LIT_STRING && b->op == IR_LIT_STRING) {
                         char * j = cf_join(IR_LIT(a).sval ? IR_LIT(a).sval : "", IR_LIT(b).sval ? IR_LIT(b).sval : "");
                         if (!j) continue;

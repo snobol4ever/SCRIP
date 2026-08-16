@@ -336,7 +336,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (all_scan) return icn_scan_seq_nary(cx, elems, ne, γ, ω, res);
         }
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
-        int64_t bcode = lc_binop_code(t->t); int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
+        int64_t bcode = lc_binop_code(t->t); if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;   /* lc_binop_code is the SHARED token->opcode map and must stay convention-neutral; the concatenation convention is chosen HERE, at the one point where the source language is still legitimately known, per gen.h's two-opcode note (Icon renders reals "10.0", SPITBOL "10.") */
+        int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
         IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = bcode;
@@ -760,7 +761,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = lim; return ee; }
     case TT_LCONCAT: {
         if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_CONCAT;
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_CONCAT_FRACDIGIT;
         IR_t * lr = NULL; IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
         IR_t * rr = NULL; IR_t * re = lower(cx, t->c[1], op, lβ, &rr); γ_to(lr, re);
         ir_operand_push(op, lr); ir_operand_push(op, rr);

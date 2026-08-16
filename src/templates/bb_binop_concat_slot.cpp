@@ -8,12 +8,19 @@ extern "C" {
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
+DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ZTOS-1 (Lon s21x-o "Do not put RSP references directly into the templates"): private raw-rsp helper RETIRED -- call sites now speak the sanctioned spine accessor ZTOS/ZTOSD (x86_asm.h), which adds op_zdepth so a box's own carve and its own TOS reads compose instead of colliding.  Byte-identical while this kind is unarmed (op_zdepth==0); correct once it is armed, which is what lets the _spine exclusion list retire. */
-static inline int bcs_ok() { return _.op_off >= 0 && _.op_ival == BINOP_CONCAT && _.op_sa >= 0 && _.op_sb >= 0; }
+static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_ival) && _.op_sa >= 0 && _.op_sb >= 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* The ONE place the concatenation convention picks its runtime authority, chosen from the IR payload the lowerer stamped -- never from a language sentinel, which the emitter is forbidden to see.  Both
+ * arms below feed this through the same x86() encoder call, so the NAME (mode-4 TEXT, resolved against libscrip_rt.so at link) and the ADDRESS (mode-3 BINARY, baked into the call site) can never drift
+ * apart or disagree between media. */
+static inline const char *bcs_rt_name() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : "str_concat_d"; }
+static inline void *bcs_rt_addr() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : (void*)str_concat_d; }
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
@@ -25,7 +32,7 @@ std::string bb_binop_concat_slot() {
              + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1)) + x86("mov", "rcx", ZOPQ(1, 8))
              + x86("rtcc_wb")
-             + x86("call_bare", "str_concat_d", (uint64_t)(uintptr_t)(void*)str_concat_d)
+             + x86("call_bare", bcs_rt_name(), (uint64_t)(uintptr_t)bcs_rt_addr())
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86("rtcc_rl")
@@ -38,7 +45,7 @@ std::string bb_binop_concat_slot() {
          + x86("mov", "rsi", FRQ(_.op_sa + 8))
          + x86("mov", "rdx", FRQ(_.op_sb))
          + x86("mov", "rcx", FRQ(_.op_sb + 8))
-         + x86("call_rt", "str_concat_d", (long)_.op_off, (uint64_t)(uintptr_t)(void*)str_concat_d)
+         + x86("call_rt", bcs_rt_name(), (long)_.op_off, (uint64_t)(uintptr_t)bcs_rt_addr())
          + x86_gamma()
          + x86_beta_trampoline());
 }
