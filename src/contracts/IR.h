@@ -33,7 +33,7 @@ typedef enum {
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
     IR_SAVE_RESTORE,   /* SN4-FLAT-PROC (s176) linkage family — SPITBOL manual Ch.8 save/restore protocol citizens, role in ival: 0 = site OPEN (reserved, next slice), 1 = RETURN floater (peek wires, restore rsp/___, jmp γ wire), 2 = FRETURN floater (same, ω wire), 3 = WIRE-ADOPT (stub entry: copy header wires + entry-rsp + caller-___ into the open pcall record) */
-    IR_FUNC_ACTIVATE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = ___-framed entry: push ___; mov ___,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}. */
+    IR_DEFINE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = ___-framed entry: push ___; mov ___,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}. */
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,
@@ -254,6 +254,10 @@ struct IR_graph_t {
     IR_t        ** balias_node;   /* BODY-ALIAS (Lon s62): DEFINE entry statements in the ONE shared graph — the m4 driver fills these before main's emit_chain; the emitter renames that statement_begin's α to <FN>_body IN PLACE, so the entry label is bound AT the statement, at its source position, and the standalone pre-main body-chain emission is deleted.  Parallel arrays, n_balias entries; zero for every other graph (IR_alloc callocs). */
     const char  ** balias_name;
     int            n_balias;
+    IR_t        ** dentry_node;   /* FN-FACE-DELETE + NATURAL-LABEL (Lon s114 in-chat: "DELETE this label FN__ROMAN"; "Change the label LBL__ROMAN to be n25_statement_begin_α as it was before"): per-DEFINE bind boxes in the ONE shared graph, paired with the body-entry STATEMENT NODE (dentry_entry, the balias chase's landing) — the m4 driver stamps these BEFORE the balias build (which now skips DEFINE-linked rows so the entry keeps its natural port label), codegen_flat_chain_body fills dentry_name with the node's allocated natural label name at alloc time, the bind dispatch deposits it into g_emit.lbl_t0, and both bb_ab_bind's rt_define_site fn lea and the inline role-5 shim's body jmp target it.  Same parallel-array-on-the-graph shape as balias_node above (the s62 precedent); zero for every other graph (IR_alloc callocs). */
+    IR_t        ** dentry_entry;
+    const char  ** dentry_name;
+    int            n_dentry;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
     int            ring_head;
@@ -265,7 +269,7 @@ struct IR_graph_t {
     int            rest_kind;    /* RK-ZC-4: REST_LIST=0/REST_FLAT_AGG=1/REST_NESTED=2; from ProcEntry.rest_kind; zero on non-variadic/non-Raku graphs. */
     int            icn_zframe_gen; /* ICN-FR-4 BISECT-FIX (PL-ZD-WINDOW2): 1 = this is an Icon zframe generator (flat_gen=1 via lower_icon.c icn_body_has_suspend, single-active-suspension guarantee). The ICN-FR-4 global-save wire/caller____ path is safe ONLY for this class — Prolog zframe graphs also set flat_gen=1 (via is_generator=1 on multi-clause predicates) but have concurrent activations that overwrite g_gen_pending_* globals before the first activation's epilogue fires. Set by lower_icon.c ONE AUTHORITY for graphs where icn_body_has_suspend is true; zero on every other lowerer by calloc. Gate in xa_flat.cpp: the rt_gen_save_wires / rt_gen_save_caller____ / rt_gen_get_* path gates on g_emit_cfg->icn_zframe_gen. APPENDED AT STRUCT END per s141 ABI law. */
     int            pl_zf_trail_mark_off; /* PL-FR-4: frame slot offset of the $trail_mark result in this Prolog zframe graph (>0 = valid; 0 = unset/not-a-Prolog-zframe-gen). Set by ir_drive_slot_assign after zls_build by scanning for the first IR_CALL_BUILTIN_PROLOG with sval==$trail_mark. Read by xa_flat_zframe_epilogue_γ_str (Prolog zframe gen arm) and by bcps_spine_gen_arm (pl_zf_resume β arm). Calloc-zero = unset. APPENDED AT STRUCT END per s141 ABI law. */
-    IR_t         * ab_nodes[32]; /* LADDER AB (2026-08-09 AB-1): IR_FUNC_ACTIVATE nodes minted in this graph; emitted as dead-code text after the main chain by the driver (jump-target-only until AB-3 flips call sites).  Max 32 DEFINEs per program (sufficient; checked in lower_snobol4.c).  Zero-initialized by calloc in IR_alloc.  APPENDED AT STRUCT END per s141 ABI law. */
+    IR_t         * ab_nodes[32]; /* LADDER AB (2026-08-09 AB-1): IR_DEFINE nodes minted in this graph; emitted as dead-code text after the main chain by the driver (jump-target-only until AB-3 flips call sites).  Max 32 DEFINEs per program (sufficient; checked in lower_snobol4.c).  Zero-initialized by calloc in IR_alloc.  APPENDED AT STRUCT END per s141 ABI law. */
     int            ab_n;         /* count of valid entries in ab_nodes[] */
 };
 IR_graph_t * IR_alloc(int max_nodes);
