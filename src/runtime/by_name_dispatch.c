@@ -6870,13 +6870,14 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     L_bidjmp_6553: ;
     if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(VARVAL_fn(args[0])); return 1; }
     L_bidjmp_6554: ;
-    if ((_bid == BID_SNOx24MKPAT) && nargs == 1) {
+    if ((_bid == BID_SNOx24MKPAT) && nargs >= 1) {
         extern void *rt_proc_get_fn(const char *name);
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
         void *pf = rt_proc_get_fn(nm);
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
         extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t); extern long rt_fn_frame_bytes_known(void *); extern long rt_fn_zstatic_known(void *);
         DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));   /* PS-1b (s151): zstatic now real on the live SNO$MKPAT path -- registered at emit from emit_graph_zstatic (mode-3 direct, mode-4 printed startup), no longer the placeholder 0 */
+        if (nargs >= 2) { extern void rt_patv_freeze(void *, const char *, long); long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } if (_n > 0) rt_patv_freeze(pd.p, nm, _n); }   /* PB-1s (s108): args[1] = the site's pre[] count, lowered right after the $V stage-2 stores -- freeze THIS construction's values into the fresh DTP (manual p.85-86); nargs==1 producers keep the legacy per-site-cell behavior byte-identically */
         *out = pd; return 1;
     }
     L_bidjmp_6563: ;

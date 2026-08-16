@@ -54,7 +54,7 @@ extern "C" void rt_cap_finish(DESCR_t fret);
  * deletion in favor of ordinary BB RESULT/operand dataflow, but that is BLOCKED on the :(NRETURN) lowering bug
  * (s82: does not compile at all today) and is not attempted here; a computed-name capture bombs honestly. */
 static inline int havehome(void) { return _.op_zres || _.op_cap_anchor; }
-static inline int nret_cap_live(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NRET_CAP"); v = (e && e[0] == '1') ? 1 : 0; } return v; }
+static inline int nret_cap_live(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; } return v; }   /* s108 (Lon ruling in-chat): DEFAULT ON -- pairs with SCRIP_DYN_ALPHA; semantic_driver measured green with both on.  Killswitch SCRIP_NRET_CAP=0 restores the pre-s108 default. */
 static inline const char * writehome(void) { return _.op_zres ? ZRESD(0) : FR(_.op_off); }
 static inline const char * readhome(void)  { return _.op_zres ? ZOPD(1, 0) : FR(_.op_off); }
 std::string bb_match_capture() {
