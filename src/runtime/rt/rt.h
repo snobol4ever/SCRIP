@@ -87,6 +87,8 @@ typedef struct {
 #include "bb_box.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
+typedef struct rt_proc_reg_rec { const char *name; void *fn; void *dcfn; const char *result_name; const char *const *pnames; int32_t nparams; int32_t nformals; int32_t frame_bytes; int32_t flags; int32_t rest_kind; int32_t named_rest; } rt_proc_reg_rec_t;   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the 64-byte static .rodata registration record the m4 startup emits per proc — layout is LAW, mirrored by scrip.c .quad/.long directives and pinned by the _Static_asserts beside rt_proc_register_rec.  flags: bit0 dyn_scope, bit1 zstatic, bit2 variadic, bit3 generator, bit4 jmpentry. */
+void rt_proc_register_rec(const rt_proc_reg_rec_t *r);
 void rt_proc_reset(void);
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* LADDER AB: fn_cell initial value — fires error 022 */
 int     rt_ab_enter_env(void *frame);               /* AB-2: Σ/wn/vtmark snapshot + k_level++ (called from α after frame established) */
