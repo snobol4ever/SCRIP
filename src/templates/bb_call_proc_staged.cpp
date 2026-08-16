@@ -277,7 +277,7 @@ static std::string bcps_det_arm() {
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[280]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
-                { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char)*nm; if ((u>='A'&&u<='Z')||(u>='a'&&u<='z')||(u>='0'&&u<='9')||u=='_'||u=='$'||u=='.') mang[mi++]=(char)u; else mi+=snprintf(mang+mi,(size_t)(256-mi),"$%02X",u); } mang[mi]=0; snprintf(dc_name_z,sizeof dc_name_z,"proc_%s_dc\xce\xb1",mang); } } }
+                { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char)*nm; if ((u>='A'&&u<='Z')||(u>='a'&&u<='z')||(u>='0'&&u<='9')||u=='_'||u=='$'||u=='.') mang[mi++]=(char)u; else mi+=snprintf(mang+mi,(size_t)(256-mi),"$%02X",u); } mang[mi]=0; snprintf(dc_name_z,sizeof dc_name_z,"%s_dc\xce\xb1",mang); } } }
         static const char *detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t detN_fp_z[5];
         { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp_z[0] = (uint64_t)(uintptr_t)(void*)f0; }
@@ -519,7 +519,7 @@ static std::string bcps_det_arm() {
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
-        { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char) *nm; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') mang[mi++] = (char) u; else mi += snprintf(mang + mi, (size_t) (256 - mi), "$%02X", u); } mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "proc_%s_dc\xce\xb1", mang); } } }
+        { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char) *nm; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') mang[mi++] = (char) u; else mi += snprintf(mang + mi, (size_t) (256 - mi), "$%02X", u); } mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", mang); } } }
     /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
      * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
      * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into

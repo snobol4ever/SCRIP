@@ -1283,7 +1283,7 @@ int main(int argc, char **argv)
                         emit_textf("  call rt_proc_set_jmpentry@PLT\n");
                         { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
                             emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                            emit_textf("  lea rsi, [rip + proc_%s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
+                            emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
                             emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
                         if (pe->is_generator) {
                             emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
@@ -1489,7 +1489,7 @@ int main(int argc, char **argv)
                     emit_textf("  mov esi, %d\n", pe->nformals);
                     emit_textf("  call rt_proc_set_nformals@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    emit_textf("  lea rsi, [rip + proc_%s_\xce\xb1]\n", asm_sym_name(pe->name));
+                    emit_textf("  lea rsi, [rip + %s_\xce\xb1]\n", asm_sym_name(pe->name));
                     emit_textf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
