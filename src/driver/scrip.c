@@ -946,8 +946,48 @@ int main(int argc, char **argv)
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
+            emit_textf("  .globl main\n");
+            emit_textf("main:\n");
+            emit_textf("  sub rsp, 8\n");
+            emit_textf("  push rdi\n");
+            emit_textf("  push rsi\n");
+            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- see the twin note at the other main emitter.  Tests s22q BLOCK PREDICTION that ~76 m4 failures are ONE corruption class of unarmed readers writing through envp, by moving envp out of reach WITHOUT converting a reader.  Multiple-of-16 preserves the alpha ARRIVAL PARITY contract.  DEFAULT OFF, MUST STAY OFF: a program passing under this pad is CUSHIONED, not correct. */
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede main_init/core_lib_init (first possible allocation) */
+            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            emit_textf("  call core_lib_init@PLT\n");
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
+                emit_textf("  call main_init\n");
+            if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
+            { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
+              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+                if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+            } else {
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            if (bbg->nparams >= 1)
+                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            }
+            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_DCAP_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
+            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");   /* W1 m4 twins (PL-ZFRAME-RESTORE s13): m3's driver runs BOTH before entry (scrip.c :1635/:1638 area) — the compiled binary got neither.  warmup = W1-Bug1 (s9): dl_iterate_phdr's movaps SEGVs when the lazy rt_gcheap_init fires from a misaligned JIT frame (core bt: rt_plj_alloc→rt_gcheap_init→gc_static_segs_init→dl_iterate_phdr, rsp≡8); running it once here, from main's aligned C context, retires the lazy path.  bypass_on = W1-Bug2: must be a PLT call INTO the .so (a direct [rip+sym] store copy-relocates a dead duplicate into the exe's .bss while dop_call binds locally to the .so's copy).  Placed BEFORE xor esi (rsi caller-saved); r12 seed above survives (callee-saved).  Gated is_prolog: SN4 mains never zframe; Icon zframe mains stay byte-identical.  No clears: the emitted main exits via the zf wires. */
+            /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
+            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA SITE-A TWIN: main_α bridge never established R9=RT_GVA_VA */
+            emit_textf("  xor esi, esi\n");
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω.  R-ZK-A DEFENCE: icn_cells_graph exclusion prevents double-dispatch when both CELLS and ZFRAME are armed (defence-in-depth; lower_icon.c's stamp loop is the primary enforcement site). */
+                emit_textf("  xor r14d, r14d\n");               /* ICN-FR-5: r14=0 → &pos=1 outside any scan (twin of icn_zf_main_call m3 fix) */
+                emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
+                emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
+                emit_textf("  jmp main_\xce\xb1\n");
+                emit_textf(".Lmain_zf_γ:\n  xor edi, edi\n  call exit@PLT\n");
+                emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
+            } else
+            emit_textf("  jmp main_\xce\xb1\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
-                emit_textf("proc_startup:\n");
+                emit_textf("main_init:\n");
                 emit_textf("  sub rsp, 8\n");
                 { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
                   int n_cls = dat_type_count();
@@ -1264,47 +1304,6 @@ int main(int argc, char **argv)
                 for (int k = 0; k < n_gva_icn; k++) emit_textf("  .quad .Lgvan%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            emit_textf("  .globl main\n");
-            emit_textf("main:\n");
-            emit_textf("  sub rsp, 8\n");
-            emit_textf("  push rdi\n");
-            emit_textf("  push rsi\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- see the twin note at the other main emitter.  Tests s22q BLOCK PREDICTION that ~76 m4 failures are ONE corruption class of unarmed readers writing through envp, by moving envp out of reach WITHOUT converting a reader.  Multiple-of-16 preserves the alpha ARRIVAL PARITY contract.  DEFAULT OFF, MUST STAY OFF: a program passing under this pad is CUSHIONED, not correct. */
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
-            emit_textf("  call core_lib_init@PLT\n");
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-                emit_textf("  call proc_startup\n");
-            if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
-            { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
-              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
-                if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
-            } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
-            if (bbg->nparams >= 1)
-                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
-                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
-            }
-            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_DCAP_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
-            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");   /* W1 m4 twins (PL-ZFRAME-RESTORE s13): m3's driver runs BOTH before entry (scrip.c :1635/:1638 area) — the compiled binary got neither.  warmup = W1-Bug1 (s9): dl_iterate_phdr's movaps SEGVs when the lazy rt_gcheap_init fires from a misaligned JIT frame (core bt: rt_plj_alloc→rt_gcheap_init→gc_static_segs_init→dl_iterate_phdr, rsp≡8); running it once here, from main's aligned C context, retires the lazy path.  bypass_on = W1-Bug2: must be a PLT call INTO the .so (a direct [rip+sym] store copy-relocates a dead duplicate into the exe's .bss while dop_call binds locally to the .so's copy).  Placed BEFORE xor esi (rsi caller-saved); r12 seed above survives (callee-saved).  Gated is_prolog: SN4 mains never zframe; Icon zframe mains stay byte-identical.  No clears: the emitted main exits via the zf wires. */
-            /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA SITE-A TWIN: main_α bridge never established R9=RT_GVA_VA */
-            emit_textf("  xor esi, esi\n");
-            if (is_icon && !(bbg->zframe_graph && !bbg->icn_cells_graph)) emit_textf("  xor r14d, r14d\n");   /* ICN-FR-5 RESTORE (s238): mode-4 twin of the rt_outer_call_delta0 entry.  &pos compiles to r14+1 unconditionally, resting on the invariant "outside any scan r14 is 0"; nothing established it once Z-1 stamped icn_cells_graph=1 by default and made the gate below permanently false, so &pos read libc residue.  The guard reproduces the old gate's complement exactly: when the zframe arm below still fires it emits its own xor in the identical position, so THAT arm stays byte-identical, and Prolog/Pascal zframe graphs (is_icon==0) keep theirs untouched. */
-            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω.  R-ZK-A DEFENCE: icn_cells_graph exclusion prevents double-dispatch when both CELLS and ZFRAME are armed (defence-in-depth; lower_icon.c's stamp loop is the primary enforcement site). */
-                emit_textf("  xor r14d, r14d\n");               /* ICN-FR-5: r14=0 → &pos=1 outside any scan (twin of icn_zf_main_call m3 fix) */
-                emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
-                emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
-                emit_textf("  jmp main_\xce\xb1\n");
-                emit_textf(".Lmain_zf_γ:\n  xor edi, edi\n  call exit@PLT\n");
-                emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
-            } else
-            emit_textf("  jmp main_\xce\xb1\n");
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
@@ -1438,6 +1437,35 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 pidx_buf[n_procs++] = _pi;
             }
+            int n_gva = gva_count();   /* hoisted above the moved main block (s116 main-first reorder): pure registry count reads */
+            int n_proc_slot = proc_slot_count();
+            emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
+            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- s22q measured m4 headroom from graph-entry rsp to the envp array at 344 BYTES against m3 20,048, and predicted ~76 of m4 failures are ONE corruption class of unarmed FR/FRQ/FRQB readers writing through live process state.  This env-gated pad tests that BLOCK PREDICTION by moving the envp array out of reach WITHOUT converting a single reader: if the m4 watermark jumps, the one-authority claim is confirmed AND quantified, giving the reader conversion a measured payoff estimate.  Multiple-of-16 so the alpha ARRIVAL PARITY contract (s22q, two signatories) is preserved.  DEFAULT OFF and it MUST STAY OFF -- s22q: "DO NOT RE-CARVE, the fix is not a bigger backing store"; a passing program under this pad is CUSHIONED, not correct, exactly as m3's 20KB of driver frames cushion it today. */
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede main_init/core_lib_init (first possible allocation) */
+            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            if (n_procs > 0) emit_textf("  call main_init\n");
+            else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+            if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
+            if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+                if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+            } else {
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            if (sbbg->nparams >= 1)
+                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
+                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
+            }
+            /* ZW-3 R12-FREE-1 REVERSAL (s23l): re-add the r12 seed before flat graph entry. */
+            /* ONE-SHOT BRIDGE (Lon s22p): main jmps into the graph; flat_γ / flat_ω are the two port
+             * landings defined AFTER the body by bb_glue_outer_gamma/omega (codegen_flat_chain_body).
+             * GAS resolves the forward refs.  NO call, NO ret, NO eax -- those belong to a C calling
+             * convention that no longer exists.  The graph's ports jump to the landings, which call
+             * rt_finalize and exit().  xor esi,esi = match start pos = 0. */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");
+            emit_textf("  xor esi, esi\n");
+            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA: main is the first C→generated crossing; load all claimed GPRs (incl. R9=RT_GVA_VA) from the block before any generated code runs. Gate: g_rtcc_on==0 → no-op (killswitch: byte-identical). */
+            emit_textf("  jmp flat_\xce\xb1\n"); /* ONE-SHOT: jmp not call; no ret after the graph */
             if (n_procs > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int i = 0; i < n_procs; i++) {
@@ -1450,7 +1478,7 @@ int main(int argc, char **argv)
                     emit_textf("  .quad 0\n");
                 }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                emit_textf("proc_startup:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
+                emit_textf("main_init:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
                 for (int i = 0; i < n_procs; i++) {
                     ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
@@ -1482,7 +1510,6 @@ int main(int argc, char **argv)
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
             if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); } /* PAS-GVA: Pascal collected pre-proc-emission above; re-reset here would be harmless (deterministic walk) but wasted — non-Pascal keeps the original single-graph collection byte-identical */
-            int n_gva = gva_count();
             if (n_gva > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1490,7 +1517,6 @@ int main(int argc, char **argv)
                 for (int k = 0; k < n_gva; k++) emit_textf("  .quad .Lgvan%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            int n_proc_slot = proc_slot_count();
             if (n_proc_slot > 0) {
                 extern const char *proc_slot_name(int);
                 emit_textf("  .section .rodata\n");
@@ -1500,34 +1526,6 @@ int main(int argc, char **argv)
                 emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- s22q measured m4 headroom from graph-entry rsp to the envp array at 344 BYTES against m3 20,048, and predicted ~76 of m4 failures are ONE corruption class of unarmed FR/FRQ/FRQB readers writing through live process state.  This env-gated pad tests that BLOCK PREDICTION by moving the envp array out of reach WITHOUT converting a single reader: if the m4 watermark jumps, the one-authority claim is confirmed AND quantified, giving the reader conversion a measured payoff estimate.  Multiple-of-16 so the alpha ARRIVAL PARITY contract (s22q, two signatories) is preserved.  DEFAULT OFF and it MUST STAY OFF -- s22q: "DO NOT RE-CARVE, the fix is not a bigger backing store"; a passing program under this pad is CUSHIONED, not correct, exactly as m3's 20KB of driver frames cushion it today. */
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede proc_startup/core_lib_init (first possible allocation) */
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
-            if (n_procs > 0) emit_textf("  call proc_startup\n");
-            else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
-            if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
-            if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
-                if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
-            } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
-            if (sbbg->nparams >= 1)
-                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
-                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
-            }
-            /* ZW-3 R12-FREE-1 REVERSAL (s23l): re-add the r12 seed before flat graph entry. */
-            /* ONE-SHOT BRIDGE (Lon s22p): main jmps into the graph; flat_γ / flat_ω are the two port
-             * landings defined AFTER the body by bb_glue_outer_gamma/omega (codegen_flat_chain_body).
-             * GAS resolves the forward refs.  NO call, NO ret, NO eax -- those belong to a C calling
-             * convention that no longer exists.  The graph's ports jump to the landings, which call
-             * rt_finalize and exit().  xor esi,esi = match start pos = 0. */
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            emit_textf("  xor esi, esi\n");
-            if (is_icon) emit_textf("  xor r14d, r14d\n");   /* ICN-FR-5 RESTORE (s238): flat-entry twin of the site-A guard above; this preamble never carried an ICN-FR-5 xor at all, so Icon graphs reaching main through it read &pos off an uninitialized r14.  Non-Icon unaffected. */
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA: main is the first C→generated crossing; load all claimed GPRs (incl. R9=RT_GVA_VA) from the block before any generated code runs. Gate: g_rtcc_on==0 → no-op (killswitch: byte-identical). */
-            emit_textf("  jmp flat_\xce\xb1\n"); /* ONE-SHOT: jmp not call; no ret after the graph */
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
