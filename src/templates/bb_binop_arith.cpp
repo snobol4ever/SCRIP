@@ -82,7 +82,7 @@ static inline int rtop_is_dyn(long long op) { return rtop_addr(op) == (void*)rt_
  *   (0x4330000000000000 IS double 4503599627370496.0 = 2^52), so one movabs serves twice.  Pre-stated
  *   prediction so it can be graded: cvtsi2sd r64 (1 insn) beats the guarded splice (~9 insns); this
  *   define exists to measure that claim, not to win. */
-#define SCRIP_DEF_ARITH_FUSE 0
+#define SCRIP_DEF_ARITH_FUSE 1
 #define SCRIP_DEF_I2D_MAGIC  0
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int fuse_on() { return SCRIP_DEF_ARITH_FUSE; }
