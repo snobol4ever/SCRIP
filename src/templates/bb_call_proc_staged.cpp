@@ -443,6 +443,7 @@ static std::string bcps_det_arm() {
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
+                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (e && *e == (char)49) ? 1 : 0; } return _sp4 ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched declines, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
                    + bb_glue_pass_wires(3, 4)
                    + x86("def", L(3))
                    + x86("call", "rt_proc_call_epilogue_γ", epig_fp_z)
@@ -721,6 +722,7 @@ static std::string bcps_det_arm() {
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call). */
             ? (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (e && *e == (char)49) ? 1 : 0; } return _sp3 ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both decline and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
             + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
             + x86("def", L(3))
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
