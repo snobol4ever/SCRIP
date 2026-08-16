@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# util_radius_src_reset.sh — COMPILE-TIME MD5 BLAST RADIUS for SCRIP_SRC_RESET (s115).
+# The fix resets g_bb_src (the pointer-keyed statement-head table read by zd_plan's
+# run formation) at every runtime-compile entry, exactly as fc_tables_reset (s67)
+# already does for its pointer-keyed siblings.  g_bb_src is read by EVERY language's
+# run walk, so the radius must be measured ACROSS LANGUAGES, not on the SNOBOL4 board
+# alone — the s203 ZW-1 lesson named in GOAL-SNOBOL4-100's LAWS.
+#
+# EXPECTATION: 0 differing.  bb_src_reset fires only from runtime-compile entries
+# (eval_build_chain, bb_compile_pat_tree), which do not run during --compile, so
+# static emission cannot move.  A non-zero count falsifies that and must be read
+# before the killswitch is defaulted on.
+#
+# Usage: bash scripts/util_radius_src_reset.sh [DIR ...]
+set -u
+SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
+OUT=${OUT:-/tmp/radius_src_reset}
+rm -rf "$OUT"; mkdir -p "$OUT"
+DIRS=${*:-"/home/claude/corpus/probe/bb /home/claude/corpus/programs/snobol4 /home/claude/corpus/crosscheck /home/claude/corpus/probe/eval /home/claude/corpus/programs/icon /home/claude/corpus/programs/prolog"}
+tot=0; diffn=0; failn=0
+for d in $DIRS; do
+    [ -d "$d" ] || continue
+    for f in $(find "$d" \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' \) | sort); do
+        b=$(echo "$f" | md5sum | cut -c1-12)
+        SCRIP_SRC_RESET=1 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.on.s"  2>/dev/null
+        SCRIP_SRC_RESET=0 timeout 25 "$SCRIP" --compile "$f" < /dev/null > "$OUT/$b.off.s" 2>/dev/null
+        if [ ! -s "$OUT/$b.on.s" ] || [ ! -s "$OUT/$b.off.s" ]; then failn=$((failn+1)); rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"; continue; fi
+        tot=$((tot+1))
+        a=$(md5sum < "$OUT/$b.on.s" | cut -d' ' -f1)
+        c=$(md5sum < "$OUT/$b.off.s" | cut -d' ' -f1)
+        if [ "$a" != "$c" ]; then diffn=$((diffn+1)); echo "MOVED  $f"; fi
+        rm -f "$OUT/$b.on.s" "$OUT/$b.off.s"
+    done
+done
+echo "----"
+echo "RADIUS: compared=$tot  differing=$diffn  emit-failed=$failn"

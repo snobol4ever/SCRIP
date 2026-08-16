@@ -5,6 +5,7 @@ extern "C" {
 }
 #include "emit.h"
 extern "C" void fc_tables_reset(void);
+extern "C" void bb_src_reset(void);
 extern "C" {
 extern IR_graph_t *g_emit_cfg;
 extern int g_frame_active;
@@ -82,6 +83,8 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     bb_pool_init();
     zls_reset();
     fc_tables_reset();
+    bb_src_reset();   /* s115 CARRIER: g_bb_src is fc's unswept pointer-keyed sibling -- see bb_src_reset's note in lower_common.c.  Every runtime-compile
+                       * entry that resets fc must reset it too, or a stale statement-head hit splits the run and declines the operand chain. */
     IR_graph_t *g = sno_pat_tree_graph_rt((const tree_t *)tv);
     if (!g || !g->entry) { if (zsz) *zsz = 0; if (zstatic) *zstatic = 0; return (void *)0; }
     optimizer_run(g);
