@@ -534,6 +534,26 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + std::string("")
              + x86("jmp", "rcx");
     }
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
+        /* ⭐ Z-3 SLICE 2 (γ-RETAIN, CELLS ARM).  A generator's γ is SUSPEND, not return: β jumps straight back into this activation
+         * (upto_β → n6_suspend_β), so the frame must SURVIVE the exit.  The ICN-FR-5 arm above already implements exactly this
+         * discipline, but is gated on icn_zframe_gen — and Z-1 stamps icn_cells_graph=1 by default, which suppresses zframe_graph
+         * (R-ZK-A mutual exclusion), so a cells-arm generator fell through to the ICN-FR-2 path below and executed `add rsp,kt`,
+         * RELEASING the very frame it is about to be resumed into.  That path's own comment states its assumption — "non-generators
+         * never have a do-body" — which is true, and is precisely why a GENERATOR must not take it.  MEASURED (rung03_suspend_gen,
+         * m4): the released region is reused by the caller's write() and by libc, so resume reads shredded locals; the fault surfaces
+         * as SIGSEGV inside dl_iterate_phdr (misaligned/clobbered stack reaching libc SSE code) under m4 and as silent no-output under m3.
+         * LIFO CONTRACT (Lon s242): α carves, ω tears down, γ RETAINS.  ω keeps the unwinding fall-through below — it is the terminal
+         * port and the frame genuinely dies there.  gen____ is handed to the caller's γ landing in rax, the same protocol ICN-FR-5 uses.
+         * Self-gating: generators reach flat_lcl_proc only under SCRIP_ICN_GENFRAME=1 (emit.cpp _gen_ok), so the default arm never
+         * evaluates this branch and stays byte-identical. */
+        return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
+             + x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
+             + x86("mov", "rax", "rsp")
+             + x86("jmp", "rcx");
+    }
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller ___ from header; jmp γ wire")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
