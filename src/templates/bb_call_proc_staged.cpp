@@ -315,7 +315,7 @@ static std::string bcps_det_arm() {
                     static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
                     if (!_ntz && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                         /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
-                        std::string laz = std::string(_.op_sval) + "_alpha";
+                        std::string laz = std::string(_.op_sval) + "_\xce\xb1";
                         if (bcps_fnsig()) {
                             /* SIG s66 ZD twin — same protocol and same eligibility guard as the non-ZD sig arm below (see its full comment): entry-relative offsets of the ZD cells, derived from the
                              * SAME authority the gather would have used with the record bias removed (x86_zref bias 0); any half that does not render a static consecutive [rsp+N] pair, or that sits in
@@ -587,7 +587,7 @@ static std::string bcps_det_arm() {
                     /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
                      * result) lives in the role-4 shim (bb_save_restore).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
-                    std::string la = std::string(_.op_sval) + "_alpha";
+                    std::string la = std::string(_.op_sval) + "_\xce\xb1";
                     if (bcps_fnsig()) {
                         /* ⭐⭐⭐ SIG s66 (Lon in-chat: "at each call site ... a static SIGNATURE ARRAY used by the SHIM so that it can REACH DOWN the stack himself and avoid the middle man pushes ...
                          * Instead of having a length on the stack and variable length contiguous, you'd have whatever it is and a STATIC MAP of how to reach them all").  The record and its gather are
