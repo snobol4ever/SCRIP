@@ -467,6 +467,7 @@ static std::string xa_flat_chain_epilogue_str(void) {
     return x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
          + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
 }
+static int pl_gamma_retain_on(void) { static int _r = -1; if (_r < 0) { const char * e = getenv("SCRIP_PL_GAMMA_RETAIN"); _r = (e && *e == '1') ? 1 : 0; } return _r; }   /* PL-Z-1a opt-in; env-read pattern per db728001 (NO NEW GLOBALS: function-static cache is the sanctioned env idiom used tree-wide) */
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
     int kt = xa_flat_wire_hdr_base();
@@ -526,12 +527,34 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("call", "rt_pl_zf_resume_clear", _clear_fp)            /* clear the pending flag */
              + x86("mov", "rax", "qword ptr [rsp# + " + std::to_string(rs) + "]") + x86("jmp", "rax")           /* jmp cursor (= n15_suspend_β) */
              + x86("def", L(50))
-             /* normal γ-exit path */
+             /* normal γ-exit path.  ⭐ PL-Z-1a (γ-RETAIN, PROLOG ZFRAME-GEN ARM, opt-in SCRIP_PL_GAMMA_RETAIN=1).
+              * The Prolog twin of ICN-GEN-GAMMA-RETAIN (c2ce75b1) and the same LIFO CONTRACT (Lon s242): α carves,
+              * ω tears down, γ RETAINS.  MEASURED (p2/p3 probes, s-this): n4_suspend_α pushes a CP via rt_pl_cp_push3
+              * whose resume address points INTO this activation, then this arm executed `add rsp,kt` — releasing the
+              * frame the backtrack path re-anchors into ($res: add rsp,8; pop rsp), so the caller's write()/libc calls
+              * shred it and the re-anchored jmp lands on garbage (rip=0x1, m3 rc=139; m4 hang/SEGV).  Even the FIRST
+              * solution is lost (blank write) because clause-head bindings live in the released frame.
+              * ⛔ DEFAULT OFF, NOT because the release is right — it is measurably wrong — but because the CALLER-side
+              * γ landing is compiled for the release regime: measured on p2.s, .Lx40_3 `mov [rsp+232],rsp` under retain
+              * writes callee-base−160 = the CALLEE's slot 232, and every subsequent caller cell ref drifts by kt+8.
+              * The caller re-anchor (ζ-ACTIVATION rbp pin, slice PL-Z-2) is the enabling condition for default-ON —
+              * exactly Icon Z-3 slice 2's open second half.  Retain protocol mirrors the Z-3 arm: hand the retained
+              * base to the caller's γ landing in rax. */
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
-             + x86("add", "rsp", (long)kt)
-             + std::string("")
+             + (pl_gamma_retain_on()
+                ? (x86("mov", "rax", "rsp")
+                 + std::string(""))
+                : (x86("add", "rsp", (long)kt)
+                 + std::string("")))
+             /* ON-arm measured state (development probe, same ship-state as Icon Z-3 under SCRIP_ICN_GENFRAME): callee
+              * retains correctly but the caller landing drifts (p2/p3/p4/p6 SEGV at the caller-side handshake), and the
+              * OUTER Prolog main graph also takes this arm (flat_jmp_entry=1 for Prolog main — driver wire-jmp entry, so
+              * that conjunct cannot scope it out) and exits to the driver's exit@PLT wire kt-deep → libc fault after
+              * correct output (p5 ok→rc139).  DEFAULT-ON ENABLING PAIR (slice PL-Z-2): (a) caller γ/β landings re-anchor
+              * to the caller's own ζ-ACTIVATION base (rbp pin per the THREE-ZETAS tier-2 design), (b) terminal top-graph
+              * exclusion (nothing resumes main; its γ stays a release). */
              + x86("jmp", "rcx");
     }
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
