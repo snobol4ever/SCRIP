@@ -17,7 +17,7 @@ CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not found at $SCRIP"; exit 0; fi
 if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
 
-pass=0; fail=0; abort=0
+pass=0; fail=0; abort=0; ocrash=0
 
 for f in "$CORPUS"/rung*.pl; do
     name=$(basename "$f" .pl)
@@ -27,8 +27,11 @@ for f in "$CORPUS"/rung*.pl; do
     ir_out=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>&1)
     ir_rc=$?
 
-    # Only test programs that pass --run
-    [ $ir_rc -ne 0 ] && continue
+    # Only test programs that pass --run.  PL-Z-1a INSTRUMENT NOTE: programs whose ORACLE run
+    # itself crashes/hangs were silently dropped from the denominator, so a broken class
+    # (e.g. multi-clause predicate SEGV, measured 2026-08-16) hid behind PASS=N FAIL=0.
+    # ORACLE_CRASH counts them visibly; PASS/FAIL/ABORT semantics and the exit code are UNCHANGED.
+    if [ $ir_rc -ne 0 ]; then ocrash=$((ocrash + 1)); continue; fi
 
     sm_out=$(timeout 8 bash -c "SCRIP_NO_AST_WALK=1 '$SCRIP' --run '$f' < /dev/null 2>&1")
     sm_rc=$?
@@ -43,6 +46,7 @@ for f in "$CORPUS"/rung*.pl; do
 done
 
 echo "=== honest mode-3 (SCRIP_NO_AST_WALK=1 --run) ==="
-echo "PASS=$pass FAIL=$fail ABORT=$abort"
-echo "(PASS = honest; ABORT = cheating via AST walker; FAIL = wrong output)"
-[ $fail -eq 0 ] && [ $abort -eq 0 ] && exit 0 || exit 1
+echo "PASS=$pass FAIL=$fail ABORT=$abort ORACLE_CRASH=$ocrash"
+echo "(PASS = honest; ABORT = cheating via AST walker; FAIL = wrong output; ORACLE_CRASH = --run oracle itself rc!=0, excluded from denominator)"
+# R-0h (GOAL-PROLOG-100): ORACLE_CRASH gates the exit — a crashing engine can never report green.
+[ $fail -eq 0 ] && [ $abort -eq 0 ] && [ $ocrash -eq 0 ] && exit 0 || exit 1
