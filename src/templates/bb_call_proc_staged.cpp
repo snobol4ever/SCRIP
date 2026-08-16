@@ -17,6 +17,8 @@ void   *rt_proc_open_fn(void);
 void   *rt_frame_prep(void *fb, long fbytes);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
+DESCR_t rt_proc_call_epilogue_named_γ(const char *name);
+DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
@@ -59,6 +61,21 @@ int  bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
 #include "x86_asm.h"
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s112 RETURN-CONTRACT LANDINGS (`SCRIP_RET_FIX=0` restores the prior bytes exactly).  The classic non-slim arms land on the BARE γ/ω epilogues, which only decrement k_level and hand back whatever rode
+ * rdi:rsi — so a DEFINE'd proc reached through them returns NULL and never restores its save set (witness `probe/mon/mon_return_contract.sno`: oracle `R1=5 A=OUTER-A L=OUTER-L`, this arm `R1= A=4 L=104`).
+ * Manual Ch.8 p.103-104 requires BOTH halves: the result is the value of the variable named for the function, and the dummy arguments and locals are restored on return.  The named twins carry the sealed
+ * proc name (ro slot 0 — the same pointer the arm already loads for `rt_proc_fn`) so the runtime can fetch the result cell and pop its own name-save stack, which is where this arm's save set lives.  The
+ * SLIM arm needs no twin: it does both halves inline against the caller's rsp spill block, and IS the passing sibling that proved the contract. */
+static int bcps_retfix(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RET_FIX"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
+{
+    uint64_t nm_fp; if (is_omega) { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_ω; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    else               { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_γ; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    if (!bcps_retfix()) return x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
+    return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp);
+}
 /* PL-STAGE-1 (2026-07-25) - INLINE ARG INSTALL, the REGAIN-1 "slice B" parked since s100.  rt_arg_stage(idx,v) is `rt_gc_point(&v,0); g_call_args[idx] = v;` and rt_gc_point_arr's FIRST act is
  * `if (!g_gc_pending) return;` - so on every call where no collection is pending (the overwhelming majority) the runtime spends THREE nested -O0 call frames to perform ONE 16-byte store.  nrev stages
  * ~25M args and the sampled leaf profile put the proc-call spine at ~36% of non-GC time.  This emits the store inline and calls the C leaf ONLY when g_gc_pending is set (there the collector may adjust v
@@ -446,10 +463,10 @@ static std::string bcps_det_arm() {
                    + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (e && *e == (char)49) ? 1 : 0; } return _sp4 ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched declines, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
                    + bb_glue_pass_wires(3, 4)
                    + x86("def", L(3))
-                   + x86("call", "rt_proc_call_epilogue_γ", epig_fp_z)
+                   + bcps_epi_named(0, epig_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(4))
-                   + x86("call", "rt_proc_call_epilogue_ω", epiw_fp_z)
+                   + bcps_epi_named(1, epiw_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(1))
                    + x86("call", "rt_faildescr", fail_fp_z))

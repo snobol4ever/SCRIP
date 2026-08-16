@@ -1277,6 +1277,43 @@ DESCR_t c_rt_proc_call_epilogue_ω(void)
     return FAILDESCR;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ NAMED γ/ω TWINS (s112) — THE NON-SLIM ARM'S MISSING RETURN CONTRACT.  MEASURED, not theorised: the classic `rt_proc_call_open` arm's landings called the bare γ/ω epilogues above, which do nothing but
+ * `rt_k_level--` and hand back whatever junk rode rdi:rsi — so a DEFINE'd proc reached through that arm returned NULL and NEVER restored its save set.  Witness `probe/mon/mon_return_contract.sno`: oracle
+ * `R1=5 A=OUTER-A L=OUTER-L`, non-slim arm `R1= A=4 L=104` — the result is lost AND the actual argument leaks out over the caller's variable.  BOTH halves are manual Ch.8 p.103-104 verbatim: "a function
+ * may return a value by assigning it to a variable with the same name as the function.  If no assignment occurs, the result is the null string" and "when the function returns, the dummy arguments are
+ * restored to their original values" (locals likewise, p.104).  REGIME-INDEPENDENT — `SCRIP_SCC_OFF=1` reproduces it with GVA fully ON, so this is NOT the GVA-off/monitor defect s111 named; MONITOR_BIN
+ * merely forces sites onto this arm.  THE PASSING SIBLING IS THE SLIM ARM, whose γ landing does exactly three things inline (fetch the result cell into rdi:rsi, mirror-restore the save set, then call its
+ * leaf) — these twins are that same contract for the arm whose save set lives on the runtime name-save stack instead of the caller's rsp block.  ONE AUTHORITY: the body is `rt_call_named_proc_sl`'s tail
+ * (~:2018) verbatim in substance — `rcell ? *rcell : NV_GET_fn(rname)`, then `rt_name_restore`, then the monitor tap.  NO NEW GLOBAL: the restore base is DERIVED as `g_name_save_top - rt_proc_save_count(p)`
+ * rather than banked, which is recursion-safe by the same LIFO discipline the RSP floater's depth-invariance law already assumes (each activation pops exactly what its own prologue pushed).  The dyn/lex
+ * branch MIRRORS `rt_proc_call_open`'s own: only `rt_proc_call_prologue` pushes name saves, so only a dyn_scope proc may restore them — a lex proc would corrupt a stack it never wrote. */
+static int rt_proc_save_count(rt_proc_t *p)
+{
+    if (!p || !p->dyn_scope) return 0;
+    int np = p->nparams, n = 0; const char **pn = p->pnames; const char *rname = p->result_name ? p->result_name : p->name; int rn_shadow = 0;
+    for (int k = 0; k < np; k++) if (pn && pn[k]) n++;
+    for (int k = 0; k < np; k++) if (pn && pn[k] && rname && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
+    if (!rn_shadow && rname) n++;
+    return n;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
+{
+    rt_k_level--;
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p) return failed ? FAILDESCR : NULVCL;
+    const char *rname = p->result_name ? p->result_name : p->name;
+    DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
+    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
+    { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
+    if (g_monitor_bin) mon_emit_return_bin(p->name, result);
+    return result;
+}
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t c_rt_proc_call_epilogue_named_γ(const char *name) { return rt_proc_epilogue_named(name, 0); }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t c_rt_proc_call_epilogue_named_ω(const char *name) { return rt_proc_epilogue_named(name, 1); }
+/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BP-7 SCC SLIM LEAVES — the static-save-set call convention (GOAL-SNOBOL4-BB BP-7).  The emitted static arm performs the save-set old-value saves (GVA cell → caller rsp block) and the arg installs
  * (frame slot → GVA cell) INLINE; these leaves carry only the per-call residue the loops never were: Σ save/restore, the pcall context, NRETURN wn, the monitor events, k_level, and the vtmark tidy.
  * open_slim runs AFTER the inline saves and BEFORE the installs, so its null-padding of unpassed formals/locals and the result cell lands exactly where rt_name_save_push's install phase did; every
@@ -2117,5 +2154,7 @@ DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0) { return c_rt_proc_call_epilogu
 DESCR_t rt_proc_call_epilogue_ω(void) { return c_rt_proc_call_epilogue_ω(); }
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result) { return c_rt_proc_call_epilogue_slim_γ(result); }
 DESCR_t rt_proc_call_epilogue_slim_ω(void) { return c_rt_proc_call_epilogue_slim_ω(); }
+DESCR_t rt_proc_call_epilogue_named_γ(const char *name) { return c_rt_proc_call_epilogue_named_γ(name); }
+DESCR_t rt_proc_call_epilogue_named_ω(const char *name) { return c_rt_proc_call_epilogue_named_ω(name); }
 void *rt_proc_open_fn(void) { return c_rt_proc_open_fn(); }
 void *rt_proc_call_open_det(long idx, int nargs) { return c_rt_proc_call_open_det(idx, nargs); }
