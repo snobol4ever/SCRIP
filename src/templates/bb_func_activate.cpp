@@ -192,16 +192,16 @@ std::string bb_func_activate() {
       + x86("call", "mon_emit_call_bin", (uint64_t)(uintptr_t)(void *)mon_emit_call_bin)
       + x86_align_leave()
       + x86("def", L(2))
-        /* body-jmp: jmp proc_FN_α  (AB-3b/AB-5 static-direct fold: proc body label always known at emit time).
+        /* body-jmp: jmp FN__<FN>  (AB-3b/AB-5 static-direct fold: proc body label always known at emit time; s112 spelling).
          * fn_cell$FN holds &FN_act_α (written by DEFINE's AB-3a residual action) and is the CALL-SITE target —
          * using it here would be a self-loop (fn_cell → INC_act_α = this block).  Direct label is both media:
-         * TEXT: jmp proc_INC_α (resolved by the assembler); BINARY: movabs rax, rt_proc_get_fn(fname); jmp rax
+         * TEXT: jmp FN__INC (resolved by the assembler); BINARY: movabs rax, rt_proc_get_fn(fname); jmp rax
          * (the proc is already JIT-compiled before bb_ab_emit_nodes runs; the fn pointer is registered by the
-         * driver's proc loop; cross-session x86_jmp_lblptr is NOT used — proc_INC_α lives in a different label
+         * driver's proc loop; cross-session x86_jmp_lblptr is NOT used — FN__INC lives in a different label
          * pool that was reset when the proc's emit_chain session ended). */
       + [&]() -> std::string {
             char blbl[128];
-            snprintf(blbl, sizeof blbl, "proc_%s_\xce\xb1", fname);
+            snprintf(blbl, sizeof blbl, "FN__%s", fname);
             if (MEDIUM_BINARY) {
                 void *pfn = rt_proc_get_fn(fname);
                 if (pfn) return x86_jmpfn(blbl, (uint64_t)(uintptr_t)pfn);
@@ -375,7 +375,7 @@ std::string bb_ab_bind() {
      * the m4 startup hoist (scrip.c per-proc emit_textf loop, now skipped for dyn_scope) and the bare skip.  ONE crossing: rt_define_site(name, params_csv, np, nf, fb, fn) — idempotent for the m3 case
      * (registry already populated at compile; fn==same → refresh, NO redefined poison) and the full registration for the m4 executable's first pass; a genuine re-DEFINE (different fn) sets redefined per
      * existing semantics.  Emit-time data comes from rt_define_query(fname) — the in-process registry is populated in BOTH modes before main-chain emission (driver register loops precede emit_chain), and
-     * in m4 the proc blobs (which set frame_bytes/fn in-process) are emitted before the main chain, so the baked constants are final.  fn operand: named-symbol lea `[rip + proc_<FN>_α]` in TEXT (assembler
+     * in m4 the proc blobs (which set frame_bytes/fn in-process) are emitted before the main chain, so the baked constants are final.  fn operand: named-symbol lea `[rip + FN__<FN>]` in TEXT (assembler
      * resolves); in BINARY x86_load_ro's movabs arm bakes the ptr — the real slab fn in m3 (set before main emit), and the leaf's fn==existing check makes it a refresh either way.  R10 sanctioned RO-load
      * divergence; ONE body, no medium branch on the registration half. */
     /* AB-3a (retained, SCRIP_AB=1 only): the fn_cell$<FN> <- &<FN>_act_α store — the α label is fname-derived (bb_ab_emit_nodes lbl override), TEXT rip-lea + GOT cell, BINARY neutralized to a relay (the
@@ -388,7 +388,7 @@ std::string bb_ab_bind() {
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    std::string blbl = std::string("proc_") + fname + "_\xce\xb1";
+    std::string blbl = std::string("FN__") + fname;   /* s112 rename (Lon in-chat): the DEFINE wrapper face is FN__<FN>, unexported — proc_<FN>_\xce\xb1 removed (supersedes the s62 keep) */
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
          + x86_ro_load_q("rdi", 0)
          + x86_ro_load_q("rsi", 1)

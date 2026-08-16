@@ -76,8 +76,8 @@ std::string bb_save_restore() {
         int rgx = rg4 < 0 ? 0 : rg4;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
-        std::string la = std::string(fn4) + "_alpha", lb = std::string(fn4) + "_gamma", lo = std::string(fn4) + "_omega";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly */
-        std::string blb = std::string(en4) + "_body";   /* BARE-CHAIN (Lon s62): the body chain's one label — proc_LBL__<FN>_α wrapper is gone */
+        std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";   /* s58 Lon: the RETURN landing is the activation-blob GAMMA (success exit protocol), not a backtrack — named accordingly.  s112 Lon in-chat: port labels spell the Greek letters (<FN>_α/_γ/_ω), never the English words */
+        std::string blb = std::string("LBL__") + en4;   /* BARE-CHAIN (Lon s62) + s112 rename (Lon in-chat): the body chain's one label IS the rt key spelling, LBL__<entry> — the <entry>_body spelling is removed */
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());   /* R-1 s94: the gamma/omega faces interned ONCE -- lea (extlbl) and def share the object, both media */
         uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());   /* R-1 s94: filled by the m3 driver after main seals (LBL__ registration twin); TEXT never reads it */
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };   /* rax = K*16, no shl encoder */
