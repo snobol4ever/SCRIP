@@ -5707,7 +5707,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(av)) {
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
-        if (IS_REAL_fn(av))      { real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
+        if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }   /* image() is Icon's, so it renders reals in Icon's convention ("10.0"), the same authority write()/string() already use above -- name-identified dispatch, so no opcode is needed here as it was for concat */
         if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
