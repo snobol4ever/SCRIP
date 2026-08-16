@@ -1,6 +1,23 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 2
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 2
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         .section         .rodata
 .Lclassspec0:           .string          "NODE(VAL,LSON,RSON)"
@@ -19,28 +36,9 @@ __gva_names:
                         .quad            .Lgvan1
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 2
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 2
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -90,14 +88,12 @@ n4_call_α:              sub              rsp, 16
 n4_call_β:              add              rsp, 16
                         add              rsp, 16;                             jmp   n2_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n5_statement_end_α:     add              rsp, 32;                             jmp   n6_statement_begin_α
-#=======================================================================================================================
-#         DATA('NODE(VAL,LSON,RSON)')
+n5_statement_end_α:                                                           jmp   n6_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_statement_begin_α:                                                         jmp   n7_statement_end_α
-n6_statement_begin_β:                                                         jmp   n8_statement_begin_α
+n6_statement_begin_β:   add              rsp, 32;                             jmp   n8_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_statement_end_α:                                                           jmp   n8_statement_begin_α
+n7_statement_end_α:     add              rsp, 32;                             jmp   n8_statement_begin_α
 #=======================================================================================================================
 #         A = NODE('x', 'y', 'z')
 #-----------------------------------------------------------------------------------------------------------------------
@@ -172,14 +168,12 @@ n13_assign_α:           mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 0], rax              # A
                         mov              qword ptr [r9 + 8], rdx;             jmp   n14_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n14_statement_end_α:    add              rsp, 64;                             jmp   n15_statement_begin_α
-#=======================================================================================================================
-#         A = NODE('x', 'y', 'z')
+n14_statement_end_α:                                                          jmp   n15_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n15_statement_begin_α:                                                        jmp   n16_statement_end_α
-n15_statement_begin_β:                                                        jmp   n17_statement_begin_α
+n15_statement_begin_β:  add              rsp, 64;                             jmp   n17_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n16_statement_end_α:                                                          jmp   n17_statement_begin_α
+n16_statement_end_α:    add              rsp, 64;                             jmp   n17_statement_begin_α
 #=======================================================================================================================
 #         DIFFER(REPLACE(DATATYPE(A),&LCASE,&UCASE), 'NODE')   :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------

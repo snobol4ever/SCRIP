@@ -1,6 +1,23 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 11
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 11
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         add              rsp, 8
                         ret
@@ -31,28 +48,9 @@ __gva_names:
                         .quad            .Lgvan10
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 11
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 11
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -84,6 +82,7 @@ n3_define_β:                                                                  j
 .Lx198_1:               .quad            .Lx198_1_s
 .Lx198_1_s:             .string          "max,x"
                                                                               jmp   .Lx199_245
+#-----------------------------------------------------------------------------------------------------------------------
 max_α:                  sub              rsp, 64
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -341,6 +340,7 @@ n18_define_β:                                                                 j
 .Lx224_1:               .quad            .Lx224_1_s
 .Lx224_1_s:             .string          "min,x"
                                                                               jmp   .Lx225_245
+#-----------------------------------------------------------------------------------------------------------------------
 min_α:                  sub              rsp, 64
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -598,6 +598,7 @@ n33_define_β:                                                                 j
 .Lx250_1:               .quad            .Lx250_1_s
 .Lx250_1_s:             .string          "abs"
                                                                               jmp   .Lx251_245
+#-----------------------------------------------------------------------------------------------------------------------
 abs_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -831,6 +832,7 @@ n49_define_β:                                                                 j
 .Lx277_1:               .quad            .Lx277_1_s
 .Lx277_1_s:             .string          "sign"
                                                                               jmp   .Lx278_245
+#-----------------------------------------------------------------------------------------------------------------------
 sign_α:                 sub              rsp, 48
                         mov              qword ptr [rsp + 0], r10
                         mov              qword ptr [rsp + 8], r11
@@ -1176,6 +1178,7 @@ n75_define_β:                                                                 j
 .Lx319_1:               .quad            .Lx319_1_s
 .Lx319_1_s:             .string          "gcd,b,r"
                                                                               jmp   .Lx320_245
+#-----------------------------------------------------------------------------------------------------------------------
 gcd_α:                  sub              rsp, 80
                         mov              rax, qword ptr [r9 + 112]            # r
                         mov              qword ptr [rsp + 0], rax
@@ -1482,6 +1485,7 @@ n99_define_β:                                                                 j
 .Lx359_1:               .quad            .Lx359_1_s
 .Lx359_1_s:             .string          "a,b,g"
                                                                               jmp   .Lx360_245
+#-----------------------------------------------------------------------------------------------------------------------
 lcm_α:                  sub              rsp, 96
                         mov              rax, qword ptr [r9 + 160]            # g
                         mov              qword ptr [rsp + 0], rax
@@ -1784,8 +1788,6 @@ n115_statement_begin_α:                                                       j
 n115_statement_begin_β:                                                       jmp   n117_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n116_statement_end_α:                                                         jmp   n117_statement_begin_α
-#=======================================================================================================================
-#         <stmt 25, line 67: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n117_statement_begin_α:                                                       jmp   n118_statement_end_α
 n117_statement_begin_β:                                                       jmp   n119_statement_begin_α
@@ -1845,14 +1847,12 @@ n122_call_α:            sub              rsp, 16
                         mov              qword ptr [rsp + 8], rdx;            jmp   n123_statement_end_α
 n122_call_β:            add              rsp, 16;                             jmp   n121_lit_integer_β
 #-----------------------------------------------------------------------------------------------------------------------
-n123_statement_end_α:   add              rsp, 48;                             jmp   n124_statement_begin_α
-#=======================================================================================================================
-#         <stmt 27, line 71: source not in main file (INCLUDE)>
+n123_statement_end_α:                                                         jmp   n124_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n124_statement_begin_α:                                                       jmp   n125_statement_end_α
-n124_statement_begin_β:                                                       jmp   n126_statement_begin_α
+n124_statement_begin_β: add              rsp, 48;                             jmp   n126_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n125_statement_end_α:                                                         jmp   n126_statement_begin_α
+n125_statement_end_α:   add              rsp, 48;                             jmp   n126_statement_begin_α
 #=======================================================================================================================
 #         <stmt 28, line 73: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------

@@ -3183,7 +3183,24 @@ proc_PAT$9_ω:
                         mov              r11, qword ptr [rbp + -16]
                         mov              rsp, rbp
                         pop              rbp;                                 jmp   r11
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 38
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 38
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         .section         .rodata
 .Lstartup_pname8:       .string          "PAT$0"
@@ -3467,29 +3484,10 @@ __gva_names:
                         .quad            .Lgvan37
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 38
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 38
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
                         sub              rsp, 0
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n147_statement_begin_α:                                                       jmp   n148_statement_end_α
 n147_statement_begin_β:                                                       jmp   n149_statement_begin_α
@@ -3521,6 +3519,7 @@ n150_define_β:                                                                j
 .Lx414_1:               .quad            .Lx414_1_s
 .Lx414_1_s:             .string          "x"
                                                                               jmp   .Lx415_245
+#-----------------------------------------------------------------------------------------------------------------------
 Push_α:                 sub              rsp, 64
                         mov              rax, qword ptr [r9 + 0]              # Push
                         mov              qword ptr [rsp + 0], rax
@@ -3989,6 +3988,7 @@ n186_define_β:                                                                j
 .Lx466_1:               .quad            .Lx466_1_s
 .Lx466_1_s:             .string          ""
                                                                               jmp   .Lx467_245
+#-----------------------------------------------------------------------------------------------------------------------
 Pop_α:                  sub              rsp, 48
                         mov              rax, qword ptr [r9 + 32]             # Pop
                         mov              qword ptr [rsp + 0], rax
@@ -4332,6 +4332,7 @@ n213_define_β:                                                                j
 .Lx503_1:               .quad            .Lx503_1_s
 .Lx503_1_s:             .string          "arg,op"
                                                                               jmp   .Lx504_245
+#-----------------------------------------------------------------------------------------------------------------------
 Unary_α:                sub              rsp, 80
                         mov              rax, qword ptr [r9 + 48]             # Unary
                         mov              qword ptr [rsp + 0], rax
@@ -4788,6 +4789,7 @@ n241_define_β:                                                                j
 .Lx551_1:               .quad            .Lx551_1_s
 .Lx551_1_s:             .string          "op,left,right"
                                                                               jmp   .Lx552_245
+#-----------------------------------------------------------------------------------------------------------------------
 Binary_α:               sub              rsp, 96
                         mov              rax, qword ptr [r9 + 96]             # Binary
                         mov              qword ptr [rsp + 0], rax
@@ -5659,14 +5661,12 @@ n311_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 224], rax            # real
                         mov              qword ptr [r9 + 232], rdx;           jmp   n312_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n312_statement_end_α:   add              rsp, 160;                            jmp   n313_statement_begin_α
-#=======================================================================================================================
-#          real     =  integer '.' (integer | epsilon) (exponent | epsilon)
+n312_statement_end_α:                                                         jmp   n313_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n313_statement_begin_α:                                                       jmp   n314_statement_end_α
-n313_statement_begin_β:                                                       jmp   n315_statement_begin_α
+n313_statement_begin_β: add              rsp, 160;                            jmp   n315_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n314_statement_end_α:                                                         jmp   n315_statement_begin_α
+n314_statement_end_α:   add              rsp, 160;                            jmp   n315_statement_begin_α
 #=======================================================================================================================
 #          addop    =  ANY('+-') . *Push()
 #-----------------------------------------------------------------------------------------------------------------------
@@ -5852,14 +5852,12 @@ n333_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 272], rax            # constant
                         mov              qword ptr [r9 + 280], rdx;           jmp   n334_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n334_statement_end_α:   add              rsp, 80;                             jmp   n335_statement_begin_α
-#=======================================================================================================================
-#          constant =  (real | integer) . *Push()
+n334_statement_end_α:                                                         jmp   n335_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n335_statement_begin_α:                                                       jmp   n336_statement_end_α
-n335_statement_begin_β:                                                       jmp   n337_statement_begin_α
+n335_statement_begin_β: add              rsp, 80;                             jmp   n337_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n336_statement_end_α:                                                         jmp   n337_statement_begin_α
+n336_statement_end_α:   add              rsp, 80;                             jmp   n337_statement_begin_α
 #=======================================================================================================================
 #          primary  =  constant | '(' *expr ')'
 #-----------------------------------------------------------------------------------------------------------------------
@@ -5933,14 +5931,12 @@ n343_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 288], rax            # primary
                         mov              qword ptr [r9 + 296], rdx;           jmp   n344_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n344_statement_end_α:   add              rsp, 64;                             jmp   n345_statement_begin_α
-#=======================================================================================================================
-#          primary  =  constant | '(' *expr ')'
+n344_statement_end_α:                                                         jmp   n345_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n345_statement_begin_α:                                                       jmp   n346_statement_end_α
-n345_statement_begin_β:                                                       jmp   n347_statement_begin_α
+n345_statement_begin_β: add              rsp, 64;                             jmp   n347_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n346_statement_end_α:                                                         jmp   n347_statement_begin_α
+n346_statement_end_α:   add              rsp, 64;                             jmp   n347_statement_begin_α
 #=======================================================================================================================
 #          factor   =  addop *factor . *Unary()
 #-----------------------------------------------------------------------------------------------------------------------
@@ -6014,14 +6010,12 @@ n353_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 304], rax            # factor
                         mov              qword ptr [r9 + 312], rdx;           jmp   n354_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n354_statement_end_α:   add              rsp, 64;                             jmp   n355_statement_begin_α
-#=======================================================================================================================
-#          factor   =  addop *factor . *Unary()
+n354_statement_end_α:                                                         jmp   n355_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n355_statement_begin_α:                                                       jmp   n356_statement_end_α
-n355_statement_begin_β:                                                       jmp   n357_statement_begin_α
+n355_statement_begin_β: add              rsp, 64;                             jmp   n357_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n356_statement_end_α:                                                         jmp   n357_statement_begin_α
+n356_statement_end_α:   add              rsp, 64;                             jmp   n357_statement_begin_α
 #=======================================================================================================================
 #          term     =  *factor mulop *term . *Binary()
 #-----------------------------------------------------------------------------------------------------------------------
@@ -6095,14 +6089,12 @@ n363_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 320], rax            # term
                         mov              qword ptr [r9 + 328], rdx;           jmp   n364_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n364_statement_end_α:   add              rsp, 64;                             jmp   n365_statement_begin_α
-#=======================================================================================================================
-#          term     =  *factor mulop *term . *Binary()
+n364_statement_end_α:                                                         jmp   n365_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n365_statement_begin_α:                                                       jmp   n366_statement_end_α
-n365_statement_begin_β:                                                       jmp   n367_statement_begin_α
+n365_statement_begin_β: add              rsp, 64;                             jmp   n367_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n366_statement_end_α:                                                         jmp   n367_statement_begin_α
+n366_statement_end_α:   add              rsp, 64;                             jmp   n367_statement_begin_α
 #=======================================================================================================================
 #          expr     =  *term addop *expr . *Binary()
 #-----------------------------------------------------------------------------------------------------------------------
@@ -6176,14 +6168,12 @@ n373_assign_α:          mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 336], rax            # expr
                         mov              qword ptr [r9 + 344], rdx;           jmp   n374_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n374_statement_end_α:   add              rsp, 64;                             jmp   n375_statement_begin_α
-#=======================================================================================================================
-#          expr     =  *term addop *expr . *Binary()
+n374_statement_end_α:                                                         jmp   n375_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n375_statement_begin_α:                                                       jmp   n376_statement_end_α
-n375_statement_begin_β:                                                       jmp   n377_statement_begin_α
+n375_statement_begin_β: add              rsp, 64;                             jmp   n377_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n376_statement_end_α:                                                         jmp   n377_statement_begin_α
+n376_statement_end_α:   add              rsp, 64;                             jmp   n377_statement_begin_α
 #=======================================================================================================================
 #          &TRIM    =  1
 #-----------------------------------------------------------------------------------------------------------------------

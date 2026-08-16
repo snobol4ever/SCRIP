@@ -1,6 +1,23 @@
                         .intel_syntax    noprefix
                         .text
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 7
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 7
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         add              rsp, 8
                         ret
@@ -23,28 +40,9 @@ __gva_names:
                         .quad            .Lgvan6
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 7
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 7
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -76,6 +74,7 @@ n3_define_β:                                                                  j
 .Lx122_1:               .quad            .Lx122_1_s
 .Lx122_1_s:             .string          "a,b,c,d,e,f"
                                                                               jmp   .Lx123_245
+#-----------------------------------------------------------------------------------------------------------------------
 jlab_α:                 sub              rsp, 144
                         mov              rax, qword ptr [r9 + 64]             # d
                         mov              qword ptr [rsp + 0], rax
@@ -283,8 +282,6 @@ jlab_ω:                 mov              rcx, qword ptr [rsp + 80]
 .Lx123_245:
 #-----------------------------------------------------------------------------------------------------------------------
 n4_statement_end_α:                                                           jmp   n5_statement_begin_α
-#=======================================================================================================================
-#         <stmt 3, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n5_statement_begin_α:                                                         jmp   n6_statement_end_α
 n5_statement_begin_β:                                                         jmp   n7_statement_begin_α

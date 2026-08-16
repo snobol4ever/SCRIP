@@ -1,14 +1,5 @@
                         .intel_syntax    noprefix
                         .text
-                        .section         .rodata
-.Lgvan0:                .string          "a"
-.Lgvan1:                .string          "b"
-                        .align           8
-__gva_names:
-                        .quad            .Lgvan0
-                        .quad            .Lgvan1
-                        .section         .text
-                        .intel_syntax    noprefix
                         .globl           main
 main:
                         sub              rsp, 8
@@ -25,11 +16,18 @@ main:
                         call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                               jmp   main_α
+                        .section         .rodata
+.Lgvan0:                .string          "a"
+.Lgvan1:                .string          "b"
+                        .align           8
+__gva_names:
+                        .quad            .Lgvan0
+                        .quad            .Lgvan1
+                        .section         .text
+                        .intel_syntax    noprefix
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n0_statement_begin_α:                                                         jmp   n1_statement_end_α
 n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
@@ -82,14 +80,12 @@ n5_assign_α:            mov              rax, qword ptr [rsp + 0]             #
                         mov              qword ptr [r9 + 0], rax              # a
                         mov              qword ptr [r9 + 8], rdx;             jmp   n6_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n6_statement_end_α:     add              rsp, 32;                             jmp   n7_statement_begin_α
-#=======================================================================================================================
-#         a = ARRAY(3)
+n6_statement_end_α:                                                           jmp   n7_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_statement_begin_α:                                                         jmp   n8_statement_end_α
-n7_statement_begin_β:                                                         jmp   n9_statement_begin_α
+n7_statement_begin_β:   add              rsp, 32;                             jmp   n9_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_statement_end_α:                                                           jmp   n9_statement_begin_α
+n8_statement_end_α:     add              rsp, 32;                             jmp   n9_statement_begin_α
 #=======================================================================================================================
 #         DIFFER(a<1>)               :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------

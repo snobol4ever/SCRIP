@@ -4,7 +4,7 @@
 FN__EXPR$0:
 proc_EXPR$0_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n0_save_restore_α:                                                            jmp   n1_lit_string_α
+n0_define_α:                                                                  jmp   n1_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
@@ -60,7 +60,7 @@ proc_EXPR$0_ω:
 FN__EXPR$1:
 proc_EXPR$1_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n11_save_restore_α:                                                           jmp   n12_var_α
+n11_define_α:                                                                 jmp   n12_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_var_α:              sub              rsp, 16
                         mov              rax, qword ptr [r9 + 16]             # q
@@ -90,7 +90,7 @@ proc_EXPR$1_ω:
 FN__EXPR$2:
 proc_EXPR$2_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n18_save_restore_α:                                                           jmp   n19_lit_integer_α
+n18_define_α:                                                                 jmp   n19_lit_integer_α
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:      sub              rsp, 16
                         mov              qword ptr [rsp + 0], 3               # result
@@ -156,7 +156,24 @@ proc_EXPR$2_γ:
 #-----------------------------------------------------------------------------------------------------------------------
 proc_EXPR$2_ω:
                                                                               jmp   r11
-proc_startup:
+                        .globl           main
+main:
+                        sub              rsp, 8
+                        push             rdi
+                        push             rsi
+                        call             core_lib_init@PLT
+                        call             main_init
+                        mov              edi, 7
+                        call             rt_gva_island@PLT
+                        mov              rsi, rax
+                        lea              rdi, [rip + __gva_names]
+                        mov              edx, 7
+                        call             gva_register@PLT
+                        mov              r12, qword ptr [0x70000000]
+                        call             rtcc_load_all@PLT
+                        xor              esi, esi
+                                                                              jmp   main_α
+main_init:
                         sub              rsp, 8
                         .section         .rodata
 .Lstartup_pname0:       .string          "EXPR$0"
@@ -266,28 +283,9 @@ __gva_names:
                         .quad            .Lgvan6
                         .section         .text
                         .intel_syntax    noprefix
-                        .globl           main
-main:
-                        sub              rsp, 8
-                        push             rdi
-                        push             rsi
-                        call             core_lib_init@PLT
-                        call             proc_startup
-                        mov              edi, 7
-                        call             rt_gva_island@PLT
-                        mov              rsi, rax
-                        lea              rdi, [rip + __gva_names]
-                        mov              edx, 7
-                        call             gva_register@PLT
-                        mov              r12, qword ptr [0x70000000]
-                        call             rtcc_load_all@PLT
-                        xor              esi, esi
-                                                                              jmp   main_α
 #-----------------------------------------------------------------------------------------------------------------------
 main_α:
 main_α_body:
-#=======================================================================================================================
-#         <stmt 1, line 1: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_begin_α:                                                        jmp   n31_statement_end_α
 n30_statement_begin_β:                                                        jmp   n32_statement_begin_α
