@@ -115,6 +115,68 @@ __asm__(
 "  popq %rbx\n"
 "  ret\n"
 );
+/* ⛔⭐⭐ rt_chain_enter_v (s113) — THE VALUE-RETURNING TWIN, AND THE REASON IT HAS TO EXIST.
+ * rt_chain_enter above implements Lon's s59 ruling verbatim ("no CALL/RET — a JUMP and a JUMP BACK"):
+ * it wires γ→rcx, ω→rdx and `jmp`s, pushing NO return address.  That is correct for every citizen that
+ * RUNS TO TERMINATION — rt_goto_transfer's CODE fragments and LBL__ pseudo-procs end at `:(END)` and exit
+ * through the driver, so they never take the jump back and the missing way home is invisible.  EVAL is the
+ * ONE citizen that must hand a value back, and it is the one that was broken.
+ * ROOT CAUSE (s113, gdb-measured, not inferred): CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue —
+ * the producer half of the jmp-entry protocol.  The ONLY surviving site that stores the {γ,ω} wire header
+ * is emit.cpp's flat_lcl_proc arm (~:2741/:2746).  A chain armed flat_jmp_entry=1 / flat_lcl_proc=0 (exactly
+ * what emit_jmp_entry_for_chain produces) therefore gets NO prologue, NO wire header, GLUE-O suppressed by
+ * its own flat_jmp_entry conjunct — and an epilogue that `ret`s.  Measured on `EVAL('1 + 2')`: flags
+ * flat_jmp_entry=1 flat_frame_bytes=112 at emit_chain, yet the emitted chain is
+ *   0x00 jmp α · 0x05 jmp ω · α: sub rsp,16 ×3 (its own FORTH spine) … add rsp,48 · mov eax,2 · RET
+ * — no `sub rsp,112`, no `mov [rsp+kt-24],rcx`.  The `ret` pops rt_chain_enter's saved %r15 and jumps to it:
+ * rip=_rtld_global, frame #1 = 0x41ad68.  That is the whole "omega_driver signature" of s103/s110/s112.
+ * ⛔ THE CHAIN IS ALREADY A C-ABI CITIZEN — it ends in `ret` and returns DT in eax:rdx (eval_chain_fn is
+ * literally DESCR_t(*)(void*,int)).  So the two halves of the protocol disagree, and the cheap correct move
+ * is to give the ret-ending chain the return address it is already asking for, WITHOUT touching the stub the
+ * terminating citizens use and WITHOUT moving one byte of generated code (MD5 radius 0 by construction).
+ * ⚠ ALIGNMENT IS LOAD-BEARING AND IS WHY THIS IS `sub 8 + push` AND NOT A BARE 6TH PUSH.  The chain assumes
+ * rsp ≡ 0 (mod 16) at its entry — its interior `call *%rax` sites are aligned off exactly that.  Five pushes
+ * (40B) take the 8-mod-16 C entry to 0 mod 16; a 6th push alone would leave 8 mod 16 and SEGV in libc's SSE
+ * printf path (measured at s59, rsp=...be8, recorded in rt_chain_enter's header — do not re-derive it).
+ * `sub $8` + `push` moves 16 bytes: the landing sits at [rsp] for the chain's own `ret` AND entry stays
+ * 0 mod 16.  The landing drops the 8-byte pad before unwinding the callee-saves.
+ * rcx/rdx are still wired identically, so a chain that jumps back instead of returning is unaffected here. */
+__asm__(
+".text\n"
+".globl rt_chain_enter_v\n"
+"rt_chain_enter_v:\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  leaq 3f(%rip), %rcx\n"
+"  movq %rcx, %rdx\n"
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 4f\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"4:\n"
+"  subq $8, %rsp\n"
+"  pushq %rcx\n"
+"  jmp *%rax\n"
+"3:\n"
+"  addq $8, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  ret\n"
+);
+void rt_chain_enter_v(eval_chain_fn fn);
 void rt_chain_enter(eval_chain_fn fn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Deferred-expression thunks (`. *F(X)`) minted by a RUNTIME compile.  lower_snobol4 mints one EXPR$N proc per
@@ -226,6 +288,8 @@ static eval_chain_fn eval_build_chain(const char *s)
  * __attribute__((noinline)) ensures a real call frame with its own ___. */
 __attribute__((noinline))
 static void eval_chain_enter_only(eval_chain_fn fn) {
+    static int _rv = -1; if (_rv < 0) { const char * e = getenv("SCRIP_EVAL_RET"); _rv = (e && *e == '0') ? 0 : 1; }
+    if (_rv) { rt_chain_enter_v(fn); return; }
     rt_chain_enter(fn);
     /* chain ret lands in eval_string_transient; this line is never reached */
 }
