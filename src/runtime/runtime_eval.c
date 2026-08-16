@@ -26,12 +26,26 @@ extern void           ast_tree_free_dyn(tree_t *p);
 extern void           IR_free_dyn(void *g);
 extern size_t         bb_pool_mark(void);
 extern void           bb_pool_release(size_t mark);
-#define EVAL_TMP "ZZEVALZZ"
+#define EVAL_TMP_MARKED "EVAL$"
+#define EVAL_TMP_LEGACY "ZZEVALZZ"
+#define EVAL_TMP eval_tmp_name()
 #define EVAL_RETAIN_BUDGET (2 * 1024 * 1024)
 typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s116 MON-CAP -- THE EVAL TEMP IS A COMPILER MINT AND MUST SAY SO AT MINT TIME.  core.c's mon_name_is_internal (ONE AUTHORITY for both VALUE fire-points) recognises a compiler-minted name by
+ * an identifier HEAD followed by '$' -- the shape the SNOBOL4 lowerer already mints for itself (PAT$n, PAT$n$A<i>, PATV$k, PATTMP$n, EXPR$n, IGT$n, SNO$*).  "ZZEVALZZ" carried NO marker, so every
+ * EVAL-bearing program emitted VALUE events the oracle has no counterpart for and desynced the trace: measured on probe/eval/ev_min_arith.sno (top-level EVAL, no DEFINE), the oracle emits 3 events
+ * and scrip emitted 5 -- two spurious `VALUE ZZEVALZZ` (the INT result, then the STRING(0) restore of the saved value) -- diverging at step 2 of 3.  s112's own note at core.c:293 prescribes exactly
+ * this remedy: "The durable fix is a mint-time marker on compiler names; until then, keep it here."  THIS IS THAT FIX, AND IT IS NOT A SECOND RULE: no monitor-side predicate, no ZZEVALZZ special
+ * case, nothing to keep in sync -- the name simply joins the convention the filter already reads, so the mint and the filter cannot drift the way a name-specific suppression would.
+ * ⛔ THE MARKER IS SAFE FROM THE PARSER BECAUSE THIS NAME NEVER REACHES IT: eval_build_chain parses only the user's expression text "(%s)" and injects this name as an AST TT_VAR node
+ * (var->v.sval), so '$' is never read as SPITBOL's indirect-reference operator.  ONE AUTHORITY: every NV_GET_fn/NV_SET_fn site reads this function, so the saved/restore pair cannot straddle two
+ * spellings.  Killswitch SCRIP_EVAL_TMP_MARK=0 restores the legacy name for A/B. */
+static const char *eval_tmp_name(void)
+    { static int m = -1; if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; } return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long eval_cache_hash(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
