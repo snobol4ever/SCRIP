@@ -2226,6 +2226,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     ir_operand_push(asnA, av);
                     pae = ae;
                 }
+                if (tx.npre > 0) { IR_t * ncnt = lc_build(g, IR_LIT_STRING, mk, fA); char cb[16]; snprintf(cb, sizeof cb, "%d", tx.npre); IR_LIT(ncnt).sval = lp_strdup(cb); ir_operand_push(mk, ncnt); lc_γ_to(nl, ncnt); }   /* PB-1s (s108): args[1] = pre[] count -- SNO$MKPAT freezes the $V<i> stage-2 stores above into the fresh DTP's per-construction snap vector (manual p.85-86: each construction freezes ITS OWN values); spliced nl->ncnt->mk so the count literal rides the existing evaluation chain; zero-pre sites stay byte-identical */
             }
             lc_γ_to(anchor[i], pae);
             continue;

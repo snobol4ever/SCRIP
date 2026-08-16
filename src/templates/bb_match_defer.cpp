@@ -11,6 +11,9 @@ extern "C" void *rt_proc_open_fn   (void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void *rt_defer_get_pat_fn(const char *varname, int ival_flag);
+extern "C" void *rt_defer_get_pat_dtp(const char *varname, int ival_flag);
+extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
+extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag);
 extern "C" void *dtp_fn_of(void *headv);
 extern "C" uint64_t g_sno_defer_cells[4096];
 extern uint64_t g_scan_hit_start;
@@ -31,7 +34,8 @@ std::string bb_match_defer() {
      * dance plus one store into the cell (a 0 store on the not-yet-DT_P arm is a no-op — the cell arms itself only when the fn first resolves, and write-once makes it permanently valid).  rsi is the
      * scratch: dead at α on this path (the non-GVA arm's xor esi,esi is the only prior user), clobbered by the dtp_fn_of C call, hence the re-lea before the store.  Index claim = drive_value_slot precedent (fact fix 2026-08-12: bb_slot_claim was deleted 2026-07-02)
      * (emit-time staging at template top); ≥4096 falls back to the uncached path; counter monotonic per process (uniqueness is the only requirement). */
-    int ci = (dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;
+    int vslot = -1; { const char *sv = _.op_sval; if (sv) { const char *d = strstr(sv, "$V"); if (d && d[2] >= '0' && d[2] <= '9') { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } } }   /* PB-1s (s108): a compiler-minted PAT$n$V<i> value-leaf ('$' cannot occur in user names) reads slot i of the DTP this activation runs under, NOT the per-site global -- manual p.85-86 per-construction freeze; the case_driver cycle/stale class */
+    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;   /* s108: $V leaves are per-construction by definition -- no per-site cell may cache them */
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
@@ -50,11 +54,28 @@ std::string bb_match_defer() {
                x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
              + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(ci >= 0,
-               x86("lea",  "rsi", "[rip + __]", cadr, clbl)
-             + x86("mov",  "rax", RDQ("rsi", 0))
+               x86("comment", "s142 cell reworked s108: the cell holds the DTP (write-once => the DTP is as fixed as the fn once armed), fn loaded at [dtp+0] (the pinned offset-0 assert), so the cached fast path still carries the DTP into the blob in rdx")
+             + x86("lea",  "rsi", "[rip + __]", cadr, clbl)
+             + x86("mov",  "rdx", RDQ("rsi", 0))
+             + x86("test", "rdx", "rdx")
+             + x86("je",   L(13))
+             + x86("mov",  "rax", RDQ("rdx", 0))
+             + x86("jmp",  L(11))
+             + x86("def",  L(13)))
+         + IF(vslot >= 0,
+               x86("comment", "PB-1s (s108) $V PER-CONSTRUCTION SLOT: value = snap[i] of the DTP this activation runs under ([rbp-24], preamble-stored from entry rdx); the PAT$n$V global is stage-2 marshalling whose lifetime ends at MKPAT -- per-site cell reads were the case_driver cycle/stale class")
+             + x86("mov",  "rdi", RDQ("rbp", -24))
+             + x86("mov",  "esi", (long)vslot)
+             + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86_align_enter()
+             + x86("call", "rt_patv_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long, const char *))rt_patv_defer_get_pat_dtp)
+             + x86_align_leave()
+             + x86("mov",  "rdx", "rax")
              + x86("test", "rax", "rax")
-             + x86("jne",  L(11)))
-         + IF(g_gva_active && _.op_gva_k >= 0,
+             + x86("je",   L(16))
+             + x86("mov",  "rax", RDQ("rdx", 0))
+             + x86("def",  L(16)))
+         + IF(vslot < 0 && g_gva_active && _.op_gva_k >= 0,
                x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
              + x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("cmp",  "eax", (long)DT_P)
@@ -66,20 +87,29 @@ std::string bb_match_defer() {
              + x86_align_enter()
              + x86("call", "dtp_fn_of", (uint64_t)(uintptr_t)(void *)(void *(*)(void *))dtp_fn_of)
              + x86_align_leave()
+             + x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))   /* s108: the C call clobbered rdx -- re-derive the DTP from the same GVA payload spelling so blob entry carries it */
              + x86("jmp",  L(10))
              + x86("def",  L(9))
              + x86("xor",  "eax", "eax")
              + x86("def",  L(10)))
          + IF(ci >= 0,
-               x86("lea",  "rsi", "[rip + __]", cadr, clbl)
-             + x86("mov",  RDQ("rsi", 0), "rax")
+               x86("test", "rax", "rax")
+             + x86("je",   L(15))
+             + x86("lea",  "rsi", "[rip + __]", cadr, clbl)
+             + x86("mov",  RDQ("rsi", 0), "rdx")
+             + x86("def",  L(15))
              + x86("def",  L(11)))
-         + IF(!(g_gva_active && _.op_gva_k >= 0),
+         + IF(vslot < 0 && !(g_gva_active && _.op_gva_k >= 0),
                x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("xor",  "esi", "esi")
              + x86_align_enter()
-             + x86("call", "rt_defer_get_pat_fn", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_fn)
-             + x86_align_leave())
+             + x86("call", "rt_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_dtp)   /* s108: DTP twin of rt_defer_get_pat_fn -- fn at [dtp+0], rdx carries the DTP into the blob */
+             + x86_align_leave()
+             + x86("mov",  "rdx", "rax")
+             + x86("test", "rax", "rax")
+             + x86("je",   L(14))
+             + x86("mov",  "rax", RDQ("rdx", 0))
+             + x86("def",  L(14)))
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
@@ -118,10 +148,20 @@ std::string bb_match_defer() {
          + x86_omega()
          + x86("def",  "L0")
          + x86_xfer_enter()
-         + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-         + x86("xor",  "esi", "esi")
+         + IF(vslot < 0,
+               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("xor",  "esi", "esi"))
+         + IF(vslot >= 0,
+               x86("comment", "PB-1s (s108): scalar half of the $V slot read -- open with the FROZEN value (dtp->snap[i]), not the per-site global; this is the pb_stale_snapshot_value silent-wrong-answer half")
+             + x86("mov",  "rdi", RDQ("rbp", -24))
+             + x86("mov",  "esi", (long)vslot)
+             + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("xor",  "ecx", "ecx"))
          + x86_anchor_enter()
-         + x86("call", "rt_defer_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int))rt_defer_open)
+         + IF(vslot < 0,
+               x86("call", "rt_defer_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int))rt_defer_open))
+         + IF(vslot >= 0,
+               x86("call", "rt_patv_defer_open", (uint64_t)(uintptr_t)(void *)(long (*)(void *, long, const char *, int))rt_patv_defer_open))
          + x86("def",  "L2")
          + x86("test", "rax", "rax")
          + x86("je",   "L3")

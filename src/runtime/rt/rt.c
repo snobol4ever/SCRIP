@@ -862,7 +862,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
  * rip=5 crash class, APPLY('F') repro).  The WORKING staged sites jump via the alpha$<FN> cell m3_seal_entry_cells fills with <FN>_alpha; prefer that same target here.  WIP, DEFAULT OFF (opt-in SCRIP_DYN_ALPHA=1): the cell target still needs the staged rcx-record entry contract. */
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
 {
-    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = (e && e[0] == '1') ? 1 : 0; }
+    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }   /* s108 (Lon ruling in-chat: "if they need to be on, then turn them on"): DEFAULT ON -- the NRET_CAP/DYN_ALPHA pair takes beauty_suite/semantic_driver green (measured this seat, pair on = PASS, off = rc134 abort).  Killswitch inverted, not deleted: SCRIP_DYN_ALPHA=0 restores the pre-s108 default byte-identically. */
     if (!live || !name) return fallback;
     { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
       void **cell = (void **)bb_ab_fn_cell_ptr(cn);

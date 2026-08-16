@@ -29,11 +29,11 @@ static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
-typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int32_t zpad; } DTP_t;   /* PS-1 (s150): zsz = per-activation frame bytes stamped at compile (0=unknown); zstatic = 1 iff blob graph has no DEFER/VALUE nodes (extent sound for ARBNO frame arithmetic); fields APPENDED — fn stays offset 0, future asm consumers read zsz at [p+16] */
+typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int32_t zpad; DESCR_t *snap; int64_t nsnap; } DTP_t;   /* PS-1 (s150): zsz = per-activation frame bytes stamped at compile (0=unknown); zstatic = 1 iff blob graph has no DEFER/VALUE nodes (extent sound for ARBNO frame arithmetic); fields APPENDED — fn stays offset 0, future asm consumers read zsz at [p+16] */   /* PB-1s (s108): snap/nsnap = PER-CONSTRUCTION value snapshot (manual p.85-86: each construction freezes ITS OWN values) — filled by rt_patv_freeze at SNO$MKPAT from the per-site PAT$n$V<i> globals, read by the blob's $V slot arm via [rbp-24]->snap[i] at [p+32]/[p+40]; rt_ws_alloc island block = immortal + conservatively root-scanned every collect, so the held DESCRs (which can be patterns holding patterns) are GC roots by construction */
 _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache reads DTP_t.fn at offset 0");
 _Static_assert(__builtin_offsetof(DTP_t, zsz) == 16, "PS-3 ARBNO stride latch reads DTP_t.zsz at offset 16");
 static int pstamp_trace(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PSTAMP_TRACE"); v = e ? (atoi(e) != 0) : 0; } return v; }
-static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_ws_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; return h; }
+static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_ws_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; h->snap = 0; h->nsnap = 0; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
 void *dtp_wrap_fn_sz(void *fn, int64_t zsz, int32_t zstatic) { DTP_t *h = dtp_new(fn, (dtp_rcp_t *)0); h->zsz = zsz; h->zstatic = zstatic; if (pstamp_trace()) fprintf(stderr, "PSTAMP wrap fn=%p zsz=%lld zstatic=%d\n", fn, (long long)zsz, (int)zstatic); return (void *)h; }
 int64_t dtp_zsz_of(void *headv) { DTP_t *h = (DTP_t *)headv; return h ? h->zsz : 0; }
@@ -1038,6 +1038,63 @@ void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PB-1s (s108) PER-CONSTRUCTION SNAPSHOT: manual p.85-86 -- "NPAT captures the value of variable N at the time of pattern construction"; only unary * defers.  The lowered per-SITE PAT$n$V<i> globals
+ * are stage-2 marshalling only: SNO$MKPAT freezes them into the fresh DTP_t's snap vector (one per construction), and the blob's $V DEFER reads slot i of THE DTP IT IS RUNNING UNDER ([rbp-24], stored
+ * by the blob preamble from entry rdx) instead of the global by name.  Cures both failure modes of the per-site cell: the self-reference STRUCTURAL CYCLE (SIG11, case_driver / pb_selfref_alt_cycle --
+ * iteration 2's cell held a pattern deferring to the cell itself) and the SILENT STALE VALUE (pb_stale_snapshot_value -- a saved construction re-read a later construction's overwrite). */
+void rt_patv_freeze(void *hv, const char *bn, long n)
+{
+    DTP_t *h = (DTP_t *)hv;
+    if (!h || !bn || n <= 0) return;
+    DESCR_t *v = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
+    for (long i = 0; i < n; i++) { char nb[64]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }   /* indices are the SPARSE api order shared with $A leaves (lower_snobol4.c 2222/2504's identical-traversal invariant): a non-snapg index probes an unregistered name and freezes the harmless null value nothing reads */
+    h->snap = v; h->nsnap = n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
+{
+    DTP_t *h = (DTP_t *)hv;
+    if (h && h->snap && i >= 0 && i < h->nsnap) return h->snap[i];
+    { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }   /* fallback = the pre-s108 by-name read, taken only when the entry site could not supply a DTP (defensive; every MKPAT product carries snap) */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb)
+{
+    DESCR_t v = patv_slot(hv, i, fb, 0);
+    if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }   /* DTP_t out -- dtp_fn_of MATERIALIZES fn for recipe composites first (lazy-compile, its !fn&&rcp arm), then the template loads fn=[dtp+0] and rides dtp into the blob in rdx */
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag)
+{
+    extern long rt_proc_call_open(const char *name, int nargs);
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
+    DESCR_t val = patv_slot(hv, i, fb, ival_flag);
+    if (val.v == DT_X) { s->dtx_used = 1; long fb2 = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb2) s->failed = 1; return fb2; }   /* same owed-call arm as c_rt_defer_open: a frozen DT_X still opens its call */
+    s->val = val;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
+{   /* s108: DTP-returning twin of c_rt_defer_get_pat_fn for the non-GVA defer arm -- caller does fn=[dtp+0] and carries dtp into the blob in rdx so $V-bearing interiors can slot-read; scalar/absent returns NULL exactly as the fn twin does */
+    if (varname && varname[0] == '*') {
+        extern DESCR_t rt_call_proc_descr(const char *, int);
+        DESCR_t r = rt_call_proc_descr(varname + 1, 0);
+        if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }   /* materialize-then-return (lazy recipe compile) */
+        if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
+        if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d) — raise RT_CAS_SPK_MAX\n", g_spk_cap); abort(); }
+        g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
+        return NULL;
+    }
+    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    if (ival_flag) {
+        if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
+        else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
+    }
+    if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); dtp_fn_of(val.p); return val.p; }   /* materialize-then-return (lazy recipe compile) */
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* SN4 kill-manufactured-names (2026-07-22): the VALUE-operand siblings of rt_defer_get_pat_fn / rt_defer_open.
  * IR_MATCH_VALUE hands the already-computed pattern value in by POINTER (operand[0]'s frame slot) instead of a
  * global name, so there is no NV_GET, no *X star-transfer, and no DT_X owed call (the eager TT_FNC result is a
@@ -1047,6 +1104,12 @@ void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
 void *rt_match_value_get_pat_fn(DESCR_t *pval)
 {
     if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); return dtp_fn_of(pval->p); }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_match_value_get_pat_dtp(DESCR_t *pval)
+{   /* s108: DTP-returning twin -- bb_match_value loads fn=[dtp+0] and carries dtp into the blob in rdx (same per-construction $V contract as the defer twins) */
+    if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); dtp_fn_of(pval->p); return pval->p; }   /* materialize-then-return (lazy recipe compile) */
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
