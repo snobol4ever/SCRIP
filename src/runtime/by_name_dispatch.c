@@ -7,6 +7,13 @@ static inline size_t sv_len(DESCR_t arg, const char *coerced) {
     if (arg.v == DT_S && arg.slen != 0xFFFFFFFFu) return arg.slen ? (size_t)arg.slen : (coerced ? strlen(coerced) : 0);
     return coerced ? strlen(coerced) : 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-ENTAB-NXTTAB: port of refs/icon-master/src/runtime/fstr.r nxttab() -- smallest tab stop strictly greater than col, from the explicit stops[] list, then repeating every gap columns past the last explicit stop. */
+static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
+    for (int k = 0; k < nstops; k++) if (stops[k] > col) return stops[k];
+    int base = stops[nstops - 1]; int beyond = col - base;
+    return base + ((beyond / gap) + 1) * gap;
+}
 #include "rt/rt_arena.h"
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
@@ -5998,27 +6005,46 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
         int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
-        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0;
+        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 1;
         int slen = (int)strlen(s);
-        for (int i = 0; i <= slen; ) {
-            if (i < slen && s[i] == ' ') {
-                int run_start = col, j = i;
-                while (j < slen && s[j]==' ') { j++; col++; }
-                int sc = run_start;
-                while (sc < col) {
-                    int next = -1;
-                    for (int k = 0; k < nstops; k++) if (stops[k] > sc+1) { next=stops[k]; break; }
-                    if (next < 0) {
-                        int base = stops[nstops-1];
-                        int beyond = sc + 1 - base;
-                        next = base + ((beyond / gap) + 1) * gap;
+        /* ICN-ENTAB-NXTTAB: faithful port of refs/icon-master/src/runtime/fstr.r entab().  A run of 2+
+         * spaces is tabbed to its end (target); critically, when the first candidate stop is exactly ONE
+         * column past the run's start, a second stop is checked (icn_nxttab again) -- a tab there would
+         * save zero characters, so it's used only if the SECOND stop still lands within the run, otherwise
+         * the whole run stays literal spaces.  Previously SCRIP tabbed unconditionally whenever any stop
+         * was reachable, inserting a tab that replaced a single space (witness: entab("abcdefg       x")
+         * wrongly became "abcdefg\t      x"; Icon leaves it unchanged since the run never reaches col 17). */
+        for (int i = 0; i < slen; ) {
+            char c = s[i];
+            if (c == ' ') {
+                int target = col + 1; int j = i + 1;
+                while (j < slen && s[j] == ' ') { target++; j++; }
+                if (target - col > 1) {
+                    int nt = icn_nxttab(col, stops, nstops, gap);
+                    int do_tab = 1;
+                    if (nt == col + 1) { int nt1 = icn_nxttab(nt, stops, nstops, gap); if (nt1 > target) do_tab = 0; }
+                    if (do_tab) {
+                        while (nt <= target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]='\t'; col = nt; nt = icn_nxttab(col, stops, nstops, gap); }
+                        while (col++ < target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; }
+                    } else {
+                        while (col < target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; col++; }
                     }
-                    if (next-1 <= col) { if(bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]='\t'; sc=next-1; }
-                    else { if(bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; sc++; }
+                } else {
+                    if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' ';
                 }
-                i = j;
+                col = target; i = j;
+            } else if (c == '\t') {
+                col = icn_nxttab(col, stops, nstops, gap);
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]='\t'; i++;
+            } else if (c == '\b') {
+                if (col > 1) col--;
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c; i++;
+            } else if (c == '\n' || c == '\r') {
+                col = 1;
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c; i++;
             } else {
-                if (i < slen) { if(bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i]; col++; }
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c;
+                if (isprint((unsigned char)c)) col++;
                 i++;
             }
         }
