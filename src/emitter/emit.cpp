@@ -3591,3 +3591,7 @@ void emit_textf_flush(void) { emit_text_flush(); }
 #ifdef __cplusplus
 }
 #endif
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zzone_tier_of_cur(void) { extern int zzone_tier_of(const IR_t *); return g_emit.node ? zzone_tier_of(g_emit.node) : 2; }   /* ⭐⭐⭐⭐⭐ ζ-ONE U-1 (s136): the CURRENT-NODE bridge.  x86_asm.h may not touch the raw IR_t* (the emit.h:635 law -- templates read staged fields only), and g_emit.node is set at the ONE choke walk_bb_node_inner passes every template through, so this is the single sanctioned reader.  ONE function per fact: tier here, offset in its twin, never a third spelling. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zzone_off_of_cur(void) { extern int zzone_off_of(const IR_t *); return g_emit.node ? zzone_off_of(g_emit.node) : -1; }   /* ⭐⭐⭐⭐⭐ ζ-ONE U-1 (s136): twin of the above.  -1 = no rbp home for this node, which routes ZREF to the spine arm -- the same answer the legacy hand-wired call sites gave, which is what makes the killswitch OFF/ON pair byte-identical until a genuine planner/template disagreement exists. */

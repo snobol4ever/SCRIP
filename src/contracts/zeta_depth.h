@@ -29,6 +29,9 @@ void zdp_report(IR_graph_t * g, const char * tag);
 void zdp_port_census(IR_graph_t * g);
 void zdp_unwind_census(IR_graph_t * g);
 void zdp_bomb_census(IR_graph_t * g, const char * tag);
+int  zzone_plan(IR_graph_t * g);        /* ⭐⭐⭐⭐⭐ ζ-ONE U-1 (s136): ONE traversal assigning every node its zeta ZONE -- tier from zdp_tier (the lattice), rbp offset from the frame_slot_scan registry.  Run after zdp_analyze, whose depth verdict it consumes. */
+int  zzone_tier_of(const IR_t * nd);    /* ZDP_TIER_STANDING (rbp, match-lifetime) | ZDP_TIER_ACTIVATION (rbp, per-activation) | ZDP_TIER_SPINE (rsp, constant-depth FORTH).  SPINE for any unplanned node = the legacy path, byte-identical. */
+int  zzone_off_of(const IR_t * nd);     /* the registry's rbp-relative offset, or -1 = no rbp home (address the spine).  ONE sentinel shared with the four frame_slot_* producers. */
 #ifdef __cplusplus
 }
 #endif
