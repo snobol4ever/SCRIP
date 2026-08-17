@@ -22,9 +22,6 @@ static std::string sp_rtest(long u, long i) { return sp_rlo[i] == sp_rhi[i] ? x8
 static std::string sp_rmemb(long u, long i) { return i >= sp_rn ? x86("jmp", L(1)) + x86("def", L(10 + u)) : sp_rtest(u, i) + sp_rmemb(u, i + 1); }
 static long sp_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long sp_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static int spf() { return _.op_leaf_frame_off != -1; }   /* ⭐⭐⭐ LEAF-SUSPENSION FRAME ARM (s130, killswitch SCRIP_SPAN_FRAME via sn4_span_frame(); witness corpus/probe/clobarm/): staged by leaf_frame_slot() at the SPAN drive case.  -1 = every legacy path, byte-identical. */
-static const char * SPC(int d)  { return spf() ? RDD("rbp", _.op_leaf_frame_off + d) : FR(_.x86_scratch_off + d); }    /* ⭐⭐⭐ THE ONE SPAN CELL ACCESSOR, dword (s130).  LEGACY ARM: FR(x86_scratch_off + d) -- a RAW FLAT ZLS COORDINATE resolved against whatever rsp happens to be, because SPAN carves NOTHING at its own α and x86_frame_off's single op_zdepth term therefore has no own-carve to compensate.  On the ordinary spine that address has a granted owner and is correct.  INSIDE AN ALT ARM IT HAS NO OWNER AT ALL (zd_plan grants per RUN; the arm interior is the s66/s71 ungranted-arm denial class), and in a PAT$ blob it resolves to blob_rbp+60 == standing_rbp-4 -- the upper half of the CALLER's CAS MARK qword (measured s130: mark 0x00007ffff29ff030 -> 0x00000000f29ff030, then rt_dcap_pump walks a wild arena, rc=139 on the DEFAULT arm in BOTH media).  Inline the same spelling lands in caller stack slack and passes BY COINCIDENCE -- the identical coincidence x86_asm.h:1098 already convicted this shape of from the ARB direction.  FRAME ARM: the cell is re-homed into the live activation frame, rbp-relative and therefore DEPTH-IMMUNE, so the encoder keeps its ONE compensation term untouched and no caller/callee pricing delta is needed (⛔ the s129 cursor's explicit warning: a naive +56/-56 sends it further into the caller or above the frame -- the answer is a re-home, never a delta).  ALL 26 cell references route through this ONE accessor so no arm can be half-homed. */
-static const char * SPCQ(int d) { return spf() ? RDQ("rbp", _.op_leaf_frame_off + d) : FRQ(_.x86_scratch_off + d); }   /* ⭐ qword twin of SPC -- same two arms, same law (the dynamic-needle arm's {ptr,len} pair). */
 static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (sp_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
 static std::string sp_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", FR(_.op_sa + 4)) : x86("mov32", "eax", CSK()); }
 static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
@@ -47,13 +44,13 @@ std::string bb_match_span() {
          * eax as the position, then let the call overwrite it with 0/1 and used THAT for "add eax,1; jmp L(0)"
          * -- position tracking was destroyed after the first successful match.  rsi/edx (needle ptr/len) are
          * loaded ONCE before the loop and likewise have no veneer protection across the call.  FIX: keep the
-         * position in SPC(0) (memory, call-safe) and reload rsi/edx from the zeta-cell every
+         * position in LFC(0) (memory, call-safe) and reload rsi/edx from the zeta-cell every
          * iteration instead of holding them live in registers across the call. */
              return x86("comment", "IR_MATCH_SPAN zd")
              + x86_alpha()
-             + x86("mov",    SPC(0), "r14d")
+             + x86("mov",    LFC(0), "r14d")
              + x86("def",    L(0))
-             + x86("mov",    "eax", SPC(0))
+             + x86("mov",    "eax", LFC(0))
              + x86("cmp",    "eax", "r15d")
              + x86("jge",    L(1))   /* end-of-subject with every char matched so far IS a valid span end, not a failure */
              + x86("movsxd", "rcx", "eax")
@@ -63,19 +60,19 @@ std::string bb_match_span() {
              + x86("call",   "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
              + x86("test",   "eax", "eax")
              + x86("je",     L(1))
-             + x86("mov",    "eax", SPC(0))
+             + x86("mov",    "eax", LFC(0))
              + x86("add",    "eax", (long)1)
-             + x86("mov",    SPC(0), "eax")
+             + x86("mov",    LFC(0), "eax")
              + x86("jmp",    L(0))
              + x86("def",    L(1))
-             + x86("mov",    "eax", SPC(0))
+             + x86("mov",    "eax", LFC(0))
              + x86("cmp",    "eax", "r14d")
              + x86_omega("je")
-             + x86("mov",    SPC(0), "r14d")
+             + x86("mov",    LFC(0), "r14d")
              + x86("mov",    "r14d", "eax")
              + x86_gamma()
              + x86_beta()
-             + x86("mov",    "r14d", SPC(0))
+             + x86("mov",    "r14d", LFC(0))
              + x86_omega();
     if (_.op_sval && _.op_sval[0] == '*')
         /* MODE34-5b FIX (this session): SPAN(var) deferred-by-NAME arm, the string-argument twin of
@@ -94,21 +91,21 @@ std::string bb_match_span() {
         return x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
              + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval + 1), (strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval + 1), sp_nlb))
-             + x86("lea",    "rsi", SPC(0))
-             + x86("lea",    "rdx", SPC(8))
+             + x86("lea",    "rsi", LFC(0))
+             + x86("lea",    "rdx", LFC(8))
              + x86("call",   "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
              + x86("test",   "rax", "rax")
              + x86_omega("js")
-             + x86("mov",    "r8",  SPCQ(0))
-             + x86("mov",    SPC(0), (long)0)
+             + x86("mov",    "r8",  LFCQ(0))
+             + x86("mov",    LFC(0), (long)0)
              + x86("def",    L(0))
              + x86("mov",    "eax", "r14d")
-             + x86("add",    "eax", SPC(0))
+             + x86("add",    "eax", LFC(0))
              + x86("cmp",    "eax", "r15d")
              + x86("jge",    L(1))
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "esi", "[r13+rcx]")
-             + x86("mov",    "eax", SPC(8))
+             + x86("mov",    "eax", LFC(8))
              + x86("mov",    "edx", (long)0)
              + x86("def",    L(2))
              + x86("cmp",    "edx", "eax")
@@ -119,28 +116,28 @@ std::string bb_match_span() {
              + x86("add",    "edx", (long)1)
              + x86("jmp",    L(2))
              + x86("def",    L(3))
-             + x86("add",    SPC(0), (long)1)
+             + x86("add",    LFC(0), (long)1)
              + x86("jmp",    L(0))
              + x86("def",    L(1))
-             + x86("mov",    "eax", SPC(0))
+             + x86("mov",    "eax", LFC(0))
              + x86("test",   "eax", "eax")
              + x86_omega("jle")
              + x86("mov",    "edx", "r14d")
-             + x86("mov",    SPC(4), "edx")
+             + x86("mov",    LFC(4), "edx")
              + x86("add",    "edx", "eax")
              + x86("mov",    "r14d", "edx")
              + x86_gamma()
              + x86_beta()
-             + x86("mov",    "r14d", SPC(4))
+             + x86("mov",    "r14d", LFC(4))
              + x86_omega();
     return x86("comment", "IR_MATCH_SPAN")
          + x86_alpha()
          + IF(sp_gi(),
-              x86("mov",    SPC(0), (long)0)
+              x86("mov",    LFC(0), (long)0)
             + sp_ndl_r8()
             + x86("def",    L(0))
             + x86("mov",    "eax", "r14d")
-            + x86("add",    "eax", SPC(0))
+            + x86("add",    "eax", LFC(0))
             + x86("cmp",    "eax", "r15d")
             + x86("jge",    L(1))
             + x86("movsxd", "rcx", "eax")
@@ -156,14 +153,14 @@ std::string bb_match_span() {
             + x86("add",    "edx", (long)1)
             + x86("jmp",    L(2))
             + x86("def",    L(3))
-            + x86("add",    SPC(0), (long)1)
+            + x86("add",    LFC(0), (long)1)
             + x86("jmp",    L(0))
             + x86("def",    L(1))
-            + x86("mov",    "eax", SPC(0))
+            + x86("mov",    "eax", LFC(0))
             + x86("test",   "eax", "eax")
             + x86_omega("jle")
             + x86("mov",    "edx", "r14d")
-            + x86("mov",    SPC(4), "edx")
+            + x86("mov",    LFC(4), "edx")
             + x86("add",    "edx", "eax")
             + x86("mov",    "r14d", "edx"))
          + IF(sp_gc(),
@@ -172,7 +169,7 @@ std::string bb_match_span() {
             + x86("call",   "rt_sg_scan_nonmember", (uint64_t)(uintptr_t)(void *)rt_sg_scan_nonmember)
             + x86("cmp",    "eax", "r14d")
             + x86_omega("jle")
-            + x86("mov",    SPC(4), "r14d")
+            + x86("mov",    LFC(4), "r14d")
             + x86("mov",    "r14d", "eax"))
          + IF(sp_gu(),
               IF(sp_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
@@ -183,10 +180,10 @@ std::string bb_match_span() {
             + x86("def",    L(1))
             + x86("cmp",    "ecx", "r14d")
             + x86_omega("jle")
-            + x86("mov",    SPC(4), "r14d")
+            + x86("mov",    LFC(4), "r14d")
             + x86("mov",    "r14d", "ecx"))
          + x86_gamma()
          + x86_beta()
-         + x86("mov",    "r14d", SPC(4))
+         + x86("mov",    "r14d", LFC(4))
          + x86_omega();
 }
