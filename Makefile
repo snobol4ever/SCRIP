@@ -67,6 +67,7 @@ libscrip_rt: out/libscrip_rt.so
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
     $(RT)/rtx/rtx_misc.S \
+    $(RT)/rtx/rtx_zdp.S \
     $(RT)/rtx/rtx_alloc.S \
     $(RT)/rtx/rtx_str.S \
     $(RT)/rtx/rtx_arith.S \
@@ -164,6 +165,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_bal.cpp \
     $(SRC)/templates/bb_match_fence1.cpp \
     $(SRC)/templates/bb_match_abort.cpp \
+    $(SRC)/templates/bb_zdp_anchor.cpp \
     $(SRC)/templates/bb_match_begin.cpp \
     $(SRC)/templates/bb_match_end.cpp \
     $(SRC)/templates/bb_match_replace.cpp \
