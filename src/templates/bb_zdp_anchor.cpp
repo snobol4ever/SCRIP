@@ -61,3 +61,5 @@ extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, 
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int x86_zdp_on_c(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ ONE killswitch, C-callable so emit.cpp's graph-entry origin hook and x86_asm.h's port arm read THE SAME predicate -- never two spellings of one flag (the s68/s70 spelled-twice disease). */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zzone_on_c(void) { return zzone_on(); }   /* ⭐ ζ-ONE U-1 (s136): C-callable face of the ONE zone killswitch, so the planner hook in scrip_ir.c and the ZREF accessor in x86_asm.h read THE SAME predicate -- never two spellings of one flag (the s68/s70 spelled-twice disease). */

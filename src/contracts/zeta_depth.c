@@ -172,3 +172,35 @@ void zdp_port_census(IR_graph_t * g) { if (zdp_mode() < 3 || !g) return; for (in
         if (zdp_has_pairs(nd)) { int N = zdp_pairs_n(nd); for (int j = 0; j < N; j++) { const IR_t * e = nd->operands[2 * j]; const IR_t * r = nd->operands[2 * j + 1];
             if (e && e->op != IR_FAIL && e != nd) fprintf(stderr, "[ZDPORT] src=%s port=operand lands=alpha tgt=%s\n", bb_op_name(nd->op), bb_op_name(e->op));
             if (r && r->op != IR_FAIL && r != nd) fprintf(stderr, "[ZDPORT] src=%s port=operand lands=beta tgt=%s\n", bb_op_name(nd->op), bb_op_name(r->op)); } } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐⭐⭐⭐ ζ-ONE U-1 — THE UNIFIED ZETA ZONE PLAN (Lon in-chat s136: "Complete the unified zeta offset calculation graph traversals and the template code that uses that data.  Finish the work to
+ * properly calculate and use offset from RSP and RBP based on standing, activation frames, and spine cells.")
+ * ONE TRAVERSAL, ONE VERDICT PER NODE, consumed by ONE accessor.  Before this, the tree had FIVE unrelated spellings of "where does this node's storage live" -- zone_ref (2 callers, leaf cell only),
+ * x86_zop/FRQ/FR (1151 callers, rsp-only, trusting x86_rsp_slide_known()'s hardwired 1), and 59 direct RDQ("rbp",..) sites in the seven ζ-family templates -- so the PLANNER's opinion and the
+ * TEMPLATE's opinion about one operand could differ with nothing to detect it.  That is the class the s136 every-port probe could NOT see: it checks the BASE (rsp vs its lattice depth) and never the
+ * DISPLACEMENT, and an operand banked at one offset and read at another is sound in rsp at both ends.
+ * THE THREE ZETAS ARE THE THREE ANSWERS (Lon's register ruling s81): ζ-STANDING -> rbp, the match-lifetime root; ζ-ACTIVATION-FRAME -> rbp, per *P defer / per re-entrant site; ζ-SPINE -> rsp,
+ * compile-time-constant FORTH/LIFO.  zdp_tier() already computes exactly this verdict and had no consumer; the registry (frame_slot_scan family) already owns the rbp offsets and had four separate
+ * consumers.  This joins them: TIER from the lattice, OFFSET from the registry, and the templates stop deciding either. */
+static int  zzone_tier[ZDP_CAP]; static int zzone_off[ZDP_CAP]; static int zzone_valid = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zzone_plan(IR_graph_t * g) {
+    extern int capture_frame_slot(const IR_t *); extern int arbno_frame_slot(const IR_t *); extern int fence_frame_slot(const IR_t *); extern int leaf_frame_slot(const IR_t *);
+    if (!g || g->n <= 0) return 0;
+    zzone_valid = 0;
+    for (int i = 0; i < g->n; i++) {
+        const IR_t * nd = g->all[i]; int s = zdp_slot(nd, 0); if (s < 0) continue;
+        int off = -1;
+        if (off < 0) off = capture_frame_slot(nd);   /* THE REGISTRY IS THE ONE OFFSET AUTHORITY -- four customers, ONE frame_slot_scan numbering, so no two classes can be assigned colliding slots.  Asked in registry order; each declines with -1 for a node it does not own, so the first non-decline is the owner and the order is a formality, not a precedence. */
+        if (off < 0) off = arbno_frame_slot(nd);
+        if (off < 0) off = fence_frame_slot(nd);
+        if (off < 0) off = leaf_frame_slot(nd);
+        zzone_off[s] = off;
+        zzone_tier[s] = (off >= 0) ? zdp_tier(nd) : ZDP_TIER_SPINE;   /* NO REGISTRY SLOT ⇒ SPINE BY CONSTRUCTION: there is no rbp home to address through, so the node's storage IS the FORTH frontier whatever the lattice thinks of its depth.  The tier verdict only arbitrates for a node that HAS both homes available. */
+    }
+    zzone_valid = 1; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zzone_tier_of(const IR_t * nd) { int s = zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TIER_SPINE : zzone_tier[s]; }   /* SPINE is the SAFE DEFAULT for an unplanned node: it is what every template did before this rung, so an unplanned node is byte-identical to the legacy path rather than silently re-based onto an rbp that may not exist. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int zzone_off_of(const IR_t * nd) { int s = zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? -1 : zzone_off[s]; }   /* -1 = NO RBP HOME (the accessor then addresses the spine), matching the -1 decline the four registry functions already speak.  ONE sentinel, five producers, one consumer. */
