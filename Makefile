@@ -265,6 +265,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/contracts/scrip_ir.c \
     $(SRC)/contracts/zeta_storage.c \
+    $(SRC)/contracts/zeta_depth.c \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/driver/driver_globals.c \
     $(SRC)/driver/driver_label.c \
