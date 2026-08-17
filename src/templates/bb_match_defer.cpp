@@ -253,7 +253,11 @@ std::string bb_match_defer() {
          + x86_beta()
          + ((_.op_seal == 1 && x86_port_cstack())
               ? ((emit_defer_rbp() ? (x86("mov", "rsp", "rbp") + x86("pop", "rbp")) : x86("mov", "rsp", FRQ(_.op_off))) + x86_omega())
-              : (_.op_defer_leaf_susp > 0
+              : (IF(dfrm() && _.op_seal != 1 && x86_port_cstack() && emit_defer_rbp(),
+                      x86("comment", "s139 UNSEALED CARVE-DEFER beta: RESTORE THE FRAME, THEN RESUME THE RECORD")
+                    + x86("mov", "rsp", "rbp")
+                    + x86("pop", "rbp"))   /* ⭐⭐⭐⭐⭐ s139 — THE COMPOSITION s137 NEVER TRIED, AND THE REASON BOTH OF ITS CUTS SEGVd.  s137 measured exactly two shapes: INCLUDE β in the widening (β becomes `mov rsp,rbp; pop rbp` + ω) and EXCLUDE β (β stays the bare `jmp [rsp]` record-resume).  Both are wrong for the SAME reason, visible only in the asm: an UNSEALED defer\'s β is a RESUME PORT, not a fail exit -- so including it DESTROYS the resume (measured this seat: defer_LEN0 and inline_ALT, which PASS by default, SEGV under the widening because β jumped to ω instead of the stored record), while excluding it leaves α\'s `push rbp` with no matching pop on the resume path, so rsp is one frame low when the record is read.  ⛔ THE PORT NEEDS BOTH ACTIONS IN THIS ORDER: restore the activation frame (rsp back to the record top, caller rbp popped), THEN resume the record that now sits at [rsp].  A SEALED defer keeps the ω arm above -- its β genuinely fails on backtrack (the fence demarcation), which is why the two cases cannot share one arm and why op_seal, not dfrm(), still selects between them. */
+                 + (_.op_defer_leaf_susp > 0
                    ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")   /* PS-3 s153 ZERO-GUARDED β (priced tail-candidate leaf only): the ε-resume cascade re-enters every body box's β on the PHANTOM FPB pad,
                                                                 * which is zeros -- granted leaves read a zero cell and fail benignly, but the raw `jmp [rsp+0]` is a jump through NULL (t3 rip=0).
                                                                 * Guarded: a real γ-record resumes the blob as ever; zero = the phantom share -> pop this leaf's SUSP and ω-transit (exhausted-leaf
@@ -265,5 +269,5 @@ std::string bb_match_defer() {
                       + x86_omega()
                       + x86("def",  L(12))
                       + x86_jmp_reg("rax"))
-                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0))));
+                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0)))));
 }
