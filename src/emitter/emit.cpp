@@ -2269,8 +2269,8 @@ int sn4_span_frame(void) {   /* ⭐⭐⭐ s130 THE ONE AUTHORITY for the LEAF-SU
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int leaf_frame_candidate(const IR_t * nd) {   /* ⭐⭐⭐ LEAF-SUSPENSION FRAME CANDIDATE (s130, witness corpus/probe/clobarm/): a SCRATCH-CELL LEAF MATCHER that lies ON AN ALT ARM.  THE TWO CONJUNCTS, each measured:
      * (1) SCRATCH-CELL LEAF -- the closed family whose drive case stages x86_scratch_off and whose template spells its suspension cell FR(x86_scratch_off + N): SPAN/BREAK/BREAKX/TAB/RTAB/REM/ARB/BAL.  These
-     * boxes carve NOTHING at their own α, so x86_frame_off's single op_zdepth term has no own-carve to compensate and the flat ZLS coordinate reaches whatever rsp happens to be.  SLICE 1 ADMITS SPAN ONLY --
-     * the witness family -- so the rung is proven on one op before the mechanical widening to its seven siblings; an unlisted op refuses by construction (the s125 whitelist principle).  (2) ON AN ALT ARM, via
+     * boxes carve NOTHING at their own α, so x86_frame_off's single op_zdepth term has no own-carve to compensate and the flat ZLS coordinate reaches whatever rsp happens to be.  SLICE 2 ADMITS SIX (s131) --
+     * SPAN/BREAK/BREAKX/TAB/RTAB/REM, each on a MEASURED GREEN in BOTH media; ARB and BAL are declined for two different measured reasons spelled at the whitelist below, not overlooked.  (2) ON AN ALT ARM, via
      * THE ONE CONTAINMENT AUTHORITY alt_arm_member() -- the SAME predicate cap_in_alt_arm uses, because it is the SAME ζ-SPINE denial: zd_plan grants per RUN and the arm interior is the s66/s71 ungranted-arm
      * class, so a cell priced there has no home in EITHER medium.  ⛔ DELIBERATELY NOT WIDER THAN THE ARM: a leaf on the ordinary spine has a real granted home and its legacy spelling is correct -- re-homing
      * it would be the unmeasured wholesale flip the s127 zd retraction convicted (framing by shape broke 120/131/165/181/182).  PURE and plan-independent, like both siblings. */
