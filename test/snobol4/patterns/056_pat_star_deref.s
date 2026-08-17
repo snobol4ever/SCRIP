@@ -175,11 +175,14 @@ n12_match_defer_α:      sub              rsp, 16
                         pop              r14
                         test             eax, eax;                            jns   .Lx45_240
                         add              rsp, 16;                             jmp   n11_match_assign_save_β
-.Lx45_240:              mov              r14d, eax
+.Lx45_240:              mov              ecx, r14d
+                        mov              r14d, eax
                         lea              rax, [rip + .Lx45_6]
-                        sub              rsp, 8
+                        push             rcx
                         push             rax;                                 jmp   n13_match_assign_cond_α
-.Lx45_6:                add              rsp, 16
+.Lx45_6:                add              rsp, 8
+                        pop              rax
+                        mov              r14d, eax
                         add              rsp, 16;                             jmp   n11_match_assign_save_β
 n12_match_defer_β:                                                            jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
