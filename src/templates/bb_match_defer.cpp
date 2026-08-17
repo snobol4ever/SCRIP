@@ -26,6 +26,8 @@ extern "C" int sn4_alt_carrier(void);   /* s127: ONE AUTHORITY in emit.cpp -- re
 #define dswap() (x86_zc_frame() == ZC_FRAME_RSP)
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* s142 DEFER-SITE DIET kill-switch (NOFILL precedent): =0 restores the uncached GVA dance for A/B and emergencies */
 static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ONE-DEFER (Lon s119): =0 restores the pre-s119 open/open_fn/epilogue-loop/step/close arm byte-for-byte */
+extern "C" int emit_defer_carve_rbp(void);
+static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }   /* ⭐⭐⭐⭐⭐ s137 — "DOES THIS DEFER MANAGE ITS OWN FRAME?", asked ONCE for all seven paired sites (α push · α watermark · γ · ω · β), so the exits can never disagree with the entry about whether a frame exists.  THE WHOLE POINT OF ONE HELPER: the previous spelling repeated `_.op_seal == 1` seven times, which is the s68/s70 spelled-twice disease with six chances to drift -- and an α that pushes with a β that does not pop is an unbalanced stack, i.e. the failure mode is silent corruption rather than a compile error.  OFF (default) this is EXACTLY `_.op_seal == 1` and the emission is byte-identical by construction; ON it admits the UNSEALED defer, which is what an ARBNO body defer always is.  Rationale, measured chain and the flip protocol: emit_defer_carve_rbp() in emit.cpp. */
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
@@ -50,11 +52,11 @@ std::string bb_match_defer() {
      * the same restore, keeping the frontier LIFO exact for the left neighbour).  CSTACK/FORTH only — other ports keep the untouched original body. */
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
                x86("comment", "THREE ZETAS ζ-FRAME (s85): *P DEFER establishes its own RBP activation frame at alpha -- the SECOND and LAST operator-BB (with MATCH_BEGIN/ζ-STANDING) permitted to push rbp.  Replaces the s137 rsp-watermark save (FRQ(op_off)=rsp, restored rsp-relatively at every exit): that save/restore pair is Defect C -- both ends compute [rsp#+op_off] against WHATEVER rsp happens to be AT THAT POINT, sound only if the deferred target's own body never carves stack without self-releasing before jumping back through the wire, which the non-popping ζ-SPINE law (committed growth released only by bracket whacks) guarantees it does NOT.  rbp does not move across the jmp-entry wire transfer (the callee's own carves are rsp-relative, never touch our rbp), so a push here is immune by construction -- the exact argument bb_match_capture.cpp's s81/s83 activation-frame arm already uses for the SAVE/IMM-or-COND capture-family crossing.  No slot registration for spine-only BBs is added here: the frame exists so THEY can register into it (ARBNO's chained-K0/K16-defer bodies, per bb_match_arbno.cpp's own op_frame_need consultation), not so this box owns extra state of its own -- op_off is unused on this arm; the WHOLE FRAME is the watermark.")
              + x86("push", "rbp")
              + x86("mov",  "rbp", "rsp"))
-         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
                x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
              + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(ci >= 0,
@@ -128,9 +130,9 @@ std::string bb_match_defer() {
                x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
              + x86("mov",  "r10", FRQ(_.op_off))
              + x86("mov",  "r11", FRQ(_.op_off + 8)))
-         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
-         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
@@ -144,9 +146,9 @@ std::string bb_match_defer() {
                x86("comment", "s44 WIRE-RESTORE (exhaust): without this, x86_omega() below reads r11 == this node's own dead L(5) -- the s43a closed loop")
              + x86("mov",  "r10", FRQ(_.op_off))
              + x86("mov",  "r11", FRQ(_.op_off + 8)))
-         + IF(_.op_seal == 1 && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
-         + IF(_.op_seal == 1 && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
