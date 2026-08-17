@@ -27,6 +27,8 @@ int  zdp_tier(const IR_t * nd);
 int  zdp_inside(const IR_t * nd);
 void zdp_report(IR_graph_t * g, const char * tag);
 void zdp_port_census(IR_graph_t * g);
+void zdp_unwind_census(IR_graph_t * g);
+void zdp_bomb_census(IR_graph_t * g, const char * tag);
 #ifdef __cplusplus
 }
 #endif
