@@ -6,7 +6,7 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
-                        call             main_init
+                        call             module_init
                         mov              edi, 9
                         call             rt_gva_island@PLT
                         mov              rsi, rax
@@ -17,10 +17,6 @@ main:
                         call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                               jmp   main_α
-main_init:
-                        sub              rsp, 8
-                        add              rsp, 8
-                        ret
                         .section         .rodata
 .Lgvan0:                .string          "lfunc"
 .Lgvan1:                .string          "a"
@@ -1421,4 +1417,8 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+module_init:
+                        sub              rsp, 8
+                        add              rsp, 8
+                        ret
                         .section         .note.GNU-stack,"",@progbits
