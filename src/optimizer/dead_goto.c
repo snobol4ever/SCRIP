@@ -1,7 +1,7 @@
 #include "dead_goto.h"
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dg_mon(void) { static int m = -1; if (m < 0) m = getenv("MONITOR_BIN") ? 1 : 0; return m; }
+static int dg_mon(void) { static int m = -1; if (m < 0) m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return m; }
 static int dg_index_of(IR_graph_t * g, IR_t * p) { for (int i = 0; i < g->n; i++) if (g->all[i] == p) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dg_run(IR_graph_t * g) {

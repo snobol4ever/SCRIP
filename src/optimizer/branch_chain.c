@@ -4,7 +4,7 @@
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_is_passthrough(IR_e op) { return op == IR_SUCCEED || op == IR_GOTO; }
-static int bc_mon(void) { static int m = -1; if (m < 0) m = getenv("MONITOR_BIN") ? 1 : 0; return m; }
+static int bc_mon(void) { static int m = -1; if (m < 0) m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return m; }
 static int bc_stamped(const IR_t *nd) { return bc_mon() && nd->op == IR_GOTO && IR_LIT(nd).ival > 0; }
 static int bc_index_of(IR_graph_t *g, IR_t *p) { for (int i = 0; i < g->n; i++) if (g->all[i] == p) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
