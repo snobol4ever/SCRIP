@@ -5954,6 +5954,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if (((_bid == BID_detab) || (_bid == BID_entab)) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
     L_bidjmp_5671: ;
+    if ((_bid == BID_detab) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
     if ((_bid == BID_detab) && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
         if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
@@ -5983,11 +5984,21 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
                 }
                 int sp = next - (col+1);
                 while (sp-- > 0) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; col++; }
-            } else { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i]; col++; }
+            } else if (s[i] == '\b') {
+                if (col > 0) col--;
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+            } else if (s[i] == '\n' || s[i] == '\r') {
+                col = 0;
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+            } else {
+                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+                if (isprint((unsigned char)s[i])) col++;
+            }
         }
         buf[bi]='\0'; *out=STRVAL(buf); return 1;
     }
     L_bidjmp_5704: ;
+    if ((_bid == BID_entab) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
     if ((_bid == BID_entab) && nargs >= 1) {
         if (args[0].v == DT_I || args[0].v == DT_R) { *out = FAILDESCR; return 1; }
         if (args[0].v == DT_A || args[0].v == DT_T || args[0].v == DT_DATA) { core_icn_error(103, args[0]); *out = FAILDESCR; return 1; }
