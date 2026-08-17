@@ -162,7 +162,7 @@ main:
                         push             rdi
                         push             rsi
                         call             core_lib_init@PLT
-                        call             main_init
+                        call             module_init
                         mov              edi, 7
                         call             rt_gva_island@PLT
                         mov              rsi, rax
@@ -173,76 +173,6 @@ main:
                         call             rtcc_load_all@PLT
                         xor              esi, esi
                                                                               jmp   main_α
-main_init:
-                        sub              rsp, 8
-                        .section         .rodata
-.Lstartup_pname0:       .string          "EXPR$0"
-                        .align           8
-.Lstartup_pnames0:
-                        .quad            0
-                        .align           8
-.Lstartup_prec0:
-                        .quad            .Lstartup_pname0
-                        .quad            FN__EXPR$0
-                        .quad            0
-                        .quad            0
-                        .quad            .Lstartup_pnames0
-                        .long            0
-                        .long            0
-                        .long            80
-                        .long            17
-                        .long            0
-                        .long            0
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_prec0]
-                        call             rt_proc_register_rec@PLT
-                        .section         .rodata
-.Lstartup_pname1:       .string          "EXPR$1"
-                        .align           8
-.Lstartup_pnames1:
-                        .quad            0
-                        .align           8
-.Lstartup_prec1:
-                        .quad            .Lstartup_pname1
-                        .quad            FN__EXPR$1
-                        .quad            0
-                        .quad            0
-                        .quad            .Lstartup_pnames1
-                        .long            0
-                        .long            0
-                        .long            48
-                        .long            17
-                        .long            0
-                        .long            0
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_prec1]
-                        call             rt_proc_register_rec@PLT
-                        .section         .rodata
-.Lstartup_pname2:       .string          "EXPR$2"
-                        .align           8
-.Lstartup_pnames2:
-                        .quad            0
-                        .align           8
-.Lstartup_prec2:
-                        .quad            .Lstartup_pname2
-                        .quad            FN__EXPR$2
-                        .quad            0
-                        .quad            0
-                        .quad            .Lstartup_pnames2
-                        .long            0
-                        .long            0
-                        .long            128
-                        .long            17
-                        .long            0
-                        .long            0
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lstartup_prec2]
-                        call             rt_proc_register_rec@PLT
-                        add              rsp, 8
-                        ret
                         .section         .rodata
 .Lgvan0:                .string          "expr"
 .Lgvan1:                .string          "q"
@@ -801,4 +731,74 @@ main_γ:
 main_ω:
                         mov              edi, 1
                         call             exit@PLT
+module_init:
+                        sub              rsp, 8
+                        .section         .rodata
+.Lstartup_pname0:       .string          "EXPR$0"
+                        .align           8
+.Lstartup_pnames0:
+                        .quad            0
+                        .align           8
+.Lstartup_prec0:
+                        .quad            .Lstartup_pname0
+                        .quad            FN__EXPR$0
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames0
+                        .long            0
+                        .long            0
+                        .long            80
+                        .long            17
+                        .long            0
+                        .long            0
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lstartup_prec0]
+                        call             rt_proc_register_rec@PLT
+                        .section         .rodata
+.Lstartup_pname1:       .string          "EXPR$1"
+                        .align           8
+.Lstartup_pnames1:
+                        .quad            0
+                        .align           8
+.Lstartup_prec1:
+                        .quad            .Lstartup_pname1
+                        .quad            FN__EXPR$1
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames1
+                        .long            0
+                        .long            0
+                        .long            48
+                        .long            17
+                        .long            0
+                        .long            0
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lstartup_prec1]
+                        call             rt_proc_register_rec@PLT
+                        .section         .rodata
+.Lstartup_pname2:       .string          "EXPR$2"
+                        .align           8
+.Lstartup_pnames2:
+                        .quad            0
+                        .align           8
+.Lstartup_prec2:
+                        .quad            .Lstartup_pname2
+                        .quad            FN__EXPR$2
+                        .quad            0
+                        .quad            0
+                        .quad            .Lstartup_pnames2
+                        .long            0
+                        .long            0
+                        .long            128
+                        .long            17
+                        .long            0
+                        .long            0
+                        .section         .text
+                        .intel_syntax    noprefix
+                        lea              rdi, [rip + .Lstartup_prec2]
+                        call             rt_proc_register_rec@PLT
+                        add              rsp, 8
+                        ret
                         .section         .note.GNU-stack,"",@progbits
