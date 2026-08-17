@@ -1642,6 +1642,10 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 int core_stack_floor_raised = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
+    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (mode-4 twin): mode-4's generated main calls core_lib_init directly and never calls
+     * rt_gcheap_warmup itself (only scrip.c's mode-3 driver did, at two call sites before rt_outer_call/rt_outer_call_delta0). gc_static_segs_init's dl_iterate_phdr
+     * uses movaps and requires 16B-aligned rsp; core_lib_init runs from a genuine C prologue (called via plain `call` from generated main, before any JIT blob),
+     * so driving the one-time census here gives mode-4 the same guarantee mode-3 already has. Idempotent via gc_static_segs_init's own g_gc_nseg>=0 guard. */
     if (!core_stack_floor_raised) {
         core_stack_floor_raised = 1;
         long floor = 64L * 1024 * 1024;
