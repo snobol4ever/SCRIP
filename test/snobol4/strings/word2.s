@@ -371,11 +371,14 @@ n50_match_defer_α:      lea              rdi, [rip + .S3]
                         pop              r15
                         pop              r14
                         test             eax, eax;                            js    n49_match_begin_β
+                        mov              ecx, r14d
                         mov              r14d, eax
                         lea              rax, [rip + .Lx90_6]
-                        sub              rsp, 8
+                        push             rcx
                         push             rax;                                 jmp   n51_match_end_α
-.Lx90_6:                add              rsp, 16;                             jmp   n49_match_begin_β
+.Lx90_6:                add              rsp, 8
+                        pop              rax
+                        mov              r14d, eax;                           jmp   n49_match_begin_β
 n50_match_defer_β:                                                            jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
 n51_match_end_α:        push             r14
