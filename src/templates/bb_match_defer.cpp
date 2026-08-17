@@ -22,6 +22,7 @@ extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
+extern "C" int sn4_alt_carrier(void);   /* s127: ONE AUTHORITY in emit.cpp -- reader (3) of the SN4-ALT-CARRIER switch: the C-path pseudo-record grows its cursor pad in lockstep with the af edge the emit-side readers admit (one switch, all readers flip together, the s124 law) */
 #define dswap() (x86_zc_frame() == ZC_FRAME_RSP)
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }   /* s142 DEFER-SITE DIET kill-switch (NOFILL precedent): =0 restores the uncached GVA dance for A/B and emergencies */
 static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ONE-DEFER (Lon s119): =0 restores the pre-s119 open/open_fn/epilogue-loop/step/close arm byte-for-byte */
@@ -221,16 +222,32 @@ std::string bb_match_defer() {
          )
          + x86("test", "eax", "eax")
          + x86_omega("js")
-         + x86("mov",  "r14d", "eax")
-         + x86_lea_id("rax", 6)
-         + rspd_snap(&g_rspd_s2, "g_rspd_s2")
-         + x86_sub("rsp", 8)
-         + x86("push", "rax")
-         + x86_gamma()
-         + x86("def",  L(6))
-         + x86_add("rsp", 16)
-         + rspd_snap(&g_rspd_g6, "g_rspd_g6")
-         + x86_omega()
+         + IF(sn4_alt_carrier(),
+               x86("comment", "s127 R-4(a) CURSOR-BEARING PSEUDO-RECORD: the C-path 16B record's pad now carries the instance's ENTRY cursor and the exhaust stub RESTORES it before af.  The old stub (add rsp,16 only) was built for a world where the af retry edge was suppressed for defer bodies -- it was only ever consumed by the as null-progress je, where r14d's value no longer mattered at the pop.  With the sn4_alt_carrier af->PAIR(1) edge admitted, af cascades `jne -> jmp [rsp]` per placed instance and each pop MUST rewind r14d to that instance's entry, or the Δ0 compare never terminates and the walk descends past every record into the statement spine -- measured 165_pat_arbno_defer_var_body stmt 2 (Q='aa' on 'aaa'): rip=0 on a zeroed pad with r14d stuck at 2.  Spelled push/pop-only (mov ecx,r14d zero-extends; rcx is dead post-call) so no [rsp+N] text spelling can pick up FR64 depth compensation (the s97 x86_rsp_load64 lesson).  The blob path needs nothing: a target blob's interior (ALT af) restores r14d from ITS OWN record by construction, and the record layout/size here is unchanged -- {stub@0, cursor-pad@8}, same 16B, same parity.")
+             + rspd_snap(&g_rspd_s2, "g_rspd_s2")
+             + x86("mov",  "ecx", "r14d")
+             + x86("mov",  "r14d", "eax")
+             + x86_lea_id("rax", 6)
+             + x86("push", "rcx")
+             + x86("push", "rax")
+             + x86_gamma()
+             + x86("def",  L(6))
+             + x86_add("rsp", 8)
+             + x86("pop",  "rax")
+             + x86("mov",  "r14d", "eax")
+             + rspd_snap(&g_rspd_g6, "g_rspd_g6")
+             + x86_omega())
+         + IF(!sn4_alt_carrier(),
+               x86("mov",  "r14d", "eax")
+             + x86_lea_id("rax", 6)
+             + rspd_snap(&g_rspd_s2, "g_rspd_s2")
+             + x86_sub("rsp", 8)
+             + x86("push", "rax")
+             + x86_gamma()
+             + x86("def",  L(6))
+             + x86_add("rsp", 16)
+             + rspd_snap(&g_rspd_g6, "g_rspd_g6")
+             + x86_omega())
          + x86_beta()
          + ((_.op_seal == 1 && x86_port_cstack())
               ? ((emit_defer_rbp() ? (x86("mov", "rsp", "rbp") + x86("pop", "rbp")) : x86("mov", "rsp", FRQ(_.op_off))) + x86_omega())
