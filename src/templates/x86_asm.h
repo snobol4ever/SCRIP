@@ -717,16 +717,19 @@ inline std::string x86_zeta_free_call();
  * verbatim 2026-07-08 session 2; the STEP-1 op_omega_is_death history comment block that used to sit here is
  * preserved in git (this file, HEAD^) — its load-bearing conclusions (central ω free stays DISABLED; the
  * six-decoy-ω finding; op_omega_is_death computed-but-unread) are restated at the hook. */
+inline std::string x86_zdp_rbp_omega_at(int port);   /* ⭐ ZDP-RBP OMEGA (this session): forward decl -- x86_jmp is defined ahead of the body, same pattern as x86_zdp_probe_at. */
 inline std::string x86_jmp(int port) {
     return x86_port_hook(X86H_JMP, port)
+         + x86_zdp_rbp_omega_at(port)   /* ⭐ ZDP-RBP TEARDOWN TEST (Lon in-chat, this session): the frame's lifetime is α..ω, so ω is where balance must be restored -- and ω is a TRANSFER, so it never reached the x86_deflabel seam the α/β probes ride.  Hooking the UNCONDITIONAL jmp path here is what makes the teardown half measurable at all; the jcc path is deliberately NOT hooked (a conditional ω may not be taken, and a flag-clobbering compare ahead of the jcc would destroy the condition). */
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
                           : (x86_rec("jmp") + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zdp_probe_at(int port);   /* ⭐ LON'S EVERY-PORT PROBE (s136): defined beside x86_port_hook's body, which is where this file already puts per-port flavor code. */
+inline std::string x86_zdp_rbp_at(int port);   /* ⭐ ZDP-RBP-STACK (this session): same forward-declaration need, same reason -- x86_deflabel below is defined ahead of both bodies. */
 inline std::string x86_deflabel(int port) {
     std::string s = MEDIUM_BINARY ? x86_Drec(port) : x86_reclbl(x86_portname(port)) + "\n";   /* the pre-TAB form carried a cosmetic leading space that the sink stripped anyway; a label field holds the LABEL and nothing else */
-    return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port);   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136): THE ONE SEAM.  This file's own header for these three functions already reserves it -- "ALL per-port flavor code (canary, traces, allocs, future GC/stack experiments) lives in x86_port_hook, NOT inline here -- one seam, three callers".  Hooking HERE reaches EVERY α and EVERY β of EVERY box in BOTH media with ZERO template edits, which is the only way to satisfy "instrument every ALPHA and BETA" without a MEDIUM_* conjunct or a per-family crawl. */
+    return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136): THE ONE SEAM.  This file's own header for these three functions already reserves it -- "ALL per-port flavor code (canary, traces, allocs, future GC/stack experiments) lives in x86_port_hook, NOT inline here -- one seam, three callers".  Hooking HERE reaches EVERY α and EVERY β of EVERY box in BOTH media with ZERO template edits, which is the only way to satisfy "instrument every ALPHA and BETA" without a MEDIUM_* conjunct or a per-family crawl.  x86_zdp_rbp_at (this session) rides the SAME seam for the LIFO-stack RBP replacement of g_zdp_anchor_rbp -- one more caller, same seam, still zero template edits. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE FOUR PORT FUNCTIONS (Lon pivot 2026-07-08 session 5: "create a unique x86() function call for EACH of
@@ -2541,6 +2544,40 @@ inline std::string x86_zdp_probe_at(int port) {
     long expect = (port == X86P_ALPHA) ? (long)_.op_zdp_ad : (long)_.op_zdp_bd;
     long want_rbp = _.op_zdp_rbp ? ((port == X86P_BETA) ? 1L : 2L) : 0L;   /* THE RBP EQUALITY CHECK IS A β CHECK ONLY (Lon: "have BB's that use RBP check at BETA for equality to saved RBP") -- α is where the frame is ESTABLISHED, so there is nothing yet to agree with; β is where it must still be the one α left behind. */
     return bb_zdp_probe((long)_.op_node_kind, (long)_.nid, (port == X86P_ALPHA) ? 1L : 2L, expect, want_rbp);   /* want_rbp: 2 = BANK the enclosing rbp at α (the probe precedes the template's own push rbp), 1 = CHECK it at β.  One field, two sites, no second opinion. */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_zdp_ev(void);
+extern "C" int emit_match_rbp(void);
+extern "C" int emit_defer_rbp(void);
+extern "C" int emit_defer_carve_rbp(void);
+inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ ZETA SM: OWN killswitch, independent of SCRIP_ZDP_TEARDOWN so this instrument and the s136 one cannot half-enable each other.  DEFAULT OFF, byte-identical by construction. */
+inline int x86_zdp_rbp_frames() {   /* ⛔⭐⭐⭐ "DOES THIS NODE ACTUALLY EMIT `push rbp`?" -- NOT "is this node of a KIND that could".  THE FALSE-POSITIVE THIS FIXES, MEASURED: emit.cpp's s136 choke stages op_zdp_rbp=1 for EVERY IR_MATCH_BEGIN and IR_MATCH_DEFER unconditionally, but BOTH templates gate the actual push behind further conditions (emit_match_rbp() for the head; dfrm() && x86_port_cstack() && emit_defer_rbp() for the defer).  A node that never pushed holds one rbp at every port BY CONSTRUCTION and is perfectly correct -- yet an arm demanding an established frame convicts it, which is exactly what fired on m1_defer_LEN0, m1_inline_ALT and m1_nodefer_ALT, ALL THREE OF WHICH PRODUCE ORACLE-CORRECT OUTPUT.  An instrument that convicts passing programs cannot testify about failing ones, so the predicate is re-derived from the SAME authorities the templates consult -- never a second opinion. */
+    if (!_.op_zdp_rbp) return 0;
+    if (_.op_node_kind == (int)IR_MATCH_BEGIN) return emit_match_rbp();
+    if (_.op_node_kind == (int)IR_MATCH_DEFER) return (((_.op_seal == 1) || emit_defer_carve_rbp()) && x86_port_cstack() && emit_defer_rbp()) ? 1 : 0;
+    return 0;
+}
+inline std::string x86_zsm_ev(int kind) {   /* ⭐ THE ONE EMITTED FORM for all three ports.  rdx must carry the TRUE rsp at the port -- the value BEFORE this instrumentation touched the stack -- so the addend is 8*(pushes above it); the four pushes and the `add rdx,32` ARE ONE FACT AND MOVE TOGETHER, the same law bb_zdp_anchor.cpp already states for its own three. */
+    return x86("comment", "ZSM")
+         + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
+         + x86("mov",  "rdx", "rsp")
+         + x86("add",  "rdx", 32L)
+         + x86("mov",  "rdi", (long)_.nid)
+         + x86("mov",  "rsi", "rbp")
+         + x86("mov",  "rcx", (long)kind)
+         + x86("call", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
+         + x86("pop",  "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
+}
+inline std::string x86_zdp_rbp_at(int port) {   /* α/β ride the LABEL-DEFINE seam (x86_deflabel). */
+    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
+    if (port == X86P_ALPHA) return x86_zsm_ev(1);
+    if (port == X86P_BETA)  return x86_zsm_ev(2);
+    return std::string();
+}
+inline std::string x86_zdp_rbp_omega_at(int port) {   /* ω rides the TRANSFER seam (x86_jmp) -- it is a jmp, never a label define, which is why the teardown half went unmeasured until this rung.  UNCONDITIONAL ω only: a conditional ω may not be taken, and a flag-clobbering sequence ahead of the jcc would destroy the condition. */
+    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
+    if (port != X86P_OMEGA) return std::string();
+    return x86_zsm_ev(3);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,

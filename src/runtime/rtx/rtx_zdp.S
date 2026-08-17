@@ -73,6 +73,48 @@ RTX_FUNC(rt_zdp_origin)
  * EXIT:  every register and rflags preserved.  The AGREEING path touches rax and rflags only -- both restored -- so a sound port is
  *        perturbation-free BY CONSTRUCTION.  This is why the hot path is hand asm: a C callee may destroy r10/r11 (the γ/ω WIRES) and r8/r9
  *        (the RTCC/GVA tier), which would make the instrument measure a DIFFERENT PROGRAM -- the s132 monitor lesson, verbatim. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zdp_ev — ZETA SM SHIM (Lon in-chat, this session).  ONE entry point for all three ports; the state
+ * machine itself is C (rt_zdp_sm_event in runtime_init.c) because the bookkeeping is real logic, and this
+ * shim is what makes that safe.
+ * ⛔ HAND ASM BECAUSE A C CALLEE OWNS THE WHOLE SysV CALLER-SAVED SET (Lon in-chat, same law as rt_zdp_probe
+ * above): rax rcx rdx rsi rdi r8 r9 r10 r11 -- and THREE of those are claimed here, r10/r11 being the γ/ω
+ * WIRES and r8/r9 the RTCC/GVA tier.  Letting C clobber them would make the instrument measure a DIFFERENT
+ * program, the s132 monitor lesson verbatim.  So EVERY caller-saved register and rflags is saved and restored
+ * around the sink; the measured program cannot observe that this ran.  Unlike the earlier probes there is no
+ * "agreeing fast path" here -- the SM must see every port to keep its state, and correctness of the state is
+ * worth more than the cycles.
+ * ENTRY: rdi = node id · rsi = rbp at the port · rdx = TRUE rsp at the port (call site added back its own
+ *        pushes) · rcx = kind (1=α 2=β 3=ω).   EXIT: every register and rflags preserved. */
+RTX_FUNC(rt_zdp_ev)
+    push    rax
+    pushfq
+    push    r8
+    push    r9
+    push    r10
+    push    r11                             /* ⛔ THE WIRES */
+    push    rdi
+    push    rsi
+    push    rdx
+    push    rcx
+    push    rbp
+    mov     rbp, rsp
+    and     rsp, -16                        /* SysV wants rsp%16==0 at the call; a port's own alignment is unknown */
+    call    rt_zdp_sm_event                 /* args already live in rdi/rsi/rdx/rcx */
+    mov     rsp, rbp
+    pop     rbp
+    pop     rcx
+    pop     rdx
+    pop     rsi
+    pop     rdi
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    popfq
+    pop     rax
+    ret
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_zdp_probe)
     push    rax
     pushfq
