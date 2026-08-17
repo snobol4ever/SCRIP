@@ -695,16 +695,24 @@ static int earn_hazard_in(const IR_t * nd, int depth) {                         
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int fc_pair_extent(const IR_t *);                   /* zeta_storage.c -- FLATDISP-LEAF-ORDER: exclusive upper g_emit_cfg index bound of a COND/IMMs OWN inner span, registered at lowering time (lower_snobol4.c:1532/1560, inner allocation ends here); -1 = unregistered. */
 static IR_t * zd_chase(IR_t * t);   /* forward: defined below (ZD-1 GOTO chase); cap_in_alt_arm walks an ALT arm through the same edge-following authority the planner uses */
+static int alt_arm_member(const IR_t * a, const IR_t * b) {   /* ⭐⭐⭐ THE ONE ALT-ARM CONTAINMENT AUTHORITY (s130): is either node ON some ALT arm's γ-chain in this run?  Every IR_MATCH_ALTERNATE in the statement is walked arm by arm, arm j = the γ-chain from operands[2j]
+     * (entry) to operands[2j+1] (resume; the SN4-NARY-ALT layout).  A node WRAPPING an ALT ((A|B) . Y) sits before/after the arms and is never on one.  Nested ALT/ARBNO/DEFER inside an arm are single chain
+     * steps (their γ is the step), so an interior member of a NESTED arm is reached through that nesting, not missed.  EXTRACTED VERBATIM from cap_in_alt_arm's own loop (s93 R-0) so the containment FACT is
+     * spelled ONCE and its two customers -- the CAPTURE half (cap_in_alt_arm) and the LEAF-SUSPENSION half (leaf_frame_candidate, s130) -- cannot drift apart: they are the same ζ-SPINE denial, so they must
+     * be the same predicate (the s68/s70 spelled-twice disease).  PURE and plan-independent; b may be NULL for callers with no paired second node. */
+    if ((!a && !b) || !g_emit_cfg) return 0;
+    for (int p = 0; p < g_emit_cfg->n; p++) { IR_t * A = g_emit_cfg->all[p]; if (!A || A->op != IR_MATCH_ALTERNATE) continue;
+        int N = (int)(A->n_operands / 2);
+        for (int j = 0; j < N; j++) { IR_t * cur = A->operands[2 * j]; IR_t * res = A->operands[2 * j + 1]; int guard = 0;
+            while (cur && guard++ <= g_emit_cfg->n) { if ((a && cur == a) || (b && cur == b)) return 1; if (cur == res) break; cur = zd_chase(cur->γ.node); } } }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cap_in_alt_arm(const IR_t * nd) {   /* ⭐⭐⭐ R-0 (s93, GOAL-SNOBOL4-100 M1 ROOT CAUSE): a capture pair whose SAVE..COND/IMM span lies INSIDE an ALT arm has NO ζ-SPINE home -- zd_plan grants per RUN and the arm interior is the s66/s71 "ungranted ALT arm" denial class -- so it rides a ζ-STANDING slot (frame_need_of()==1 -> capture_frame_slot()) exactly like the DEFER-hazard class.
      * PURE and plan-independent: every IR_MATCH_ALTERNATE in the statement is walked arm by arm, arm j = the γ-chain from operands[2j] (entry) to operands[2j+1] (resume; the SN4-NARY-ALT layout at the classify dispatch), and nd or its own SAVE on that chain is the verdict.
      * A capture WRAPPING an ALT ((A|B) . Y) sits before/after the arms and is never on one (control witnesses stay spine). Nested ALT/ARBNO/DEFER inside an arm are single chain steps (their γ is their rejoin): a capture inside an INNER ALT is found by that ALT's own walk; inside an ARBNO body it is R-4's class. */
     if (!nd || !g_emit_cfg) return 0;
-    const IR_t * save = (nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0;
-    for (int a = 0; a < g_emit_cfg->n; a++) { IR_t * A = g_emit_cfg->all[a]; if (!A || A->op != IR_MATCH_ALTERNATE) continue;
-        int N = (int)(A->n_operands / 2);
-        for (int j = 0; j < N; j++) { IR_t * cur = A->operands[2 * j]; IR_t * res = A->operands[2 * j + 1]; int guard = 0;
-            while (cur && guard++ <= g_emit_cfg->n) { if (cur == nd || (save && cur == save)) return 1; if (cur == res) break; cur = zd_chase(cur->γ.node); } } }
-    return 0;
+    return alt_arm_member(nd, (nd->n_operands > 1) ? nd->operands[1] : (const IR_t *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cap_in_repeat_body(const IR_t * nd) {   /* ⭐⭐⭐ R-4(a) SLICE 1 (s95, GOAL-SNOBOL4-100 bb_probes class A, 15/20 m4 failures): the DUAL of the line-732 nested-span scan and the SIBLING of cap_in_alt_arm -- a capture pair whose SAVE (or the pair node itself) lies INSIDE the body span of an IR_MATCH_ARBNO ([operands[1]..operands[2]] in all[]-order, THE containment idiom the DEFER-unsafe scan / arbno_frame_candidate / the K16 prelude all use) or an IR_MATCH_FENCE1 ([operands[0]..operands[1]], lower_snobol4.c:1360 pe/p_tail) has NO ζ-SPINE home: zd_plan denies the body interior exactly like the ALT arm interior (MEASURED N04: K16 route stages kk=16 for the SAVE's own carve, the SAVE box carves it, then bombs -- classifier and plan disagree, the bomb text's own words), so it rides a ζ-STANDING slot (frame_need_of()==1 -> capture_frame_slot()) like the DEFER-hazard and ALT-arm classes.  Per-iteration LAST-WRITER-WINS is exactly SPITBOL's conditional-assignment law (manual pp.62-63: assigns the substring bound on the SUCCESSFUL path; Ch.18 p.207: each ARBNO instance is a distinct stacked choice point) for bodies with no INTERNAL re-enterable choice point; a body that backtracks INTO an earlier iteration's own alternatives after a later SAVE overwrote the slot is the s93-named UNSOUND shape and is R-4(a)'s per-iteration ACTIVATION -- this predicate does not pretend to solve it, the oracle-diffed suite convicts any such probe as a DIFF, never a silent pass. PURE, plan-independent, no new global. */
@@ -1603,6 +1611,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = a0 ? bb_slot_get(a0) : -1;
         if (a0 && g_emit.op_sa < 0) { drive_unowned(nd); break; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
+        g_emit.op_leaf_frame_off = leaf_frame_slot(nd);   /* ⭐⭐⭐ LEAF-SUSPENSION FRAME SLOT (s130): staged from THE ONE AUTHORITY beside capture_frame_slot/arbno_frame_slot/fence_frame_slot -- -1 (the default and every decline) leaves bb_match_span.cpp on its legacy FR(x86_scratch_off) spelling byte-identically; >=0 re-homes the entry-cursor cell into the live activation frame, where an ALT-arm interior cell actually has an owner. */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_BREAK: case IR_MATCH_BREAKX: {
@@ -2248,6 +2257,26 @@ static int arbno_frame_candidate(const IR_t * nd) {   /* ⭐ ARBNO-FRAME SLOT (T
     return 0;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_span_frame(void) {   /* ⭐⭐⭐ s130 THE ONE AUTHORITY for the LEAF-SUSPENSION-FRAME killswitch (SCRIP_SPAN_FRAME).  TWO READERS in lockstep -- leaf_frame_candidate() (which feeds the registry scan, hence the carve width at BOTH
+     * emit_match_begin_frame_extra and blob_frame_bytes) and leaf_frame_slot() (which feeds the template's staged offset) -- so the frame the prologue CARVES and the slot the template ADDRESSES are one decision
+     * and cannot drift (the s124 two-reader law, the s66 coherent-worlds law).  DEFAULT OFF: =0 is byte-identical to pre-s130 by construction, since a declined candidate never enters the scan (count unchanged,
+     * every other class's index unchanged) and every leaf template keeps its legacy FR(x86_scratch_off) spelling.  =1 opt-in pending the corpus ON-arm sweep and Lon's flip grant, per the R-7/s124 protocol. */
+    static int _sf = -1; if (_sf < 0) { const char * e = getenv("SCRIP_SPAN_FRAME"); _sf = (e && *e == '1') ? 1 : 0; } return _sf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int leaf_frame_candidate(const IR_t * nd) {   /* ⭐⭐⭐ LEAF-SUSPENSION FRAME CANDIDATE (s130, witness corpus/probe/clobarm/): a SCRATCH-CELL LEAF MATCHER that lies ON AN ALT ARM.  THE TWO CONJUNCTS, each measured:
+     * (1) SCRATCH-CELL LEAF -- the closed family whose drive case stages x86_scratch_off and whose template spells its suspension cell FR(x86_scratch_off + N): SPAN/BREAK/BREAKX/TAB/RTAB/REM/ARB/BAL.  These
+     * boxes carve NOTHING at their own α, so x86_frame_off's single op_zdepth term has no own-carve to compensate and the flat ZLS coordinate reaches whatever rsp happens to be.  SLICE 1 ADMITS SPAN ONLY --
+     * the witness family -- so the rung is proven on one op before the mechanical widening to its seven siblings; an unlisted op refuses by construction (the s125 whitelist principle).  (2) ON AN ALT ARM, via
+     * THE ONE CONTAINMENT AUTHORITY alt_arm_member() -- the SAME predicate cap_in_alt_arm uses, because it is the SAME ζ-SPINE denial: zd_plan grants per RUN and the arm interior is the s66/s71 ungranted-arm
+     * class, so a cell priced there has no home in EITHER medium.  ⛔ DELIBERATELY NOT WIDER THAN THE ARM: a leaf on the ordinary spine has a real granted home and its legacy spelling is correct -- re-homing
+     * it would be the unmeasured wholesale flip the s127 zd retraction convicted (framing by shape broke 120/131/165/181/182).  PURE and plan-independent, like both siblings. */
+    if (!sn4_span_frame() || !nd) return 0;
+    if (nd->op != IR_MATCH_SPAN) return 0;
+    { const char * sv = IR_LIT(nd).sval; if (sv && sv[0] == '*') return 0; }   /* ⛔⭐⭐⭐ THE 8-BYTE USABLE-WINDOW LAW, MEASURED s130 -- DO NOT DROP THIS CONJUNCT.  The registry tiles its region as ONE 16B GRANULE PER SLOT with the base 8 BYTES ABOVE THE GRANULE FLOOR: for a blob, blob_frame_bytes()=24+16*count carves [-(24+16*count), -24) below the r10/r11/rdx entry wires, and frame_slot_off()=-(32+16*idx) places idx k's granule at [base-8, base+8) -- the three-candidate case tiles [-72,-24) EXACTLY, floor to ceiling, with no slack anywhere.  So a slot offers d ∈ {0,4} above its base and NOTHING MORE: d=8 is the NEXT granule's floor, i.e. its neighbour's cell.  bb_match_span.cpp's `SPAN(*var)` deferred-by-name arm (sval[0]=='*') is the ONE arm that spends the full 16B ZLS cell -- lea rsi,SPC(0) / lea rdx,SPC(8) / mov r8,SPCQ(0) / mov eax,SPC(8), the {ptr,len} pair rt_pat_prim_str fills -- so re-homing it would hand the neighbouring capture SAVE's cell to a runtime writer.  That is the SAME cross-owner overwrite this whole rung exists to kill, just moved indoors, and it would have been INVISIBLE in the witness (which is a literal charset and never reaches this arm).  Declining leaves that arm on its legacy spelling, byte-identical.  THE FOLLOW-UP IS NAMED, NOT FORGOTTEN: grant the 16B class TWO CONSECUTIVE slots (or widen the granule) -- a registry change that moves ARBNO/CAPTURE/FENCE1 offsets too, hence its own rung with its own blast radius, never a quiet widening of this one. */
+    return alt_arm_member(nd, (const IR_t *)0);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_slot_is_candidate(const IR_t * nd) {   /* ⭐⭐⭐ ACTIVATION-FRAME SLOT REGISTRY (THREE ZETAS s87): THE ONE PREDICATE unifying ARBNO-FRAME and the CAPTURE family's op_frame_need arm into ONE shared
      * rbp-relative slot-numbering space, so the two classes can NEVER pick colliding offsets and can never straddle each other's push/pop the way bb_match_capture.cpp's OWN transient frame did (D11 gdb/asm
      * conviction, this session: CAPTURE's SAVE pushed rbp, ARBNO's alpha (nested textually BETWEEN SAVE and IMM) wrote its cell relative to THAT transient rbp, IMM then popped it out from under ARBNO before
@@ -2259,6 +2288,7 @@ static int frame_slot_is_candidate(const IR_t * nd) {   /* ⭐⭐⭐ ACTIVATION-
     if (nd->op == IR_MATCH_ARBNO) return arbno_frame_candidate(nd);
     if (nd->op == IR_MATCH_ASSIGN_SAVE) return frame_need_of(nd);
     if (nd->op == IR_MATCH_FENCE1) return fence_frame_candidate(nd);   /* ⭐ R-4(f) SLICE 3 (s96): FENCE1 watermark = the registry's third customer (see fence_frame_slot) */
+    if (leaf_frame_candidate(nd)) return 1;   /* ⭐⭐⭐ LEAF-SUSPENSION (s130): the registry's FOURTH customer -- a scratch-cell leaf matcher on an ALT arm, whose raw-flat suspension cell has no ζ-SPINE home (see leaf_frame_candidate / emit.h op_leaf_frame_off) */
     return 0;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2361,6 +2391,16 @@ int fence_frame_slot(const IR_t * fence_nd) {   /* ⭐ R-4(f) SLICE 3 (s96): see
     return frame_slot_off(rc, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int leaf_frame_slot(const IR_t * leaf_nd) {   /* ⭐⭐⭐ LEAF-SUSPENSION FRAME SLOT (s130): see emit.h op_leaf_frame_off.  SAME shared frame_slot_scan numbering as arbno_frame_slot()/capture_frame_slot()/fence_frame_slot(),
+     * so a leaf's suspension cell and a capture SAVE / ARBNO / FENCE1 in the same scope can never be assigned colliding offsets however they nest -- all four are slot CONSUMERS of the ONE frame that is already
+     * live (ζ-STANDING at MATCH_BEGIN, or the ζ-ACTIVATION frame of a PAT$ blob via frame_slot_scan's rc==2 blob arm), and none of them pushes or pops a frame of its own, so no one's lifetime can clip another's.
+     * THE BLOB ARM IS THE POINT OF THIS RUNG: the witness leaf lives in a PAT$ blob, which has no MATCH_BEGIN of its own -- rc==2 hangs the slot off the blob's OWN rbp, per-activation by construction, which is
+     * exactly where a cell the CALLER cannot see must live.  -1 declines and the template keeps its legacy spelling; every decline path is byte-identical to pre-s130. */
+    if (!emit_match_rbp() || !leaf_frame_candidate(leaf_nd)) return -1;
+    int idx = -1, rc = frame_slot_scan(leaf_nd, &idx, NULL); if (!rc || idx < 0) return -1;
+    return frame_slot_off(rc, idx);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int capture_frame_slot(const IR_t * cap_nd) {   /* ⭐⭐⭐ ACTIVATION-FRAME SLOT REGISTRY (THREE ZETAS s87): THE REPLACEMENT for bb_match_capture.cpp's own transient push-rbp/pop-rbp arm (s81/s83) -- SAME shared
      * numbering as arbno_frame_slot(), so a capture SAVE and an ARBNO can never collide even when one is textually nested inside the other's span (D11's exact shape: SAVE, then ARBNO(*P), then IMM -- SAVE
      * and ARBNO are BOTH candidates in the SAME MATCH_BEGIN scope, get DIFFERENT slots, and neither one's frame lifetime can clip the other's because NEITHER pushes anything anymore; both just read/write a
