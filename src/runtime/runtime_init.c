@@ -72,23 +72,28 @@ void rt_zdp_rbp_report(long node, unsigned long expected, unsigned long actual, 
 typedef struct { unsigned long node, E, F, rsp_a, live; } zsm_ent;
 static zsm_ent      g_zsm[ZSM_N];
 static unsigned long g_zsm_tr_node[ZSM_TRACE], g_zsm_tr_rbp[ZSM_TRACE], g_zsm_tr_rsp[ZSM_TRACE];
-static long          g_zsm_tr_kind[ZSM_TRACE];
+static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE];
 static unsigned long g_zsm_tr_n = 0UL;
 unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 0UL;
+static unsigned long g_zsm_rsp0 = 0UL;   /* ⭐ RSP0 — THE GRAPH-ENTRY DATUM (Lon in-chat: "physically measure RSP minus RSP-saved at graph entry so that you can debug your offset problems").  Stamped by kind=0 at each graph's first BB.  ⛔ THIS IS A MEASUREMENT, NOT A VERDICT: nothing is compared against a predicted value, so it can never go ⊤ the way the s136 lattice probe does (11720 ⊤ on beauty = the lattice declining to predict), and it never runs zdp_analyze, so it cannot inherit that pass's measured perturbation (FINDING s136: SCRIP_ZDP=1 alone moves 81 of 656 programs).  KNOWN LIMIT, Lon's own ruling s136 verbatim: "I know RSP changes into a function but just ignore all that" -- one cell, so a nested/recursive graph's origin overwrites its caller's and the caller's remaining ports read against the callee's datum; that noise is bounded to post-call ports and is READ AS NOISE. */
+static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* census mode: print EVERY port with its measured depth, agreements included -- s135's lesson that an instrument silent both when it agrees and when it never ran cannot be told from a dead one. */
 void rt_bomb(const char *msg);
-static const char * zsm_kn(long k) { return k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : "?"; }
+static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : "?"; }
 static void zsm_dump(void)
 {   /* the trace ring: the last ZSM_TRACE ports in execution order, so a violation arrives WITH the path that produced it rather than as a bare coordinate. */
     unsigned long n = g_zsm_tr_n < ZSM_TRACE ? g_zsm_tr_n : ZSM_TRACE, i, first = g_zsm_tr_n < ZSM_TRACE ? 0 : g_zsm_tr_n % ZSM_TRACE;
     fprintf(stderr, "[ZSM] --- last %lu ports (oldest first), event #%lu ---\n", n, g_zsm_events);
     for (i = 0; i < n; i++) { unsigned long j = (first + i) % ZSM_TRACE;
-        fprintf(stderr, "[ZSM]   %s node=%-8lu rbp=0x%lx rsp=0x%lx\n", zsm_kn(g_zsm_tr_kind[j]), g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j]); }
+        fprintf(stderr, "[ZSM]   %-6s node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld\n", zsm_kn(g_zsm_tr_kind[j]), g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j]); }
 }
 void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind)
 {
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
     unsigned long t = g_zsm_tr_n % ZSM_TRACE;
-    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind; g_zsm_tr_n++; g_zsm_events++;
+    long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;   /* ⭐ THE PHYSICAL MEASUREMENT: bytes carved below this graph's entry frontier and still standing at this port.  Reported raw; no expected value is consulted. */
+    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind; g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
+    if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx\n", zsm_kn(kind), node, depth, rsp, rbp);
+    if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
     if (kind == 1) { e->node = node; e->E = rbp; e->F = rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; return; }
     if (e->node != node || !e->live) {   /* β or ω with no live activation for this node */
         if (kind == 2) { g_zsm_beta_no_alpha++; fprintf(stderr, "[ZSM] β node=%lu WITH NO LIVE α (rbp=0x%lx rsp=0x%lx) -- claimed impossible; counted, not fatal, so one occurrence cannot mask the census\n", node, rbp, rsp); }
