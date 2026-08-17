@@ -18,8 +18,8 @@ static std::string bx_memb(long f, long i) { return i >= CSK() ? std::string() :
 static std::string bx_char(long f, long e) { return x86("cmp", "ecx", "r15d") + (e ? x86("jge", L(4)) : x86_omega("jge")) + x86("movzx", "esi", "[r13+rcx]") + (bx_chainp() ? bx_memb(f, 0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(f))) + x86("add", "ecx", (long)1); }
 static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
     return x86("def",    L(t))
-         + x86("mov",    "eax", FR(_.x86_scratch_off + 4))
-         + x86("add",    "eax", FR(_.x86_scratch_off))
+         + x86("mov",    "eax", LFC(4))
+         + x86("add",    "eax", LFC(0))
          + x86("cmp",    "eax", "r15d")
          + (e ? x86("jge", L(4)) : x86_omega("jge"))
          + x86("movsxd", "rcx", "eax")
@@ -35,7 +35,7 @@ static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
          + x86("add",    "edx", (long)1)
          + x86("jmp",    L(inr))
          + x86("def",    L(adv))
-         + x86("add",    FR(_.x86_scratch_off), (long)1)
+         + x86("add",    LFC(0), (long)1)
          + x86("jmp",    L(t));
 }
 static std::string bx_guts_call(long e, long bump) {
@@ -56,7 +56,7 @@ std::string bb_match_breakx() {
     if (_.op_zres && _.op_sa >= 0)
         return x86("comment", "IR_MATCH_BREAKX zd")
              + x86_alpha()
-             + x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
+             + x86("mov",    LFC(4), "r14d")
              + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
              + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
              + x86("mov",    "edi", "r14d")
@@ -76,25 +76,25 @@ std::string bb_match_breakx() {
              + x86("mov",    "r14d", "eax")
              + x86_gamma()
              + x86("def",    L(4))
-             + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
+             + x86("mov",    "r14d", LFC(4))
              + x86_omega();
     return x86("comment", "IR_MATCH_BREAKX")
          + x86_alpha()
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
-              x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
-            + x86("mov",    FR(_.x86_scratch_off), (long)0)
+              x86("mov",    LFC(4), "r14d")
+            + x86("mov",    LFC(0), (long)0)
             + x86("mov",    "r8",  FRQ(_.op_sa + 8))
             + bx_guts_scan(0, 1, 0, 5, 7)
             + x86("def",    L(1))
-            + x86("mov",    "eax", FR(_.x86_scratch_off + 4))
-            + x86("add",    "eax", FR(_.x86_scratch_off))
+            + x86("mov",    "eax", LFC(4))
+            + x86("add",    "eax", LFC(0))
             + x86("mov",    "r14d", "eax"))
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL,
-              x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
+              x86("mov",    LFC(4), "r14d")
             + bx_guts_call(0, 0))
          + IF(_.op_sa < 0,
               IF(bx_tablep(), x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c))
-            + x86("mov",    FR(_.x86_scratch_off + 4), "r14d")
+            + x86("mov",    LFC(4), "r14d")
             + x86("movsxd", "rcx", "r14d")
             + x86("def",    L(0))
             + bx_char(1, 0)
@@ -104,12 +104,12 @@ std::string bb_match_breakx() {
          + x86_gamma()
          + x86_beta()
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
-              x86("add",    FR(_.x86_scratch_off), (long)1)
+              x86("add",    LFC(0), (long)1)
             + x86("mov",    "r8",  FRQ(_.op_sa + 8))
             + bx_guts_scan(2, 3, 1, 6, 8)
             + x86("def",    L(3))
-            + x86("mov",    "eax", FR(_.x86_scratch_off + 4))
-            + x86("add",    "eax", FR(_.x86_scratch_off))
+            + x86("mov",    "eax", LFC(4))
+            + x86("add",    "eax", LFC(0))
             + x86("mov",    "r14d", "eax"))
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL,
               bx_guts_call(1, 1))
@@ -124,6 +124,6 @@ std::string bb_match_breakx() {
             + x86("mov",    "r14d", "ecx"))
          + x86_gamma()
          + x86("def",    L(4))
-         + x86("mov",    "r14d", FR(_.x86_scratch_off + 4))
+         + x86("mov",    "r14d", LFC(4))
          + x86_omega();
 }
