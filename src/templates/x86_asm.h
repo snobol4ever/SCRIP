@@ -723,9 +723,10 @@ inline std::string x86_jmp(int port) {
                           : (x86_rec("jmp") + x86_portname(port) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_zdp_probe_at(int port);   /* ⭐ LON'S EVERY-PORT PROBE (s136): defined beside x86_port_hook's body, which is where this file already puts per-port flavor code. */
 inline std::string x86_deflabel(int port) {
     std::string s = MEDIUM_BINARY ? x86_Drec(port) : x86_reclbl(x86_portname(port)) + "\n";   /* the pre-TAB form carried a cosmetic leading space that the sink stripped anyway; a label field holds the LABEL and nothing else */
-    return s + x86_port_hook(X86H_DEF, port);
+    return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port);   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136): THE ONE SEAM.  This file's own header for these three functions already reserves it -- "ALL per-port flavor code (canary, traces, allocs, future GC/stack experiments) lives in x86_port_hook, NOT inline here -- one seam, three callers".  Hooking HERE reaches EVERY α and EVERY β of EVERY box in BOTH media with ZERO template edits, which is the only way to satisfy "instrument every ALPHA and BETA" without a MEDIUM_* conjunct or a per-family crawl. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE FOUR PORT FUNCTIONS (Lon pivot 2026-07-08 session 5: "create a unique x86() function call for EACH of
@@ -2497,6 +2498,16 @@ inline std::string x86_port_hook(int site, int port) {
                + x86_align_leave();
     }
     return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, long want_rbp);
+inline int x86_zdp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136): ONE killswitch for the whole instrument, DEFAULT OFF and byte-identical by construction (OFF returns the empty string before anything is built).  Shares SCRIP_ZDP_TEARDOWN with the s135 anchor so a sweep cannot half-enable the two halves of one measurement. */
+inline std::string x86_zdp_probe_at(int port) {
+    if (!x86_zdp_on()) return std::string();   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136), THE PORT ARM.  α and β ONLY: they are the two INPUT ports (label DEFINES, the points where control ARRIVES with a stack state to be judged); γ and ω are TRANSFERS and never reach X86H_DEF at all, so the FOUR-GREEK-NAMES law is respected without a filter.  Reads STAGED fields (op_zdp_ad/op_zdp_bd/op_zdp_rbp) -- never the raw IR_t*, which templates are forbidden by the emit.h:635 law. */
+    if (port != X86P_ALPHA && port != X86P_BETA) return std::string();
+    long expect = (port == X86P_ALPHA) ? (long)_.op_zdp_ad : (long)_.op_zdp_bd;
+    long want_rbp = _.op_zdp_rbp ? ((port == X86P_BETA) ? 1L : 2L) : 0L;   /* THE RBP EQUALITY CHECK IS A β CHECK ONLY (Lon: "have BB's that use RBP check at BETA for equality to saved RBP") -- α is where the frame is ESTABLISHED, so there is nothing yet to agree with; β is where it must still be the one α left behind. */
+    return bb_zdp_probe((long)_.op_node_kind, (long)_.nid, (port == X86P_ALPHA) ? 1L : 2L, expect, want_rbp);   /* want_rbp: 2 = BANK the enclosing rbp at α (the probe precedes the template's own push rbp), 1 = CHECK it at β.  One field, two sites, no second opinion. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,
