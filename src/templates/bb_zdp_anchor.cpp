@@ -21,3 +21,43 @@ extern "C" std::string bb_zdp_anchor(long op, long node) {
          + x86("pop",  "rsi")
          + x86("pop",  "rdi");
 }
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_zdp_origin(void);
+extern "C" void rt_zdp_probe(void);
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" std::string bb_zdp_origin(long node) {
+    if (!PLATFORM_X86) return std::string();   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136), THE ORIGIN.  Lon in-chat: "Instrument each BB graph's FIRST BB to save RSP (RSP0)".  RSP0 is the datum every subsequent α/β measures against, so it is captured ONCE per graph, before the graph carves anything.  rdi carries the TRUE pre-push rsp (+16 undoes this stub's own two pushes) so the datum is the graph's real entry frontier and not an artifact of the instrument -- the s134 lesson that a measurement normalised at the point of measurement measures the normalisation. */
+    return x86("comment", "ZDP-ORIGIN")
+         + x86("push", "rdi")
+         + x86("push", "rsi")
+         + x86("mov",  "rdi", "rsp")
+         + x86("add",  "rdi", 16L)
+         + x86("mov",  "rsi", (long)node)
+         + x86("call", "rt_zdp_origin", (uint64_t)(uintptr_t)(void *)rt_zdp_origin)
+         + x86("pop",  "rsi")
+         + x86("pop",  "rdi");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, long want_rbp) {
+    if (!PLATFORM_X86) return std::string();   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136), THE CHECK.  Lon in-chat: "instrument every ALPHA and BETA to check the diff of RSP to this RSP0 and report if different than SCRIP's CALCULATED expected value.  This will find all your PROBLEM spots automatically.  Also have BB's that use RBP check at BETA for equality to saved RBP."  expect = the lattice's prediction in bytes, -1 = ⊤ (RECORD-ONLY: a ⊤ whose delta is constant is a PRECISION bug, one whose delta varies is a ⊤ that was earned -- rows 3/4 of Lon's table, and nothing static can separate them).  FIVE arg registers, all pushed and popped here, so the probe is invisible to the measured program: r10/r11 (the γ/ω WIRES) and rbx/r12/r13/r14/r15 are NEVER touched on this path -- the agreeing case never reaches C at all (rtx_zdp.S compares in hand asm), which is the whole reason this is asm and not a C tap. */
+    return x86("comment", "ZDP-PROBE")
+         + x86("push", "rdi")
+         + x86("push", "rsi")
+         + x86("push", "rdx")
+         + x86("push", "rcx")
+         + x86("push", "r8")
+         + x86("mov",  "rdi", "rsp")
+         + x86("add",  "rdi", 40L)
+         + x86("mov",  "rsi", (long)op)
+         + x86("mov",  "rdx", (long)node)
+         + x86("mov",  "rcx", (long)expect)
+         + x86("mov",  "r8",  (long)(port | (want_rbp == 1L ? 4L : 0L) | (want_rbp == 2L ? 8L : 0L)))
+         + x86("call", "rt_zdp_probe", (uint64_t)(uintptr_t)(void *)rt_zdp_probe)
+         + x86("pop",  "r8")
+         + x86("pop",  "rcx")
+         + x86("pop",  "rdx")
+         + x86("pop",  "rsi")
+         + x86("pop",  "rdi");
+}
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int x86_zdp_on_c(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ ONE killswitch, C-callable so emit.cpp's graph-entry origin hook and x86_asm.h's port arm read THE SAME predicate -- never two spellings of one flag (the s68/s70 spelled-twice disease). */

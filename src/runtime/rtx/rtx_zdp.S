@@ -56,3 +56,76 @@ RTX_FUNC(rt_zdp_anchor)
     pop     rdx
     pop     rcx
     jmp     .Lzdp_done
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zdp_origin — LON'S EVERY-PORT PROBE (s136), THE DATUM.  "Instrument each BB graph's FIRST BB to save RSP (RSP0)."
+ * ENTRY: rdi = the graph's TRUE entry rsp (call site added back its own pushes).  rsi = node id (unused on the hot path, kept for the report).
+ * EXIT:  every register and rflags preserved.  Unconditional store: each graph RE-BASES, so a nested graph legitimately overwrites the datum.
+ * ⛔ THE KNOWN LIMIT, NAMED NOT DISCOVERED: the cell is ONE cell, so a RECURSIVE callee's origin overwrites its caller's and the caller's
+ * remaining ports then measure against the callee's datum.  Lon's ruling s136 in-chat: "I know RSP changes into a function but just ignore
+ * all that.  Each statement of the function will do a good job."  The per-statement anchors re-establish agreement inside the callee, so the
+ * recursion noise is bounded to the caller's post-call ports and is READ AS NOISE, never as a finding, until the census says otherwise. */
+RTX_FUNC(rt_zdp_origin)
+    mov     qword ptr [rip + g_zdp_anchor_rsp], rdi
+    ret
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_zdp_probe — LON'S EVERY-PORT PROBE (s136), THE CHECK AT EVERY α AND EVERY β.
+ * ENTRY: rdi = TRUE rsp at this port  ·  rsi = op  ·  rdx = node  ·  rcx = EXPECTED delta in bytes (-1 = the lattice refuses, RECORD ONLY)  ·  r8 = port | rbp-flag (1=α 2=β, +4 = check rbp).
+ * EXIT:  every register and rflags preserved.  The AGREEING path touches rax and rflags only -- both restored -- so a sound port is
+ *        perturbation-free BY CONSTRUCTION.  This is why the hot path is hand asm: a C callee may destroy r10/r11 (the γ/ω WIRES) and r8/r9
+ *        (the RTCC/GVA tier), which would make the instrument measure a DIFFERENT PROGRAM -- the s132 monitor lesson, verbatim. */
+RTX_FUNC(rt_zdp_probe)
+    push    rax
+    pushfq
+    mov     rax, qword ptr [rip + g_zdp_anchor_rsp]
+    test    rax, rax
+    jz      .Lzdpp_done                         /* no datum yet (a graph whose first BB was never instrumented) -- refuse to judge rather than report against zero */
+    sub     rax, rdi                            /* rax = MEASURED delta = RSP0 - rsp_here, i.e. bytes carved and still standing at this port */
+    cmp     rcx, -1
+    je      .Lzdpp_record                       /* ⊤: the lattice REFUSES a prediction.  Record the observed delta anyway -- constant across runs = PRECISION bug (the lattice is refusing the spine for nothing), varying = the ⊤ was EARNED.  Rows 3 and 4 of Lon's mutual-validation table; nothing static can separate them. */
+    cmp     rax, rcx
+    jne     .Lzdpp_report                       /* MEASURED != CALCULATED.  Either the transfer function mis-calculated or the box leaked / over-freed.  The witness is the program itself. */
+    test    r8, 4
+    jnz     .Lzdpp_rbp                          /* the port agreed on rsp; if this box owns an rbp activation its β must ALSO still see the rbp its α left */
+    test    r8, 8
+    jnz     .Lzdpp_rbp_save                     /* α of an rbp-creating box: the probe sits BEFORE the template's own `push rbp`, so what we bank here is the ENCLOSING rbp -- exactly the value the ω/β whack (`mov rsp,rbp; pop rbp`) is obliged to put back */
+.Lzdpp_done:
+    popfq
+    pop     rax
+    ret
+.Lzdpp_rbp_save:
+    mov     qword ptr [rip + g_zdp_anchor_rbp], rbp
+    jmp     .Lzdpp_done
+.Lzdpp_rbp:
+    cmp     rbp, qword ptr [rip + g_zdp_anchor_rbp]
+    jne     .Lzdpp_report
+    jmp     .Lzdpp_done
+.Lzdpp_record:
+.Lzdpp_report:
+    push    rcx
+    push    rdx
+    push    rsi
+    push    rdi
+    push    r8
+    push    r9
+    push    r10
+    push    r11                                 /* ⛔ THE WIRES.  Saved and restored across the C sink so even a FIRING port is as perturbation-free as an agreeing one. */
+    push    rbp
+    mov     rbp, rsp
+    and     rsp, -16                            /* SysV wants rsp%16==0 at the call; a port's own alignment is unknown here, so force it and restore from rbp */
+    push    r8
+    push    rax
+    mov     r9, rax                             /* arg6 = MEASURED delta */
+    call    rt_zdp_probe_report                 /* rdi=rsp rsi=op rdx=node rcx=expected r8=portflags r9=measured */
+    pop     rax
+    pop     r8
+    mov     rsp, rbp
+    pop     rbp
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    pop     rdi
+    pop     rsi
+    pop     rdx
+    pop     rcx
+    jmp     .Lzdpp_done
