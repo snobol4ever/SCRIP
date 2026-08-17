@@ -2050,6 +2050,19 @@ int rt_define_tiny_ok(const char *name, int nargs)
     (void)nargs; return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined) ? 1 : 0;   /* s58: arity clauses DROPPED — the real protocol fills missing formals with null and discards extras (manual Ch.8); the count rides the stack */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ICN-WIRE-PAIR (s244) — DOES THIS CALLEE CONSUME THE {gamma,omega} LANDING PAIR AT TOS?  Two return protocols share the flat rcx/rdx-wire call arms.  (1) The fnrbp2 RETURN/FRETURN floater protocol
+ * (bb_define role-1/2) reads {gamma,omega} AT TOS and POPS 16 on the way out, which is why the s110/s111 sites push the pair at all.  (2) The plain jmp-entry protocol takes both wires in rcx/rdx, saves
+ * them INSIDE its own frame at the prologue, and leaves by `add rsp,kt; jmp rcx` — it never reads TOS and never pops, so a pair pushed for it is never released and the CALLER resumes 16 bytes low.  The
+ * caller then reads every rsp-relative slot at the wrong address; witness `every p(1|2|3)` against `procedure p(a,b)`, where the enclosing disjunction's arm counter aliased the argument descriptor and
+ * the loop ran exactly once.  THE DISCRIMINATOR IS dyn_scope, NOT jmp_entry ALONE: a DEFINE-site callee is registered dyn_scope AND jmp_entry and still exits through the floater, so gating on jmp_entry
+ * by itself suppresses a pair the floater goes on to pop and the callee returns into freed stack (measured: `1010_func_recursion` SEGVs, both media).  A callee that is jmp-entered and carries NO
+ * dynamic-scope save/restore protocol is exactly the self-unwinding class.  Keyed on the callee record's own protocol bits, never on a language: both flags are set by whichever frontend uses them. */
+int rt_define_returns_by_frame(const char *name)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    return (p && p->jmp_entry && !p->dyn_scope) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
