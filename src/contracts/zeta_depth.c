@@ -185,18 +185,12 @@ void zdp_port_census(IR_graph_t * g) { if (zdp_mode() < 3 || !g) return; for (in
 static int  zzone_tier[ZDP_CAP]; static int zzone_off[ZDP_CAP]; static int zzone_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zzone_plan(IR_graph_t * g) {
-    extern int capture_frame_slot(const IR_t *); extern int arbno_frame_slot(const IR_t *); extern int fence_frame_slot(const IR_t *); extern int leaf_frame_slot(const IR_t *);
     if (!g || g->n <= 0) return 0;
     zzone_valid = 0;
     for (int i = 0; i < g->n; i++) {
         const IR_t * nd = g->all[i]; int s = zdp_slot(nd, 0); if (s < 0) continue;
-        int off = -1;
-        if (off < 0) off = capture_frame_slot(nd);   /* THE REGISTRY IS THE ONE OFFSET AUTHORITY -- four customers, ONE frame_slot_scan numbering, so no two classes can be assigned colliding slots.  Asked in registry order; each declines with -1 for a node it does not own, so the first non-decline is the owner and the order is a formality, not a precedence. */
-        if (off < 0) off = arbno_frame_slot(nd);
-        if (off < 0) off = fence_frame_slot(nd);
-        if (off < 0) off = leaf_frame_slot(nd);
-        zzone_off[s] = off;
-        zzone_tier[s] = (off >= 0) ? zdp_tier(nd) : ZDP_TIER_SPINE;   /* NO REGISTRY SLOT ⇒ SPINE BY CONSTRUCTION: there is no rbp home to address through, so the node's storage IS the FORTH frontier whatever the lattice thinks of its depth.  The tier verdict only arbitrates for a node that HAS both homes available. */
+        zzone_off[s] = -1;                    /* ⛔⭐⭐⭐ THE PLANNER DOES NOT CALL THE REGISTRY, AND THAT IS THE WHOLE FINDING OF THIS RUNG (s136, MEASURED).  The first cut asked capture/arbno/fence/leaf_frame_slot for every node and moved 81 of 656 programs -- and the diff was NOT an offset: it was a LABEL COUNTER (`.Lbynamefnzd4` -> `.Lbynamefnzd3`).  THE REGISTRY FUNCTIONS HAVE EMIT-TIME SIDE EFFECTS, so merely OBSERVING the plan perturbed the compiler.  That is the s132 monitor lesson wearing a new costume: a verdict on a DIFFERENT program.  The offset therefore stays where it already was -- the CUSTOMER'S OWN STAGED FIELD, passed into ZREF by the call site that knows which customer it is -- and the planner supplies only the TIER, which zdp_tier computes purely from the lattice and touches nothing. */
+        zzone_tier[s] = zdp_tier(nd);         /* PURE: reads zdp_ina/zdp_inb, allocates nothing, numbers nothing.  ⛔ AND THE REGISTRY KEY IS (NODE, CUSTOMER), NOT NODE -- one node can host a leaf cell AND a capture save, each with its own slot, so a node-keyed offset plan is not merely side-effecting, it is the wrong shape.  A future seat giving the planner offset authority must key it the same way the registry does. */
     }
     zzone_valid = 1; return 1;
 }
