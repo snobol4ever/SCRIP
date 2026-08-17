@@ -70,7 +70,7 @@ std::string bb_match_capture() {
          : (int)_.op_phase == 0 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE activation-frame SLOT (THREE ZETAS s87: registered in the CURRENT live frame, no push of its own -- see op_cap_frame_off)")
            + x86_alpha()
-           + x86("mov",  RDD("rbp", _.op_cap_frame_off), "r14d")
+           + x86("mov",  CFC(0), "r14d")
            + x86_gamma()
            + x86_beta_trampoline() )
          : (int)_.op_phase == 0 && _.op_frame_need
@@ -94,7 +94,7 @@ std::string bb_match_capture() {
          : (int)_.op_phase == 1 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND activation-frame SLOT (THREE ZETAS s87: reads the registered slot, no pop of its own -- the frame it lives in is released by whoever established it, MATCH_BEGIN/DEFER)")
            + x86_alpha()
-           + x86("mov",  "eax", RDD("rbp", _.op_cap_frame_off))
+           + x86("mov",  "eax", CFC(0))
            + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
@@ -137,7 +137,7 @@ std::string bb_match_capture() {
          : (int)_.op_phase == 2 && _.op_frame_need && _.op_cap_frame_off != -1
          ? ( x86("comment", "IR_MATCH_CAPTURE_IMM activation-frame SLOT (THREE ZETAS s87: reads the registered slot, no pop of its own)")
            + x86_alpha()
-           + x86("mov",  "eax", RDD("rbp", _.op_cap_frame_off))
+           + x86("mov",  "eax", CFC(0))
            + x86_anchor_enter()
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), (strtab_label(b, sizeof b, (_.op_sval ? _.op_sval : "")), b))
            + x86("mov",  "esi", "eax")
