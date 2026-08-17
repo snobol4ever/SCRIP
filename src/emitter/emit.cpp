@@ -874,7 +874,13 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (!nd) return 0;
     int64_t op = IR_LIT(nd).ival;
     if (op == BINOP_POW) return 1;
-    if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return 1;
+    /* ICN-CSET-NUMREAL: BINOP_CUNION/CDIFF/CINTER (cset union/diff/intersection) are NOT real arithmetic --
+     * they were unconditionally routed through op_num_real's bb_slot_get() fast path (meant for materialized
+     * floating-point value chains), which reads a stale/unrelated slot for cset-typed operands instead of the
+     * variable's actual current DESCR slot.  Witness: `t1 := ''; every t1 ++:= !L` accumulated only the LAST
+     * generated element instead of the union, because the augmented-assign's DEREF read of t1 was resolved
+     * through this wrong slot on every generator resumption.  Falling through to the general is_num check
+     * (false for cset ops) routes them through emit_binop_opnd_slot() instead, matching BINOP_CONCAT. */
     int is_num = (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || (op >= BINOP_LT && op <= BINOP_NE));
     if (!is_num) return 0;
     g_bnr_vn = 0; g_bnr_vnn = 0;
