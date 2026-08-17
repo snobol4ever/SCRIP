@@ -118,7 +118,8 @@ n8_match_arbno_as:      mov              eax, dword ptr [rbp + -60]
                         cmp              r14d, eax;                           je    n12_match_alternate_β
                         mov              dword ptr [rbp + -60], r14d;         jmp   n9_match_rpos_α
 n8_match_arbno_af:      mov              eax, dword ptr [rbp + -64]
-                        cmp              r14d, eax;                           jmp   n7_match_pos_β
+                        cmp              r14d, eax;                           jne   n12_match_alternate_β
+                                                                              jmp   n7_match_pos_β
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_rpos_α:        mov              rax, 0
                         mov              ecx, r15d

@@ -124,7 +124,8 @@ n9_match_arbno_as:      mov              eax, dword ptr [rbp + -76]
                         cmp              r14d, eax;                           je    n14_match_alternate_β
                         mov              dword ptr [rbp + -76], r14d;         jmp   n10_match_assign_cond_α
 n9_match_arbno_af:      mov              eax, dword ptr [rbp + -80]
-                        cmp              r14d, eax;                           jmp   n8_match_assign_save_β
+                        cmp              r14d, eax;                           jne   n14_match_alternate_β
+                                                                              jmp   n8_match_assign_save_β
 #-----------------------------------------------------------------------------------------------------------------------
 n10_match_assign_cond_α:
                         mov              eax, dword ptr [rbp + -64]
