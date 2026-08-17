@@ -2332,6 +2332,25 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_slot_off(int scan_rc, int idx) { return -((scan_rc == 2 ? 32 : 64) + 16 * idx); }   /* ⭐ R-4(b): THE ONE OFFSET RULE for the shared registry -- STANDING (rc 1) keeps its 64B PATCTX/retry/RESULT head above the slots; a blob activation (rc 2) keeps its 32B head {saved caller rbp @+0, entry γ wire r10 @-8, entry ω wire r11 @-16, pad @-24}, so slot 0 is [rbp-32]. Both: 16B per slot, idx in the interleaved ARBNO/CAPTURE-SAVE/FENCE1 numbering. */
+extern "C" int sn4_choice_rbp_off(void);
+int zzone_off_for(const IR_t * nd, int customer) {   /* ⭐⭐⭐⭐⭐ ζ-ONE U-3 — THE ONE (NODE, CUSTOMER) ZETA OFFSET RESOLVER (s138).  Lon's ask, verbatim s136 and again s138: "Complete the unified zeta offset calculation graph traversals and the template
+     * code that uses that data.  Finish the work to properly calculate and use offsets from RSP and RBP based on standing, activation frames, and spine cells."  zzone_plan (zeta_depth.c) owns the TIER half and
+     * could not own the OFFSET half; s136 blamed side effects and s137 REFUTED that -- frame_slot_scan is pure, the 81 movers were zw_carve_k -> bb_node_id.  The real blocker was SEQUENCING (the registry reads
+     * g_emit_cfg, live only during emission), and the cure is to resolve HERE, at emit time, rather than to cache a pre-emission answer.  ⛔ NO MEMO TABLE ON PURPOSE: a cache is a new file-scope mutable global and
+     * the NO-NEW-GLOBALS FACT RULE forbids it without an in-chat grant; the five callees are the same O(n) scans the staging sites already run per node, so resolving beats caching on rules AND costs nothing new.
+     * ⭐ ONE SENTINEL: every arm returns -1 for "no rbp home", including the CHOICE arm whose own authority spells that fact 0 -- two spellings of one fact is the s68/s70 spelled-twice disease, and normalising it
+     * at the single point of consumption is what lets ZREF have exactly one decline test for all five customers. */
+    if (!nd) return -1;
+    switch (customer) {
+    case ZCUS_LEAF:    return leaf_frame_slot(nd);
+    case ZCUS_ARBNO:   return arbno_frame_slot(nd);
+    case ZCUS_CAPTURE: return capture_frame_slot(nd);
+    case ZCUS_FENCE:   return fence_frame_slot(nd);
+    case ZCUS_CHOICE:  { int c = sn4_choice_rbp_off(); return c ? c : -1; }
+    default:           return -1;
+    }
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_defer_resume(void) {   /* ⭐ s123 THE ONE AUTHORITY for the SN4-DEFER-RESUME killswitch (was a static local at the emit.cpp beta-dispatch, s121 half B2; hoisted so bb_match_arbno_frame's af edge reads the SAME fact -- the beta route and the af unwind are ONE mechanism and must never disagree, the s68/s70 spelled-twice disease). =1 admits the leaf-generator resume carrier AND drops the af->defer_beta over-pop edge; =0 restores pre-s121 byte-identically. */
     static int _dres = -1; if (_dres < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); _dres = (e && *e == '0') ? 0 : 1; } return _dres;   /* ⭐ s124 DEFAULT INVERTED ON under Lon's in-chat grant (same words as the s120 grant): measured strictly repairing at s123 (+6/-0, crosscheck 299->305 m3) and inert at OFF.  Killswitch INVERTED, NEVER DELETED (R-7): SCRIP_DEFER_RESUME=0 restores pre-s121 byte-identically. */
 }
@@ -3595,6 +3614,19 @@ void emit_textf_flush(void) { emit_text_flush(); }
 #ifdef __cplusplus
 }
 #endif
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int zzone_off_cur_for(int customer) { return g_emit.node ? zzone_off_for(g_emit.node, customer) : -1; }   /* ⭐⭐⭐⭐⭐ ζ-ONE U-3 (s138): the CURRENT-NODE, PER-CUSTOMER bridge -- the offset twin of zzone_tier_of_cur, and the reason ZREF can ask the planner without a template ever touching an IR_t* (the emit.h:635 law).  g_emit.node is set at the ONE choke walk_bb_node_inner passes every template through, so "current node" is well-defined at every ZREF call by construction. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void zzone_disagree(int customer, int staged, int planned) {   /* ⭐⭐⭐⭐⭐ ζ-ONE U-3 — THE INSTRUMENTED ZETA CHECKER, DISPLACEMENT HALF (s138).  s136 named exactly why its every-port probe found nothing on the corpse: "It checks the BASE (RSP0-rsp vs the lattice) and never the
+     * DISPLACEMENT.  An operand banked at one offset and read at another is sound in rsp at both ends."  THIS IS THAT MISSING CHECK.  The planner resolves (node, customer) -> offset from the registry; the template
+     * passes the offset IT was staged; where the two disagree, the box is addressing a cell nobody assigned it -- the deferclob class verbatim (s133: "BOTH DEPTHS ARE KNOWABLE; they disagree about WHAT IS STORED
+     * WHERE").  ⛔ LOG, NOT TRAP, per the s136 probe's own ruling: one sweep yields the whole census, and a trap would stop at the first witness and hide the shape of the set.  Silent unless SCRIP_ZONE_BOMB=1, so
+     * the default arm is byte-identical and this costs nothing it is not asked for. */
+    static int bm = -1; if (bm < 0) { const char * e = getenv("SCRIP_ZONE_BOMB"); bm = (e && *e && *e != '0') ? (*e == '2' ? 2 : 1) : 0; }
+    if (!bm) return; if (bm == 1 && staged == planned) return;   /* MODE 1 = DISAGREEMENTS ONLY (the bug report).  MODE 2 = FULL CENSUS including agreements (the positive control): a mode-1 zero is only evidence once mode 2 has shown the site is reached at all. */
+    static const char * cn[ZCUS_N] = { "LEAF", "ARBNO", "CAPTURE", "FENCE", "CHOICE" };
+    fprintf(stderr, "[ZONEBOMB] op=%s customer=%s staged=%d planned=%d\n", g_emit.node ? bb_op_name(g_emit.node->op) : "?", (customer >= 0 && customer < ZCUS_N) ? cn[customer] : "?", staged, planned);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zzone_tier_of_cur(void) { extern int zzone_tier_of(const IR_t *); return g_emit.node ? zzone_tier_of(g_emit.node) : 2; }   /* ⭐⭐⭐⭐⭐ ζ-ONE U-1 (s136): the CURRENT-NODE bridge.  x86_asm.h may not touch the raw IR_t* (the emit.h:635 law -- templates read staged fields only), and g_emit.node is set at the ONE choke walk_bb_node_inner passes every template through, so this is the single sanctioned reader.  ONE function per fact: tier here, offset in its twin, never a third spelling. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
