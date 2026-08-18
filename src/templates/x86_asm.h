@@ -718,9 +718,11 @@ inline std::string x86_zeta_free_call();
  * preserved in git (this file, HEAD^) — its load-bearing conclusions (central ω free stays DISABLED; the
  * six-decoy-ω finding; op_omega_is_death computed-but-unread) are restated at the hook. */
 inline std::string x86_zdp_rbp_omega_at(int port);   /* ⭐ ZDP-RBP OMEGA (this session): forward decl -- x86_jmp is defined ahead of the body, same pattern as x86_zdp_probe_at. */
+inline std::string x86_zdp_rbp_gamma_at(int port);   /* ⭐ s142 -- ZDP-RBP GAMMA: same forward-declaration need, same reason. */
 inline std::string x86_jmp(int port) {
     return x86_port_hook(X86H_JMP, port)
          + x86_zdp_rbp_omega_at(port)   /* ⭐ ZDP-RBP TEARDOWN TEST (Lon in-chat, this session): the frame's lifetime is α..ω, so ω is where balance must be restored -- and ω is a TRANSFER, so it never reached the x86_deflabel seam the α/β probes ride.  Hooking the UNCONDITIONAL jmp path here is what makes the teardown half measurable at all; the jcc path is deliberately NOT hooked (a conditional ω may not be taken, and a flag-clobbering compare ahead of the jcc would destroy the condition). */
+         + x86_zdp_rbp_gamma_at(port)   /* ⭐ s142 -- ZDP-RBP SUCCESS TEST: γ is the fourth port, also a TRANSFER, also unhooked before this rung.  Same seam, same UNCONDITIONAL-only scope, mirrors the ω arm exactly. */
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
                           : (x86_rec("jmp") + x86_portname(port) + "\n"));
 }
@@ -2550,7 +2552,8 @@ extern "C" void rt_zdp_ev(void);
 extern "C" int emit_match_rbp(void);
 extern "C" int emit_defer_rbp(void);
 extern "C" int emit_defer_carve_rbp(void);
-inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ ZETA SM: OWN killswitch, independent of SCRIP_ZDP_TEARDOWN so this instrument and the s136 one cannot half-enable each other.  DEFAULT OFF, byte-identical by construction. */
+extern "C" void rt_zdp_sm_init(void);   /* ⭐ s142 -- registers the LEAKED-ACTIVATION atexit report (SCRIP_ZSM_LEAK_REPORT=1); a no-op when that env is unset, so this call costs nothing on the default arm.  This function is COMPILE-TIME code (a killswitch cache initializer), not a codegen site, so calling it here is not a TEMPLATE-ONLY-EMISSION violation -- no x86 bytes come from this call, only a C-side atexit registration that runs once when the FIRST port of the FIRST compiled program is emitted. */
+inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }   /* ⭐ ZETA SM: OWN killswitch, independent of SCRIP_ZDP_TEARDOWN so this instrument and the s136 one cannot half-enable each other.  DEFAULT OFF, byte-identical by construction. */
 inline int x86_zdp_rbp_frames() {   /* ⛔⭐⭐⭐ "DOES THIS NODE ACTUALLY EMIT `push rbp`?" -- NOT "is this node of a KIND that could".  THE FALSE-POSITIVE THIS FIXES, MEASURED: emit.cpp's s136 choke stages op_zdp_rbp=1 for EVERY IR_MATCH_BEGIN and IR_MATCH_DEFER unconditionally, but BOTH templates gate the actual push behind further conditions (emit_match_rbp() for the head; dfrm() && x86_port_cstack() && emit_defer_rbp() for the defer).  A node that never pushed holds one rbp at every port BY CONSTRUCTION and is perfectly correct -- yet an arm demanding an established frame convicts it, which is exactly what fired on m1_defer_LEN0, m1_inline_ALT and m1_nodefer_ALT, ALL THREE OF WHICH PRODUCE ORACLE-CORRECT OUTPUT.  An instrument that convicts passing programs cannot testify about failing ones, so the predicate is re-derived from the SAME authorities the templates consult -- never a second opinion. */
     if (!_.op_zdp_rbp) return 0;
     if (_.op_node_kind == (int)IR_MATCH_BEGIN) return emit_match_rbp();
@@ -2578,6 +2581,11 @@ inline std::string x86_zdp_rbp_omega_at(int port) {   /* ω rides the TRANSFER s
     if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
     if (port != X86P_OMEGA) return std::string();
     return x86_zsm_ev(3);
+}
+inline std::string x86_zdp_rbp_gamma_at(int port) {   /* ⭐ s142 -- γ, THE FOURTH PORT (FINDING-2026-08-17-s141 NEXT SEAT (a)): rides the SAME x86_jmp() TRANSFER seam ω already does -- x86_gamma() calls x86_jmp(X86P_GAMMA) (verified at the source, not assumed), so this needed zero new seams and zero template .cpp edits, exactly as the finding predicted ("γ already rides x86_jmp, no label minting"). UNCONDITIONAL γ only, same FLAGS CONTRACT reason x86_zdp_rbp_omega_at states for ω: x86_gamma(mnem) (the conditional/jcc overload) is deliberately NOT hooked here -- that is NEXT SEAT (b), condition inversion at the jcc seam, a separate rung. */
+    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
+    if (port != X86P_GAMMA) return std::string();
+    return x86_zsm_ev(4);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,
