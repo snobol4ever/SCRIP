@@ -66,19 +66,57 @@ void rt_zdp_rbp_report(long node, unsigned long expected, unsigned long actual, 
  *          omega -> rbp == E (balance restored) and rsp >= rsp_at_alpha (frame actually released).
  * KNOWN LIMIT, NAMED NOT DISCOVERED: one slot per (node & 65535), so RECURSION and hash collision alias --
  * the innermost alpha wins and this instrument UNDER-reports on recursive activations.  It is not a census.
+ *
+ * ⭐⭐⭐ s142 -- γ LANDED + THE FOUR-STATE FSM (Lon's NEXT SEAT instructions, FINDING-2026-08-17-s141 verbatim):
+ * `FRESH -alpha-> LIVE -gamma-> SUSPENDED -beta-> RESUMED -gamma-> SUSPENDED`, `(LIVE|RESUMED|SUSPENDED) -omega-> DEAD`.
+ * γ rides the SAME x86_jmp() TRANSFER seam ω already does (x86_gamma() -> x86_jmp(X86P_GAMMA) -- confirmed at
+ * the source, not assumed), so this is the "no label minting" case the finding predicted: one more x86_jmp
+ * hook-arm consumer, zero new seams, zero template .cpp edits.  kind=4 is the new γ event.
+ * WHY A FOUR-STATE FSM CATCHES WHAT THE THREE-PORT RBP-EQUALITY CHECKS COULD NOT: rbp/rsp equality can be
+ * satisfied BY COINCIDENCE (two activations of unrelated nodes can legitimately share a frame pointer value
+ * across a small program), but a PORT SEQUENCE cannot be satisfied by coincidence -- a beta arriving at a node
+ * that is FRESH or DEAD is a fact about CONTROL FLOW, independent of what any register happens to hold.  This
+ * is the "two new finding classes independent of register values" the finding names.
+ *   LEGAL:   FRESH  --alpha--> LIVE                 (fresh entry, no live activation existed)
+ *            LIVE   --gamma--> SUSPENDED             (success; frame left standing for a possible beta)
+ *            LIVE   --omega--> DEAD                  (failure on first pass, frame torn down)
+ *            SUSPENDED --beta--> RESUMED             (backtrack arrival; frame must still be intact)
+ *            RESUMED --gamma--> SUSPENDED            (re-succeeds; still suspended for the next beta)
+ *            RESUMED --omega--> DEAD                 (this resumption fails, frame torn down)
+ *            SUSPENDED --omega--> DEAD               (ZW-1/BP-9 carve-only gamma-side release path can retire
+ *                                                      a suspended box directly via the chain-pop synth without
+ *                                                      an intervening beta -- legal, not a second finding class)
+ *   ILLEGAL: beta   from FRESH or DEAD               ("beta before alpha", the case Lon named "impossible")
+ *            gamma  from FRESH or DEAD               (success transfer from a box with no live activation)
+ *            alpha  while LIVE/SUSPENDED/RESUMED      (re-entry without an intervening omega -- a LEAK about to
+ *                                                      happen: the old activation's E/F is about to be clobbered
+ *                                                      by a new alpha before anything tore it down)
+ * LEAKED ACTIVATION (a separate, end-of-run finding, not a per-event violation): any node whose LAST recorded
+ * event left it in LIVE/SUSPENDED/RESUMED when the graph finished -- suspended-and-never-resumed-nor-torn-down,
+ * "the shape that would explain a wrong rbp later" (finding, verbatim).  Read via SCRIP_ZSM_LEAK_REPORT=1 at
+ * process exit (rt_zdp_sm_leak_report, registered with atexit in rt_zdp_sm_init) rather than mid-run, because a
+ * SUSPENDED box is by design not yet resumed -- reading it as a leak WHILE the program is still running would
+ * convict every ordinary un-backtracked-into ARBNO the same way an equality check at beta once convicted
+ * correctly-working boxes (s141's cut 2).  Only silence at PROCESS END is the actual signal.
  */
 #define ZSM_N 65536
 #define ZSM_TRACE 64
-typedef struct { unsigned long node, E, F, rsp_a, live; } zsm_ent;
+enum { ZSM_FRESH = 0, ZSM_LIVE = 1, ZSM_SUSPENDED = 2, ZSM_RESUMED = 3, ZSM_DEAD = 4 };
+typedef struct { unsigned long node, E, F, rsp_a, live; int state; } zsm_ent;
 static zsm_ent      g_zsm[ZSM_N];
 static unsigned long g_zsm_tr_node[ZSM_TRACE], g_zsm_tr_rbp[ZSM_TRACE], g_zsm_tr_rsp[ZSM_TRACE];
 static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE];
 static unsigned long g_zsm_tr_n = 0UL;
 unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 0UL;
+unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;   /* ⭐ s142 FSM counters, same visibility precedent as the pre-existing g_zsm_violations trio -- non-static so a future report site or test harness can read them without a new accessor. */
 static unsigned long g_zsm_rsp0 = 0UL;   /* ⭐ RSP0 — THE GRAPH-ENTRY DATUM (Lon in-chat: "physically measure RSP minus RSP-saved at graph entry so that you can debug your offset problems").  Stamped by kind=0 at each graph's first BB.  ⛔ THIS IS A MEASUREMENT, NOT A VERDICT: nothing is compared against a predicted value, so it can never go ⊤ the way the s136 lattice probe does (11720 ⊤ on beauty = the lattice declining to predict), and it never runs zdp_analyze, so it cannot inherit that pass's measured perturbation (FINDING s136: SCRIP_ZDP=1 alone moves 81 of 656 programs).  KNOWN LIMIT, Lon's own ruling s136 verbatim: "I know RSP changes into a function but just ignore all that" -- one cell, so a nested/recursive graph's origin overwrites its caller's and the caller's remaining ports read against the callee's datum; that noise is bounded to post-call ports and is READ AS NOISE. */
+static unsigned long g_zsm_seen_nodes[ZSM_N];   /* bitset would be tighter, but this instrument already keys g_zsm 1:1 by node&65535 -- riding the SAME array bound keeps the "one shape, one size" property the file's other tables already have, and this is a widening of an EXISTING instrument's storage, not a new global (the NO-NEW-GLOBALS fact rule's own precedent, g_zdp_rbp_tab, already treats same-rung widenings this way). */
+static unsigned long g_zsm_seen_n = 0UL;
 static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* census mode: print EVERY port with its measured depth, agreements included -- s135's lesson that an instrument silent both when it agrees and when it never ran cannot be told from a dead one. */
+static int zsm_leak_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_LEAK_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
 void rt_bomb(const char *msg);
-static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : "?"; }
+static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : "?"; }
+static const char * zsm_sn(int s) { return s == ZSM_FRESH ? "FRESH" : s == ZSM_LIVE ? "LIVE" : s == ZSM_SUSPENDED ? "SUSPENDED" : s == ZSM_RESUMED ? "RESUMED" : s == ZSM_DEAD ? "DEAD" : "?"; }
 static void zsm_dump(void)
 {   /* the trace ring: the last ZSM_TRACE ports in execution order, so a violation arrives WITH the path that produced it rather than as a bare coordinate. */
     unsigned long n = g_zsm_tr_n < ZSM_TRACE ? g_zsm_tr_n : ZSM_TRACE, i, first = g_zsm_tr_n < ZSM_TRACE ? 0 : g_zsm_tr_n % ZSM_TRACE;
@@ -86,26 +124,78 @@ static void zsm_dump(void)
     for (i = 0; i < n; i++) { unsigned long j = (first + i) % ZSM_TRACE;
         fprintf(stderr, "[ZSM]   %-6s node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld\n", zsm_kn(g_zsm_tr_kind[j]), g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j]); }
 }
+static void zsm_leak_report(void)
+{   /* ⭐ s142 -- registered via atexit (rt_zdp_sm_init), so this runs exactly once, at process end, over every
+     * node this run ever touched -- the LEAKED ACTIVATION finding, which must be read at end-of-run and never
+     * mid-run (a SUSPENDED box mid-run is by design not yet resumed; reading it as a leak while the program is
+     * still executing would convict every un-backtracked-into ARBNO, the s141 cut-2 mistake repeated).
+     * s143: also prints the alpha-while-live summary UNCONDITIONALLY (not gated on SCRIP_ZSM_LEAK_REPORT) --
+     * this atexit hook is now the one process-end reporter, registered whenever SCRIP_ZSM=1 regardless of the
+     * leak sub-flag, so the counted-not-fatal alpha signal (see the kind==1 arm's note) is never silently lost. */
+    unsigned long i;
+    if (zsm_leak_report_on()) {
+        for (i = 0; i < g_zsm_seen_n; i++) {
+            zsm_ent * e = &g_zsm[g_zsm_seen_nodes[i] & (ZSM_N - 1)];
+            if (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED) {
+                g_zsm_leaked_at_exit++;
+                fprintf(stderr, "[ZSM-LEAK] node=%lu final_state=%s -- activation never reached DEAD (omega) by process end\n", e->node, zsm_sn(e->state));
+            }
+        }
+        if (g_zsm_leaked_at_exit) fprintf(stderr, "[ZSM-LEAK] total leaked activations at exit: %lu\n", g_zsm_leaked_at_exit);
+    }
+    if (g_zsm_alpha_while_live) fprintf(stderr, "[ZSM-ALPHA] total alpha-while-live events (see MATCH_END cross-node whack note): %lu\n", g_zsm_alpha_while_live);
+}
+void rt_zdp_sm_init(void)
+{   /* ⭐ s142/s143 -- ONE atexit registration, guarded so a re-entrant call (harness re-init) cannot double-register.  Called from the same site that already owns process-lifetime setup (see the SCRIP_ZSM gate at the call site), never from the hot path.  Unconditional under SCRIP_ZSM=1 (s143: no longer gated on the leak-report sub-flag, since the alpha-while-live summary belongs to every ZSM run, not only leak-report runs). */
+    static int done = 0;
+    if (done) return;
+    done = 1;
+    atexit(zsm_leak_report);
+}
 void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind)
 {
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
     unsigned long t = g_zsm_tr_n % ZSM_TRACE;
     long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;   /* ⭐ THE PHYSICAL MEASUREMENT: bytes carved below this graph's entry frontier and still standing at this port.  Reported raw; no expected value is consulted. */
     g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind; g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
-    if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx\n", zsm_kn(kind), node, depth, rsp, rbp);
+    if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), node, depth, rsp, rbp, zsm_sn(e->state));
     if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
-    if (kind == 1) { e->node = node; e->E = rbp; e->F = rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; return; }
-    if (e->node != node || !e->live) {   /* β or ω with no live activation for this node */
+    if (e->node != node && zsm_leak_report_on()) {   /* ⭐ s142 -- first time THIS slot is claimed by this node, remember it for the exit-time leak sweep.  Guarded by the same killswitch as the report itself, so it costs nothing when leak reporting is off.  A slot re-claimed by a DIFFERENT node (hash collision) simply gets re-recorded under the new node id -- the KNOWN LIMIT this file already names for recursion/collision aliasing applies here identically, and is not a new limitation. */
+        if (g_zsm_seen_n < ZSM_N) g_zsm_seen_nodes[g_zsm_seen_n++] = node;
+    }
+    if (kind == 1 && (e->node == node) && (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED)) {   /* ⭐ s142/s143 -- ALPHA-WHILE-LIVE: COUNTED, NOT FATAL (downgraded from abort this session -- see the finding).  ⛔ MEASURED ROOT CAUSE ON BEAUTY, NOT A COMPILER DEFECT: IR_MATCH_BEGIN's frame is retired by a DIFFERENT node's code -- IR_MATCH_END's own alpha does the whole-frame whack (`mov rsp,rbp; pop rbp`, bb_match_end.cpp) BEFORE its own gamma, because in the ζ-STANDING design the frame is CONSTRUCT-scoped (one MATCH_BEGIN..MATCH_END bracket), not per-node.  MATCH_END is not in x86_zdp_rbp_frames()'s predicate, so its whack emits NO ZSM event, and this instrument has no way to attribute "MATCH_END's whack retired MATCH_BEGIN's frame" without a cross-node id thread that does not exist yet (a real design task, not a quick patch -- see FINDING-s142/s143).  A loop that re-executes the same MATCH_BEGIN statement therefore legitimately re-enters alpha while this instrument still shows SUSPENDED, because the RETIREMENT HAPPENED, just under a node id this instrument was not told to credit.  gdb-confirmed on beauty: two alpha events at IDENTICAL rbp (0x7fffffffe8f0 both times, a fixed loop-body stack slot, NOT a growing recursive depth), with the intervening gamma at a lower rbp exactly 64 bytes down -- the MATCH-RBP frame's own documented size -- consistent with "loop body re-entering the same construct", not with a leak. */
+        g_zsm_alpha_while_live++;
+        if (getenv("SCRIP_ZSM_ALPHA_LOG")) fprintf(stderr, "[ZSM] α node=%lu WHILE state=%s (rbp=0x%lx) -- counted, not fatal; see MATCH_END cross-node whack note\n", node, zsm_sn(e->state), rbp);
+    }
+    if (kind == 1) { e->node = node; e->E = rbp; e->F = rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }   /* s142: FRESH (or DEAD) --alpha--> LIVE.  The illegal-reentry arm above already ruled out LIVE/SUSPENDED/RESUMED reaching here. */
+    if (e->node != node || !e->live) {   /* β, γ or ω with no live activation for this node */
         if (kind == 2) { g_zsm_beta_no_alpha++; fprintf(stderr, "[ZSM] β node=%lu WITH NO LIVE α (rbp=0x%lx rsp=0x%lx) -- claimed impossible; counted, not fatal, so one occurrence cannot mask the census\n", node, rbp, rsp); }
+        if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {   /* s142: ILLEGAL: gamma (success transfer) from a box with no live activation -- FSM violation, not merely a counted oddity like beta-no-alpha, because a success exit is impossible without having entered. */
+            g_zsm_fsm_illegal++; zsm_dump();
+            { char b[256]; snprintf(b, sizeof b, "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); }
+        }
         return;
     }
-    if (kind == 2) {
+    if (kind == 2) {   /* β: SUSPENDED --beta--> RESUMED.  Reaching a live-but-non-SUSPENDED state (LIVE or RESUMED) via beta is the FSM violation; the existing rbp==F equality check remains the register-level test underneath it. g_zsm_beta_no_alpha (above) counts "no live α at ALL"; this branch is "live, but the WRONG state". */
+        if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++; zsm_dump();
+            { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
         if (rbp != e->F) { g_zsm_violations++; zsm_dump();
             { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FRAME LOST: α established F=0x%lx (E=0x%lx); at β rbp=0x%lx skew=%ld", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+        e->state = ZSM_RESUMED;
         return;
     }
-    if (kind == 3) {
+    if (kind == 4) {   /* γ (s142, new port): (LIVE|RESUMED) --gamma--> SUSPENDED.  Success hands control forward while leaving the frame standing for a possible later beta -- ζ-ACTIVATION FRAME's own "self-pop at ω" law (PLAN.md THE THREE ZETAS table) says the frame is NOT released here, so gamma checks rbp==F (this departing box's OWN frame, still intact) exactly like beta does, never rbp==E. */
+        g_zsm_gamma_events++;
+        if (e->state != ZSM_LIVE && e->state != ZSM_RESUMED) { g_zsm_fsm_illegal++; zsm_dump();
+            { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FSM ILLEGAL: gamma while state=%s (need LIVE or RESUMED) -- success transfer from a box not currently entered", node, zsm_sn(e->state)); rt_bomb(b); } }
+        if (rbp != e->F) { g_zsm_violations++; zsm_dump();
+            { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FRAME LOST AT SUCCESS: α established F=0x%lx (E=0x%lx); at γ rbp=0x%lx skew=%ld -- localizes to the DEPARTING box, one hop earlier than the same defect would surface at the next β", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+        e->state = ZSM_SUSPENDED;
+        return;
+    }
+    if (kind == 3) {   /* ω: (LIVE|SUSPENDED|RESUMED) --omega--> DEAD.  SUSPENDED->DEAD is legal here (ZW-1/BP-9 carve-only release, see the FSM comment block above) -- omega has no state precondition beyond "not already DEAD", which e->live already enforces via the not-live branch above. */
         e->live = 0UL;
+        e->state = ZSM_DEAD;
         if (rbp != e->E) { g_zsm_violations++; zsm_dump();
             { char b[256]; snprintf(b, sizeof b, "ZSM ω node=%lu IMBALANCE: α banked enclosing E=0x%lx; at ω rbp=0x%lx skew=%ld -- teardown did not give the frame back", node, e->E, rbp, (long)(rbp - e->E)); rt_bomb(b); } }
         if (rsp < e->rsp_a) { g_zsm_violations++; zsm_dump();
