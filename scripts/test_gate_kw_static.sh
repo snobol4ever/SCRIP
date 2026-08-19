@@ -11,24 +11,30 @@ set -uo pipefail
 SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBE_DIR="${KW_PROBE_DIR:-/home/claude/corpus/probe/kw}"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
-MODE="both"; VERBOSE=0
+MODE="both"; VERBOSE=0; ARMED="${SCRIP_KW_STATIC:-}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --mode) MODE="$2"; shift 2 ;;
         --verbose|-v) VERBOSE=1; shift ;;
+        --armed) ARMED=1; shift ;;
+        --legacy) ARMED=0; shift ;;
         *) echo "unknown option: $1"; exit 2 ;;
     esac
 done
 [[ -x "$SCRIP_BIN" ]] || { echo "GATE BLOCKED: no scrip binary at $SCRIP_BIN (run make -j8 scrip)"; exit 2; }
 [[ -d "$PROBE_DIR" ]] || { echo "GATE BLOCKED: no probe dir at $PROBE_DIR (clone corpus)"; exit 2; }
+[[ -n "$ARMED" ]] && export SCRIP_KW_STATIC="$ARMED"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0; failed_names=()
-run_mode3() { timeout 30 "$SCRIP_BIN" --run "$1" < /dev/null > "$2" 2>&1; }
+# a witness may ship a .dat beside it -- that file is its stdin (kw_trim_effect needs one to
+# show that &TRIM actually trims).  Absent, stdin is /dev/null.
+stdin_for() { local d="${1%.sno}.dat"; [[ -f "$d" ]] && echo "$d" || echo /dev/null; }
+run_mode3() { timeout 30 "$SCRIP_BIN" --run "$1" < "$(stdin_for "$1")" > "$2" 2>&1; }
 run_mode4() {
     local sno="$1" out="$2" s="$WORK/m4.s" exe="$WORK/m4.bin"
     timeout 30 "$SCRIP_BIN" --compile "$sno" < /dev/null > "$s" 2>/dev/null || return 1
     gcc -no-pie -o "$exe" "$s" -L"$SCRIP_DIR/out" -lscrip_rt -lm > /dev/null 2>&1 || return 1
-    LD_LIBRARY_PATH="$SCRIP_DIR/out" timeout 30 "$exe" < /dev/null > "$out" 2>&1
+    LD_LIBRARY_PATH="$SCRIP_DIR/out" timeout 30 "$exe" < "$(stdin_for "$sno")" > "$out" 2>&1
 }
 for ref in "$PROBE_DIR"/*.ref; do
     [[ -e "$ref" ]] || { echo "GATE BLOCKED: no .ref files in $PROBE_DIR"; exit 2; }
@@ -48,7 +54,7 @@ for ref in "$PROBE_DIR"/*.ref; do
     done
 done
 echo "-----------------------------------------------------------------------"
-echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE)"
+echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
 if [[ $fail -gt 0 ]]; then
     echo "FAILING: ${failed_names[*]}"
     echo "GATE RED — see FINDING-2026-08-19-s146-KW1-census-keyword-truth-table.md"

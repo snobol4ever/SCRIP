@@ -2196,6 +2196,7 @@ DESCR_t NV_GET_fn(const char *name) {
         }
         return STRVAL(rt_ws_strdup_c(_io_chan[ch].buf));
     }
+    if (rt_kw_static_on()) goto kwb_no_bare_hijack;   /* CLASS A (FINDING s146 §2): manual Ch.16 p.187 -- keyword names "are set apart from other variables by the unary operator ampersand", so a BARE name is an ordinary variable whose initial value is the null string. Oracle-measured: all 14 names below read empty in sbl. The family below hijacks them BEFORE the variable table; when the block is armed we skip the whole family and let the table answer. Gated, not deleted -- KW-4 deletes it, after the blast radius is measured. */
     if (strcmp(name, "STCOUNT")  == 0) return INTVAL(kw_stcount);
     if (strcmp(name, "STNO")     == 0) return INTVAL(kw_stno);
     if (strcmp(name, "STLIMIT")  == 0) return INTVAL(kw_stlimit);
@@ -2211,6 +2212,7 @@ DESCR_t NV_GET_fn(const char *name) {
     if (strcmp(name, "FNCLEVEL") == 0) return INTVAL(kw_fnclevel);
     if (strcmp(name, "RTNTYPE")  == 0) return STRVAL(kw_rtntype);
     if (core_seed_names() && strcmp(name, "ALPHABET") == 0) return BSTRVAL(alphabet, 256);   /* s145 M1-R0 BRIDGE: bare ALPHABET is a plain variable (oracle: empty); this special-case hijacked it before the table. Gated, not deleted -- the structural fix is KW-STATIC (Lon 2026-08-19: "place all the keywords as statics in the emitted asm and use direct references"), which deletes the whole special-case family. &ALPHABET keyword reads never pass here (rt_keyword_read_snobol4 serves the C array directly). */
+    kwb_no_bare_hijack: ;
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         return scan_subj ? STRVAL(scan_subj) : NULVCL;
@@ -2250,6 +2252,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         fprintf(stderr, "%s\n", s);
         return val;
     }
+    if (rt_kw_static_on()) goto kwb_no_bare_hijack_set;   /* CLASS A, WRITE HALF (FINDING s146 §2): the read family at NV_GET_fn has a mirror here -- a bare `ANCHOR = 1` must create an ORDINARY VARIABLE, not set the keyword. Oracle-measured (probe/kw/kw_bare_shadow): assigning a bare name leaves &ANCHOR at 0 and reads the assigned string back. Gated with the read half so the two never disagree; KW-4 deletes both. */
     if (strcmp(name, "STLIMIT")  == 0) { kw_stlimit  = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
     if (strcmp(name, "ANCHOR")   == 0) { kw_anchor   = (val.v==DT_I)?val.i:(int64_t)to_real(val); if (g_rtcc_on) rtccb[RTCC_SLOT_R8] = (uint64_t)kw_anchor; return val; }
     if (strcmp(name, "TRIM")     == 0) { kw_trim     = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
@@ -2263,6 +2266,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     if (strcmp(name, "TRACE")    == 0) { kw_trace    = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
     if (strcmp(name, "ERRLIMIT") == 0) { kw_errlimit = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
     if (strcmp(name, "CODE")     == 0) { kw_code     = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
+    kwb_no_bare_hijack_set: ;
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? val.s : VARVAL_fn(val);
