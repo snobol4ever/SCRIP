@@ -42,7 +42,7 @@ if [ "$APPEND" != 1 ]; then
 fi
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
-  grep -q "INCLUDE 'harness.inc'" "$sno" || continue   # BM-ONE (s153): legacy programs share the directory; only harness.inc programs emit iters:/ms:
+  grep -q "INCLUDE '.*harness.inc'" "$sno" || continue   # BM-ONE (s153): legacy programs share the directory; only harness.inc programs emit iters:/ms:
   s=$(basename "${sno%.sno}")
   # build the mode-4 program ONCE, not once per rep
   m4ok=0
