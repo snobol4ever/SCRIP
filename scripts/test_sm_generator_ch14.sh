@@ -14,7 +14,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$HERE/.."
 SRC="$ROOT/src/runtime/x86"
-OBJ_DIR="/tmp/si_objs"
+OBJ_DIR="/tmp/si_objs$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd | tr '/' '-')"  # mirrors Makefile OBJ (per-tree, s150)
 BUILD_DIR="/tmp/ch14_test"
 
 mkdir -p "$BUILD_DIR"

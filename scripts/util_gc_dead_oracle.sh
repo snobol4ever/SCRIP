@@ -22,7 +22,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-OBJ=/tmp/si_objs
+OBJ="/tmp/si_objs$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd | tr '/' '-')"  # mirrors Makefile OBJ (per-tree, s150)
 OUT=/tmp/dead_current.txt
 
 echo "[oracle] recompiling all TUs with section splitting ..."

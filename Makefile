@@ -26,7 +26,8 @@ SRC     := $(ROOT)/src
 RT      := $(SRC)/runtime
 BOXES   := $(SRC)/machine
 CORPUS  ?= $(ROOT)/../corpus
-OBJ     := /tmp/si_objs
+# PER-TREE objdir (s150): two checkouts NEVER share .o files — the HQ-27 ABI-mix class is structurally impossible. Override only deliberately. (Comment on own line: make keeps trailing spaces before an inline #.)
+OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
@@ -46,7 +47,7 @@ NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(SRC)/backends/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
-.PHONY: all scrip setup \
+.PHONY: all scrip setup pristine \
         test test-ir test-all \
         native codegen-emit-test \
         monitor-ipc \
@@ -57,6 +58,10 @@ SCRIP_CC_BIN := $(ROOT)/scrip
 # ── Primary target ────────────────────────────────────────────────────────────
 
 all: scrip
+
+pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT): wipe THIS tree's objdir + out, rebuild everything. Supersedes the hand-typed `rm -rf /tmp/si_objs out && make`.
+	rm -rf $(OBJ) $(ROOT)/out
+	$(MAKE) all
 
 # ── libscrip_rt.so — runtime support library for --native codegen-emit --x64 ────────────
 # EM-6: full SNOBOL4 runtime compiled -fPIC and linked into the .so.

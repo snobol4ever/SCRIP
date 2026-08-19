@@ -22,7 +22,7 @@ cd "$ROOT"
 # Run the normal build first to populate /tmp/si_objs with .o files.
 make -j4 scrip 2>&1 | tail -3
 
-OBJ=/tmp/si_objs
+OBJ="/tmp/si_objs$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd | tr '/' '-')"  # mirrors Makefile OBJ (per-tree, s150)
 SRC="$ROOT/src"
 
 # Compile the diag wrapper itself, with RS23_DIAG defined and the same
