@@ -45,7 +45,6 @@ run() {
 }
 run claws5         "${XN_CLAWS5:-20}"   "$D/CLAWS5inTASA.dat" ""
 run treebank-list  "${XN_TBL:-6}"       "$D/VBGinTASA.dat"    "-s256m"
-run treebank-array "${XN_TBA:-1}"       "$D/VBGinTASA.dat"    "-s256m"
 run calculator-1   "${XN_C1:-10}"       "$D/calculator.input" ""
 run calculator-2   "${XN_C2:-48}"       "$D/calculator.input" ""
 printf '%.0s-' {1..66}; echo

@@ -5,7 +5,7 @@
 #
 # THREE HONESTY RULES, enforced mechanically, not by discipline:
 #  (1) A mode that does not reproduce sbl's output byte-for-byte gets NO RATIO — printed as "X-DIV".
-#      (s158: treebank-array's ~8x was measured in its DIVERGING mode and meant nothing.)
+#      (s158:'s ~8x was measured in its DIVERGING mode and meant nothing.)
 #  (2) Every window is printed. Windows under MIN_MS (default 800) are flagged NOISY: s147 measured
 #      1.4x-3.9x run-to-run swings below ~1s, so a ratio from a short window is not evidence.
 #  (3) Timing excludes compile/link for m4 (binary built once, before the clock) and excludes nothing
@@ -26,7 +26,7 @@ rat() { python3 -c "import sys;a=float(sys.argv[1]);b=float(sys.argv[2]);print('
 printf '%-26s %8s %8s %8s %8s %8s  %s\n' PROGRAM SBLms M3ms M4ms M3/SBL M4/SBL FLAG
 printf '%.0s-' {1..82}; echo
 for nm in claws5 claws5-match claws5-match-fence \
-          treebank-list treebank-array treebank-match treebank-match-fence \
+          treebank-list treebank-match treebank-match-fence \
           json-match json-match-fence \
           calculator-1 calculator-1-match calculator-1-match-fence \
           calculator-2 calculator-2-match calculator-2-match-fence; do
