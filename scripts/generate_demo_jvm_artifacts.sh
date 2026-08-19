@@ -15,7 +15,6 @@ PROGRAMS=(
     "wordcount.sno:wordcount"
     "claws5.sno:claws5"
     "treebank-list.sno:treebank-list"
-    "treebank-array.sno:treebank-array"
     "expression.sno:expression"
     "porter.sno:porter"
     "beauty/beauty.sno:beauty"

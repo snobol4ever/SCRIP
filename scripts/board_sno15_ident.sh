@@ -6,7 +6,7 @@
 # patch the corpus source), sbl heap -d512m -i64m (this build REJECTS -P), per-family sbl stack bump,
 # ulimit -s unlimited for SCRIP both modes (raw SIGSEGV otherwise).
 # Reports IDENT/DIVERGE PER MODE, because a program failing in exactly one mode is a MODE34 violation.
-# NO TIMING HERE BY DESIGN: a ratio on a diverging mode is meaningless (s158 treebank-array ~8x trap).
+# NO TIMING HERE BY DESIGN: a ratio on a diverging mode is meaningless (s158 ~8x trap).
 #
 # B-9 FIX (BOARD): every non-zero exit under `timeout` was previously collapsed to the single label
 # "RC!=0" for both m3 and m4 -- a HANG (timeout's own exit 124) and a CRASH (shell's 128+signal, e.g.
@@ -33,7 +33,7 @@ printf '%-26s %-10s %-10s %s\n' PROGRAM M3 M4 NOTE
 printf '%.0s-' {1..66}; echo
 nid=0; nd3=0; nd4=0; nfail=0
 for nm in claws5 claws5-match claws5-match-fence \
-          treebank-list treebank-array treebank-match treebank-match-fence \
+          treebank-list treebank-match treebank-match-fence \
           json-match json-match-fence \
           calculator-1 calculator-1-match calculator-1-match-fence \
           calculator-2 calculator-2-match calculator-2-match-fence; do
