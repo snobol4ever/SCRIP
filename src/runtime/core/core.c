@@ -2151,6 +2151,7 @@ typedef struct _VarEntry {
     DESCR_t  val;
     DESCR_t *cell;
     int      is_gva;
+    int      is_const;   /* SN4-CONSTANTS (s145, Lon's bit grant): 1 = sealed &constant cell -- one-time assignment, any later write = error 341 */
     struct _VarEntry *next;
 } NV_t;
 static NV_t *_var_buckets[VAR_BUCKETS];
@@ -2297,6 +2298,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, name) == 0) {
+            if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
             for (int _ri = 0; _ri < _var_reg_n; _ri++)
                 if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; }
@@ -2310,6 +2312,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
+    e->is_const = (name[0] == '&') ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     for (int _ri = 0; _ri < _var_reg_n; _ri++)
@@ -2317,6 +2320,8 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     comm_var(name, val);
     return val;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -2344,6 +2349,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
+    e->is_const = (name[0] == '&') ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     return &e->val;

@@ -320,7 +320,10 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (!strcmp(lk, "errtext")) return g_sno_errtext ? STRVAL(g_sno_errtext) : STRVAL("");
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
-    return NV_GET_fn(sval);
+    { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }   /* SN4-CONSTANTS CN-2 (s145): tier-3 = unknown &name = USER CONSTANT, NV-keyed "&Name" -- the lexer strips '&', which aliased &W onto plain W (measured: amp=bare); canonicalizing here separates the namespaces */
+      extern int NV_EXISTS_fn(const char *);
+      if (!NV_EXISTS_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return NULVCL; }
+      return NV_GET_fn(ck); }
 }
 /*--- per-statement entry hook: &STNO = current source stmt number, &LASTNO = previous, &STCOUNT = running executed tally (manual p195/p158) ---*/
 void rt_stmt_enter(long stno) {
@@ -381,5 +384,6 @@ void rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (!strcmp(lk,"dump"))     { g_dump = iv; return; }
     if (!strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return; }
     if (!strcmp(lk,"fullscan") || !strcmp(lk,"stlimit") || !strcmp(lk,"abend") || !strcmp(lk,"code")) return;
-    NV_SET_fn(sval, v);
+    { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }   /* SN4-CONSTANTS CN-2: same canonical "&Name" key as the read side; NV_SET_fn's create marks is_const and its update path enforces the one-time seal (error 341) */
+      NV_SET_fn(ck, v); }
 }
