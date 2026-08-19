@@ -4,9 +4,9 @@
 #   s4e_msg.sh claim <topic>              s4e_msg.sh board [my new status text]
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
-PO="${S4E_POST:-/home/claude/postoffice}"
+PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
-if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude1) ME=seat1;; /home/claude2) ME=seat2;; /home/claude3) ME=seat3;; *) ME="$(basename "$S4E")";; esac; fi
+if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude1) ME=seat1;; /home/claude2) ME=seat2;; /home/claude3) ME=seat3;; /home/claude4) ME=seat4;; /home/claude5) ME=seat5;; *) ME="$(basename "$S4E")";; esac; fi
 cmd="${1:-check}"
 case "$cmd" in
   send)  to="${2:?to}"; topic="${3:?topic}"; shift 3; mkdir -p "$PO/$to/inbox"
