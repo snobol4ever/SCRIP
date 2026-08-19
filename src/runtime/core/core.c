@@ -1123,10 +1123,10 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             char *end = NULL;
             long long iv = strtoll(s, &end, 10);
             while (*end == ' ') end++;
-            if (*end == ' ') return INTVAL((int64_t)iv);
+            if (*end == '\0') return INTVAL((int64_t)iv);
             double rv = strtod(s, &end);
             while (*end == ' ') end++;
-            if (*end == ' ') return REALVAL(rv);
+            if (*end == '\0') return REALVAL(rv);
         }
         return FAILDESCR;
     }
