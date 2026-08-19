@@ -80,6 +80,7 @@ printf "%-20s %12s %12s %12s   %8s %8s %9s  %s\n" "--------------------" "------
 tot_ok=0; tot_bad=0
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
+  grep -q "INCLUDE 'harness.inc'" "$sno" || continue
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
   declare -A R=(); declare -A C=()
   for eng in $ENGINES; do
