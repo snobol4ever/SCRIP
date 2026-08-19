@@ -2156,10 +2156,7 @@ typedef struct _VarEntry {
 } NV_t;
 static NV_t *_var_buckets[VAR_BUCKETS];
 static int _var_init_done = 0;
-#define VAR_REG_MAX 1024
-typedef struct { const char *name; DESCR_t *ptr; } VarReg;
-static VarReg _var_reg[VAR_REG_MAX];
-static int    _var_reg_n = 0;
+
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _var_init(void) {
     if (_var_init_done) return;
@@ -2239,7 +2236,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; for (int _ri = 0; _ri < _var_reg_n; _ri++) if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; } if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
+    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -2300,8 +2297,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         if (strcmp(e->name, name) == 0) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
-            for (int _ri = 0; _ri < _var_reg_n; _ri++)
-                if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; }
             comm_var(name, val);
             return;
         }
@@ -2315,8 +2310,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->is_const = (name[0] == '&') ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
-    for (int _ri = 0; _ri < _var_reg_n; _ri++)
-        if (strcmp(_var_reg[_ri].name, name) == 0) { *_var_reg[_ri].ptr = val; break; }
     comm_var(name, val);
     return val;
 }
@@ -2379,7 +2372,7 @@ void NV_CLEAR_fn(void) {
     _var_init();
     for (int _i = 0; _i < VAR_BUCKETS; _i++) {
         for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next)
-            if (!_e->is_const && !is_protected_pat_name(_e->name)) { if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL; }   /* ⭐⭐⭐ SN4-CONSTANTS CN-6 + CN-7 — CLEAR SKIPS WHAT IS PROTECTED AND STORES THROUGH THE BINDING THE ENTRY ALREADY CARRIES. Manual Ch.19 CLEAR: "the null string is assigned to all user variables in the system", and SPITBOL "differs from SNOBOL4 by not clearing protected variables, such as ARB". ORACLE-MEASURED, not inferred: DATATYPE(ARB) reads PATTERN both before and after CLEAR() while an ordinary variable goes null in the same program. CN-6 (is_const): a sealed &constant raises 341 on any write, so it is protected under SCRIP's own regime -- nulling it drove PATTERN->NULL while leaving the ENTRY alive, so 342 could not fire (NV_EXISTS_fn stays true) and 341 then refused every restore, leaving the cell permanently null AND permanently unwritable. CN-7 (is_gva): this was the ONLY writer in the file that ignored the GVA binding -- 2185/2227/2242/2302/2345 all ask `is_gva ? *cell : val`, CLEAR alone stored to `val` unconditionally, so it nulled a copy the compiled program never reads and every CLEAR() was silently a no-op for ordinary variables. Deliberately NOT routed through NV_SET_fn even though that is the store authority: an I/O association sets g_call_fastpath_off (2912/2940), which would send every entry down the slow path into _io_chan_find_by_var -- a bulk reset must not fire I/O associations or raise 42 on a protected name the way an ordinary assignment does. _var_reg needs no update here: _var_reg_n is never incremented anywhere in the file, so its loops at 2242/2303/2318 are already no-ops over empty storage. */
+            if (!_e->is_const && !is_protected_pat_name(_e->name)) { if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL; }   /* ⭐⭐⭐ SN4-CONSTANTS CN-6 + CN-7 — CLEAR SKIPS WHAT IS PROTECTED AND STORES THROUGH THE BINDING THE ENTRY ALREADY CARRIES. Manual Ch.19 CLEAR: "the null string is assigned to all user variables in the system", and SPITBOL "differs from SNOBOL4 by not clearing protected variables, such as ARB". ORACLE-MEASURED, not inferred: DATATYPE(ARB) reads PATTERN both before and after CLEAR() while an ordinary variable goes null in the same program. CN-6 (is_const): a sealed &constant raises 341 on any write, so it is protected under SCRIP's own regime -- nulling it drove PATTERN->NULL while leaving the ENTRY alive, so 342 could not fire (NV_EXISTS_fn stays true) and 341 then refused every restore, leaving the cell permanently null AND permanently unwritable. CN-7 (is_gva): this was the ONLY writer in the file that ignored the GVA binding -- 2185/2227/2242/2302/2345 all ask `is_gva ? *cell : val`, CLEAR alone stored to `val` unconditionally, so it nulled a copy the compiled program never reads and every CLEAR() was silently a no-op for ordinary variables. Deliberately NOT routed through NV_SET_fn even though that is the store authority: an I/O association sets g_call_fastpath_off (2912/2940), which would send every entry down the slow path into _io_chan_find_by_var -- a bulk reset must not fire I/O associations or raise 42 on a protected name the way an ordinary assignment does. CN-8 DELETED _var_reg outright: its producer NV_REG_fn and consumer NV_SYNC_fn were both removed as GC-proven-dead by the 2026-06-15 sweep 1308f790, leaving three write-through loops and a GC root visit bounded by a counter nothing incremented -- a modes-1/2 name-to-DESCR* registry with no meaning in modes 3/4, where the compiled program reads GVA cells and NV entries directly. Deletion is identity by reachability, not by measurement. */
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2951,5 +2944,4 @@ void core_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *d);
     for (int b = 0; b < VAR_BUCKETS; b++) for (NV_t *e = _var_buckets[b]; e; e = e->next) { rt_gc_visit_descr(&e->val); if (e->cell) rt_gc_visit_descr(e->cell); }
-    for (int i = 0; i < _var_reg_n; i++) if (_var_reg[i].ptr) rt_gc_visit_descr(_var_reg[i].ptr);
 }

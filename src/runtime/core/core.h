@@ -133,11 +133,9 @@ void    FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
 void   FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
 DESCR_t  NV_GET_fn(const char *name);
 DESCR_t  NV_SET_fn(const char *name, DESCR_t val);
-void    NV_REG_fn(const char *name, DESCR_t *ptr);
-void    NV_SYNC_fn(void);
 void    NV_CLEAR_fn(void);
 typedef struct { const char *name; DESCR_t val; } NvPair;
-void    nv_reset(void);
+/* ⛔ NO DEFINITION SINCE 1308f790 (2026-06-15 dead-code sweep) -- these two are still CALLED by src/driver/sync_monitor.c:31/100, so `make scrip-monitor` cannot link. NOT repaired here: that target also needs CSNOBOL4 and belongs to R-6/MON-CAP, whose SIGSEGV is a DIFFERENT mechanism (the MONITOR_BIN env gate inside the ordinary binary, core.c:1694 -- do not conflate the two). Declared, undefined, and named so the next seat reads it here instead of from a link error. */
 int     nv_snapshot(NvPair **out);
 void    nv_restore(const NvPair *pairs, int n);
 DESCR_t  INDR_GET_fn(const char *name);
