@@ -24,7 +24,14 @@ extern "C" {
  * is possible — but ⛔ NOT by copying FENCE1's own-extent shape: FENCE0's box is α→γ with NOTHING BETWEEN, so banking rsp at α and restoring it at γ frees exactly zero bytes.  FENCE0 has no extent
  * of its own; what its cut kills is the LEFT CONTEXT, which is why the retired whack reached for a floor rather than a watermark, and why it collided with UCLAIM.
  *
- * ⭐ FENCE0-WHACK (this rung, killswitch SCRIP_FENCE0_WHACK, DEFAULT OFF): the safe floor is RBP, not ___.  bb_match_begin establishes the ζ-STANDING frame with `push rbp; mov rbp,rsp` (:46-47) and
+ * ⭐ FZ-1 SELECTIVE RELEASE (killswitch SCRIP_FENCE0_WHACK, DEFAULT OFF) — the planner rung that replaces the falsified floor whack.  The cut pops the CONTIGUOUS BACKTRACK-ONLY region at the
+ * frontier and nothing else: fence0_release_bytes() (emit.cpp) walks left in carve order over SPAN/BREAK/BREAKX/TAB/RTAB/REM/BAL — leaves whose 16B cell is their OWN cnt/cur retry state, dead the
+ * instant the cut forbids re-entry, and whose result leaves through r13/r14/r15 rather than the cell — and STOPS at the first carving node that is anything else, because LIFO means one pinned cell
+ * pins everything under it.  IR_MATCH_ASSIGN_SAVE is excluded by name though it carves 16: its cell is read back by the paired COND/IMM across the fence.  The template spends the count, it does not
+ * compute it.  ⚠ ONE OPEN DISCREPANCY, FLAGGED NOT BURIED (why this ships DISARMED): on witness `S ? SPAN('a') FENCE SPAN('b') SPAN('c')` the IR holds exactly one MATCH_SPAN between MATCH_BEGIN and
+ * the fence, so the scan should bill 16 — it emits `add rsp, 32`.  Either the all[] index the scan walks is not the dump's slot numbering, or the run picks up a node the dump does not show between
+ * them.  The witness is oracle-correct in both arms and the armed crosscheck is clean (307/10 · 306/10 · DIVERGE=0, identical to disarmed), but AN OVER-RELEASE IS EXACTLY THE CLASS THAT CORED THE
+ * FLOOR ATTEMPT, so the count must be reconciled against the emitted carve before this is armed by default.  Next step: print (ni, j, op, zd_k) per step under a diag env and compare with the .s.  HISTORICAL, KEPT AS THE REASON THIS SHAPE EXISTS — the first attempt restored a FLOOR:  bb_match_begin establishes the ζ-STANDING frame with `push rbp; mov rbp,rsp` (:46-47) and
  * names `mov rsp,rbp` its own whole-frame whack, so rbp is the match's entry frontier — recorded AFTER the statement head's `sub rsp,K`, hence DEEPER than the UCLAIM claim and incapable of releasing
  * it.  That is the precise difference from the retired line: ___ is the graph floor and sits ABOVE the claim, rbp is the match floor and sits below it.  Restoring rsp:=rbp frees every cell the match
  * carved to the left of the cut — which is dead by definition once FENCE0 commits (backup through a bare FENCE fails the whole attempt, so nothing left of it can ever be re-entered).  If an ARBNO or
@@ -42,11 +49,11 @@ static int fence0_whack_on() { static int v = -1; if (v < 0) { const char * e = 
 std::string bb_match_fence0() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
-    int whack = fence0_whack_on() && x86_port_cstack() && emit_match_rbp();
-    return x86("comment", whack ? "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits, WHACK rsp:=rbp — the match standing floor, below the UCLAIM statement claim — then gamma; beta abandons to omega)"
-                                : "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits — match null — then gamma; beta abandons to omega; whack OFF — SCRIP_FENCE0_WHACK=1 to arm)")
+    int rel = (fence0_whack_on() && x86_port_cstack()) ? _.op_fence0_release : 0;   /* ⭐ FZ-1: the PLANNER decides how much is releasable (fence0_release_bytes); the template only spends it.  rel==0 ⇒ byte-identical to the no-whack box, which is every fence whose left neighbour is not a pure retry-cell carrier. */
+    return x86("comment", rel > 0 ? "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits, FZ-1 releases the contiguous backtrack-only spine at the frontier, then gamma; beta abandons to omega)"
+                                  : "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits — match null — then gamma; beta abandons to omega; nothing releasable here)")
          + x86_alpha()
-         + IF(whack, x86("mov", "rsp", "rbp"))
+         + IF(rel > 0, x86("add", "rsp", rel))
          + x86_gamma()
          + x86_beta()
          + x86_omega();
