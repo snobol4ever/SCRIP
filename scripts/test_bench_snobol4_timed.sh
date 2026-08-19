@@ -44,6 +44,10 @@ T="${TIMEOUT:-60}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
 # rather than silently averaging a stall into it.  The oracle needs no equivalent (measured: sbl is
 # insensitive to -d1024m on both allocating rows), so this equalises the condition, it does not favour.
 HEAP="${HEAP:-1024}"
+# -s16m: the json deserializer's recursive descent overflows the oracle's DEFAULT stack (ERROR 246)
+# once its match runs inside ZBODY's frame.  Harmless to every other row; sizing a stack is not a
+# throughput knob.  Larger values are refused by this container ("Stack memory unavailable").
+SBLFLAGS="${SBLFLAGS:--s16m}"
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
@@ -55,15 +59,20 @@ human() { awk -v v="$1" 'BEGIN{ if(v=="NA"){print "NA"; exit}
   else if(v>=1e3) printf "%.1fK", v/1e3; else printf "%d", v }'; }
 # ---- one measured run; echoes "iters ms check" ----------------------------
 run1() {
-  local eng="$1" sno="$2" s; s=$(basename "${sno%.sno}")
+  local eng="$1" sno="$2" s in; s=$(basename "${sno%.sno}")
+  # DATA-DRIVEN ROWS (BM-4): a workload benchmark is fed its corpus on stdin from a sibling
+  # <family>.dat, family = the program name minus any -match/-match-fence suffix, so the three
+  # variants of one grammar provably read the SAME bytes.  Microbenchmarks have no .dat and keep
+  # /dev/null -- a program that expects input and finds none must not silently "pass" on empty.
+  in="$(dirname "$sno")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
-         out=$(timeout "$T" "$SBL" -b "$sno" 2>/dev/null </dev/null); : > "$W/gc.err" ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" </dev/null) ;;
+         out=$(timeout "$T" "$SBL" -b $SBLFLAGS "$sno" 2>/dev/null <"$in"); : > "$W/gc.err" ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
               -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - BUILD-ERR"; return; fi
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "./$s.prog" 2>"$W/gc.err" </dev/null) ;;
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
   esac
   local it ms ck gc
   it=$(sed -n 's/^iters: //p' <<<"$out"); ms=$(sed -n 's/^ms: //p'   <<<"$out")
@@ -106,7 +115,11 @@ for sno in "$B"/*.sno; do
     G[$eng]=$(awk '{print $3}' <<<"$res"); c=$(cut -d' ' -f4- <<<"$res")
     if [ "$i" = "-" ]; then R[$eng]="NA"; C[$eng]="$c"; else R[$eng]=$(rate "$i" "$m"); C[$eng]="$c"; fi
   done
-  gcn=$(( ${G[m3]:-0} + ${G[m4]:-0} )); [ "$gcn" -gt 0 ] && tot_gc=$((tot_gc+1))
+  # a CRASHed/BUILD-ERR row reports "-" for its gc field; coerce to 0 so one dead row cannot abort the board
+  g3="${G[m3]:-0}"; g4="${G[m4]:-0}"
+  case "$g3" in ''|*[!0-9]*) g3=0 ;; esac
+  case "$g4" in ''|*[!0-9]*) g4=0 ;; esac
+  gcn=$(( g3 + g4 )); [ "$gcn" -gt 0 ] && tot_gc=$((tot_gc+1))
   # correctness: all engines must agree on the check line, and match the .ref
   ckstat="ok"; base=""
   for eng in $ENGINES; do
