@@ -24,15 +24,14 @@ n1_keyword_snobol4_α:   sub              rsp, 16
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_keyword_read_snobol4@PLT
+                        call             rt_kw_read_idx@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n2_call_α
-.Lx7_0:                 .quad            .Lx7_0_s
-.Lx7_0_s:               .string          "ALPHABET"
+.Lx7_0:                 .quad            25
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:              sub              rsp, 16
                         sub              rsp, 16

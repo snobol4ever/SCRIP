@@ -123,8 +123,11 @@ n12_match_begin_α:      mov              rdi, qword ptr [rsp + 32]            #
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
 .Lx52_0:                mov              r14d, dword ptr [rbp + -40]
-                        lea              rax, [rip + .Lx52_13]                # match_beta_cont
-                        mov              qword ptr [rbp + -48], rax;          jmp   n13_match_pos_α
+                        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # match_beta_cont
+                        mov              rax, qword ptr [rcx + 248]
+                        mov              qword ptr [rbp + -48], rax
+                        lea              rax, [rip + .Lx52_13]
+                        mov              qword ptr [rcx + 248], rax;          jmp   n13_match_pos_α
 n12_match_begin_β:
 .Lx52_13:               lea              rsp, [rbp + -56]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
@@ -135,7 +138,10 @@ n12_match_begin_β:
                         cmp              rax, 0;                              jne   .Lx52_1
                                                                               jmp   .Lx52_0
 .Lx52_1:
-n12_match_begin_af:     mov              r12, qword ptr [rbp + -8]            # cas_mark
+n12_match_begin_af:     mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        mov              r12, qword ptr [rbp + -8]            # cas_mark
                         mov              r13, qword ptr [rbp + -16]           # outer_Σ
                         mov              r14, qword ptr [rbp + -24]           # outer_δ
                         mov              r15, qword ptr [rbp + -32]           # outer_Δ
@@ -183,7 +189,10 @@ n16_match_assign_cond_α:
 n16_match_assign_cond_β:
                         sub              r12, 24;                             jmp   n15_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
-n17_match_end_α:        push             r14
+n17_match_end_α:        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        push             r14
                         push             r15
                         push             r13
                         sub              rsp, 8

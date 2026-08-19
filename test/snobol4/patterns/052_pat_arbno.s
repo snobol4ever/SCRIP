@@ -82,8 +82,11 @@ n6_match_begin_α:       mov              rdi, qword ptr [rsp + 0]             #
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
 .Lx35_0:                mov              r14d, dword ptr [rbp + -40]
-                        lea              rax, [rip + .Lx35_13]                # match_beta_cont
-                        mov              qword ptr [rbp + -48], rax;          jmp   n7_match_pos_α
+                        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # match_beta_cont
+                        mov              rax, qword ptr [rcx + 248]
+                        mov              qword ptr [rbp + -48], rax
+                        lea              rax, [rip + .Lx35_13]
+                        mov              qword ptr [rcx + 248], rax;          jmp   n7_match_pos_α
 n6_match_begin_β:
 .Lx35_13:               lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
@@ -94,7 +97,10 @@ n6_match_begin_β:
                         cmp              rax, 0;                              jne   .Lx35_1
                                                                               jmp   .Lx35_0
 .Lx35_1:
-n6_match_begin_af:      mov              r12, qword ptr [rbp + -8]            # cas_mark
+n6_match_begin_af:      mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        mov              r12, qword ptr [rbp + -8]            # cas_mark
                         mov              r13, qword ptr [rbp + -16]           # outer_Σ
                         mov              r14, qword ptr [rbp + -24]           # outer_δ
                         mov              r15, qword ptr [rbp + -32]           # outer_Δ
@@ -146,7 +152,10 @@ n11_match_rpos_α:       mov              rax, 0
                         cmp              r14d, ecx;                           jne   n10_match_assign_cond_β
                                                                               jmp   n12_match_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n12_match_end_α:        push             r14
+n12_match_end_α:        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        push             r14
                         push             r15
                         push             r13
                         sub              rsp, 8

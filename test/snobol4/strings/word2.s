@@ -312,8 +312,11 @@ n49_match_begin_α:      mov              rdi, qword ptr [rsp + 16]            #
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
 .Lx89_0:                mov              r14d, dword ptr [rbp + -40]
-                        lea              rax, [rip + .Lx89_13]                # match_beta_cont
-                        mov              qword ptr [rbp + -48], rax;          jmp   n50_match_defer_α
+                        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # match_beta_cont
+                        mov              rax, qword ptr [rcx + 248]
+                        mov              qword ptr [rbp + -48], rax
+                        lea              rax, [rip + .Lx89_13]
+                        mov              qword ptr [rcx + 248], rax;          jmp   n50_match_defer_α
 n49_match_begin_β:
 .Lx89_13:               lea              rsp, [rbp + -56]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
@@ -324,7 +327,10 @@ n49_match_begin_β:
                         cmp              rax, 0;                              jne   .Lx89_1
                                                                               jmp   .Lx89_0
 .Lx89_1:
-n49_match_begin_af:     mov              r12, qword ptr [rbp + -8]            # cas_mark
+n49_match_begin_af:     mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        mov              r12, qword ptr [rbp + -8]            # cas_mark
                         mov              r13, qword ptr [rbp + -16]           # outer_Σ
                         mov              r14, qword ptr [rbp + -24]           # outer_δ
                         mov              r15, qword ptr [rbp + -32]           # outer_Δ
@@ -383,10 +389,16 @@ n50_match_defer_α:      lea              rdi, [rip + .S3]
                         pop              rax
                         mov              r14d, eax;                           jmp   n49_match_begin_β
 n50_match_defer_β:      cmp              qword ptr [rsp + 0], 0;              jne   .Lx90_12
-                                                                              jmp   qword ptr [rbp + -48]
+                        mov              rcx, qword ptr [rip + rtccb@GOTPCREL]
+                        mov              rax, qword ptr [rcx + 248]
+                        test             rax, rax;                            je    .Lx90_12
+                                                                              jmp   rax
 .Lx90_12:                                                                     jmp   qword ptr [rsp]
 #-----------------------------------------------------------------------------------------------------------------------
-n51_match_end_α:        push             r14
+n51_match_end_α:        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] # mbc_restore
+                        mov              rax, qword ptr [rbp + -48]
+                        mov              qword ptr [rcx + 248], rax
+                        push             r14
                         push             r15
                         push             r13
                         sub              rsp, 8
