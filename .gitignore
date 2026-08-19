@@ -67,7 +67,8 @@ boxes.jar
 *.bin
 *.so
 scripts/monitor/*.so
-core
+/core
+core.[0-9]*
 
 # M-JITEM-X64 / EM-2: synthetic-program test harness
 out/sm_codegen_x64_emit_test

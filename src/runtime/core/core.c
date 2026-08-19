@@ -1641,6 +1641,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 }
 int core_stack_floor_raised = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_seed_names(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_SEED_NAMES"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ SEED-NAMES killswitch (s145, M1-R0): default OFF = SPITBOL's true blank slate (manual p.24: a new variable's initial value is the null string; oracle-measured: bare ALPHABET/UCASE/LCASE/digits/nl/tab/semicolon are ALL empty and epsilon is a null STRING in sbl). =1 restores the legacy convenience pre-seeding byte-identically for bisects. The pre-seeding was a pure SCRIP invention that desynced any program building these names by hand from &ALPHABET -- beauty.sno's global.inc is exactly such a program (FINDING s144). */
 void core_lib_init(void) {
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (mode-4 twin): mode-4's generated main calls core_lib_init directly and never calls
      * rt_gcheap_warmup itself (only scrip.c's mode-3 driver did, at two call sites before rt_outer_call/rt_outer_call_delta0). gc_static_segs_init's dl_iterate_phdr
@@ -1660,7 +1661,7 @@ void core_lib_init(void) {
     }
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
-    NV_SET_fn("ALPHABET", BSTRVAL(alphabet, 256));
+    if (core_seed_names()) NV_SET_fn("ALPHABET", BSTRVAL(alphabet, 256));
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ms = (int64_t)_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -1812,7 +1813,7 @@ void core_lib_init(void) {
     register_fn("FENCE",   _PAT_FENCE_,   0, 1);
     register_fn("ALT",     _PAT_ALT_,     2, 2);
     register_fn("CONCAT",  _PAT_CONCAT_,  2, 2);
-    {
+    if (core_seed_names()) {
         char *_ch = rt_ws_alloc(2);
         _ch[0] = (char)9;  _ch[1] = '\0'; NV_SET_fn("tab", STRVAL(_ch));
         _ch = rt_ws_alloc(2);
@@ -2209,7 +2210,7 @@ DESCR_t NV_GET_fn(const char *name) {
     if (strcmp(name, "CODE")     == 0) return INTVAL(kw_code);
     if (strcmp(name, "FNCLEVEL") == 0) return INTVAL(kw_fnclevel);
     if (strcmp(name, "RTNTYPE")  == 0) return STRVAL(kw_rtntype);
-    if (strcmp(name, "ALPHABET") == 0) return BSTRVAL(alphabet, 256);
+    if (core_seed_names() && strcmp(name, "ALPHABET") == 0) return BSTRVAL(alphabet, 256);   /* s145 M1-R0 BRIDGE: bare ALPHABET is a plain variable (oracle: empty); this special-case hijacked it before the table. Gated, not deleted -- the structural fix is KW-STATIC (Lon 2026-08-19: "place all the keywords as statics in the emitted asm and use direct references"), which deletes the whole special-case family. &ALPHABET keyword reads never pass here (rt_keyword_read_snobol4 serves the C array directly). */
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         return scan_subj ? STRVAL(scan_subj) : NULVCL;
