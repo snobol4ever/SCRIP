@@ -26,7 +26,7 @@ SBL="${SBL:-/home/claude/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/programs/snobol4/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
-# norm=ms : lines matching ^ms: [0-9]+$ are rewritten on both sides (timing lines are not correctness)
+# norm=ms : measurement lines (^iters:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is)
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          demo/beauty  90 -
 beauty_suite   15 programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
@@ -75,7 +75,7 @@ run_one() {  # suite lib prog norm run_to
     local o="$1" r="$2"
     [ $r -eq 124 ] && { echo TIMEOUT; return; }
     [ $r -ge 128 ] && { echo "SIG$((r-128))"; return; }
-    if [ "$norm" = ms ]; then sed -i 's/^ms: [0-9][0-9]*$/ms: N/' "$o"; [ $have_pin = 1 ] && sed -i 's/^ms: [0-9][0-9]*$/ms: N/' "$W/pin"; [ $have_live = 1 ] && sed -i 's/^ms: [0-9][0-9]*$/ms: N/' "$W/live"; fi
+    if [ "$norm" = ms ]; then sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$o"; [ $have_pin = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/pin"; [ $have_live = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/live"; fi  # BM-ONE (s153): measurement lines are DELETED both sides (refs hold only the check: line -- the live oracle); rewrite-to-N was for the retired stamped family
     { [ $have_pin = 1 ] && cmp -s "$o" "$W/pin"; } && { echo PASS; return; }
     { [ $have_live = 1 ] && cmp -s "$o" "$W/live"; } && { echo PASS; return; }
     [ $r -ne 0 ] && { echo "RC$r"; return; }

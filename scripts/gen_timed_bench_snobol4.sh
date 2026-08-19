@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+echo "RETIRED (BM-ONE, s153): harness.inc is the ONE authority; benchmark bodies are hand-editable files. This stamped-file generator no longer matches the artifacts. Kept one session for reference -- delete next."; exit 1
 # gen_timed_bench_snobol4.sh -- emit the TIME-BASED SNOBOL4 benchmark family.
 #
 # THE INVERSION (Lon, 2026-08-19): the legacy family in corpus/benchmarks/snobol4/

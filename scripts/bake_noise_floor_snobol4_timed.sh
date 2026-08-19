@@ -11,7 +11,7 @@
 # (KERNEL, ENGINE) PAIR, not of the harness.  Generalising one row's floor to
 # the suite is the same error in new clothes, so the floor is baked per row.
 #
-# Output: corpus/benchmarks/snobol4/timed/NOISE-FLOOR.tsv
+# Output: corpus/benchmarks/snobol4/NOISE-FLOOR.tsv
 #   bench  engine  reps  mean_per_s  cv_pct  maxmin  min_detectable_pct
 # min_detectable_pct = 3*cv, the difference below which a single-run delta on
 # that row must NOT be called real.
@@ -19,7 +19,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 SBL="${SBL:-/home/claude/x64/bin/sbl}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4/timed}"
+B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
 REPS="${REPS:-5}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
 APPEND="${APPEND:-0}"; THP="${SCRIP_NOHUGE:-0}"
 OUT="${OUT:-$B/NOISE-FLOOR.tsv}"
