@@ -1662,6 +1662,7 @@ void core_lib_init(void) {
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
     if (core_seed_names()) NV_SET_fn("ALPHABET", BSTRVAL(alphabet, 256));
+    { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }   /* KW-5b: the keyword block's oracle-true initials must be live BEFORE statement one, or a program that never mentions a keyword runs on the C initializers -- measured as a wrong &TRIM answer on a bare `L = INPUT` (see rt_kw_seed_defaults). No-op unless SCRIP_KW_STATIC is armed. */
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ms = (int64_t)_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");

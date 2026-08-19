@@ -14,6 +14,7 @@ DESCR_t     rt_keyword_read(const char *sval);
 DESCR_t     rt_keyword_read_snobol4(const char *sval);
 DESCR_t     rt_keyword_gen(const char *sval, long idx);
 int         rt_kw_static_on(void);
+void        rt_kw_seed_defaults(void);
 void        rt_kw_bind(void *block, int n);
 int         rt_kw_index(const char *kw);
 DESCR_t     rt_kw_read_idx(int64_t idx);

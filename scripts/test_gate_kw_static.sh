@@ -41,11 +41,13 @@ run_mode4() {
 for ref in "$PROBE_DIR"/*.ref; do
     [[ -e "$ref" ]] || { echo "GATE BLOCKED: no .ref files in $PROBE_DIR"; exit 2; }
     base="$(basename "$ref" .ref)"; sno="$PROBE_DIR/$base.sno"
-    # kw_unset_datatype lives in this directory but is NOT a KW-STATIC row: it is the
-    # B1 handoff witness (unset variable yields a NULL tag instead of the null string),
-    # HQ-owned and identical on both killswitch arms.  Counting it would understate this
-    # gate's score with a defect this ladder does not fix.  Run it with --with-b1.
-    if [[ "$base" == "kw_unset_datatype" && "${WITH_B1:-0}" != "1" ]]; then continue; fi
+    # kw_unset_datatype is NOT a KW-STATIC row and never was: it is identical on both
+    # killswitch arms, so scoring it would credit this gate with a result arming does not
+    # control.  It was CLOSED at s161 -- DATATYPE of an unset variable answers STRING, not
+    # NULL (SNOBOL4 has no null datatype; the null string is a string) -- so it is no
+    # longer the open B1 handoff it was minted as.  It runs unconditionally as a STANDING
+    # PIN after the scored loop, beside kw_pattern_family and for the same reason.
+    if [[ "$base" == "kw_unset_datatype" ]]; then continue; fi
     # kw_pattern_family is likewise NOT a KW-STATIC row.  It pins the s147 CN-2
     # regression (&ARB/&BAL/&REM/&FAIL/&FENCE/&ABORT/&SUCCEED raising error 342 on
     # READ instead of yielding their primitive patterns, manual Ch.16 p.187-188) and
@@ -70,23 +72,28 @@ for ref in "$PROBE_DIR"/*.ref; do
     done
 done
 echo "-----------------------------------------------------------------------"
-pin_ref="$PROBE_DIR/kw_pattern_family.ref"; pin_sno="$PROBE_DIR/kw_pattern_family.sno"; pin_bad=0
-if [[ -f "$pin_ref" && -f "$pin_sno" ]]; then
+pin_bad=0
+pin_row() {   # $1 = witness base, $2 = what a break MEANS (the reader should not have to go find out)
+    local pin_ref="$PROBE_DIR/$1.ref" pin_sno="$PROBE_DIR/$1.sno"
+    [[ -f "$pin_ref" && -f "$pin_sno" ]] || return 0
     for m in 3 4; do
         [[ "$MODE" == "both" || "$MODE" == "$m" ]] || continue
-        pout="$WORK/kw_pattern_family.pin.m$m"
+        local pout="$WORK/$1.pin.m$m"
         if [[ "$m" == 3 ]]; then run_mode3 "$pin_sno" "$pout"; else run_mode4 "$pin_sno" "$pout"; fi
-        if diff -q "$pin_ref" "$pout" > /dev/null 2>&1; then echo "PIN   kw_pattern_family m$m  OK (arm-independent)"
-        else pin_bad=1; echo "PIN   kw_pattern_family m$m  BROKEN — the primitive-pattern keyword family regressed again (s147 class: &ARB..&SUCCEED must read as PATTERN, manual Ch.16 p.187-188)"; fi
+        if diff -q "$pin_ref" "$pout" > /dev/null 2>&1; then echo "PIN   $1 m$m  OK (arm-independent)"
+        else pin_bad=1; echo "PIN   $1 m$m  BROKEN — $2"; fi
     done
-fi
+}
+pin_row kw_pattern_family "the primitive-pattern keyword family regressed again (s147 class: &ARB..&SUCCEED must read as PATTERN, manual Ch.16 p.187-188)"
+pin_row kw_unset_datatype "DATATYPE of an unset variable stopped answering STRING (s161 class: SNOBOL4 has no null datatype -- the null string IS a string, manual p.24 and the DATATYPE entry p.213)"
 echo "-----------------------------------------------------------------------"
 echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
 if [[ "${SCRIP_KW_STATIC:-0}" = "1" ]]; then
-    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: all rows but kw_bare_shadow (12/14)."
-    echo "  kw_bare_shadow is ROUTED, NOT A REGRESSION: HQ's B1 (an unset variable yields a NULL-tagged"
-    echo "  descriptor where the oracle gives the null string, manual p.24).  kw_protected_write went GREEN"
-    echo "  at KW-5: kwb_error converts 208/209 to statement failure when &ERRLIMIT is non-zero (Ch.16)."
+    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: ALL 16 ROWS GREEN, no routed reds left."
+    echo "  kw_protected_write went green at KW-5 (kwb_error converts 208/209 to statement failure when"
+    echo "  &ERRLIMIT is non-zero, Ch.16); kw_bare_shadow at s161 (DATATYPE of an unset variable is STRING,"
+    echo "  not NULL -- it was mis-routed as B1); kw_trim_lazy_seed is KW-5b (block initials seeded at"
+    echo "  program start, so a program that touches no keyword still gets the oracle's &TRIM=1)."
 else
     echo "  ARM=LEGACY — A LOW SCORE HERE IS BY DESIGN, NOT A CATASTROPHE (HQ guidance g1, s147)."
     echo "  These witnesses encode the TARGET keyword table, which only the ARMED arm implements; the legacy"
