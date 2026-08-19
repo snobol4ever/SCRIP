@@ -377,6 +377,18 @@ so the two passes are not the same machine.
 
 ### Demo suite: SCRIP vs SPITBOL — 2026-08-09 s34, HEAD `a5c2264` (counter-loop rail)
 
+> ⚠ **NOT REPRODUCIBLE AT HEAD (s154, 2026-08-19).** `claws5-match` and `claws5-match-fence`
+> **SIGSEGV in m3 at this HEAD** — the originals in `corpus/programs/snobol4/demo/` do too, on both
+> the 66 KB workload and the 1 KB smoke input — so this table's two claws5 rows (and the s128
+> match-only grid's `claws5-match` `0.195 ms/match` row below) describe programs that no longer run.
+> Re-measured time-based, the four rows that DO run read: treebank-match **0.89×** (was 1.05×),
+> treebank-match-fence **1.04×** (was 1.57×), calculator-1-match **1.52×** (was 1.33×),
+> calculator-1-match-fence **0.65×** (was 0.98×). Every row that fell by a third is a FENCE row:
+> this table's own commentary records FENCE buying SCRIP +49% on treebank (1.57 vs 1.05), and it
+> now buys **0%** on all three grammars — the window `a5c2264` → HEAD contains a FENCE regression.
+> Kept as the historical record, per this file's convention for superseded grids. See
+> `.github/FINDING-2026-08-19-s154-bm4-workload-family-fence-is-inert-on-scrip.md`.
+
 The six pattern demos that are IDENT to the oracle in BOTH modes, re-measured after
 MV-BASE + EXPR-CLASSP.  Loop is COUNTER-DRIVEN (`BN.I = BN.I + 1` / `LT(BN.I,N)`),
 NOT the historical `reps LEN(1) =` shape — that shape SEGVs SCRIP at N=1 (REPLACE
