@@ -45,6 +45,15 @@ for ref in "$PROBE_DIR"/*.ref; do
     # HQ-owned and identical on both killswitch arms.  Counting it would understate this
     # gate's score with a defect this ladder does not fix.  Run it with --with-b1.
     if [[ "$base" == "kw_unset_datatype" && "${WITH_B1:-0}" != "1" ]]; then continue; fi
+    # kw_pattern_family is likewise NOT a KW-STATIC row.  It pins the s147 CN-2
+    # regression (&ARB/&BAL/&REM/&FAIL/&FENCE/&ABORT/&SUCCEED raising error 342 on
+    # READ instead of yielding their primitive patterns, manual Ch.16 p.187-188) and
+    # PASSES ON BOTH KILLSWITCH ARMS, because that fix lives outside the killswitch.
+    # A row identical on both arms measures nothing about ARMING, so scoring it here
+    # would inflate the legacy arm with a result the killswitch does not control --
+    # the same reasoning that excludes kw_unset_datatype just above, in the opposite
+    # direction.  It is run unconditionally as a STANDING PIN after the scored loop.
+    if [[ "$base" == "kw_pattern_family" ]]; then continue; fi
     [[ -f "$sno" ]] || { echo "SKIP  $base (no .sno beside .ref)"; continue; }
     for m in 3 4; do
         [[ "$MODE" == "both" || "$MODE" == "$m" ]] || continue
@@ -60,7 +69,22 @@ for ref in "$PROBE_DIR"/*.ref; do
     done
 done
 echo "-----------------------------------------------------------------------"
+pin_ref="$PROBE_DIR/kw_pattern_family.ref"; pin_sno="$PROBE_DIR/kw_pattern_family.sno"; pin_bad=0
+if [[ -f "$pin_ref" && -f "$pin_sno" ]]; then
+    for m in 3 4; do
+        [[ "$MODE" == "both" || "$MODE" == "$m" ]] || continue
+        pout="$WORK/kw_pattern_family.pin.m$m"
+        if [[ "$m" == 3 ]]; then run_mode3 "$pin_sno" "$pout"; else run_mode4 "$pin_sno" "$pout"; fi
+        if diff -q "$pin_ref" "$pout" > /dev/null 2>&1; then echo "PIN   kw_pattern_family m$m  OK (arm-independent)"
+        else pin_bad=1; echo "PIN   kw_pattern_family m$m  BROKEN — the primitive-pattern keyword family regressed again (s147 class: &ARB..&SUCCEED must read as PATTERN, manual Ch.16 p.187-188)"; fi
+    done
+fi
+echo "-----------------------------------------------------------------------"
 echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
+if [[ $pin_bad -ne 0 ]]; then
+    echo "STANDING PIN BROKEN — kw_pattern_family; this is a CORRECTNESS regression independent of the KW-STATIC score above."
+    exit 1
+fi
 if [[ $fail -gt 0 ]]; then
     echo "FAILING: ${failed_names[*]}"
     echo "GATE RED — see FINDING-2026-08-19-s146-KW1-census-keyword-truth-table.md"
