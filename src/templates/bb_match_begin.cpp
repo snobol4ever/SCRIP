@@ -58,8 +58,11 @@ std::string bb_match_begin() {
              + x86("note", "start_δ") + x86("mov", RDD("rbp", -40), (long)0)
              + x86("def", L(0))
              + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -40))
+             + IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }),
+                   x86("note", "match_beta_cont") + x86_lea_id("rax", 13) + x86("mov", RDQ("rbp", -48), "rax"))   /* ⭐⭐⭐ B2 FIX half A (s145 HQ): publish THIS match's β entry into the reserved [rbp-48] cell so any record-resume defer β that finds a ZERO record cell can fail-benignly to the retry_whack at ANY depth (the whack's `lea rsp,[rbp-56-extra]` is the absolute restore).  LIFETIME: [rbp-48] is bb_match_end's repl_start cell, written only at COMMIT — after which no retreat can re-enter a defer β — so the borrow is disjoint by construction (grep census: bb_match_end.cpp is the only other writer/reader).  Readable from PAT$ blob graphs too: rbp is the statement's pinned ζ-STANDING there (no MATCH_BEGIN of their own — the frame_slot_scan decline class — which is exactly why this is a FIXED cell, not a registry slot).  Same killswitch as the defer-side half; both flip together (the sn4_defer_resume two-halves precedent). */
              + x86_gamma()
              + x86_beta()
+             + IF(({ static int _bg2 = -1; if (_bg2 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg2 = (e && *e == '0') ? 0 : 1; } _bg2; }), x86("def", L(13)))
              + x86("note", "retry_whack") + x86("lea", "rsp", RDQ("rbp", -56 - extra))   /* discard the failed attempt's ζ-cells in ONE depth-free op — the rbp-relative twin of the FUNCTION whack.  ARBNO-FRAME SLOT: the reset point widens by extra so it lands BELOW every ARBNO-FRAME cell, never on top of one -- those cells are per-MATCH (survive every retry), not per-attempt. */
              + x86("note", "start_δ") + x86("add", RDD("rbp", -40), (long)1)
              + x86("note", "start_δ") + x86("mov", "eax", RDD("rbp", -40))

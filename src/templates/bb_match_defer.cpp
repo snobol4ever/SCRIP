@@ -269,5 +269,12 @@ std::string bb_match_defer() {
                       + x86_omega()
                       + x86("def",  L(12))
                       + x86_jmp_reg("rax"))
-                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta") + x86_jmp_mem("rsp", 0)))));
+                   : (rspd_snap(&g_rspd_beta, "g_rspd_beta")   /* ⭐⭐⭐ B2 FIX half B (s145 HQ, gdb-measured on m1_arbno_capture_call_bracket): this raw `jmp [rsp+0]` was the LAST unguarded record-resume — the live trace showed the retreat cascade arriving with [rsp+0]==0x0 (a never-written spine quad) and executing `jmp 0` (m3: the slide into slab zeros = beauty's B2).  GENERALIZED s153 GUARD: zero record cell => no live suspension => jump THROUGH ζ-STANDING to the match's published β ([rbp-48], half A) whose first op is the retry_whack absolute restore — depth-immune where the falsified node-ω arm was not (that arm cost arbnostore 2 rows at the clean base; FINDING §FIX-CAMPAIGN).  SCRIP_DEFER_BETA_GUARD=0 restores the raw jmp byte-identically, both halves in lockstep. */
+                      + (({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; })
+                          ? (x86_reg_disp32_cmp_imm("rsp", 0, 0L)   /* FLAGS-ONLY test — the resume contract is TOUCH NOTHING: rax carries the in-flight value (first cut, arbnostore -2 rows) and the 16B site-stub record class restores no wires (r10 cut, same -2) — measured, both reverted.  FLAGS are not port-contract state (every port is jmp-entered after cmp/jne glue everywhere). */
+                           + x86("jne",  L(12))
+                           + x86_jmp_mem("rbp", -48)
+                           + x86("def",  L(12))
+                           + x86_jmp_mem("rsp", 0))
+                          : x86_jmp_mem("rsp", 0))))));
 }
