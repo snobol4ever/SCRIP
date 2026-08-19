@@ -93,6 +93,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_MATCH_ARBNO] = "IR_MATCH_ARBNO",
     [IR_MATCH_REM] = "IR_MATCH_REM",
     [IR_MATCH_BAL] = "IR_MATCH_BAL",
+    [IR_MATCH_FENCE0] = "IR_MATCH_FENCE0",
     [IR_MATCH_FENCE1] = "IR_MATCH_FENCE1",
     [IR_MATCH_ABORT] = "IR_MATCH_ABORT",
 

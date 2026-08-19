@@ -67,6 +67,7 @@ static const kind_entry_t g_kinds[] = {
     { IR_MATCH_TAB,         "IR_MATCH_TAB" },
     { IR_MATCH_RTAB,        "IR_MATCH_RTAB" },
     { IR_MATCH_REM,         "IR_MATCH_REM" },
+    { IR_MATCH_FENCE0,       "IR_MATCH_FENCE0" },
     { IR_MATCH_FENCE1,       "IR_MATCH_FENCE1" },
     { IR_MATCH_ABORT,       "IR_MATCH_ABORT" },
     { IR_MATCH_CALLOUT,     "IR_MATCH_CALLOUT" },

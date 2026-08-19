@@ -169,6 +169,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_match_arb.cpp \
     $(SRC)/templates/bb_match_arbno.cpp \
     $(SRC)/templates/bb_match_bal.cpp \
+    $(SRC)/templates/bb_match_fence0.cpp \
     $(SRC)/templates/bb_match_fence1.cpp \
     $(SRC)/templates/bb_match_abort.cpp \
     $(SRC)/templates/bb_zdp_anchor.cpp \

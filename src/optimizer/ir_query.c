@@ -9,6 +9,7 @@ int ir_is_generator_kind(IR_e t) {
         case IR_MATCH_BEGIN:
         case IR_MATCH_ARB:
         case IR_MATCH_BAL:
+        case IR_MATCH_FENCE0:
         case IR_MATCH_FENCE1:
         case IR_MATCH_BREAKX:
         case IR_MATCH_ARBNO:

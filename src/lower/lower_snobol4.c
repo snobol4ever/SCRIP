@@ -1763,7 +1763,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                                                                                      * context in this spine, nothing to whack, the s133 reasoning stands there. */
                     IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;   /* FENCE-PASS-THROUGH: FENCE0-relative */
                     int f_idx = g->n;
-                    IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
+                    IR_t * F = lc_build(g, IR_MATCH_FENCE0, cur_succ, NULL);   /* ⭐ FENCE-SPLIT: FENCE0 is NOT a FENCE1 with ival=0 -- the two constructs have OPPOSITE beta semantics (manual Ch.19: backup through FENCE0 ABORTS the attempt; backup through FENCE1 PASSES THROUGH and does not abort), so they carry separate kinds.  ival stays 0 for the legacy readers that still consult it. */
                     sno_ω_to(F, fail_p);
                     IR_LIT(F).ival = 0;
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx;
