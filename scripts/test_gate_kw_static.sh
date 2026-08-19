@@ -87,15 +87,17 @@ pin_row() {   # $1 = witness base, $2 = what a break MEANS (the reader should no
 pin_row kw_pattern_family "the primitive-pattern keyword family regressed again (s147 class: &ARB..&SUCCEED must read as PATTERN, manual Ch.16 p.187-188)"
 pin_row kw_unset_datatype "DATATYPE of an unset variable stopped answering STRING (s161 class: SNOBOL4 has no null datatype -- the null string IS a string, manual p.24 and the DATATYPE entry p.213)"
 echo "-----------------------------------------------------------------------"
-echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
-if [[ "${SCRIP_KW_STATIC:-0}" = "1" ]]; then
+echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/ARMED-BY-DEFAULT})"
+# KW-6 flipped the default ON, so an UNSET variable now means ARMED -- the :-1 below is that
+# flip and must move with it, or this gate prints the legacy expectations over an armed run.
+if [[ "${SCRIP_KW_STATIC:-1}" = "1" ]]; then
     echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: ALL 16 ROWS GREEN, no routed reds left."
     echo "  kw_protected_write went green at KW-5 (kwb_error converts 208/209 to statement failure when"
     echo "  &ERRLIMIT is non-zero, Ch.16); kw_bare_shadow at s161 (DATATYPE of an unset variable is STRING,"
     echo "  not NULL -- it was mis-routed as B1); kw_trim_lazy_seed is KW-5b (block initials seeded at"
     echo "  program start, so a program that touches no keyword still gets the oracle's &TRIM=1)."
 else
-    echo "  ARM=LEGACY — A LOW SCORE HERE IS BY DESIGN, NOT A CATASTROPHE (HQ guidance g1, s147)."
+    echo "  ARM=LEGACY (SCRIP_KW_STATIC=0, no longer the default) — A LOW SCORE HERE IS BY DESIGN."
     echo "  These witnesses encode the TARGET keyword table, which only the ARMED arm implements; the legacy"
     echo "  arm is kept byte-identical to pre-KW-2 behaviour on purpose.  Grade with --armed; the legacy run's"
     echo "  only job is to prove the killswitch still isolates the feature."
