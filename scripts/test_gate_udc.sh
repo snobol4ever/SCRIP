@@ -28,12 +28,18 @@ for w in cn_udc_declare cn_udc_reopen; do
     diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w KW_STATIC=$arm"
   done
 done
-for w in cn_t1_eval cn_t2_eval_boundary; do
-"$SCRIP" --compile "$CN/$w.sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
-gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
+for w in cn_t1_eval cn_t2_eval_boundary cn_t1_scalar_fold; do   # ⭐ CN-11 added cn_t1_scalar_fold: it was pinned but only ever RUN in the default arm, and the T1=0 arm is where the shared-runtime keyword cascade shadowed a sealed &Pi with Icon's pi (3.141592653589793 vs the declared 3.14). A fold-tier witness must be swept in the arm where the fold is OFF -- that arm is the one that exercises the runtime read path the fold otherwise hides.
 for t1 in 0 1; do
   SCRIP_CONST_T1=$t1 timeout 20 "$SCRIP" --run "$CN/$w.sno" < /dev/null > /tmp/gate_m3.txt 2>/dev/null
   diff -q /tmp/gate_m3.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m3 $w CONST_T1=$t1"
+  # ⛔ CN-11 -- THE m4 ARM WAS VACUOUS AND IS NOW REAL. The compile+link used to sit ABOVE this loop, so the .s was
+  # produced ONCE at the DEFAULT arm and the loop then varied SCRIP_CONST_T1 on the already-built binary. T1 is a
+  # LOWERING decision: by the time the binary exists the fold is baked into its instructions, so the env var moved
+  # nothing and "m4 $w CONST_T1=0" re-tested the T1=1 program twice -- the s68 vacuous-gate class. Measured proof:
+  # with the CN-11 defect present, m3 CONST_T1=0 went red while m4 CONST_T1=0 stayed green on the SAME program.
+  # Compiling INSIDE the loop with the arm's env applied is what makes the m4 column a second real medium.
+  SCRIP_CONST_T1=$t1 "$SCRIP" --compile "$CN/$w.sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
+  gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
   SCRIP_CONST_T1=$t1 timeout 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>/dev/null
   diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w CONST_T1=$t1"
 done

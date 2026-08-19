@@ -2298,8 +2298,9 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         if (strcmp(e->name, name) == 0) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
+            if (name[0] == '&') e->is_const = 1;   /* ⭐ SN4-CONSTANTS CN-10 -- SEAL AT THE FIRST REAL STORE, NOT AT ENTRY BIRTH. Reachable only for an `&`-entry born WITHOUT a value (NV_PTR_fn's intern, which no longer pre-seals -- see its create site): that entry's first store IS the one-time assignment, so it stores and seals here; the second store then meets is_const above and raises 341 exactly as a SET-created constant does. `is_const` is thereby made truthful -- 1 iff the one-time assignment has EXECUTED -- which is what lets NV_CONST_ASSIGNED_fn below answer the 342 read-side predicate (s148 item 3: NV_EXISTS_fn tested entry EXISTENCE, so a valueless intern suppressed 342 and pre-armed 341 against the first legitimate write). */
             comm_var(name, val);
-            return;
+            return val;   /* CN-10 drive-by, same region: this was a BARE `return;` in a DESCR_t-returning function -- any caller consuming the update-path result read garbage. All sibling paths already return val. */
         }
     }
     { static long _nvc = -1; if (_nvc < 0) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
@@ -2316,6 +2317,8 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->is_const; return 0; }   /* SN4-CONSTANTS CN-10 -- the 342 read-side predicate: 1 iff the one-time assignment has EXECUTED (is_const is sealed at SET-create or at the first store into a PTR-interned cell, never at valueless birth). NV_EXISTS_fn answers a different question (entry existence) and keywords.c asking IT was s148 item 3. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -2343,7 +2346,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
-    e->is_const = (name[0] == '&') ? 1 : 0;
+    e->is_const = 0;   /* ⭐ SN4-CONSTANTS CN-10 -- A POINTER INTERN IS NOT AN ASSIGNMENT. This creator mints a VALUELESS cell; pre-sealing it (the old `name[0]=='&'` arm, twin of NV_SET_fn's create) made is_const mean "an `&`-entry exists" rather than "the one-time assignment executed", which is precisely the wrong predicate s148 item 3 names: 342 suppressed (entry exists) AND 341 pre-armed (first legitimate write refused). No `&`-name reaches this function today (census 2026-08-19: mon_emit_value_bin excludes them, gva_collect refuses them, rt_cell_for serves call-plumbing locals), so this is prophylactic like the rc-recording -- the seal now lands at the first real store in NV_SET_fn's update path. */
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     return &e->val;
