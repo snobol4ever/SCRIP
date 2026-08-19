@@ -14,6 +14,8 @@ DESCR_t     rt_keyword_read(const char *sval);
 DESCR_t     rt_keyword_read_snobol4(const char *sval);
 DESCR_t     rt_keyword_gen(const char *sval, long idx);
 int         rt_kw_static_on(void);
+int         rt_kw_direct_on(void);
+const char *rt_kw_direct_sym(int idx, int *soff, const void **base);
 void        rt_kw_seed_defaults(void);
 void        rt_kw_bind(void *block, int n);
 int         rt_kw_index(const char *kw);

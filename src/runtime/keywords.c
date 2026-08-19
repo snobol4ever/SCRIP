@@ -98,42 +98,55 @@ const char *kw_cset_const_str(const char *kw) {
 #define KWB_INT 1
 #define KWB_STR 2
 #define KWB_PROT 1
-typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; } KWB_ENT_t;
+typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; const char *sym; } KWB_ENT_t;   /* ⭐ KW-D (this session): `sym` = the DYNAMIC SYMBOL the emitted TEXT medium spells the cell as ([rip+sym@GOTPCREL]); NULL = not direct-readable (the STR family). The cell pointer stays the ONE authority for the address -- sym is only its linker-visible NAME, and rt_kw_direct_sym derives the kwb_own slot offset FROM the cell pointer rather than spelling it twice. */
 static int64_t kwb_own[8] = { 0, 0, 0, 0, 0, 0, 0, 1 };   /* ⭐ CN-4 &USER_DECLARED_CONSTANTS OWNS SLOT 7 AND IS THE ONE SLOT SEEDED AT LOAD, NOT BY kwb_init_once(). Slots 0-6 are block-private (CASE/ERRTYPE/ABEND/INPUT/OUTPUT/PROFILE/COMPARE) and are read ONLY through g_kwb_bound, so kwb_init_once() seeds them from the entry's `init` and their static value is dead -- 0 there is honest. Slot 7 is different IN KIND: the tier-3 arms of rt_keyword_{read,write}_snobol4 consult it on EVERY unknown `&name` whether or not SCRIP_KW_STATIC armed the block, so it must hold its default before any block seeding runs. Born 1 = the namespace is OPEN = the pre-CN-4 behaviour verbatim, which is what makes the default arm byte-identical (RULES.md killswitch-byte-identity); flipping the born value to 0 restores oracle fidelity (error 251) and is ITS OWN GATED STEP, exactly as KW-2's default flip is. */
+extern int64_t rt_kwb_own[8] __attribute__((alias("kwb_own")));   /* ⭐ KW-D: the ONE exported name the emitted TEXT medium spells the block-private cells as ([rip + rt_kwb_own@GOTPCREL] + slot*8) -- the exact rt_anchor_g/g_anchor pattern (ZW-4) applied to the CN-4-granted array. ZERO new state: an alias adds a dynamic-symbol NAME to cells that already exist under the line-510 KW-STATIC grant ("THIS IS THE GLOBALS GRANT FOR THE KEYWORD CELLS"); C code keeps spelling it kwb_own. */
 static KWB_ENT_t g_kwb[] = {
-    { "ANCHOR",   KWB_INT, 0, (int64_t *)&g_anchor,    0,          (const char *)0 },
-    { "TRIM",     KWB_INT, 0, &kw_trim,                1,          (const char *)0 },
-    { "CASE",     KWB_INT, 0, &kwb_own[0],             1,          (const char *)0 },
-    { "CODE",     KWB_INT, 0, &kw_code,                0,          (const char *)0 },
-    { "DUMP",     KWB_INT, 0, (int64_t *)&g_dump,      0,          (const char *)0 },
-    { "ERRLIMIT", KWB_INT, 0, &kw_errlimit,            0,          (const char *)0 },
-    { "ERRTYPE",  KWB_INT, 0, &kwb_own[1],             0,          (const char *)0 },
-    { "FTRACE",   KWB_INT, 0, &kw_ftrace,              0,          (const char *)0 },
-    { "FULLSCAN", KWB_INT, 0, &kw_fullscan,            1,          (const char *)0 },
-    { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth,  16777216,   (const char *)0 },
-    { "STLIMIT",  KWB_INT, 0, &kw_stlimit,             2147483647, (const char *)0 },
-    { "TRACE",    KWB_INT, 0, (int64_t *)&g_trace,     0,          (const char *)0 },
-    { "ABEND",    KWB_INT, 0, &kwb_own[2],             0,          (const char *)0 },
-    { "INPUT",    KWB_INT, 0, &kwb_own[3],             1,          (const char *)0 },
-    { "OUTPUT",   KWB_INT, 0, &kwb_own[4],             1,          (const char *)0 },
-    { "PROFILE",  KWB_INT, 0, &kwb_own[5],             0,          (const char *)0 },
-    { "COMPARE",  KWB_INT, 0, &kwb_own[6],             0,          (const char *)0 },
-    { "STCOUNT",  KWB_INT, KWB_PROT, (int64_t *)&g_stcount,  0, (const char *)0 },
-    { "STNO",     KWB_INT, KWB_PROT, (int64_t *)&g_stno,     0, (const char *)0 },
-    { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 },
-    { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 },
-    { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },   /* CLASS C: SNOBOL4 has NO cset datatype -- oracle says STRING/26. The legacy path reached Icon's csets through the SHARED kw_read table; the block gives SNOBOL4 its own home and leaves kw_read untouched for Icon (same carve-out discipline as R-3(g)(d)). */
-    { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" },
-    { "RTNTYPE",  KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 },
-    { "ERRTEXT",  KWB_STR, 0,        (int64_t *)0, 0, (const char *)0 },
-    { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 },   /* KW-2 subsumes the core.c:2213 bare-ALPHABET hijack that s145 gated behind SCRIP_SEED_NAMES: the &-form now has ONE home here, and the bare form is an ordinary variable like every other bare name. */
-    { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &kwb_own[7], 1, (const char *)0 },   /* ⭐⭐⭐ CN-4 -- THE DECLARATION KEYWORD. Tier-2 by construction: it is the ONE `&name` that must be answerable BEFORE the tier-3 user-constant arm exists, since it is what decides whether that arm exists at all. Listing it here gives it the block's protection verdict and value-test ordering for free; the cell is the already-granted kwb_own array, so CN-4 adds NO new global. ⛔ IT IS NOT AN ORACLE KEYWORD -- stock SPITBOL answers error 251 for `&USER_DECLARED_CONSTANTS` exactly as it does for `&FOO` (measured this seat), so every program that declares it is an ORACLE_FAIL program BY CONSTRUCTION and can only ever be pinned against a `.ref`, never diffed against sbl. That is inherent to a namespace-opening extension and is the reason the born value is 1 rather than 0: a SCRIP that answered 251 by default would be oracle-true but would silently retract CN-2/CN-3 from every existing witness. */
+    { "ANCHOR",   KWB_INT, 0, (int64_t *)&g_anchor,    0,          (const char *)0 , "rt_anchor_g" },
+    { "TRIM",     KWB_INT, 0, &kw_trim,                1,          (const char *)0 , "kw_trim" },
+    { "CASE",     KWB_INT, 0, &kwb_own[0],             1,          (const char *)0 , "rt_kwb_own" },
+    { "CODE",     KWB_INT, 0, &kw_code,                0,          (const char *)0 , "kw_code" },
+    { "DUMP",     KWB_INT, 0, (int64_t *)&g_dump,      0,          (const char *)0 , "g_dump" },
+    { "ERRLIMIT", KWB_INT, 0, &kw_errlimit,            0,          (const char *)0 , "kw_errlimit" },
+    { "ERRTYPE",  KWB_INT, 0, &kwb_own[1],             0,          (const char *)0 , "rt_kwb_own" },
+    { "FTRACE",   KWB_INT, 0, &kw_ftrace,              0,          (const char *)0 , "kw_ftrace" },
+    { "FULLSCAN", KWB_INT, 0, &kw_fullscan,            1,          (const char *)0 , "kw_fullscan" },
+    { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth,  16777216,   (const char *)0 , "g_maxlngth" },
+    { "STLIMIT",  KWB_INT, 0, &kw_stlimit,             2147483647, (const char *)0 , "kw_stlimit" },
+    { "TRACE",    KWB_INT, 0, (int64_t *)&g_trace,     0,          (const char *)0 , "g_trace" },
+    { "ABEND",    KWB_INT, 0, &kwb_own[2],             0,          (const char *)0 , "rt_kwb_own" },
+    { "INPUT",    KWB_INT, 0, &kwb_own[3],             1,          (const char *)0 , "rt_kwb_own" },
+    { "OUTPUT",   KWB_INT, 0, &kwb_own[4],             1,          (const char *)0 , "rt_kwb_own" },
+    { "PROFILE",  KWB_INT, 0, &kwb_own[5],             0,          (const char *)0 , "rt_kwb_own" },
+    { "COMPARE",  KWB_INT, 0, &kwb_own[6],             0,          (const char *)0 , "rt_kwb_own" },
+    { "STCOUNT",  KWB_INT, KWB_PROT, (int64_t *)&g_stcount,  0, (const char *)0 , "g_stcount" },
+    { "STNO",     KWB_INT, KWB_PROT, (int64_t *)&g_stno,     0, (const char *)0 , "g_stno" },
+    { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 , "g_lastno" },
+    { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 , "kw_fnclevel" },
+    { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 },   /* CLASS C: SNOBOL4 has NO cset datatype -- oracle says STRING/26. The legacy path reached Icon's csets through the SHARED kw_read table; the block gives SNOBOL4 its own home and leaves kw_read untouched for Icon (same carve-out discipline as R-3(g)(d)). */
+    { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 },
+    { "RTNTYPE",  KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
+    { "ERRTEXT",  KWB_STR, 0,        (int64_t *)0, 0, (const char *)0 , (const char *)0 },
+    { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },   /* KW-2 subsumes the core.c:2213 bare-ALPHABET hijack that s145 gated behind SCRIP_SEED_NAMES: the &-form now has ONE home here, and the bare form is an ordinary variable like every other bare name. */
+    { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &kwb_own[7], 1, (const char *)0 , "rt_kwb_own" },   /* ⭐⭐⭐ CN-4 -- THE DECLARATION KEYWORD. Tier-2 by construction: it is the ONE `&name` that must be answerable BEFORE the tier-3 user-constant arm exists, since it is what decides whether that arm exists at all. Listing it here gives it the block's protection verdict and value-test ordering for free; the cell is the already-granted kwb_own array, so CN-4 adds NO new global. ⛔ IT IS NOT AN ORACLE KEYWORD -- stock SPITBOL answers error 251 for `&USER_DECLARED_CONSTANTS` exactly as it does for `&FOO` (measured this seat), so every program that declares it is an ORACLE_FAIL program BY CONSTRUCTION and can only ever be pinned against a `.ref`, never diffed against sbl. That is inherent to a namespace-opening extension and is the reason the born value is 1 rather than 0: a SCRIP that answered 251 by default would be oracle-true but would silently retract CN-2/CN-3 from every existing witness. */
 };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;   /* KW-3 SEAM: the emitted program will bind its own .data block here via rt_kw_bind(); until then the runtime-resident table IS the block, so read/write already go THROUGH the bound pointer and KW-3 becomes a pure relocation of storage. */
 static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_kw_static_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_KW_STATIC"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐⭐⭐ KW-6 THE DEFAULT FLIP (s161): the block is now ON unless SCRIP_KW_STATIC=0. The switch INVERTED rather than disappearing, so `=0` still restores pre-KW-2 behaviour verbatim and the BASELINE-ARM law keeps a same-arm baseline to compare against; the retirement of the legacy arm is its own later step. What becomes default: oracle-true initial values seeded before statement one (KW-5b), SNOBOL4-owned string keywords (&UCASE/&LCASE as STRING, not Icon csets), protection enforcement (208/209 with the oracle's value-test-before-protection ORDER), &ERRLIMIT converting those errors to statement failure (KW-5), the bare-name special-case family bypassed, and every `&KW` read/write compiled to a sealed static index instead of a name string + rt_call_arr + two strcmp cascades. MEASURED BEFORE FLIPPING, all on this tree: corpus 337 programs row-for-row identical between arms in BOTH modes; probe boards m1 35 / cn 14 / arbnostore 10 / b1 5 / opsyn 19 / eval 18 / nret 13 / define 1 byte-identical between arms; beauty_suite 34 byte-identical; demos 21 of 23 byte-identical and the other two (json, calculator-2) proven to be TIME() self-report noise whose diff direction flips run to run; KW gate armed 16/16 with 4 standing pins OK; UDC 23/23; icon smoke 14/14 both modes; m3==m4 on all 10 keyword witnesses. The 7 probe/kw movers ARE the feature -- each moves a legacy-wrong answer to the oracle's. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_kw_direct_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_KW_DIRECT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐⭐⭐ KW-D KILLSWITCH, its own switch so it isolates precisely (the s149 lesson: SCRIP_CONST_STATIC's coarseness made a rung unmeasurable). ON by default; =0 restores the KW-3 indexed-call arm verbatim, byte-identical by construction (the template's direct arm is gated on this AND rt_kw_static_on, so static=0 keeps the legacy name-call arm untouched too). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_kw_direct_sym(int idx, int *soff, const void **base) {
+    if (!rt_kw_static_on() || !rt_kw_direct_on()) return (const char *)0;
+    if (idx < 0 || idx >= g_kwb_bound_n || g_kwb_bound != g_kwb) return (const char *)0;
+    KWB_ENT_t *e = &g_kwb_bound[idx];
+    if (e->kind != KWB_INT || !e->cell || !e->sym) return (const char *)0;
+    long off = ((char *)e->cell >= (char *)kwb_own && (char *)e->cell < (char *)(kwb_own + 8)) ? (char *)e->cell - (char *)kwb_own : 0;
+    *soff = (int)off; *base = (const void *)((char *)e->cell - off);
+    return e->sym;
+}   /* ⭐⭐⭐ KW-D (GOAL-SNOBOL4-100 line 510, Lon verbatim "use direct references"): THE EMIT-TIME ELIGIBILITY ORACLE for a direct keyword READ. Returns the cell's dynamic-symbol name + byte offset (TEXT medium: [rip+sym@GOTPCREL], then +off) + the in-process base address (BINARY medium: movabs) -- or NULL, and NULL means the template keeps the rt_kw_read_idx call arm. NULL for: killswitch off, either one; the STR family (&UCASE/&LCASE/&RTNTYPE/&ERRTEXT/&ALPHABET are live repositories -- their reads build strings and STAY calls); and any future rt_kw_bind rebind (g_kwb_bound != g_kwb tripwire: an emit-time symbol describes the RESIDENT table only, so a relocated block automatically falls back to the indexed call instead of silently reading the dead twin -- the same stale-address class the KW-3 bounds tripwire guards). The kwb_own offset is DERIVED from the cell pointer, never spelled in the table (one authority). READS ONLY: every write keeps rt_kw_write_idx, because a keyword write is a VALIDATED operation, not a store -- 208 not-integer, 210 negative-or-too-large, 287 MAXLNGTH floor, 209 protected (manual App.D, all oracle-bisected), plus the KW-5 &ERRLIMIT error-to-statement-failure conversion; a direct mov would bypass every one of them. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_udc_on(void) { return kwb_own[7] != 0; }   /* ⭐⭐ CN-4 ONE AUTHORITY for "is the user-constant namespace open?". Deliberately NOT an env-var killswitch like rt_kw_static_on/sno_const_static_on above it: this one is a LANGUAGE-LEVEL declaration the program makes about itself (`&USER_DECLARED_CONSTANTS = 1`), so its truth must live where the program's write lands -- the keyword cell -- and not in a getenv cache the program cannot reach. Both the block path (kwb_write -> entry->cell) and the unarmed path (the explicit arm in rt_keyword_write_snobol4) store to this same slot, so there is exactly one place to look. */
 void rt_kw_bind(void *block, int n) { if (block && n > 0) { g_kwb_bound = (KWB_ENT_t *)block; g_kwb_bound_n = n; } }
