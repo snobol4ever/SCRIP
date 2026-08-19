@@ -23,15 +23,19 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
 REPS="${REPS:-5}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
-APPEND="${APPEND:-0}"; NOHUGE="${NOHUGE:-1}"   # default matches test_bench_snobol4_timed.sh's measurement condition; passed EXPLICITLY to m3/m4 below so the thp column cannot lie about the arm
+APPEND="${APPEND:-0}"; NOHUGE="${NOHUGE:-1}"
+HEAP="${HEAP:-1024}"   # BM-3: the floor must be baked in a GC-FREE window or it measures the stall lottery, not dispersion (see test_bench_snobol4_timed.sh)
 OUT="${OUT:-$B/NOISE-FLOOR.tsv}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 if [ "$APPEND" != 1 ]; then
 {
   echo "# TIME-based SNOBOL4 benchmarks -- MEASURED run-to-run noise floor"
   echo "# baked $(date -u +%Y-%m-%dT%H:%M:%SZ) by scripts/$(basename "$0")  reps=$REPS"
-  echo "# SCRIP_NOHUGE=$NOHUGE  (transparent huge pages dominate the"
-  echo "#   aggregate rows: table_access cv 37.7% -> 4.0% with SCRIP_NOHUGE=1)"
+  echo "# SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP  (arena sized past the window so no"
+  echo "#   collection fires inside it -- a GC row measures an ~835ms stall, not dispersion)"
+  echo "# ⛔ THE ALLOCATING ROWS' DISPERSION WAS THE GC STALL LOTTERY, NOT THP (BM-3 correction):"
+  echo "#   whether an ~835ms regeneration lands inside the window is a coin flip, and it was being"
+  echo "#   baked as variance.  GC-free, table_access m3 goes cv 12.4%->1.9% and array_sum 10.9%->0.5%."
   echo "# min_detectable_pct = 3*cv; a single-run delta smaller than this is WEATHER."
   printf "bench\tengine\tthp\treps\tmean_per_s\tcv_pct\tmaxmin\tmin_detectable_pct\n"
 } > "$OUT"
@@ -53,8 +57,8 @@ for sno in "$B"/*.sno; do
     for _ in $(seq 1 "$REPS"); do
       case "$eng" in
         sbl) o=$(timeout "$T" "$SBL" -b "$sno" 2>/dev/null </dev/null) ;;
-        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" timeout "$T" "$SCRIP" --run "$sno" 2>/dev/null </dev/null) ;;
-        m4)  [ "$m4ok" = 1 ] || { o=""; }; [ "$m4ok" = 1 ] && o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" timeout "$T" "./$s.prog" 2>/dev/null </dev/null) ;;
+        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout "$T" "$SCRIP" --run "$sno" 2>/dev/null </dev/null) ;;
+        m4)  [ "$m4ok" = 1 ] || { o=""; }; [ "$m4ok" = 1 ] && o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout "$T" "./$s.prog" 2>/dev/null </dev/null) ;;
       esac
       it=$(printf '%s\n' "$o" | sed -n 's/^iters: //p')
       ms=$(printf '%s\n' "$o" | sed -n 's/^ms: //p')

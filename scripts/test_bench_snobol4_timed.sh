@@ -33,6 +33,17 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): timed family PROMOTED -- one copy, legacy retired, harness.inc is the driver
 T="${TIMEOUT:-60}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
+# ⛔ GC-FREE WINDOW IS A MEASUREMENT PRECONDITION, NOT A TUNING KNOB (BM-3).  SCRIP's collector is
+# EXHAUSTION-TRIGGERED (gc_heap.c: rt_gcheap_alloc collects only when the arena is full) and its cost
+# scales with EVERY BLOCK EVER ALLOCATED, not with the live set: one measured regeneration walked
+# 7,352,520 blocks to retain 1,548 and cost ~835 ms.  At the 512 MB default arena that single pause
+# lands inside a 500 ms budget on the allocating rows and IS the reported number -- table_access read
+# 0.23x of the oracle with the stall and 0.46x without, array_sum 0.34x -> 0.97x.  A benchmark window
+# containing a collection is not a throughput reading, so the arena is sized past the window's total
+# allocation and the regeneration count is COUNTED AND PRINTED per row: gc>0 marks the row untrusted
+# rather than silently averaging a stall into it.  The oracle needs no equivalent (measured: sbl is
+# insensitive to -d1024m on both allocating rows), so this equalises the condition, it does not favour.
+HEAP="${HEAP:-1024}"
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
@@ -46,50 +57,56 @@ human() { awk -v v="$1" 'BEGIN{ if(v=="NA"){print "NA"; exit}
 run1() {
   local eng="$1" sno="$2" s; s=$(basename "${sno%.sno}")
   case "$eng" in
-    sbl) [ -x "$SBL" ] || { echo "- - ORACLE-MISSING"; return; }
-         out=$(timeout "$T" "$SBL" -b "$sno" 2>/dev/null </dev/null) ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" timeout "$T" "$SCRIP" --run "$sno" 2>/dev/null </dev/null) ;;
+    sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
+         out=$(timeout "$T" "$SBL" -b "$sno" 2>/dev/null </dev/null); : > "$W/gc.err" ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" </dev/null) ;;
     m4)  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
-              -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - BUILD-ERR"; return; fi
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" timeout "$T" "./$s.prog" 2>/dev/null </dev/null) ;;
+              -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - BUILD-ERR"; return; fi
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "./$s.prog" 2>"$W/gc.err" </dev/null) ;;
   esac
-  local it ms ck
+  local it ms ck gc
   it=$(sed -n 's/^iters: //p' <<<"$out"); ms=$(sed -n 's/^ms: //p'   <<<"$out")
   ck=$(sed -n 's/^check: //p' <<<"$out")
-  [ -n "$it" ] || { echo "- - CRASH"; return; }
-  echo "$it $ms ${ck:-NOCHECK}"
+  gc=$(grep -c 'regeneration #' "$W/gc.err" 2>/dev/null); gc="${gc:-0}"
+  [ -n "$it" ] || { echo "- - - CRASH"; return; }
+  echo "$it $ms $gc ${ck:-NOCHECK}"
 }
 # ---- best of REPS (max throughput = least interference) --------------------
 best() {
-  local eng="$1" sno="$2" bi=0 bm=0 ck="" r i m c
+  local eng="$1" sno="$2" bi=0 bm=0 bg=0 ck="" r i m g c
   for _ in $(seq 1 "$REPS"); do
-    r=$(run1 "$eng" "$sno"); i=$(awk '{print $1}' <<<"$r"); m=$(awk '{print $2}' <<<"$r"); c=$(awk '{print $3}' <<<"$r")
-    [ "$i" = "-" ] && { echo "- - $c"; return; }
+    r=$(run1 "$eng" "$sno"); i=$(awk '{print $1}' <<<"$r"); m=$(awk '{print $2}' <<<"$r")
+    g=$(awk '{print $3}' <<<"$r"); c=$(cut -d' ' -f4- <<<"$r")
+    [ "$i" = "-" ] && { echo "- - - $c"; return; }
     ck="$c"
-    if [ "$(awk -v a="$i" -v b="$m" -v x="$bi" -v y="$bm" 'BEGIN{print (b>0 && (y<=0 || a/b > x/y))?1:0}')" = 1 ]; then bi=$i; bm=$m; fi
+    # the reported rep is the fastest one; its OWN gc count travels with it, so a printed rate and its
+    # gc flag always describe the same run (a suite-wide max would mark clean rows dirty and vice versa)
+    if [ "$(awk -v a="$i" -v b="$m" -v x="$bi" -v y="$bm" 'BEGIN{print (b>0 && (y<=0 || a/b > x/y))?1:0}')" = 1 ]; then bi=$i; bm=$m; bg=$g; fi
   done
-  echo "$bi $bm $ck"
+  echo "$bi $bm $bg $ck"
 }
 echo "TIME-BASED SNOBOL4 BENCHMARKS -- fixed time budget, iterations counted"
 echo "engines: $ENGINES   reps: $REPS   corpus: $B"
-echo "measurement condition: SCRIP_NOHUGE=$NOHUGE (sbl unaffected -- separate binary)"
+echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)"
 if [ -f "$FLOORTSV" ]; then echo "noise floor: $FLOORTSV (per-row; min-det = 3*cv)"
 else echo "noise floor: NOT BAKED -- run scripts/bake_noise_floor_snobol4_timed.sh"; fi
 echo
-printf "%-20s %12s %12s %12s   %8s %8s %9s  %s\n" BENCHMARK "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "min-det" "check"
-printf "%-20s %12s %12s %12s   %8s %8s %9s  %s\n" "--------------------" "------------" "------------" "------------" "--------" "--------" "---------" "-----"
-tot_ok=0; tot_bad=0
+printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" BENCHMARK "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "min-det" "check"
+printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" "--------------------" "------------" "------------" "------------" "--------" "--------" "-----" "---------" "-----"
+tot_ok=0; tot_bad=0; tot_gc=0
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
   grep -q "INCLUDE 'harness.inc'" "$sno" || continue
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
-  declare -A R=(); declare -A C=()
+  declare -A R=(); declare -A C=(); declare -A G=()
   for eng in $ENGINES; do
     res=$(best "$eng" "$sno")
-    i=$(awk '{print $1}' <<<"$res"); m=$(awk '{print $2}' <<<"$res"); c=$(cut -d' ' -f3- <<<"$res")
+    i=$(awk '{print $1}' <<<"$res"); m=$(awk '{print $2}' <<<"$res")
+    G[$eng]=$(awk '{print $3}' <<<"$res"); c=$(cut -d' ' -f4- <<<"$res")
     if [ "$i" = "-" ]; then R[$eng]="NA"; C[$eng]="$c"; else R[$eng]=$(rate "$i" "$m"); C[$eng]="$c"; fi
   done
+  gcn=$(( ${G[m3]:-0} + ${G[m4]:-0} )); [ "$gcn" -gt 0 ] && tot_gc=$((tot_gc+1))
   # correctness: all engines must agree on the check line, and match the .ref
   ckstat="ok"; base=""
   for eng in $ENGINES; do
@@ -108,9 +125,16 @@ for sno in "$B"/*.sno; do
     md=$(awk -F'\t' -v b="$s" -v h="nohuge=$NOHUGE" '$1==b && $2=="m3" && $3==h {printf "%s%%", $8}' "$FLOORTSV")
     [ -n "$md" ] || md="-"
   fi
-  printf "%-20s %12s %12s %12s   %8s %8s %9s  %s\n" "$s" \
-    "$(human "${R[sbl]:-NA}")" "$(human "${R[m3]:-NA}")" "$(human "${R[m4]:-NA}")" "$sp3" "$sp4" "$md" "$ckstat"
+  printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" "$s" \
+    "$(human "${R[sbl]:-NA}")" "$(human "${R[m3]:-NA}")" "$(human "${R[m4]:-NA}")" "$sp3" "$sp4" \
+    "$([ "$gcn" -gt 0 ] && echo "GC$gcn" || echo 0)" "$md" "$ckstat"
 done
 echo
 echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad"
+if [ "$tot_gc" -gt 0 ]; then
+  echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window -- those rates are stall figures, not"
+  echo "   throughput.  Raise HEAP (currently ${HEAP}MB) until the gc column reads 0 before quoting them."
+else
+  echo "gc: 0 rows collected inside the window at HEAP=${HEAP}MB -- every rate above is stall-free."
+fi
 [ "$tot_bad" -eq 0 ]
