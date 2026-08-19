@@ -35,6 +35,8 @@ extern "C" {
 #define RTCC_SLOT_R9    6
 #define RTCC_SLOT_R10   7
 #define RTCC_SLOT_R11   8
+/* RC-6 MBC (HQ B2b): rtccb[31] (byte offset 248) = MATCH-BETA CONTINUATION -- the innermost LIVE mrbp match's L13 (retry_whack) address. Published at MATCH_BEGIN alpha (old value saved in the standing frame's [rbp-48] borrow), restored at every match exit (begin L(1) fail, end commit). Read by bb_match_defer's zero-record guard: a retreat cascade landing on a never-written spine quad escapes to the innermost match's retry_whack under ANY rbp regime (zeta-FRAME / ARBNO-FRAME activations included -- the B2b class the frame-local [rbp-48] read could not cover). 0 = no mrbp match live (guard falls through to the raw record-resume, pre-B2a behavior). Emitted-code-only state; no C-side writer, so BLOCK-CANONICAL holds trivially. Killswitch: SCRIP_DEFER_BETA_GUARD (same as both guard halves). Missed exotic exits self-heal: the next MATCH_BEGIN saves-then-republishes, and no guard is reachable between matches (records exist only within a live match). */
+#define RTCC_MBC_QUAD  31
 /* XMM slots start at byte offset RTCC_GPR_BYTES from block base (16-byte each) */
 /* RTCC_XMM_SLOT(n) for XMM(8+n), n=0..7 */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

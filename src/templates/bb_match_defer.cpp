@@ -273,7 +273,12 @@ std::string bb_match_defer() {
                       + (({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; })
                           ? (x86_reg_disp32_cmp_imm("rsp", 0, 0L)   /* FLAGS-ONLY test — the resume contract is TOUCH NOTHING: rax carries the in-flight value (first cut, arbnostore -2 rows) and the 16B site-stub record class restores no wires (r10 cut, same -2) — measured, both reverted.  FLAGS are not port-contract state (every port is jmp-entered after cmp/jne glue everywhere). */
                            + x86("jne",  L(12))
-                           + x86_jmp_mem("rbp", -48)
+                           /* RC-6 MBC (B2b): the escape reads the GLOBAL innermost-match continuation (rtccb[31], rtcc.h RC-6), not [rbp-48] -- rbp here may be a zeta-FRAME or ARBNO-FRAME activation whose -48 is not a slot at all (measured: n9 under PAT$1's 40-byte frame read a .so address and executed data bytes).  The fire path may clobber rax/rcx freely: it ends in the retry_whack's absolute restore.  MBC==0 (no mrbp match live, e.g. the SCRIP_MATCH_RBP=0 legacy world -- a GLOBAL env, so mixed-arm builds cannot exist) falls through to the raw record-resume = pre-B2a behavior exactly. */
+                           + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+                           + x86("mov", "rax", RDQ("rcx", 248))
+                           + x86("test", "rax", "rax")
+                           + x86("je",   L(12))
+                           + x86_jmp_reg("rax")
                            + x86("def",  L(12))
                            + x86_jmp_mem("rsp", 0))
                           : x86_jmp_mem("rsp", 0))))));

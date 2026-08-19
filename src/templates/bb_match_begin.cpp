@@ -59,7 +59,12 @@ std::string bb_match_begin() {
              + x86("def", L(0))
              + x86("note", "start_δ") + x86("mov", "r14d", RDD("rbp", -40))
              + IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }),
-                   x86("note", "match_beta_cont") + x86_lea_id("rax", 13) + x86("mov", RDQ("rbp", -48), "rax"))   /* ⭐⭐⭐ B2 FIX half A (s145 HQ): publish THIS match's β entry into the reserved [rbp-48] cell so any record-resume defer β that finds a ZERO record cell can fail-benignly to the retry_whack at ANY depth (the whack's `lea rsp,[rbp-56-extra]` is the absolute restore).  LIFETIME: [rbp-48] is bb_match_end's repl_start cell, written only at COMMIT — after which no retreat can re-enter a defer β — so the borrow is disjoint by construction (grep census: bb_match_end.cpp is the only other writer/reader).  Readable from PAT$ blob graphs too: rbp is the statement's pinned ζ-STANDING there (no MATCH_BEGIN of their own — the frame_slot_scan decline class — which is exactly why this is a FIXED cell, not a registry slot).  Same killswitch as the defer-side half; both flip together (the sn4_defer_resume two-halves precedent). */
+                   x86("note", "match_beta_cont")
+                 + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+                 + x86("mov", "rax", RDQ("rcx", 248))
+                 + x86("mov", RDQ("rbp", -48), "rax")   /* RC-6 MBC (B2b): SAVE the outer match's continuation into the [rbp-48] borrow... */
+                 + x86_lea_id("rax", 13)
+                 + x86("mov", RDQ("rcx", 248), "rax"))   /* ...and PUBLISH ours globally (rtccb[31], rtcc.h RC-6) -- the guard escape reads the GLOBAL, correct under any rbp regime; [rbp-48] now holds the SAVED OUTER value for the exit restores, not L13. */   /* ⭐⭐⭐ B2 FIX half A (s145 HQ): publish THIS match's β entry into the reserved [rbp-48] cell so any record-resume defer β that finds a ZERO record cell can fail-benignly to the retry_whack at ANY depth (the whack's `lea rsp,[rbp-56-extra]` is the absolute restore).  LIFETIME: [rbp-48] is bb_match_end's repl_start cell, written only at COMMIT — after which no retreat can re-enter a defer β — so the borrow is disjoint by construction (grep census: bb_match_end.cpp is the only other writer/reader).  Readable from PAT$ blob graphs too: rbp is the statement's pinned ζ-STANDING there (no MATCH_BEGIN of their own — the frame_slot_scan decline class — which is exactly why this is a FIXED cell, not a registry slot).  Same killswitch as the defer-side half; both flip together (the sn4_defer_resume two-halves precedent). */
              + x86_gamma()
              + x86_beta()
              + IF(({ static int _bg2 = -1; if (_bg2 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg2 = (e && *e == '0') ? 0 : 1; } _bg2; }), x86("def", L(13)))
@@ -75,6 +80,11 @@ std::string bb_match_begin() {
              + x86("jmp", L(0))
              + x86("def", L(1))
              + IF(g_emit.xa_bb_emit_pair_n >= 4 && g_emit.xa_bb_emit_pair_define[3] != NULL, x86("def", PAIR(3)))   /* seal landing kept: FENCE/ABORT graphs are excluded from this arm, but the drive may stage the pair — an emitted def with no referrer is inert */
+             + IF(({ static int _bg3 = -1; if (_bg3 < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg3 = (e && *e == '0') ? 0 : 1; } _bg3; }),
+                   x86("note", "mbc_restore")   /* RC-6 MBC (B2b): terminal-fail exit -- restore the OUTER match's continuation before the frame dies (rax/rcx free: the register restores below overwrite r12-r15 then rdi/rsi). */
+                 + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+                 + x86("mov", "rax", RDQ("rbp", -48))
+                 + x86("mov", RDQ("rcx", 248), "rax"))
              + x86("note", "cas_mark") + x86("mov", "r12", RDQ("rbp", -8))   /* SPIN the CAS to the MARK: one mov, no scan, no sentinel */
              + x86("note", HKN(1)) + x86("mov", "r13", RDQ("rbp", -16))
              + x86("note", HKN(2)) + x86("mov", "r14", RDQ("rbp", -24))

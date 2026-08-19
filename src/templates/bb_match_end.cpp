@@ -28,11 +28,16 @@ static const char * HKM() { return "qword ptr [rsp# + 8]"; }   /* ⭐ SLACK-RIDE
 static const char * HKD() { return "dword ptr [rsp# + 0]"; }   /* ⭐ SLACK-RIDER RE-HOME (this session): the bb_match_begin twin, verbatim -- start_δ's negative home.  RELEASE runs inside the SAME bracket as the head's α, so [___-64] is depth-free at the post-unwind write exactly as it was at the write that seeded it -- the same argument HKQ's own comment makes for the quartet, and the reason this cell can move homes without any change to WHEN it is read. */   /* SUBJ-ARM-2: the head's statement-bracket ___ housekeeping slots (bb_match_begin.cpp twin, same k map: 0=deep-___ 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [___-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string mend_bank_cursors() {   /* ⭐ R-3(c) CURSOR ARENA-RIDE, bank half (mrbp + has_repl only): {start,end} banked at alpha in the STANDING frame's reserved RESULT pair [rbp-48]/[rbp-56] (bb_match_begin.cpp:34 layout -- "the slot exists so wiring it is a template edit not a layout ripple"; frame_slot_scan slots start at -(64+16k), no collision) while r14=delta is still live -- the pump's C calls clobber it and the pump-tail reload seats OUTER delta.  ROOT CAUSE this retires for mrbp: the legacy rfc stash writes at raw-rsp op_off coordinates that are claim-backed ONLY in main-shaped graphs; inside a DEFINE body they alias the save_restore record (gdb on rd_min: R_gamma jumped through 0x300000002 = the subject descr tagword; the s99 op_off=42480 un-rebased flat coord is the same family).  The pair crosses the frame whack on the R12 ARENA (push half in release_pump), which the whack cannot touch. */
-    return (emit_match_rbp() && _.op_dval != 0.0)
+    return IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }) && emit_match_rbp(),
+                   x86("note", "mbc_restore")   /* RC-6 MBC (B2b): restore the OUTER match's continuation from the [rbp-48] borrow BEFORE the banking below writes over it -- this helper runs right after x86_alpha() on every real MATCH_END arm, so it is the single commit-side authority for both the restore and the bank, in that order. Gated on emit_match_rbp() like the bank: legacy-arm matches never published. */
+                 + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+                 + x86("mov", "rax", RDQ("rbp", -48))
+                 + x86("mov", RDQ("rcx", 248), "rax"))
+         + ((emit_match_rbp() && _.op_dval != 0.0)
          ? x86("note", "repl_start") + x86("mov", "eax", RDD("rbp", -40))
          + x86("note", "repl_start") + x86("mov", RDD("rbp", -48), "eax")
          + x86("note", "repl_end")   + x86("mov", RDQ("rbp", -56), "r14")
-         : std::string();
+         : std::string());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump_legacy() {
