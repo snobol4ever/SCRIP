@@ -199,6 +199,7 @@ void rt_chain_enter(eval_chain_fn fn);
  * Without it the dcap pump's rt_proc_call_open on EXPR$N finds no body and the conditional assignment is a
  * no-op.  dyn_scope=1 on every thunk, so the pump's open lands the dyn prologue and the NRETURN'd NAME rides
  * the rt_g_want_name the pump re-arms. */
+int g_rt_fragment_emit = 0;   /* D-18b (s161): TRUE while the RUNTIME fragment compiler is emitting -- bb_call_proc_staged's TINY arms consult it and DECLINE, because a fragment's callees (EXPR$/PAT$ thunks and cross-chain mains) carry no <name>_α staging label for the alpha$ cell to seal against (measured: alpha$EXPR$0F1 / alpha$PAT$0 MISS under SCRIP_SEAL_DIAG); declined sites fall to the slim/legacy call = the rt fn-pointer machinery main programs already use for every thunk call (m1 witness family green). */
 static void eval_thunks_emit_from(int pc0)
 {
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -226,6 +227,7 @@ static void eval_thunks_emit_from(int pc0)
     IR_graph_t *cfg_sv = g_emit_cfg;
     int fa = g_frame_active; g_frame_active = 1;
     int ga = g_gen_proc_active;
+    g_rt_fragment_emit = 1;
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
@@ -237,8 +239,10 @@ static void eval_thunks_emit_from(int pc0)
           if (!emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx])) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]); }
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
         if (pfn) rt_proc_set_fn(pname, pfn);
+        { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }   /* ⭐⭐⭐ D-18a (s161): THE MISSING LINE — the main driver seals alpha$<FN> for every proc it emits (scrip.c R-1 s94 loop); this fragment loop registered and set fns but never sealed, so alpha$EXPR$<thunk> stayed rt_ab_undef_fn_stub and every deferred call inside an EVAL-built pattern raised error 22 at match time (B1b witness; beauty's grammar is built of exactly these). Label pool is live here — emit_jmp_entry_clear below is the same boundary the driver seals across. */
         emit_jmp_entry_clear();
     }
+    g_rt_fragment_emit = 0;
     g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -292,7 +296,9 @@ static eval_chain_fn eval_build_chain(const char *s)
     IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
     int fa = g_frame_active; g_frame_active = 1;
     emit_jmp_entry_for_chain((IR_graph_t *)g);
+    g_rt_fragment_emit = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
+    g_rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa; g_emit_cfg = cfg_sv;
     eval_thunks_emit_from(pc0);

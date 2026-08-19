@@ -71,6 +71,23 @@ static int bb_ab_slot_for(const char * fname) {
 }
 static void * bb_ab_cell_addr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
 extern "C" void * bb_ab_fn_cell_ptr(const char * fname) { return bb_ab_cell_addr(fname); }   /* AB-3b: non-static accessor for call-site template (bb_call_proc_staged.cpp) — same slot the block and bind use, ONE allocator */
+
+extern "C" const char * bb_ab_sym_name(const char * nm) {   /* D-18a: asm_sym_name HOISTED from scrip.c:87 (driver static, unlinkable from the .so) — the driver's copy is now a wrapper on THIS one; same one-authority move as bb_ab_seal_entry_cells below. */
+    static char b[256]; int j = 0;
+    for (const char * c = nm ? nm : ""; *c && j < 250; c++) { unsigned char u = (unsigned char) *c;
+        if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') b[j++] = (char) u;
+        else j += snprintf(b + j, (size_t)(256 - j), "$%02X", u); }
+    b[j] = 0; return b;
+}
+extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int alpha_face) {   /* D-18a (s161, HQ): m3_seal_entry_cells HOISTED VERBATIM from the driver (scrip.c) into the allocator's own home so the RUNTIME fragment compiler can seal its thunks' cells too — the driver cannot be called from libscrip_rt, and a second spelling in runtime_eval.c would be the s68/s70 spelled-twice disease on the exact function whose comment says "ONE allocator, one name".  The B1b witness (probe/b1/b1_eval_pattern_defer_call): eval_thunks_emit_from registered EXPR$ thunk procs and set their fns but never filled alpha$<thunk>, so every x86_jmp_via_cell call site inside an EVAL-compiled fragment jumped through rt_ab_undef_fn_stub — error 22 at match time, IN BOTH MODES — which is beauty's grammar-build wall (semantic.inc builds every rule pattern via EVAL). */
+    extern int emit_label_lookup_offset(const char *);
+    if (!pname || !fnbase) return;
+    char lbl[300], cell[300];
+    if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
+    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "body$%s",  pname); }
+    int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }   /* SCRIP_SEAL_DIAG=1: print the fill/miss ledger -- the instrument that convicted the unsealed alpha$EXPR$ cells (D-18) */
+    *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_activate() {
     x86_begin();

@@ -142,6 +142,7 @@ static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t *
 static const char * g_sno_predef[SNO_DEF_MAX]; static int g_sno_npredef = 0;
 static void sno_predef_note(const char * fname) { for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return; if (g_sno_npredef < SNO_DEF_MAX) g_sno_predef[g_sno_npredef++] = fname; }
 static int sno_predef_registered(const char * fname) { if (!fname) return 0; for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return 1; return 0; }
+static const char * sno_t4_target(const char * op, int nops);   /* T4 OPSYN-FOLD resolver -- definition beside sno_fz_build_table */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_tree_has_define_call(const tree_t * t) {
     if (!t) return 0;
@@ -395,6 +396,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
          * on the symbol itself; an unregistered symbol faults at call time exactly like an undefined function. */
         const char * name = t->v.sval;
         if (!name || !*name) sno_fatal("OPSYN operator expression with no symbol", NULL);
+        { const char * _tg = sno_t4_target(name, t->n); if (_tg && sno_predef_registered(_tg)) return sx_call_named(cx, _tg, t, 0, γ, ω, res); }   /* ⭐⭐⭐ T4 OPSYN-FOLD: the symbol resolves to its constant binding at LOWER TIME -- the use site lowers as the DIRECT DEFINE'd-function call (same sx_call_named, same operands, argbase 0), bypassing the by-name chain that m4 cannot route to SNOBOL-defined targets (B1, FINDING s156).  Table + admission rules at sno_t4_scan above; killswitch SCRIP_OPSYN_FOLD=0 skips this consult. */
         return sx_call_named(cx, name, t, 0, γ, ω, res);
     }
     case TT_FNC: {
@@ -1058,11 +1060,60 @@ static void sno_encl_mark_all(const tree_t * t) { if (!t) return; if (t->t == TT
 static void sno_encl_scan(const tree_t * t) { if (!t) return; if (t->t == TT_ARBNO || sno_is_fence(t)) { sno_encl_mark_all(t); return; } for (int i = 0; i < t->n; i++) sno_encl_scan(t->c[i]); }
 static int sno_encl_hostile(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_nencl; i++) if (!strcmp(g_sno_encl[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐⭐ T4 OPSYN-FOLD (s161; Lon's ruling 2026-08-19: "constant folding should get us home to beauty self host") — a LITERAL OPSYN('op','Target',arity) is a compile-time-visible CONSTANT OPERATOR
+ * BINDING, the operator-namespace sibling of T1's scalar fold: resolve the symbol to its target AT LOWER TIME so the use-site lowers as a DIRECT call to the DEFINE'd function instead of a by-name
+ * call on the symbol — the by-name chain is exactly B1 (FINDING s156: core_call_registered_fn cannot reach SNOBOL-defined targets in m4; beauty's grammar is OPSYN('&','reduce',2)/('~','shift',2)
+ * and every rule evaluation silently nulls).  TEXTUAL-FOLD-IS-THE-SPEC per the T1/PT-3 precedent (routed, ARCH-SN4-CONSTANTS §T1-FOLD-SEMANTICS).  ADMISSION IS CONSERVATIVE and mirrors T1's:
+ * operator-shaped symbol (non-identifier lead char), all three args literal, arity 1 or 2, SAME op re-bound differently => that op poisoned, ANY OPSYN we cannot read exactly (variable args,
+ * .NAME operands, operator-shaped with missing arity) => the WHOLE table poisoned — we cannot know which operator moved.  Function-alias form OPSYN('NEW','OLD') is NOT ours and NOT poisonous:
+ * it moves no operator.  Fold fires only when the target is a prescan-registered DEFINE (sno_predef_registered) — builtin targets keep today's path (their by-name dispatch WORKS; no reason to
+ * risk arg-convention drift).  Killswitch SCRIP_OPSYN_FOLD=0 restores the by-name lowering byte-identically (the fold is a lowering-time substitution; OFF emits the pre-T4 bytes by construction). */
+typedef struct { const char * op; const char * tgt; int arity; int poisoned; } sno_t4_t;
+static sno_t4_t g_sno_t4[16];
+static int g_sno_nt4 = 0, g_sno_t4_unsafe = 0;
+static int sno_t4_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OPSYN_FOLD"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int sno_t4_opchar(char c) { return !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.'); }
+static void sno_t4_scan(const tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) sno_t4_scan(t->c[i]);
+    if (t->t != TT_FNC) return;
+    const char * nm = t->v.sval; int ab = 0;
+    if (!nm && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { nm = t->c[0]->v.sval; ab = 1; }
+    if (!nm || strcmp(nm, "OPSYN")) return;
+    { int na = t->n - ab;
+      const tree_t * a0 = (na > 0) ? t->c[ab] : NULL;
+      const tree_t * a1 = (na > 1) ? t->c[ab + 1] : NULL;
+      const tree_t * a2 = (na > 2) ? t->c[ab + 2] : NULL;
+      const char * op = (a0 && a0->t == TT_QLIT) ? a0->v.sval : NULL;
+      const char * tg = (a1 && a1->t == TT_QLIT) ? a1->v.sval : NULL;
+      long ar = (a2 && a2->t == TT_ILIT) ? a2->v.ival : -1;
+      if (op && tg && *op && sno_t4_opchar(*op)) {
+          if (na == 3 && (ar == 1 || ar == 2)) {
+              for (int i = 0; i < g_sno_nt4; i++) if (!strcmp(g_sno_t4[i].op, op)) {
+                  if (strcmp(g_sno_t4[i].tgt, tg) || g_sno_t4[i].arity != (int) ar) g_sno_t4[i].poisoned = 1;
+                  return; }
+              if (g_sno_nt4 < 16) { g_sno_t4[g_sno_nt4].op = op; g_sno_t4[g_sno_nt4].tgt = tg; g_sno_t4[g_sno_nt4].arity = (int) ar; g_sno_t4[g_sno_nt4].poisoned = 0; g_sno_nt4++; }
+              else g_sno_t4_unsafe = 1;
+              return; }
+          g_sno_t4_unsafe = 1;   /* operator-shaped OPSYN we could not read exactly */
+          return; }
+      if (op && tg) return;      /* function-alias form, fully literal: moves no operator */
+      g_sno_t4_unsafe = 1; }     /* non-literal OPSYN anywhere: unknown operator moved */
+}
+static const char * sno_t4_target(const char * op, int nops) {
+    if (!sno_t4_on() || g_sno_t4_unsafe || !op) return NULL;
+    for (int i = 0; i < g_sno_nt4; i++)
+        if (!g_sno_t4[i].poisoned && !strcmp(g_sno_t4[i].op, op) && g_sno_t4[i].arity == nops) return g_sno_t4[i].tgt;
+    return NULL;
+}
 static void sno_fz_build_table(const tree_t ** st, int nst) {
     g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nsnapref = 0; g_sno_nencl = 0;
+    g_sno_nt4 = 0; g_sno_t4_unsafe = 0;   /* T4: rebuilt per lowering invocation, exactly like the fz table */
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i]; if (!s) continue;
-        sno_encl_scan(s);   /* PT-2b: whole statement — inline_ok gates the STORED tree, the hazard is the USE-SITE enclosure (070: DIGIT=ANY() inline-ok, ARBNO(*DIGIT) not; 128 FENCE in an RHS) */
+        sno_encl_scan(s);
+        sno_t4_scan(s);   /* T4: deep-walk for OPSYN calls -- registration or poison, per the admission rules above */   /* PT-2b: whole statement — inline_ok gates the STORED tree, the hazard is the USE-SITE enclosure (070: DIGIT=ANY() inline-ok, ARBNO(*DIGIT) not; 128 FENCE in an RHS) */
         const tree_t * subj = lc_stmt_subj(s); const tree_t * pat = sfind_expr(s, ":pat"); const tree_t * repl = sfind_expr(s, ":repl"); int has_eq = sfind(s, ":eq") != NULL;
         if (pat) sno_fz_scan(pat);
         if (repl) sno_fz_scan(repl);
@@ -2812,6 +2863,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
     g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0; g_sno_nencl = 0;
+    g_sno_nt4 = 0; g_sno_t4_unsafe = 1;   /* T4: fragments never fold (the g-cn2 boundary precedent -- fragment-local rescans stay conservative) */
     int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;   /* ⭐⭐⭐ g-cn2 -- THE EVAL/CODE BOUNDARY, ENFORCED. g_sno_seal_enabled's own doc says the runtime fragment compiler "must stay conservative", but NOTHING enforced it: lower_sno_stage2 grants the flag once and no path ever cleared it, so a fragment re-entered sx_lower with the WHOLE PROGRAM's seal table live and T1 folded `&N` against a tree_t owned by the main compile. Measured (s153, pristine b69c63a5): m3 `EVAL('&N')` printed EMPTY with T1 on and 42 with SCRIP_CONST_T1=0, while m4 printed 42 in BOTH arms -- because a mode-4 binary compiles its fragments in a DIFFERENT PROCESS whose table is empty, i.e. m4 was accidentally correct for the reason this line now makes deliberate. That is a MODE34-IDENTICAL violation on the DEFAULT arm and a silent wrong answer, not an error. Clearing here is the one-line statement of ARCH-SN4-CONSTANTS's own ruling ("no fold in the runtime-compile path is the safe default") and it closes T1 and T2 together: sno_const_val and sno_const_pat are both gated on this flag alone, and an inlined T2 graph carries the same cross-compile pointer hazard. Fragments keep reading the SEALED CELL by name -- CN-2's binding is process-global and is what makes 341/342 answerable inside a thunk. Saved and restored rather than left 0 because mode 3 keeps lowering state alive for the life of the process. */
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL);
