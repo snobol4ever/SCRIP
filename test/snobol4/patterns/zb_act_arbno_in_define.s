@@ -178,8 +178,11 @@ n5_match_begin_α:       mov              rdi, qword ptr [rsp + 0]             #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
-.Lx41_0:                mov              r14d, dword ptr [rbp + -40];         jmp   n6_match_pos_α
-n5_match_begin_β:       lea              rsp, [rbp + -72]                     # retry_whack
+.Lx41_0:                mov              r14d, dword ptr [rbp + -40]
+                        lea              rax, [rip + .Lx41_13]                # match_beta_cont
+                        mov              qword ptr [rbp + -48], rax;          jmp   n6_match_pos_α
+n5_match_begin_β:
+.Lx41_13:               lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx41_1

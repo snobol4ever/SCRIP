@@ -133,8 +133,11 @@ n11_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
-.Lx59_0:                mov              r14d, dword ptr [rbp + -40];         jmp   n12_match_lit_α
-n11_match_begin_β:      lea              rsp, [rbp + -56]                     # retry_whack
+.Lx59_0:                mov              r14d, dword ptr [rbp + -40]
+                        lea              rax, [rip + .Lx59_13]                # match_beta_cont
+                        mov              qword ptr [rbp + -48], rax;          jmp   n12_match_lit_α
+n11_match_begin_β:
+.Lx59_13:               lea              rsp, [rbp + -56]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx59_1
@@ -261,8 +264,11 @@ n21_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              dword ptr [rbp + -40], 0             # start_δ
-.Lx76_0:                mov              r14d, dword ptr [rbp + -40];         jmp   n22_match_lit_α
-n21_match_begin_β:      lea              rsp, [rbp + -56]                     # retry_whack
+.Lx76_0:                mov              r14d, dword ptr [rbp + -40]
+                        lea              rax, [rip + .Lx76_13]                # match_beta_cont
+                        mov              qword ptr [rbp + -48], rax;          jmp   n22_match_lit_α
+n21_match_begin_β:
+.Lx76_13:               lea              rsp, [rbp + -56]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx76_1
