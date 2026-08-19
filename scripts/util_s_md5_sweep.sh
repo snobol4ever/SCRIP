@@ -4,6 +4,18 @@
 # LISTFILE = one .sno path per line; default list = corpus demo (maxdepth 1) + crosscheck + probe/bb.
 # Compare arms/builds with:  diff A.md5 B.md5   (or join to list movers).  Landed s145 (HQ) — the gate that
 # proved ARBNO-TAIL-BETA byte-identity (529/529) and the SEED-NAMES fix .s-invariance ran exactly this shape.
+#
+# ⛔ rc IS RECORDED AND A FAILED COMPILE IS NEVER HASHED (s149, per s148's instrument brief).  The old test was
+# `[ -s p.s ]` alone: a compiler that DIED partway still leaves a non-empty TRUNCATED .s, which was then hashed
+# as if it were a legitimate result — the s33 "non-empty is not alive" false-signal class living inside the very
+# instrument every codegen rung is validated against.  Two truncated arms hash to two different md5s and
+# masquerade as blast radius.  Now: rc!=0 emits COMPILE_RC_<rc>, which is a STABLE label — a program whose
+# compile segfaults reads COMPILE_RC_139 in BOTH arms and correctly shows as ZERO movers instead of two random
+# hashes.  rc==0 with empty output emits COMPILE_EMPTY.  Only rows carrying a real md5 are byte-identity claims.
+# Measured at s149 on 529 programs: rc==0 527, rc!=0 2 (crosscheck/coverage/coverage_sno_nodes.sno,
+# programs/snobol4/demo/expression.sno), and ZERO failed compiles emitted bytes — so the hazard has no live
+# instance on this tree today and this change is byte-identical in effect here.  It is landed anyway because the
+# next codegen rung that segfaults the compiler is exactly when a silent wrong answer would cost a session.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-/home/claude/corpus}"
@@ -11,9 +23,11 @@ OUT="${1:?usage: util_s_md5_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
   { find "$CORPUS/programs/snobol4/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
-gen() { local d n W; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
-  (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null)
-  if [ -s "$W/p.s" ]; then printf '%s\t%s\n' "$(md5sum < "$W/p.s" | cut -d' ' -f1)" "$1"; else printf 'COMPILE_FAIL\t%s\n' "$1"; fi
+gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
+  (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
+  if   [ "$rc" -ne 0 ]; then printf 'COMPILE_RC_%s\t%s\n' "$rc" "$1"
+  elif [ -s "$W/p.s" ]; then printf '%s\t%s\n' "$(md5sum < "$W/p.s" | cut -d' ' -f1)" "$1"
+  else printf 'COMPILE_EMPTY\t%s\n' "$1"; fi
   rm -rf "$W"; }
 export -f gen; export SCRIP
 xargs -a "$T" -P "$(nproc)" -I{} bash -c 'gen "$@"' _ {} | sort -k2 > "$OUT"
