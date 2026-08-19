@@ -152,8 +152,8 @@ static KWB_ENT_t *kwb_find(const char *kw) {
     return (KWB_ENT_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kwb_read(const char *kw, DESCR_t *out) {
-    KWB_ENT_t *e = kwb_find(kw); if (!e) return 0;
+static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
+    if (!e) return 0;
     if (e->kind == KWB_STR) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(kw_rtntype); return 1; }   /* LIVE strings: &RTNTYPE and &ERRTEXT are protected repositories whose contents the runtime rewrites as it goes, so the block names them but reads the live cell rather than a frozen initializer. */
         if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
@@ -163,8 +163,10 @@ static int kwb_read(const char *kw, DESCR_t *out) {
     *out = INTVAL(e->cell ? *e->cell : 0); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kwb_write(const char *kw, DESCR_t v) {
-    KWB_ENT_t *e = kwb_find(kw); if (!e) return 0;
+static int kwb_read(const char *kw, DESCR_t *out) { return kwb_read_ent(kwb_find(kw), out); }   /* KW-3: the name-keyed entry is now a THIN WRAPPER over the entry-keyed reader, so the by-index fast path (rt_kw_read_idx) and the by-name path cannot answer differently -- they execute the same body. Splitting here rather than duplicating the STR/INT arms is the s68/s70 spelled-twice law applied to KW-3's own seam. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
+    if (!e) return 0;
     extern void core_runtime_error(int code, const char *msg);
     int is_num = IS_INT(v) || IS_REAL(v);
     if (!is_num) { const char *s = VARVAL_fn(v); char *end = (char *)0; if (s && *s) { (void)strtol(s, &end, 10); is_num = (end && *end == '\0'); } }
@@ -172,6 +174,33 @@ static int kwb_write(const char *kw, DESCR_t v) {
     if (e->prot) { core_runtime_error(209, "keyword in assignment is protected"); return 1; }
     if (e->cell) *e->cell = IS_INT(v) ? v.i : (int64_t)to_real(v);
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(kw), v); }   /* KW-3: same thin-wrapper split as the read side -- the protection verdict and the oracle-measured value-test-before-protected-test ORDER live in ONE body that both the by-name and the by-index writer execute. */
+/*========================================================================================================================================================================================================*/
+/* KW-3 (GOAL-SNOBOL4-100 D-3): THE STATIC KEYWORD SLOT, EMITTED IN THE PROGRAM'S ASM. The emitter resolves a `&KW` reference to its CANONICAL BLOCK INDEX at compile time (rt_kw_index), seals that index as a */
+/* static quad in the emitted program (x86_ro_seal_q, both media), and the box loads it rip-relative and calls the by-index accessor below. That retires the measured KW-2 read cost -- a pointer to the */
+/* keyword's NAME STRING plus a two-fold + ~60-arm strcmp cascade -- in favour of one rip-relative load and an O(1) array index. ⛔ THE INDEX IS A COMPILE-TIME/RUN-TIME CONTRACT: it is an offset into the */
+/* block that g_kwb_bound names, so emit-time and run-time must see the SAME block. Today nothing calls rt_kw_bind(), so both see the file-scope g_kwb and the indices are stable by construction; the */
+/* bounds test below is the tripwire that keeps a future rebind (KW-3b relocation) from silently reading a neighbour's cell instead of failing loudly. Miss (idx < 0) is NOT an error -- it means the block */
+/* does not name that keyword (&ARB/&BAL/&REM/&FAIL and the whole pattern family), and the emitter then keeps the legacy name-string arm verbatim, which is what preserves their PATTERN values. */
+int rt_kw_index(const char *kw) {
+    if (!kw) return -1;
+    KWB_ENT_t *e = kwb_find(kw); if (!e) return -1;
+    return (int)(e - g_kwb_bound);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_kw_read_idx(int64_t idx) {
+    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return NULVCL;
+    kwb_init_once();
+    DESCR_t out; if (kwb_read_ent(&g_kwb_bound[idx], &out)) return out;
+    return NULVCL;
+}   /* kwb_init_once() is called HERE and not only in kwb_find because the by-index path deliberately bypasses the finder -- dropping it would leave the lazy seeding to whichever by-name read happened to run first, which is exactly the "initial value depends on access order" defect class KW-1 measured. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_write_idx(int64_t idx, DESCR_t v) {
+    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return;
+    kwb_init_once();
+    (void)kwb_write_ent(&g_kwb_bound[idx], v);
 }
 /*========================================================================================================================================================================================================*/
 DESCR_t kw_read(const char *kw) {
@@ -320,6 +349,7 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (!strcmp(lk, "errtext")) return g_sno_errtext ? STRVAL(g_sno_errtext) : STRVAL("");
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
+    if (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed")) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }   /* ⛔ THE PRIMITIVE-PATTERN KEYWORD FAMILY IS NOT A USER CONSTANT (manual Ch.16 p.187-188: "&ARB The primitive pattern ARB", and likewise &BAL/&REM/&FAIL/&FENCE/&ABORT/&SUCCEED -- protected read-only repositories of fundamental system patterns, present "only for historic reasons" because SPITBOL forbids altering ARB/BAL). They are deliberately absent from the KW-2 block and have ALWAYS reached their PATTERN value through the bare-name variable table; CN-2's canonical "&Name" re-key severed exactly that bridge, so every one of them fell into the tier-3 user-constant arm below and raised error 342 on READ. Measured: probe/kw/kw_datatypes m3+m4 PASS->DIFF between s146 (6/10) and this seat's baseline (4/10), oracle expecting ARB=PATTERN through SUCCEED=PATTERN. Restored ahead of tier-3 rather than inside it because a keyword the MANUAL names can never be an "unknown &name". */
     { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }   /* SN4-CONSTANTS CN-2 (s145): tier-3 = unknown &name = USER CONSTANT, NV-keyed "&Name" -- the lexer strips '&', which aliased &W onto plain W (measured: amp=bare); canonicalizing here separates the namespaces */
       extern int NV_EXISTS_fn(const char *);
       if (!NV_EXISTS_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return NULVCL; }
