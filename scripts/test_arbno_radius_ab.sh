@@ -4,10 +4,11 @@
 # only the MOVERS, so the instrument never floods a session's context.
 # Usage: bash scripts/test_arbno_radius_ab.sh <listfile-of-corpus-relative-paths> [tag]
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
-SBL="${SBL:-$S4E/x64/bin/sbl}"
+SBL="${SBL:-$S4A/x64/bin/sbl}"
 LIST="${1:?usage: $0 <listfile> [tag]}"
 TAG="${2:-ab}"
 W=/tmp/radab.$TAG; mkdir -p "$W"

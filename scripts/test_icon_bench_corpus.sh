@@ -36,13 +36,14 @@
 #
 # Exit: 0 always (this is a report, not a gate) — read the PASS/FAIL counts in the final line.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$HERE/.."                                    # .../SCRIP
 SCRIP="$ROOT/scrip"
 RTDIR="$ROOT/out"
 CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
-ICONM="${ICONM:-$S4E/icon-master}"          # canonical path per RULES.md/PLAN.md session-start convention
+ICONM="${ICONM:-$S4A/icon-master}"          # canonical path per RULES.md/PLAN.md session-start convention
 SKIP_BUILD="${SKIP_BUILD:-0}"
 WORK="$(mktemp -d /tmp/icon_bench_corpus_XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT

@@ -19,6 +19,7 @@
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -28,7 +29,7 @@ TEST="$ROOT/test/snobol4"
 SCRIP_MONITOR="${SCRIP_MONITOR:-$ROOT/scrip-monitor}"
 if [[ ! -x "$SCRIP_MONITOR" ]]; then
     echo "MISSING scrip-monitor binary: $SCRIP_MONITOR"
-    echo "       Build with: make scrip-monitor CSN_A=$S4E/csnobol4/libcsnobol4.a"
+    echo "       Build with: make scrip-monitor CSN_A=$S4A/csnobol4/libcsnobol4.a"
     exit 0   # diagnostic tool — always exit 0
 fi
 

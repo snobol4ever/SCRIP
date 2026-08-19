@@ -4,10 +4,11 @@
 # m4 is the honest medium for the stack-slot class (s66 law: m3 exit 0 is not exoneration).
 # Usage: SCRIP_ARBNO_RBP=<0|1> bash scripts/test_arbno_witnesses.sh <tag>
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
-SBL="${SBL:-$S4E/x64/bin/sbl}"
+SBL="${SBL:-$S4A/x64/bin/sbl}"
 TAG="${1:-run}"
 W=/tmp/arbw.$TAG; mkdir -p "$W"
 FILES="$CORPUS/probe/arb1.sno $CORPUS/crosscheck/patterns/181_pat_arbno_defer_tail_stressors.sno"

@@ -4,10 +4,11 @@
 # when SCRIP output is BYTE-IDENTICAL to the live Arizona iconx oracle for that
 # program. Divergent or crashing programs report DIVERGE and are NOT timed.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 SCRIPDIR="${SCRIPDIR:-$S4E/SCRIP}"
 SCRIP="$SCRIPDIR/scrip"
-ICONM="${ICONM:-$S4E/icon-master}"
+ICONM="${ICONM:-$S4A/icon-master}"
 ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
 CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
 REPS="${REPS:-3}"

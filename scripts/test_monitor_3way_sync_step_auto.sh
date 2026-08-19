@@ -62,6 +62,7 @@
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-26
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 
 set -uo pipefail
 
@@ -76,11 +77,11 @@ if [[ "${2:-}" == "--trail" && -n "${3:-}" ]]; then
     export MONITOR_LAST_AGREE_TRAIL="${3}"
 fi
 
-X64_DIR="${X64_DIR:-$S4E/x64}"
+X64_DIR="${X64_DIR:-$S4A/x64}"
 SPITBOL="$X64_DIR/bin/sbl"
-CSNOBOL4="$S4E/csnobol4/snobol4"
+CSNOBOL4="$S4A/csnobol4/snobol4"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-SNO4_REPO="${SNO4_REPO:-$S4E/snobol4dotnet}"
+SNO4_REPO="${SNO4_REPO:-$S4A/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
 INC="${INC:-$S4E/corpus/programs/include}"
 

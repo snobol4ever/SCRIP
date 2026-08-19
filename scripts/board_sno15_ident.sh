@@ -15,6 +15,7 @@
 # rbx crash) -- a board that cannot tell hang from crash cannot route a failure to its owner. classify_rc()
 # below turns the raw $? into HANG / CRASH(sig) / RC=<n> so the printed column carries that distinction.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 classify_rc() {  # $1 = exit code from `timeout N cmd`
   local rc=$1
@@ -23,7 +24,7 @@ classify_rc() {  # $1 = exit code from `timeout N cmd`
   else echo "RC=$rc"; fi
 }
 SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
-SBL=${SBL:-$S4E/x64/bin/sbl}
+SBL=${SBL:-$S4A/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 TMO=${TMO:-300}

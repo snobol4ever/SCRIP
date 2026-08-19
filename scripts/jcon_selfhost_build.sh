@@ -6,13 +6,14 @@
 # Usage: bash scripts/jcon_selfhost_build.sh            # feature build (-O0 runtime)
 #        PERF=1 bash scripts/jcon_selfhost_build.sh     # perf build (-O2 runtime)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -euo pipefail
 
-SCRIP=${SCRIP:-$S4E/work/SCRIP}
-CORPUS=${CORPUS:-$S4E/work/corpus}
-JCONREPO=${JCONREPO:-$S4E/work/jcon-master/jcon-master}
-ICONREPO=${ICONREPO:-$S4E/work/icon-master/icon-master}
-JT=${JT:-$S4E/jt}
+SCRIP=${SCRIP:-$S4A/work/SCRIP}
+CORPUS=${CORPUS:-$S4A/work/corpus}
+JCONREPO=${JCONREPO:-$S4A/work/jcon-master/jcon-master}
+ICONREPO=${ICONREPO:-$S4A/work/icon-master/icon-master}
+JT=${JT:-$S4A/jt}
 RT="$SCRIP/out"
 JCOMPILER="$CORPUS/programs/icon/jcon-compiler"
 SEMI="$SCRIP/tools/semicolonize_icon.py"

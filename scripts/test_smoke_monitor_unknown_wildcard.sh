@@ -18,15 +18,16 @@
 #
 # S-2-bridge-7 + SN-26-bridge-coverage cross-ref, Mon Apr 28 2026.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 HARNESS="${HARNESS:-$HERE/test_monitor_3way_sync_step_auto.sh}"
 
-if [ ! -x $S4E/x64/bin/sbl ]; then echo "SKIP: spitbol not built"; exit 0; fi
+if [ ! -x $S4A/x64/bin/sbl ]; then echo "SKIP: spitbol not built"; exit 0; fi
 if [ ! -x "$(command -v dotnet)" ]; then echo "SKIP: dotnet missing"; exit 0; fi
-if [ ! -f $S4E/snobol4dotnet/Snobol4/bin/Release/net10.0/Snobol4.dll ]; then
+if [ ! -f $S4A/snobol4dotnet/Snobol4/bin/Release/net10.0/Snobol4.dll ]; then
     echo "SKIP: Snobol4.dll not built"; exit 0; fi
 if [ ! -f "$HARNESS" ]; then echo "SKIP: harness missing at $HARNESS"; exit 0; fi
 

@@ -2,10 +2,11 @@
 # test_smoke_snobol4_wasm.sh — SN4-WASM-4 gate: full WASM pipeline on 7 smoke programs
 # scrip --compile --target=wasm → .wat file → wat2wasm → .wasm → node sno_host.mjs → verify output
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
+ORACLE="${ORACLE:-$S4A/x64/bin/sbl}"
 HOST_MJS="${HOST_MJS:-$HERE/../src/backends/runtime/wasm/sno_host.mjs}"
 RUNTIME_WAT="${RUNTIME_WAT:-$HERE/../src/backends/runtime/wasm/sno_runtime.wat}"
 RUNTIME_WASM="${RUNTIME_WAT%.wat}.wasm"

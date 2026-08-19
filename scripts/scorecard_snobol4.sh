@@ -19,11 +19,12 @@
 # results: <out>/results.tsv  suite<TAB>program<TAB>m3<TAB>m4<TAB>t3<TAB>t4<TAB>note   (appended as it goes;
 # `report` works on a partial file, so a running sweep can be reported at any time).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SC="$(cd "$HERE/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
-SBL="${SBL:-$S4E/x64/bin/sbl}"
+SBL="${SBL:-$S4A/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/programs/snobol4/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
