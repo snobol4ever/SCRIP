@@ -26,7 +26,7 @@ cd "$DEMO"
 # NOT left behind stale: a name dropped from this list must have its artifact deleted in the same commit, which
 # is the whole lesson of the hello.s fossil.  Re-add a name here if the churn is ever wanted.  Largest member
 # now is json at ~18k; that is the standing ceiling unless Lon rules otherwise.
-DEMOS="roman wordcount claws5 treebank-list \
+DEMOS="roman wordcount claws5 treebank \
        arithmetic counter hello pattern_test \
        calculator-1 calculator-1-match calculator-1-match-fence \
        calculator-2 calculator-2-match calculator-2-match-fence \

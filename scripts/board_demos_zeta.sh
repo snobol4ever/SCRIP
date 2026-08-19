@@ -29,12 +29,12 @@ declare -A IN=(
   [calculator-2]=calculator.input
   [calculator-2-match]=calculator.input
   [calculator-2-match-fence]=calculator.input
-  [treebank-list]=treebank.input
+  [treebank]=treebank.input
   [treebank-match]=treebank.input
   [treebank-match-fence]=treebank.input
 )
 
-ORDER="claws5 claws5-match claws5-match-fence json json-match json-match-fence calculator-1 calculator-1-match calculator-1-match-fence calculator-2 calculator-2-match calculator-2-match-fence treebank-list treebank-match treebank-match-fence"
+ORDER="claws5 claws5-match claws5-match-fence json json-match json-match-fence calculator-1 calculator-1-match calculator-1-match-fence calculator-2 calculator-2-match calculator-2-match-fence treebank treebank-match treebank-match-fence"
 
 classify() {
   local name="$1" sno="$DEMO/$1.sno" ref="$DEMO/$1.ref" stdin="$DEMO/${IN[$1]}"

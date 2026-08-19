@@ -33,7 +33,7 @@ printf '%-26s %-10s %-10s %s\n' PROGRAM M3 M4 NOTE
 printf '%.0s-' {1..66}; echo
 nid=0; nd3=0; nd4=0; nfail=0
 for nm in claws5 claws5-match claws5-match-fence \
-          treebank-list treebank-match treebank-match-fence \
+          treebank treebank-match treebank-match-fence \
           json-match json-match-fence \
           calculator-1 calculator-1-match calculator-1-match-fence \
           calculator-2 calculator-2-match calculator-2-match-fence; do
