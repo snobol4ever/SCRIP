@@ -26,7 +26,7 @@ rat() { python3 -c "import sys;a=float(sys.argv[1]);b=float(sys.argv[2]);print('
 printf '%-26s %8s %8s %8s %8s %8s  %s\n' PROGRAM SBLms M3ms M4ms M3/SBL M4/SBL FLAG
 printf '%.0s-' {1..82}; echo
 for nm in claws5 claws5-match claws5-match-fence \
-          treebank-list treebank-match treebank-match-fence \
+          treebank treebank-match treebank-match-fence \
           json-match json-match-fence \
           calculator-1 calculator-1-match calculator-1-match-fence \
           calculator-2 calculator-2-match calculator-2-match-fence; do

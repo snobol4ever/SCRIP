@@ -1,5 +1,5 @@
 #!/bin/bash
-# test_demo_full_3way.sh — claws5 + treebank-list FULL-corpus tri-identity gate (sbl == m3 == m4).
+# test_demo_full_3way.sh — claws5 + treebank FULL-corpus tri-identity gate (sbl == m3 == m4).
 # Encodes the s107 recipes: oracle temp-prepend (-CASE 0 control card + tab &TRIM = 0 — never patch corpus),
 # sbl heap -d512m -i64m (this build REJECTS -P), treebank sbl stack -s256m (ERROR 246 at the whole-corpus
 # match otherwise), ulimit -s unlimited for SCRIP both modes (raw SIGSEGV otherwise — see GOAL-SNOBOL4-BB s107).
@@ -18,6 +18,6 @@ one() {
   if cmp -s "$W/$nm.sbl" "$W/$nm.m3" && cmp -s "$W/$nm.sbl" "$W/$nm.m4"; then echo "$nm: TRI-IDENTICAL ($(wc -l < "$W/$nm.sbl") lines)"; else echo "$nm: DIVERGES"; fail=1; fi
 }
 one claws5   "$D/claws5.sno"        "$D/CLAWS5inTASA.dat" ""
-one treebank "$D/treebank-list.sno" "$D/VBGinTASA.dat"    "-s256m"
+one treebank "$D/treebank.sno" "$D/VBGinTASA.dat"    "-s256m"
 [ "$fail" -eq 0 ] && echo "DEMO-FULL 3WAY: PASS" || echo "DEMO-FULL 3WAY: FAIL"
 exit "$fail"
