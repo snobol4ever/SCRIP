@@ -32,3 +32,8 @@ gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mkte
 export -f gen; export SCRIP
 xargs -a "$T" -P "$(nproc)" -I{} bash -c 'gen "$@"' _ {} | sort -k2 > "$OUT"
 echo "$(wc -l < "$OUT") programs -> $OUT"
+awk -F'\t' '$1 ~ /^COMPILE_RC_/ {x++} $1=="COMPILE_EMPTY" {e++} $1 ~ /^[0-9a-f]{32}$/ {c++}
+  END {printf "  comparable(rc=0)=%d  compile_empty=%d  excluded(rc!=0)=%d\n", c, e, x}' "$OUT"
+# The summary exists so a byte-identity claim states its own DENOMINATOR (s149): "0 movers" is only as strong as
+# the comparable count beside it, and a rung that silently moves programs into the excluded bucket would otherwise
+# read as MORE green, not less.  Only `comparable(rc=0)` rows carry byte-identity meaning.

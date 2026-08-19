@@ -81,6 +81,17 @@ if [[ -f "$pin_ref" && -f "$pin_sno" ]]; then
 fi
 echo "-----------------------------------------------------------------------"
 echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
+if [[ "${SCRIP_KW_STATIC:-0}" = "1" ]]; then
+    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: all rows but kw_bare_shadow + kw_protected_write."
+    echo "  Those two are ROUTED, NOT REGRESSIONS: kw_bare_shadow = HQ's B1 (an unset variable yields a"
+    echo "  NULL-tagged descriptor where the oracle gives the null string, manual p.24); kw_protected_write"
+    echo "  needs the &ERRLIMIT -> statement-failure mechanism SCRIP does not have yet (rung KW-5)."
+else
+    echo "  ARM=LEGACY — A LOW SCORE HERE IS BY DESIGN, NOT A CATASTROPHE (HQ guidance g1, s147)."
+    echo "  These witnesses encode the TARGET keyword table, which only the ARMED arm implements; the legacy"
+    echo "  arm is kept byte-identical to pre-KW-2 behaviour on purpose.  Grade with --armed; the legacy run's"
+    echo "  only job is to prove the killswitch still isolates the feature."
+fi
 if [[ $pin_bad -ne 0 ]]; then
     echo "STANDING PIN BROKEN — kw_pattern_family; this is a CORRECTNESS regression independent of the KW-STATIC score above."
     exit 1

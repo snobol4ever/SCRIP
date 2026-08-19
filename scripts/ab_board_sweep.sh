@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "$OUTF" ] || { echo "--out FILE required" >&2; exit 2; }
-SCRIP=/home/claude/SCRIP/scrip
+SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"   # ⛔ overridable (s149) so the A/B baseline can be a BUILT WORKTREE at a named pushed commit rather than this seat's own tree (the s68/HQ-21 vacuous-gate class). Swap the whole worktree — driver AND out/libscrip_rt.so together: the emitter lives in the .so, and pairing a new driver with a stale .so invents movers (measured s149: 40 spurious .s movers from that mix alone).
 [ -x "$SCRIP" ] || { echo "no $SCRIP -- build first" >&2; exit 2; }
 if [ "$MODE" = "3" ]; then FLAG=--run; else FLAG=--compile; fi
 SCRIP_DIR="$(cd "$(dirname "$SCRIP")" && pwd)"
