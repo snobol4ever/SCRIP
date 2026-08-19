@@ -2812,10 +2812,12 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
     g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0; g_sno_nencl = 0;
+    int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;   /* ⭐⭐⭐ g-cn2 -- THE EVAL/CODE BOUNDARY, ENFORCED. g_sno_seal_enabled's own doc says the runtime fragment compiler "must stay conservative", but NOTHING enforced it: lower_sno_stage2 grants the flag once and no path ever cleared it, so a fragment re-entered sx_lower with the WHOLE PROGRAM's seal table live and T1 folded `&N` against a tree_t owned by the main compile. Measured (s153, pristine b69c63a5): m3 `EVAL('&N')` printed EMPTY with T1 on and 42 with SCRIP_CONST_T1=0, while m4 printed 42 in BOTH arms -- because a mode-4 binary compiles its fragments in a DIFFERENT PROCESS whose table is empty, i.e. m4 was accidentally correct for the reason this line now makes deliberate. That is a MODE34-IDENTICAL violation on the DEFAULT arm and a silent wrong answer, not an error. Clearing here is the one-line statement of ARCH-SN4-CONSTANTS's own ruling ("no fold in the runtime-compile path is the safe default") and it closes T1 and T2 together: sno_const_val and sno_const_pat are both gated on this flag alone, and an inlined T2 graph carries the same cross-compile pointer hazard. Fragments keep reading the SEALED CELL by name -- CN-2's binding is process-global and is what makes 341/342 answerable inside a thunk. Saved and restored rather than left 0 because mode 3 keeps lowering state alive for the life of the process. */
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     IR_graph_t * g = sno_build_graph(st, nst, entry_idx, is_def, NULL);
     { extern void optimizer_run(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); if (g) { optimizer_run(g); ir_drive_slot_assign(g); } }
     free((void *) st); free(is_def);
+    g_sno_seal_enabled = seal_sv;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
