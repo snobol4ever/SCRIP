@@ -2379,7 +2379,7 @@ void NV_CLEAR_fn(void) {
     _var_init();
     for (int _i = 0; _i < VAR_BUCKETS; _i++) {
         for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next)
-            _e->val = NULVCL;
+            if (!_e->is_const) _e->val = NULVCL;   /* ⭐⭐⭐ SN4-CONSTANTS CN-6 — CLEAR SKIPS A SEALED &constant, BECAUSE A SEALED CELL IS A PROTECTED VARIABLE. Manual Ch.19 CLEAR is explicit that SPITBOL "differs from SNOBOL4 by not clearing protected variables, such as ARB", and it is ORACLE-MEASURED, not inferred: `DATATYPE(ARB)` reads PATTERN both before and after `CLEAR()` while a plain user variable goes null in the same program. A CN-2 cell raises 341 on any later write, so it IS protected by SCRIP's own regime and must survive CLEAR by the same rule. Before this arm CLEAR nulled it while leaving the ENTRY in place, so the value went PATTERN->NULL, the read-side 342 could not fire (NV_EXISTS_fn stays true for a live entry), and 341 then refused every restore -- the cell ended permanently null AND permanently unwritable, which is exactly the silent null the GUARANTEED design forbids. Keyed on is_const rather than on name[0]=='&' so the seal is enforced at the cell, matching the 341 site above and staying immune to OPSYN/indirect/FIELD aliasing. The primitive-pattern family (&ARB/&BAL/&REM/&FAIL/&FENCE/&ABORT/&SUCCEED) is untouched here: it reaches its value through the BARE name via keywords.c's tier-1 arm, so it owns no '&'-keyed NV cell to skip. */
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
