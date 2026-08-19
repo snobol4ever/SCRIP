@@ -737,17 +737,25 @@ static int fence_body_kk(const IR_t * nd) {   /* ⭐ R-4(a) SLICE 2 (s95): IR_MA
         kk += zd_k(m); }
     return kk;
 }
-static int fence0_release_bytes(const IR_t * nd) {   /* ⭐ FZ-1 THE FENCE0 RELEASE PLAN (this rung).  Walks LEFT from the fence in all[] order — which is carve order, so the immediate left neighbour owns the TOPMOST cell — accumulating zd_k (THE ONE K AUTHORITY, never spelled twice) over a CONTIGUOUS run of pure retry-cell kinds, and STOPS DEAD at the first node that is anything else.  Contiguity is not a simplification, it is the LIFO law: a value-bearing cell anywhere in the run pins everything under it, so the releasable region is exactly the whitelisted prefix at the top.  Stops at the match bracket too — a fence never releases across MATCH_BEGIN.  Pure, plan-independent, no new global. */
+static int fence0_release_bytes(const IR_t * nd) {   /* ⭐ FZ-1 THE FENCE0 RELEASE PLAN, WALKED IN EXECUTED ORDER (FZ-2, s166 -- this is the reconciliation the s154 cursor demanded, and the answer was neither of its two hypotheses).  THE DEFECT IT RETIRES: the first cut walked g_emit_cfg->all[] by descending index and CALLED THAT CARVE ORDER.  It is not.  all[] is ALLOCATION order and SNOBOL4 lowering is RIGHT-FIRST, so on the s154 witness `S ? SPAN('a') FENCE SPAN('b') SPAN('c')` the two SPANs sitting immediately left of the fence in all[] (25, 26) are 'b' and 'c' -- both carved AFTER the fence runs -- while 'a', the ONE genuinely dead cell, sits at 28, to the RIGHT, and was never counted.  Measured with SCRIP_FZ_DIAG: the walk billed 16+16=32 where the emitted carve holds exactly one releasable 16 (`n7_match_span_α: sub rsp,16`) standing on MATCH_BEGIN's LIVE 24 -- so `add rsp,32` popped 16 bytes of the bracket's own cell.  THAT IS THE SAME OVER-RELEASE-INTO-LIVE-STORAGE CLASS THAT CORED THE FLOOR WHACK, reached by a different road and quiet only because no witness read the clobbered half before MATCH_END rebuilt it.  THE FIX IS TO STOP GUESSING AT ORDER AND READ THE ONE THAT EXISTS: the emitter lays cells down in the RPO nodes[] order zd_plan consumes (its own ZK-2 note: "nodes[] is execution order"), and that order is recovered from the graph by chasing γ -- so this walks γ from the enclosing MATCH_BEGIN to this fence through zd_chase(), THE SAME edge-following authority the planner walk uses, and only then steps back down the recovered prefix.  Nothing else changes: the whitelist is still the seven leaves whose 16B cell is their own cnt/cur retry state (dead once the cut forbids re-entry, result delivered in r13/r14/r15 and not through the cell), ASSIGN_SAVE is still excluded BY NAME (its cell is the SAVE cursor the paired COND/IMM reads back), contiguity is still the LIFO law rather than a simplification, and the bracket is still the wall.  ONE RULE ADDED: the control kinds fence_body_kk and fence_frame_candidate already exclude by name (ALT/ARBNO/FENCE/DEFER/VALUE/CALL/DISJUNCTION/ABORT) now STOP the walk even at K=0, because a suspension or choice record with no ζ cell of its own still owns spine below it -- the old "K=0 neither contributes nor breaks contiguity" leniency is kept only for genuinely inert kinds.  A fence not reachable on any bracket's forward chain bills 0, which is byte-identical to the disarmed box.  Pure, plan-independent, no new global, no new IR_t field (PEERS RULE). */
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE0) return 0;
-    int ni = -1; for (int i = 0; i < g_emit_cfg->n; i++) if (g_emit_cfg->all[i] == nd) { ni = i; break; }
-    if (ni < 0) return 0;
+    int n = g_emit_cfg->n; if (n <= 0) return 0;
+    int _fzd = getenv("SCRIP_FZ_DIAG") ? 1 : 0;
+    IR_t ** seq = (IR_t **)alloca(sizeof(IR_t *) * (size_t)n); int ns = -1;
+    for (int b = 0; b < n && ns < 0; b++) { IR_t * mb = g_emit_cfg->all[b]; if (!mb || mb->op != IR_MATCH_BEGIN) continue;
+        int cnt = 0, guard = 0; IR_t * cur = zd_chase(mb->γ.node);
+        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } }   /* the executed prefix, bracket-rooted: γ is the forward path, so seq[0..ns) is exactly what carved before this cut */
+    if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN forward chain -- bill 0\n", (const void *)nd); return 0; }
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p executed-prefix len=%d (cfg_n=%d)\n", (const void *)nd, ns, n);
     int total = 0;
-    for (int j = ni - 1; j >= 0; j--) { IR_t * m = g_emit_cfg->all[j]; if (!m) break;
-        int mo = (int)m->op;
+    for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)m->op;
+        if (_fzd) fprintf(stderr, "[FZ-DIAG]   step j=%-3d op=%-22s zd_k=%-3d total=%d\n", j, bb_op_name((IR_e)mo), zd_k(m), total);
         if (mo == IR_MATCH_BEGIN || mo == IR_STATEMENT_BEGIN) break;   /* never release across the bracket */
-        if (mo == IR_MATCH_SPAN || mo == IR_MATCH_BREAK || mo == IR_MATCH_BREAKX || mo == IR_MATCH_TAB || mo == IR_MATCH_RTAB || mo == IR_MATCH_REM || mo == IR_MATCH_BAL) { total += zd_k(m); continue; }
+        if (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) break;   /* FZ-2: a choice/suspension record pins the spine below it even at K=0 -- same exclusion list the FENCE1 siblings spell */
+        if (mo == IR_MATCH_SPAN || mo == IR_MATCH_BREAK || mo == IR_MATCH_BREAKX || mo == IR_MATCH_TAB || mo == IR_MATCH_RTAB || mo == IR_MATCH_REM || mo == IR_MATCH_BAL) { total += zd_k(m); continue; }   /* the backtrack-only leaves: their 16B cell is their own retry state */
         if (zd_k(m) == 0) continue;   /* a K=0 kind carves nothing, so it neither contributes nor breaks contiguity */
         break;                        /* anything that CARVES and is not whitelisted pins the region — stop */ }
+    if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p RELEASE=%d\n", (const void *)nd, total);
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

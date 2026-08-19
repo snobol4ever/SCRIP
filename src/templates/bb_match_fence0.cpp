@@ -24,21 +24,22 @@ extern "C" {
  * is possible — but ⛔ NOT by copying FENCE1's own-extent shape: FENCE0's box is α→γ with NOTHING BETWEEN, so banking rsp at α and restoring it at γ frees exactly zero bytes.  FENCE0 has no extent
  * of its own; what its cut kills is the LEFT CONTEXT, which is why the retired whack reached for a floor rather than a watermark, and why it collided with UCLAIM.
  *
- * ⭐ FZ-1 SELECTIVE RELEASE (killswitch SCRIP_FENCE0_WHACK, DEFAULT OFF) — the planner rung that replaces the falsified floor whack.  The cut pops the CONTIGUOUS BACKTRACK-ONLY region at the
- * frontier and nothing else: fence0_release_bytes() (emit.cpp) walks left in carve order over SPAN/BREAK/BREAKX/TAB/RTAB/REM/BAL — leaves whose 16B cell is their OWN cnt/cur retry state, dead the
- * instant the cut forbids re-entry, and whose result leaves through r13/r14/r15 rather than the cell — and STOPS at the first carving node that is anything else, because LIFO means one pinned cell
- * pins everything under it.  IR_MATCH_ASSIGN_SAVE is excluded by name though it carves 16: its cell is read back by the paired COND/IMM across the fence.  The template spends the count, it does not
- * compute it.  ⚠ ONE OPEN DISCREPANCY, FLAGGED NOT BURIED (why this ships DISARMED): on witness `S ? SPAN('a') FENCE SPAN('b') SPAN('c')` the IR holds exactly one MATCH_SPAN between MATCH_BEGIN and
- * the fence, so the scan should bill 16 — it emits `add rsp, 32`.  Either the all[] index the scan walks is not the dump's slot numbering, or the run picks up a node the dump does not show between
- * them.  The witness is oracle-correct in both arms and the armed crosscheck is clean (307/10 · 306/10 · DIVERGE=0, identical to disarmed), but AN OVER-RELEASE IS EXACTLY THE CLASS THAT CORED THE
- * FLOOR ATTEMPT, so the count must be reconciled against the emitted carve before this is armed by default.  Next step: print (ni, j, op, zd_k) per step under a diag env and compare with the .s.  HISTORICAL, KEPT AS THE REASON THIS SHAPE EXISTS — the first attempt restored a FLOOR:  bb_match_begin establishes the ζ-STANDING frame with `push rbp; mov rbp,rsp` (:46-47) and
- * names `mov rsp,rbp` its own whole-frame whack, so rbp is the match's entry frontier — recorded AFTER the statement head's `sub rsp,K`, hence DEEPER than the UCLAIM claim and incapable of releasing
- * it.  That is the precise difference from the retired line: ___ is the graph floor and sits ABOVE the claim, rbp is the match floor and sits below it.  Restoring rsp:=rbp frees every cell the match
- * carved to the left of the cut — which is dead by definition once FENCE0 commits (backup through a bare FENCE fails the whole attempt, so nothing left of it can ever be re-entered).  If an ARBNO or
- * DEFER activation frame is live, rbp names THAT frame instead and the whack frees less; still safe, still correct, never over-free.  Gated on x86_port_cstack() (the arena ports have no rsp frames)
- * and emit_match_rbp() (no standing frame ⇒ no floor to restore to).  ⛔⛔ FALSIFIED, MEASURED — DO NOT ARM THIS WITHOUT READING WHAT FOLLOWS.  Armed, treebank-match-fence
- * SIGSEGVs (rc=139) at EVERY stack size; disarmed it runs in 256 KB and answers check: 100155.  The crosscheck gate did NOT catch it (306/10, DIVERGE=0, FAIL-set identical armed and disarmed) — the
- * witness is a demo workload, which is exactly why the workload family exists.
+ * ⭐ FZ-1/FZ-2 SELECTIVE RELEASE (killswitch SCRIP_FENCE0_WHACK, DEFAULT OFF — and s166 found the SECOND reason it must stay off).  The planner measures how much of the frontier is provably dead:
+ * fence0_release_bytes() (emit.cpp) walks the executed prefix over SPAN/BREAK/BREAKX/TAB/RTAB/REM/BAL — leaves whose 16B cell is their OWN cnt/cur retry state, dead the instant the cut forbids re-entry,
+ * result delivered in r13/r14/r15 rather than the cell — and STOPS at the first carving node that is anything else, because LIFO means one pinned cell pins everything under it.  ASSIGN_SAVE excluded by
+ * name though it carves 16 (its cell is read back by the paired COND/IMM across the fence).  The template spends the count, it does not compute it.
+ * ✅ FZ-2 (s166) — THE s154 COUNT IS RECONCILED, AND THE CAUSE WAS NEITHER HYPOTHESIS THE CURSOR OFFERED.  FZ-1 walked g_emit_cfg->all[] by descending index and called it carve order; all[] is ALLOCATION
+ * order and SNOBOL4 lowering is RIGHT-FIRST, so on `S ? SPAN('a') FENCE SPAN('b') SPAN('c')` the two SPANs left of the fence in all[] were 'b' and 'c' — both carved AFTER the cut runs — while 'a', the one
+ * dead cell, sat to the RIGHT at index 28 and was never counted.  It billed 32 where the emitted carve holds one releasable 16 standing on MATCH_BEGIN's LIVE 24, i.e. `add rsp,32` popped 16 bytes of the
+ * bracket's own cell — the SAME over-release-into-live-storage class that cored the floor whack, reached by a different road.  FIXED by walking the EXECUTED prefix: chase γ from the enclosing MATCH_BEGIN
+ * through zd_chase(), the same edge-following authority zd_plan's run walker uses, then step back down that prefix.  Witness now bills 16 and the release exactly matches the carve.
+ * ⛔⛔ FZ-3 IS THE REAL WALL, AND IT IS WHY ARMING BY DEFAULT IS STILL REFUSED (s166, MEASURED — DO NOT ARM ON THE STRENGTH OF THE FIXED COUNT).  A CORRECT count is necessary and NOT sufficient: the release
+ * is INVISIBLE TO THE ζ DEPTH PLANNER.  zd_plan/zvo_resolve stage every [rsp+off] in the statement at the depth model they computed WITHOUT this `add rsp,K`, so the instant K>0 every static offset to the
+ * RIGHT of the cut is stale by exactly K.  PROOF, one diff: armed vs disarmed on corpus/probe/fz/fz3 case D differs in ONLY the two `add rsp,16` lines — every staged offset is byte-identical while RSP moved.
+ * WITNESS: `S ? (SPAN('a') FENCE SPAN('b')) . W` preceded by ANY other fenced statement prints W=`abbb` armed against the oracle's `aaabbb` (the group's COND reads its SAVE cursor back at a stale offset);
+ * both modes, m3 and m4 alike.  fz1/fz2 pass only because nothing to the right of their cuts reads a cell at a staged offset.  THE RUNG THIS NAMES: thread the release into the depth model (zd_plan's staging),
+ * so the offsets right of the cut are computed at the post-release depth — the template comment below already predicted this shape ("it is a PLANNER fact ... not a one-liner here").  Until that lands the
+ * count is right, the arm is wrong, and DEFAULT OFF is the only honest position.  HISTORICAL, KEPT AS THE REASON THIS SHAPE EXISTS — the first 
  * ⭐ WHY IT IS WRONG, AND WHY THE ___ FLOOR WAS WRONG THE SAME WAY: FENCE0's cut kills BACKTRACKING into the left context; it does NOT kill the left context's DATA.  Capture cells, ARBNO instance
  * records and cursor state carved left of the fence are read on the FORWARD path and at MATCH_END, so ANY bulk floor restore — ___ or rbp — frees storage that is still live and the next reader lands
  * in reused stack.  Changing which floor you restore to only moves the crash.  A correct FENCE0 release must free BACKTRACK-ONLY cells (choice points, resume records) and nothing else, which the
