@@ -19,12 +19,13 @@
 #   0  oracle ran successfully
 #   1  oracle not found (SKIP)
 #   2  oracle error
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 INPUT_FILE=""
-CORPUS="${CORPUS:-/home/claude/corpus}"
-ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
+CORPUS="${CORPUS:-$S4E/corpus}"
+ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
 BEAUTY_SRC=""
 TIMEOUT=30
 OUTPUT_FILE=""

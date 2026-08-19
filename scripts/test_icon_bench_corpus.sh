@@ -35,13 +35,14 @@
 #   ICONM=/path/to/icon-master bash scripts/test_icon_bench_corpus.sh   # override icon-master location
 #
 # Exit: 0 always (this is a report, not a gate) — read the PASS/FAIL counts in the final line.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$HERE/.."                                    # .../SCRIP
 SCRIP="$ROOT/scrip"
 RTDIR="$ROOT/out"
-CORPUS_SRC="${CORPUS_SRC:-/home/claude/corpus/benchmarks/icon}"
-ICONM="${ICONM:-/home/claude/icon-master}"          # canonical path per RULES.md/PLAN.md session-start convention
+CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
+ICONM="${ICONM:-$S4E/icon-master}"          # canonical path per RULES.md/PLAN.md session-start convention
 SKIP_BUILD="${SKIP_BUILD:-0}"
 WORK="$(mktemp -d /tmp/icon_bench_corpus_XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
@@ -73,7 +74,7 @@ ICONX="$ICONM/bin/iconx"
 # §ICON BENCHMARK MAP): jcont is #!/bin/sh but uses bashisms (dash dies "Bad substitution") — ALWAYS
 # invoke via `bash`; and it writes ../$name.zip relative paths — ALWAYS run from the source dir with
 # bare filenames. jcont needs Arizona icont on PATH for its own operation.
-JCONM="${JCONM:-/home/claude/jcon-src/jcon-master}"
+JCONM="${JCONM:-$S4E/jcon-src/jcon-master}"
 JCONT="$JCONM/bin/jcont"
 HAVE_JCON=0
 [ -f "$JCONT" ] && command -v java >/dev/null 2>&1 && HAVE_JCON=1

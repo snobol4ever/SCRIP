@@ -23,6 +23,7 @@
 # Exit: 0 = all active cells pass, 1 = any failure
 #
 # Authors: Claude Sonnet 4.6 (G-7 2026-03-28 M-G-INV; G-9 2026-03-29 M-G-INV-FAST)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
@@ -76,7 +77,7 @@ _need() {
   if [[ "$ok" == "1" ]]; then
     echo -e "${GREEN}  [ok]${RESET}  $label"
   else
-    echo -e "${RED}  [MISSING]${RESET}  $label — run: TOKEN=... bash /home/claude/.github/SESSION_SETUP.sh" >&2
+    echo -e "${RED}  [MISSING]${RESET}  $label — run: TOKEN=... bash $S4E/.github/SESSION_SETUP.sh" >&2
     exit 2
   fi
 }

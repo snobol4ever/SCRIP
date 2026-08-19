@@ -3,10 +3,11 @@
 # Applies word-boundary sed across SCRIP + corpus C/H/INC sources.
 # Per-identifier explicit rules.  Idempotent.  Longer needles before shorter.
 # Usage: bash scripts/rename_ir_to_bb_and_sm.sh
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$HERE/.."
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 echo "Rename roots:"

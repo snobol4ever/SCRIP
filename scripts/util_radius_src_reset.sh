@@ -18,12 +18,13 @@
 # script: the radius METHOD — compile the same corpus twice on ONE binary and
 # md5 the two .s streams — is identical for every killswitch, and a second copy
 # would be the "spelled-twice disease" the goal file's ONE AUTHORITY law names.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_src_reset}
 KILLSWITCH=${KILLSWITCH:-SCRIP_SRC_RESET}
 rm -rf "$OUT"; mkdir -p "$OUT"
-DIRS=${*:-"/home/claude/corpus/probe/bb /home/claude/corpus/programs/snobol4 /home/claude/corpus/crosscheck /home/claude/corpus/probe/eval /home/claude/corpus/programs/icon /home/claude/corpus/programs/prolog"}
+DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/programs/snobol4 $S4E/corpus/crosscheck $S4E/corpus/probe/eval $S4E/corpus/programs/icon $S4E/corpus/programs/prolog"}
 tot=0; diffn=0; failn=0
 for d in $DIRS; do
     [ -d "$d" ] || continue

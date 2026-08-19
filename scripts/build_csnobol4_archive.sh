@@ -2,9 +2,10 @@
 # build_csnobol4_archive.sh — compile CSNOBOL4 as a linkable archive for IM-15b.
 # Produces /home/claude/csnobol4/libcsnobol4.a with main renamed to csnobol4_main.
 # All objects compiled with -fPIC. Idempotent.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CSN_REPO="/home/claude/csnobol4"
+CSN_REPO="$S4E/csnobol4"
 OUT="$CSN_REPO/libcsnobol4.a"
 [ -d "$CSN_REPO/.git" ] || { echo "FAIL  csnobol4 repo not found at $CSN_REPO"; exit 1; }
 if [ -f "$OUT" ] && [ "$OUT" -nt "$CSN_REPO/isnobol4.c" ] && [ "$OUT" -nt "$CSN_REPO/main.c" ]; then

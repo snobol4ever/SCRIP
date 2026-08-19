@@ -3,11 +3,12 @@
 # Formerly SN-9c-e three-mode sweep. Modes 2 and 3 removed. Mode-4 is the gate.
 # Gate: --compile PASS count must equal total crosscheck corpus with .ref files.
 # Self-contained per RULES.md: paths derived from $0; no env deps required.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 INC="$CORPUS/programs/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 

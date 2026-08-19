@@ -1,8 +1,9 @@
 #!/bin/bash
 # test_gate_pas_frame_pairing.sh — PAS-ZF-10 structural prison
 # For every emitted proc_* region, assert push_rbp==pop_rbp and mov_rbp_rsp==mov_rsp_rbp
-SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/pascal}"
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/pascal}"
 FAIL=0; PASS=0
 WITNESSES="${WITNESSES:-emptyproc p2 nestvar varparam}"
 for name in $WITNESSES; do

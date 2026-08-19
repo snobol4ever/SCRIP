@@ -18,9 +18,10 @@
 #
 # ⛔ SELF-TEST FIRST (s15b law): a silent zero from a grep is a CLAIM ABOUT TEXT.  Patterns are proven against
 # a synthetic objdump line before a single number is reported; failure ⇒ exit 2, report nothing.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
-SO=${SO:-/home/claude/SCRIP/out/libscrip_rt.so}
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
+SO=${SO:-$S4E/SCRIP/out/libscrip_rt.so}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 # a WRITE = mnemonic + r10/r11 (any spelling) as FIRST operand; push/cmp/test read only.
 W_RE='^[[:space:]]*[0-9a-f]+:.*[[:space:]](mov|movabs|lea|xor|add|sub|and|or|shl|shr|sar|imul|inc|dec|neg|not|pop|movzx|movsxd|movsx|xchg|cmov[a-z]+|set[a-z]+)[[:space:]]+(r1[01])(d|w|b)?[[:space:]]*,'
 P_RE='^[[:space:]]*[0-9a-f]+:.*[[:space:]]pop[[:space:]]+(r1[01])(d|w|b)?[[:space:]]*$'

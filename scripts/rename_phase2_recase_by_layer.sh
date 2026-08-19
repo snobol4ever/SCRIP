@@ -16,10 +16,11 @@
 #   4. Add the 46 missing graph IR tags (IR_ALT, IR_BINOP, IR_SUCCEED, etc.)
 #   5. Leave bb_pool.h functions (bb_alloc/bb_free/bb_seal) ALONE — they're runtime
 #   6. Leave sm_interp_*/sm_jit_*/sm_push/sm_pop/sm_peek etc. ALONE — runtime
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$HERE/.."
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 files=$(find "${roots[@]}" -type f \( -name '*.c' -o -name '*.h' -o -name '*.inc' \) \

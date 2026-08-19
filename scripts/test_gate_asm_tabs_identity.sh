@@ -6,9 +6,10 @@
 # record with no TAB, lands on the legacy parse path, and — if that parse disagrees by one byte —
 # shows up here as a DIFF.  Same discipline as the JOIN rung: md5 across the demo corpus, 22/22.
 # Usage: bash scripts/test_gate_asm_tabs_identity.sh [corpus_dir]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
-DIR=${1:-/home/claude/corpus/programs/snobol4/demo}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
+DIR=${1:-$S4E/corpus/programs/snobol4/demo}
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0; skip=0; failed=""
 for f in "$DIR"/*.sno; do

@@ -6,8 +6,9 @@
 # EVERY assertion carries its POSITIVE CONTROL — SCRIP_GC_UNROOT re-opens the pre-s33 hole and the gate must
 # go RED there, because a gate that cannot fail for the right reason is not a gate (RULES.md).
 # Usage: bash scripts/test_gate_rc8a_gc_coverage.sh [corpus_root]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-ROOT="${1:-/home/claude/corpus}"
+ROOT="${1:-$S4E/corpus}"
 SCRIP="$(cd "$(dirname "$0")/.." && pwd)/scrip"
 WIT="$ROOT/probe/mv_arbno_callcap.sno"
 rc=0

@@ -25,11 +25,12 @@
 # arm (table_access_t m3: cv 26.9%, min-detectable 80.7% -- you cannot see a 2x
 # regression) AND cost throughput outright (2675/s -> 6042/s, 2.26x, with THP
 # off).  Set NOHUGE=0 to reproduce the shipping-arm instability.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"  # BM-ONE (s153): timed family PROMOTED -- one copy, legacy retired, harness.inc is the driver
+SBL="${SBL:-$S4E/x64/bin/sbl}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): timed family PROMOTED -- one copy, legacy retired, harness.inc is the driver
 T="${TIMEOUT:-60}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"

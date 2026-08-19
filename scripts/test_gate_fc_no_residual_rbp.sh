@@ -74,9 +74,10 @@
 # (570 local fields/160 programs), IR_CALL (405), SEQUENCE (66), DEFER (64), FENCE1 (32), ARBNO (30)
 # and VALUE (6) remain unconverted.  Coverage is tracked by fc_geom's list, never by this counter.
 # ==============================================================================================
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.." || exit 2
 SCRIP=${SCRIP:-./scrip}
-CORPUS=${CORPUS:-/home/claude/corpus/programs/snobol4}
+CORPUS=${CORPUS:-$S4E/corpus/programs/snobol4}
 FC_TIMEOUT=${FC_TIMEOUT:-60}
 FC_BASELINE=${FC_BASELINE:-0}
 # Programs known NOT to compile cleanly.  These are DEFECTS ON RECORD, not exemptions -- each one is
@@ -85,7 +86,7 @@ FC_BASELINE=${FC_BASELINE:-0}
 KNOWN_TIMEOUT="beauty.sno"
 KNOWN_NOCODE="f13_eval_code.sno"
 [ -x "$SCRIP" ] || { echo "GATE FAIL: no $SCRIP (run: make scrip)"; exit 2; }
-export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:/home/claude/corpus/lib${SNO_LIB:+:$SNO_LIB}"
+export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:$S4E/corpus/lib${SNO_LIB:+:$SNO_LIB}"
 tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp" "$tmp.f"' EXIT
 n=0

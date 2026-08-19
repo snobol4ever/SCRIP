@@ -7,6 +7,7 @@
 # Exits 0 only if all three modes agree on every test.
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
@@ -80,7 +81,7 @@ xcheck "recursion" "$T"
 rm -f "$T"
 
 # Rung corpus files (PJ-9b: extended to walk flat-file corpus, not just subdirs)
-RUNGS=/home/claude/corpus/programs/prolog
+RUNGS=$S4E/corpus/programs/prolog
 if [ -d "$RUNGS" ]; then
     for f in "$RUNGS"/rung*.pl; do
         [ -f "$f" ] || continue

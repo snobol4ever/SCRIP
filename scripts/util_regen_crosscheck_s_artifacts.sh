@@ -12,10 +12,11 @@
 # is deterministic, so an unchanged compiler yields byte-identical .s and NO commit.
 # NOT a pass/fail gate; never wire into a byte-identity check.
 # .j/.il/.wat/.js siblings are dormant-backend artifacts (X86-ONLY) — untouched here.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 CC="$CORPUS/crosscheck"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi

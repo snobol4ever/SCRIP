@@ -10,21 +10,22 @@
 #   Ledger 3 RESULT  = classify_one verdict, reused from test_rsp_descent_sweep.sh via SWEEP_LIST (ONE AUTHORITY)
 # Default set: corpus/probe/bb (188) + SCRIP demo/ + test/demo + corpus demos.  Override with CENSUS_LIST=<file of paths>.
 # Diag lines per program persist in $CENSUS_DIAGDIR (default /tmp/bug_hunt_diag) keyed by path-md5 -- the site-level lists.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 OUT=${1:-/tmp/bug_hunt_census.tsv}
 DIAGDIR=${CENSUS_DIAGDIR:-/tmp/bug_hunt_diag}; mkdir -p "$DIAGDIR"
 LISTF=/tmp/bug_hunt_list.$$
 if [ -n "${CENSUS_LIST:-}" ]; then cp "$CENSUS_LIST" "$LISTF"
-else { find /home/claude/corpus/probe/bb -name '*.sno' 2>/dev/null; find "$ROOT/demo" "$ROOT/test/demo" -name '*.sno' 2>/dev/null; find /home/claude/corpus -path '*demo*' -name '*.sno' 2>/dev/null; } | sort -u > "$LISTF"; fi
+else { find $S4E/corpus/probe/bb -name '*.sno' 2>/dev/null; find "$ROOT/demo" "$ROOT/test/demo" -name '*.sno' 2>/dev/null; find $S4E/corpus -path '*demo*' -name '*.sno' 2>/dev/null; } | sort -u > "$LISTF"; fi
 CLS=/tmp/bug_hunt_cls.$$
 SWEEP_LIST="$LISTF" SWEEP_JOBS="${SWEEP_JOBS:-4}" bash "$ROOT/scripts/test_rsp_descent_sweep.sh" "$CLS" >/dev/null 2>&1
 : > "$OUT"
 while IFS= read -r f; do
   tag=$(printf '%s' "$f" | md5sum | cut -c1-10)
   D="$DIAGDIR/$tag.diag"
-  { echo "# $f"; SCRIP_CLASS_DIAG=1 SNO_LIB=/home/claude/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>&1 | true; } > /dev/null
-  SCRIP_CLASS_DIAG=1 SNO_LIB=/home/claude/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>"$D"
+  { echo "# $f"; SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>&1 | true; } > /dev/null
+  SCRIP_CLASS_DIAG=1 SNO_LIB=$S4E/corpus timeout 30 "$ROOT/scrip" --compile "$f" </dev/null >/dev/null 2>"$D"
   nf=$(grep -c '^\[CLS:NOFIX\]' "$D")
   nw=$(grep -c '^\[CLS:NOWHACK\]' "$D")
   ops=$(grep '^\[CLS:NOWHACK\]' "$D" | sed 's/.*op=\([A-Za-z0-9_]*\).*/\1/' | sort | uniq -c | awk '{printf "%s:%s,",$2,$1}' | sed 's/,$//')

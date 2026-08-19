@@ -4,8 +4,9 @@
 # across containers (s7 law).  This prints the SETS and the per-arm FAILURE-MODE split, which is the thing the s19
 # cursor did not carry: the residual is 19 SIGSEGV + 7 HANG, not one suspension class (s20).
 # Usage: bash scripts/test_board_wreg_byset.sh [off|on|both]   (default both; run one arm at a time under short tool timeouts)
-SCRIP=${SCRIP_BIN:-/home/claude/SCRIP/scrip}
-DIR=${WREG_CORPUS:-/home/claude/corpus/crosscheck/patterns}
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+SCRIP=${SCRIP_BIN:-$S4E/SCRIP/scrip}
+DIR=${WREG_CORPUS:-$S4E/corpus/crosscheck/patterns}
 OUT=${WREG_OUT:-/tmp/wreg_board.$$}
 PER=${WREG_TIMEOUT:-15}
 mkdir -p "$OUT"

@@ -2,9 +2,10 @@
 # test_prolog_rung32_bridge_negation.sh — PR-19b driver tests for negation builtins
 # (\+/1, not/1, once/1) with goal-as-variable. Extends the v3 Term→EXPR bridge
 # from catch/3 (PR-19a) to these three sites in pl_runtime.c.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=/home/claude/corpus/programs/prolog/rung32_bridge_negation
+CORPUS=$S4E/corpus/programs/prolog/rung32_bridge_negation
 PASS=0; FAIL=0
 echo "=== rung32_bridge_negation: \\+/1, not/1, once/1 with goal-as-variable (PR-19b driver) ==="
 if [ ! -d "$CORPUS" ]; then

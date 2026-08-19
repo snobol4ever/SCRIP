@@ -10,11 +10,12 @@
 # Idempotent.  No prerequisites beyond a built scrip and a corpus checkout.
 # Self-contained per RULES.md — paths derived from $0, hardcoded corpus path,
 # explicit timeout on every scrip call, < /dev/null for safety.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$SCRIP/scrip}"
-CORPUS="/home/claude/corpus"
+CORPUS="$S4E/corpus"
 SCRIP_DIR="$CORPUS/SCRIP"
 
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }

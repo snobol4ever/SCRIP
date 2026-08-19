@@ -4,10 +4,11 @@
 # reports rc / output-line-count / mode-3==mode-4 byte-identity. Oracle column intentionally
 # omitted (icon-master.zip absent this session). m3==m4 is a real correctness invariant
 # (RULES: the two modes must be 1:1 corresponding).
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
-RTDIR="${RTDIR:-/home/claude/SCRIP/out}"
-CORPUS_SRC="${CORPUS_SRC:-/home/claude/corpus/benchmarks/icon}"
+SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
+RTDIR="${RTDIR:-$S4E/SCRIP/out}"
+CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
 WORK="${WORK:-/tmp/bench_scrip_only}"
 TMO="${TMO:-30}"
 rm -rf "$WORK"; mkdir -p "$WORK/corpus"

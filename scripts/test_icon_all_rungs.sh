@@ -14,12 +14,13 @@
 # the now-amputated Icon AST walker). The reference path for Icon is --run.
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 RUNG=""
 
 while [[ $# -gt 0 ]]; do
@@ -37,7 +38,7 @@ if [ ! -x "$SCRIP" ]; then
 fi
 if [ ! -d "$CORPUS" ]; then
     echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to /home/claude/corpus to run this suite" >&2
+    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
     exit 0
 fi
 

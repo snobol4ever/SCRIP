@@ -1,9 +1,10 @@
 #!/bin/bash
 # census_r12.sh — R12-EXIT census: how many corpus programs still EMIT r12 (mode-4 .s scan).
 # Usage: bash scripts/census_r12.sh [outfile-list]   (writes the emitting-program list to $1 or /tmp/r12_list.txt)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$HERE/.."
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 LIST="${1:-/tmp/r12_list.txt}"
 : > "$LIST"
 total=0; hits=0

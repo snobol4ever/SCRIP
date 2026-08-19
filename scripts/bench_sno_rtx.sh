@@ -33,10 +33,11 @@
 #   FAMILY = MISC | ALLOC | STR | CALL | AGG | ARITH | NV | MATCH | PAT   (sets SCRIP_RTX_<FAMILY>)
 #   with no programs, runs that family's MEASURED-hot set (see FAMSET below).
 # env: R=5 MIN_MS=800 NMAX_SCALE=64 SCRIP=../scrip RT_OPT=-O0
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-BENCH="${BENCH:-/home/claude/corpus/benchmarks/snobol4}"
+BENCH="${BENCH:-$S4E/corpus/benchmarks/snobol4}"
 R="${R:-5}"; MIN_MS="${MIN_MS:-800}"; NMAX_SCALE="${NMAX_SCALE:-64}"; RT_OPT="${RT_OPT:--O0}"
 FAM="${1:?usage: bench_sno_rtx.sh <FAMILY> [program ...]}"; shift || true
 GATE="SCRIP_RTX_${FAM}"

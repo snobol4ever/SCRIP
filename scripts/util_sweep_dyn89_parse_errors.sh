@@ -9,11 +9,12 @@
 # Default: ~/corpus/programs/snobol4
 #
 # Placed in SCRIP/csnobol4/ alongside the CSNOBOL4 patch files.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
-SNO4=/home/claude/SCRIP/sno4parse
-CORPUS="${1:-/home/claude/corpus/programs/snobol4}"
+SNO4=$S4E/SCRIP/sno4parse
+CORPUS="${1:-$S4E/corpus/programs/snobol4}"
 TIMEOUT=10
 
 OK=0; ERR=0; HANG=0

@@ -23,6 +23,7 @@
 #   Omit CELLS or CELLS="" → all backends (cross-session shared gate)
 #
 # Environment: SCRIP_CC (default: <root>/scrip), JOBS (default: nproc), CELLS
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
@@ -89,7 +90,7 @@ _need() {
   if [[ "$ok" == "1" ]]; then
     echo -e "${GREEN}  [ok]${RESET}  $label"
   else
-    echo -e "${RED}  [MISSING]${RESET}  $label — run: TOKEN=... bash /home/claude/.github/SESSION_SETUP.sh" >&2
+    echo -e "${RED}  [MISSING]${RESET}  $label — run: TOKEN=... bash $S4E/.github/SESSION_SETUP.sh" >&2
     exit 2
   fi
 }

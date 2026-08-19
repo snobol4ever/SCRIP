@@ -4,9 +4,10 @@
 # marker means the fold missed a chunk boundary; (2) ZERO notes on jump lines -- the GOTO column belongs to the
 # jumps, Lon's explicit directive; (3) emit failures held at the pre-existing baseline, so an annotation pass is
 # never the thing that broke a program.  Reports the annotation volume so a regression to zero is visible too.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
-CORPUS=${CORPUS:-/home/claude/corpus}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
+CORPUS=${CORPUS:-$S4E/corpus}
 LIMIT=${LIMIT:-0}
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT

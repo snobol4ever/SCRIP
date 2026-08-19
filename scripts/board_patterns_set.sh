@@ -16,10 +16,11 @@
 # Usage:
 #   bash scripts/board_patterns_set.sh snap <tag>        # measure, write set file
 #   bash scripts/board_patterns_set.sh diff <old> <new>  # REPAIRED / BROKEN by set membership
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 SCRIP=${SCRIP_BIN:-$(cd "$(dirname "$0")/.." && pwd)/scrip}
-DIR=${PAT_CORPUS:-/home/claude/work/corpus/crosscheck/patterns}
-SNAPDIR=${BOARD_SNAPS:-/home/claude/work/board_snaps}
+DIR=${PAT_CORPUS:-$S4E/work/corpus/crosscheck/patterns}
+SNAPDIR=${BOARD_SNAPS:-$S4E/work/board_snaps}
 PER=${PAT_TIMEOUT:-30}
 mkdir -p "$SNAPDIR"
 

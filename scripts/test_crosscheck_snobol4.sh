@@ -6,10 +6,11 @@
 # Every program is exercised in BOTH modes (Lon directive 2026-06-25: no mode-only suites).
 # DIVERGE = programs where mode-3 and mode-4 disagree vs the ref (the 1:1-parity signal that was
 # formerly split into test_mode34_parity.sh). Gate: BOTH modes' FAIL == 0 AND zero DIVERGE.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 INC="$CORPUS/programs/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 

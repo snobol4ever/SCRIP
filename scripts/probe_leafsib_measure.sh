@@ -4,8 +4,9 @@
 # killswitch arms.  A sibling is RED iff its stdout differs from its .ref (a SEGV, an abort, a hang
 # and a silent wrong answer all count the same - the .ref is the only truth).  No pipelines around
 # the compiler: rc is captured directly so a 139 is never laundered into a 0 by `head`.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.." || exit 1
-P=/home/claude/corpus/probe/leafsib
+P=$S4E/corpus/probe/leafsib
 SIBS="${SIBS:-span tab rtab rem arb bal break breakx}"
 ARM="${SCRIP_SPAN_FRAME:-0}"
 printf '=== leafsib  SCRIP_SPAN_FRAME=%s ===\n' "$ARM"

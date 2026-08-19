@@ -1,9 +1,10 @@
 #!/bin/bash
 # test_gate_pascal_m4.sh — Pascal M4 (--compile -> gcc -> link -> run) gate
-SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/pascal}"
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/pascal}"
 RESULTS="${RESULTS:-/tmp/m4_results.tsv}"
-RT="${RT:-/home/claude/SCRIP/out/libscrip_rt.so}"
+RT="${RT:-$S4E/SCRIP/out/libscrip_rt.so}"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 PASS=0; FAIL=0; NOREF=0; XFAIL=0

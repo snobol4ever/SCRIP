@@ -59,11 +59,12 @@
 # RATCHET: unearned==0 && owed==0 from here. owed is EXPECTED to be LARGE today and to
 # RISE further as EARN classification coverage improves (s29 phase note) -- that is the
 # goal succeeding, not regressing.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
-CORPUS="${1:-/home/claude/corpus}"
+CORPUS="${1:-$S4E/corpus}"
 DIRS="${EARN2_DIRS:-crosscheck/patterns probe/bb probe/earn0 programs/snobol4/demo benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi

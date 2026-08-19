@@ -5,10 +5,11 @@
 #
 # Reads source from both repos.  Writes a sorted summary to stdout.
 # Exits 0 always — this is a measurement, not a gate.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$HERE/.."
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 roots=("$SCRIP/src" "$SCRIP/include")
 [ -d "$CORPUS" ] && roots+=("$CORPUS")
 echo "Audit roots:"

@@ -11,9 +11,10 @@
 #  (3) Timing excludes compile/link for m4 (binary built once, before the clock) and excludes nothing
 #      else — sbl and m3 both pay their own startup, as a user would.
 # RATIO = SCRIP / SPITBOL. Lower is better. 0.50 = 2x faster. 0.33 = 3x faster.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SC=${SC:-/home/claude/SCRIP}; D=${D:-/home/claude/corpus/programs/snobol4/demo}
-SBL=${SBL:-/home/claude/x64/bin/sbl}
+SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
+SBL=${SBL:-$S4E/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 R=${R:-3}; TMO=${TMO:-300}; MIN_MS=${MIN_MS:-800}

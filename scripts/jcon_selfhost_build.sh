@@ -5,13 +5,14 @@
 # Feature work uses -O0 (RULES: -O2 only for performance work); pass PERF=1 for the -O2 runtime build.
 # Usage: bash scripts/jcon_selfhost_build.sh            # feature build (-O0 runtime)
 #        PERF=1 bash scripts/jcon_selfhost_build.sh     # perf build (-O2 runtime)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 
-SCRIP=${SCRIP:-/home/claude/work/SCRIP}
-CORPUS=${CORPUS:-/home/claude/work/corpus}
-JCONREPO=${JCONREPO:-/home/claude/work/jcon-master/jcon-master}
-ICONREPO=${ICONREPO:-/home/claude/work/icon-master/icon-master}
-JT=${JT:-/home/claude/jt}
+SCRIP=${SCRIP:-$S4E/work/SCRIP}
+CORPUS=${CORPUS:-$S4E/work/corpus}
+JCONREPO=${JCONREPO:-$S4E/work/jcon-master/jcon-master}
+ICONREPO=${ICONREPO:-$S4E/work/icon-master/icon-master}
+JT=${JT:-$S4E/jt}
 RT="$SCRIP/out"
 JCOMPILER="$CORPUS/programs/icon/jcon-compiler"
 SEMI="$SCRIP/tools/semicolonize_icon.py"
@@ -19,7 +20,7 @@ if [ "${PERF:-0}" = "1" ]; then RTOPT='-O2 -g -fno-strict-aliasing -fwrapv -fno-
 else RTOPT='-O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer'; fi
 
 echo "== [1/7] link repos to expected paths + refs =="
-ln -sfn "$SCRIP" /home/claude/SCRIP; ln -sfn "$CORPUS" /home/claude/corpus
+ln -sfn "$SCRIP" $S4E/SCRIP; ln -sfn "$CORPUS" $S4E/corpus
 mkdir -p "$SCRIP/refs"; ln -sfn "$JCONREPO" "$SCRIP/refs/jcon-master"; ln -sfn "$ICONREPO" "$SCRIP/refs/icon-master"
 
 echo "== [2/7] system packages (build tools + JDK for jcon.zip) =="

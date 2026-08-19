@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Safer version that tests each file individually to avoid segfault
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
-CORPUS="/home/claude/corpus"
+CORPUS="$S4E/corpus"
 TIMEOUT=3
 VERBOSE="${1:-}"
 

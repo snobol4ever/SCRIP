@@ -3,9 +3,10 @@
 # currently installed at /home/claude/SCRIP, and report ok/crash counts.
 # Used to VERIFY (not inherit) the ZC_FRAME_RBP-does-not-run claim. Same batch, same order,
 # same timeout for both arms, so the two runs are comparable by construction.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 LABEL="$1"
-S=/home/claude/SCRIP; C=/home/claude/corpus
+S=$S4E/SCRIP; C=$S4E/corpus
 export LD_LIBRARY_PATH=$S/out:${LD_LIBRARY_PATH:-}
 PROGS="
 $C/programs/snobol4/feat/f04_pattern_primitives.sno

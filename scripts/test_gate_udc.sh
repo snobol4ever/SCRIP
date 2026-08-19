@@ -10,10 +10,11 @@
 # WITNESS-AUTHORING TRAP (measured s148): do NOT capture 2>&1 on a witness that both prints and errors -- m4 buffers
 # stdout to exit while m3 does not, so the INTERLEAVING differs while both streams are byte-identical. Error witnesses
 # therefore carry the .err_sno extension (repo convention) and no .ref, and are checked stream-by-stream below.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"
-RT="${RT:-/home/claude/SCRIP/out}"
-CN="${CN:-/home/claude/corpus/probe/cn}"
+SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
+RT="${RT:-$S4E/SCRIP/out}"
+CN="${CN:-$S4E/corpus/probe/cn}"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 for w in cn_udc_declare cn_udc_reopen; do

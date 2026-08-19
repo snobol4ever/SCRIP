@@ -2,14 +2,15 @@
 # jvm_artifact_check.sh — MANDATORY end-of-session artifact check for JVM backend.
 # Run this before every commit that touches emit_byrd_jvm.c or any .sno→.j path.
 # Exits nonzero if any artifact changed but was not updated.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -e
 cd "$(dirname "$0")/../.."
 
 JASMIN=src/backends/jasmin.jar
 CORPUS_ROOT="${CORPUS:-$(cd "$(dirname "$0")/../../.." 2>/dev/null && pwd || echo "")}"
 NULL_SNO="$CORPUS_ROOT/programs/snobol4/smoke/null.sno"
-ROMAN=/home/claude/corpus/benchmarks/snobol4/roman.sno
-WORDCOUNT=/home/claude/corpus/crosscheck/strings/wordcount.sno
+ROMAN=$S4E/corpus/benchmarks/snobol4/roman.sno
+WORDCOUNT=$S4E/corpus/crosscheck/strings/wordcount.sno
 
 TMPD=$(mktemp -d)
 trap "rm -rf $TMPD" EXIT

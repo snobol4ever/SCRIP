@@ -5,11 +5,12 @@
 # single board run — measure the radius over the corpus first.
 #
 # Usage: bash scripts/util_radius_ret_fix.sh [DIR ...]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_retfix}
 rm -rf "$OUT"; mkdir -p "$OUT"
-DIRS=${*:-"/home/claude/corpus/probe/bb /home/claude/corpus/programs/snobol4 /home/claude/corpus/crosscheck"}
+DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/programs/snobol4 $S4E/corpus/crosscheck"}
 tot=0; diffn=0; failn=0
 for d in $DIRS; do
     [ -d "$d" ] || continue

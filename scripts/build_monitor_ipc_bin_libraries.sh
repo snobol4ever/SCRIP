@@ -14,6 +14,7 @@
 #   - idempotent (check timestamps)
 #   - hardcoded oracle locations w/ SKIP if missing
 #   - no symlinks
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 
@@ -43,7 +44,7 @@ else
 fi
 
 # --- SPITBOL x64 ABI ------------------------------------------------------
-SPL_DIR="/home/claude/x64"
+SPL_DIR="$S4E/x64"
 SPL_SRC="${SPL_DIR}/monitor_ipc_bin_spl.c"
 SPL_SO="${SPL_DIR}/monitor_ipc_bin_spl.so"
 

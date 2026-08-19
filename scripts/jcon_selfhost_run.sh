@@ -6,11 +6,12 @@
 # The .icn input must already be semicolonized (SCRIP requires explicit ';'); pass RAW=1 to semicolonize first.
 # Usage: bash scripts/jcon_selfhost_run.sh path/to/prog.icn [args...]
 #        RAW=1 bash scripts/jcon_selfhost_run.sh newline_style.icn
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 
-SCRIP=${SCRIP:-/home/claude/work/SCRIP}
-JCONREPO=${JCONREPO:-/home/claude/work/jcon-master/jcon-master}
-JT=${JT:-/home/claude/jt}
+SCRIP=${SCRIP:-$S4E/work/SCRIP}
+JCONREPO=${JCONREPO:-$S4E/work/jcon-master/jcon-master}
+JT=${JT:-$S4E/jt}
 JRTS="$JCONREPO/bin/jcon.zip"
 JAVA="java -noverify"
 SEMI="$SCRIP/tools/semicolonize_icon.py"

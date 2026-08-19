@@ -8,11 +8,12 @@
 # This runner feeds <prog>.input when present and grades against the pinned <prog>.ref when present,
 # falling back to a live oracle run with the same stdin.  Classification vocabulary is IDENTICAL to
 # test_rsp_descent_sweep.sh so the two boards concatenate.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 OUT=${1:-/tmp/demo_sweep.txt}; : > "$OUT"
-: "${SWEEP_ORACLE:=/home/claude/x64/bin/sbl}"
-: "${DEMO_DIRS:=/home/claude/corpus/programs/snobol4/demo /home/claude/corpus/programs/snobol4/beauty_suite}"
+: "${SWEEP_ORACLE:=$S4E/x64/bin/sbl}"
+: "${DEMO_DIRS:=$S4E/corpus/programs/snobol4/demo $S4E/corpus/programs/snobol4/beauty_suite}"
 : "${DEMO_TIMEOUT:=60}"
 for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
   d=$(dirname "$src"); b=${src%.sno}
@@ -36,7 +37,7 @@ for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
     else st=DIFF; fi
   fi
   rm -f $S $X $RE
-  echo "$st ${src#/home/claude/corpus/programs/snobol4/}" >> "$OUT"
+  echo "$st ${src#$S4E/corpus/programs/snobol4/}" >> "$OUT"
 done
 sort -o "$OUT" "$OUT"
 awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn

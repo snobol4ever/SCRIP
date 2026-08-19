@@ -9,10 +9,11 @@
 # per-iteration ms = (wall - engine startup floor) / N, which is N-independent at
 # steady state. The gprolog-calibrated wrapper is left in VANROY_DIR as the
 # checked-in driver artifact. queensn (broken) auto-SKIPs via consensus pre-flight.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/prolog/bench}"
-V="${VANROY_DIR:-/home/claude/corpus/benchmarks/prolog/vanroy}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
+V="${VANROY_DIR:-$S4E/corpus/benchmarks/prolog/vanroy}"
 T="${TIMEOUT:-240}"; MIN_WALL_MS="${MIN_WALL_MS:-300}"; NMAX="${NMAX:-65536}"
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }

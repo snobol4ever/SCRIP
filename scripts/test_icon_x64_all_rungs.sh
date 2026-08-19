@@ -19,6 +19,7 @@
 # (EMIT/LINK/CRASH/TIMEOUT/OUTPUT/DIRTYPASS) is the discriminator for m3-vs-m4 deltas.
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Fable 5
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
@@ -26,7 +27,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="$(cd "$HERE/.." && pwd)/out"
 RT_SO="$RT_DIR/libscrip_rt.so"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 RUNG=""
 
 while [[ $# -gt 0 ]]; do
@@ -49,7 +50,7 @@ if [ ! -f "$RT_SO" ]; then
 fi
 if [ ! -d "$CORPUS" ]; then
     echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to /home/claude/corpus to run this suite" >&2
+    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
     exit 0
 fi
 

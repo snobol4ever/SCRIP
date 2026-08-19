@@ -12,6 +12,7 @@
 # Usage: bash scripts/test_monitor_inproc_all_langs.sh
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -65,7 +66,7 @@ run_expect_agree "icon: hello" \
 
 # --- Snocone ---
 run_expect_agree "snocone: fence" \
-    "${CORPUS:-/home/claude/corpus}/programs/snocone/demo/beauty/test/fence.sc"
+    "${CORPUS:-$S4E/corpus}/programs/snocone/demo/beauty/test/fence.sc"
 
 # --- Prolog ---
 # SM does not yet support Prolog IR opcodes (AST_CHOICE, AST_UNIFY, etc.).

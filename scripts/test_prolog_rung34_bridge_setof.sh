@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # test_prolog_rung34_bridge_setof.sh — PR-19d driver tests for findall/3, setof/3, bagof/3
 # with goal-as-variable. Extends the v3 Term→EXPR bridge to generator builtins.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=/home/claude/corpus/programs/prolog/rung34_bridge_setof
+CORPUS=$S4E/corpus/programs/prolog/rung34_bridge_setof
 PASS=0; FAIL=0
 echo "=== rung34_bridge_setof: findall/3 with goal-as-variable (PR-19d driver) ==="
 if [ ! -d "$CORPUS" ]; then

@@ -20,10 +20,11 @@
 #   CHECK=1             dry-run: report what WOULD change, write nothing (exit 1 if any drift)
 #
 # Exit: 0 normally; with CHECK=1, 0 if every .s is already current, 1 if any would change.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="$ROOT/scrip"
-CORPUS="${ICON_CORPUS:-/home/claude/corpus/benchmarks/icon}"
+CORPUS="${ICON_CORPUS:-$S4E/corpus/benchmarks/icon}"
 GLOB="${1:-*.icn}"
 CHECK="${CHECK:-0}"
 [ -x "$SCRIP" ] || { echo "FATAL: $SCRIP not built (run scripts/build_scrip.sh)"; exit 2; }

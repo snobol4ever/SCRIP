@@ -5,11 +5,12 @@
 # Usage: bash scripts/test_sn4_js_ladder.sh [--verbose]
 # Exit: 0 if no regression from FLOOR, 1 otherwise
 # Gate: PASS >= FLOOR (set below)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
-CORPUS="/home/claude/corpus"
+CORPUS="$S4E/corpus"
 RT="$HERE/../src/backends/runtime/js/sno_runtime.js"
 TIMEOUT=10
 VERBOSE="${1:-}"

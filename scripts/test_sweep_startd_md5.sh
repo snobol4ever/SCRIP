@@ -8,11 +8,12 @@
 #
 # Usage: bash scripts/test_sweep_startd_md5.sh <outfile.tsv> [arm]
 #   arm = value for SCRIP_MATCH_RBP (default 1). Emits one "md5<TAB>program" row per program, sorted.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:?usage: $0 <outfile.tsv> [arm]}"
 ARM="${2:-1}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 : > "$OUT"
 n=0
 while IFS= read -r f; do

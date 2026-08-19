@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # bake_ird3_baseline.sh — capture behavioral baselines for the IRD-3 sweep gate.
 # Usage: bash scripts/bake_ird3_baseline.sh <outdir>
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
@@ -22,7 +23,7 @@ echo "  sno_interp_sweep done ($(wc -l < "$SNOSWEEP") files)"
 # pascal x5 interp
 PASSWEEP="$OUT/pas_interp_sweep.txt"; : > "$PASSWEEP"
 for p in boolchain boolassign alias m4wexpr sieve; do
-    f="/home/claude/corpus/programs/pascal/$p.pas"
+    f="$S4E/corpus/programs/pascal/$p.pas"
     [ -f "$f" ] || { echo "$p MISSING" >> "$PASSWEEP"; continue; }
     out=$(timeout 16 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); rc=$?
     printf '%s rc=%d md5=%s\n' "$p" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$PASSWEEP"
@@ -44,7 +45,7 @@ done
 echo "  pl_interp_sweep done ($(wc -l < "$PLSWEEP") files)"
 # snocone per-file interp sweep (test/snocone + corpus/crosscheck/snocone)
 SCOSWEEP="$OUT/sco_interp_sweep.txt"; : > "$SCOSWEEP"
-{ find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find /home/claude/corpus/crosscheck/snocone -name '*.sc' 2>/dev/null; } | sort | while read -r f; do
+{ find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find $S4E/corpus/crosscheck/snocone -name '*.sc' 2>/dev/null; } | sort | while read -r f; do
     out=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); rc=$?
     printf '%s rc=%d md5=%s\n' "${f#$REPO/}" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$SCOSWEEP"
 done

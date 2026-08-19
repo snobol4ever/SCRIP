@@ -2,9 +2,10 @@
 # test_icon_ir_rung_13_tables.sh — rung13 Icon table() tests (IC-3)
 # Gate: PASS=5 FAIL=0
 # Authors: LCherryholmes · Claude Sonnet 4.6   DATE: 2026-04-15
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="/home/claude/corpus/programs/icon"
+CORPUS="$S4E/corpus/programs/icon"
 PASS=0; FAIL=0
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not found at $SCRIP"; exit 0; fi

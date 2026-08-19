@@ -9,10 +9,11 @@
 #   --verbose       show raw scrip output for failing files
 #   --file NAME     run only NAME.pl  (e.g. --file test_bips)
 #   --mode MODE     --run | --run | --run  (default: --run)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=/home/claude/corpus/programs/prolog
+CORPUS=$S4E/corpus/programs/prolog
 SWIT=$CORPUS/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 MATCH_PY="${HERE}/util_swi_match.py"

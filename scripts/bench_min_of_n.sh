@@ -28,12 +28,13 @@
 #   ARM_A=on ARM_B=off FAMILY=ARITH bash scripts/bench_min_of_n.sh   # A/B one family's kill-switch
 #   PROGS="arith_int fibonacci" bash scripts/bench_min_of_n.sh
 #   ASLR=off bash scripts/bench_min_of_n.sh               # pin address layout (setarch -R)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$HERE/.."
 SCRIP="${SCRIP:-$ROOT/scrip}"
-BENCH="${BENCH:-/home/claude/corpus/benchmarks/snobol4}"
-SNO_LIB_DIR="${SNO_LIB_DIR:-/home/claude/corpus/lib}"
+BENCH="${BENCH:-$S4E/corpus/benchmarks/snobol4}"
+SNO_LIB_DIR="${SNO_LIB_DIR:-$S4E/corpus/lib}"
 N="${N:-5}"
 TIMEOUT="${TIMEOUT:-180}"
 RT_OPT="${RT_OPT:--O0}"

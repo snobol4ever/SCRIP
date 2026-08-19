@@ -15,9 +15,10 @@
 # Usage:  bash scripts/test_census_m3_m4_divergence.sh [DIR] [OUT.tsv]
 #   DIR defaults to corpus/crosscheck/patterns.  Emits TSV: name m3 m4 rc3 rc4
 # Exit 0 always — this is an instrument, not a gate.  BOARD sets the floors.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SC="${SC:-/home/claude/SCRIP}"
-D="${1:-/home/claude/corpus/crosscheck/patterns}"
+SC="${SC:-$S4E/SCRIP}"
+D="${1:-$S4E/corpus/crosscheck/patterns}"
 OUT="${2:-/tmp/cen_m34.tsv}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 [ -x "$SC/scrip" ] || { echo "no $SC/scrip — build first"; exit 0; }

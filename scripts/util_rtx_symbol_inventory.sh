@@ -25,8 +25,9 @@
 # syntax, `.intel_syntax noprefix` (Lon ruling s162, ARCH section 1). Filter on it, not on names.
 # This is the same class of error as the s26 F12/F13 stale-artifact lesson in RULES.md step 4:
 # when you need to know what the compiler emits, the COMPILER is the oracle, never an artifact.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
-CORPUS="${1:-/home/claude/corpus}"
+CORPUS="${1:-$S4E/corpus}"
 [ -d "$CORPUS" ] || { echo "FAIL: corpus not found at $CORPUS"; exit 1; }
 mapfile -t ALL < <(find "$CORPUS" -path '*snobol4*' -name '*.s' 2>/dev/null)
 FILES=()

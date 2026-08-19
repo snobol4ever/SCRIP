@@ -10,13 +10,14 @@
 # s60: parameterized (SWEEP_DIRS / SWEEP_LIST) + parallel (SWEEP_JOBS) so the corpus checkout can be swept, not just SCRIP test+demo.
 #      Classification logic is ONE AUTHORITY (classify_one) shared by every caller.  Default invocation is byte-identical in
 #      behaviour to the s58/s59 instrument: SWEEP_DIRS="test demo", SWEEP_JOBS=1.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.."
 ROOT=$PWD   # include-bearing tests (-include 'lib/*.sno') resolve against the corpus checkout: sbl is CWD-relative, scrip honors SNO_LIB (s59 harness fix; both engines verified on test_case)
 OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
 : "${SWEEP_DIRS:=test demo}"
 : "${SWEEP_JOBS:=1}"
-: "${SWEEP_ORACLE:=/home/claude/x64/bin/sbl}"
-: "${SWEEP_CORPUS:=/home/claude/corpus}"
+: "${SWEEP_ORACLE:=$S4E/x64/bin/sbl}"
+: "${SWEEP_CORPUS:=$S4E/corpus}"
 # s68: SWEEP_NORM + SWEEP_RUN_TO.  BOTH DEFAULT TO THE PRE-EXISTING BEHAVIOUR (norm off, 8s run) so every existing caller is byte-identical.
 # SWEEP_NORM=1 rewrites ONLY a whole line of the exact form "ms: <digits>" to "ms: <T>" on BOTH sides before comparison.  WHY IT IS NOT A CHEAT:
 # the benchmark corpus prints an ELAPSED TIME line by construction (20 of 23 programs), so a byte-compare against the oracle reads DIFF for a

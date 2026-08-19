@@ -9,9 +9,10 @@
 # actually have. Startup is then a small constant fraction of a large window instead of the whole thing.
 # Honesty rules unchanged from v1: a diverging mode gets NO RATIO (X-DIV); every window is printed;
 # m4 compile/link happens before the clock. RATIO = SCRIP/SPITBOL, lower better; 0.50=2x, 0.33=3x.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SC=${SC:-/home/claude/SCRIP}; D=${D:-/home/claude/corpus/programs/snobol4/demo}
-SBL=${SBL:-/home/claude/x64/bin/sbl}
+SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
+SBL=${SBL:-$S4E/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 R=${R:-3}; TMO=${TMO:-600}; MIN_MS=${MIN_MS:-800}; XMAX=${XMAX:-64}

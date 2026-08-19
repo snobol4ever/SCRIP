@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # run_crosscheck_x86_prog.sh — Sprint A10: compile beauty.sno via -x86, run on corpus
 # Usage: bash test/crosscheck/run_crosscheck_x86_prog.sh
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TINY="$(cd "$SCRIPT_DIR/../.." && pwd)"
-CORPUS="${CORPUS:-/home/claude/corpus/crosscheck/beauty}"
+CORPUS="${CORPUS:-$S4E/corpus/crosscheck/beauty}"
 SCRIP_CC="$TINY/scrip"
 RT="$TINY/src/runtime"
-INC="${INC:-/home/claude/corpus/programs/snobol4/demo/beauty}"
-BEAUTY="${BEAUTY:-/home/claude/corpus/programs/snobol4/demo/beauty/beauty.sno}"
+INC="${INC:-$S4E/corpus/programs/snobol4/demo/beauty}"
+BEAUTY="${BEAUTY:-$S4E/corpus/programs/snobol4/demo/beauty/beauty.sno}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 PASS=0; FAIL=0; SKIP=0

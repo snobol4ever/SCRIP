@@ -9,11 +9,12 @@
 # Exit:  0 = all PASS, 1 = any FAIL
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="$ROOT/scrip"
-ICN_CORPUS="/home/claude/corpus/programs/icon"
+ICN_CORPUS="$S4E/corpus/programs/icon"
 TIMEOUT=8
 PASS=0; FAIL=0
 

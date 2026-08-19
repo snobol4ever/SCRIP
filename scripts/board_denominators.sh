@@ -6,8 +6,9 @@
 # USAGE:
 #   bash board_denominators.sh            # all suites
 #   bash board_denominators.sh crosscheck # one suite
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 SEL="${1:-}"
 
 row() {

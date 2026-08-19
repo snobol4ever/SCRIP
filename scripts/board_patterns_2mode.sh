@@ -2,11 +2,12 @@
 # board_patterns_2mode.sh -- two-mode (m3 --run / m4 --compile) census over crosscheck/patterns.
 # Reports per-program AGREE (both modes match .ref) / m3-only-fail / m4-only-fail / both-fail,
 # with failure-mode tags (DIFF/HANG/SIGnn/rcN). Self-contained per RULES.md.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP_BIN:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-DIR="${PAT_CORPUS:-/home/claude/corpus/crosscheck/patterns}"
+DIR="${PAT_CORPUS:-$S4E/corpus/crosscheck/patterns}"
 PER="${PAT_TIMEOUT:-15}"
 OUT="${OUT_TSV:-/tmp/patterns_2mode.tsv}"
 

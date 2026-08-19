@@ -2,9 +2,10 @@
 # util_zr_capture.sh <outdir> -- capture --compile .s for the ZR-RSPRBP byte-identity witness set.
 # Witness set spans 3 languages x {pinned, unpinned} and includes the ARBNO programs that are zv()'s
 # only consumers, so a zv() change that is NOT inert cannot hide from it.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 OUT="$1"; mkdir -p "$OUT"
-S=/home/claude/SCRIP; C=/home/claude/corpus
+S=$S4E/SCRIP; C=$S4E/corpus
 PROGS="
 $C/programs/snobol4/parser/pat_arbno.sno
 $C/programs/snobol4/feat/f04_pattern_primitives.sno

@@ -17,15 +17,16 @@
 # integration-tests via the real harness.
 #
 # S-2-bridge-7 + SN-26-bridge-coverage cross-ref, Mon Apr 28 2026.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 HARNESS="${HARNESS:-$HERE/test_monitor_3way_sync_step_auto.sh}"
 
-if [ ! -x /home/claude/x64/bin/sbl ]; then echo "SKIP: spitbol not built"; exit 0; fi
+if [ ! -x $S4E/x64/bin/sbl ]; then echo "SKIP: spitbol not built"; exit 0; fi
 if [ ! -x "$(command -v dotnet)" ]; then echo "SKIP: dotnet missing"; exit 0; fi
-if [ ! -f /home/claude/snobol4dotnet/Snobol4/bin/Release/net10.0/Snobol4.dll ]; then
+if [ ! -f $S4E/snobol4dotnet/Snobol4/bin/Release/net10.0/Snobol4.dll ]; then
     echo "SKIP: Snobol4.dll not built"; exit 0; fi
 if [ ! -f "$HARNESS" ]; then echo "SKIP: harness missing at $HARNESS"; exit 0; fi
 
@@ -73,7 +74,7 @@ fi
 # <lval> on either side.
 python3 - << 'PY' || FAIL=$((FAIL+1))
 import sys, os
-sys.path.insert(0, '/home/claude/SCRIP/scripts/monitor')
+sys.path.insert(0, '$S4E/SCRIP/scripts/monitor')
 import monitor_sync_bin as m
 
 # Construct two events: one with name 'UTF', one with '<lval>'
@@ -110,7 +111,7 @@ if [ $? -eq 0 ]; then PASS=$((PASS+1)); else echo "FAIL Check 2: keys_match wild
 # UNKNOWN logic still working in the new code).
 python3 - << 'PY' || FAIL=$((FAIL+1))
 import sys
-sys.path.insert(0, '/home/claude/SCRIP/scripts/monitor')
+sys.path.insert(0, '$S4E/SCRIP/scripts/monitor')
 import monitor_sync_bin as m
 
 # Aggregate-element store: spl emits UNKNOWN type + junk name; dot emits

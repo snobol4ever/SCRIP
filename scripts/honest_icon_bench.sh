@@ -4,13 +4,14 @@
 # "ran the workload fast" from "skipped the workload". This one compares against iconx.
 #
 # Usage: SCRIPDIR=/path/to/SCRIP bash honest_icon_bench.sh [prog ...]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIPDIR="${SCRIPDIR:-/home/claude/work/SCRIP}"
+SCRIPDIR="${SCRIPDIR:-$S4E/work/SCRIP}"
 SCRIP="$SCRIPDIR/scrip"
 RTDIR="$SCRIPDIR/out"
-ICONM="${ICONM:-/home/claude/work/icon-master/icon-master}"
+ICONM="${ICONM:-$S4E/work/icon-master/icon-master}"
 ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
-CORPUS_SRC="${CORPUS_SRC:-/home/claude/work/corpus/benchmarks/icon}"
+CORPUS_SRC="${CORPUS_SRC:-$S4E/work/corpus/benchmarks/icon}"
 REPS="${REPS:-3}"
 WORK="$(mktemp -d /tmp/honest_bench_XXXXXX)"
 export PATH="$ICONM/bin:$PATH"

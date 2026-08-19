@@ -7,13 +7,14 @@
 # Also usable with the oracle directly:
 #   bash run_rung03.sh oracle
 # which runs all .icn files through icont+iconx.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/programs/icon"
-ICONT="${ICONT:-/home/claude/icon-master/bin/icont}"
-ICONX="${ICONX:-/home/claude/icon-master/bin/iconx}"
+ICONT="${ICONT:-$S4E/icon-master/bin/icont}"
+ICONX="${ICONX:-$S4E/icon-master/bin/iconx}"
 
 TIMEOUT="${TIMEOUT:-5}"
 BINARY="${1:-}"

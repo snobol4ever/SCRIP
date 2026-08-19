@@ -2,8 +2,9 @@
 # sweep_rsp_only.sh — RSP-ONLY empirical census: PASS = rc==0 AND stdout==.ref, per mode.
 # NO PIPE on the measured command (the census script's pipe-trap law).
 # Usage: bash scripts/sweep_rsp_only.sh OUT.tsv DIR [DIR...]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SC="${SC:-/home/claude/SCRIP}"
+SC="${SC:-$S4E/SCRIP}"
 OUT="$1"; shift
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 : > "$OUT"

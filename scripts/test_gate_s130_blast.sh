@@ -5,16 +5,17 @@
 # same; the tallies are then diffed.  The .so is SWAPPED IN PLACE, never LD_PRELOADed and
 # never the driver alone -- the emitter lives in libscrip_rt.so (the s68 vacuous-gate law).
 # Usage: test_gate_s130_blast.sh record <tag> <scrip> <rt.so>   |   compare <tagA> <tagB>
-ROOT=${ROOT:-/home/claude/corpus}
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+ROOT=${ROOT:-$S4E/corpus}
 SETS=${SETS:-"crosscheck programs/snobol4 probe"}
 case "$1" in
 record)
   tag=$2; S=$3; RT=$4; out=/tmp/s130_$tag.md5; : > "$out"
-  cp -f "$S" /home/claude/SCRIP/scrip; cp -f "$RT" /home/claude/SCRIP/out/libscrip_rt.so
+  cp -f "$S" $S4E/SCRIP/scrip; cp -f "$RT" $S4E/SCRIP/out/libscrip_rt.so
   for s in $SETS; do
     for f in $(find "$ROOT/$s" -name '*.sno' | sort); do
       o=/tmp/s130_one.s
-      timeout 15 /home/claude/SCRIP/scrip --compile "$f" > "$o" 2>/dev/null; rc=$?
+      timeout 15 $S4E/SCRIP/scrip --compile "$f" > "$o" 2>/dev/null; rc=$?
       echo "$(md5sum < "$o" | cut -d' ' -f1) rc=$rc $f" >> "$out"
     done
   done

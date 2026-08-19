@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # test_smoke_snobol4_jvm.sh — SJ4-JVM-3 gate: full JVM pipeline on smoke programs
 # scrip --compile --target=jvm → .j file → jasmin.jar → .class → java → verify output
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 JASMIN="${JASMIN:-$HERE/../src/backends/jasmin.jar}"
-ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
+ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
 PASS=0; FAIL=0
 
 run_smoke() {

@@ -4,10 +4,11 @@
 # capture both stdouts, compare to each other and to .ref. Classify divergence.
 # Usage: test_mode34_parity.sh [CORPUS_DIR] [--tsv FILE]
 # Default CORPUS_DIR = /home/claude/corpus/crosscheck
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-CORPUS_ROOT="${CORPUS:-/home/claude/corpus}"
+CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
 INC="$CORPUS_ROOT/programs/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 DIR="${1:-$CORPUS_ROOT/crosscheck}"

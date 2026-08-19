@@ -3,9 +3,10 @@
 # Runs every corpus/probe/earn0 witness in m3 (and optionally m4), diffs vs the
 # oracle-baked .ref, and prints a BY-SET table. Judge BY SET, never by count.
 # Usage: bash scripts/board_earn0_set.sh [m3|m4|both]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIP_DIR="${SCRIP_DIR:-/home/claude/SCRIP}"
-EARN0="${EARN0:-/home/claude/corpus/probe/earn0}"
+SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
+EARN0="${EARN0:-$S4E/corpus/probe/earn0}"
 MODE="${1:-m3}"
 TMO="${TMO:-8}"
 one_shot() {

@@ -20,11 +20,12 @@
 #         bash scripts/test_gate_zdp_on_null.sh SCRIP_ZONE=1
 #         bash scripts/test_gate_zdp_on_null.sh SCRIP_ZDP=1 SCRIP_ZONE=1
 # Exit 0 = 0 movers (the pass is genuinely inert).  Exit 1 = movers listed (the pass perturbs; its numbers are void).
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 cd "$(dirname "$0")/.." || exit 1
 [ -x ./scrip ] || { echo "FAIL  ./scrip not built"; exit 1; }
 ENVS=("$@"); [ ${#ENVS[@]} -eq 0 ] && ENVS=("SCRIP_ZDP=1")
-CORPUS_DIRS="${CORPUS_DIRS:-/home/claude/corpus/programs/snobol4 /home/claude/corpus/probe}"
+CORPUS_DIRS="${CORPUS_DIRS:-$S4E/corpus/programs/snobol4 $S4E/corpus/probe}"
 LIST=$(find $CORPUS_DIRS -name '*.sno' 2>/dev/null | sort)
 TOTAL=0; MOVED=0; FLAKY=0; MOVERS=""; FLAKIES=""
 for f in $LIST; do

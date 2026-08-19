@@ -18,6 +18,7 @@
 # rung ladder (test_icon_all_rungs.sh remains the mode-2-only category-tally view).
 #
 # Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude Opus 4.8
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
@@ -25,7 +26,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 RUNG=""
 MODE="all"                              # DEFAULT: run all three modes
 SMX_SIG='\[SMX\]'                       # the loud-decline banner — same token Prolog uses
@@ -46,7 +47,7 @@ if [ ! -x "$SCRIP" ]; then
 fi
 if [ ! -d "$CORPUS" ]; then
     echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to /home/claude/corpus to run this suite" >&2
+    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
     exit 0
 fi
 

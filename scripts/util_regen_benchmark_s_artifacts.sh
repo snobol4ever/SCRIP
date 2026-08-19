@@ -12,11 +12,12 @@
 # assembles); when the gap is later closed the .s changes and is recommitted.
 # scrip --compile is deterministic, so re-running with an unchanged compiler
 # produces byte-identical .s and yields NO commit (idempotent).
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${BENCH_DIR:-$CORPUS/benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ];  then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi

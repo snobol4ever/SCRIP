@@ -14,9 +14,10 @@
 #   - single run per cell; at these ratios +/-10-20% host noise is immaterial
 # Env: PREGUT_REF (default 7ec7305a) PREGUT_DIR (default /home/claude/SCRIP-pregut)
 #      BENCH_V (default /home/claude/corpus/benchmarks/prolog/vanroy)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; NEW="$(cd "$HERE/.." && pwd)"
-PREGUT_REF="${PREGUT_REF:-7ec7305a}"; OLD="${PREGUT_DIR:-/home/claude/SCRIP-pregut}"
-V="${BENCH_V:-/home/claude/corpus/benchmarks/prolog/vanroy}"
+PREGUT_REF="${PREGUT_REF:-7ec7305a}"; OLD="${PREGUT_DIR:-$S4E/SCRIP-pregut}"
+V="${BENCH_V:-$S4E/corpus/benchmarks/prolog/vanroy}"
 W=/tmp/ab_pregut.$$; mkdir -p "$W"; trap 'rm -rf "$W"' EXIT
 command -v gprolog >/dev/null || { echo "SKIP: gprolog absent (apt-get install gprolog)"; exit 0; }
 [ -d "$V" ] || { echo "SKIP: vanroy corpus missing: $V"; exit 0; }

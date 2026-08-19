@@ -29,9 +29,10 @@
 #         used by this gate is the MEASURED one; the inherited one is recorded only so the gap
 #         is not rediscovered as a regression.  (Ceremony re-measured 873 vs s204's ~830 --
 #         same reproduction caveat, same conclusion.)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
 ICN_C_BASELINE="${ICN_C_BASELINE:-37872}"
 PY="$HERE/util_icn_rbp_census.py"

@@ -15,9 +15,10 @@
 #
 # Idempotent — checks for PATCHED:v2 sentinel before applying.
 # After patching, commits corpus repo.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CORPUS=/home/claude/corpus
+CORPUS=$S4E/corpus
 PLUNIT=$CORPUS/programs/prolog/plunit.pl
 
 [ -f "$PLUNIT" ] || { echo "ERROR: $PLUNIT not found"; exit 1; }

@@ -1,8 +1,10 @@
+import os as _os
+S4E = _os.environ.get("S4E_HOME") or _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))   # D-17 sibling root
 import sys, os, re, subprocess
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from util_dead_cutter import lex_items
 
-ROOT = '/home/claude/SCRIP'
+ROOT = f'{S4E}/SCRIP'
 DEAD = set(open(os.environ.get('SWEEP_DEAD','/tmp/dead_src.txt')).read().split())
 
 def cut_set_for(path):

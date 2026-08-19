@@ -14,6 +14,7 @@
 # are AT LEAST THREE separate mechanisms (a resumable-generator hang, an R12 arena overrun crash, a wild-
 # rbx crash) -- a board that cannot tell hang from crash cannot route a failure to its owner. classify_rc()
 # below turns the raw $? into HANG / CRASH(sig) / RC=<n> so the printed column carries that distinction.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 classify_rc() {  # $1 = exit code from `timeout N cmd`
   local rc=$1
@@ -21,8 +22,8 @@ classify_rc() {  # $1 = exit code from `timeout N cmd`
   elif [ "$rc" -ge 128 ]; then echo "CRASH($((rc-128)))"
   else echo "RC=$rc"; fi
 }
-SC=${SC:-/home/claude/SCRIP}; D=${D:-/home/claude/corpus/programs/snobol4/demo}
-SBL=${SBL:-/home/claude/x64/bin/sbl}
+SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
+SBL=${SBL:-$S4E/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 TMO=${TMO:-300}

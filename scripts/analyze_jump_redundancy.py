@@ -4,6 +4,8 @@
 # is exactly one unconditional `jmp TARGET`. A branch (jmp/jCC) that targets a
 # forwarder label is a jump-to-jump a peephole could collapse. Reports the
 # collapsible population and the longest forwarder chain, per file and total.
+import os as _os
+S4E = _os.environ.get("S4E_HOME") or _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))   # D-17 sibling root
 import sys, re, glob, os
 
 JCC = ('jmp','je','jne','jz','jnz','jg','jge','jl','jle','ja','jae','jb','jbe','js','jns')
@@ -136,7 +138,7 @@ def classify(path):
     }
 
 def main():
-    pats = sys.argv[1:] or ['/home/claude/corpus/benchmarks/snobol4/*.s']
+    pats = sys.argv[1:] or [f'{S4E}/corpus/benchmarks/snobol4/*.s']
     files = []
     for p in pats:
         files += sorted(glob.glob(p))
@@ -210,7 +212,7 @@ def gate(paths):
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '--gate':
-        pats = sys.argv[2:] or ['/home/claude/corpus/benchmarks/snobol4/*.s']
+        pats = sys.argv[2:] or [f'{S4E}/corpus/benchmarks/snobol4/*.s']
         files = []
         for p in pats:
             files += sorted(glob.glob(p))

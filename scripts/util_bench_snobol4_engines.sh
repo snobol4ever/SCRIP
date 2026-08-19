@@ -11,8 +11,9 @@
 #   official/fork csnobol4:    1         .../official/csnobol4/snobol4 -f       (ms)
 # SCRIP itself: use test_bench_snobol4_modes.sh (mode-4 compile+run vs the same .ref set).
 # Build the official engines first: scripts/build_official_oracles.sh
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 [ $# -ge 4 ] || { sed -n '2,12p' "$0"; exit 2; }
 L="$1"; T="$2"; DIV="$3"; shift 3
 printf "%-22s %-7s %10s %12s\n" "BENCH($L)" STATUS "wall(ms)" "self(ms)"

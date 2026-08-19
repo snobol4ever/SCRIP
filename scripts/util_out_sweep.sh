@@ -21,9 +21,10 @@
 # and every elapsed-time field is normalised to a constant BEFORE hashing, which makes the sweep parallel-safe
 # instead of merely parallel-fast.  ⛔ NORMALISE, DO NOT EXCLUDE: dropping the programs would blind the sweep to
 # real defects in exactly the demos (json, calculator) that exercise the biggest pattern graphs in the corpus.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-/home/claude/corpus}"; TMO="${TMO:-25}"
+SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"; TMO="${TMO:-25}"
 OUT="${1:?usage: util_out_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else

@@ -41,6 +41,7 @@
 #   /tmp/sb6_scr.out   scrip stdout
 #   /tmp/sb6_scr.err   scrip stderr
 #   /tmp/sb6_spl.out   oracle stdout (only if --diff)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,8 +52,8 @@ MODE="--run"
 TIMEOUT=30
 DO_DIFF=0
 QUIET=0
-CORPUS="${CORPUS:-/home/claude/corpus}"
-ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
+CORPUS="${CORPUS:-$S4E/corpus}"
+ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 
 while [[ $# -gt 0 ]]; do

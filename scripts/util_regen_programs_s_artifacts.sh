@@ -13,10 +13,11 @@
 # past emit-fails) are refreshed when the compiler now succeeds, left when it still fails.
 # Usage: util_regen_programs_s_artifacts.sh [RUNG-LABEL] [SUBTREE ...]
 #        SUBTREE defaults to "icon prolog rebus".
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 RUNG="${1:-regen}"; shift 2>/dev/null || true
 TREES="${*:-icon prolog rebus}"
 

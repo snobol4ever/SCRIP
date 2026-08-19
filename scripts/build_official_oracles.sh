@@ -23,8 +23,9 @@
 #              CERTIFICATION: fixed point — stage-1 binary regenerates its own tables byte-identically
 #              (modulo generated-on/$Id headers), proving the stage-0 engine left no fingerprint.
 #              The -b in SNO is load-bearing: genc's stdout is redirected into snobol4.c2.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
-OFF="${OFFICIAL_DIR:-/home/claude/official}"
+OFF="${OFFICIAL_DIR:-$S4E/official}"
 SPIT="$OFF/spitbol-x64"; CSN="$OFF/csnobol4"; FORK="$OFF/csnobol4-fork"
 GEN="data.c data.h equ.h res.h data_init.h syn.c syn.h syn_init.h snobol4.c proc.h static.h"
 mkdir -p "$OFF"

@@ -21,11 +21,12 @@
 # Env: GPROLOG_SRC=<dir>  OUT=<path>
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Opus 4.8   DATE: 2026-07-14
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/.." && pwd)"
 GP="${GPROLOG_SRC:-${ROOT}/refs/gprolog-master/src/BipsPl}"
-OUT="${OUT:-/home/claude/.github/PROLOG-ISO-TRACKER.md}"
+OUT="${OUT:-$S4E/.github/PROLOG-ISO-TRACKER.md}"
 MODE="${1:-}"
 if [ ! -d "$GP" ]; then
     echo "audit_prolog_iso_coverage: MISSING canonical source: $GP" >&2

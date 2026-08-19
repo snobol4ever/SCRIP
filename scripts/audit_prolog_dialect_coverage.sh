@@ -23,12 +23,13 @@
 # Env:    GPROLOG_SRC=<dir> SWIPL_SRC=<dir> OUT=<path>
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Opus 5   DATE: 2026-07-26
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/.." && pwd)"
 GP="${GPROLOG_SRC:-${ROOT}/refs/gprolog-master}"
 SW="${SWIPL_SRC:-${ROOT}/refs/swipl-devel-master}"
-OUT="${OUT:-/home/claude/.github/PROLOG-DIALECT-TRACKER.md}"
+OUT="${OUT:-$S4E/.github/PROLOG-DIALECT-TRACKER.md}"
 MODE="${1:-}"
 for d in "$GP/src/BipsPl" "$SW/src" "$SW/boot"; do
     [ -d "$d" ] || { echo "audit_prolog_dialect_coverage: MISSING canonical source: $d" >&2

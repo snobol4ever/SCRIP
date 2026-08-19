@@ -2,11 +2,12 @@
 # build_snobol4_net.sh — compile + run a .sno file via scrip-cc NET backend
 # Usage: build_snobol4_net.sh <file.sno>
 # MONITOR_FIFO env var: if set, trace events written there via NET runtime
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 
 SNO="${1:?Usage: build_snobol4_net.sh <file.sno>}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIP_CC="${SCRIP_CC_NET:-/home/claude/scrip-cc_net}"
+SCRIP_CC="${SCRIP_CC_NET:-$S4E/scrip-cc_net}"
 NET_CACHE="${NET_CACHE:-/tmp/scrip_cc_net_cache}"
 RUNTIME_NET="$DIR/src/runtime/net"
 

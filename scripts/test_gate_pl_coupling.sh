@@ -17,12 +17,13 @@
 # template starts and stays at ceiling 0 (PL-GZ new-path boxes emit ZERO control calls).
 # Optional arg 1: alternate BB_templates dir (negative-test hook).  Exit 0 iff every count <= its ceiling.
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet  DATE: 2026-06-04
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 TPL="${1:-$ROOT/src/templates}"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/prolog}"
 SYMS='resolve_cp_current|rt_last_ok|rt_get_cut_flag|resolve_bb_env_[a-z_]*|rt_env_current|rt_choice_cut_[a-z_]*|rt_cp_save_caller_env'
 ceiling() {
     case "$1" in

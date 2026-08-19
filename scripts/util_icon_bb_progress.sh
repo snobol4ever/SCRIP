@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # util_icon_bb_progress.sh — show GOAL-ICON-BB-NATIVE rung completion banner
 # Usage: bash scripts/util_icon_bb_progress.sh [/path/to/.github]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GITHUB="${1:-/home/claude/.github}"
+GITHUB="${1:-$S4E/.github}"
 GOAL="$GITHUB/GOAL-ICON-BB-NATIVE.md"
 
 if [[ ! -f "$GOAL" ]]; then

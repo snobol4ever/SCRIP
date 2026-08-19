@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"; CAP=200000; T="${TIMEOUT:-30}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"; CAP=200000; T="${TIMEOUT:-30}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
 [ -d "$B" ] || { echo "SKIP bench corpus missing"; exit 0; }

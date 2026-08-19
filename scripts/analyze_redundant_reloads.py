@@ -5,6 +5,8 @@
 # Reports per file and flags whether the redundancy sits in a back-edge target
 # (hot-loop) block. Conservative: any intervening write to R, or any call (R
 # caller-saved), disqualifies — so reported reloads are safely removable.
+import os as _os
+S4E = _os.environ.get("S4E_HOME") or _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", ".."))   # D-17 sibling root
 import sys, re, glob, os
 
 CALLER_SAVED = {'rax','rcx','rdx','rsi','rdi','r8','r9','r10','r11',
@@ -85,7 +87,7 @@ def analyze(path):
     return os.path.basename(path), total, hot
 
 def main():
-    pats = sys.argv[1:] or ['/home/claude/corpus/benchmarks/snobol4/*.s']
+    pats = sys.argv[1:] or [f'{S4E}/corpus/benchmarks/snobol4/*.s']
     files = []
     for p in pats: files += sorted(glob.glob(p))
     print(f"{'file':28} {'redundant_reloads':>18} {'in_targeted_block':>18}")

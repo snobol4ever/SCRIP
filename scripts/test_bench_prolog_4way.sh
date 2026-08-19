@@ -6,9 +6,10 @@
 # A cell is PASS iff that engine's stdout equals .expected, else FAIL/FENCE/etc.
 # CONSENSUS = all four agree with .expected. The .expected file is itself derived
 # from a real Prolog, so PASS means "matches the reference observable semantics."
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-30}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-30}"
 # Deep-recursion benches (fib/tak/meta_qsort) nest one C frame per Prolog call
 # (rt_proc_call_gen_h trampoline; real fix = PL-SPEED-3/7 DET no-C-frame spine).
 # Until that lands, raise the soft C-stack limit so they run to completion.

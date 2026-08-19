@@ -2,11 +2,12 @@
 # test_smoke_snobol4_js.sh — Smoke tests for SNOBOL4 → JavaScript emitter
 # Usage: bash scripts/test_smoke_snobol4_js.sh
 # Gate: 7/7 PASS (all smoke programs execute correctly via JS)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -e
 
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
-CORPUS=${CORPUS:-/home/claude/corpus}
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
+CORPUS=${CORPUS:-$S4E/corpus}
 SMOKE_DIR="$CORPUS/programs/snobol4/smoke"
 TEMP_DIR=${TEMP_DIR:-/tmp/sno_js_tests}
 
@@ -59,7 +60,7 @@ for test_file in "$SMOKE_DIR"/*.sno; do
     # Replace relative require with absolute path to sno_runtime.js
     RT_PATH="$SCRIP/../src/backends/runtime/js/sno_runtime.js"
     if [ ! -f "$RT_PATH" ]; then
-        RT_PATH="/home/claude/SCRIP/src/backends/runtime/js/sno_runtime.js"
+        RT_PATH="$S4E/SCRIP/src/backends/runtime/js/sno_runtime.js"
     fi
     
     if ! node "$js_file" 2>/dev/null; then

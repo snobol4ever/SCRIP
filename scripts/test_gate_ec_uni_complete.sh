@@ -23,14 +23,15 @@
 # Self-contained per RULES.md.  Paths derive from $0; corpus/oracle paths
 # hardcoded with SKIP fallback.  Each scrip call gets `< /dev/null` and
 # `timeout`.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
-ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
+CORPUS="${CORPUS:-$S4E/corpus}"
+ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
 TIMEOUT_SHORT="${TIMEOUT_SHORT:-8}"
 TIMEOUT_LONG="${TIMEOUT_LONG:-180}"
 

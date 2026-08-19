@@ -30,12 +30,13 @@
 #  - paths derived from $0, no env-var deps beyond PATH
 #  - SKIP cleanly (exit 0, clear message) when prerequisites absent
 #  - idempotent: re-running is a no-op if sbl32 already installed
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/.." && pwd)"         # /home/claude/SCRIP
-HOME_ROOT="$(cd "$ROOT/.." && pwd)"    # /home/claude
+ROOT="$(cd "$HERE/.." && pwd)"         # $S4E/SCRIP
+HOME_ROOT="$(cd "$ROOT/.." && pwd)"    # $S4E
 
 X32_DIR="$HOME_ROOT/x32"
 SBL32="$HOME_ROOT/sbl32"

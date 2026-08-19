@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <setjmp.h>
-#include "/home/claude/csnobol4/include/h.h"
-#include "/home/claude/csnobol4/include/snotypes.h"
-#include "/home/claude/csnobol4/include/macros.h"
-#include "/home/claude/csnobol4/include/lib.h"
-#include "/home/claude/csnobol4/equ.h"
-#include "/home/claude/csnobol4/res.h"
+#include "include/h.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
+#include "include/snotypes.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
+#include "include/macros.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
+#include "include/lib.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
+#include "equ.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
+#include "res.h"   /* D-17: resolved via -I$(CSN_INC) (Makefile, derives $(ROOT)/../csnobol4) */
 #include "/home/claude/csnobol4/data.h"
 typedef struct { char *name; char *val_str; } CsnNvPair;
 typedef void (*csn_step_fn)(int stno, void *arg);

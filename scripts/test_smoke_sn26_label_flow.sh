@@ -9,12 +9,13 @@
 #
 # Per RULES.md: paths derived from $0; corpus path hardcoded; oracle
 # paths hardcoded; SKIP cleanly if dependencies missing.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -e
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$(cd "$HERE/.." && pwd)}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"
-CSN="${CSN:-/home/claude/csnobol4/snobol4}"
+CORPUS="${CORPUS:-$S4E/corpus}"
+SBL="${SBL:-$S4E/x64/bin/sbl}"
+CSN="${CSN:-$S4E/csnobol4/snobol4}"
 SCRIP="${SCRIP:-$SCRIP/scrip}"
 MONITOR_DIR="${MONITOR_DIR:-$HERE/monitor}"
 PROBE="$CORPUS/programs/snobol4/demo/label_flow/probe_label.sno"

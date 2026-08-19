@@ -15,12 +15,13 @@
 # USAGE: bash scripts/audit_jcon_wholesale.sh [name-filter]
 #   ICONT=/path/to/icon-master/bin/icont (auto-probed at refs-src + refs locations)
 # Timeouts per RULES.md: 8s unit probes.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"; DIR="$ROOT/test/icon/jcon_audit"
 FILTER="${1:-}"
 ICONT="${ICONT:-}"
-if [ -z "$ICONT" ]; then for c in /home/claude/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi
+if [ -z "$ICONT" ]; then for c in $S4E/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi
 [ -n "$ICONT" ] && export PATH="$(dirname "$ICONT"):$PATH"
 W=/tmp/jcon_audit_work; rm -rf "$W"; mkdir -p "$W"
 pass=0; fail=0; probebad=0; skip=0

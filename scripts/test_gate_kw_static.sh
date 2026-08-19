@@ -7,9 +7,10 @@
 #
 # Usage:  bash scripts/test_gate_kw_static.sh [--mode 3|4|both] [--verbose]
 # Exit:   0 = every witness PASS in every selected mode; 1 = at least one DIFF.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROBE_DIR="${KW_PROBE_DIR:-/home/claude/corpus/probe/kw}"
+PROBE_DIR="${KW_PROBE_DIR:-$S4E/corpus/probe/kw}"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
 MODE="both"; VERBOSE=0; ARMED="${SCRIP_KW_STATIC:-}"
 while [[ $# -gt 0 ]]; do

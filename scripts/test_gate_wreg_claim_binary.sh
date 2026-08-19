@@ -23,9 +23,10 @@
 #
 # Usage: bash scripts/test_gate_wreg_claim_binary.sh [--quick]   (--quick = first 3 programs, smoke only)
 # Exit:  0 = every r10/r11 instruction shape allowlisted · 1 = unallowlisted shape(s) found · 2 = setup failure
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE"
-PROBES=/home/claude/corpus/probe/bb/probes
+PROBES=$S4E/corpus/probe/bb/probes
 SET=(D09 D10 D11 D12 D13 G19 G20 H21 H24 H25 N12 N17 X01 X02 X03 X04 X05 X06 X11)
 [ "${1:-}" = "--quick" ] && SET=(D09 D12 X02)
 command -v gdb >/dev/null || { echo "SETUP: gdb missing (apt-get install -y --no-install-recommends gdb)"; exit 2; }

@@ -2,6 +2,7 @@
 # run_corpus_icon.sh -- run icon_parser and icon_recognizer on all .icn files
 # Usage: bash run_corpus_icon.sh [dir ...]
 # Prints pass/empty/crash counts. Exits 1 if crash rate > 5%.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,7 +19,7 @@ DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=(
     "$REPO_ROOT/test/parser/icon"
-    /home/claude/corpus/programs/icon
+    $S4E/corpus/programs/icon
   )
 fi
 

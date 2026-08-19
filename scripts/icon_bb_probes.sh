@@ -8,11 +8,12 @@
 #   source scripts/icon_bb_probes.sh
 #   bb_probe_detect  "A1" "AST_BANG_BINARY|AST_LCONCAT"  rung15_real_swap_lconcat
 #   bb_probe_complete "A1" "AST_BANG_BINARY|AST_LCONCAT" rung15_real_swap_lconcat
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 
 # Detection: rung is needed iff one of {anchor program fires SM_PUSH_EXPR}
 #                                  OR {any program fires SM_PUSH_EXPR for this kind set}

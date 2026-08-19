@@ -20,9 +20,10 @@
 # Totals are summed across the corpus and ranked by ENTRIES.
 #
 # Usage: bash scripts/util_rtx_whole_surface_census.sh [corpus_dir] [out_tsv]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CORPUS="${1:-/home/claude/corpus/benchmarks/snobol4}"
+CORPUS="${1:-$S4E/corpus/benchmarks/snobol4}"
 OUT="${2:-/tmp/whole_surface_census.tsv}"
 SO="$ROOT/out/libscrip_rt.so"
 [ -f "$SO" ] || { echo "FATAL: $SO missing — run make libscrip_rt first"; exit 1; }

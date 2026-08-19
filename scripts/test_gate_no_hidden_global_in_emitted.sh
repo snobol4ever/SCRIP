@@ -24,10 +24,11 @@
 # This gate is STATIC and runs in about a second, which is the point: the dynamic instrument that
 # catches this class is the mode-4 crosscheck, and mode 4 is the expensive half that sessions skip.
 # Exit 0 = clean. Exit 1 = a hidden global is named in emitted text.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="${SRC:-$HERE/../src}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 
 echo "=== GATE: no hidden-visibility global named in emitted text ==="
 

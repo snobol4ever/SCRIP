@@ -3,12 +3,13 @@
 # LAW (GOAL-ICON-100 DoD 3 / s164 rsg lesson): a timing number is only reported
 # when SCRIP output is BYTE-IDENTICAL to the live Arizona iconx oracle for that
 # program. Divergent or crashing programs report DIVERGE and are NOT timed.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SCRIPDIR="${SCRIPDIR:-/home/claude/SCRIP}"
+SCRIPDIR="${SCRIPDIR:-$S4E/SCRIP}"
 SCRIP="$SCRIPDIR/scrip"
-ICONM="${ICONM:-/home/claude/icon-master}"
+ICONM="${ICONM:-$S4E/icon-master}"
 ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
-CORPUS_SRC="${CORPUS_SRC:-/home/claude/corpus/benchmarks/icon}"
+CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
 REPS="${REPS:-3}"
 WORK="$(mktemp -d /tmp/icn_micro_XXXXXX)"
 export PATH="$ICONM/bin:$PATH"

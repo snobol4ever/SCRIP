@@ -28,8 +28,9 @@
 # fixed-string or explicitly Unicode-aware; do not "simplify" it back to an ASCII class.
 #
 # Usage: bash scripts/test_gate_rtcc_callee_class.sh    (exit 0 = green)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-ROOT=${ROOT:-/home/claude/SCRIP}
+ROOT=${ROOT:-$S4E/SCRIP}
 python3 - "$ROOT" <<'PY'
 import re, sys, glob, os
 root = sys.argv[1]

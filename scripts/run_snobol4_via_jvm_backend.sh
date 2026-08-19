@@ -2,11 +2,12 @@
 # build_snobol4_jvm.sh — compile + run a .sno file via scrip-cc JVM backend
 # Usage: build_snobol4_jvm.sh <file.sno>
 # MONITOR_FIFO env var: if set, trace events written there via JVM runtime
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 
 SNO="${1:?Usage: build_snobol4_jvm.sh <file.sno>}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIP_CC="${SCRIP_CC_JVM:-/home/claude/scrip-cc_jvm}"
+SCRIP_CC="${SCRIP_CC_JVM:-$S4E/scrip-cc_jvm}"
 JASMIN="${JASMIN:-$DIR/src/backends/jasmin.jar}"
 JVM_CACHE="${JVM_CACHE:-/tmp/scrip_cc_jvm_cache}"
 

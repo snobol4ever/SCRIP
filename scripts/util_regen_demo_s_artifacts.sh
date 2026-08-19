@@ -5,11 +5,12 @@
 # crashes/empties or whose .s is assembler-rejected leaves its last-good committed .s UNTOUCHED
 # and is flagged — NEVER truncate-then-fail. scrip --compile is deterministic, so an unchanged
 # compiler yields no mv and no commit (idempotent). The .s is the honest current output, never pinned.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 DEMO="$CORPUS/programs/snobol4/demo"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi

@@ -21,9 +21,10 @@
 # checked, but it has been wrong twice and its symbol list is hand-maintained, so it REPORTS and
 # never blocks. Treat a PHANTOM row as "go verify this", not as proof. Exit is always 0.
 # Usage: bash scripts/test_gate_rtx_inventory_live.sh [corpus_root]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 cd "$(dirname "$0")/.."
-CORPUS="${1:-/home/claude/corpus}"
+CORPUS="${1:-$S4E/corpus}"
 [ -d "$CORPUS" ] || { echo "FAIL: corpus not found at $CORPUS"; exit 1; }
 INV=$(bash scripts/util_rtx_symbol_inventory.sh "$CORPUS" 2>/dev/null)
 # THE DEFINITION ORACLE IS THE LINKER, NOT A GREP (corrected s163, same day it was written).

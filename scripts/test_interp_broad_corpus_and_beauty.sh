@@ -2,10 +2,11 @@
 # scripts/test_interp_broad_corpus_and_beauty.sh — MODE-4 ONLY (Lon directive 2026-06-06)
 # Formerly ran modes 2/3/4. Now mode-4 only for SNOBOL4.
 # Runs corpus programs via --compile→as→gcc→run. Reports PASS/FAIL.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 INC="$CORPUS/programs/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 

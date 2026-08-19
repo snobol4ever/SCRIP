@@ -5,9 +5,10 @@
 #   lang: snobol4 | snocone | icon | prolog | raku | rebus
 #   source_file: path to source file; omit to read stdin
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-05-12
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-SD="${SD:-/home/claude/corpus/SCRIP}"
+SD="${SD:-$S4E/corpus/SCRIP}"
 
 LANG="${1:-snobol4}"
 SRC="${2:-}"

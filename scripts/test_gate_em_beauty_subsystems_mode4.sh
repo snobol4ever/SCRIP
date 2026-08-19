@@ -14,12 +14,13 @@
 # than mode-3; the goal here is simply that they agree.
 #
 # Self-contained per RULES.md: paths derived from $0; no env deps.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_DIR="${RT_DIR:-$ROOT/out}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 BEAUTY="$CORPUS/programs/snobol4/beauty_suite"
 TIMEOUT="${TIMEOUT:-30}"
 

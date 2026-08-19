@@ -11,6 +11,7 @@
 # hard requirement once mode 4 climbs to parity).
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude  DATE: 2026-04-14 (mode-4 wired 2026-05-31)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
@@ -89,7 +90,7 @@ xcheck "every_to" "$T"
 rm -f "$T"
 
 # Rung files — if present
-RUNGS=/home/claude/SCRIP/test/icon
+RUNGS=$S4E/SCRIP/test/icon
 for rung in rung01 rung02 rung03; do
     f="$RUNGS/${rung}.icn"
     ref="$RUNGS/${rung}.ref"

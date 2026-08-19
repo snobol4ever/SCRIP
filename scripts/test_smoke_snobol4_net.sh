@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # scripts/test_smoke_snobol4_net.sh — SN4-NET-4 gate: full .NET pipeline on 7 smoke programs
 # scrip --compile --target=net -> .il -> ilasm + SnoRt.il -> .exe -> mono -> verify output
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-ORACLE="${ORACLE:-/home/claude/x64/bin/sbl}"
+ORACLE="${ORACLE:-$S4E/x64/bin/sbl}"
 SNORT_IL="$HERE/../src/backends/runtime/net/SnoRt.il"
 PASS=0; FAIL=0
 run_smoke() {

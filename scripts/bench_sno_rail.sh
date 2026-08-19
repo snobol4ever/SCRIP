@@ -9,9 +9,10 @@
 # run-to-run while calculator-1 (the one >=2s window) held 1.96-2.09 across ALL conditions.
 # Window inadequacy + startup contamination was the disease; ratios from sub-100ms wall are BOGUS.
 # .so swap: programs link -L$SODIR -rpath $SODIR; caller stages rt variants there.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"; CORPUS="${CORPUS:-/home/claude/corpus}"
+SBL="${SBL:-$S4E/x64/bin/sbl}"; CORPUS="${CORPUS:-$S4E/corpus}"
 D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"; SODIR="${SODIR:-/tmp}"
 MIN_MS="${MIN_MS:-800}"; NMAX="${NMAX:-16384}"; R="${R:-5}"
 SO_A="${SO_A:-/tmp/rt_o0.so}"; SO_B="${SO_B:-}"   # SO_B empty = single-config mode

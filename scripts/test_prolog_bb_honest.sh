@@ -8,11 +8,12 @@
 # Note: PLAN.md carve estimate of 31 was measured against .expected files (includes programs
 # that --run itself cannot run). This script uses --run as oracle (stricter, correct).
 # Usage: bash scripts/test_prolog_bb_honest.sh [--corpus PATH] [--scrip PATH]
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/prolog}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not found at $SCRIP"; exit 0; fi
 if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi

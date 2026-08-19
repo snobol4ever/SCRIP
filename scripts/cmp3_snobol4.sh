@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Three-way SNOBOL4 benchmark comparison: SCRIP mode-4 (AOT native) vs SPITBOL vs CSNOBOL4.
 # Writes a TSV row per benchmark to $OUT as it goes (partial progress survives a timeout).
-ROOT=/home/claude/SCRIP
-B=/home/claude/corpus/benchmarks/snobol4
-SBL=/home/claude/x64/bin/sbl
-CSN=/home/claude/csnobol4/snobol4
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+ROOT=$S4E/SCRIP
+B=$S4E/corpus/benchmarks/snobol4
+SBL=$S4E/x64/bin/sbl
+CSN=$S4E/csnobol4/snobol4
 RT=$ROOT/out
 OUT=${OUT:-/tmp/cmp3.tsv}
 T=${T:-90}

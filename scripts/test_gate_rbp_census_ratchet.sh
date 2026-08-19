@@ -27,6 +27,7 @@
 # m3 221/94 m4 219/94 DIVERGE=1, FAIL sets byte-identical both modes, benchmark runtime
 # signatures byte-identical pre/post.  NOT the s197 change, which dropped DEFER wholesale and
 # was correctly reverted — recursive-`*` witnesses stay deep here, verified.)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #
 # ============================ FLATDISP-9 (s200) — THE RATCHET IS RETIRED ============================
@@ -62,7 +63,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # NET is still printed, as CONTEXT for how many graphs are pinned.  It is not a pass condition.
 # ====================================================================================================
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="$CORPUS/benchmarks/snobol4"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$BENCH" ]  || { echo "SKIP no benchmark corpus at $BENCH"; exit 0; }

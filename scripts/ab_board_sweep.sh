@@ -6,8 +6,9 @@
 # same script captures the HEAD baseline and every later arm (SCRIP_AB on/off).
 #
 # Usage: bash scripts/ab_board_sweep.sh [--mode 3|4] --out FILE [--env 'VAR=V ...']
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-MODE=3; OUTF=""; ENVSTR=""; CORPUS=${CORPUS:-/home/claude/corpus}
+MODE=3; OUTF=""; ENVSTR=""; CORPUS=${CORPUS:-$S4E/corpus}
 while [ $# -gt 0 ]; do
     case "$1" in
         --mode) MODE="$2"; shift 2;;
@@ -17,7 +18,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "$OUTF" ] || { echo "--out FILE required" >&2; exit 2; }
-SCRIP="${SCRIP:-/home/claude/SCRIP/scrip}"   # ⛔ overridable (s149) so the A/B baseline can be a BUILT WORKTREE at a named pushed commit rather than this seat's own tree (the s68/HQ-21 vacuous-gate class). Swap the whole worktree — driver AND out/libscrip_rt.so together: the emitter lives in the .so, and pairing a new driver with a stale .so invents movers (measured s149: 40 spurious .s movers from that mix alone).
+SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"   # ⛔ overridable (s149) so the A/B baseline can be a BUILT WORKTREE at a named pushed commit rather than this seat's own tree (the s68/HQ-21 vacuous-gate class). Swap the whole worktree — driver AND out/libscrip_rt.so together: the emitter lives in the .so, and pairing a new driver with a stale .so invents movers (measured s149: 40 spurious .s movers from that mix alone).
 [ -x "$SCRIP" ] || { echo "no $SCRIP -- build first" >&2; exit 2; }
 if [ "$MODE" = "3" ]; then FLAG=--run; else FLAG=--compile; fi
 SCRIP_DIR="$(cd "$(dirname "$SCRIP")" && pwd)"

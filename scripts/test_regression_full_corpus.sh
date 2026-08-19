@@ -12,11 +12,12 @@
 #   3. demo programs
 #   4. CSNOBOL4 Budne suite (116 tests)
 #   5. FENCE crosscheck tests (10 tests)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 JASMIN="${JASMIN:-$ROOT/src/backends/jasmin.jar}"
 TIMEOUT="${TIMEOUT:-15}"
 INC="${INC:-$CORPUS/programs/snobol4/demo/inc}"

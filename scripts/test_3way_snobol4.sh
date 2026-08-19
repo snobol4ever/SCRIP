@@ -4,10 +4,11 @@
 # Performance = wall-clock ms, ratio = SCRIP/SPITBOL. The program-internal "ms:" line
 # is captured for reference but TIME() semantics differ across engines, so the RATIO
 # is computed from wall-clock (date +%s.%N around the run), which is engine-neutral.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"; CSNO="${CSNO:-$(command -v snobol4)}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
+SBL="${SBL:-$S4E/x64/bin/sbl}"; CSNO="${CSNO:-$(command -v snobol4)}"
 T="${TIMEOUT:-120}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }

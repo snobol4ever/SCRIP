@@ -385,8 +385,8 @@ scrip: libscrip_rt
 # ── scrip-monitor: scrip with CSNOBOL4 4th executor linked in (IM-15b) ───────
 # Build: make scrip-monitor CSN_A=/home/claude/csnobol4/libcsnobol4.a
 # Requires: bash scripts/build_csnobol4_archive.sh first
-CSN_A   ?= /home/claude/csnobol4/libcsnobol4.a
-CSN_INC ?= /home/claude/csnobol4
+CSN_A   ?= $(ROOT)/../csnobol4/libcsnobol4.a
+CSN_INC ?= $(ROOT)/../csnobol4
 
 scrip-monitor:
 	@# Build all scrip objects, then relink with CSNOBOL4 4th executor

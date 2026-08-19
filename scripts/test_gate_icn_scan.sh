@@ -18,12 +18,13 @@
 #       scan-family templates (the global --strict RED is the documented Prolog-lane bb_* WIP).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-04
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 SCAN_M2_MIN="${SCAN_M2_MIN:-31}"
 SCAN_M3_MIN="${SCAN_M3_MIN:-11}"
 SCAN_M4_MIN="${SCAN_M4_MIN:-11}"

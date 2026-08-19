@@ -14,10 +14,11 @@
 #   bash scripts/test_sn4_wasm_ladder_safe.sh --verbose   # per-program PASS/FAIL
 #
 # Exits 0 if PASS >= MIN_PASS (default 10, override via env), else 1.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 WASM_RUNTIME_WAT="${WASM_RUNTIME_WAT:-$HERE/../src/backends/runtime/wasm/sno_runtime.wat}"
 WASM_RUNTIME_WASM="${WASM_RUNTIME_WAT%.wat}.wasm"
 WASM_BB_WAT="${WASM_BB_WAT:-$HERE/../src/backends/runtime/wasm/bb_boxes.wat}"

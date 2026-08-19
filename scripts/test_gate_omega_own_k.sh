@@ -19,11 +19,12 @@
 # DENOMINATOR LAW: always report N/M where M is the total K>0 population, not an armed subset.
 #
 # SCRIP HEAD at authorship: 8ec8dfa2   corpus HEAD: 0c2b0df7 (s39, ALPHA ZD-PATREF fix)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 
-CORPUS="${CORPUS_DIR:-/home/claude/corpus}"
-SCRIP="${SCRIP_DIR:-/home/claude/SCRIP}"
+CORPUS="${CORPUS_DIR:-$S4E/corpus}"
+SCRIP="${SCRIP_DIR:-$S4E/SCRIP}"
 VERBOSE="${VERBOSE:-0}"
 
 CC_DIR="$CORPUS/crosscheck"

@@ -14,12 +14,13 @@
 # Pass --mode interp|run|compile to run a single mode. GATE-3 source of truth for the Prolog rung ladder.
 #
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7 · Claude Sonnet
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/prolog}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/prolog}"
 RUNG=""
 MODE="all"                              # DEFAULT: run all three modes
 SMX_SIG='\[SMX\]'                       # both decline banners begin with "[SMX]"
@@ -40,7 +41,7 @@ if [ ! -x "$SCRIP" ]; then
 fi
 if [ ! -d "$CORPUS" ]; then
     echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to /home/claude/corpus to run this suite" >&2
+    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
     exit 0
 fi
 

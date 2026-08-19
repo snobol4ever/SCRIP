@@ -24,12 +24,13 @@
 #     (a genuinely malformed emission, distinct from an assembling bomb stub) is left
 #     untouched and flagged, so a real codegen break is visible without clobbering the
 #     last-good snapshot.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 FEAT="${FEAT_DIR:-$ROOT/test/snobol4}"
-CORPUS="${CORPUS:-/home/claude/corpus}"
+CORPUS="${CORPUS:-$S4E/corpus}"
 # -include 'lib/*.sno' in test/snobol4/library/ resolves against the CORPUS root, not SCRIP; compiling from $ROOT made 4 artifacts EMIT-FAIL and silently freeze at s189 through every regen since.
 INCROOT="$([ -d "$CORPUS/lib" ] && echo "$CORPUS" || echo "$ROOT")"
 

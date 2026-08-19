@@ -26,12 +26,13 @@
 # reports and exits 0; --strict exits 1 on any hit, for a session that wants the class held empty.
 #
 # Self-contained. Run from anywhere. Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude Sonnet
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs}"
+CORPUS="${CORPUS:-$S4E/corpus/programs}"
 STRICT=0
 [ "${1:-}" = "--strict" ] && STRICT=1
 [ -x "$SCRIP" ] || { echo "FB-TRIPWIRE: no scrip binary at $SCRIP — build first." >&2; exit 2; }

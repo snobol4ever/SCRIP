@@ -2,9 +2,10 @@
 # test_gate_clobarm.sh -- s130 LEAF-SUSPENSION FRAME SLOT gate (GOAL-SNOBOL4-100 R-0 class).
 # Runs corpus/probe/clobarm/ in BOTH modes against the checked-in .ref oracle, under whatever
 # SCRIP_SPAN_FRAME the caller sets, and prints one PASS/FAIL row per program plus a tally.
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
-DIR=${DIR:-/home/claude/corpus/probe/clobarm}
-RT=${RT:-/home/claude/SCRIP/out/libscrip_rt.so}
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
+DIR=${DIR:-$S4E/corpus/probe/clobarm}
+RT=${RT:-$S4E/SCRIP/out/libscrip_rt.so}
 pass=0; fail=0
 for f in "$DIR"/*.sno; do
   b=$(basename "$f" .sno); ref=$(cat "$DIR/$b.ref" 2>/dev/null)

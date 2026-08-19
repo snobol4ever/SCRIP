@@ -3,10 +3,11 @@
 # Tests marked .xfail are known-unimplemented features (co-expressions, large integers,
 # &error trapping, etc.) — they count as XFAIL, not FAIL.
 # Authors: LCherryholmes · Claude Sonnet 4.6   DATE: 2026-04-16
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 PASS=0; FAIL=0; XFAIL=0
 
 if [ ! -x "$SCRIP" ];  then echo "SKIP scrip not found at $SCRIP";  exit 0; fi

@@ -3,9 +3,10 @@
 # PASS iff ZERO arena zeta events across the set: ZLS2 pushes == 0 (main frame, ZS-1) AND
 # ZLS v1 allocs == 0 (DEFER blocks, ZS-2). Mode-3; the runtime .so is shared, so m4 rides the same sinks.
 # Prints a per-file table either way; exit 0 = ZS storage goal met, exit 1 = events remain (counts shown).
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 SCRIP="${SCRIP:-$(dirname "$0")/../scrip}"
-CORP="${CORP:-/home/claude/corpus/benchmarks/snobol4}"
+CORP="${CORP:-$S4E/corpus/benchmarks/snobol4}"
 W=$(mktemp -d)
 cat > "$W/defer_probe.sno" <<'EOF'
     N = 3

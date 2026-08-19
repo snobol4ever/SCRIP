@@ -61,6 +61,7 @@
 #   bash scripts/build_spitbol_oracle.sh    # with SN-26-spl-bridge applied
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-26
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
 
@@ -75,13 +76,13 @@ if [[ "${2:-}" == "--trail" && -n "${3:-}" ]]; then
     export MONITOR_LAST_AGREE_TRAIL="${3}"
 fi
 
-X64_DIR="${X64_DIR:-/home/claude/x64}"
+X64_DIR="${X64_DIR:-$S4E/x64}"
 SPITBOL="$X64_DIR/bin/sbl"
-CSNOBOL4="/home/claude/csnobol4/snobol4"
+CSNOBOL4="$S4E/csnobol4/snobol4"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-SNO4_REPO="${SNO4_REPO:-/home/claude/snobol4dotnet}"
+SNO4_REPO="${SNO4_REPO:-$S4E/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
-INC="${INC:-/home/claude/corpus/programs/include}"
+INC="${INC:-$S4E/corpus/programs/include}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
 SCRIP_ONLY="${SCRIP_ONLY:-0}"

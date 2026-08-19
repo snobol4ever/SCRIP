@@ -10,8 +10,9 @@
 #
 # Usage: bash scripts/rtcc_board_sweep.sh [--mode 3|4] [--out DIR]
 # Output: <out>/off.txt <out>/on.txt (one "STATUS name" line each) plus a BY-SET diff.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-MODE=3; OUT=/tmp/rtcc_board; CORPUS=${CORPUS:-/home/claude/corpus}
+MODE=3; OUT=/tmp/rtcc_board; CORPUS=${CORPUS:-$S4E/corpus}
 while [ $# -gt 0 ]; do
     case "$1" in
         --mode) MODE="$2"; shift 2;;

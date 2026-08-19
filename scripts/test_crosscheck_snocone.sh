@@ -7,6 +7,7 @@
 # Exits 0 only if all three modes agree on every test.
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
@@ -63,7 +64,7 @@ xcheck "while" "$T"
 rm -f "$T"
 
 # Beauty-sc subsystems
-BEAUTY=${CORPUS:-/home/claude/corpus}/programs/snocone/demo/beauty/test
+BEAUTY=${CORPUS:-$S4E/corpus}/programs/snocone/demo/beauty/test
 for subsys in assign fence global arith; do
     f="$BEAUTY/test_$subsys.sc"
     ref="$BEAUTY/test_$subsys.ref"

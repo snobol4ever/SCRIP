@@ -12,12 +12,13 @@
 #   CSNOBOL4     path to csnobol4 binary
 #   SILLY        path to silly-snobol4 binary
 #   TIMEOUT      inter-event timeout in seconds (default 10)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/../.." && pwd)"
 
-CSNOBOL4="${CSNOBOL4:-/home/claude/work/snobol4-2.3.3/snobol4-mon}"
+CSNOBOL4="${CSNOBOL4:-$S4E/work/snobol4-2.3.3/snobol4-mon}"
 SILLY="${SILLY:-/tmp/silly-mon}"
 TIMEOUT="${TIMEOUT:-10}"
 SNO_FILE=""

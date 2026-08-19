@@ -7,10 +7,11 @@
 # B-9 FIX (BOARD): MODES was (--run --run --run) -- --compile was never
 # exercised. See scripts/test_gate_sn7_beauty_self_host.sh for the same
 # class fixed the same session.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-BEAUTY_DIR="${CORPUS:-/home/claude/corpus}/programs/snocone/demo/beauty/test"
+BEAUTY_DIR="${CORPUS:-$S4E/corpus}/programs/snocone/demo/beauty/test"
 TIMEOUT="${TIMEOUT:-10}"
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 

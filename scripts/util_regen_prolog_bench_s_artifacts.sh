@@ -11,10 +11,11 @@
 #     ladder admits that shape, the regen replaces the marker with a real .s.
 #   - an assembler-rejected .s is left flagged, not silently committed.
 # scrip --compile is deterministic, so an unchanged compiler yields no change.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/prolog/bench}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
 RUNG="${1:-prolog-bench-regen}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$B" ] || { echo "SKIP bench corpus missing: $B"; exit 0; }

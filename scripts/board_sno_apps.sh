@@ -8,9 +8,10 @@
 # by doubling re-ran sbl too many times to be practical). Identity is re-checked AT THE AMPLIFIED
 # INPUT, so a program that misbehaves on the larger corpus cannot silently contribute a ratio.
 # A diverging mode gets NO RATIO (X-DIV) — s158's treebank-array ~8x was measured in its broken mode.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
-SC=${SC:-/home/claude/SCRIP}; D=${D:-/home/claude/corpus/programs/snobol4/demo}
-SBL=${SBL:-/home/claude/x64/bin/sbl}
+SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
+SBL=${SBL:-$S4E/x64/bin/sbl}
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 R=${R:-3}; TMO=${TMO:-600}; ONLY=${ONLY:-}

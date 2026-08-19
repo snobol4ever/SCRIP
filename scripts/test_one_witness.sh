@@ -2,9 +2,10 @@
 # test_one_witness.sh — ONE program, m3 + m4 end-to-end vs the LIVE x64 sbl oracle.
 # Usage: SCRIP_ARBNO_RBP=<arm> bash scripts/test_one_witness.sh <file.sno> [tag]
 # Keeps the built .s/.bin in $W so a following gdb run uses the SAME artifact.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"
+SBL="${SBL:-$S4E/x64/bin/sbl}"
 F="$1"; TAG="${2:-run}"
 b=$(basename "$F" .sno)
 W=/tmp/onew.$TAG; mkdir -p "$W"

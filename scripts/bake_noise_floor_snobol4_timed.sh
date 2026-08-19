@@ -15,11 +15,12 @@
 #   bench  engine  reps  mean_per_s  cv_pct  maxmin  min_detectable_pct
 # min_detectable_pct = 3*cv, the difference below which a single-run delta on
 # that row must NOT be called real.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-SBL="${SBL:-/home/claude/x64/bin/sbl}"
-B="${BENCH_DIR:-/home/claude/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
+SBL="${SBL:-$S4E/x64/bin/sbl}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
 REPS="${REPS:-5}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
 APPEND="${APPEND:-0}"; THP="${SCRIP_NOHUGE:-0}"
 OUT="${OUT:-$B/NOISE-FLOOR.tsv}"

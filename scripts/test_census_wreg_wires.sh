@@ -13,8 +13,9 @@
 #   anchored (`\b`), and the script SELF-TESTS those patterns against a synthetic line before it
 #   reports a single number.  If the self-test fails the script EXITS NONZERO and reports nothing,
 #   because a silent zero is exactly the failure mode being prevented.
-SCRIP=${SCRIP:-/home/claude/SCRIP/scrip}
-CORPUS=${CORPUS:-/home/claude/corpus/probe}
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
+CORPUS=${CORPUS:-$S4E/corpus/probe}
 P_ENT='lea +r10\b'; P_EXG='jmp +r10\b'; P_EXO='jmp +r11\b'; P_BLOB='^proc_PAT\$[0-9]+_α:'; P_PROC='lea +rcx, \[rip'
 probe=$(printf '                        lea              r10, [rip + .Lx1]\n                                     jmp   r10\nproc_PAT$0_α:\n')
 t=0

@@ -13,12 +13,13 @@
 #       scoped to the var-family templates (bb_assign_local, bb_var_frame).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-06
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-/home/claude/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 VAR_M2_MIN="${VAR_M2_MIN:-62}"
 VAR_M3_MIN="${VAR_M3_MIN:-12}"
 VAR_M4_MIN="${VAR_M4_MIN:-22}"

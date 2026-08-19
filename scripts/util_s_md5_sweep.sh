@@ -16,9 +16,10 @@
 # programs/snobol4/demo/expression.sno), and ZERO failed compiles emitted bytes — so the hazard has no live
 # instance on this tree today and this change is byte-identical in effect here.  It is landed anyway because the
 # next codegen rung that segfaults the compiler is exactly when a silent wrong answer would cost a session.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-/home/claude/corpus}"
+SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"
 OUT="${1:?usage: util_s_md5_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
