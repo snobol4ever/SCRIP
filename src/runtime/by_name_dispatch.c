@@ -6876,10 +6876,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_6528: ;
     if ((_bid == BID_SNOx24KWSET) && nargs == 2) {
-        extern void rt_keyword_write_snobol4(const char *sval, DESCR_t v);
+        extern int rt_keyword_write_snobol4(const char *sval, DESCR_t v);
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
-        rt_keyword_write_snobol4(kn ? kn : "", args[1]);
-        *out = args[1]; return 1;
+        *out = rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR; return 1;   /* KW-5: a 208/209 converted to statement failure by non-zero &ERRLIMIT answers FAILDESCR, so the legacy by-name arm takes the same :F branch the armed box does. */
     }
     L_bidjmp_6534: ;
     if ((_bid == BID_SNOx24STMT) && nargs == 1) {

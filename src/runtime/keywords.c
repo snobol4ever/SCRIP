@@ -167,14 +167,20 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_read(const char *kw, DESCR_t *out) { return kwb_read_ent(kwb_find(kw), out); }   /* KW-3: the name-keyed entry is now a THIN WRAPPER over the entry-keyed reader, so the by-index fast path (rt_kw_read_idx) and the by-name path cannot answer differently -- they execute the same body. Splitting here rather than duplicating the STR/INT arms is the s68/s70 spelled-twice law applied to KW-3's own seam. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_error(int code, const char *msg) {
+    extern void core_runtime_error(int code, const char *msg);
+    KWB_ENT_t *el = kwb_find("ERRLIMIT");
+    if (el && el->cell && *el->cell > 0) { *el->cell -= 1; KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg; return 0; }
+    core_runtime_error(code, msg); return 1;
+}   /* ⭐ KW-5 (GOAL-SNOBOL4-100 D-3): THE &ERRLIMIT ERROR-TO-STATEMENT-FAILURE CONVERSION, manual Ch.16 &ERRLIMIT verbatim -- "When non-zero and either occurs, it is decremented by one, no message is displayed, and ... If there is no SETEXIT label, SPITBOL converts the error to statement failure." SETEXIT does not exist in SCRIP yet, so the no-label arm IS the whole mechanism; the code and text land in &ERRTYPE/&ERRTEXT first (Ch.16: "If an execution error occurs, then the error code is stored as an integer in &ERRTYPE", ditto &ERRTEXT) because the witness kw_protected_write.sno reads BOTH from its :F branch. At the default &ERRLIMIT of 0 the old behaviour is untouched: core_runtime_error terminates exactly as before. Cells are reached through kwb_find, not the file-scope names, so a future rt_kw_bind relocation moves them for free. Return 0 = converted to statement failure (caller must propagate FAIL), 1 = terminated (unreachable in practice). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
-    extern void core_runtime_error(int code, const char *msg);
     if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_ws_strdup_c(s ? s : ""); return 1; }   /* ⛔ &ERRTEXT IS THE ONE UNPROTECTED KEYWORD THAT TAKES A NON-INTEGER, AND THE MANUAL SAYS SO TWICE: Ch.14 "SPITBOL Statements", Replacement field -- "If the subject is an unprotected keyword, the replacement field must evaluate to an integer value (except for &ERRTEXT, which will accept a string)"; and Ch.16 &ERRTEXT -- "It is possible to assign a string to &ERRTEXT which is then used in a subsequent error report". MEASURED against the live oracle, not inferred: `&ERRTEXT = 'a custom message'` reads back verbatim, and `&ERRTEXT = 5` reads back "5" with DATATYPE STRING -- so the entry accepts ANY value and stringifies it, which is why VARVAL_fn feeds the store rather than an IS_STR test. ⛔ THIS ARM MUST PRECEDE THE 208 TEST: the block armed (SCRIP_KW_STATIC=1) previously raised "Error 208 ... not integer" and TERMINATED on a string assignment -- an armed-arm-only regression that the legacy path merely swallowed (stored nothing, read back null), and a hard blocker on ever flipping the killswitch default ON. ⛔ AND IT IS DELIBERATELY ENTRY-SPECIFIC, NOT kind==KWB_STR: the other string entries (&UCASE/&LCASE/&RTNTYPE/&ALPHABET) are PROTECTED, and the oracle gives `&ALPHABET = 'x'` a 208 -- the value test still firing before the protected test -- so widening this to the whole KWB_STR kind would take that witness oracle-wrong in exactly the direction kw_protected_write.ref pins. Placed in kwb_write_ent rather than in either caller because this body IS the shared authority: the by-name kwb_write and the by-index rt_kw_write_idx both execute it, so the fast path cannot answer differently from the slow one (the s68/s70 spelled-twice law, same split KW-3 applied to the read side). */
     int is_num = IS_INT(v) || IS_REAL(v);
     if (!is_num) { const char *s = VARVAL_fn(v); char *end = (char *)0; if (s && *s) { (void)strtol(s, &end, 10); is_num = (end && *end == '\0'); } }
-    if (!is_num) { core_runtime_error(208, "keyword value assigned is not integer"); return 1; }   /* ⛔ ORDER IS OSCILLOSCOPE-MEASURED, NOT ASSUMED (probe/kw/kw_protected_write.ref): `&ALPHABET = 'x'` raises 208, NOT 209 -- the not-an-integer test fires BEFORE the protected test. Swap these two and the witness goes oracle-wrong. */
-    if (e->prot) { core_runtime_error(209, "keyword in assignment is protected"); return 1; }
+    if (!is_num) return kwb_error(208, "keyword value assigned is not integer") ? 1 : -1;   /* ⛔ ORDER IS OSCILLOSCOPE-MEASURED, NOT ASSUMED (probe/kw/kw_protected_write.ref): `&ALPHABET = 'x'` raises 208, NOT 209 -- the not-an-integer test fires BEFORE the protected test. Swap these two and the witness goes oracle-wrong. KW-5: -1 = the error was converted to statement failure by a non-zero &ERRLIMIT (kwb_error above); both callers -- rt_kw_write_idx (armed box) and rt_keyword_write_snobol4 (legacy SNO$KWSET) -- turn it into FAILDESCR so the statement takes its :F branch. 0 stays "no entry" and 1 stays "stored"; the tri-state keeps every existing truthiness site correct. */
+    if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = IS_INT(v) ? v.i : (int64_t)to_real(v);
     return 1;
 }
@@ -200,11 +206,11 @@ DESCR_t rt_kw_read_idx(int64_t idx) {
     return NULVCL;
 }   /* kwb_init_once() is called HERE and not only in kwb_find because the by-index path deliberately bypasses the finder -- dropping it would leave the lazy seeding to whichever by-name read happened to run first, which is exactly the "initial value depends on access order" defect class KW-1 measured. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_write_idx(int64_t idx, DESCR_t v) {
-    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return;
+DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) {
+    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return v;
     kwb_init_once();
-    (void)kwb_write_ent(&g_kwb_bound[idx], v);
-}
+    return kwb_write_ent(&g_kwb_bound[idx], v) < 0 ? FAILDESCR : v;
+}   /* KW-5: returns the ASSIGNED VALUE (the SNO$KWSET `*out = args[1]` contract, now carried in the return registers so the box stores rax:rdx exactly like the read side) or FAILDESCR when kwb_error converted a 208/209 into statement failure -- the box tests DT_FAIL and takes its omega edge, which the lowerer has wired since KW-3b (lc_build(..., γ, ω)). */
 /*========================================================================================================================================================================================================*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
@@ -400,27 +406,28 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
 }
 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
-    if (!sval) return;
+int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
+    if (!sval) return 1;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
-    if (rt_kw_static_on() && kwb_write(lk, v)) return;   /* KW-2: the block owns every keyword it names, INCLUDING the protection verdict. A miss falls through to the legacy arms so pattern/unlisted keywords are unaffected. */
+    if (rt_kw_static_on()) { int r = kwb_write(lk, v); if (r) return r > 0; }   /* KW-2: the block owns every keyword it names, INCLUDING the protection verdict. A miss (0) falls through to the legacy arms so pattern/unlisted keywords are unaffected. KW-5: -1 = converted to statement failure, surfaced to SNO$KWSET as return 0 so the builtin answers FAILDESCR. */
     long iv = 0;
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
-    if (!strcmp(lk,"anchor"))   { g_anchor = iv; if (g_rtcc_on) rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return; }   /* RC-5: BLOCK-CANONICAL LAW — C write to claimed global must update block slot so reload sees new value */
-    if (!strcmp(lk,"trim"))     { g_trim = iv; return; }
-    if (!strcmp(lk,"maxlngth")) { g_maxlngth = iv; return; }
-    if (!strcmp(lk,"error"))    { g_error = iv; return; }
-    if (!strcmp(lk,"trace"))    { g_trace = iv; return; }
-    if (!strcmp(lk,"dump"))     { g_dump = iv; return; }
-    if (!strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return; }
-    if (!strcmp(lk,"fullscan") || !strcmp(lk,"stlimit") || !strcmp(lk,"abend") || !strcmp(lk,"code")) return;
-    if (!strcmp(lk,"user_declared_constants")) { kwb_own[7] = iv; return; }   /* ⭐ CN-4: the unarmed twin of the block's kwb_write, storing to the SAME slot 7. Placed with the other integer keyword arms and BEFORE the tier-3 fallthrough, which is the whole point -- were it below, `&USER_DECLARED_CONSTANTS = 0` would be captured as a sealed user constant by the very namespace it is trying to close, and could then never be re-opened (error 341 on the second write). Unprotected and re-assignable BY DESIGN: unlike a user constant this is a mode switch, and a program may legitimately close the namespace again after its declarations are done. */
+    if (!strcmp(lk,"anchor"))   { g_anchor = iv; if (g_rtcc_on) rtccb[RTCC_SLOT_R8] = (uint64_t)(int64_t)iv; return 1; }   /* RC-5: BLOCK-CANONICAL LAW — C write to claimed global must update block slot so reload sees new value */
+    if (!strcmp(lk,"trim"))     { g_trim = iv; return 1; }
+    if (!strcmp(lk,"maxlngth")) { g_maxlngth = iv; return 1; }
+    if (!strcmp(lk,"error"))    { g_error = iv; return 1; }
+    if (!strcmp(lk,"trace"))    { g_trace = iv; return 1; }
+    if (!strcmp(lk,"dump"))     { g_dump = iv; return 1; }
+    if (!strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
+    if (!strcmp(lk,"fullscan") || !strcmp(lk,"stlimit") || !strcmp(lk,"abend") || !strcmp(lk,"code")) return 1;
+    if (!strcmp(lk,"user_declared_constants")) { kwb_own[7] = iv; return 1; }   /* ⭐ CN-4: the unarmed twin of the block's kwb_write, storing to the SAME slot 7. Placed with the other integer keyword arms and BEFORE the tier-3 fallthrough, which is the whole point -- were it below, `&USER_DECLARED_CONSTANTS = 0` would be captured as a sealed user constant by the very namespace it is trying to close, and could then never be re-opened (error 341 on the second write). Unprotected and re-assignable BY DESIGN: unlike a user constant this is a mode switch, and a program may legitimately close the namespace again after its declarations are done. */
     { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }   /* SN4-CONSTANTS CN-2: same canonical "&Name" key as the read side; NV_SET_fn's create marks is_const and its update path enforces the one-time seal (error 341) */
-      if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return; }   /* ⭐⭐⭐ CN-4 THE GATE, WRITE SIDE. Symmetric with the read side and for the same reason: with the namespace closed, DECLARING a constant is as much a 251 as reading one. Gating only the read would leave a program able to create sealed cells it could never read back -- the worst of both regimes. */
+      if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return 1; }   /* ⭐⭐⭐ CN-4 THE GATE, WRITE SIDE. Symmetric with the read side and for the same reason: with the namespace closed, DECLARING a constant is as much a 251 as reading one. Gating only the read would leave a program able to create sealed cells it could never read back -- the worst of both regimes. */
       NV_SET_fn(ck, v); }
+    return 1;
 }

@@ -83,10 +83,10 @@ fi
 echo "-----------------------------------------------------------------------"
 echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/legacy})"
 if [[ "${SCRIP_KW_STATIC:-0}" = "1" ]]; then
-    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: all rows but kw_bare_shadow + kw_protected_write."
-    echo "  Those two are ROUTED, NOT REGRESSIONS: kw_bare_shadow = HQ's B1 (an unset variable yields a"
-    echo "  NULL-tagged descriptor where the oracle gives the null string, manual p.24); kw_protected_write"
-    echo "  needs the &ERRLIMIT -> statement-failure mechanism SCRIP does not have yet (rung KW-5)."
+    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: all rows but kw_bare_shadow (12/14)."
+    echo "  kw_bare_shadow is ROUTED, NOT A REGRESSION: HQ's B1 (an unset variable yields a NULL-tagged"
+    echo "  descriptor where the oracle gives the null string, manual p.24).  kw_protected_write went GREEN"
+    echo "  at KW-5: kwb_error converts 208/209 to statement failure when &ERRLIMIT is non-zero (Ch.16)."
 else
     echo "  ARM=LEGACY — A LOW SCORE HERE IS BY DESIGN, NOT A CATASTROPHE (HQ guidance g1, s147)."
     echo "  These witnesses encode the TARGET keyword table, which only the ARMED arm implements; the legacy"
