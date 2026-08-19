@@ -5196,7 +5196,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_X)     t="EXPRESSION";
     else if (av.v==DT_N)     t="name";
     else if (av.v==DT_P)     t="PATTERN";
-    else if (av.v==DT_SNUL)  t="null";
+    else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";   /* KW seat s161: SNOBOL4 has NO null datatype -- an unset variable IS the null string and the oracle answers STRING (manual p.24; measured: sbl DATATYPE(ZZ_NEVER_SET) = STRING, SCRIP said NULL). Dispatch on the builtin NAME is this function's standing idiom (array/list, function/procedure above); Icon's type() keeps "null", which is real Icon semantics. This closes kw_bare_shadow's ENTIRE residue -- the two DT- rows -- which was mis-routed as B1/by-name-dispatch in the s158 brief: the minimal witness is DATATYPE of any unset variable, no keyword and no dispatch involved. */
     else t="string";
     if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0;
         for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
