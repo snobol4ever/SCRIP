@@ -17,6 +17,7 @@ while [[ $# -gt 0 ]]; do
         --mode) MODE="$2"; shift 2 ;;
         --verbose|-v) VERBOSE=1; shift ;;
         --armed) ARMED=1; shift ;;
+        --with-b1) WITH_B1=1; shift ;;
         --legacy) ARMED=0; shift ;;
         *) echo "unknown option: $1"; exit 2 ;;
     esac
@@ -39,6 +40,11 @@ run_mode4() {
 for ref in "$PROBE_DIR"/*.ref; do
     [[ -e "$ref" ]] || { echo "GATE BLOCKED: no .ref files in $PROBE_DIR"; exit 2; }
     base="$(basename "$ref" .ref)"; sno="$PROBE_DIR/$base.sno"
+    # kw_unset_datatype lives in this directory but is NOT a KW-STATIC row: it is the
+    # B1 handoff witness (unset variable yields a NULL tag instead of the null string),
+    # HQ-owned and identical on both killswitch arms.  Counting it would understate this
+    # gate's score with a defect this ladder does not fix.  Run it with --with-b1.
+    if [[ "$base" == "kw_unset_datatype" && "${WITH_B1:-0}" != "1" ]]; then continue; fi
     [[ -f "$sno" ]] || { echo "SKIP  $base (no .sno beside .ref)"; continue; }
     for m in 3 4; do
         [[ "$MODE" == "both" || "$MODE" == "$m" ]] || continue
