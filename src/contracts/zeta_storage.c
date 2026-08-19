@@ -195,6 +195,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_DEREF: case IR_ASSIGN_VAR: case IR_RANDOM: case IR_SWAP_VAR:
         return 0;
     case IR_KEYWORD_ASSIGN:
+    case IR_KEYWORD_ASSIGN_SNOBOL4:
         return 0;
     case IR_CREATE:
         zls_field(scope_id, off,      8, ZK_RAW, 0, "coexpr.handle ctx* (malloc'd non-GC — never trace/relocate)", nd);

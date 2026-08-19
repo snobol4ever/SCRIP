@@ -36,6 +36,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_KEYWORD_ICON_GEN] = "IR_KEYWORD_ICON_GEN",
     [IR_KEYWORD_SNOBOL4] = "IR_KEYWORD_SNOBOL4",
     [IR_KEYWORD_ASSIGN] = "IR_KEYWORD_ASSIGN",
+    [IR_KEYWORD_ASSIGN_SNOBOL4] = "IR_KEYWORD_ASSIGN_SNOBOL4",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_FIELD_GET] = "IR_FIELD_GET",
     [IR_FIELD_VAR] = "IR_FIELD_VAR",
@@ -237,7 +238,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
         || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION
-        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN;
+        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN || op == IR_KEYWORD_ASSIGN_SNOBOL4;   /* KW-3b: a SNOBOL4 keyword assignment YIELDS THE ASSIGNED VALUE, preserving the contract of the SNO$KWSET builtin it replaces (by_name_dispatch.c: `*out = args[1]`), so the statement value seen by a caller is unchanged by the retarget. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {

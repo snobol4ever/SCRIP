@@ -52,6 +52,7 @@ typedef enum {
     IR_KEYWORD_ICON_GEN,
     IR_KEYWORD_SNOBOL4,
     IR_KEYWORD_ASSIGN,
+    IR_KEYWORD_ASSIGN_SNOBOL4,   /* ⭐ KW-3b: the WRITE twin of IR_KEYWORD_SNOBOL4, and a SEPARATE KIND from IR_KEYWORD_ASSIGN for two MEASURED reasons, not for symmetry.  (1) NAMESPACE COLLISION: `TRACE` and `DUMP` are named by BOTH the SNOBOL4 keyword block and Icon's assign template, so the keyword NAME -- the only key a shared template could dispatch on -- cannot tell the two apart, and sval/ival are a UNION (this file, the IR_lit_t decl) so the lowerer cannot stash a resolved index beside the name to disambiguate.  (2) DIFFERENT FAILURE TOPOLOGY: Icon's `&pos := v` genuinely FAILS and takes an omega edge; a SNOBOL4 keyword write RAISES (208 non-integer / 209 protected) and, at the default &ERRLIMIT of 0, TERMINATES -- manual Ch.16 &ERRLIMIT: only a NON-ZERO &ERRLIMIT "converts the error to statement failure", and core_runtime_error exits for SNOBOL4 today.  So this kind is gamma-only; wiring it to Icon's omega-bearing arms would encode a statement-failure mechanism SCRIP does not have.  Language stays implicit in PARSER/LOWER exactly as the read side does it -- the lowerer picks the KIND, the emitter dispatches on the KIND and never tests a language. */
     IR_LIT_CHARSET,
     IR_LIT_INTEGER,
     IR_LIT_REAL,

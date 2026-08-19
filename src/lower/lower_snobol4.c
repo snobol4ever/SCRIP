@@ -8,6 +8,9 @@
 #include "parser/icon/icon_lex.h"
 #include "zeta_choices.h"
 int rt_zeta_port_mode(void);
+int rt_kw_static_on(void);
+int rt_kw_index(const char * kw);
+static int sno_kw_static_slot(const char * kw) { return (rt_kw_static_on() && kw) ? rt_kw_index(kw) : -1; }   /* ⭐ KW-3b ONE AUTHORITY for "may this `&KW =` take the static-slot template": armed AND the block actually names the keyword. Both TT_KEYWORD assignment sites consult THIS, never the two conditions separately, so the plain-assignment and the pattern-replacement forms cannot disagree about which keywords are retargeted (the s68/s70 spelled-twice law). A miss (-1) keeps the verbatim SNO$KWSET by-name call, which is what preserves today's behaviour for the keywords the block does not name (&ARB/&BAL/&REM/&FAIL and the pattern family) and what makes SCRIP_KW_STATIC unset byte-identical by construction. */
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;   /* PB-1s: snapg != NULL marks a plain-ref SNAPSHOT entry (VALUE-LEAF class) -- prim is the in-chain IR_VAR whose sval the drain repoints at the hidden stage-2 global; arg is the source TT_VAR tree; str/codes unused */
@@ -582,6 +585,14 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                   return e1;
               } }
         }
+        if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
+            IR_t * kv = NULL; IR_t * ke = sx_lower(cx, R, NULL, ω, &kv);
+            IR_t * kw = lc_build(cx->g, IR_KEYWORD_ASSIGN_SNOBOL4, γ, ω); IR_LIT(kw).sval = L->v.sval;
+            lc_γ_to(kv, kw);
+            ir_operand_push(kw, kv);
+            if (res) *res = kw;
+            return ke;
+        }   /* ⭐ KW-3b: the retargeted plain `&KW = value`. Shape follows the SNO$KWSET call it replaces EXACTLY except that the name-literal node is gone -- the value is still lowered first under the same ω, still γ-chained into the writer, and the writer is still the node handed back as the statement result, so the assigned value remains the statement's value (the builtin ended `*out = args[1]`). The keyword NAME rides sval to the template, which resolves it to the block index at EMIT time and seals it; nothing carries a name string into the emitted program. */
         if (L->t == TT_KEYWORD && L->v.sval) {
             IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$KWSET";
             IR_t * nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = L->v.sval;
@@ -2332,6 +2343,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                   continue;
               } }
         }
+        if (subj->t == TT_KEYWORD && subj->v.sval && sno_kw_static_slot(subj->v.sval) >= 0) {
+            IR_t * kv = NULL; IR_t * ke = sx_lower(&cx, repl, NULL, fA, &kv);
+            IR_t * kw = lc_build(g, IR_KEYWORD_ASSIGN_SNOBOL4, sJ, fA); IR_LIT(kw).sval = subj->v.sval;
+            lc_γ_to(kv, kw);
+            ir_operand_push(kw, kv);
+            lc_γ_to(anchor[i], ke);
+            continue;
+        }   /* ⭐ KW-3b: the statement-level twin of the site above. The ONLY structural difference from that one is whose γ the statement anchor lands on -- here the anchor chains to the value expression's ENTRY (ke) exactly as the SNO$KWSET arm chained it to the name literal, because the name literal was the first node of that arm and the value expression is the first node of this one. Getting that wrong would strand the statement's entry edge on a node the graph never reaches. */
         if (subj->t == TT_KEYWORD && subj->v.sval) {
             IR_t * mk = lc_build(g, IR_CALL, sJ, fA); IR_LIT(mk).sval = (char *) "SNO$KWSET";
             IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(nl).sval = subj->v.sval;

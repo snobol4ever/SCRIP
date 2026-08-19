@@ -115,6 +115,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_main.cpp \
     $(SRC)/templates/bb_glue_framed.cpp \
     $(SRC)/templates/bb_lit.cpp \
+    $(SRC)/templates/bb_keyword_assign_snobol4.cpp \
     $(SRC)/templates/bb_define.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb_conjunction.cpp \

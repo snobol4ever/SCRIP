@@ -102,6 +102,7 @@ std::string bb_pattern_lit();
 std::string bb_keyword_icon();
 std::string bb_keyword_snobol4();
 std::string bb_keyword_assign();
+std::string bb_keyword_assign_snobol4();
 std::string bb_goto_dyn();
 std::string bb_define();   /* ONE-BB DEFINE (Lon s116): role via g_emit.op_define_role -- 0..4 Ch.8 citizens, 5 shim-inline, 6 bind, 7 activation, 8 dynamic rt_define reserved */
 std::string bb_nreturn_mark();   /* NRETURN floater body (s98): depth-agnostic by-name mark — GOT/abs store of rt_g_ret_by_name=1, glue jmp continues at RETURN */
