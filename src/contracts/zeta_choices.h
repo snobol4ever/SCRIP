@@ -43,7 +43,7 @@
 /* ZC_PORT_CSTACK (C-STACK rung, Lon directive 2026-07-09: "implement all ZETA storage for SNOBOL4 on the C
  * stack"): the SAME grant-keyed BUMP/RELEASE protocol as INLINE with the cursor CELL RETIRED — the cursor IS
  * rsp, so the activation block lives on the machine C stack.  Everything below rsp is dead by the platform's
- * own contract, so C calls, signals, and libgc's conservative C-stack scan all compose for free (the mmap
+ * own contract, so C calls, signals, and the collector's conservative C-stack scan all compose for free (the mmap
  * arena carried none of those guarantees and needed explicit GC rooting).  Bumps round up to 16 so the
  * ambient call-site alignment mod 16 is preserved for the bare-call idiom; the statement backstop
  * (x86_zls2_mark_save / x86_zls2_release_to_call) collapses to ONE mov each (mark: FRQ(off)=rsp; release:

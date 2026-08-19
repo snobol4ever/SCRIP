@@ -31,7 +31,7 @@ static void rt_zls_report(void)
  * GC_MALLOC/GC_FREE.  The zblock list is UNIFORM-SIZE by contract (rt_arena_zblock_get aborts on mixed sizes — this is the s39 fork made concrete), so requests larger than one ζ block route to the
  * grow-only WORKSPACE (rt_ws_alloc) with ZBF_WS flagged in the header's size word (sizes are 16-aligned, low bits free); release leaves WS blocks in place (immortal until GC-W-2 collects the
  * workspace — the TR-4-sanctioned transitional state).  The prev/size chain, zero/poison semantics, counters and the g_gc_pending collector trigger are VERBATIM; rooting compensation is inherited,
- * not rebuilt: both providers are rt_slab-backed and RT_SLAB_GC_ROOTS (s37) roots every slab until TR-4 deletes libgc.  This file is now libgc-FREE — the rung's stated TR-4 unblock. */
+ * not rebuilt: both providers are rt_slab-backed and RT_SLAB_GC_ROOTS (s37) rooted every slab until TR-4.  This file carries no external-GC dependence — the rung's stated TR-4 unblock. */
 void *rt_zls_alloc(long bytes)
 {
     long sz = (bytes + 15L) & ~15L;
@@ -74,7 +74,7 @@ static int rt_zls2_tron(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CHAIN INTEGRITY (2026-07-12, MEASURED not reasoned). This function assumed fb is ALWAYS the chain head and spliced with an unconditional g_zls_cur = prev(fb). That assumption is FALSE: SCRIP_ZLS_LIFO_PROBE over the
  * whole corpus reports SNOBOL4 crosscheck 517/517 and Icon 20486/20488 perfectly LIFO (nonhead=0), but Prolog meta_qsort.pl issues 122 NON-HEAD releases. A non-head splice ORPHANS every block between the old head and fb:
- * they leave the chain while still live. Benign TODAY only because libgc scans conservatively and never consults this chain -- but GC-W-1 makes this chain THE ROOT SET, at which point an orphaned-but-live frame is invisible
+ * they leave the chain while still live. Benign TODAY only because no collector consults this chain -- but GC-W-1 makes this chain THE ROOT SET, at which point an orphaned-but-live frame is invisible
  * to the mark phase and gets collected out from under a running Prolog generator (a silent, stress-only corruption in the very mechanism the collector stands on). Fixed by unlinking properly: the head release keeps its O(1)
  * fast path (the 100% case for SNOBOL4/Icon); a non-head release walks to fb's successor and repoints that successor's prev-link. A block not found in the chain (double release / foreign pointer) leaves the chain untouched
  * and does NOT free, which leaks one block rather than corrupting the root set or double-freeing. The BUMP_LIFO cursor pop is tightened the same way: it now fires only when the released block is genuinely the arena top --

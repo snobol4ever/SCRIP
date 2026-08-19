@@ -10,14 +10,8 @@
 #include "gc_heap.h"
 #include "descr.h"
 #include "pin_va.h"
-/* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers, libgc COEXISTENCE.
- * Coexistence contract (why this is sound with zero collector): scrip-heap blocks are not libgc objects, so
- * libgc never frees them; a libgc conservative scan that sees a pointer INTO this arena ignores it (non-heap);
- * and the ONLY family migrated here (DT_S string payloads) is ATOMIC — no pointers inside — so a scrip-heap
- * block can never be the sole holder of a libgc object's liveness. Families whose payloads can hold libgc
- * pointers (ARBLK/TBBLK/DATINST/VCELL DESCR cells) must NOT migrate before their GC-5 row lands with either
- * full residency or GC_add_roots registration. Nothing here frees, so dangling is impossible; garbage simply
- * accumulates until GC-1..3 land — the SIL way: bump until exhaustion, then storage regeneration (§6a). */
+/* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers; THE ONE unified collector, no external GC library (GC-U-4, s67).
+ * Allocation bumps until exhaustion, then storage regeneration (§6a) — the SIL way; the collector proper (mark/adjust/slide with pins) is gc_collect_ex below. */
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 /* PL-SINK-3 (2026-07-25) — THE CARVE FRONTIER, EXPORTED.  The emitted $unify_lst WRITE arm (src/templates/bb_call_fn.cpp, sink_mkcons_str) inlines rt_gcheap_alloc's DETAX fast path (line ~170 below):
  * armed && top + total <= end -> carve at top, bump, done.  That path needs top/end/blocks as ADDRESSABLE storage, so the three former file-statics move into ONE exported struct and the old spellings
@@ -247,8 +241,8 @@ char *c_rt_str_alloc(long n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_str_dup(const char *s)
 {
-    /* GC-5 strings-row TAIL: the mechanical GC_strdup replacement flagged in ARCH-ZETA-LOCAL-STORAGE.md
-     * §6e. Reuses rt_str_alloc so both heap paths (scrip-owned / libgc-atomic fallback) stay in sync automatically. */
+    /* GC-5 strings-row TAIL: the mechanical strdup replacement flagged in ARCH-ZETA-LOCAL-STORAGE.md
+     * §6e. Reuses rt_str_alloc so both heap paths (scrip-owned / atomic fallback) stay in sync automatically. */
     if (!s) s = "";
     long n = (long)strlen(s);
     char *b = rt_str_alloc(n);
@@ -334,7 +328,7 @@ char *rt_ws_strdup_c(const char *s)
 /*====================================================================================================================================================================================================*/
 /* GC-1 MARK + GC-2 ADJUST + GC-3 SLIDE (ARCH-ZETA-LOCAL-STORAGE §6a/§6b/§6e) — the SIL 3-stage storage regeneration, v1 scope = the DT_S strings family (the only resident family after GC-0).
  * TWO ROOT LAYERS. PRECISE (tag-driven, §6b: DESCR_t.v discriminates — marked AND adjusted): NV buckets incl. bound GVA cells (core_gc_roots), g_call_args window (rt_gc_root_args),
- * drive_val + frame_stack env/return_val + gen svals + scan_stack sigma/subj (gen_gc_roots — restored FROM MEMORY at scan-leave, hence adjustable), and full aggregate tracing through libgc-owned
+ * drive_val + frame_stack env/return_val + gen svals + scan_stack sigma/subj (gen_gc_roots — restored FROM MEMORY at scan-leave, hence adjustable), and full aggregate tracing through non-moving
  * ARBLK/TBBLK/DATINST/VCELL/NAMEPTR cells (they do not move; the DESCR cells INSIDE them adjust). CONSERVATIVE (marked and PINNED via HBF_PIN, fwd=self, NEVER moved, never adjusted-through — the
  * manual pin-3 XNBLK precedent): the live ζ chain (mode-4 has no zls maps at runtime; conservative-pin is the sound v1 until ZB-4 emits layouts), the C stack + setjmp register spill (covers rt-helper
  * locals holding raw payload ptrs across the triggering alloc — what makes allocation-site collection sound, §6d), and the CURRENT scan subject (Σ lives in r13, unrewritable — D10 pin-cell realized
@@ -714,6 +708,6 @@ long rt_gc_collect(void)
     return gc_collect_ex(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* TR-4 s67: the two counters the &STORAGE/&COLLECTIONS keywords and the FREESPACE arm re-point at now that libgc's GC_get_* queries are gone. */
+/* TR-4 s67: the two counters the &STORAGE/&COLLECTIONS keywords and the FREESPACE arm re-point at since GC-U-4. */
 long rt_gcheap_free(void) { return (long)(g_hp_end - g_hp_top); }
 long rt_gc_runs_count(void) { return g_gc_runs; }

@@ -89,7 +89,7 @@ SNOBOL4, Icon, and Prolog are three syntaxes for one execution machine.
 
 ```bash
 # Dependencies
-apt-get install -y libgc-dev nasm default-jdk
+apt-get install -y nasm default-jdk
 
 # Build scrip-cc
 make -C src

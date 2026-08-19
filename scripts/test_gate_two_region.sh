@@ -9,7 +9,7 @@
 # --strict: any count above its sanctioned floor FAILS (reserved for TR-8 seal).
 #
 # Mechanism arms:
-#   GC     : libgc usage (gc.h include, GC_malloc/GC_MALLOC/GC_INIT/GC_realloc/GC_free)
+#   GC     : external-GC usage (gc.h include, GC_malloc/GC_MALLOC/GC_INIT/GC_realloc/GC_free)
 #   MALLOC : raw malloc/calloc/realloc/strdup outside rt_slab.c  (RUNTIME scope only
 #            in strict mode: parser tab.c/lex.c compiler-phase allocs are ledgered
 #            separately — they matter at runtime only via EVAL/CODE = TR-3c/A-TRANS)
@@ -47,7 +47,7 @@ report() {
   local gc mrt mall mm bss
   gc=$(count_gc); mrt=$(count_malloc_rt); mall=$(count_malloc_all); mm=$(count_mmap); bss=$(count_bss)
   echo "TWO-REGION LEDGER ($(date +%F))"
-  echo "  GC(libgc refs, non-parked, non-gc_heap) : $gc"
+  echo "  GC(external-GC refs, non-parked, non-gc_heap) : $gc"
   echo "  MALLOC(runtime+contracts+machine)       : $mrt"
   echo "  MALLOC(whole tree, incl compiler phase) : $mall"
   echo "  MMAP(data, outside machine/, non-pat_pool): $mm"

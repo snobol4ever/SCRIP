@@ -50,10 +50,6 @@ trap 'rm -rf "$WORK"' EXIT
 
 # ---------- 1. build (idempotent — skip anything already present) ----------
 if [ "$SKIP_BUILD" != "1" ]; then
-  if ! dpkg -s libgc-dev >/dev/null 2>&1; then
-    echo "installing libgc-dev (required by src/runtime/core/core.h) ..."
-    apt-get update -qq && apt-get install -y -qq libgc-dev
-  fi
   if [ ! -x "$SCRIP" ]; then
     echo "building scrip ..."; bash "$ROOT/scripts/build_scrip.sh" || { echo "FATAL: scrip build failed"; exit 2; }
   fi

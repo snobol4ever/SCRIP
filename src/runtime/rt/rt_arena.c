@@ -91,8 +91,8 @@ void rt_arena_zblock_put(rt_arena_t *a, void *blk) {
 /* --- THE WORKSPACE (TR-3 → GC-U-6 s84): rt_ws_* moved to gc_heap.c — HB_WS-titled blocks inside the ONE collected span (pinned-immortal v1); the g_ws slab chain is retired. --- */
 
 /* PL-WS RECLAIMABLE COMPOUND ARENA (GC-W-2): base-pinned ISLAND, g_dcap/CAS class (pattern_match rt_cas/rt_dcap). Reserved once via rt_slab_region; never moved/freed; cursor-bumped. */
-/* ABORT FIX (PL-WS-2 step 1): the old slab-drawing A_TRANS arena rooted EVERY slab, so a deep search overflowed libgc MAX_ROOT_SETS; this island is ONE 16MB-class slab = ONE root, constant. */
-/* GC rides the single RT_SLAB_GC_ROOTS registration; rt_pl_cterm_roots exports [base,cur) for a future MARK/ADJUST. mark=save top; release=rewind top (+poison under SCRIP_PL_CTERM_POISON). */
+/* ABORT FIX (PL-WS-2 step 1): the old slab-drawing A_TRANS arena rooted EVERY slab, so a deep search overflowed the root-set limit; this island is ONE 16MB-class slab = ONE root, constant. */
+/* rt_pl_cterm_roots exports [base,cur) for a future MARK/ADJUST. mark=save top; release=rewind top (+poison under SCRIP_PL_CTERM_POISON). */
 /* PL-WS-1 routed term_new_* here; step 1 pins the backing (no release CALLS yet => behavior-neutral); step 2 anchors mark/release to the trail choice-point edges with escape-copy of survivors. */
 #define RT_PL_CTERM_ISLAND_BYTES ((size_t)16u << 20)
 #define RT_PL_CTERM_POISON 0xDE

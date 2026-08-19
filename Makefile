@@ -17,7 +17,7 @@
 # Note: run-asm retired — replaced by: scrip --native codegen-emit --x64 (M-JITEM-X64)
 #
 # Prerequisites:
-#   apt-get install -y libgc-dev flex nasm build-essential libgmp-dev m4
+#   apt-get install -y flex nasm build-essential libgmp-dev m4
 #
 # Authors: Lon Jones Cherryholmes · Claude Sonnet 4.6
 

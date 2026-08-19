@@ -597,9 +597,9 @@ DESCR_t eval_ast_pat(tree_t *e) {
  * (g_capx), the deferred-function frame stack (g_dfx) and the pump's re-entrant cursor stack (g_dcf) — move off
  * libc realloc onto ONE base-pinned island in the rt_gva_island / g_dcap class (ARCH-ZETA §12): reserved once,
  * carved once, NEVER moved, NEVER freed, NEVER slid.  WHY THIS IS A GC RUNG AND NOT HYGIENE: these three hold
- * live DESCR_t — pointers into the collected workspace — and libgc does not scan malloc'd memory (the TR-2
+ * live DESCR_t — pointers into the collected workspace — and malloc'd memory was never GC-scanned (the TR-2
  * lesson, which cost a GC_add_roots compensation there).  ⛔ THE NEXT SENTENCE WAS FALSE AND IS CORRECTED (RC-8a / HOME-RBX X-1, s33): this banner used to read "on the island they are covered by
- * RT_SLAB_GC_ROOTS today". They were NOT. RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) and gates ZERO `#if` bodies tree-wide — it was the TR-3 libgc compensation and died with libgc at TR-4,
+ * RT_SLAB_GC_ROOTS today". They were NOT. RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) and gates ZERO `#if` bodies tree-wide — it was a TR-3 compensation and died at TR-4,
  * taking
  * the coverage with it and leaving only the claim; rt_cas_roots, the "named root area" export, had zero consumers from the day it was written. For the whole interval these stacks held live DESCRs
  * that
@@ -942,7 +942,7 @@ static rt_spk_t *g_spk;
 static int g_spk_n, g_spk_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* RC-8a / HOME-RBX X-1 (s33): THE ISLAND WAS NEVER SCANNED.  The CAS-1 banner above says these stacks "are covered by RT_SLAB_GC_ROOTS today" — FALSE AT HEAD, and stale in two independent ways:
- * RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) AND there is not one `#if RT_SLAB_GC_ROOTS` body left in the tree — it was the TR-3 libgc compensation (GC_add_roots) and died with libgc at TR-4,
+ * RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) AND there is not one `#if RT_SLAB_GC_ROOTS` body left in the tree — it was a TR-3 root-registration compensation and died at TR-4,
  * taking the
  * coverage with it and leaving only the sentence. rt_cas_roots has had ZERO consumers since it was written ("for GC-W-1's MARK tomorrow"), so nothing walked the island either. Net: g_capx (a
  * DESCR_t
@@ -1470,7 +1470,7 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
      * element store to hold index i, ZERO element i (the fresh-iteration rule — body boxes may read-before-
      * write via rt_cap_push and a reused index must not leak a popped iteration's state; POP never zeroes,
      * resume needs the state), return its address.  ZC_COLLECTION = MALLOC (D7): realloc house style, with
-     * the zeta arena (TR-4 s67: the libgc rooting this once leaned on is gone with libgc; the unified collector's root story is GC-W-1's);
+     * the zeta arena (TR-4 s67: the external rooting this once leaned on is gone; the unified collector's root story is GC-W-1's);
      * roots move with the block.  Known v1 lifetime residual (watermarked): the block is reused across
      * anchor retries and statement re-executions within a frame, but leaks at frame death — the per-
      * activation grown-collection release list (5f) or the GC backing (GC-4) retires this. */

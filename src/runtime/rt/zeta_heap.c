@@ -29,12 +29,12 @@ static void zh_init(void)
 {
     long mb = 32; const char *e = getenv("SCRIP_ZH_MB"); if (e && atol(e) > 0) mb = atol(e);
     g_zh_cap = mb * 1024L * 1024L;
-    /* TR-2: slab-pool backing. TR-4 s67: the libgc root registration this block once carried is deleted with libgc itself; the historical compensation note:
-     * uncollectable-GC memory is still SCANNED by libgc for pointers; malloc'd memory is
+    /* TR-2: slab-pool backing. TR-4 s67: the external root registration this block once carried is deleted; the historical compensation note:
+     * uncollectable memory was still SCANNED for pointers; malloc'd memory was
      * NOT. ZH blocks hold DESCR pointers into GC-managed objects, so the region must be
      * registered as a root or those objects become unreachable and get collected out from
-     * under a live suspended activation. GC_add_roots restores exactly the reachability the
-     * old allocator gave for free. (The root goes away with libgc itself at TR-4.)
+     * under a live suspended activation. Root registration restored exactly the reachability the
+     * old allocator gave for free. (Gone at TR-4.)
      * LIVE/DEAD/POISON header protocol below is untouched, per the rung's brief. */
     g_zh_base = (char *)rt_slab_region((size_t)g_zh_cap);
     if (!g_zh_base) { fprintf(stderr, "[ZH] FATAL: slab alloc failed (%ld MB)\n", mb); abort(); }

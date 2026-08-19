@@ -4,8 +4,7 @@
 # Usage: bash scripts/install_system_packages.sh
 set -euo pipefail
 PKGS="build-essential libgmp-dev m4 nasm wabt bison flex gawk"
-# NOTE: libgc-dev is GONE — GC-U-4 (s67) deleted Boehm from the tree/link; the -lgc script residue was
-# swept with this line's stale core.h claim. The ONE unified GC (gc_heap.c) needs no external library.
+# NOTE: the ONE unified GC (gc_heap.c) needs no external library (GC-U-4, s67).
 # gdb is MANDATORY TOOLING, not a convenience: RULES.md MONITOR-FIRST step (2) IS "gdb breakpoint at the
 # bracketed C site with a spin/ignore counter". Without it the prescribed hunt has no middle rung and every
 # runtime-half defect ends in a handoff instead of a fix. Installed --no-install-recommends DELIBERATELY:

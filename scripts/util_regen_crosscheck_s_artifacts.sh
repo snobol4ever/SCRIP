@@ -4,8 +4,8 @@
 # source (.sno or .sc), committing ONLY artifacts whose bytes changed.
 #
 # WHY THIS EXISTS (s21x provenance census): all 180 committed crosscheck .s were from
-# `scrip-cc -asm` — a tool that no longer exists, linking -lgc (Boehm, removed at
-# GC-U-4).  Obsolete artifacts masquerade as current codegen and mislead any census
+# `scrip-cc -asm` — a tool that no longer exists, linking a dead external GC removed at
+# GC-U-4.  Obsolete artifacts masquerade as current codegen and mislead any census
 # that reads them (the exact confusion this session's rbp census hit).  Sibling of
 # util_regen_benchmark_s_artifacts.sh; same PHILOSOPHY (see util_regen_feature_...):
 # the .s is the HONEST CURRENT compiler output, NOT a pinned golden.  scrip --compile

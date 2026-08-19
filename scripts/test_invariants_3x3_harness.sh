@@ -45,7 +45,7 @@ for arg in "$@"; do
 done
 
 # ── BACKEND filter ─────────────────────────────────────────────────────────────
-# Set BACKEND=jvm to run only JVM cells (skip x86, nasm, libgc entirely).
+# Set BACKEND=jvm to run only JVM cells (skip x86 and nasm entirely).
 # Set BACKEND=x64 to run only x86 cells.  Default "all" runs everything.
 # This matches the SESSION_SETUP.sh BACKEND= convention.
 BACKEND="${BACKEND:-all}"
