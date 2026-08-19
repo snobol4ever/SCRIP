@@ -27,7 +27,7 @@ for w in cn_udc_declare cn_udc_reopen; do
     diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w KW_STATIC=$arm"
   done
 done
-w=cn_t1_eval
+for w in cn_t1_eval cn_t2_eval_boundary; do
 "$SCRIP" --compile "$CN/$w.sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
 for t1 in 0 1; do
@@ -35,6 +35,7 @@ for t1 in 0 1; do
   diff -q /tmp/gate_m3.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m3 $w CONST_T1=$t1"
   SCRIP_CONST_T1=$t1 timeout 20 "/tmp/gate_$w.bin" < /dev/null > /tmp/gate_m4.txt 2>/dev/null
   diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w CONST_T1=$t1"
+done
 done
 w=cn_t1_eval_undecl
 "$SCRIP" --compile "$CN/$w.err_sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
