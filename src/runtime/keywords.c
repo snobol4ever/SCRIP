@@ -89,6 +89,91 @@ const char *kw_cset_const_str(const char *kw) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*========================================================================================================================================================================================================*/
+/* KW-STATIC BLOCK (KW-2, GOAL-SNOBOL4-100 D-3; Lon's in-chat grant 2026-08-19 covers these keyword cells). ONE AUTHORITY for every SNOBOL4 keyword fact: name, kind, protected bit, oracle-true initial */
+/* value, and the address of the LIVE cell each consumer already reads. Homing at the consumer's cell -- not a fresh copy -- is what retires the spelled-twice disease measured in FINDING s146 §6: the */
+/* block does not add a third spelling of &TRIM, it makes the ONE surviving spelling be the cell core.c's input path actually tests. KW-3 relocates these cells into the emitted program's .data and */
+/* repoints `cell`; nothing else has to move. Killswitch SCRIP_KW_STATIC, DEFAULT OFF => the default arm is byte-identical by construction. Initial values are oracle-measured (probe/kw/kw_defaults.ref), */
+/* NOT copied from the C initializers, which FINDING s146 §3 measured wrong in six places and self-contradictory in one (&MAXLNGTH: g_maxlngth 5000000 vs kw_maxlngth 524288 vs oracle 16777216). */
+#define KWB_INT 1
+#define KWB_STR 2
+#define KWB_PROT 1
+typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; } KWB_ENT_t;
+static int64_t kwb_own[8];
+static KWB_ENT_t g_kwb[] = {
+    { "ANCHOR",   KWB_INT, 0, (int64_t *)&g_anchor,    0,          (const char *)0 },
+    { "TRIM",     KWB_INT, 0, &kw_trim,                1,          (const char *)0 },
+    { "CASE",     KWB_INT, 0, &kwb_own[0],             1,          (const char *)0 },
+    { "CODE",     KWB_INT, 0, &kw_code,                0,          (const char *)0 },
+    { "DUMP",     KWB_INT, 0, (int64_t *)&g_dump,      0,          (const char *)0 },
+    { "ERRLIMIT", KWB_INT, 0, &kw_errlimit,            0,          (const char *)0 },
+    { "ERRTYPE",  KWB_INT, 0, &kwb_own[1],             0,          (const char *)0 },
+    { "FTRACE",   KWB_INT, 0, &kw_ftrace,              0,          (const char *)0 },
+    { "FULLSCAN", KWB_INT, 0, &kw_fullscan,            1,          (const char *)0 },
+    { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth,  16777216,   (const char *)0 },
+    { "STLIMIT",  KWB_INT, 0, &kw_stlimit,             2147483647, (const char *)0 },
+    { "TRACE",    KWB_INT, 0, (int64_t *)&g_trace,     0,          (const char *)0 },
+    { "ABEND",    KWB_INT, 0, &kwb_own[2],             0,          (const char *)0 },
+    { "INPUT",    KWB_INT, 0, &kwb_own[3],             1,          (const char *)0 },
+    { "OUTPUT",   KWB_INT, 0, &kwb_own[4],             1,          (const char *)0 },
+    { "PROFILE",  KWB_INT, 0, &kwb_own[5],             0,          (const char *)0 },
+    { "COMPARE",  KWB_INT, 0, &kwb_own[6],             0,          (const char *)0 },
+    { "STCOUNT",  KWB_INT, KWB_PROT, (int64_t *)&g_stcount,  0, (const char *)0 },
+    { "STNO",     KWB_INT, KWB_PROT, (int64_t *)&g_stno,     0, (const char *)0 },
+    { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 },
+    { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 },
+    { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" },   /* CLASS C: SNOBOL4 has NO cset datatype -- oracle says STRING/26. The legacy path reached Icon's csets through the SHARED kw_read table; the block gives SNOBOL4 its own home and leaves kw_read untouched for Icon (same carve-out discipline as R-3(g)(d)). */
+    { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" },
+    { "RTNTYPE",  KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 },
+    { "ERRTEXT",  KWB_STR, 0,        (int64_t *)0, 0, (const char *)0 },
+    { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 },   /* KW-2 subsumes the core.c:2213 bare-ALPHABET hijack that s145 gated behind SCRIP_SEED_NAMES: the &-form now has ONE home here, and the bare form is an ordinary variable like every other bare name. */
+};
+static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
+static KWB_ENT_t *g_kwb_bound = g_kwb;   /* KW-3 SEAM: the emitted program will bind its own .data block here via rt_kw_bind(); until then the runtime-resident table IS the block, so read/write already go THROUGH the bound pointer and KW-3 becomes a pure relocation of storage. */
+static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_kw_static_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_KW_STATIC"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* KW-STATIC killswitch (KW-2, s146). DEFAULT OFF = legacy behaviour byte-identical. =1 arms the block: oracle-true initial values, SNOBOL4-owned string keywords, protection enforcement, and the bare-name special-case family bypassed. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_bind(void *block, int n) { if (block && n > 0) { g_kwb_bound = (KWB_ENT_t *)block; g_kwb_bound_n = n; } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void kwb_init_once(void) {
+    static int done = 0; if (done) return; done = 1;
+    for (int i = 0; i < g_kwb_bound_n; i++) if (g_kwb_bound[i].kind == KWB_INT && !g_kwb_bound[i].prot && g_kwb_bound[i].cell) *g_kwb_bound[i].cell = g_kwb_bound[i].init;
+}   /* ⛔ PROTECTED ENTRIES ARE NEVER INITIALIZED HERE, AND THE REASON IS A MEASURED REGRESSION: seeding runs LAZILY at the first keyword touch, not at program start, so &STNO/&STCOUNT/&LASTNO/&FNCLEVEL have ALREADY BEEN COUNTING by then -- writing `init` over them rewinds the live counter. crosscheck/keywords/082_keyword_stcount went PASS->FAIL on exactly this in the s146 by-set A/B. The `init` field describes the SETTABLE knobs' start-of-program configuration; a runtime-maintained repository owns its own value and the block only reads it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static KWB_ENT_t *kwb_find(const char *kw) {
+    if (!kw) return (KWB_ENT_t *)0;
+    if (kw[0] == '&') kw++;
+    char uk[64]; size_t ui = 0;
+    for (; kw[ui] && ui < sizeof(uk) - 1; ui++) uk[ui] = (kw[ui] >= 'a' && kw[ui] <= 'z') ? (char)(kw[ui] - 'a' + 'A') : kw[ui];
+    uk[ui] = '\0';
+    kwb_init_once();
+    for (int i = 0; i < g_kwb_bound_n; i++) if (!strcmp(g_kwb_bound[i].name, uk)) return &g_kwb_bound[i];
+    return (KWB_ENT_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_read(const char *kw, DESCR_t *out) {
+    KWB_ENT_t *e = kwb_find(kw); if (!e) return 0;
+    if (e->kind == KWB_STR) {
+        if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(kw_rtntype); return 1; }   /* LIVE strings: &RTNTYPE and &ERRTEXT are protected repositories whose contents the runtime rewrites as it goes, so the block names them but reads the live cell rather than a frozen initializer. */
+        if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
+        if (!strcmp(e->name, "ALPHABET")) { extern char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
+        *out = e->sval ? STRVAL(e->sval) : STRVAL(""); return 1;
+    }
+    *out = INTVAL(e->cell ? *e->cell : 0); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_write(const char *kw, DESCR_t v) {
+    KWB_ENT_t *e = kwb_find(kw); if (!e) return 0;
+    extern void core_runtime_error(int code, const char *msg);
+    int is_num = IS_INT(v) || IS_REAL(v);
+    if (!is_num) { const char *s = VARVAL_fn(v); char *end = (char *)0; if (s && *s) { (void)strtol(s, &end, 10); is_num = (end && *end == '\0'); } }
+    if (!is_num) { core_runtime_error(208, "keyword value assigned is not integer"); return 1; }   /* ⛔ ORDER IS OSCILLOSCOPE-MEASURED, NOT ASSUMED (probe/kw/kw_protected_write.ref): `&ALPHABET = 'x'` raises 208, NOT 209 -- the not-an-integer test fires BEFORE the protected test. Swap these two and the witness goes oracle-wrong. */
+    if (e->prot) { core_runtime_error(209, "keyword in assignment is protected"); return 1; }
+    if (e->cell) *e->cell = IS_INT(v) ? v.i : (int64_t)to_real(v);
+    return 1;
+}
+/*========================================================================================================================================================================================================*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
     if (!strcmp(kw,"pos"))     return INTVAL(scan_pos);
@@ -223,6 +308,7 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
+    if (rt_kw_static_on()) { DESCR_t bv; if (kwb_read(lk, &bv)) return bv; }   /* KW-2: the block answers first when armed. A MISS falls through untouched -- that is what keeps &ARB/&BAL/&REM/&FAIL working, since pattern keywords are deliberately NOT in the block and reach their PATTERN value via the bare-name variable table below (s145 oracle truth: bare ARB/BAL/REM/FAIL are PATTERN in BOTH engines). */
     if (!strcmp(lk, "alphabet")) { extern char alphabet[257]; return BSTRVAL(alphabet, 256); }
     if (!strcmp(lk, "digits")) return STRVAL("0123456789");
     if (!strcmp(lk, "ht")) return STRVAL("\t");
@@ -282,6 +368,7 @@ void rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
+    if (rt_kw_static_on() && kwb_write(lk, v)) return;   /* KW-2: the block owns every keyword it names, INCLUDING the protection verdict. A miss falls through to the legacy arms so pattern/unlisted keywords are unaffected. */
     long iv = 0;
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
