@@ -100,7 +100,7 @@ void rt_zdp_rbp_report(long node, unsigned long expected, unsigned long actual, 
  * correctly-working boxes (s141's cut 2).  Only silence at PROCESS END is the actual signal.
  */
 #define ZSM_N 65536
-#define ZSM_TRACE 64
+#define ZSM_TRACE 2048   /* s182: widened from 64 -- util_autobug.sh names this as THE knob when a bug window is too short, and beauty needs the whole parse descent in one window.  Cost is 5 arrays x 2048 x 8B = 80KB of static, armed-only. */
 enum { ZSM_FRESH = 0, ZSM_LIVE = 1, ZSM_SUSPENDED = 2, ZSM_RESUMED = 3, ZSM_DEAD = 4 };
 typedef struct { unsigned long node, E, F, rsp_a, live; int state; } zsm_ent;
 static zsm_ent      g_zsm[ZSM_N];

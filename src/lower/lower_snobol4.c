@@ -2592,7 +2592,8 @@ void sno_pat_thunks_build(int p0) {
         px.pat_fail = no; px.pat_seal = no;
         int before_pat = gp->n;
         IR_t * pe; IR_t * brt = NULL;
-        int pfenced = sno_pat_contains_fence(g_sno_pats[pi2].pat, 0);   /* ⭐ SN4-DEFER-RESUME FENCE REFUSE: one verdict feeds both the nary diversion and the carrier publication below */
+        int pfenced = sno_pat_contains_fence(g_sno_pats[pi2].pat, 0);   /* ⛔ SCRIP_FENCE_IGNORE=1 IS A DIAGNOSTIC ONLY, NEVER A FIX (s182): zeroes the fence verdict outright so a seat can MEASURE how much of a program's behaviour the s121 fence refusal alone is responsible for.  It is UNSOUND by construction -- the nary diversion and the carrier publication both key off pfenced, and a fence really does refuse a backward entry -- so a green run under it is a MEASUREMENT, not a cure. */
+        if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;   /* ⭐ SN4-DEFER-RESUME FENCE REFUSE: one verdict feeds both the nary diversion and the carrier publication below */
         { const tree_t * fel[128]; int fne = 0; sno_seq_flatten_pat(g_sno_pats[pi2].pat, fel, &fne);
           pe = (sno_defer_resume() && fne > 1 && !pfenced) ? sno_seq_nary(&px, fel, fne, ok, no, &brt)   /* ⭐ SN4-DEFER-RESUME (s121) half B1: a fence-free multi-element top is built through the IDENTICAL flatten→nary path sno_pat_node's TT_SEQ arm takes (same flatten, same args, byte-identical emission) — one level lower ONLY to capture out_rtail, the run's rightmost resume carrier, which becomes the blob's published resume surface below (beauty's `Parse` is a 4-element SEQ; resume must land its rightmost generator, never element 0).  Fenced or single-element tops keep the sno_pat_node route verbatim. */
                                                            : sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no); }
