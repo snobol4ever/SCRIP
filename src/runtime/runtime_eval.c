@@ -228,7 +228,7 @@ static void eval_thunks_emit_from(int pc0)
     int fa = g_frame_active; g_frame_active = 1;
     int ga = g_gen_proc_active;
     g_rt_fragment_emit = 1;
-    int b1c = 0; { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '1') b1c = 1; }   /* B1c (s168, HQ): fragment loop to DRIVER EMIT-CONTEXT PARITY — FINDING-2026-08-19-s168; LANDS DEFAULT OFF (behavior-neutral); the b1c-flip seat runs the A/B and flips the default */
+    int b1c = 1; { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }   /* B1c (s168, HQ): fragment loop to DRIVER EMIT-CONTEXT PARITY — FINDING-2026-08-19-s168; DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
