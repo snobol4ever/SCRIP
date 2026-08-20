@@ -228,6 +228,7 @@ static void eval_thunks_emit_from(int pc0)
     int fa = g_frame_active; g_frame_active = 1;
     int ga = g_gen_proc_active;
     g_rt_fragment_emit = 1;
+    int b1c = 0; { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '1') b1c = 1; }   /* B1c (s168, HQ): fragment loop to DRIVER EMIT-CONTEXT PARITY — FINDING-2026-08-19-s168; LANDS DEFAULT OFF (behavior-neutral); the b1c-flip seat runs the A/B and flips the default */
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
@@ -235,11 +236,21 @@ static void eval_thunks_emit_from(int pc0)
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
-        { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
-          if (!emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx])) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]); }
-        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
+        if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }   /* B1c parity: driver m3 loop scrip.c:1664 */
+        if (b1c) { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = g_stage2.bbp.table[idx]; g_flat_frame_floor = 0;
+            if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) {
+                for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
+                    int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; } } }   /* B1c parity: SN4-FLAT-PROC floor, scrip.c:1671; cleared by emit_jmp_entry_clear */
+        { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
+          int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
+          if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }   /* B1c parity: PL-DC arming, scrip.c:1674 */
+        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");   /* B1c: ->entry is CORRECT here, bb_proc_entry RULED OUT by asm-diff (s165: emitting from proc_entry_node drops the thunk's entry prologue -- the 0x70 frame carve + rcx/rdx wire save -- and the body falls into slab zeros); fragment graphs are self-owned, never main-shared, so the s176 shared-graph rationale does not apply */
         if (pfn) rt_proc_set_fn(pname, pfn);
         { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }   /* ⭐⭐⭐ D-18a (s161): THE MISSING LINE — the main driver seals alpha$<FN> for every proc it emits (scrip.c R-1 s94 loop); this fragment loop registered and set fns but never sealed, so alpha$EXPR$<thunk> stayed rt_ab_undef_fn_stub and every deferred call inside an EVAL-built pattern raised error 22 at match time (B1b witness; beauty's grammar is built of exactly these). Label pool is live here — emit_jmp_entry_clear below is the same boundary the driver seals across. */
+        if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }   /* B1c parity: scrip.c:1680 — teardown/unwind reads the frame geometry */
+        if (b1c && pfn) { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* B1c parity: PS-1b, scrip.c:1683 — DT_P carries real zstatic */
+        if (b1c && pfn) { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* B1c parity: PS-3, scrip.c:1684 — ζ suspension footprint for DT_P targets */
+        if (b1c && pfn) { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* B1c parity: PL-DC seal, scrip.c:1685 */
         emit_jmp_entry_clear();
     }
     g_rt_fragment_emit = 0;
