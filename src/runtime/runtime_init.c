@@ -131,8 +131,17 @@ static void zsm_leak_report(void)
      * still executing would convict every un-backtracked-into ARBNO, the s141 cut-2 mistake repeated).
      * s143: also prints the alpha-while-live summary UNCONDITIONALLY (not gated on SCRIP_ZSM_LEAK_REPORT) --
      * this atexit hook is now the one process-end reporter, registered whenever SCRIP_ZSM=1 regardless of the
-     * leak sub-flag, so the counted-not-fatal alpha signal (see the kind==1 arm's note) is never silently lost. */
+     * leak sub-flag, so the counted-not-fatal alpha signal (see the kind==1 arm's note) is never silently lost.
+     * ⭐⭐⭐ SCRIP_ZSM_RING=1 -- THE AUTOMATIC BUG FINDER'S SECOND HALF (Lon's design, s182, in-chat: "INSTRUMENT
+     * the BB at that LAST AGREEMENT BB to fire TRACE ON when the counter get reached and TRACE OFF when it
+     * arrives at the FIRST DIVERGENCE BB. This trace has the BUG in it and should be REASONABLY LIMITED in
+     * size."  THE BRACKET NEEDS NO COUNTER AND NO NEW STATE, because the IPC monitor ALREADY closes the window
+     * on both sides: it sync-steps both engines and kills the child the instant the controller answers 'S'
+     * (mon_send_bin's ack arm, core.c), i.e. AT THE FIRST DIVERGENCE.  So the process dies inside the bug's own
+     * statement, this atexit hook runs, and the ZSM ring -- the last ZSM_TRACE=64 four-port events in execution
+     * order -- IS the bounded trace Lon asked for, ending at the divergence.  Driver: util_autobug.sh. */
     unsigned long i;
+    if (getenv("SCRIP_ZSM_RING")) zsm_dump();
     if (zsm_leak_report_on()) {
         for (i = 0; i < g_zsm_seen_n; i++) {
             zsm_ent * e = &g_zsm[g_zsm_seen_nodes[i] & (ZSM_N - 1)];
