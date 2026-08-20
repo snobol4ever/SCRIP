@@ -150,6 +150,7 @@ void     bb_label_define       (bb_label_t * lbl);
 bb_label_t * emit_label_alloc  (const char * fmt, ...);
 bb_label_t * emit_label_intern (const char * name);
 void drive_arg_slots_reserve (int n);   /* op_arg_slot heap growth (int*+cap since 599601e); callers fill then set op_arg_slot_n */
+void * bb_ab_cell_addr       (const char * fname);   /* ab-cell-hoist (queue row 10): the AB fn-cell store's LIVE-IMAGE face, hoisted out of bb_define.cpp beside drive_arg_slots_reserve — its own named precedent ("ONE allocator authority, declared emit.h").  Returns NULL in TEXT: a linked image has no C-side cell, gas/ld resolves fn_cell$<FN> instead.  The bake-operand twin is bb_ab_fn_cell_ptr (bb_templates.h), never NULL. */
 void         emit_label_pool_reset(void);
 void         bb_label_alias      (bb_label_t * stub, bb_label_t * tgt);
 bb_label_t * bb_label_fold       (bb_label_t * l);

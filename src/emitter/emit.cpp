@@ -1455,6 +1455,22 @@ void drive_arg_slots_reserve(int n) {   /* promoted non-static for bb_ab_emit_no
     g_emit.op_arg_slot = grown; g_emit.op_arg_slot_cap = cap;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define AB_FNCELL_MAX 1024   /* R-1 s94: 256 -> 1024.  The ONE allocator also serves the TINY cross-chain cells alpha$<FN> / body$<ENTRY> (x86_jmp_via_cell): 3 cells per DEFINE, and 100func.sno alone has 100 DEFINEs */
+static void * g_ab_fn_cells[AB_FNCELL_MAX];   /* ⭐ ab-cell-hoist (queue row 10): the AB fn-cell store HOISTED VERBATIM from bb_define.cpp, where it was file-static since AB-3a.  RELOCATION, NOT A NEW GLOBAL — same three objects, same linkage, one file over.  WHY HERE: the cells are C-side LIVE-IMAGE state, not emission, and only a BINARY image has them; this is the file that owns g_medium, so the ALLOCATOR can answer "does this medium have a cell?" and three template guard sites stop asking the medium for it. */
+static int    g_ab_fn_cell_n = 0;
+static char   g_ab_fn_names[AB_FNCELL_MAX][64];
+__attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* rt.h:93 — the cell's initial value (fires error 022); declared rather than included so the emitter keeps its narrow runtime surface */
+static int bb_ab_slot_for(const char * fname) {   /* AB-3a: the ONE slot allocator, shared by the block template and the role-2 bind so bind-before-block ordering (main chain emits first, blocks post-chain) is immaterial — first request by fname allocates and initialises to the undef stub. */
+    for (int i = 0; i < g_ab_fn_cell_n; i++) if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
+    if (g_ab_fn_cell_n >= AB_FNCELL_MAX) { fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: the old arm aliased slot 0 SILENTLY, the corruption class this abort replaces)\n", AB_FNCELL_MAX, fname); abort(); }
+    int idx = g_ab_fn_cell_n++;
+    snprintf(g_ab_fn_names[idx], sizeof g_ab_fn_names[idx], "%s", fname);
+    g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
+    return idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)] : (void *)0; }   /* ⭐⭐⭐ ab-cell-hoist — THE MEDIUM SWITCH LIVES HERE, NOT IN THE TEMPLATE (R2 ONE MEDIUM, INVISIBLE).  THE LIVE-IMAGE face: a TEXT compile emits a `fn_cell$<FN>` .data quad that gas/ld resolves at link time, so that image has NO C-side cell and the honest answer is NULL.  Every consumer already tests the pointer before storing, so the three `if (MEDIUM_BINARY)` guards this retires fall away by DATA rather than by branch — same instructions, same stores, one authority. */
+void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }   /* AB-3b: the OPERAND face — the cell ADDRESS baked into emitted code (bb_call_proc_staged / bb_goto_dyn x86_jmp_via_cell, bb_define's body$<ENTRY>, and the m3 driver + runtime_eval seals).  BOTH MEDIA and never NULL: the slot exists in the COMPILING process whatever the medium, and TEXT renders the assembler symbol instead of the baked value.  Same bb_ab_slot_for ⇒ same slot as bb_ab_cell_addr: ONE allocator, two faces. */
 static void drive_unowned(IR_t *nd) {
     fprintf(stderr, "FATAL emit_drive: IR op=%d has no template in the universal driver. Every op must be handled; the driver never declines silently. "
                     "Implement op=%d. NOTE: this is also the guard sink inside existing cases — if op=N plainly has a case, the BACKTRACE LINE "

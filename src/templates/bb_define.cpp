@@ -56,21 +56,7 @@ void rt_define_site(const char *, const char *, int, int, int, void *);
 /* op_ival = nsave = 1 + nformals + nlocals                                                                                                                                                           */
 /* op_arg_slot[k] = GVA index of save-set member k {fname, formal0..np-1, local0..nl-1}; -1 = no GVA */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define AB_FNCELL_MAX 1024   /* R-1 s94: 256 -> 1024.  The ONE allocator now also serves the TINY cross-chain cells alpha$<FN> / body$<ENTRY> (x86_jmp_via_cell): 3 cells per DEFINE, and 100func.sno alone has 100 DEFINEs */
-static void * g_ab_fn_cells[AB_FNCELL_MAX];
-static int    g_ab_fn_cell_n = 0;
-static char   g_ab_fn_names[AB_FNCELL_MAX][64];
-/* AB-3a: the ONE slot allocator, shared by the block template and the role-2 bind so bind-before-block ordering (main chain emits first, blocks post-chain) is immaterial — first request by fname allocates and initialises to the undef stub. */
-static int bb_ab_slot_for(const char * fname) {
-    for (int i = 0; i < g_ab_fn_cell_n; i++) if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
-    if (g_ab_fn_cell_n >= AB_FNCELL_MAX) { fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: the old arm aliased slot 0 SILENTLY, the corruption class this abort replaces)\n", AB_FNCELL_MAX, fname); abort(); }
-    int idx = g_ab_fn_cell_n++;
-    snprintf(g_ab_fn_names[idx], sizeof g_ab_fn_names[idx], "%s", fname);
-    g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
-    return idx;
-}
-static void * bb_ab_cell_addr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
-extern "C" void * bb_ab_fn_cell_ptr(const char * fname) { return bb_ab_cell_addr(fname); }   /* AB-3b: non-static accessor for call-site template (bb_call_proc_staged.cpp) — same slot the block and bind use, ONE allocator */
+/* ⭐ ab-cell-hoist (queue row 10): AB_FNCELL_MAX / g_ab_fn_cells / g_ab_fn_names / g_ab_fn_cell_n / bb_ab_slot_for / bb_ab_cell_addr / bb_ab_fn_cell_ptr HOISTED VERBATIM to src/emitter/emit.cpp, beside drive_arg_slots_reserve — the precedent that already names this move ("the bb_ab_fn_cell_ptr precedent; ONE allocator authority, declared emit.h").  The store is C-side LIVE-IMAGE state, not emission; only a BINARY image has cells; and emit.cpp owns g_medium, so bb_ab_cell_addr can answer NULL for TEXT and the three MEDIUM_BINARY guards that stood below become tests of the POINTER the allocator returns.  Declared: emit.h (bb_ab_cell_addr) + bb_templates.h (bb_ab_fn_cell_ptr). */
 
 extern "C" const char * bb_ab_sym_name(const char * nm) {   /* D-18a: asm_sym_name HOISTED from scrip.c:87 (driver static, unlinkable from the .so) — the driver's copy is now a wrapper on THIS one; same one-authority move as bb_ab_seal_entry_cells below. */
     static char b[256]; int j = 0;
@@ -100,7 +86,7 @@ static std::string bb_define_activate() {
     /* ── fn_cell: allocate/record storage ── */
     void ** fn_cell_ptr = (void **)0;
     std::string fn_cell_lbl = std::string("fn_cell$") + fname;
-    if (MEDIUM_BINARY) fn_cell_ptr = (void **)bb_ab_cell_addr(fname);   /* AB-3a: allocation moved into the ONE allocator (bb_ab_slot_for) so the role-2 bind and the block agree on the slot by fname regardless of emission order. */
+    fn_cell_ptr = (void **)bb_ab_cell_addr(fname);   /* AB-3a: allocation moved into the ONE allocator (bb_ab_slot_for) so the role-2 bind and the block agree on the slot by fname regardless of emission order.  ab-cell-hoist: NULL in TEXT, which is why no guard stands here — the residual store below already tested this pointer and is the only reader. */
     /* ── α ────────────────────────────────────────────────────────────────────────────────────── */
     std::string s =
         /* fn_cell .data (TEXT only; binary: runtime static array) */
@@ -417,7 +403,7 @@ static std::string bb_define_bind() {
      * already placed (measured: cell probe good, then jmp 0 at first call).  BINARY bind is now a transparent
      * relay — the C-store at block-emit time IS the bind.  TEXT keeps the runtime store: gas resolves
      * <FN>_act_α at assembly time and the fn_cell$<FN> .data slot via GOT, both correct as-is. */
-    if (MEDIUM_BINARY) return x86_alpha() + reg + x86_pair_loop() + seals;
+    if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;   /* ab-cell-hoist: ASK THE ALLOCATOR, NOT THE MEDIUM.  A non-NULL cell means this image carries the C-side store, and bb_ab_emit_nodes' post-block store IS the bind — emitting the three instructions below would then write 0 over the address it placed (x86_load_ro bakes a movabs immediate with no forward patch).  NULL is the TEXT image, where those three instructions ARE that C-store's twin and the assembler resolves both symbols. */
     return x86_alpha()
          + reg
          + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, albl.c_str())   /* α address by NAME (TEXT): renders [rip + <FN>_act_α], resolved by the assembler.  The bare 3-arg string form is SILENTLY SWALLOWED by the encoder (measured: both leas vanished from the .s, r11 garbage, wild store, segv) — the 5-arg __ form is the sanctioned named-symbol spelling. */
@@ -485,11 +471,11 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
          * absolute JIT address (bb_emit_buf + offset) directly into the fn_cell.  The runtime bind still runs
          * (its MOV stores this same address again) — idempotent and harmless.  TEXT (m4): bind resolves via
          * gas/ld at link time; no C-side store needed.  ONE AUTHORITY: bb_ab_cell_addr is the allocator. */
-        if (MEDIUM_BINARY) {
+        void **cell = (void **)bb_ab_cell_addr(fn);   /* ab-cell-hoist: NULL in TEXT — that image has no C-side cell to fill, gas/ld binds fn_cell$<FN> at link time.  ONE AUTHORITY, unchanged in substance: bb_ab_cell_addr is the allocator, and now also the medium switch, so this site names no medium. */
+        if (cell) {
             extern bb_buf_t bb_emit_buf;
             bb_label_t *al = emit_label_intern(ab_lbl_α);
-            void **cell = (void **)bb_ab_cell_addr(fn);
-            if (al && bb_label_defined(al) && cell)
+            if (al && bb_label_defined(al))
                 *cell = (void *)(bb_emit_buf + al->offset);
         }
     }
