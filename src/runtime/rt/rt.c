@@ -1312,7 +1312,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 /* γ ENTRY — RETURN and NRETURN.  Manual Ch.8: RETURN yields a value for the caller.  NRETURN yields a NAME and
  * is a γ citizen too — lower_snobol4.c routes its SNO$NRET node to exitnd, the same γ as RETURN, the flag
  * riding in rt_g_ret_by_name.  There is no fifth port (RULES.md: FOUR PORTS = FOUR GREEK NAMES ALWAYS). */
-DESCR_t c_rt_proc_call_epilogue_γ(DESCR_t frame0)
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
     rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
     return frame0;
@@ -1321,7 +1321,7 @@ DESCR_t c_rt_proc_call_epilogue_γ(DESCR_t frame0)
 /* ω ENTRY — FRETURN.  Manual Ch.8 verbatim: "Transferring to the special label FRETURN returns from a function
  * signaling failure to the caller.  No value is returned as the function result."  Arriving here IS the failure
  * signal (s61 RULING 1); no frame value is read — s62 ruling (c): a failing lexical proc returns FAILDESCR. */
-DESCR_t c_rt_proc_call_epilogue_ω(void)
+DESCR_t rt_proc_call_epilogue_ω(void)
 {
     rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
     return FAILDESCR;
@@ -1360,9 +1360,9 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
     return result;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_proc_call_epilogue_named_γ(const char *name) { return rt_proc_epilogue_named(name, 0); }
+DESCR_t rt_proc_call_epilogue_named_γ(const char *name) { return rt_proc_epilogue_named(name, 0); }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_proc_call_epilogue_named_ω(const char *name) { return rt_proc_epilogue_named(name, 1); }
+DESCR_t rt_proc_call_epilogue_named_ω(const char *name) { return rt_proc_epilogue_named(name, 1); }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* BP-7 SCC SLIM LEAVES — the static-save-set call convention (GOAL-SNOBOL4-BB BP-7).  The emitted static arm performs the save-set old-value saves (GVA cell → caller rsp block) and the arg installs
  * (frame slot → GVA cell) INLINE; these leaves carry only the per-call residue the loops never were: Σ save/restore, the pcall context, NRETURN wn, the monitor events, k_level, and the vtmark tidy.
@@ -1383,16 +1383,16 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     /* GLOBALS-GONE s55: record push ERADICATED — going-in keeps resolve/save/install/monitor/k_level */
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     rt_k_level++;
-    return (long)(uintptr_t)(void *)p->fn;   /* GLOBALS-GONE s55: record eradicated */ /* rax channel: nonzero == admitted AND the transfer target — c_rt_proc_open_fn crossing deleted from the site */
+    return (long)(uintptr_t)(void *)p->fn;   /* GLOBALS-GONE s55: record eradicated */ /* rax channel: nonzero == admitted AND the transfer target — rt_proc_open_fn crossing deleted from the site */
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_proc_call_epilogue_slim_γ(DESCR_t result)
+DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
 {
     rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
     return result;
 }
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_proc_call_epilogue_slim_ω(void)
+DESCR_t rt_proc_call_epilogue_slim_ω(void)
 {
     rt_k_level--;   /* GLOBALS-GONE s55: record eradicated; restore side is future RBP-era work */
     return FAILDESCR;
@@ -1583,7 +1583,7 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
  * The tail-jmp hands rax:rdx (DESCR_t) straight back to the C caller. */
 #if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
 /* R12-ERAD s65: under rsp-frames the blob's LIFO exits fully unwind BEFORE the jmp (γ delivers frame0 in rdi:rsi pre-unwind), so both landings arrive at the pre-jmp rsp — the r12 anchor is deleted. */
-/* ⭐ EXPR-THUNK RESULT (class B, s96, second half): the γ landing tail-calls c_rt_proc_call_epilogue_γ(DESCR_t frame0), which RETURNS frame0 = the DESCR it received in rdi:rsi -- but every wire-exiting body (bb_glue_wire_γ = `jmp r10`, the RETURN floater "rax:rdx riding untouched", the EXPR$ thunk's n_assign box) delivers its value in rax:rdx.  MEASURED: `*(X 'b')` / `*GT(N,3)` / `*IDENT(X,'a')` reached this landing with the right value in rax:rdx and the C caller received whatever rdi:rsi held (the last operand load before the body's final C call) -- benign-looking null garbage for `*DIFFER(X)` shapes (their MATCH was accidental), a rejected descriptor for the rest.  The landing now forwards rax:rdx into rdi:rsi; the non-RSP #else arm keeps its own frame-slot load (different regime). */
+/* ⭐ EXPR-THUNK RESULT (class B, s96, second half): the γ landing tail-calls rt_proc_call_epilogue_γ(DESCR_t frame0), which RETURNS frame0 = the DESCR it received in rdi:rsi -- but every wire-exiting body (bb_glue_wire_γ = `jmp r10`, the RETURN floater "rax:rdx riding untouched", the EXPR$ thunk's n_assign box) delivers its value in rax:rdx.  MEASURED: `*(X 'b')` / `*GT(N,3)` / `*IDENT(X,'a')` reached this landing with the right value in rax:rdx and the C caller received whatever rdi:rsi held (the last operand load before the body's final C call) -- benign-looking null garbage for `*DIFFER(X)` shapes (their MATCH was accidental), a rejected descriptor for the rest.  The landing now forwards rax:rdx into rdi:rsi; the non-RSP #else arm keeps its own frame-slot load (different regime). */
 /* ⭐ EXPR-THUNK EXITS (GOAL-SNOBOL4-100 bb_probes class B, s96): the wires ride r10/r11 (Lon s55: "R10 and R11 for success and fail return address ... just like any BB BLOB interface"; role-3 WIRE-ADOPT is EMPTY since s55) and every emitted body exits bb_glue_wire_γ/ω = `jmp r10`/`jmp r11` -- yet this C-side opener still delivered its landings ONLY in rcx/rdx and the RTCC inbound load then seated the CALLER's written-back wires (or 0) in r10/r11 last.  MEASURED (`S BREAK(',') *DIFFER(X)`, every *EXPR pattern element via c_rt_defer_get_pat_fn -> rt_call_proc_descr -> here): the EXPR$ thunk unwound cleanly to this frame and jumped through wire 0.  Both arms now seat r10=2f/r11=3f AFTER the load; rcx/rdx kept (chain contract readers).  A fresh C-entered activation OWNS its ports; the caller's wires survive in rtccb and reload at its own crossing return. */
 __asm__(
 ".text\n"
@@ -1687,7 +1687,7 @@ DESCR_t rt_proc_enter(void *fn);
 /* OPEN-FN LEAF — the emitted call site's fn fetch.  Under the call regime the entry rode back out of
  * rt_frame_prep; under jmp-entry there is no caller-made frame to prep, so the site asks for the entry alone.
  * Strict leaf: reads the pcall record the open just pushed. */
-void *c_rt_proc_open_fn(void)
+void *rt_proc_open_fn(void)
 {
     return (void *)0;   /* GLOBALS-GONE s55: record eradicated */ /* fn now rides the OPEN return itself (rax channel) */
 }
@@ -1751,7 +1751,7 @@ long rt_proc_call_open(const char *name, int nargs)
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* FN-RET OPEN (s104) — the s55 rax-channel contract for the transfer consumers (rt_dcap_pump COND flush, rt_cap_open IMM): admitted == nonzero == THE TRANSFER TARGET.  c_rt_proc_open_fn was eradicated
+/* FN-RET OPEN (s104) — the s55 rax-channel contract for the transfer consumers (rt_dcap_pump COND flush, rt_cap_open IMM): admitted == nonzero == THE TRANSFER TARGET.  rt_proc_open_fn was eradicated
  * at s55 (returns 0) but these two consumers were never migrated: every computed-name (*VAR/NRETURN) capture transfer since then loaded fbytes, nulled it through open_fn, and jumped 0. */
 void *rt_proc_call_open_fnret(const char *name, int nargs)
 {
@@ -1764,7 +1764,7 @@ void *rt_proc_call_open_fnret(const char *name, int nargs)
  * (rt_proc_index_of; registration order is identical in-process and in the mode-4 startup bake, so the index is stable in both media), and calls here with the index — no name, no hash, and no separate
  * rt_proc_open_fn crossing.  Runs the same lex prologue as rt_proc_call_open's lexical arm and returns the callee fn pointer (0 = no body / guard mismatch, landing in the site's existing FAIL arm);
  * guards precede every side effect, so a refuse is side-effect-free exactly like the SCC arm's discipline. */
-void *c_rt_proc_call_open_det(long idx, int nargs)
+void *rt_proc_call_open_det(long idx, int nargs)
 {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
     { rt_proc_t *p = &g_rt_gen_procs[idx];
@@ -1980,11 +1980,9 @@ void *rt_frame_prep(void *fb, long fbytes)
     return (void *)0;   /* GLOBALS-GONE s55: record eradicated */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* FAIL LEAF (NCB-1b) — the emitted call site's no-body arm.  rt_proc_call_open returns 0 when the proc has no
- * body; the C trampolines answered that with `return FAILDESCR`, but an emitted site cannot materialise a
- * struct-by-value constant, so it calls this instead and lands the same rax:rdx pair.  Strict leaf. */
-DESCR_t c_rt_faildescr(void) { return FAILDESCR; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* FAIL LEAF (NCB-1b) — the emitted call site's no-body arm lands the FAILDESCR rax:rdx pair via rt_faildescr,
+ * which is RTX asm (rtx_misc.S).  Its c_rt_faildescr C-of-record twin was DELETED s180 (RT-CONSOLIDATION rung 1,
+ * Lon: one implementation per fact); the golden battery rtx_unit_test.c carries the C twin's final testimony. */
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
@@ -2229,17 +2227,10 @@ void rt_nofail_abort(void)
     exit(1);   /* belt-and-braces: core_runtime_error is fatal for code 35, but rt_call_arr's setjmp may intercept the longjmp; direct exit ensures termination */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⭐⭐⭐ GLOBALS-GONE s55 UNPREFIXED ALIASES — rtx_call.S / rtx_plcall.S deleted with the g_pcall record they ported (Lon in-chat: "Remove g_pcall* regardless of who uses them.  We do not do that
- * here.").  The unprefixed hot symbols they exported are still baked by templates and called by runtime C; each is now a thin jump to its record-free C body.  No RTX re-port is owed until the
- * stack-resident record exists (RBP-era coming-out work). */
-DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0) { return c_rt_proc_call_epilogue_γ(frame0); }
-DESCR_t rt_proc_call_epilogue_ω(void) { return c_rt_proc_call_epilogue_ω(); }
-DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result) { return c_rt_proc_call_epilogue_slim_γ(result); }
-DESCR_t rt_proc_call_epilogue_slim_ω(void) { return c_rt_proc_call_epilogue_slim_ω(); }
-DESCR_t rt_proc_call_epilogue_named_γ(const char *name) { return c_rt_proc_call_epilogue_named_γ(name); }
-DESCR_t rt_proc_call_epilogue_named_ω(const char *name) { return c_rt_proc_call_epilogue_named_ω(name); }
-void *rt_proc_open_fn(void) { return c_rt_proc_open_fn(); }
-void *rt_proc_call_open_det(long idx, int nargs) { return c_rt_proc_call_open_det(idx, nargs); }
+/* ⛔⭐⭐⭐ GLOBALS-GONE s55 ALIAS LAYER COLLAPSED (s180, RT-CONSOLIDATION rung 1 — Lon 2026-08-20 in-chat: "We do not want two versions of the same code to maintain").  History: rtx_call.S /
+ * rtx_plcall.S were deleted with the g_pcall record they ported (s55); the unprefixed hot symbols they exported were kept alive as thin C wrappers over c_rt_* bodies, staged for an RTX re-port
+ * "when the stack-resident record exists".  Today's ruling retires the staging: the c_rt_* bodies ABOVE now carry the rt_* names directly (one function, one name); a future RTX port lands as a
+ * WHOLE replacement .S defining rt_* and deleting the C body in the same commit — never a parallel twin. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
 {   /* ONE-REG (Lon s119): replays EXACTLY the per-proc call sequence the pre-s119 m4 startup block emitted, in the same order, with the same skip conditions — behavior-identical by construction (every setter below is the same symbol the old block called via PLT).  _Static_asserts pin the record layout the scrip.c emitter spells in .quad/.long directives; a drift between the two is a compile error here, not a silent wrong-field read. */

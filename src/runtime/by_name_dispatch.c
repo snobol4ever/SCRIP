@@ -261,15 +261,7 @@ int pl_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int c_rt_is_truthy(DESCR_t v) {
-    if (IS_FAIL_fn(v)) return 0;
-    if (IS_INT_fn(v))  return v.i != 0;
-    if (IS_REAL_fn(v)) return v.r != 0.0;
-    if (v.v == DT_SNUL) return 0;
-    const char *s = v.s ? v.s : "";
-    return s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_is_truthy is RTX asm (rtx_misc.S); its c_rt_is_truthy C-of-record twin was DELETED s180 (RT-CONSOLIDATION rung 1) — the golden battery rtx_unit_test.c carries the twin's final 21-row testimony (NaN, ±0.0, slen!=0, "0x" edges included). */
 int rt_builtin_is_known(const char *name)
 {
     if (!name) return 0;
