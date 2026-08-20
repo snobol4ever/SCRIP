@@ -122,7 +122,8 @@ static void zsm_dump(void)
     unsigned long n = g_zsm_tr_n < ZSM_TRACE ? g_zsm_tr_n : ZSM_TRACE, i, first = g_zsm_tr_n < ZSM_TRACE ? 0 : g_zsm_tr_n % ZSM_TRACE;
     fprintf(stderr, "[ZSM] --- last %lu ports (oldest first), event #%lu ---\n", n, g_zsm_events);
     for (i = 0; i < n; i++) { unsigned long j = (first + i) % ZSM_TRACE;
-        fprintf(stderr, "[ZSM]   %-6s node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld\n", zsm_kn(g_zsm_tr_kind[j]), g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j]); }
+        { long _k = g_zsm_tr_kind[j] & 0xFFL, _o = (g_zsm_tr_kind[j] >> 8) & 0xFFFFL;   /* ⛔ THE NUMBER, NOT THE NAME, ON PURPOSE: bb_op_name lives in contracts/IR.h, and the runtime MAY NOT KNOW IR (RULES: language identity stops at lower; no SM/BB knowledge at runtime).  Pulling that header in to pretty-print a debug line would buy legibility with an architecture violation.  util_autobug.sh does the op=N -> IR_* mapping instead, parsing the enum at read time -- the layering stays clean and the tool is where a human reads it anyway. */
+          fprintf(stderr, "[ZSM]   %-6s op=%-5ld node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld\n", zsm_kn(_k), _o, g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j]); } }
 }
 static void zsm_leak_report(void)
 {   /* ⭐ s142 -- registered via atexit (rt_zdp_sm_init), so this runs exactly once, at process end, over every
@@ -163,10 +164,11 @@ void rt_zdp_sm_init(void)
 }
 void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind)
 {
+    long zop = (kind >> 8) & 0xFFFFL; kind &= 0xFFL;   /* ⭐⭐⭐ ZSM OP-TAG (s182, HQ Fable): the caller packs the producing box's IR KIND into the HIGH BITS of `kind`, so the trace ring can print WHAT each port belonged to instead of a bare node id.  Zero ABI change (kind is already a long and the rtx_zdp shim forwards rcx untouched), ZERO NEW STATE (the tag rides the EXISTING g_zsm_tr_kind cell, unpacked again at print), and unpacked HERE at the top so every FSM comparison below still sees the plain 0..8 port kind it always did.  Motivation, measured: a 64-port beauty window of bare node ids is unreadable, and Lon's IPC/ZSM method lives or dies on reading that window. */
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
     unsigned long t = g_zsm_tr_n % ZSM_TRACE;
     long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;   /* ⭐ THE PHYSICAL MEASUREMENT: bytes carved below this graph's entry frontier and still standing at this port.  Reported raw; no expected value is consulted. */
-    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind; g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
+    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind | (zop << 8); g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), node, depth, rsp, rbp, zsm_sn(e->state));
     if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;   /* ⭐ s179 ZSM-ALL: kinds 5..8 are the FRAMELESS α/β/ω/γ (SCRIP_ZSM_ALL=1, every box).  Normalized onto the same FSM by ONE identity: a frameless box's "own frame" IS the enclosing one, so F := rbp-at-α (see the kind==1 arm) -- after which all four existing checks read exactly as Lon's law 0b invariants (β/γ: rbp == rbp-at-α; ω: rbp == E; ω rsp >= rsp-at-α).  The trace ring and census above keep the raw 5..8 spelling so a frameless port is distinguishable in every dump.  A LOCAL, deliberately: this rung adds ZERO file-scope state (the NO-NEW-GLOBALS fact rule). */

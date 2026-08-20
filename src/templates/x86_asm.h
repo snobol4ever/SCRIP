@@ -2594,7 +2594,7 @@ inline std::string x86_zsm_ev(int kind) {   /* ⭐ THE ONE EMITTED FORM for all 
          + x86("add",  "rdx", 64L)
          + x86("mov",  "rdi", (long)_.nid)
          + x86("mov",  "rsi", "rbp")
-         + x86("mov",  "rcx", (long)kind)
+         + x86("mov",  "rcx", (long)(kind | ((long)_.op_node_kind << 8)))   /* ⭐ ZSM OP-TAG (s182): pack the producing box's IR kind into the high bits so the trace ring prints WHAT each port was, not just a node id; rt_zdp_sm_event masks it off before any FSM test.  Armed-only path -- the default build emits no ZSM at all, so this is byte-identical by construction. */
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop",  "r11") + x86("pop", "r10") + x86("pop", "r9")  + x86("pop", "r8")
          + x86("pop",  "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");

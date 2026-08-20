@@ -42,7 +42,30 @@ fi
 # ---------------------------------------------------------------- (2) the bounded trace, ending AT the divergence
 echo; echo "--- (2) THE BUG WINDOW: last $RING four-port events before the kill (oldest first) ---"
 if [ -s "$ART/scr.err" ] && grep -q '^\[ZSM\]   ' "$ART/scr.err"; then
-    grep '^\[ZSM\]' "$ART/scr.err" | tail -n "$((RING+1))"
+    # op=N -> IR_* here, NOT in the runtime: bb_op_name lives in contracts/IR.h and the runtime may not
+    # know IR (RULES: no SM/BB knowledge at runtime).  The enum is parsed at read time, so it cannot rot.
+    grep '^\[ZSM\]' "$ART/scr.err" | tail -n "$((RING+1))" | python3 -c '
+import re,sys,os
+hdr=os.path.join(os.environ.get("S4E_SRC","'"$S4E"'/SCRIP"),"src/contracts/IR.h")
+names={}
+try:
+    txt=open(hdr).read()
+    m=re.search(r"typedef\s+enum[^{]*\{(.*?)\}\s*IR_e", txt, re.S)
+    body=m.group(1) if m else ""
+    body=re.sub(r"/\*.*?\*/","",body,flags=re.S)
+    i=0
+    for tok in re.findall(r"\b(IR_[A-Z0-9_]+)\b\s*(=\s*[0-9]+)?\s*,", body):
+        nm,val=tok
+        if val: i=int(val.split("=")[1])
+        names[i]=nm; i+=1
+except Exception: pass
+for ln in sys.stdin:
+    mm=re.search(r"op=(\d+)", ln)
+    if mm:
+        n=int(mm.group(1))
+        ln=ln.replace("op=%-5d"%n if False else mm.group(0), "%-24s"%names.get(n,"op=%d"%n),1)
+    sys.stdout.write(ln)
+'
 else
     echo "(no ZSM ring in $ART/scr.err — is this build current?  the ring needs SCRIP_ZSM_RING and a ZSM-armed run)"
     grep -E '^\[ZSM\]' "$ART/scr.err" 2>/dev/null | tail -5
