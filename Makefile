@@ -31,7 +31,7 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
-RT_OPT  ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O2-ALWAYS (Lon 2026-08-20 in-chat, s178, SUPERSEDES O0-DEV/s119 and O2-DIRECTED-ONLY/s126): -O2 ALL the time — normal work recompiles subsets, full rebuilds are rare, and perf numbers stop needing a special build. RT_OPT="-O0 ..." remains the explicit opt-out for debugging sessions that want unoptimized frames.
+RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O0-DEV-O2-BENCH (Lon 2026-08-20 in-chat, s179, SUPERSEDES O2-ALWAYS/s178): -O0 for ALL normal development — -O2 is reserved for benchmark and demo runs, passed explicitly (RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" make). Label any perf number with its RT_OPT.
 DEPFLAGS := -MMD -MP
 CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
@@ -332,7 +332,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var_frame.cpp \
     $(SRC)/templates/bb_var_frame_ref.cpp
 
-RT_OPT ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O2-ALWAYS (Lon 2026-08-20 s178): default -O2 everywhere; -O0 is the explicit debug opt-out
+RT_OPT ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O0-DEV-O2-BENCH (Lon 2026-08-20 s179): -O0 for development; -O2 explicitly for benchmark/demo runs only
 RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
     -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer
 RT_OBJDIR := out/rt_pic
