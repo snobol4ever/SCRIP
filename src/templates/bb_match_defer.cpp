@@ -29,6 +29,7 @@ static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = ge
 extern "C" int emit_defer_carve_rbp(void);
 static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }   /* ⭐⭐⭐⭐⭐ s137 — "DOES THIS DEFER MANAGE ITS OWN FRAME?", asked ONCE for all seven paired sites (α push · α watermark · γ · ω · β), so the exits can never disagree with the entry about whether a frame exists.  THE WHOLE POINT OF ONE HELPER: the previous spelling repeated `_.op_seal == 1` seven times, which is the s68/s70 spelled-twice disease with six chances to drift -- and an α that pushes with a β that does not pop is an unbalanced stack, i.e. the failure mode is silent corruption rather than a compile error.  OFF (default) this is EXACTLY `_.op_seal == 1` and the emission is byte-identical by construction; ON it admits the UNSEALED defer, which is what an ARBNO body defer always is.  Rationale, measured chain and the flip protocol: emit_defer_carve_rbp() in emit.cpp. */
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
+static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }   /* ⭐ PT-3 ROUND-TRIP COLLAPSE ARM (killswitch SCRIP_PATV_FAST, DEFAULT OFF -- absent or 0 => not one byte emitted => byte-identical to the pre-rung box).  NOT a new global: the same one function-static getenv cache idiom as fence0_whack_on/rspd, and it lives HERE rather than in emit.cpp because -- unlike FZ-3 -- this arm carves nothing, so the zeta depth planner has no question to ask.  It changes only WHICH instructions the vslot arm emits, never how many bytes of spine the box claims, so an armed template can never meet a disarmed planner. */
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -68,6 +69,26 @@ std::string bb_match_defer() {
              + x86("mov",  "rax", RDQ("rdx", 0))
              + x86("jmp",  L(11))
              + x86("def",  L(13)))
+         + IF(vslot >= 0 && patv_fast_on(),
+               x86("comment", "⭐ PT-3 ROUND-TRIP COLLAPSE (SCRIP_PATV_FAST): the 3-call C round trip rt_patv_defer_get_pat_dtp -> patv_slot -> dtp_fn_of, measured at 59.4% of ALL treebank-match cycles (FINDING s168 PT-0/1/2), is spent ONLY on the arms that need it.  WHAT MAKES THE SKIP PROVABLE, not merely plausible: dtp_fn_of is `if (!h->fn && h->rcp) { lazy-compile }; return h->fn;` -- so once fn is MATERIALIZED it is a PURE function returning [dtp+0], which is the very word the cold arm below re-loads by hand two lines later.  Reproduce patv_slot's snap arm inline (h=[rbp-24], snap=[h+32], nsnap=[h+40] -- the offsets DTP_t's own definition publishes for asm consumers), take the DT_P/payload test in the GVA arm's already-verified spelling, and if fn is non-null we are DONE with zero calls.  EVERY other case -- no DTP, no snap, index past nsnap, not DT_P, null payload, fn not yet compiled -- falls through to the UNCHANGED cold path, so the arm cannot answer differently, only sooner.")
+             + x86("mov",  "rdi", RDQ("rbp", -24))
+             + x86("test", "rdi", "rdi")
+             + x86("je",   L(17))
+             + x86("mov",  "rsi", RDQ("rdi", 32))
+             + x86("test", "rsi", "rsi")
+             + x86("je",   L(17))
+             + x86("cmp",  RDQ("rdi", 40), (long)vslot + 1)
+             + x86("jl",   L(17))
+             + x86("mov",  "rax", RDQ("rsi", vslot * 16))
+             + x86("cmp",  "eax", (long)DT_P)
+             + x86("jne",  L(17))
+             + x86("mov",  "rdx", RDQ("rsi", vslot * 16 + 8))
+             + x86("test", "rdx", "rdx")
+             + x86("je",   L(17))
+             + x86("mov",  "rax", RDQ("rdx", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne",  L(18))
+             + x86("def",  L(17)))
          + IF(vslot >= 0,
                x86("comment", "PB-1s (s108) $V PER-CONSTRUCTION SLOT: value = snap[i] of the DTP this activation runs under ([rbp-24], preamble-stored from entry rdx); the PAT$n$V global is stage-2 marshalling whose lifetime ends at MKPAT -- per-site cell reads were the case_driver cycle/stale class")
              + x86("mov",  "rdi", RDQ("rbp", -24))
@@ -80,7 +101,8 @@ std::string bb_match_defer() {
              + x86("test", "rax", "rax")
              + x86("je",   L(16))
              + x86("mov",  "rax", RDQ("rdx", 0))
-             + x86("def",  L(16)))
+             + x86("def",  L(16))
+             + IF(patv_fast_on(), x86("def", L(18))))
          + IF(vslot < 0 && g_gva_active && _.op_gva_k >= 0,
                x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
              + x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
