@@ -2581,6 +2581,33 @@ void sno_expr_thunks_build(int x0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_pat_count(void) { return g_sno_npat; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, IR_t * no, IR_t ** out_brt, int * out_pfenced) {   /* ⭐⭐⭐ THE ONE AUTHORITY for "build a stored-pattern body and capture its rightmost resume carrier" (s183, HQ Fable — extracted VERBATIM from sno_pat_thunks_build so the two roads cannot drift; the extraction is the whole point, see sno_pat_tree_graph_rt).  Half B1 of SN4-DEFER-RESUME (s121): a fence-free multi-element top is built through the IDENTICAL flatten→nary path sno_pat_node's TT_SEQ arm takes (same flatten, same args, byte-identical emission) — one level lower ONLY to capture out_rtail, the run's rightmost resume carrier (beauty's `Parse` is a 4-element SEQ; resume must land its rightmost generator, never element 0).  Fenced or single-element tops keep the sno_pat_node route verbatim. */
+    IR_t * pe; *out_brt = NULL;
+    int pfenced = sno_pat_contains_fence(pat, 0);   /* ⛔ SCRIP_FENCE_IGNORE=1 IS A DIAGNOSTIC ONLY, NEVER A FIX (s182): zeroes the fence verdict outright so a seat can MEASURE how much of a program's behaviour the s121 fence refusal alone is responsible for.  It is UNSOUND by construction -- the nary diversion and the carrier publication both key off pfenced, and a fence really does refuse a backward entry -- so a green run under it is a MEASUREMENT, not a cure. */
+    if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;   /* ⭐ SN4-DEFER-RESUME FENCE REFUSE: one verdict feeds both the nary diversion and the carrier publication */
+    { const tree_t * fel[128]; int fne = 0; sno_seq_flatten_pat(pat, fel, &fne);
+      pe = (sno_defer_resume() && fne > 1 && !pfenced) ? sno_seq_nary(px, fel, fne, ok, no, out_brt) : sno_pat_node(px, pat, ok, no); }
+    *out_pfenced = pfenced;
+    return pe;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tree_t * pat, IR_t * brt, int pfenced, const char * dbgname) {   /* ⭐⭐⭐ THE ONE AUTHORITY for "which node is this blob's published resume surface" (s183, HQ Fable — extracted VERBATIM from sno_pat_thunks_build; sno_pat_tree_graph_rt spelled this fact a SECOND time and got it wrong, which was THE M1 WALL).  body_root IS the resume surface: fence-free SEQ top → nary's out_rtail (rightmost element's carrier); else the first REAL body node — "R first-allocated ⇒ R.β IS resume" per the TT_ARB/TT_ARBNO arms' own doc, and a deterministic carrier's β is a harmless fail-through, so this is uniform.  Leading argument-less GOTO relays (nested-nary sentinels) are skipped exactly as SEQ-ERAD SE-6's own warning prescribes.  right-sealed blobs keep body_root=NULL — a sealed blob exposes NO resume surface (manual Ch.19, backup through the rightmost fence must not re-enter). */
+    IR_t * rn = NULL;
+    if (sno_defer_resume() && !pfenced) {
+        rn = brt;
+        if (!rn) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { rn = x2; break; } }
+    }
+    else if (sno_defer_resume() && pfenced) { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME");   /* ⭐⭐⭐ FENCE-RESUME (s182, HQ Fable; SCRIP_FENCE_RESUME=0 reverts byte-identically).  THE s121 FENCE REFUSE IS A SHAPE REFUSAL AND LAW 0d FORBIDS IT: a fence ANYWHERE published body_root=NULL for the WHOLE blob, so a stored `ARBNO(FENCE(X))` emitted `PAT$N_β: jmp PAT$N_ω` and CONCEDED instead of extending.  THE MANUAL IS THE AUTHORITY (v3.7 Ch.9/18): FENCE "fails if the scanner has to BACK UP THROUGH it", while ARBNO's β does not back through anything -- it EXTENDS FORWARD with one more instance at the current cursor.  NARROWED, NOT DELETED (the refusal owns a named 7-mover class 114/119/129/130/148/149/150): the carrier is published ONLY when the FIRST real body node is itself a TIER-1 GENERATOR by the zdp lattice.  The fence template's own β still concedes if it is ever reached, so the cut semantics are untouched. */
+        if (!(_fre && *_fre == '0')) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { if (zdp_seam_tier(x2) == 1) rn = x2; break; } }
+    }
+    int rs = sno_pat_right_sealed(pat) ? 1 : 0;
+    gp->body_root = (gp->n > before_pat && !rs) ? ((sno_defer_resume() && pfenced && !rn) ? NULL : (rn ? rn : gp->all[before_pat])) : NULL;
+    if (getenv("SCRIP_RESUME_WHY") && !gp->body_root)   /* ⛔ DIAGNOSTIC ONLY (s182): a stored pattern with body_root==NULL concedes WHOLESALE at beta, so naming WHICH of the three refusals fired -- empty body, right-sealed, or fenced-without-a-tier-1-carrier -- turns 'N blobs refuse' into N named rungs. */
+        fprintf(stderr, "[RESUME-NIL] pat=%s empty=%d right_sealed=%d pfenced=%d rn=%d brt=%d\n", dbgname ? dbgname : "?", !(gp->n > before_pat), rs, pfenced, rn ? 1 : 0, brt ? 1 : 0);
+    if (getenv("SCRIP_RESUME_WHY"))   /* ⛔ DIAGNOSTIC ONLY (s183, seat1's [RTGRAPH] probe grafted into the shared authority at the merge so it names the carrier for BOTH roads, not just the JIT one -- a diagnostic that answers for one of two callers is how the second spelling stayed invisible for 60 sessions). */
+        fprintf(stderr, "[RTGRAPH] pat=%s pfenced=%d brt=%d rn=%d body_root_op=%d\n", dbgname ? dbgname : "?", pfenced, brt ? 1 : 0, rn ? 1 : 0, gp->body_root ? (int) gp->body_root->op : -1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_pat_thunks_build(int p0) {
     int sv = g_sno_in_patproc;
@@ -2592,12 +2619,8 @@ void sno_pat_thunks_build(int p0) {
         IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
         px.pat_fail = no; px.pat_seal = no;
         int before_pat = gp->n;
-        IR_t * pe; IR_t * brt = NULL;
-        int pfenced = sno_pat_contains_fence(g_sno_pats[pi2].pat, 0);   /* ⛔ SCRIP_FENCE_IGNORE=1 IS A DIAGNOSTIC ONLY, NEVER A FIX (s182): zeroes the fence verdict outright so a seat can MEASURE how much of a program's behaviour the s121 fence refusal alone is responsible for.  It is UNSOUND by construction -- the nary diversion and the carrier publication both key off pfenced, and a fence really does refuse a backward entry -- so a green run under it is a MEASUREMENT, not a cure. */
-        if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;   /* ⭐ SN4-DEFER-RESUME FENCE REFUSE: one verdict feeds both the nary diversion and the carrier publication below */
-        { const tree_t * fel[128]; int fne = 0; sno_seq_flatten_pat(g_sno_pats[pi2].pat, fel, &fne);
-          pe = (sno_defer_resume() && fne > 1 && !pfenced) ? sno_seq_nary(&px, fel, fne, ok, no, &brt)   /* ⭐ SN4-DEFER-RESUME (s121) half B1: a fence-free multi-element top is built through the IDENTICAL flatten→nary path sno_pat_node's TT_SEQ arm takes (same flatten, same args, byte-identical emission) — one level lower ONLY to capture out_rtail, the run's rightmost resume carrier, which becomes the blob's published resume surface below (beauty's `Parse` is a 4-element SEQ; resume must land its rightmost generator, never element 0).  Fenced or single-element tops keep the sno_pat_node route verbatim. */
-                                                           : sno_pat_node(&px, g_sno_pats[pi2].pat, ok, no); }
+        IR_t * brt = NULL; int pfenced = 0;
+        IR_t * pe = sno_pat_carrier_build(&px, g_sno_pats[pi2].pat, ok, no, &brt, &pfenced);   /* ⭐ s183: the build+capture is now THE ONE AUTHORITY shared with sno_pat_tree_graph_rt (the JIT road) — this site's behaviour is unchanged by construction, the extraction is verbatim. */
         {
             extern tree_t *ast_stmt_new(tree_e kind);
             IR_t * paft = pe;
@@ -2618,16 +2641,7 @@ void sno_pat_thunks_build(int p0) {
         }
         gp->entry = pe;
         gp->resumable_callable = 1;
-        { IR_t * rn = NULL;
-          if (sno_defer_resume() && !pfenced) {
-              rn = brt;   /* ⭐ SN4-DEFER-RESUME (s121) half B1: body_root IS the resume surface (its own NCB-2/SZ-1 name, finally made true for SNOBOL4): fence-free SEQ top → nary's out_rtail (rightmost element's carrier); else the first REAL body node — "R first-allocated ⇒ R.β IS resume" per the TT_ARB/TT_ARBNO arms' own doc, and a deterministic carrier's β is a harmless fail-through, so this is uniform.  Leading argument-less GOTO relays (nested-nary sentinels) are skipped exactly as SEQ-ERAD SE-6's own warning prescribes.  right-sealed blobs keep body_root=NULL — a sealed blob exposes NO resume surface (manual Ch.19, backup through the rightmost fence must not re-enter). */
-              if (!rn) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { rn = x2; break; } }
-          }
-          else if (sno_defer_resume() && pfenced) { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME");   /* ⭐⭐⭐ FENCE-RESUME (s182, HQ Fable; SCRIP_FENCE_RESUME=0 reverts byte-identically).  THE s121 FENCE REFUSE IS A WHOLESALE SHAPE REFUSAL AND LAW 0d FORBIDS IT: sno_pat_contains_fence means "a fence ANYWHERE", and one anywhere published body_root=NULL for the WHOLE blob, so the β-dispatch had no resume surface and emitted `PAT$N_β: jmp PAT$N_ω`.  A stored `ARBNO(FENCE(X))` therefore CONCEDED instead of extending -- witness ptw_min_arbno_fence_defer, and beauty's own `Parse = nPush() ARBNO(*Command) ...` with `Command = nInc() FENCE(3-arm ALT)`, i.e. THE M1 WALL.  THE MANUAL IS THE AUTHORITY (v3.7 Ch.9/18): FENCE "fails if the scanner has to BACK UP THROUGH it", while ARBNO's β does not back through anything -- it EXTENDS FORWARD with one more instance at the current cursor (ARBNO(P) == ( '' | P | P P | ... )).  Two different motions the wholesale scan could not tell apart.  NARROWED, NOT DELETED (the refusal owns a named 7-mover class 114/119/129/130/148/149/150): the carrier is published ONLY when the FIRST real body node is itself a TIER-1 GENERATOR by the zdp lattice -- the ONE authority for "this box's β EXTENDS" -- so every other fenced shape keeps the old NULL exactly.  The fence template's own β still concedes if it is ever reached, so the cut semantics are untouched. */
-              if (!(_fre && *_fre == '0')) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { if (zdp_seam_tier(x2) == 1) rn = x2; break; } }
-          }
-          gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(g_sno_pats[pi2].pat)) ? ((sno_defer_resume() && pfenced && !rn) ? NULL : (rn ? rn : gp->all[before_pat])) : NULL;
-          if (getenv("SCRIP_RESUME_WHY") && !gp->body_root) fprintf(stderr, "[RESUME-NIL] pat=%s empty=%d right_sealed=%d pfenced=%d rn=%d brt=%d\n", g_sno_pats[pi2].name ? g_sno_pats[pi2].name : "?", !(gp->n > before_pat), sno_pat_right_sealed(g_sno_pats[pi2].pat) ? 1 : 0, pfenced, rn ? 1 : 0, brt ? 1 : 0);   /* ⛔ DIAGNOSTIC ONLY (s182): a stored pattern with body_root==NULL concedes WHOLESALE at beta (PAT$N_β: jmp PAT$N_ω), so naming WHICH of the three refusals fired -- empty body, right-sealed, or fenced-without-a-tier-1-carrier -- turns 'N blobs refuse' into N named rungs.  No behaviour change; getenv at the site. */ }   /* ⭐ FENCE REFUSE publishes NULL, not the stale first-allocated: the 7-mover class (114/119/129/130/148/149/150) is fence VIA VAR — the fence lives in the INNER stored pattern, so the outer tree check cannot see it and must not need to: the INNER blob (fence literal in ITS tree) NULLs its own surface here, its dispatch defaults to lbl_ω, and it refuses to extend exactly as =0 did.  NULL is a long-supported value (right-sealed blobs, Prolog arity-0); the keep-alive consumers lose only a redundant ref to an entry-reachable node.  =0 publishes the old value verbatim. */
+        sno_pat_publish_body_root(gp, before_pat, g_sno_pats[pi2].pat, brt, pfenced, g_sno_pats[pi2].name);   /* ⭐ s183: the publish is now THE ONE AUTHORITY shared with sno_pat_tree_graph_rt (the JIT road), which spelled this fact a SECOND time and got it wrong — THE M1 WALL. */
         int ppi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[ppi].name = g_sno_pats[pi2].name;
         g_stage2.proc_table[ppi].proc = NULL;
@@ -2846,22 +2860,14 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;
     int before_pat = gp->n;
-    IR_t * pe; IR_t * brt = NULL;
-    int pfenced = sno_pat_contains_fence(pat, 0);
-    if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;   /* one verdict feeds both the nary diversion and the carrier publication below, exactly as the PAT$ site spells it */
-    { const tree_t * fel[128]; int fne = 0; sno_seq_flatten_pat(pat, fel, &fne);
-      pe = (sno_rtseq_resume() && sno_defer_resume() && fne > 1 && !pfenced) ? sno_seq_nary(&px, fel, fne, ok, no, &brt)
-                                                                            : sno_pat_node(&px, pat, ok, no); }
+    int rtc = sno_rtseq_resume();   /* ⭐⭐⭐ RTSEQ-RESUME / RT-CARRIER (s183 -- seat1 and HQ Fable found this INDEPENDENTLY and landed within minutes of each other; MERGED here, seat1's killswitch name kept because it landed first, HQ's EXTRACTION kept because the defect WAS a second spelling and a third copy would re-arm it).  ⛔ THIS WAS THE M1 WALL.  A RUNTIME-COMPOSED pattern (`P = mk() ''` -- a concat whose elements are FUNCTION-CALL RESULTS, i.e. beauty's `Parse` verbatim) is not a PAT$ blob: pat_cat builds a TT_SEQ recipe and dtp_fn_of JITs it through HERE.  This builder published `gp->all[before_pat]` RAW, which for a multi-element SEQ is a leading argument-less GOTO relay; branch_chain.c:59 then chased that relay to the IR_SUCCEED terminator, which is not even in the emitted node set, so emit.cpp's β dispatch found no resume target and defaulted to lbl_ω.  MEASURED: body_root_op=116 (IR_SUCCEED) tier=0 in_nodes=0 on the JIT road vs op=72 (IR_MATCH_LIT) tier=2 in_nodes=1 on the statically-lowered twin -- so the composed pattern's β could never re-enter its LEFT element to extend it, and the retreat unwound to MATCH_BEGIN's restart loop instead.  Witness pair: probe/passthru/ptw_min_fncat_arbno (ARBNO ports α+γ only, never β) vs ptw_min_varcat (α+β+γ).  THE CURE IS NOT A NEW RULE -- it is deleting the second spelling: both roads now call the ONE AUTHORITY, so the JIT road inherits the nary carrier capture, the FENCE-RESUME tier-1 narrowing (which the copy-paste cut omitted -- beauty's own `Command = nInc() FENCE(3-arm ALT)` is exactly a fenced composed pattern), the right-sealed refusal and the GOTO-relay skip.  SCRIP_RTSEQ_RESUME=0 restores the two pre-rung lines verbatim. */
+    IR_t * brt = NULL; int pfenced = 0;
+    IR_t * pe = rtc ? sno_pat_carrier_build(&px, pat, ok, no, &brt, &pfenced) : sno_pat_node(&px, pat, ok, no);
     if (px.npre > 0) sno_fatal("runtime-operand primitive reached the RT recipe graph builder — recipes must bake literal args (B-RE contract)", NULL);
     gp->entry = pe;
     gp->resumable_callable = 1;
-    { IR_t * rn = NULL;
-      if (sno_rtseq_resume() && sno_defer_resume() && !pfenced) {
-          rn = brt;
-          if (!rn) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { rn = x2; break; } }
-      }
-      gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? (rn ? rn : gp->all[before_pat]) : NULL;
-      if (getenv("SCRIP_RESUME_WHY")) fprintf(stderr, "[RTGRAPH] pfenced=%d brt=%d rn=%d body_root_op=%d\n", pfenced, brt ? 1 : 0, rn ? 1 : 0, gp->body_root ? (int) gp->body_root->op : -1); }   /* ⛔ DIAGNOSTIC ONLY: names WHICH carrier the JIT road published, the RT twin of the PAT$ site's [RESUME-NIL]. */
+    if (rtc) sno_pat_publish_body_root(gp, before_pat, pat, brt, pfenced, "RT$");
+    else gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? gp->all[before_pat] : NULL;
     return gp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
