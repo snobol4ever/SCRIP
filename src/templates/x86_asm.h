@@ -1327,6 +1327,15 @@ inline std::string x86_reg_disp32_load32(const char * dst, const char * base, in
     return x86_rec("mov") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_add32(const char * dst, const char * base, int disp) {   /* add r32, dword ptr [base+disp] — 0x03 /r, the load32 shape with the ALU opcode (s177 PF-1: ARB's β `add eax, LFC(0)` on the rbp arm had NO dispatch and fell through x86()'s silent empty return — the ZB-FC-1 silent-drop class this file's own FATAL guards exist to catch; the guard below now covers REGDISP kinds too) */
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex; c += (char)0x03; x86_rd32_modrm(c, g, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("add") + dst + ", dword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_store32(const char * base, int disp, const char * src) {
     int g = x86_rnum(src), b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1934,11 +1943,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_EXTLBL && xc.tag == 2) return x86_lea_ext(a.txt, (const struct bb_label_t *)(uintptr_t)xc.u);   /* R-1 s94 */
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP32)            return x86_reg_disp32_lea64(a.txt, b.base, b.off);   /* ⭐ s177 PF-1: SPAN-var's needle out-param leas on the rbp arm (lea rsi/rdx, LFC(·)) parsed XK_REGDISP32 and fell through SILENTLY -- the fill call then scribbled through stale registers (wordcount armed core dump); the address math is width-blind, same encoder as the qword arm */
         if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
         if (a.kind == XK_REG && b.kind == XK_REG)                   return x86_lea_subj_cursor(a.txt);
         if (a.kind == XK_REG && (b.kind == XK_RSP32 || b.kind == XK_RSP64)) return x86_reg_disp32_lea64(a.txt, "rsp", b.off);   /* ZB-VAL-5 (R7): lea into a FORTH cell -- x86_rd32_modrm already emits the mandatory SIB for the rsp base; mod10+disp32 stays the family's uniform-shape convention */
         if (b.txt && strstr(b.txt, "rip"))                          return x86_bomb("lea: unsealed [rip + label] operand — use the [rip + __] sealed form with (ptr,label) args");
-        if (b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64) {
+        if (b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
             fprintf(stderr, "FATAL x86(\"lea\"): no dispatch arm for frame/cell operand kind %d — dest '%s', src '%s'.  A lea that emits nothing is the ZB-FC-1 silent-drop corruption class (measured: bb_match_arbno's PAIR(2)/PAIR(3) view leas were dropped for months, masked only by r12 being callee-saved); add the encoder + dispatch case here (R7).\n",
                     b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
@@ -1952,9 +1962,10 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
         if (a.kind == XK_REGDISP32 && b.kind == XK_IMM) return x86_reg_disp32_add_imm32(a.base, a.off, b.imm);   /* ⭐ W-1 R7: mech-2 RDD("___",N) add — ZK_REGDISP32 add had no arm, silently dropped start_δ increment → infinite retry loop */
+        if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_add32(a.txt, b.base, b.off);   /* ⭐ s177 PF-1: ARB β `add eax, LFC(0)` on the rbp arm — same silent-drop class as W-1, opposite direction */
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
-        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64) {
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
             fprintf(stderr, "FATAL x86(\"add\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
