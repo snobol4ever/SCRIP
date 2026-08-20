@@ -1026,11 +1026,20 @@ int c_rt_defer_close(int cur_delta)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_XPAT_CHAIN_MAX 256
+static int rt_defer_xstar_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XSTAR"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* CLASS-B (s188) killswitch, DEFAULT ON; =0 restores the pre-fix STAR arm byte-for-byte (no drain, park the EXPRESSION, return NULL).  Same one function-static getenv-cache idiom as rt_defer_xpat_on above -- not a new global. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_dtx_drain(DESCR_t r)
+{   /* THE ONE AUTHORITY for "walk a chain of deferred EXPRESSIONs to its non-EXPRESSION end".  Manual v3.7 p.85-86: an EXPRESSION is evaluated only when referenced, and its evaluation may itself yield another EXPRESSION, so the walk repeats; p.196 says a value built with the * at the OUTERMOST level IS an EXPRESSION, which is what makes `V = *W` produce one.  BOUNDED, not a while: the oracle loops forever on a self-referential `V = *V`, so RT_XPAT_CHAIN_MAX terminates a cycle back into the pre-s187 answer (store the DT_X and let close -1 it) instead of hanging.  DT_FAIL (0x68) is not DT_X, so a failed hop exits the walk and every caller's own IS_FAIL test still sees it -- which is why rt_defer_take keeps its check and needs no per-hop one.  Extracted s188 from the three sites that had each spelled this loop for themselves (rt_defer_take, rt_defer_xpat_dtp, and the STAR arm that was MISSING it); a drift between them is the spelled-twice disease. */
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_call_proc_descr(r.s, 0);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
 {   /* ONE-DEFER shared tail: rt_defer_step's val handling for a DESCR-call result -- FAIL sets failed; else val=r.  ⭐ DEFER-DEPTH FLOOR (s187): the old arm resolved a DT_X only when !dtx_used, so a chain of deferred EXPRESSIONs (`G0 = *G1` then `P = *G0`, matched as `*P`) got exactly ONE evaluation and the SECOND DT_X was stored unresolved -- close then -1'd it, and a plain string two links down came back NOMATCH in both modes.  Manual p.85-86 (quoted at rt_defer_match above) says a DT_X evaluation may itself run a match, so the chain is walked to exhaustion; the oracle agrees and loops forever on a self-referential `V = *V`, which is why the walk is BOUNDED rather than a while.  RT_XPAT_CHAIN_MAX terminates a cycle back into the pre-s187 answer (store the DT_X, close -1s it) instead of hanging.  Twinned with rt_defer_step above; a drift between them is the spelled-twice disease. */
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     if (IS_FAIL_fn(r)) { s->failed = 1; return; }
-    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) { s->dtx_used = 1; r = rt_call_proc_descr(r.s, 0); if (IS_FAIL_fn(r)) { s->failed = 1; return; } }
+    if (r.v == DT_X && r.s) { s->dtx_used = 1; r = rt_dtx_drain(r); if (IS_FAIL_fn(r)) { s->failed = 1; return; } }
     s->val = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1130,7 +1139,7 @@ void *rt_defer_xpat_dtp(const char *nm)
     extern DESCR_t rt_call_proc_descr(const char *, int);
     if (!rt_defer_xpat_on()) return NULL;
     DESCR_t r = rt_call_proc_descr(nm ? nm : "", 0);
-    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_call_proc_descr(r.s, 0);
+    r = rt_dtx_drain(r);
     if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
     rt_spk_park(nm, r);
     return NULL;
@@ -1158,6 +1167,7 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
     if (varname && varname[0] == '*') {
         extern DESCR_t rt_call_proc_descr(const char *, int);
         DESCR_t r = rt_call_proc_descr(varname + 1, 0);
+        if (rt_defer_xstar_on()) r = rt_dtx_drain(r);   /* ⭐⭐⭐ CLASS B (s188): A DEFERRED THUNK MAY RETURN AN EXPRESSION, AND THIS ARM COULD NOT SEE ONE.  `Expr = *Expr0` makes Expr an EXPRESSION (p.196: the * must be OUTERMOST to create one), so the compiler-minted thunk this arm calls hands back a DT_X, not a pattern.  With only a DT_P arm here the EXPRESSION was parked and NULL returned, the site fell to the SCALAR road (rt_defer_run_all), and THAT road resolved it correctly to a genuine PATTERN and handed the PATTERN to c_rt_defer_close -- a closer that can only literal-match a scalar and therefore -1s it.  The pattern was found and thrown away one line later, in both media, and beauty.sno answered `Parse Error` on every real statement because its object expression is reached exactly this way.  The by-name sibling below has always had this arm (its `val.v == DT_X` -> rt_defer_xpat_dtp); the star arm is where it was missing.  Draining HERE leaves the evaluation count unchanged -- the outer thunk ran once either way, and the inner hop that run_all used to make is the one made here -- so the scalar road still parks a scalar and closes it exactly as before. */
         if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }   /* materialize-then-return (lazy recipe compile) */
         if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
         if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d) — raise RT_CAS_SPK_MAX\n", g_spk_cap); abort(); }
