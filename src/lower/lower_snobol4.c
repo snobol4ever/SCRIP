@@ -2300,14 +2300,18 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 IR_t * tno = lc_build(tg, IR_FAIL, NULL, NULL);
                 tx.pat_fail = tno; tx.pat_seal = tno;
                 sno_pat_node(&tx, repl, tok, tno);
+                IR_t * pahead = NULL; IR_t * palast = NULL; const char * pbao = getenv("SCRIP_PB_ARGORDER");   /* ⭐⭐⭐ PB-ARGORDER (s182, HQ Fable; SCRIP_PB_ARGORDER=0 reverts byte-identically): the loop below PREPENDED each arg to the chain, so N pre-args EVALUATED RIGHT-TO-LEFT while pre[] is harvested left-to-right -- SPITBOL evaluates expression operands LEFT TO RIGHT, and the divergence is observable the moment an operand has a side effect.  MEASURED by the IPC 2-way monitor (Lon's call) on beauty + a one-newline input: FIRST DIVERGENCE of the whole run, step 1499, case.inc:23 `icase = icase (upr(letter) | lwr(letter))` -- oracle CALL upr, scrip CALL lwr.  Standalone witness probe/cn/cn_alt_eval_order.sno: `P = (f('a') | g('a'))` prints call-f/call-g on sbl and call-g/call-f here, while the CONCAT twin `Q = f('a') g('a')` is correct in both (sx_binop chains forward), which is what convicts this loop and not the TT_ALT arm. */
                 for (int api = 0; api < tx.npre; api++) {
                     char abuf[48]; snprintf(abuf, sizeof abuf, tx.pre[api].snapg ? "%s$V%d" : "%s$A%d", bn, api);   /* PB-1s: $V<i> = plain-ref VALUE-LEAF snapshot (stage-2 fetch at THIS assignment); $A<i> = runtime-arg primitive (PAT-ARG-BIND, unchanged); same api index both walks by the identical-traversal invariant */
                     IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fA); IR_LIT(asnA).sval = lp_strdup(abuf);
                     IR_t * av = NULL;
                     IR_t * ae = sx_lower(&cx, tx.pre[api].arg, asnA, fA, &av);
                     ir_operand_push(asnA, av);
-                    pae = ae;
+                    if (pbao && *pbao == '0') { pae = ae; continue; }   /* legacy reversed chain, kept as the exact revert arm */
+                    if (!pahead) pahead = ae; else lc_γ_to(palast, ae);   /* forward: arg i's ASSIGN gamma-chains to arg i+1's ENTRY; the LAST asnA keeps the gamma it was built with (nl), so the tail splice below is untouched */
+                    palast = asnA;
                 }
+                if (pahead) pae = pahead;
                 if (tx.npre > 0) { IR_t * ncnt = lc_build(g, IR_LIT_STRING, mk, fA); char cb[16]; snprintf(cb, sizeof cb, "%d", tx.npre); IR_LIT(ncnt).sval = lp_strdup(cb); ir_operand_push(mk, ncnt); lc_γ_to(nl, ncnt); }   /* PB-1s (s108): args[1] = pre[] count -- SNO$MKPAT freezes the $V<i> stage-2 stores above into the fresh DTP's per-construction snap vector (manual p.85-86: each construction freezes ITS OWN values); spliced nl->ncnt->mk so the count literal rides the existing evaluation chain; zero-pre sites stay byte-identical */
             }
             lc_γ_to(anchor[i], pae);
