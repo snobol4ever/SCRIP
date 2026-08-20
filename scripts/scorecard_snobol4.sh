@@ -67,6 +67,19 @@ stdin_for() {  # $1 = program path -> input file or /dev/null
 sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
   local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"
 }
+# ---------------------------------------------------------------- oracle invocation -- ONE AUTHORITY (s189)
+# ⛔ `-f` IS A LANGUAGE-SEMANTICS SWITCH, NOT A COSMETIC FLAG.  SPITBOL CASE-FOLDS NAMES BY DEFAULT (manual v3.7
+# p.23/182 -- `Buffer`, `buFFer`, `BUFFER` are all one name; p.28/176 -- labels likewise) and `-f` turns folding OFF
+# (p.162).  The manual itself names `-f` as THE flag for standard-SNOBOL4 compatibility (p.266 note 10), and
+# RULES.md declares SCRIP CASE-SENSITIVE.  MEASURED s189: SCRIP agrees with `-f` and NOT with the folding default
+# in three independent constructs -- distinct-case labels/variables, the special name `output` vs `OUTPUT`
+# (p.192: special names take any case ONLY under folding), and `$('ABC')` (p.182: folding treats the string as
+# upper-case when making the name, `-f` does not).  Grading against the folding default scores SCRIP on behaviour
+# it is REQUIRED not to reproduce.  ⛔ NO SUITE MAY CARRY ITS OWN ORACLE FLAGS: the per-suite `beauty_self`
+# exception this replaces is exactly why the fact stayed invisible for every other suite, and it was read as a
+# SIGSEGV workaround (CLAUDE.md) when the SIGSEGV is the ERROR-217 report path that folding's PHANTOM duplicate
+# labels walk into -- a genuine duplicate label SIGSEGVs under `-bf` too (measured s189).
+sbl_flags() { echo "-bf -d512m -i64m"; }
 # ---------------------------------------------------------------- one program, one line
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
@@ -77,7 +90,7 @@ run_one() {  # suite lib prog norm run_to
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
   [ -f "$d/$n.ref" ] && { cp "$d/$n.ref" "$W/pin"; have_pin=1; }
-  local sblflags="-b -d512m -i64m"; [ "$suite" = beauty_self ] && sblflags="-bf -d512m -i64m"
+  local sblflags="$(sbl_flags)"
   local ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
   (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $sblflags "$prog" < "$in" > "$W/live" 2>/dev/null); rc=$?
   [ $rc -eq 0 ] && have_live=1
@@ -112,7 +125,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath sbl_flags; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f

@@ -15,7 +15,10 @@
 # POINT (output byte-identical to the INPUT), which is the actual milestone.  ⛔ NO md5 IS EVER PINNED
 # (GOAL-SNOBOL4-100 DOD item 2) — the oracle is re-run every time.
 #
-# ⛔ beauty.sno needs `sbl -bf`; plain `-b` SIGSEGVs after 34 lines (CLAUDE.md).  m4 links out/libscrip_rt.so.
+# ⛔ `-bf` is REQUIRED and the reason is the LANGUAGE, not beauty: SPITBOL case-folds names by default (manual p.23/28) and SCRIP is CASE-SENSITIVE,
+# so `-b` grades against a language SCRIP may not speak.  The `-b` SIGSEGV is DOWNSTREAM -- folding manufactures a phantom ERROR 217 duplicate label
+# (`shift`/`Shift`, semantic.inc(16)) and SPITBOL cores in error RECOVERY; a GENUINE duplicate label SIGSEGVs under `-bf` too.  Under `-b` beauty has no
+# stable oracle at all (3 runs: rc 139, three different md5s at 1079 bytes; `-bf`: rc 0, 40970 bytes, one md5).  s189 seat2.  m4 links out/libscrip_rt.so.
 #
 # ⭐ FIRST READING (s183, SCRIP 3da13598, m3): 3/10 rungs green, first red at 10 lines; --bisect named the exact
 # first failing line as LINE 8 = the bare label START (lines 1-7 are comments and pass).  From there the wall
