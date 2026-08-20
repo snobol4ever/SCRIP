@@ -1088,90 +1088,10 @@ static std::string bcps_spine_gen_arm() {
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_bin_gen_arm() {
-    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
-    int act = off + 16 * (1 + (int)_.op_ival);
-    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t callg_fp; { DESCR_t (*fp)(const char *, int, void **) = rt_proc_call_gen_h; callg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t resumeg_fp; { DESCR_t (*fp)(void **) = rt_proc_resume_frame_h; resumeg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_alpha()
-         + x86_scan_sync_out()
-         + FOR(0, (int)_.op_ival, [&](int i) {
-        int slot = bcps_arg_slot(_.node, argblks, i);
-        return stage_arg_inline(i, slot, stage_fp);
-    })
-         + x86("mov", "rdi", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""))
-         + x86("mov32", "esi", (long)_.op_ival)
-         + x86_frame_lea("rdx", act)
-         + x86("call", "rt_proc_call_gen_h", callg_fp)
-         + x86_scan_sync_in_rr()
-         + x86_frame_store64(off, "rax")
-         + x86_frame_store64(off + 8, "rdx")
-         + x86("cmp", "eax", (long)DT_FAIL)
-         + x86_omega("je")
-         + x86_gamma()
-         + x86_beta()
-         + x86_scan_sync_out()
-         + x86_frame_lea("rdi", act)
-         + x86("call", "rt_proc_resume_frame_h", resumeg_fp)
-         + x86_scan_sync_in_rr()
-         + x86_frame_store64(off, "rax")
-         + x86_frame_store64(off + 8, "rdx")
-         + x86("cmp", "eax", (long)DT_FAIL)
-         + x86_omega("je")
-         + x86_gamma();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_txt_gen_arm() {
-    int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
-    int act = off + 16 * (1 + (int)_.op_ival);
-    IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    return x86_alpha()
-         + x86_scan_sync_out()
-         + x86("directive", ".section .rodata")
-         + x86("directive", std::string(".Lcall") + std::to_string(_.nid) + "_pname: .string \"" + std::string(_.op_sval ? _.op_sval : "") + "\"")
-         + x86("directive", ".section .text")
-         + x86("directive", ".intel_syntax noprefix")
-         + FOR(0, (int)_.op_ival, [&](int i) {
-             int slot = bcps_arg_slot(_.node, argblks, i);
-             return x86("mov", "edi", std::to_string(i)) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage@PLT");
-         })
-         + x86("directive", (std::string(" lea rdi, [rip + .Lcall") + std::to_string(_.nid) + "_pname]").c_str())
-         + x86("mov", "esi", std::to_string((int)_.op_ival))
-         + x86_frame_lea("rdx", act)
-         + x86("rtcc_wb")
-         + x86("call_bare", "rt_proc_call_gen_h@PLT")
-         + x86_scan_sync_in_rr()
-         + x86("mov", FRQ(off), "rax")
-         + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", std::to_string((long)DT_FAIL))
-         + x86_omega("je")
-         + x86("rtcc_rl")
-         + x86_gamma()
-         + x86("label", _.lbl_β)
-         + x86_scan_sync_out()
-         + x86_frame_lea("rdi", act)
-         + x86("rtcc_wb")
-         + x86("call_bare", "rt_proc_resume_frame_h@PLT")
-         + x86_scan_sync_in_rr()
-         + x86("mov", FRQ(off), "rax")
-         + x86("mov", FRQ(off + 8), "rdx")
-         + x86("cmp", "eax", std::to_string((long)DT_FAIL))
-         + x86_omega("je")
-         + x86("rtcc_rl")
-         + x86_gamma();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
     if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act ZLS2 handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
-    if (is_gen) {
-        if (x86_zc_frame() == ZC_FRAME_RSP) return bcps_spine_gen_arm();   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
-        if (MEDIUM_BINARY) return bcps_bin_gen_arm();
-        if (MEDIUM_TEXT)   return bcps_txt_gen_arm();
-        return std::string();
-    }
+    if (is_gen) return bcps_spine_gen_arm();   /* GENP-SPINE s92: spine-resident generators under the RSP default.  medium-retire s170 (HQ green-light on Lon's delegated desk): the two pthread arms that followed -- one per medium, and DIVERGED (TEXT carried rtcc_wb/rtcc_rl + call_bare, BINARY neither) -- are DELETED with their x86_zc_frame() guard.  They were reachable only at != ZC_FRAME_RSP, which no runnable configuration produces: ZC_FRAME_ISLE needs the RETIRED frame-r12 selector and ZC_FRAME_DEAD5 #errors.  This ruling covers exactly these 2 arms; the other 15 `!= ZC_FRAME_RSP` arms stay reserved to Lon. */
     return bcps_det_arm();
 }
