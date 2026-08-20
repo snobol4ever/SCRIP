@@ -36,6 +36,7 @@ INCROOT="$([ -d "$CORPUS/lib" ] && echo "$CORPUS" || echo "$ROOT")"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$FEAT" ]; then echo "SKIP  feature test dir not found: $FEAT"; exit 0; fi
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/feat_<base>.* is test-keyed, so two seat roots regenerating at once collide on EVERY test (s169 seat2 FINDING §7.5)
 
 fail=0
 changed=0
@@ -43,13 +44,13 @@ echo "Emitting feature .s artifacts (mode-4 --compile) under ${FEAT#$ROOT/} ..."
 while IFS= read -r sno; do
     s="${sno%.sno}.s"
     base="$(basename "${sno%.sno}")"
-    if ( cd "$INCROOT" && timeout 30 "$SCRIP" --compile "$sno" ) > "/tmp/feat_$base.s" 2>/dev/null < /dev/null && [ -s "/tmp/feat_$base.s" ]; then
-        if gcc -c "/tmp/feat_$base.s" -o "/tmp/feat_$base.o" 2>"/tmp/feat_$base.aserr"; then
-            if [ ! -f "$s" ] || ! diff -q "/tmp/feat_$base.s" "$s" >/dev/null 2>&1; then
-                mv "/tmp/feat_$base.s" "$s"; changed=$((changed+1)); echo "  UPD   ${s#$ROOT/}"
+    if ( cd "$INCROOT" && timeout 30 "$SCRIP" --compile "$sno" ) > "$TMPD/feat_$base.s" 2>/dev/null < /dev/null && [ -s "$TMPD/feat_$base.s" ]; then
+        if gcc -c "$TMPD/feat_$base.s" -o "$TMPD/feat_$base.o" 2>"$TMPD/feat_$base.aserr"; then
+            if [ ! -f "$s" ] || ! diff -q "$TMPD/feat_$base.s" "$s" >/dev/null 2>&1; then
+                mv "$TMPD/feat_$base.s" "$s"; changed=$((changed+1)); echo "  UPD   ${s#$ROOT/}"
             fi
         else
-            echo "  AS-FAIL ${s#$ROOT/} (assembler rejected; NOT updated): $(head -1 "/tmp/feat_$base.aserr")"
+            echo "  AS-FAIL ${s#$ROOT/} (assembler rejected; NOT updated): $(head -1 "$TMPD/feat_$base.aserr")"
             fail=1
         fi
     else

@@ -22,20 +22,21 @@ RUNG="${1:-regen}"; shift 2>/dev/null || true
 TREES="${*:-icon prolog rebus}"
 
 [ -x "$SCRIP" ] || { echo "SKIP  scrip not built: $SCRIP"; exit 0; }
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: the old fixed /tmp/prog_regen.* was shared by every seat root, so two concurrent regens overwrote each other's asm mid-compare (s169 seat2 FINDING §7.5)
 
 emitted=0; changed=0; same=0; efail=0; afail=0
 for tree in $TREES; do
     D="$CORPUS/programs/$tree"; [ -d "$D" ] || continue
     case "$tree" in icon) EXT=icn;; prolog) EXT=pl;; rebus) EXT=reb;; *) echo "  SKIP unknown tree $tree"; continue;; esac
     for src in $(find "$D" -name "*.$EXT" | sort); do
-        s="${src%.*}.s"; t="/tmp/prog_regen.s"
+        s="${src%.*}.s"; t="$TMPD/prog_regen.s"
         [ -z "$ALL" ] && [ ! -f "$s" ] && continue   # default: refresh EXISTING artifacts only (swi_tests etc. have no .s and are runtime suites, not artifact carriers); ALL=1 to mint new ones
         if timeout 30 "$SCRIP" --compile "$src" > "$t" 2>/dev/null < /dev/null && [ -s "$t" ]; then
-            if gcc -c "$t" -o /tmp/prog_regen.o 2>/tmp/prog_regen.aserr; then
+            if gcc -c "$t" -o "$TMPD/prog_regen.o" 2>"$TMPD/prog_regen.aserr"; then
                 emitted=$((emitted+1))
                 if [ -f "$s" ] && cmp -s "$t" "$s"; then same=$((same+1)); else cp "$t" "$s"; changed=$((changed+1)); fi
             else
-                afail=$((afail+1)); echo "  AS-FAIL  ${s#$CORPUS/} : $(head -1 /tmp/prog_regen.aserr)"
+                afail=$((afail+1)); echo "  AS-FAIL  ${s#$CORPUS/} : $(head -1 "$TMPD/prog_regen.aserr")"
             fi
         else
             efail=$((efail+1)); echo "  EMIT-FAIL ${s#$CORPUS/} (empty/crash; NOT updated)"

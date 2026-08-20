@@ -22,18 +22,19 @@ BENCH="${BENCH_DIR:-$CORPUS/benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ];  then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$BENCH" ];  then echo "SKIP  benchmark corpus not found: $BENCH"; exit 0; fi
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/bench_<name>.* is program-keyed, so two seat roots regenerating at once collide on EVERY program (s169 seat2 FINDING §7.5)
 
 cd "$BENCH"
 fail=0
 echo "Emitting benchmark .s artifacts (mode-4 --compile)..."
 for sno in *.sno; do
     s="${sno%.sno}"
-    if timeout 30 "$SCRIP" --compile "$sno" > "/tmp/bench_$s.s" 2>/dev/null < /dev/null && [ -s "/tmp/bench_$s.s" ]; then
-        if gcc -c "/tmp/bench_$s.s" -o "/tmp/bench_$s.o" 2>"/tmp/bench_$s.aserr"; then
-            mv "/tmp/bench_$s.s" "$s.s"
+    if timeout 30 "$SCRIP" --compile "$sno" > "$TMPD/bench_$s.s" 2>/dev/null < /dev/null && [ -s "$TMPD/bench_$s.s" ]; then
+        if gcc -c "$TMPD/bench_$s.s" -o "$TMPD/bench_$s.o" 2>"$TMPD/bench_$s.aserr"; then
+            mv "$TMPD/bench_$s.s" "$s.s"
             echo "  OK    $s.s"
         else
-            echo "  AS-FAIL $s.s (assembler rejected; NOT updated): $(head -1 "/tmp/bench_$s.aserr")"
+            echo "  AS-FAIL $s.s (assembler rejected; NOT updated): $(head -1 "$TMPD/bench_$s.aserr")"
             fail=1
         fi
     else

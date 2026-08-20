@@ -15,6 +15,7 @@ DEMO="$CORPUS/programs/snobol4/demo"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$DEMO" ]; then echo "SKIP  corpus demo dir not found: $DEMO"; exit 0; fi
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/demo_<name>.* was program-keyed and /tmp/demo_as_err.txt outright fixed, so two seat roots regenerating at once collided (s169 seat2 FINDING §7.5)
 
 cd "$DEMO"
 # THE SANCTIONED SET (widened 2026-07-26 by Lon directive: "get them all but porter stemmer can be excluded";
@@ -37,14 +38,14 @@ DEMOS="roman wordcount claws5 treebank \
 echo "Emitting + verifying demo .s (graceful-skip)..."
 for f in $DEMOS; do
     [ -f "$f.sno" ] || { echo "  SKIP  $f — no .sno"; continue; }
-    tmp="/tmp/demo_$f.s"
+    tmp="$TMPD/demo_$f.s"
     if ! timeout 90 "$SCRIP" --compile "$f.sno" > "$tmp" 2>/dev/null; then
         echo "  SKIP  $f.s — --compile failed (committed .s untouched)"; continue
     fi
     if [ ! -s "$tmp" ]; then
         echo "  SKIP  $f.s — empty emit (committed .s untouched)"; continue
     fi
-    if ! gcc -c "$tmp" -o "/tmp/demo_$f.o" 2>/tmp/demo_as_err.txt; then
+    if ! gcc -c "$tmp" -o "$TMPD/demo_$f.o" 2>"$TMPD/demo_as_err.txt"; then
         echo "  SKIP  $f.s — assembler-rejected (committed .s untouched)"; continue
     fi
     if [ -f "$f.s" ] && cmp -s "$tmp" "$f.s"; then

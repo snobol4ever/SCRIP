@@ -21,16 +21,17 @@ CC="$CORPUS/crosscheck"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$CC" ];    then echo "SKIP  crosscheck corpus not found: $CC"; exit 0; fi
+TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: the old fixed /tmp/cc_regen.* was shared by every seat root, so two concurrent regens overwrote each other's asm mid-compare (s169 seat2 FINDING §7.5)
 
 emitted=0; changed=0; same=0; efail=0; afail=0
 for src in $(find "$CC" -name '*.sno' -o -name '*.sc' | sort); do
-    s="${src%.*}.s"; t="/tmp/cc_regen.s"
+    s="${src%.*}.s"; t="$TMPD/cc_regen.s"
     if timeout 30 "$SCRIP" --compile "$src" > "$t" 2>/dev/null < /dev/null && [ -s "$t" ]; then
-        if gcc -c "$t" -o /tmp/cc_regen.o 2>/tmp/cc_regen.aserr; then
+        if gcc -c "$t" -o "$TMPD/cc_regen.o" 2>"$TMPD/cc_regen.aserr"; then
             emitted=$((emitted+1))
             if [ -f "$s" ] && cmp -s "$t" "$s"; then same=$((same+1)); else cp "$t" "$s"; changed=$((changed+1)); fi
         else
-            afail=$((afail+1)); echo "  AS-FAIL  ${s#$CC/} : $(head -1 /tmp/cc_regen.aserr)"
+            afail=$((afail+1)); echo "  AS-FAIL  ${s#$CC/} : $(head -1 "$TMPD/cc_regen.aserr")"
         fi
     else
         efail=$((efail+1)); echo "  EMIT-FAIL ${s#$CC/} (empty/crash; NOT updated)"
