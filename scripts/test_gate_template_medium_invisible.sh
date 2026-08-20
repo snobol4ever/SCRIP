@@ -30,12 +30,25 @@ fi
 # happened. The 29 is the GUARD-SITE count -- `if (MEDIUM_` plus `IF(MEDIUM_` -- and guard sites are what
 # the rule actually forbids ("any function gating output on MEDIUM_TEXT/MEDIUM_BINARY is a violation").
 # That is the number pinned here, computed, never typed. Retire the sites via queue row `medium-retire`.
+# ⛔ BLIND SPOT CLOSED s170 (seat1, row `medium-retire`). The s169 ratchet counted `if (MEDIUM_` + `IF(MEDIUM_`
+# because those were the shapes the census had seen. They are NOT the only way to gate on the medium: two live
+# sites in bb_call_proc_staged spelled it as a CONDITIONAL EXPRESSION -- `(MEDIUM_BINARY && cell ? A : B)` --
+# and the guard regex walked straight past both, so the true count was 31, not 29. A ratchet that enumerates
+# SPELLINGS will always be one syntax behind the code. This one now counts every MEDIUM_* token that survives
+# comment-stripping, which is spelling-independent and is what the rule actually says ("Zero MEDIUM_* in any
+# bb_*.cpp"); the guard-site number is kept beside it as a breakdown, never as the gate.
 MEDIUM_RATCHET="${MEDIUM_RATCHET:-3}"
+sites=0
+for f in src/templates/bb_*.cpp; do
+  code=$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$f")
+  n=$(printf '%s' "$code" | grep -o 'MEDIUM_[A-Z_]*' | wc -l)
+  [ "$n" -gt 0 ] && { sites=$((sites+n)); echo "  MEDIUM_ code sites: $(basename $f) ($n)"; }
+done
 guards=$(grep -hoE 'if \(MEDIUM_|IF\(MEDIUM_' src/templates/bb_*.cpp 2>/dev/null | wc -l)
-echo "BOTH-MEDIUM guard sites in src/templates/bb_*.cpp: $guards  (ratchet ceiling $MEDIUM_RATCHET, target 0)"
-if [ "$guards" -gt "$MEDIUM_RATCHET" ]; then
-  echo "RATCHET FAIL: $guards MEDIUM_* guard site(s) > ceiling $MEDIUM_RATCHET — the known-red count MAY NOT GROW."
+echo "BOTH-MEDIUM code sites in src/templates/bb_*.cpp: $sites  (ratchet ceiling $MEDIUM_RATCHET, target 0; of these, $guards are if/IF guard sites)"
+if [ "$sites" -gt "$MEDIUM_RATCHET" ]; then
+  echo "RATCHET FAIL: $sites MEDIUM_* code site(s) > ceiling $MEDIUM_RATCHET — the known-red count MAY NOT GROW."
   rc=1
 fi
-[ "$guards" -lt "$MEDIUM_RATCHET" ] && echo "RATCHET IMPROVED: $guards < $MEDIUM_RATCHET — lower MEDIUM_RATCHET in this script to lock the gain in."
+[ "$sites" -lt "$MEDIUM_RATCHET" ] && echo "RATCHET IMPROVED: $sites < $MEDIUM_RATCHET — lower MEDIUM_RATCHET in this script to lock the gain in."
 exit "$rc"

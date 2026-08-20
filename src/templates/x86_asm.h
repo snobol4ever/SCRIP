@@ -850,6 +850,7 @@ inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
 /* live address (movabs rax,fp; jmp rax); TEXT names the label and lets the assembler resolve it -- and interns it on the TEXT side only, because that intern is what put the name in the label table.     */
 /* Before this, bb_define carried the choice as an `if (MEDIUM_BINARY)` in the template, which is the shape the FACT RULE forbids; the divergence itself was never the violation, its LOCATION was.        */
 inline std::string x86_jmp_fn_body(const char * label, uint64_t fp);
+inline std::string x86_jmp_through_fn_cell(const char * label, uint64_t cell);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC — tail-transfer to a C runtime leaf from a stub-local shim: TEXT ` jmp sym@PLT`; BINARY `movabs rax, fp; jmp rax` (rax dead at both shims: γ carries the result in rdi:rsi, ω carries
  * nothing).  The leaf's own `ret` then returns to the emitted site through the retaddr the shim just re-pushed. */
@@ -1817,6 +1818,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }   /* medium-retire s170: the sealed (label, live-address) body transfer -- see x86_jmp_fn_body. */
+    if (!strcmp(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }   /* medium-retire s170: the sealed INDIRECT transfer through a fn cell -- see x86_jmp_through_fn_cell. */
     if (!strcmp(mnem, "call_bare")) {
         /* RC-4: emit the call instruction only, NO RTCC writeback/reload.  Used inside explicit rtcc_wb/rtcc_rl */
         /* brackets where the wb and rl are emitted separately by the template.  BOTH gates: always a bare call. */
@@ -2639,6 +2641,16 @@ inline std::string x86_bomb(const char * msg) {
 inline std::string x86_jmp_fn_body(const char * label, uint64_t fp) {
     if (MEDIUM_BINARY) return fp ? x86_jmpfn(label, fp) : x86_bomb("bb_define_activate: proc fn not registered for binary body-jmp");
     return x86_jmp_lblptr(emit_label_intern(label), label);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_jmp_through_fn_cell — SEALED indirect transfer THROUGH a DEFINE'd function's cell (medium-retire s170).  Twin of x86_jmp_fn_body above and same reason: only the way the CELL'S ADDRESS is named  */
+/* differs between the media -- BINARY has the live &g_ab_fn_cells[slot] and movabs's it, TEXT reaches the same slot through the GOT by label -- while the deref-and-jump that follows is identical in    */
+/* both.  The two tiny-shim sites in bb_call_proc_staged spelled that shared tail TWICE, once per arm, which is the drift hazard the FACT RULE names.  ⛔ THE CONJUNCT THERE WAS LOAD-BEARING, unlike     */
+/* bb_define:380's: bb_ab_fn_cell_ptr() returns a non-null pointer in BOTH media, so `MEDIUM_BINARY && cell` could not be collapsed to `cell` -- the medium was the whole discriminator, and only an      */
+/* encoder that takes BOTH coordinates retires it.                                                                                                                                                       */
+inline std::string x86_jmp_through_fn_cell(const char * label, uint64_t cell) {
+    return (MEDIUM_BINARY ? x86("movabs", "rax", cell) : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, label))
+         + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]); }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */

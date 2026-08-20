@@ -397,9 +397,7 @@ static std::string bcps_det_arm() {
                                        + x86("note", gva_name(gk_iz)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_iz, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_iz * 16 + 8), "rax"); })
                             + x86("lea", "rcx", L(10))
                             + x86("lea", "rdx", L(11))
-                            + (MEDIUM_BINARY && fn_cell_bin_z
-                                ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin_z) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
-                                : x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl_z.c_str()) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax"))
+                            + x86("jmp_fn_cell", fn_cell_lbl_z.c_str(), (uint64_t)(uintptr_t)fn_cell_bin_z)   /* medium-retire s170: only the way the cell's ADDRESS is named differed; the deref-and-jump tail was spelled twice. */
                             + x86("def", L(10)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2))
                             + x86("def", L(11)) + ab_formals_restore() + x86("add", "rsp", scc_sb_z) + x86("jmp", L(2));
                     }
@@ -664,9 +662,7 @@ static std::string bcps_det_arm() {
                                    + x86("note", gva_name(gk_i)) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk_i, 8) : ABSQ(RT_GVA_VA + (unsigned long)gk_i * 16 + 8), "rax"); })
                         + x86("lea", "rcx", L(8))
                         + x86("lea", "rdx", L(9))
-                        + (MEDIUM_BINARY && fn_cell_bin
-                            ? x86("movabs", "rax", (uint64_t)(uintptr_t)fn_cell_bin) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax")
-                            : x86("mov",  "rax", std::string("[rip@got + __]"), (uint64_t)0, fn_cell_lbl.c_str()) + x86("mov", "rax", RDQ("rax", 0)) + x86("jmp", "rax"))
+                        + x86("jmp_fn_cell", fn_cell_lbl.c_str(), (uint64_t)(uintptr_t)fn_cell_bin)   /* medium-retire s170: twin of the L(10)/L(11) shim site above -- same sealed encoder, same reason. */
                         + x86("def", L(8)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2))
                         + x86("def", L(9)) + x86("add", "rsp", scc_sb) + x86("jmp", L(2));
                 }
