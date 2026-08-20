@@ -21,9 +21,9 @@ static std::string bk_rtest(long i) { return bk_rlo[i] == bk_rhi[i] ? x86("cmp",
 static std::string bk_rmemb(long i) { return i >= bk_rn ? std::string() : bk_rtest(i) + bk_rmemb(i + 1); }
 static long bk_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long bk_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string bk_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (bk_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
-static std::string bk_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", FR(_.op_sa + 4)) : x86("mov32", "eax", CSK()); }
-static std::string bk_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) + x86("mov32", "edx", CSK()); }
+static std::string bk_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  XSAQ(8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (bk_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
+static std::string bk_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", XSAD(4)) : x86("mov32", "eax", CSK()); }
+static std::string bk_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", XSAQ(8)) + x86("mov", "edx", XSAD(4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) + x86("mov32", "edx", CSK()); }
 static long bk_chainp() { return bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long bk_tablep() { return bk_gu() && !bk_rangep() && !bk_chainp(); }
 static std::string bk_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(1)) + bk_memb(i + 1); }

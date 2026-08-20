@@ -22,9 +22,9 @@ static std::string sp_rtest(long u, long i) { return sp_rlo[i] == sp_rhi[i] ? x8
 static std::string sp_rmemb(long u, long i) { return i >= sp_rn ? x86("jmp", L(1)) + x86("def", L(10 + u)) : sp_rtest(u, i) + sp_rmemb(u, i + 1); }
 static long sp_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long sp_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (sp_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
-static std::string sp_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", FR(_.op_sa + 4)) : x86("mov32", "eax", CSK()); }
-static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
+static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  XSAQ(8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb); }   /* r8 = needle ptr only; len rides eax per outer iteration (sp_len_eax) -- r9 is the live GVA claim (RC-5), never template scratch */
+static std::string sp_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", XSAD(4)) : x86("mov32", "eax", CSK()); }
+static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", XSAQ(8)) + x86("mov", "edx", XSAD(4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
 static long sp_chainp() { return sp_gu() && !sp_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long sp_tablep() { return sp_gu() && !sp_rangep() && !sp_chainp(); }
 static std::string sp_memb(long u, long i) { return i >= CSK() ? x86("jmp", L(1)) + x86("def", L(10 + u)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(10 + u)) + sp_memb(u, i + 1); }

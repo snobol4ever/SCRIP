@@ -24,7 +24,7 @@ static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
          + (e ? x86("jge", L(4)) : x86_omega("jge"))
          + x86("movsxd", "rcx", "eax")
          + x86("movzx",  "esi", "[r13+rcx]")
-         + x86("mov",    "eax", FR(_.op_sa + 4))
+         + x86("mov",    "eax", XSAD(4))
          + x86("mov",    "edx", (long)0)
          + x86("def",    L(inr))
          + x86("cmp",    "edx", "eax")
@@ -41,8 +41,8 @@ static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
 static std::string bx_guts_call(long e, long bump) {
     return x86("mov",    "edi", "r14d")
          + IF(bump, x86("add", "edi", (long)1))
-         + x86("mov",    "rsi", FRQ(_.op_sa + 8))
-         + x86("mov",    "edx", FR(_.op_sa + 4))
+         + x86("mov",    "rsi", XSAQ(8))
+         + x86("mov",    "edx", XSAD(4))
          + x86("call",   "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)
          + x86("cmp",    "eax", "r15d")
          + (e ? x86("jge", L(4)) : x86_omega("jge"))
@@ -83,7 +83,7 @@ std::string bb_match_breakx() {
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
               x86("mov",    LFC(4), "r14d")
             + x86("mov",    LFC(0), (long)0)
-            + x86("mov",    "r8",  FRQ(_.op_sa + 8))
+            + x86("mov",    "r8",  XSAQ(8))
             + bx_guts_scan(0, 1, 0, 5, 7)
             + x86("def",    L(1))
             + x86("mov",    "eax", LFC(4))
@@ -105,7 +105,7 @@ std::string bb_match_breakx() {
          + x86_beta()
          + IF(_.op_sa >= 0 && ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE,
               x86("add",    LFC(0), (long)1)
-            + x86("mov",    "r8",  FRQ(_.op_sa + 8))
+            + x86("mov",    "r8",  XSAQ(8))
             + bx_guts_scan(2, 3, 1, 6, 8)
             + x86("def",    L(3))
             + x86("mov",    "eax", LFC(4))

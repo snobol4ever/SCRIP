@@ -25,7 +25,7 @@ std::string bb_match_tab() {
     return x86("comment", "IR_MATCH_TAB")
          + x86_alpha()
          + x86("mov",   LFC(0), "r14d")
-         + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("mov", "rax", XSAQ(8)))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
          + x86("cmp",   "r14d", "eax")
          + x86_omega("jg")

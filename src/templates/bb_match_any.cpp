@@ -21,8 +21,8 @@ static std::string an_rtest(long i) { return an_rlo[i] == an_rhi[i] ? x86("cmp",
 static std::string an_rmemb(long i) { return i >= an_rn ? x86_omega() + x86("def", L(0)) : an_rtest(i) + an_rmemb(i + 1); }
 static long an_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long an_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string an_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  FRQ(_.op_sa + 8)) + x86("mov", "ecx", FR(_.op_sa + 4)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), an_nlb) + x86("mov32", "ecx", CSK()); }   /* len in ecx: r9 is the live GVA claim (RC-5), never template scratch; rcx is dead here (subject byte already loaded) */
-static std::string an_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "edx", FR(_.op_sa + 4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), an_nlb) + x86("mov32", "edx", CSK()); }
+static std::string an_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  XSAQ(8)) + x86("mov", "ecx", XSAD(4)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), an_nlb) + x86("mov32", "ecx", CSK()); }   /* len in ecx: r9 is the live GVA claim (RC-5), never template scratch; rcx is dead here (subject byte already loaded) */
+static std::string an_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", XSAQ(8)) + x86("mov", "edx", XSAD(4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), an_nlb) + x86("mov32", "edx", CSK()); }
 static long an_chainp() { return an_gu() && !an_rangep() && CSK() >= 2 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long an_tablep() { return an_gu() && !an_rangep() && (CSK() == 0 || CSK() > ZC_CSET_CHAIN_MAX); }
 static std::string an_memb(long i) { return i >= CSK() ? x86_omega() + x86("def", L(0)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(0)) + an_memb(i + 1); }
