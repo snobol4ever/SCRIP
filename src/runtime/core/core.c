@@ -277,6 +277,7 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
+    kw_stcount = stno;   /* s189 (HQ Fable): the dead counter becomes the CURRENT-STNO latch -- nothing incremented it anywhere and nothing reads it back into the language, so this is instrument state riding an existing cell; the ZSM ring stamps it per port so a crash window names its statements without a monitor run */
     if (monitor_fd < 0 || !g_monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
@@ -440,8 +441,11 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }   /* ⭐ s189 (HQ Fable, autobug unblock; delegates to mon_name_is_internal, the s112 MON-CAP ONE AUTHORITY -- identifier-head test, so the user variable named "$" survives): compiler-SYNTHETIC frames (EXPR$n defer thunks, PAT$n blobs) never cross the trace/monitor surface -- the oracle structurally cannot emit them ($ is not a name character in source), so every such CALL/RETURN/VALUE event is a GUARANTEED false divergence that kills the 2-way sync-step at the first deferred evaluation and blinds Lon's automatic bug finder exactly where beauty's bug lives (step 1568: spl CALL PushCounter vs scr CALL EXPR$173, the *Command thunk).  Filtering here also moves &FTRACE toward oracle behavior (SPITBOL user tracing has no synthetic frames).  SCRIP_MON_SYNTH=1 restores the old stream for A/B.  NAMESPACE-LAW-consistent (ARCH-PASSTHRU: synthetic names are pollution and die); function-local static cache per the tree's killswitch idiom, ZERO new file-scope state. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
+    if (mon_synth_name(name)) return;
     if (monitor_quiet_depth > 0) return;
     if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_comm_dbg;
@@ -503,6 +507,7 @@ void comm_var(const char *name, DESCR_t val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_call(const char *fname) {
     if (!fname || !*fname) return;
+    if (mon_synth_name(fname)) return;
     if (kw_ftrace > 0 && !g_monitor_bin) {
         fprintf(stdout, "****%-7lld  %s()\n",
                 (long long)kw_stcount, fname);
@@ -522,6 +527,7 @@ void comm_call(const char *fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_return(const char *fname, DESCR_t retval) {
     if (!fname || !*fname) return;
+    if (mon_synth_name(fname)) return;
     if (kw_ftrace > 0 && !g_monitor_bin) {
         const char *s = VARVAL_fn(retval);
         fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n",

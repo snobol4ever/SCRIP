@@ -105,7 +105,7 @@ enum { ZSM_FRESH = 0, ZSM_LIVE = 1, ZSM_SUSPENDED = 2, ZSM_RESUMED = 3, ZSM_DEAD
 typedef struct { unsigned long node, E, F, rsp_a, live; int state; } zsm_ent;
 static zsm_ent      g_zsm[ZSM_N];
 static unsigned long g_zsm_tr_node[ZSM_TRACE], g_zsm_tr_rbp[ZSM_TRACE], g_zsm_tr_rsp[ZSM_TRACE];
-static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE];
+static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE], g_zsm_tr_stno[ZSM_TRACE];   /* ⭐ s189 (HQ Fable): stno per port -- mode-3 node ids are pointer hashes (bb_node_id: ptr%100000, unstable across runs), so the ring could name WHAT box fired but not WHERE in the program; kw_stcount (core.h, already maintained per statement) is the stable source coordinate that lets a ring tail be read against the listing without a monitor run.  Same-rung widening of an existing instrument's storage, the g_zsm_seen_nodes precedent. */
 static unsigned long g_zsm_tr_n = 0UL;
 unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 0UL;
 unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;   /* ⭐ s142 FSM counters, same visibility precedent as the pre-existing g_zsm_violations trio -- non-static so a future report site or test harness can read them without a new accessor. */
@@ -123,7 +123,7 @@ static void zsm_dump(void)
     fprintf(stderr, "[ZSM] --- last %lu ports (oldest first), event #%lu ---\n", n, g_zsm_events);
     for (i = 0; i < n; i++) { unsigned long j = (first + i) % ZSM_TRACE;
         { long _k = g_zsm_tr_kind[j] & 0xFFL, _o = (g_zsm_tr_kind[j] >> 8) & 0xFFFFL;   /* ⛔ THE NUMBER, NOT THE NAME, ON PURPOSE: bb_op_name lives in contracts/IR.h, and the runtime MAY NOT KNOW IR (RULES: language identity stops at lower; no SM/BB knowledge at runtime).  Pulling that header in to pretty-print a debug line would buy legibility with an architecture violation.  util_autobug.sh does the op=N -> IR_* mapping instead, parsing the enum at read time -- the layering stays clean and the tool is where a human reads it anyway. */
-          fprintf(stderr, "[ZSM]   %-6s op=%-5ld node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld\n", zsm_kn(_k), _o, g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j]); } }
+          fprintf(stderr, "[ZSM]   %-6s op=%-5ld node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld st=%ld\n", zsm_kn(_k), _o, g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j], g_zsm_tr_stno[j]); } }
 }
 static void zsm_leak_report(void)
 {   /* ⭐ s142 -- registered via atexit (rt_zdp_sm_init), so this runs exactly once, at process end, over every
@@ -168,7 +168,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
     unsigned long t = g_zsm_tr_n % ZSM_TRACE;
     long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;   /* ⭐ THE PHYSICAL MEASUREMENT: bytes carved below this graph's entry frontier and still standing at this port.  Reported raw; no expected value is consulted. */
-    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind | (zop << 8); g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
+    g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind | (zop << 8); g_zsm_tr_depth[t] = depth; g_zsm_tr_stno[t] = (long)kw_stcount; g_zsm_tr_n++; g_zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));   /* s182: op tag on the LIVE census too, not just the ring -- a 22k-event beauty trace is only searchable if every line says what box it came from. */
     if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;   /* ⭐ s179 ZSM-ALL: kinds 5..8 are the FRAMELESS α/β/ω/γ (SCRIP_ZSM_ALL=1, every box).  Normalized onto the same FSM by ONE identity: a frameless box's "own frame" IS the enclosing one, so F := rbp-at-α (see the kind==1 arm) -- after which all four existing checks read exactly as Lon's law 0b invariants (β/γ: rbp == rbp-at-α; ω: rbp == E; ω rsp >= rsp-at-α).  The trace ring and census above keep the raw 5..8 spelling so a frameless port is distinguishable in every dump.  A LOCAL, deliberately: this rung adds ZERO file-scope state (the NO-NEW-GLOBALS fact rule). */
