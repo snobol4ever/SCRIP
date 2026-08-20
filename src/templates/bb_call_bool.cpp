@@ -31,25 +31,4 @@ std::string bb_call_bool_str(IR_t * pBB) {
          + x86_omega("je")
          + x86_gamma()
          + x86_beta_trampoline();
-    if (MEDIUM_BINARY)
-        return x86_alpha()
-             + x86_frame_load64("rdi", off)
-             + x86_frame_load64("rsi", off + 8)
-             + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
-             + x86("test", "eax", "eax")
-             + x86_omega("je")
-             + x86_gamma()
-             + x86_beta_trampoline();
-    if (MEDIUM_TEXT)
-        return x86_alpha()
-             + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
-             + x86("mov", "rdi", FRQ(off))
-             + x86("mov", "rsi", FRQ(off + 8))
-             + x86("call", "rt_is_truthy@PLT")
-             + x86("test", "eax", "eax")
-             + x86("je",   std::string(_.lbl_ω))
-             + x86("jmp",  std::string(_.lbl_γ))
-             + x86("label", _.lbl_β)
-             + x86("jmp",  std::string(_.lbl_ω));
-    return std::string();
 }

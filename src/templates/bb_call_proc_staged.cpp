@@ -1168,11 +1168,10 @@ std::string bb_call_proc_staged_str(IR_t * pBB) {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
     if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act ZLS2 handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
     if (is_gen) {
-        if (x86_zc_frame() == ZC_FRAME_RSP) { if (MEDIUM_BINARY || MEDIUM_TEXT) return bcps_spine_gen_arm(); return std::string(); }   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
+        if (x86_zc_frame() == ZC_FRAME_RSP) return bcps_spine_gen_arm();   /* GENP-SPINE s92: spine-resident generators under the RSP default; the pthread arms below serve legacy non-RSP frames only */
         if (MEDIUM_BINARY) return bcps_bin_gen_arm();
         if (MEDIUM_TEXT)   return bcps_txt_gen_arm();
         return std::string();
     }
-    if (MEDIUM_BINARY || MEDIUM_TEXT) return bcps_det_arm();
-    return std::string();
+    return bcps_det_arm();
 }

@@ -94,10 +94,8 @@ std::string bb_glue_outer_γ() {
     if (!PLATFORM_X86) return std::string();
     bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT   && !_chain, x86("xor", "edi", "edi") + x86("call", "exit@PLT"))
-         + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"))
-         + IF(MEDIUM_BINARY && !_chain, x86("xor", "edi", "edi") + x86_call_ro("exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
-         + IF(MEDIUM_BINARY &&  _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"));
+         + IF(!_chain, x86("xor", "edi", "edi") + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))   /* medium-retire s170: the TEXT/BINARY pair was ONE instruction written twice -- x86("call_bare",sym,ptr) IS x86_call_ro, veneer-free in both media, so TEXT still renders `call exit@PLT` and BINARY still movabs+call rax, byte-identical by construction. */
+         + IF( _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
@@ -107,10 +105,8 @@ std::string bb_glue_outer_ω() {
     if (!PLATFORM_X86) return std::string();
     bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(MEDIUM_TEXT   && !_chain, x86("mov32", "edi", 1) + x86("call", "exit@PLT"))
-         + IF(MEDIUM_TEXT   &&  _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"))
-         + IF(MEDIUM_BINARY && !_chain, x86("mov32", "edi", 1) + x86_call_ro("exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
-         + IF(MEDIUM_BINARY &&  _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
+         + IF(!_chain, x86("mov32", "edi", 1) + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))   /* medium-retire s170: the TEXT/BINARY pair was ONE instruction written twice -- x86("call_bare",sym,ptr) IS x86_call_ro, veneer-free in both media, so TEXT still renders `call exit@PLT` and BINARY still movabs+call rax, byte-identical by construction. */
+         + IF( _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* WIRE-EXIT GLUE (Lon directive s22v: "dynamic glue templates for one-shot and pass-through access to complete BB graphs which have one entry and one exit" + "WHACK-FREE at completion").  A DEFINE

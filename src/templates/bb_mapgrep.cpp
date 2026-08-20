@@ -18,14 +18,13 @@ std::string bb_mapgrep() {
     x86_begin();
     if (PLATFORM_X86) return x86_alpha()
          + x86("comment",   "IR_MAP/IR_GREP (materialized)")
-         + IF(MEDIUM_TEXT,
-               x86("directive", ".section .rodata")
-             + x86("directive", std::string(s_mg.lbl) + ": .quad "
+         + x86("directive", ".section .rodata")
+         + x86("directive", std::string(s_mg.lbl) + ": .quad "
                  + (s_mg.n > 0
                      ? [&]{ std::string q; for (int i = 0; i < s_mg.n; i++) q += (i ? std::string(", ") : std::string("")) + std::to_string((long long)s_mg_vals[i]); return q; }()
                      : std::string("0")))
-             + x86("directive", ".section .text")
-             + x86("directive", ".intel_syntax noprefix"))
+         + x86("directive", ".section .text")
+         + x86("directive", ".intel_syntax noprefix")
          + x86("def",       L(0))
          + x86("mov",       "rcx", FRQ(s_mg.cursoff))
          + x86("cmp64",     "rcx", (long)s_mg.n)
