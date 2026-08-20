@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """test_gate_em_template_matrix.py — EC-UNI matrix gate (5-column).
 
-Scans each .c file under {SM,BB}_templates/, extracts every top-level fn body
+Scans each .cpp file under src/templates/, extracts every top-level fn body
 (string-literal-aware brace matching), and verifies each fn carries an arm
 (`IS_<BE>`) or n/a sentinel (`<BE>: n/a`) for every cell of the 5-column
 backend matrix.
@@ -10,8 +10,14 @@ Per AXIS CORRECTION (GOAL-HEADQUARTERS, 2026-05-19): text-vs-binary is a
 serializer choice INSIDE each backend's output layer, NOT a matrix column.
 The matrix is 5 wide: X86, JVM, JS, NET, WASM.
 
-BB_templates fns are exempt from the X86 row (BB x86 goes through
+bb_* fns are exempt from the X86 row (BB x86 goes through
 emit_flat_body, not emit_bb_node).
+
+PATH CORRECTED s169 (seat1, queue row gates-dead-paths): this gate used to read
+src/emitter/SM_templates + a bb_*.c glob. Both died in the src reorg -- the SM
+template tree no longer exists at all and the BB files are .cpp, so the gate
+exited 2 ("template dirs not found") and enforced NOTHING. It now reads the real
+src/templates/bb_*.cpp.
 """
 import pathlib
 import re
@@ -102,10 +108,9 @@ def main():
         print("usage: test_gate_em_template_matrix.py <project_root>", file=sys.stderr)
         sys.exit(2)
     root = pathlib.Path(sys.argv[1])
-    sm_dir = root / "src/emitter/SM_templates"
     bb_dir = root / "src/templates"
-    if not sm_dir.is_dir() or not bb_dir.is_dir():
-        print(f"FAIL  template dirs not found under {root}", file=sys.stderr)
+    if not bb_dir.is_dir():
+        print(f"FAIL  template dir not found under {root}", file=sys.stderr)
         sys.exit(2)
 
     total_files = 0
@@ -113,18 +118,23 @@ def main():
     total_cells = 0
     all_misses = []
 
-    for f in sorted(sm_dir.glob("sm_*.c")):
-        total_files += 1
-        fc, cc, ms = check_file(f, is_bb=False)
-        total_fns += fc
-        total_cells += cc
-        all_misses.extend(ms)
-    for f in sorted(bb_dir.glob("bb_*.c")):
+    for f in sorted(bb_dir.glob("bb_*.cpp")):
         total_files += 1
         fc, cc, ms = check_file(f, is_bb=True)
         total_fns += fc
         total_cells += cc
         all_misses.extend(ms)
+
+    if total_files == 0 or total_fns == 0:
+        print(f"  Files checked:  {total_files}")
+        print(f"  Fns checked:    {total_fns}")
+        print("  VACUOUS: this gate extracted ZERO functions and therefore enforced NOTHING.")
+        print("  A gate that scans an empty set must never print PASS (s169 seat1, queue row")
+        print("  gates-dead-paths). SIG_RE matches only void/int/long signatures, but the real")
+        print("  src/templates/*.cpp fns return std::string / DESCR_t; and zero IS_<BE> tokens")
+        print("  exist anywhere in the tree -- the EC-UNI 5-column matrix contract is superseded")
+        print("  by RULES.md X86-ONLY. HQ decision owed: retire this gate or rewrite its contract.")
+        sys.exit(2)
 
     for filename, fn_name, cell in all_misses:
         print(f"[MATRIX-MISS] {filename}::{fn_name}  {cell}")

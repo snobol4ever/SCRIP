@@ -44,11 +44,15 @@ echo
 echo "## Middle-layer text emitters most-called by templates (convert FIRST in SC-1/3):"
 for sym in emit_text_jmp emit_text_label emit_comment emit_directive emit_text_global \
            emit_seq_port_call emit_seq_port_call_rip emit_banner_stno emit_text_stno_banner; do
-  c=$(grep -rl "\b$sym\b" $SRC/SM_templates $SRC/BB_templates $SRC/XA_templates 2>/dev/null | wc -l)
+  # PATH CORRECTED s169 (seat1, gates-dead-paths): was $SRC/{SM,BB,XA}_templates -- all three died in the
+  # src reorg, so every symbol below reported "called-in 0 template files" and the inventory was a false zero.
+  c=$(grep -rl "\b$sym\b" "$ROOT/src/templates" 2>/dev/null | wc -l)
   printf "  %-26s called-in %s template files\n" "$sym" "$c"
 done
 echo
 echo "## fprintf/fputs/fwrite site count per TU (the ~380 to migrate):"
-for f in emit_core.c emit_io.c emit_sm.c emit_bb.c; do
+# emit_core.c / emit_io.c / emit_sm.c / emit_bb.c are all pre-reorg names; the emitter TUs are now
+# emit.cpp + emit_str.cpp (s169 seat1, gates-dead-paths).
+for f in emit.cpp emit_str.cpp; do
   [ -f "$SRC/$f" ] && printf "  %-16s %s\n" "$f" "$(grep -cE 'fprintf|fputs|fwrite' "$SRC/$f")"
 done

@@ -76,7 +76,10 @@ def call_sites(name, files_skel):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]; csv = '--csv' in sys.argv
     here = os.path.dirname(os.path.abspath(__file__)); root = os.path.dirname(here)
-    d = args[0] if args else os.path.join(root, 'src', 'emitter', 'BB_templates')
+    # PATH CORRECTED s169 (seat1, gates-dead-paths): the default was src/emitter/BB_templates, dead since
+    # the src reorg, so the census globbed an empty dir and reported "0 helpers across 0 files" -- a false
+    # zero that read exactly like a clean sweep.
+    d = args[0] if args else os.path.join(root, 'src', 'templates')
     files = sorted(glob.glob(os.path.join(d, '*.cpp')))
     all_funcs = {}; files_skel = {}; cands = []
     for p in files:

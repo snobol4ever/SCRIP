@@ -11,7 +11,10 @@ cd "$here" || exit 2
 TRIVIAL_OK="bb_eps.cpp bb_fail.cpp bb_match_fence.cpp bb_match_abort.cpp bb_seq.cpp bb_nfa.cpp"
 fail=0
 echo "=== M3-NATIVE BINARY-arm coverage ==="
-for f in src/templates/*.cpp src/emitter/SM_templates/*.cpp src/templates/*.cpp; do
+# PATH CORRECTED s169 (seat1, gates-dead-paths): was "src/templates/*.cpp src/emitter/SM_templates/*.cpp
+# src/templates/*.cpp" -- the reorg sed collapsed BB_ and XA_ onto one dir (every file audited TWICE) and
+# left SM_templates pointing at a directory that no longer exists.
+for f in src/templates/*.cpp; do
   [ -f "$f" ] || continue
   name="$(basename "$f")"
   grep -q "MEDIUM_BINARY" "$f" || { printf "  %-30s NO-ARM\n" "$name"; continue; }

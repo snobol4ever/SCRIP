@@ -12,10 +12,16 @@
 # manual structural review per file). Exit 1 if any compiled template with an
 # x86 block is missing a section.
 set -u
-cd "$(dirname "$0")/../src/emitter" || exit 2
-MK=../../Makefile
+# PATH CORRECTED s169 (seat1, gates-dead-paths): this walked src/emitter/ and harvested filenames by
+# grepping the Makefile for "(SM|BB|XA)_templates/x.cpp". After the src reorg the Makefile spells every
+# template $(SRC)/templates/x.cpp, so the grep matched ZERO files, the loop body never ran, and the script
+# printed "AUDIT GREEN: all x86 blocks have three sections" while auditing NOTHING.
+cd "$(dirname "$0")/.." || exit 2
+MK=Makefile
 fail=0
-for f in $(grep -oE "(SM|BB|XA)_templates/[a-z_]+\.cpp" "$MK" | sort -u); do
+files=$(grep -oE "templates/[a-z0-9_]+\.cpp" "$MK" | sort -u | sed 's#^#src/#')
+if [ -z "$files" ]; then echo "VACUOUS: no template files harvested from $MK — audit enforced nothing." >&2; exit 2; fi
+for f in $files; do
   bn=$(basename "$f")
   x86=$(grep -c 'PLATFORM_X86'    "$f")
   md=$(grep  -c 'MEDIUM_MACRO_DEF' "$f")
