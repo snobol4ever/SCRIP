@@ -13,6 +13,12 @@
 # TWO LAWS (s143, do not relearn):
 #  (1) Ir LIES on rep-string ops — callgrind counts each rep iteration but ERMS
 #      microcode fills ~35 cycles/560B: rank by cyc-proxy, never bare Ir.
+#  (3) ⛔ NAME-COMPRESSION IS NOT OPTIONAL (s168): callgrind names an object/function ONCE and
+#      then back-references it as a bare '(id)'.  In a treebank m4 profile 336 of 659 fn= lines and
+#      11 of 13 ob= lines are bare -- and the PROGRAM'S OWN object is named only on a cob= line, so
+#      an ob=-name-only parser scores the emitted blob at 0.0% and pins its cycles on whatever
+#      unrelated function was last named (measured: 'rt:lookup_malloc_symbol', which is ld.so and
+#      never runs hot here).  ob=/cob= and fn=/cfn= ids are resolved through one table below.
 #  (2) ABSOLUTE ms drift with host load (byte-identical .so measured 51<->71ms)
 #      — this tool RANKS; verify wins with same-moment interleaved A/B only
 #      (scripts/bench_sno_match4.sh protocol).
@@ -50,10 +56,20 @@ def idx(n): return ev_names.index(n) if n in ev_names else -1
 iIr = idx('Ir'); iL1 = [idx(x) for x in ('I1mr','D1mr','D1mw')]; iLL = [idx(x) for x in ('ILmr','DLmr','DLmw')]; iB = [idx(x) for x in ('Bcm','Bim')]
 tot = {}; last = 0; in_prog = True; cur_fn = '?'; skip = False
 bname = binary.split('/')[-1]
+obnames = {}; fnnames = {}
+def idname(rest, table):
+    m = re.match(r'^\((\d+)\)\s*(.*)$', rest)
+    if not m: return rest.strip()
+    i, nm = m.group(1), m.group(2).strip()
+    if nm: table[i] = nm
+    return table.get(i, '(%s)' % i)
 for l in open(cg):
     l = l.rstrip('\n')
-    if l.startswith('ob='): in_prog = bname in l; continue
-    if l.startswith('fn='): cur_fn = re.sub(r'^\(\d+\)\s*', '', l[3:]) or cur_fn; continue
+    if l.startswith('cob='): idname(l[4:], obnames); continue
+    if l.startswith('cfn='): idname(l[4:], fnnames); continue
+    if l.startswith('cfi=') or l.startswith('cfl='): continue
+    if l.startswith('ob='): in_prog = bname in idname(l[3:], obnames); continue
+    if l.startswith('fn='): cur_fn = idname(l[3:], fnnames) or cur_fn; continue
     if l.startswith('calls='): skip = True; continue
     if not l or l[0].isalpha() or l.startswith('#'): continue
     if skip: skip = False; continue
@@ -74,7 +90,7 @@ for l in open(cg):
         i = bisect.bisect_right(addrs, addr) - 1
         name = syms[i][1] if i >= 0 else '?blob?'
         if gran == 'family':
-            name = re.sub(r'_n\d+_[^_]+$','',name); name = re.sub(r'\d+$','',name)
+            name = re.sub(r'^n\d+_','',name); name = re.sub(r'_n\d+_([^_]+)$',r'_\1',name); name = re.sub(r'(?<=[A-Za-z$])\d+(?=_|$)','',name); name = re.sub(r'\d+$','',name)
     else:
         name = 'rt:' + cur_fn
     a = tot.setdefault(name, [0]*NEV)
