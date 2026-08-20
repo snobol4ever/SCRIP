@@ -29,7 +29,6 @@ extern void           bb_pool_release(size_t mark);
 #define EVAL_TMP_MARKED "EVAL$"
 #define EVAL_TMP_LEGACY "ZZEVALZZ"
 #define EVAL_TMP eval_tmp_name()
-#define EVAL_RETAIN_BUDGET (2 * 1024 * 1024)
 typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
@@ -334,6 +333,18 @@ static void eval_chain_enter_only(eval_chain_fn fn) {
     /* chain ret lands in eval_string_transient; this line is never reached */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ B2c ROOT CAUSE (s172, queue row beauty-m3-zls): AN EVAL THAT RETURNS A PATTERN HANDS BACK A VALUE LIVING INSIDE THE CHAIN'S OWN JIT BLOB, so releasing that blob when the EVAL returns is a
+ * USE-AFTER-FREE, not a memory economy.  The old line read `mark < EVAL_RETAIN_BUDGET`, and `mark` is the WHOLE pool frontier -- the program's own compiled code included -- so the predicate
+ * answered "is this program's code smaller than 2MB?", never "how much has EVAL retained?".  MEASURED on beauty: its m3 blobs seal at 0x202000 = 2,105,344 bytes, 8,192 PAST the 2MB budget, so
+ * EVERY EVAL in beauty-m3 took the release arm; the pattern built by semantic.inc's `shift = EVAL("p . thx . *Shift('" t "', thx)")` was dangling the instant it was assigned, and the first
+ * Shift/Reduce match jumped to pool_top (0x7fffee202000: page-aligned, re-mprotect'ed RW by bb_pool_release, hence SIGSEGV on instruction FETCH, with rax == rip == the DTP's fn field).  m4
+ * escaped only because its code lives in the ELF and not in the pool, so mark stayed near 0 and the same chains were retained -- the mode asymmetry was an ACCOUNTING artifact, not a dirty quad
+ * (the `zls_g_region` frame the s170 census read is a stale return address in dirty stack that gdb prints as frame #1 -- a fingerprint of the dirty spine, never a caller).  DEFAULT IS NOW
+ * RETAIN: the chain is cached and its blob kept for the life of the process, which is exactly what every program under 2MB already got.  Killswitch `SCRIP_EVAL_RETAIN=<bytes>` sets the budget
+ * for A/B -- =2097152 restores the historic 2MB cliff verbatim, =0 releases every chain (the class in one command: witness corpus/probe/b2c/b2c_eval_pat_release.sno, 7 lines, PASS at default,
+ * SIGSEGV at =0).  Pool exhaustion stays bounded and now fails HONESTLY: bb_alloc returns NULL at the 64MB reserve, eval_build_chain returns NULL, and the EVAL fails instead of jumping into
+ * freed pages. */
+static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
@@ -351,7 +362,7 @@ DESCR_t eval_string_transient(const char *s) {
     eval_chain_enter_only(fn);
     DESCR_t result = NV_GET_fn(EVAL_TMP);
     NV_SET_fn(EVAL_TMP, saved);
-    if (mark < EVAL_RETAIN_BUDGET) eval_cache_put(s, fn);
+    if (mark < eval_retain_budget()) eval_cache_put(s, fn);
     else bb_pool_release(mark);
     return result;
 }
