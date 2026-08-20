@@ -1025,11 +1025,12 @@ int c_rt_defer_close(int cur_delta)
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_XPAT_CHAIN_MAX 256
 static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
-{   /* ONE-DEFER shared tail: rt_defer_step's val handling for a DESCR-call result -- FAIL sets failed; a SECOND DT_X (first already consumed dtx_used) stores as val exactly as step does (close then -1s it); else val=r.  Twinned with rt_defer_step above; a drift between them is the spelled-twice disease, so both are three lines on purpose. */
+{   /* ONE-DEFER shared tail: rt_defer_step's val handling for a DESCR-call result -- FAIL sets failed; else val=r.  ⭐ DEFER-DEPTH FLOOR (s187): the old arm resolved a DT_X only when !dtx_used, so a chain of deferred EXPRESSIONs (`G0 = *G1` then `P = *G0`, matched as `*P`) got exactly ONE evaluation and the SECOND DT_X was stored unresolved -- close then -1'd it, and a plain string two links down came back NOMATCH in both modes.  Manual p.85-86 (quoted at rt_defer_match above) says a DT_X evaluation may itself run a match, so the chain is walked to exhaustion; the oracle agrees and loops forever on a self-referential `V = *V`, which is why the walk is BOUNDED rather than a while.  RT_XPAT_CHAIN_MAX terminates a cycle back into the pre-s187 answer (store the DT_X, close -1s it) instead of hanging.  Twinned with rt_defer_step above; a drift between them is the spelled-twice disease. */
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     if (IS_FAIL_fn(r)) { s->failed = 1; return; }
-    if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; DESCR_t r2 = rt_call_proc_descr(r.s ? r.s : "", 0); if (IS_FAIL_fn(r2)) { s->failed = 1; return; } s->val = r2; return; }
+    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) { s->dtx_used = 1; r = rt_call_proc_descr(r.s, 0); if (IS_FAIL_fn(r)) { s->failed = 1; return; } }
     s->val = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1131,6 +1132,7 @@ void *rt_defer_xpat_dtp(const char *nm)
     extern DESCR_t rt_call_proc_descr(const char *, int);
     if (!rt_defer_xpat_on()) return NULL;
     DESCR_t r = rt_call_proc_descr(nm ? nm : "", 0);
+    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_call_proc_descr(r.s, 0);
     if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
     if (r.v == DT_X && rt_defer_xpat_chain_on()) { for (int hop = 0; r.v == DT_X && r.s && r.s[0] && hop < RT_DEFER_XPAT_MAX_HOPS; hop++) { r = rt_call_proc_descr(r.s, 0); if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; } } }   /* s186 CHAINED DEFERRAL: `V = *W` makes V's own value a DT_X, so one resolve lands on ANOTHER unevaluated expression, not on a pattern -- SPITBOL keeps dereferencing until a pattern or a scalar falls out (manual v3.7 p.86/p.196), and stopping at hop 1 is what failed beauty's `Expr = *Expr0`.  The final r is parked under the ORIGINAL nm so the close path still literal-matches a scalar tail and still runs each expression exactly once. */
     rt_spk_park(nm, r);
