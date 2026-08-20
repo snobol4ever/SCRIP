@@ -157,7 +157,20 @@ n12_match_defer_α:      sub              rsp, 16
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         mov              rdx, qword ptr [r9 + 8];             jmp   .Lx45_10
-.Lx45_9:                xor              eax, eax
+.Lx45_9:                cmp              eax, 88;                             jne   .Lx45_21
+                        mov              rdi, rdx
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             rt_defer_xpat_dtp@PLT
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64]
+                        mov              rdx, rax
+                        test             rax, rax;                            je    .Lx45_21
+                        mov              rax, qword ptr [rdx + 0];            jmp   .Lx45_10
+.Lx45_21:               xor              eax, eax
 .Lx45_10:               test             rax, rax;                            jz    .Lx45_0
                         mov              r8d, 0
                         lea              r10, [rip + .Lx45_4]
