@@ -8,9 +8,8 @@
 #include "parser/icon/icon_lex.h"
 #include "zeta_choices.h"
 int rt_zeta_port_mode(void);
-int rt_kw_static_on(void);
 int rt_kw_index(const char * kw);
-static int sno_kw_static_slot(const char * kw) { return (rt_kw_static_on() && kw) ? rt_kw_index(kw) : -1; }   /* ⭐ KW-3b ONE AUTHORITY for "may this `&KW =` take the static-slot template": armed AND the block actually names the keyword. Both TT_KEYWORD assignment sites consult THIS, never the two conditions separately, so the plain-assignment and the pattern-replacement forms cannot disagree about which keywords are retargeted (the s68/s70 spelled-twice law). A miss (-1) keeps the verbatim SNO$KWSET by-name call, which is what preserves today's behaviour for the keywords the block does not name (&ARB/&BAL/&REM/&FAIL and the pattern family) and what makes SCRIP_KW_STATIC unset byte-identical by construction. */
+static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -1; }   /* ⭐ KW-3b ONE AUTHORITY for "may this `&KW =` take the static-slot template": the block actually names the keyword (KW-4 deleted the armed half). Both TT_KEYWORD assignment sites consult THIS, never the two conditions separately, so the plain-assignment and the pattern-replacement forms cannot disagree about which keywords are retargeted (the s68/s70 spelled-twice law). A miss (-1) keeps the verbatim SNO$KWSET by-name call, which is what preserves today's behaviour for the keywords the block does not name (&ARB/&BAL/&REM/&FAIL and the pattern family) and what makes SCRIP_KW_STATIC unset byte-identical by construction. */
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;   /* PB-1s: snapg != NULL marks a plain-ref SNAPSHOT entry (VALUE-LEAF class) -- prim is the in-chain IR_VAR whose sval the drain repoints at the hidden stage-2 global; arg is the source TT_VAR tree; str/codes unused */

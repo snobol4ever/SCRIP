@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-int rt_kw_static_on(void);
 int rt_kw_index(const char *kw);
 DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 }
@@ -25,7 +24,7 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 std::string bb_keyword_assign_snobol4() {
     if (!PLATFORM_X86) return std::string();
     if (_.op_a_slot < 0 && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: rhs operand slot unresolved");
-    const int kwi = (rt_kw_static_on() && _.op_sval) ? rt_kw_index(_.op_sval) : -1;
+    const int kwi = _.op_sval ? rt_kw_index(_.op_sval) : -1;
     if (kwi < 0) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: keyword not named by the block");
     if (_.op_zres)
         return x86("comment", "IR_KEYWORD_ASSIGN_SNOBOL4 zd [KW-3b static idx]")

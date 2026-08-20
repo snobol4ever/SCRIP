@@ -115,7 +115,6 @@ static const char *trace_get_callback(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_registered(name); }
 int64_t kw_stcount = 0;
-int64_t kw_stno    = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send(const char *kind, const char *name, const char *value) {
     if (monitor_fd < 0) return;
@@ -1641,7 +1640,6 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 }
 int core_stack_floor_raised = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_seed_names(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_SEED_NAMES"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ SEED-NAMES killswitch (s145, M1-R0): default OFF = SPITBOL's true blank slate (manual p.24: a new variable's initial value is the null string; oracle-measured: bare ALPHABET/UCASE/LCASE/digits/nl/tab/semicolon are ALL empty and epsilon is a null STRING in sbl). =1 restores the legacy convenience pre-seeding byte-identically for bisects. The pre-seeding was a pure SCRIP invention that desynced any program building these names by hand from &ALPHABET -- beauty.sno's global.inc is exactly such a program (FINDING s144). */
 void core_lib_init(void) {
     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (mode-4 twin): mode-4's generated main calls core_lib_init directly and never calls
      * rt_gcheap_warmup itself (only scrip.c's mode-3 driver did, at two call sites before rt_outer_call/rt_outer_call_delta0). gc_static_segs_init's dl_iterate_phdr
@@ -1661,8 +1659,7 @@ void core_lib_init(void) {
     }
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
-    if (core_seed_names()) NV_SET_fn("ALPHABET", BSTRVAL(alphabet, 256));
-    { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }   /* KW-5b: the keyword block's oracle-true initials must be live BEFORE statement one, or a program that never mentions a keyword runs on the C initializers -- measured as a wrong &TRIM answer on a bare `L = INPUT` (see rt_kw_seed_defaults). No-op unless SCRIP_KW_STATIC is armed. */
+    { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }   /* KW-5b: the keyword block's oracle-true initials must be live BEFORE statement one, or a program that never mentions a keyword runs on the C initializers -- measured as a wrong &TRIM answer on a bare `L = INPUT` (see rt_kw_seed_defaults). Unconditional since KW-4 deleted the killswitch. */
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ms = (int64_t)_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -1814,36 +1811,6 @@ void core_lib_init(void) {
     register_fn("FENCE",   _PAT_FENCE_,   0, 1);
     register_fn("ALT",     _PAT_ALT_,     2, 2);
     register_fn("CONCAT",  _PAT_CONCAT_,  2, 2);
-    if (core_seed_names()) {
-        char *_ch = rt_ws_alloc(2);
-        _ch[0] = (char)9;  _ch[1] = '\0'; NV_SET_fn("tab", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)9;  _ch[1] = '\0'; NV_SET_fn("ht", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)10; _ch[1] = '\0'; NV_SET_fn("nl", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)10; _ch[1] = '\0'; NV_SET_fn("lf", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)13; _ch[1] = '\0'; NV_SET_fn("cr", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)12; _ch[1] = '\0'; NV_SET_fn("ff", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)11; _ch[1] = '\0'; NV_SET_fn("vt", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)8;  _ch[1] = '\0'; NV_SET_fn("bs", STRVAL(_ch));
-        { char *_nul = rt_ws_alloc(2); _nul[0] = '\0'; _nul[1] = '\0';
-          NV_SET_fn("nul", BSTRVAL(_nul, 1)); }
-        NV_SET_fn("epsilon", pat_epsilon());
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)47; _ch[1] = '\0'; NV_SET_fn("fSlash", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)92; _ch[1] = '\0'; NV_SET_fn("bSlash", STRVAL(_ch));
-        _ch = rt_ws_alloc(2);
-        _ch[0] = (char)59; _ch[1] = '\0'; NV_SET_fn("semicolon", STRVAL(_ch));
-        NV_SET_fn("UCASE",  STRVAL(ucase));
-        NV_SET_fn("LCASE",  STRVAL(lcase));
-        NV_SET_fn("digits", STRVAL("0123456789"));
-    }
     NV_SET_fn("ARB",     pat_arb());
     NV_SET_fn("BAL",     pat_bal());
     NV_SET_fn("FENCE",   pat_fence());
@@ -2195,23 +2162,6 @@ DESCR_t NV_GET_fn(const char *name) {
         }
         return STRVAL(rt_ws_strdup_c(_io_chan[ch].buf));
     }
-    if (rt_kw_static_on()) goto kwb_no_bare_hijack;   /* CLASS A (FINDING s146 §2): manual Ch.16 p.187 -- keyword names "are set apart from other variables by the unary operator ampersand", so a BARE name is an ordinary variable whose initial value is the null string. Oracle-measured: all 14 names below read empty in sbl. The family below hijacks them BEFORE the variable table; when the block is armed we skip the whole family and let the table answer. Gated, not deleted -- KW-4 deletes it, after the blast radius is measured. */
-    if (strcmp(name, "STCOUNT")  == 0) return INTVAL(kw_stcount);
-    if (strcmp(name, "STNO")     == 0) return INTVAL(kw_stno);
-    if (strcmp(name, "STLIMIT")  == 0) return INTVAL(kw_stlimit);
-    if (strcmp(name, "ANCHOR")   == 0) return INTVAL(kw_anchor);
-    if (strcmp(name, "TRIM")     == 0) return INTVAL(kw_trim);
-    if (strcmp(name, "FULLSCAN") == 0) return INTVAL(kw_fullscan);
-    if (strcmp(name, "CASE")     == 0) return INTVAL(0);
-    if (strcmp(name, "MAXLNGTH") == 0) return INTVAL(kw_maxlngth);
-    if (strcmp(name, "FTRACE")   == 0) return INTVAL(kw_ftrace);
-    if (strcmp(name, "TRACE")    == 0) return INTVAL(kw_trace);
-    if (strcmp(name, "ERRLIMIT") == 0) return INTVAL(kw_errlimit);
-    if (strcmp(name, "CODE")     == 0) return INTVAL(kw_code);
-    if (strcmp(name, "FNCLEVEL") == 0) return INTVAL(kw_fnclevel);
-    if (strcmp(name, "RTNTYPE")  == 0) return STRVAL(kw_rtntype);
-    if (core_seed_names() && strcmp(name, "ALPHABET") == 0) return BSTRVAL(alphabet, 256);   /* s145 M1-R0 BRIDGE: bare ALPHABET is a plain variable (oracle: empty); this special-case hijacked it before the table. Gated, not deleted -- the structural fix is KW-STATIC (Lon 2026-08-19: "place all the keywords as statics in the emitted asm and use direct references"), which deletes the whole special-case family. &ALPHABET keyword reads never pass here (rt_keyword_read_snobol4 serves the C array directly). */
-    kwb_no_bare_hijack: ;
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         return scan_subj ? STRVAL(scan_subj) : NULVCL;
@@ -2251,21 +2201,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         fprintf(stderr, "%s\n", s);
         return val;
     }
-    if (rt_kw_static_on()) goto kwb_no_bare_hijack_set;   /* CLASS A, WRITE HALF (FINDING s146 §2): the read family at NV_GET_fn has a mirror here -- a bare `ANCHOR = 1` must create an ORDINARY VARIABLE, not set the keyword. Oracle-measured (probe/kw/kw_bare_shadow): assigning a bare name leaves &ANCHOR at 0 and reads the assigned string back. Gated with the read half so the two never disagree; KW-4 deletes both. */
-    if (strcmp(name, "STLIMIT")  == 0) { kw_stlimit  = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "ANCHOR")   == 0) { kw_anchor   = (val.v==DT_I)?val.i:(int64_t)to_real(val); if (g_rtcc_on) rtccb[RTCC_SLOT_R8] = (uint64_t)kw_anchor; return val; }
-    if (strcmp(name, "TRIM")     == 0) { kw_trim     = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "FULLSCAN") == 0) { kw_fullscan = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "CASE")     == 0) {
-        core_runtime_error(10, "&CASE is read-only; SCRIP is case-sensitive only");
-        return val;
-    }
-    if (strcmp(name, "MAXLNGTH") == 0) { kw_maxlngth = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "FTRACE")   == 0) { kw_ftrace   = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "TRACE")    == 0) { kw_trace    = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "ERRLIMIT") == 0) { kw_errlimit = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    if (strcmp(name, "CODE")     == 0) { kw_code     = (val.v==DT_I)?val.i:(int64_t)to_real(val); return val; }
-    kwb_no_bare_hijack_set: ;
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? val.s : VARVAL_fn(val);

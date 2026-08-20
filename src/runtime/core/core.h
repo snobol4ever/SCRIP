@@ -233,7 +233,6 @@ extern int64_t kw_anchor;
 extern int64_t kw_trim;
 extern int64_t kw_stlimit;
 extern int64_t kw_stcount;
-extern int64_t kw_stno;
 extern int64_t kw_ftrace;
 extern int64_t kw_trace;
 extern int64_t kw_errlimit;

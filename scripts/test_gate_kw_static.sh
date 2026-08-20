@@ -12,20 +12,19 @@ set -uo pipefail
 SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBE_DIR="${KW_PROBE_DIR:-$S4E/corpus/probe/kw}"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
-MODE="both"; VERBOSE=0; ARMED="${SCRIP_KW_STATIC:-}"
+MODE="both"; VERBOSE=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --mode) MODE="$2"; shift 2 ;;
         --verbose|-v) VERBOSE=1; shift ;;
-        --armed) ARMED=1; shift ;;
+        --armed) shift ;;   # KW-4: accepted and ignored -- there is only one arm now
         --with-b1) WITH_B1=1; shift ;;
-        --legacy) ARMED=0; shift ;;
+        --legacy) echo "GATE BLOCKED: --legacy is gone -- KW-4 deleted the SCRIP_KW_STATIC=0 arm"; exit 2 ;;
         *) echo "unknown option: $1"; exit 2 ;;
     esac
 done
 [[ -x "$SCRIP_BIN" ]] || { echo "GATE BLOCKED: no scrip binary at $SCRIP_BIN (run make -j8 scrip)"; exit 2; }
 [[ -d "$PROBE_DIR" ]] || { echo "GATE BLOCKED: no probe dir at $PROBE_DIR (clone corpus)"; exit 2; }
-[[ -n "$ARMED" ]] && export SCRIP_KW_STATIC="$ARMED"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0; failed_names=()
 # a witness may ship a .dat beside it -- that file is its stdin (kw_trim_effect needs one to
@@ -87,21 +86,16 @@ pin_row() {   # $1 = witness base, $2 = what a break MEANS (the reader should no
 pin_row kw_pattern_family "the primitive-pattern keyword family regressed again (s147 class: &ARB..&SUCCEED must read as PATTERN, manual Ch.16 p.187-188)"
 pin_row kw_unset_datatype "DATATYPE of an unset variable stopped answering STRING (s161 class: SNOBOL4 has no null datatype -- the null string IS a string, manual p.24 and the DATATYPE entry p.213)"
 echo "-----------------------------------------------------------------------"
-echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, SCRIP_KW_STATIC=${SCRIP_KW_STATIC:-unset/ARMED-BY-DEFAULT})"
-# KW-6 flipped the default ON, so an UNSET variable now means ARMED -- the :-1 below is that
-# flip and must move with it, or this gate prints the legacy expectations over an armed run.
-if [[ "${SCRIP_KW_STATIC:-1}" = "1" ]]; then
-    echo "  ARM=ARMED — GRADE THIS ARM.  Expected today: ALL 16 ROWS GREEN, no routed reds left."
-    echo "  kw_protected_write went green at KW-5 (kwb_error converts 208/209 to statement failure when"
-    echo "  &ERRLIMIT is non-zero, Ch.16); kw_bare_shadow at s161 (DATATYPE of an unset variable is STRING,"
-    echo "  not NULL -- it was mis-routed as B1); kw_trim_lazy_seed is KW-5b (block initials seeded at"
-    echo "  program start, so a program that touches no keyword still gets the oracle's &TRIM=1)."
-else
-    echo "  ARM=LEGACY (SCRIP_KW_STATIC=0, no longer the default) — A LOW SCORE HERE IS BY DESIGN."
-    echo "  These witnesses encode the TARGET keyword table, which only the ARMED arm implements; the legacy"
-    echo "  arm is kept byte-identical to pre-KW-2 behaviour on purpose.  Grade with --armed; the legacy run's"
-    echo "  only job is to prove the killswitch still isolates the feature."
-fi
+echo "KW-STATIC GATE: $pass PASS / $((pass+fail)) total   (mode=$MODE, single arm -- KW-4 deleted the killswitch)"
+# KW-4 (this session) DELETED the SCRIP_KW_STATIC killswitch, so there is no arm to select and no
+# legacy expectations to print.  The rows below ARE the contract; a red here is a regression, never
+# "the other arm".  Keeping the old two-branch epilogue would have printed an arm label for a switch
+# the binary no longer reads -- the vacuous-gate class RULES.md names.
+echo "  ONE ARM — GRADE IT.  Expected: ALL ROWS GREEN, no routed reds left."
+echo "  kw_protected_write went green at KW-5 (kwb_error converts 208/209 to statement failure when"
+echo "  &ERRLIMIT is non-zero, Ch.16); kw_bare_shadow at s161 (DATATYPE of an unset variable is STRING,"
+echo "  not NULL -- it was mis-routed as B1); kw_trim_lazy_seed is KW-5b (block initials seeded at"
+echo "  program start, so a program that touches no keyword still gets the oracle's &TRIM=1)."
 if [[ $pin_bad -ne 0 ]]; then
     echo "STANDING PIN BROKEN — kw_pattern_family; this is a CORRECTNESS regression independent of the KW-STATIC score above."
     exit 1

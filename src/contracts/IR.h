@@ -169,7 +169,6 @@ typedef enum {
                              * replacement expression chain (RELEASE.γ → repl chain → this) so a repl expr that
                              * nests its own match cannot stale the end cursor — end left r14 at RELEASE time. */
     IR_MATCH_RETRY,
-    IR_MATCH_ADVANCE,
     IR_REF_INVARIANT,       /* sealed constant-folded pattern blob (FZ-3) */
     IR_PATTERN_CAT,      /* STITCH-CAT box (B6 409f62a9/a59f38b8): rt_pattern_stitch_cat */
     IR_PATTERN_ALT,      /* STITCH-ALT box (B3 7a12aedd): rt_pattern_stitch_alt */

@@ -43,7 +43,6 @@ std::string bb_match_begin();
 std::string bb_match_end();
 std::string bb_match_replace();
 std::string bb_match_retry();
-std::string bb_match_advance();
 std::string bb_match_capture();
 std::string bb_arith();
 std::string bb_conjunction();

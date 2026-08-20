@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 DESCR_t rt_keyword_read_snobol4(const char *sval);
-int rt_kw_static_on(void);
 int rt_kw_index(const char *kw);
 DESCR_t rt_kw_read_idx(int64_t idx);
 const char *rt_kw_direct_sym(int idx, int *soff, const void **base);
@@ -17,7 +16,7 @@ const char *rt_kw_direct_sym(int idx, int *soff, const void **base);
  * (IR_KEYWORD_SNOBOL4) selects this template; the emitter never tests a language. */
 std::string bb_keyword_snobol4() {
     if (!PLATFORM_X86) return std::string();
-    const int kwi = (rt_kw_static_on() && _.op_sval) ? rt_kw_index(_.op_sval) : -1;   /* ⭐ KW-3 THE STATIC SLOT: the keyword's canonical block index, resolved AT EMIT TIME because `&TRIM` is a literal in the source and its index is a compile-time fact. kwi < 0 means either the killswitch is off (DEFAULT -- every arm below is then byte-identical to KW-2 by construction, which is what keeps the 529/529 md5 sweep green) or the block does not name this keyword (&ARB/&BAL/&REM/&FAIL and the pattern family), and BOTH cases fall through to the verbatim legacy name-string arm. */
+    const int kwi = _.op_sval ? rt_kw_index(_.op_sval) : -1;   /* ⭐ KW-3 THE STATIC SLOT: the keyword's canonical block index, resolved AT EMIT TIME because `&TRIM` is a literal in the source and its index is a compile-time fact. kwi < 0 means either the killswitch is off (DEFAULT -- every arm below is then byte-identical to KW-2 by construction, which is what keeps the 529/529 md5 sweep green) or the block does not name this keyword (&ARB/&BAL/&REM/&FAIL and the pattern family), and BOTH cases fall through to the verbatim legacy name-string arm. */
     int soff = 0; const void *cbase = (const void *)0;
     const char *csym = (kwi >= 0) ? rt_kw_direct_sym(kwi, &soff, &cbase) : (const char *)0;   /* ⭐⭐⭐ KW-D (GOAL-SNOBOL4-100 line 510, Lon verbatim: "use direct references"): non-NULL = this keyword's cell is DIRECTLY ADDRESSABLE and the box emits a LOAD, not a call -- TEXT [rip+sym@GOTPCREL] then deref (the rt_anchor_g/bb_define precedent, R10's sanctioned media divergence), BINARY movabs of the in-process cell. NULL (STR family, SCRIP_KW_DIRECT=0, or a rebound block) keeps the KW-3 indexed-call arm verbatim. */
     if (_.op_zres && csym)
