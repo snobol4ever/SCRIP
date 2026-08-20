@@ -352,8 +352,7 @@ static long g_gc_nseg = -1, g_gc_seg_cap = 0;
 static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
 static long g_gc_icap = 0;
-static char *g_gc_scanbuf = (char *)0;
-static long g_gc_scap = 0;
+static rt_hblk_t *g_gc_mhead = (rt_hblk_t *)0;
 static rt_hblk_t **g_gc_liveo = (rt_hblk_t **)0;
 static uint64_t *g_gc_livef = (uint64_t *)0;
 static long g_gc_lcap = 0;
@@ -409,10 +408,17 @@ static rt_hblk_t *gc_blk_of(const char *p)
     { long lo = 0, hi = g_gc_nblk - 1; while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_idx[m]; if (p < b) hi = m - 1; else if (p >= b + g_gc_idx[m]->size) lo = m + 1; else return g_gc_idx[m]; } return (rt_hblk_t *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
+{
+    uint16_t old = h->flags;
+    h->flags = (uint16_t)(old | HBF_MARK | addf);
+    if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_pin_ptr(const char *p)
 {
     rt_hblk_t *h = gc_blk_of(p);
-    if (h) h->flags |= (HBF_MARK | HBF_PIN);
+    if (h) gc_mark_blk(h, HBF_PIN);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_gc_scan_tag = 0; static long g_gc_pin_tag[8][16]; static void *g_gc_pin_src[32][2]; static int g_gc_pin_src_n = 0;
@@ -425,7 +431,7 @@ static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
         else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) {
             if (!(h->flags & HBF_PIN) && h->type >= 200 && h->type < 216) { g_gc_pin_tag[g_gc_scan_tag & 7][h->type - 200] += 1;
                 if (g_gc_pin_src_n < 32) { g_gc_pin_src[g_gc_pin_src_n][0] = (void *)p; g_gc_pin_src[g_gc_pin_src_n][1] = (void *)(uintptr_t)h->type; g_gc_pin_src_n++; } }
-            h->flags |= (HBF_MARK | HBF_PIN); } } }
+            gc_mark_blk(h, HBF_PIN); } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_cons_scan(const char *lo, const char *hi)
@@ -437,13 +443,13 @@ void rt_gc_visit_raw(const char **loc)
 {
     rt_hblk_t *h = gc_blk_of(*loc);
     if (!h) return;
-    h->flags |= HBF_MARK;
+    gc_mark_blk(h, 0);
     if (!gc_hins((void *)loc)) return;
     if (g_gc_nraw == g_gc_rcap) { g_gc_rcap = g_gc_rcap ? g_gc_rcap * 2 : 1024; g_gc_raws = (const char ***)realloc((void *)g_gc_raws, (size_t)g_gc_rcap * sizeof(*g_gc_raws)); if (!g_gc_raws) abort(); }
     g_gc_raws[g_gc_nraw++] = loc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) h->flags |= HBF_MARK; }
+static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t)
 {
@@ -460,7 +466,7 @@ void rt_gc_visit_descr(DESCR_t *d)
     case DT_S: case DT_SNUL: {
         rt_hblk_t *h = gc_blk_of(d->s);
         if (!h) return;
-        h->flags |= HBF_MARK;
+        gc_mark_blk(h, 0);
         if (d->s != (char *)(h + 1)) g_gc_interior++;
         if (!gc_hins((void *)d)) return;
         if (g_gc_ncell == g_gc_ccap) { g_gc_ccap = g_gc_ccap ? g_gc_ccap * 2 : 4096; g_gc_cells = (DESCR_t **)realloc((void *)g_gc_cells, (size_t)g_gc_ccap * sizeof(*g_gc_cells)); if (!g_gc_cells) abort(); }
@@ -491,7 +497,7 @@ void rt_gc_visit_descr(DESCR_t *d)
             if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
             rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); return; }
         if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; if (tc && gc_hins((void *)tc)) rt_gc_visit_descr(tc); return; }
-        { rt_hblk_t *h = gc_blk_of(d->s); if (h) { h->flags |= HBF_MARK; if (gc_hins((void *)d)) { if (g_gc_ncell == g_gc_ccap) { g_gc_ccap = g_gc_ccap ? g_gc_ccap * 2 : 4096; g_gc_cells = (DESCR_t **)realloc((void *)g_gc_cells, (size_t)g_gc_ccap * sizeof(*g_gc_cells)); if (!g_gc_cells) abort(); } g_gc_cells[g_gc_ncell++] = d; } } }
+        { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); if (gc_hins((void *)d)) { if (g_gc_ncell == g_gc_ccap) { g_gc_ccap = g_gc_ccap ? g_gc_ccap * 2 : 4096; g_gc_cells = (DESCR_t **)realloc((void *)g_gc_cells, (size_t)g_gc_ccap * sizeof(*g_gc_cells)); if (!g_gc_cells) abort(); } g_gc_cells[g_gc_ncell++] = d; } } }
         return; }
     default: return;
     }
@@ -628,6 +634,7 @@ static long gc_collect_ex(int cons_stack)
     { char *p = g_hp_arena; long i = 0; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p; h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN);
         if (h->type == HB_ZBLK || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT)) nforeign++;
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; for (char *gs = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } g_gc_pmap_top = g_hp_top; }
+    g_gc_mhead = (rt_hblk_t *)0;
     { static int legacy_env = -1; if (legacy_env < 0) { const char *e = getenv("SCRIP_GC_LEGACY"); legacy_env = (e && *e && *e != '0') ? 1 : 0; }
       pz = (cons_stack == 0 && !legacy_env && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && rt_value_trail_mark() == 0 && g_gc_rpin_n == 0 && g_gc_rrng_n == 0);
       if (cons_stack == 0 && !pz) cons_stack = 1; }
@@ -651,19 +658,30 @@ static long gc_collect_ex(int cons_stack)
     core_gc_roots(); gen_gc_roots(); rt_gc_root_args();
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
     if (g_gc_shield_r) rt_gc_visit_raw(g_gc_shield_r);
-    { char *scanned; int changed = 1;
-      if (g_gc_nblk >= g_gc_scap) { g_gc_scap = g_gc_scap ? g_gc_scap : 4096; while (g_gc_scap <= g_gc_nblk) g_gc_scap *= 2; g_gc_scanbuf = (char *)realloc((void *)g_gc_scanbuf, (size_t)g_gc_scap); if (!g_gc_scanbuf) abort(); }
-      scanned = g_gc_scanbuf; memset(scanned, 0, (size_t)(g_gc_nblk ? g_gc_nblk : 1));
-      while (changed) { changed = 0;
-        for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-            if (scanned[i] || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
-            if (h->type == HB_WS || h->type == HB_PLJ) { scanned[i] = 1; changed = 1; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); continue; }
-            if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); scanned[i] = 1; changed = 1; if (vc->key) gc_mark_agg(vc->key);
+    { int wl; long walked = 0, nscan = 0, rounds = 0; { const char *e = getenv("SCRIP_GC_WORKLIST"); wl = (e && *e == (char)48) ? 0 : 1; }
+      if (wl) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
+            if (h->type == HB_WS || h->type == HB_PLJ) { gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); continue; }
+            if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); if (vc->key) gc_mark_agg(vc->key);
                 if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
                 rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); continue; }
-            if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; if (e->key) gc_mark_agg(e->key);
+            if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
+            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
+      else { char *scanned; int changed = 1;
+        while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; }
+        scanned = (char *)calloc((size_t)(g_gc_nblk ? g_gc_nblk : 1), 1); if (!scanned) abort();
+        while (changed) { changed = 0; rounds++;
+          for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i]; walked++;
+              if (scanned[i] || !(h->flags & (HBF_MARK | HBF_PIN))) continue;
+              if (h->type == HB_WS || h->type == HB_PLJ) { scanned[i] = 1; changed = 1; nscan++; gc_cons_scan((const char *)(h + 1), (const char *)h + h->size); continue; }
+              if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (vc->key) gc_mark_agg(vc->key);
+                  if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
+                  rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); continue; }
+              if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (e->key) gc_mark_agg(e->key);
+                  rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
+              if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
+        free((void *)scanned); }
+      if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", wl ? "WL" : "FX", walked, nscan, rounds, g_gc_nblk);
     }
     dest = g_hp_arena;
     { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0, pagg = 0, dagg = 0;
