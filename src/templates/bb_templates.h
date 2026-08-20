@@ -103,7 +103,7 @@ std::string bb_keyword_icon();
 std::string bb_keyword_snobol4();
 std::string bb_keyword_assign();
 std::string bb_keyword_assign_snobol4();
-std::string bb_goto_dyn();
+std::string bb_goto_deferred();
 std::string bb_define();   /* ONE-BB DEFINE (Lon s116): role via g_emit.op_define_role -- 0..4 Ch.8 citizens, 5 shim-inline, 6 bind, 7 activation, 8 dynamic rt_define reserved */
 std::string bb_nreturn_mark();   /* NRETURN floater body (s98): depth-agnostic by-name mark — GOT/abs store of rt_g_ret_by_name=1, glue jmp continues at RETURN */
 extern "C" void * bb_ab_fn_cell_ptr(const char * fname);   /* R-1 s94: C linkage so the m3 driver (scrip.c) fills alpha$<FN>/body$<ENTRY> at the seals -- ONE allocator, one name */   /* AB-3b: fn_cell$<FN> binary slot pointer for the call-site indirect jmp; TEXT uses the label string directly */
@@ -148,9 +148,9 @@ std::string bb_idx_get();
 std::string bb_scan_pos();
 std::string bb_scan_any();
 std::string bb_scan_match();
-std::string bb_rk_glit();
-std::string bb_rk_gcc();
-std::string bb_rk_galt();
+std::string bb_glit();
+std::string bb_gcc();
+std::string bb_galt();
 std::string bb_scan_many();
 std::string bb_scan_tab();
 std::string bb_scan_move();

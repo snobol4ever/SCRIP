@@ -15,7 +15,7 @@ void rt_goto_transfer(const char *name);
  * RUNS the transferee nested; SNOBOL4 gotos never resume their source, so control returning here means the
  * transferee terminated — γ is wired (at lower time) to the graph's exit and unwinds this chain too, the
  * termination cascade.  Cannot fail from the template's view (an undefined label faults inside the runtime). */
-std::string bb_goto_dyn() {
+std::string bb_goto_deferred() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     { static int _df = -1; if (_df < 0) { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }   /* s55: DEFAULT ON per Lon "Complete DEFINE function constant folding to FUNCTION linkage"; =0 is the revert hatch */

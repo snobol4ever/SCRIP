@@ -19,10 +19,10 @@ extern "C" {
  * lbl_t1 = arm-2 alpha label (operands[0] root; emitter jmps here from beta).
  * IR_GALT.gamma=NULL (proc success), IR_GALT.omega=NULL (proc failure) -- DRIVE_FILL resolves
  * these to flat_succ_p/flat_fail_p = proc_gram__..._gamma/omega exit labels. */
-std::string bb_rk_galt() {
+std::string bb_galt() {
     x86_begin();
     if (!PLATFORM_X86 || _.op_off < 0 || !_.lbl_t0 || !_.lbl_t1 || !_.lbl_t0_p || !_.lbl_t1_p)
-        return x86_alpha() + x86_bomb("bb_rk_galt: IR_GALT missing dslot or arm labels");
+        return x86_alpha() + x86_bomb("bb_galt: IR_GALT missing dslot or arm labels");
     std::string dptr = "dword ptr [rsp + " + std::to_string(_.op_off) + "]";
     return x86("comment", "IR_GALT (grammar alternation): save delta to [rsp+dslot] at alpha; restore+jmp-arm2 at beta")
          + x86_alpha()

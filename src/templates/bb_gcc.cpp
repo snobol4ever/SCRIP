@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_rk_gcc() {
+std::string bb_gcc() {
     x86_begin();
     return (PLATFORM_X86 && _.op_name1) ?
            x86("comment", "IR_GCC (grammar char-class): match one char at [Sigma+delta] against RO-sealed cset; delta<Delta bounds; gamma advances delta by 1; omega on non-member/EOS")
@@ -31,5 +31,5 @@ std::string bb_rk_gcc() {
          + x86(".quad",   LS(0), _.op_name1)
          + x86("label",   LS(0))
          + x86(".string", _.op_name1) :
-           x86_alpha() + x86_bomb("bb_rk_gcc: IR_GCC with no cset string (op_name1 unset)");
+           x86_alpha() + x86_bomb("bb_gcc: IR_GCC with no cset string (op_name1 unset)");
 }

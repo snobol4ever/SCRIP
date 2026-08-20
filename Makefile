@@ -134,7 +134,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_bound.cpp \
     $(SRC)/templates/bb_statement.cpp \
     $(SRC)/templates/bb_disjunction.cpp \
-    $(SRC)/templates/bb_goto_dyn.cpp \
+    $(SRC)/templates/bb_goto_deferred.cpp \
     $(SRC)/templates/bb_fail.cpp \
     $(SRC)/templates/bb_cut.cpp \
     $(SRC)/templates/bb_lit_scalar.cpp \
@@ -225,9 +225,9 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_scan_bal.cpp \
     $(SRC)/templates/bb_scan_sequence.cpp \
     $(SRC)/templates/bb_scan_alternate.cpp \
-    $(SRC)/templates/bb_rk_glit.cpp \
-    $(SRC)/templates/bb_rk_gcc.cpp \
-    $(SRC)/templates/bb_rk_galt.cpp \
+    $(SRC)/templates/bb_glit.cpp \
+    $(SRC)/templates/bb_gcc.cpp \
+    $(SRC)/templates/bb_galt.cpp \
     $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \

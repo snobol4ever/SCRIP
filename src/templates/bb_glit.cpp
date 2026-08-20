@@ -8,7 +8,7 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_rk_glit() {
+std::string bb_glit() {
     x86_begin();
     return (PLATFORM_X86 && _.op_name1) ?
            x86("comment", "IR_GLIT (grammar literal): match RO string at [Sigma+delta]; delta<Delta bounds; gamma advances delta by len; omega on mismatch/EOS")
@@ -33,5 +33,5 @@ std::string bb_rk_glit() {
          + x86(".quad",   LS(0), _.op_name1)
          + x86("label",   LS(0))
          + x86(".string", _.op_name1) :
-           x86_alpha() + x86_bomb("bb_rk_glit: IR_GLIT with no literal string (op_name1 unset)");
+           x86_alpha() + x86_bomb("bb_glit: IR_GLIT with no literal string (op_name1 unset)");
 }
