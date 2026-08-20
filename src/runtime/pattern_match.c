@@ -663,7 +663,7 @@ void rt_dcap_lazy_init(void) {
         g_dcap_top = g_dcap_base;
     }
 }
-int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) runtime half — the emitter-side twin lives in lower_snobol4.c and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  DEFAULT OFF: =1 makes a deferred capture target that resolved to a VALUE rather than a NAME report failure to the terminus instead of silently assigning through it. */
+int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) runtime half — the emitter-side twin lives in lower_snobol4.c and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  DEFAULT ON (s178 flip, Lon greenlight; =0 reverts): a deferred capture target that resolves to a VALUE rather than a NAME reports failure to the terminus instead of silently assigning through it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
