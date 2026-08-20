@@ -1121,7 +1121,9 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
     { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }   /* fallback = the pre-s108 by-name read, taken only when the entry site could not supply a DTP (defensive; every MKPAT product carries snap) */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_DEFER_XPAT_MAX_HOPS 64   /* cycle guard only (`A = *B` with `B = *A`); a legitimate SNOBOL4 deferral chain is a handful of hops -- beauty's deepest is Expr -> Expr0 */
 static int rt_defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int rt_defer_xpat_chain_on(void) { const char *e = getenv("SCRIP_DEFER_XPAT_CHAIN"); return !(e && *e == '0'); }   /* s186 KILLSWITCH: =0 restores the pre-fix SINGLE resolve, i.e. the class-B behaviour, byte-for-byte on this path */
 static void rt_spk_park(const char *nm, DESCR_t r) { if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; } if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d)\n", g_spk_cap); abort(); } g_spk[g_spk_n].nm = nm; g_spk[g_spk_n].val = r; g_spk_n++; }
 static int rt_spk_take(const char *nm, DESCR_t *out) { if (!nm) return 0; for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, nm)) { *out = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; return 1; } } return 0; }
 void *rt_defer_xpat_dtp(const char *nm)
@@ -1130,6 +1132,7 @@ void *rt_defer_xpat_dtp(const char *nm)
     if (!rt_defer_xpat_on()) return NULL;
     DESCR_t r = rt_call_proc_descr(nm ? nm : "", 0);
     if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
+    if (r.v == DT_X && rt_defer_xpat_chain_on()) { for (int hop = 0; r.v == DT_X && r.s && r.s[0] && hop < RT_DEFER_XPAT_MAX_HOPS; hop++) { r = rt_call_proc_descr(r.s, 0); if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; } } }   /* s186 CHAINED DEFERRAL: `V = *W` makes V's own value a DT_X, so one resolve lands on ANOTHER unevaluated expression, not on a pattern -- SPITBOL keeps dereferencing until a pattern or a scalar falls out (manual v3.7 p.86/p.196), and stopping at hop 1 is what failed beauty's `Expr = *Expr0`.  The final r is parked under the ORIGINAL nm so the close path still literal-matches a scalar tail and still runs each expression exactly once. */
     rt_spk_park(nm, r);
     return NULL;
 }
