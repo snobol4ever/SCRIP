@@ -32,7 +32,7 @@ static int cf_spine_on(void) { static int s = -1; if (s < 0) { const char * e = 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_is_proc_or_pat(const IR_graph_t * g) {
     if (g->nparams > 0 || g->resumable_callable) return 1;
-    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue; if (nd->op >= IR_MATCH_LIT && nd->op <= IR_MATCH_RETRY) return 1; if (nd->op == IR_PATTERN_CAT || nd->op == IR_PATTERN_ALT || nd->op == IR_PATTERN_DEFER) return 1; }
+    for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd) continue; if (ir_is_matcher(nd->op)) return 1; if (nd->op == IR_PATTERN_CAT || nd->op == IR_PATTERN_ALT || nd->op == IR_PATTERN_DEFER) return 1; }
     return 0;
 }
 void optimizer_run(IR_graph_t *g) {

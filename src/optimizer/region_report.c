@@ -18,7 +18,7 @@ void region_report(IR_graph_t * g) {
     int * lo = (int *)calloc((size_t)nr, sizeof(int)); int * hi = (int *)calloc((size_t)nr, sizeof(int)); int * cnt = (int *)calloc((size_t)nr, sizeof(int)); int * pat = (int *)calloc((size_t)nr, sizeof(int));
     if (!bin || !bout || !bxin || !lo || !hi || !cnt || !pat) { free(rid); free(bin); free(bout); free(bxin); free(lo); free(hi); free(cnt); free(pat); return; }
     for (int r = 0; r < nr; r++) lo[r] = -1;
-    for (int i = 0; i < g->n; i++) { int r = rid[i]; if (lo[r] < 0) lo[r] = i; hi[r] = i; cnt[r]++; IR_t * nd = g->all[i]; if (nd && (nd->op == IR_MATCH_BEGIN || (nd->op >= IR_MATCH_LIT && nd->op <= IR_MATCH_ASSIGN_SAVE))) pat[r] = 1; }
+    for (int i = 0; i < g->n; i++) { int r = rid[i]; if (lo[r] < 0) lo[r] = i; hi[r] = i; cnt[r]++; IR_t * nd = g->all[i]; if (nd && (nd->op == IR_MATCH_BEGIN || (ir_is_matcher_element(nd->op)))) pat[r] = 1; }
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i]; if (!nd) continue;
         IR_t * tg[2] = { nd->γ.node, nd->ω.node }; const char * sg[2] = { nd->γ.sz, nd->ω.sz };

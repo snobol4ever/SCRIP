@@ -204,6 +204,27 @@ typedef enum {
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ s181 (Lon 2026-08-20 in-chat: sort the IR enum alphabetically) -- FAMILY MEMBERSHIP IS A STATED FACT, NOT AN EMERGENT PROPERTY OF ENUM ORDER.  Five sites spelled it as a POSITIONAL RANGE
+ * (op >= IR_MATCH_LIT && op <= IR_MATCH_RETRY / .. <= IR_MATCH_ASSIGN_SAVE), so the declaration ORDER of IR_e was load-bearing semantics that nothing named and no gate protected -- reordering the
+ * enum for any reason (alphabetising, inserting a kind mid-family) would have SILENTLY changed what five predicates match.  The two member lists below were GENERATED from the enum order that
+ * stood at SCRIP 1a5c3ff5, never transcribed, so this refactor is inert BY CONSTRUCTION and the .s sweep proves it.  ir_is_matcher = the whole inline-needle family incl. its brackets (BEGIN/END/
+ * REPLACE/RETRY) and the crossing kinds (ATP/CALLOUT/DEFER/VALUE); ir_is_matcher_element = the pattern ELEMENTS proper, the subset a consumer walks when it wants needle boxes and not brackets
+ * (its two callers re-add DEFER/VALUE resp. MATCH_BEGIN explicitly -- that re-adding is what the subset is FOR).  Parameter is int, not IR_e: C++ forbids the implicit int->enum the call sites need. */
+static inline int ir_is_matcher(int t) {
+    switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:
+    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ARB: case IR_MATCH_ARBNO: case IR_MATCH_REM: case IR_MATCH_BAL: case IR_MATCH_FENCE0:
+    case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ALTERNATE: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ATP:
+    case IR_MATCH_CALLOUT: case IR_MATCH_DEFER: case IR_MATCH_VALUE: case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_REPLACE: case IR_MATCH_RETRY: return 1;
+    default: return 0; } }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* THE ELEMENT SUBSET -- see ir_is_matcher above for why these are lists and not ranges. */
+static inline int ir_is_matcher_element(int t) {
+    switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:
+    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ARB: case IR_MATCH_ARBNO: case IR_MATCH_REM: case IR_MATCH_BAL: case IR_MATCH_FENCE0:
+    case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ALTERNATE: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE: return 1;
+    default: return 0; } }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) {
