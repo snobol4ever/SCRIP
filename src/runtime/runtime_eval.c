@@ -480,7 +480,9 @@ DESCR_t code(const char *src)
      * proc_table thunks for the newly-collected patterns (sno_pat_thunks_build) and emit+register them through the
      * same eval_thunks_emit_from path the EVAL arm uses.  Mirrors main's sno_pat_thunks_build(0) + driver loop. */
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
+    extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
     int pat0 = sno_pat_count();
+    int expr0 = sno_expr_mark();
     int proc0 = g_stage2.proc_count;
     eval_chain_fn first = NULL;
     int k = 0;
@@ -504,7 +506,10 @@ DESCR_t code(const char *src)
         }
         k++;
     }
-    if (sno_pat_count() > pat0) { sno_pat_thunks_build(pat0); eval_thunks_emit_from(proc0); }
+    { int patn = sno_pat_count(); const char *ks = getenv("SCRIP_CODE_THUNKS");   /* ⭐ s179 (HQ Fable, PT-COMBO class-7 fn-road reds): the s144 BLOCKER-C patch copied only HALF the EVAL road -- it minted the fragment's new PAT$ bodies but NEVER its new EXPR$ bodies (an in-code `*F()` defer calls sno_expr_collect, which mints the NAME the defer site bakes, while the body-building phase sno_expr_thunks_build -- called by the main driver at lower_snobol4.c:2806 and by the EVAL road at :305 -- was absent here entirely), and its emit gate keyed BOTH calls on the pattern counter, so even a built body would not have been emitted.  Measured (gdb, witness ptw_min_code_fn): pc0 == g_stage2.proc_count at the emit walk -- zero procs filed -- then [GZ-10] 'EXPR$N' has no stackless slab -> silent nomatch (ptc7{f,b}_fn* family).  Cure = finish mirroring the EVAL road: build expr thunks from the captured mark, build pat thunks conditionally, emit UNCONDITIONALLY (a zero-iteration walk when nothing was minted).  SCRIP_CODE_THUNKS=0 restores the old shape exactly (no expr build, pattern-gated emit). */
+      if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
+      if (patn > pat0) sno_pat_thunks_build(pat0);
+      if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
     if (!first) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_C;
