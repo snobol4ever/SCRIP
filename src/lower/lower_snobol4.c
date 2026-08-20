@@ -940,7 +940,7 @@ static int sno_pat_supported(const tree_t * t);
 static int sno_pat_contains_arbno(const tree_t * t);
 static int sno_arbno_chain_on(void) { return rt_zeta_port_mode() == ZC_PORT_FORTH; }   /* ZB-ITER-1a: nested ARBNO admitted iff the s52 rsp linked-frame-chain is active (ZC_PORT_FORTH); the zcol default (fixed-stride realloc array) cannot nest, so it stays refused */
 static const char * sno_pat_collect(const tree_t * pat);
-static struct { const char * var; const char * procname; const tree_t * pat; int defer_cnt; } g_sno_fz[SNO_PAT_MAX];
+static struct { const char * var; const char * procname; const tree_t * pat; } g_sno_fz[SNO_PAT_MAX];
 static int g_sno_nfz = 0;
 static int g_sno_fz_unsafe = 0;
 static int g_sno_in_patproc = 0;
@@ -1027,7 +1027,6 @@ static int sno_pat_invariant(const tree_t * t) {
 static void sno_fz_mark_defer(IR_graph_t * g, IR_t * nd, const char * nm) {
     if (g_sno_in_patproc || !nm) return;
     for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm)) {
-        g_sno_fz[i].defer_cnt++;   /* PT-2: count *name consumers; zero = dead build when inline-ok */
         IR_t * pl = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(pl).sval = (char *) g_sno_fz[i].procname; ir_operand_push(nd, pl); return; }
 }
 /* sno_prologue_* -- PS-3 (s152) ORDER-DOMINANCE license: a pattern name is PROLOGUE-BOUND when its (single, seal==2) assignment sits in the unconditional entry corridor -- the statement run from
@@ -1040,25 +1039,6 @@ static int g_sno_npro = 0;
 static void sno_prologue_add(const char * nm) { if (!nm || g_sno_npro >= 128) return; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return; g_sno_pro[g_sno_npro++] = nm; }
 int sno_name_prologue_bound(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_npro; i++) if (!strcmp(g_sno_pro[i], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* GOAL-PASSTHRU-___-ERAD s6 (PT-2 census hole, Defect B): defer_cnt counts only *name consumers reached through sno_fz_mark_defer, which is (a) g_sno_in_patproc-guarded and (b) aimed at the synthetic
- * $V<i> name by the snapg arm (2351) -- so a TT_VAR member of a KEPT patproc never credits its SOURCE var.  1293's in_patproc guard means such members can never inline; they ALWAYS lower to $V<i>
- * snapshots that COPY the source var's stage-2 value at MKPAT time -- a live read of the very store PT-2 was suppressing.  Measured (w_cap_* witnesses): VOWEL's GVA slot v=0 at match time, the snapshot
- * inherited tag 0, and c_rt_defer_close's literal arm matched the NULL STRING -- 'BCD' ? PAT succeeded where SPITBOL fails.  Killswitch-invariant by construction: SCRIP_PAT_INLINE gates the INLINE,
- * not this defer_cnt==0 verdict.  The set below closes the census at the ONE sweep that already derives subj/repl for every statement (sno_fz_build_table), BEFORE any verdict is consulted -- the 2084
- * consult runs MID-LOOP, so a g_sno_pats scan would race statement order (PAT registers only when its own statement lowers).  Membership is a sound over-approximation: a name stays live even if every
- * referencing pattern's own build later dies (rare shape, costs one dead store; PT-4/PT-6 restructure this seam anyway).  Capture TARGETS (. N / $ N / @N) are skipped -- written, not read.  TT_DEFER
- * children are deliberately WALKED: a *X member inside a patproc is equally invisible to mark_defer (same in_patproc guard) and needs X's build alive for its by-name lookup. */
-static const char * g_sno_snapref[SNO_PAT_MAX]; static int g_sno_nsnapref = 0;
-static void sno_snapref_add(const char * nm) { if (!nm) return; for (int i = 0; i < g_sno_nsnapref; i++) if (!strcmp(g_sno_snapref[i], nm)) return; if (g_sno_nsnapref < SNO_PAT_MAX) g_sno_snapref[g_sno_nsnapref++] = nm; }
-static void sno_snapref_scan(const tree_t * t) {
-    if (!t) return;
-    if (t->t == TT_CAPT_CURSOR) return;   /* @N: cursor write target only */
-    if (t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) { sno_snapref_scan((t->n > 0) ? t->c[0] : NULL); return; }   /* . N / $ N: c[1] is the write target */
-    if (t->t == TT_DEFER) return;   /* *X is OUT OF SCOPE by design: late-bound BY NAME with its own registration (1919) and build-time latch (g_spk) -- the hole this set closes is the SNAPSHOT (bare TT_VAR) consumer only.  s6 measurement note: the D09/D11/H21/X12 ARBNO(*P) runaway (null-width $ fire + SIGSEGV, rc=139) initially attributed to walking TT_DEFER here is PRE-EXISTING AT HEAD 87dfb96 -- reproduced on a pristine stash build, all four fail identically -- baseline drift from an earlier 2026-08-09 landing, flagged for its own MONITOR-FIRST rung, neither caused nor fixed by this set. */
-    if (t->t == TT_VAR && t->v.sval) sno_snapref_add(t->v.sval);
-    for (int i = 0; i < t->n; i++) sno_snapref_scan(t->c[i]);
-}
-static int sno_fz_snapref(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_sno_nsnapref; i++) if (!strcmp(g_sno_snapref[i], nm)) return 1; return 0; }
 static const char * g_sno_encl[SNO_PAT_MAX]; static int g_sno_nencl = 0;
 static void sno_encl_add(const char * nm) { if (!nm) return;
     for (int i = 0; i < g_sno_nencl; i++) if (!strcmp(g_sno_encl[i], nm)) return; if (g_sno_nencl < SNO_PAT_MAX) g_sno_encl[g_sno_nencl++] = nm; }
@@ -1114,7 +1094,7 @@ static const char * sno_t4_target(const char * op, int nops) {
     return NULL;
 }
 static void sno_fz_build_table(const tree_t ** st, int nst) {
-    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nsnapref = 0; g_sno_nencl = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 0; g_sno_nfzw = 0; g_sno_npro = 0; g_sno_nencl = 0;
     g_sno_nt4 = 0; g_sno_t4_unsafe = 0;   /* T4: rebuilt per lowering invocation, exactly like the fz table */
     for (int i = 0; i < nst; i++) {
         const tree_t * s = st[i]; if (!s) continue;
@@ -1134,12 +1114,11 @@ static void sno_fz_build_table(const tree_t ** st, int nst) {
             sno_fz_write(subj->v.sval);
             if (repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) sno_seal_note(subj->v.sval, repl);   /* s137: every supported pattern assignment is a seal CANDIDATE (invariance not required — see the table comment) */
             if (repl && repl->t == TT_QLIT && subj->v.sval && subj->v.sval[0] != '&') sno_const_note_val(subj->v.sval, repl);   /* ⭐⭐⭐ CN-12 -- BARE-VAR SCALAR STRINGS ENTER THE SAME TABLE (the T1 widening precedent: never a second table). A plain `digits = '0123456789'` is a seal CANDIDATE exactly as the pattern line above -- candidacy is free and the GUARDS LIVE IN THE RESOLVER (sno_var_val: wrcount==1, !g_sno_fz_unsafe, killswitches), mirroring sno_seal_pat's own division of labor. This is the arm that lets sno_cset_fold see through beauty's SPAN('.' digits &UCASE '_' &LCASE) -- measured s161-2: the DIGITS leaf alone was the whole reason that shape refused. Key is the bare name (no '&'), so it can never collide with a canonical "&Name" constant lookup. */
-            if (repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) sno_snapref_scan(repl);   /* PT-2 census hole (s6): record TT_VAR members of EVERY stored-pattern RHS -- invariant or not -- so the dead-build verdicts below cannot suppress a store a kept blob will snapshot (or a patproc *X will read by name) */
             if (repl && g_sno_nfz < SNO_PAT_MAX && sno_is_pattern_rhs(repl) && sno_pat_supported(repl) && sno_pat_invariant(repl)) {
                 g_sno_fz[g_sno_nfz].var = subj->v.sval; g_sno_fz[g_sno_nfz].pat = repl; g_sno_fz[g_sno_nfz].procname = NULL; g_sno_nfz++; }
             continue; }
         if (subj && subj->t == TT_KEYWORD) { if (subj->v.sval && repl) { const char * kn = subj->v.sval[0] == '&' ? subj->v.sval + 1 : subj->v.sval; if (!strcasecmp(kn, "USER_DECLARED_CONSTANTS") && repl->t == TT_ILIT && repl->v.ival == 0) sno_const_feature(1); }   /* ⭐⭐⭐ CN-4b -- THE DECLARATION REACHES THE LOWERER.  The runtime cell (keywords.c kwb_own[7]) governs the tier-3 namespace at RUN time; static staging happens at LOWER time and cannot read it, so the pre-scan reads the declaration TEXTUALLY -- the same discipline CN-3b already established for constant chains, where a fact must be visible earlier in program text to be usable.  Only a LITERAL 0 counts: `&USER_DECLARED_CONSTANTS = X` is a runtime value this pass cannot evaluate, and guessing would be worse than staying open (the runtime gate still fires and raises 251, so a missed compile-time close costs optimisation, never correctness -- the right failure direction).  strcasecmp, not strcmp, because SNOBOL4 case-folds keyword names under &CASE=1 while SCRIP itself is case-sensitive; the runtime read path lower-cases before comparing, so matching case-insensitively HERE is what keeps the two halves agreeing on which statement is the declaration. */
-            if (sno_const_static_on() && subj->v.sval && repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) { char cb[130]; snprintf(cb, sizeof cb, "&%s", subj->v.sval[0] == '&' ? subj->v.sval + 1 : subj->v.sval); sno_seal_note(lp_strdup(cb), repl); sno_snapref_scan(repl); }   /* ⭐⭐⭐ SN4-CONSTANTS CN-3 -- THE REGISTRATION GAP.  Pre-CN-3 this arm skipped EVERY `&Name =` statement, so a constant's defining tree never entered g_sno_seal and `*&Name` at the defer site below could resolve nothing: that is exactly why CN-2 had to leave pat_static at the conservative 0.  CLASSIFICATION IS FREE AND NEEDS NO SECOND COPY OF THE KEYWORD LIST (ONE AUTHORITY, RULES.md): only a tier-3 USER CONSTANT can reach here with a pattern RHS, because every assignable tier-2 keyword (&ANCHOR &TRIM &STLIMIT &MAXLNGTH &FULLSCAN &DUMP &ERRLIMIT &CODE &CASE &FTRACE &TRACE &ABEND &COMPARE &PROFILE &ERRTEXT &ERRTYPE) takes an integer or string, and every tier-1 protected keyword refuses assignment outright (oracle error 209, measured this session) -- so the sno_is_pattern_rhs test IS the classifier.  sno_seal_note stores the pointer without copying, hence lp_strdup.  sno_snapref_scan mirrors the TT_VAR arm above so a constant's member stores are not dead-eliminated out from under a blob that will snapshot them (the PT-2 census hole, s6). */
+            if (sno_const_static_on() && subj->v.sval && repl && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) { char cb[130]; snprintf(cb, sizeof cb, "&%s", subj->v.sval[0] == '&' ? subj->v.sval + 1 : subj->v.sval); sno_seal_note(lp_strdup(cb), repl); }   /* ⭐⭐⭐ SN4-CONSTANTS CN-3 -- THE REGISTRATION GAP.  Pre-CN-3 this arm skipped EVERY `&Name =` statement, so a constant's defining tree never entered g_sno_seal and `*&Name` at the defer site below could resolve nothing: that is exactly why CN-2 had to leave pat_static at the conservative 0.  CLASSIFICATION IS FREE AND NEEDS NO SECOND COPY OF THE KEYWORD LIST (ONE AUTHORITY, RULES.md): only a tier-3 USER CONSTANT can reach here with a pattern RHS, because every assignable tier-2 keyword (&ANCHOR &TRIM &STLIMIT &MAXLNGTH &FULLSCAN &DUMP &ERRLIMIT &CODE &CASE &FTRACE &TRACE &ABEND &COMPARE &PROFILE &ERRTEXT &ERRTYPE) takes an integer or string, and every tier-1 protected keyword refuses assignment outright (oracle error 209, measured this session) -- so the sno_is_pattern_rhs test IS the classifier.  sno_seal_note stores the pointer without copying, hence lp_strdup.  sno_snapref_scan mirrors the TT_VAR arm above so a constant's member stores are not dead-eliminated out from under a blob that will snapshot them (the PT-2 census hole, s6). */
             if (sno_const_static_on() && sno_const_t1_on() && subj->v.sval && sno_const_scalar_tree(repl)) { char vb[130]; snprintf(vb, sizeof vb, "&%s", subj->v.sval[0] == '&' ? subj->v.sval + 1 : subj->v.sval); if (rt_kw_index(vb) < 0) sno_const_note_val(lp_strdup(vb), repl); } continue; }   /* ⭐⭐⭐ SN4-CONSTANTS T1 -- THE SCALAR HALF OF THE SAME REGISTRATION GAP CN-3 CLOSED FOR PATTERNS. A declared `&N = 42` is a compile-time-known integer sealed by the language (CN-2's NV_t.is_const, error 341 on re-assignment, enforced at the CELL so OPSYN/indirect/FIELD aliasing cannot bypass it), yet every read of it emitted a by-name string, a spine carve, three register spills, a call to rt_keyword_read_snobol4 and four reloads -- twelve-odd instructions and a PLT call to reproduce a value this pass is holding. ⛔ THE rt_kw_index TEST IS THE CLASSIFIER AND MUST STAY: the arm above may lean on sno_is_pattern_rhs because no tier-2 keyword takes a pattern, but this arm admits integers and strings, which is precisely what &ANCHOR/&TRIM/&CASE/&ERRTEXT take, so without it `&CASE = 1` would be registered as a user constant and every later read folded to the immediate 1 -- silently freezing a keyword the manual p.189 says outright "may be set to integer values to modify SPITBOL's behavior". lp_strdup because the table stores the pointer without copying (sno_seal_note's contract, shared). */
         if (subj && subj->t == TT_IDX) continue;
         if (subj) g_sno_fz_unsafe = 1;
@@ -1356,21 +1335,11 @@ static int sno_pat_inline_ok(const tree_t * t) {   /* ⛔ PAT-INLINE SLICE-1 SHA
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_fz_is_dead_build(const char * nm) {   /* PT-2: 1 iff var-name is fz-member, inline-ok, and has zero *name (TT_DEFER) consumers — MKPAT chain and proc_PAT blob are dead stores */
-    { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: inline off : census undercounts, verdict dies */
-    if (!nm) return 0;
-    for (int i = 0; i < g_sno_nfz; i++) if (!strcmp(g_sno_fz[i].var, nm))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var) && !sno_encl_hostile(g_sno_fz[i].var);   /* s6 census hole + PT-2b lockstep: hostile ⇒ never inlined ⇒ blob never dead */
-    return 0;
-}
-static int sno_fz_procname_is_dead(const char * pn) {   /* PT-2: lookup by procname (PAT$N) for patproc builder which indexes by g_sno_pats[].name */
-    { static int _ks = -1; if (_ks < 0) { const char * e = getenv("SCRIP_PAT_INLINE"); _ks = (!e || *e != '0'); } if (!_ks) return 0; }   /* PT-2 KS: both consult sites revert together */
-    if (!pn) return 0;
-    for (int i = 0; i < g_sno_nfz; i++) if (g_sno_fz[i].procname && !strcmp(g_sno_fz[i].procname, pn))
-        return g_sno_fz[i].defer_cnt == 0 && sno_pat_inline_ok(g_sno_fz[i].pat) && !sno_fz_snapref(g_sno_fz[i].var) && !sno_encl_hostile(g_sno_fz[i].var);   /* s6 + PT-2b lockstep: symmetric -- the kept blob's inner fast arm needs the referenced object's own blob for dtp_fn_of */
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PT-2 DEAD-BUILD ELISION DELETED (Lon 2026-08-21 in-chat, HQ s177: "remove the eliding"): sno_fz_is_dead_build/sno_fz_procname_is_dead suppressed the MKPAT chain, the GVA store, and the proc_PAT
+ * graph whenever a census (defer_cnt + snapref + encl) read zero consumers -- and the census was structurally blind to *X consumers inside kept patprocs (mark_defer's in_patproc guard) and inside
+ * deferred expressions (MKEXPR fragments lower the read as a plain GVA-cell VAR, no IR_MATCH_DEFER ever minted), so every hole was a silent null-string zero-width match at the defer site (the whole
+ * s175/s176 pass-thru wall census: pt0_any_before_seam and family).  Every stored pattern now ALWAYS builds and stores; a truly-unused build costs dead bytes, never correctness -- the RESULT-law 3a
+ * stabilization trade.  The snapref set (the s6 partial patch for this same class) died with the verdicts it fed. */
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail) {
     IR_graph_t * g = cx->g;
     if (!t) return succ;
@@ -2309,7 +2278,6 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         tree_t * repl = sfind_expr(s, ":repl");
         if (subj->t == TT_VAR && sno_is_pattern_rhs(repl) && sno_pat_supported(repl)) {
             sno_reg_var(subj->v.sval);
-            if (sno_fz_is_dead_build(subj->v.sval)) { lc_γ_to(anchor[i], sJ); continue; }   /* PT-2: dead-build suppression — bare refs all inlined, no *name consumers; MKPAT + proc_PAT are dead stores; skip to sJ */
             if (_pro_open && !result_name) sno_prologue_add(subj->v.sval);   /* PS-3 (s152): corridor pattern assignment = order-dominance license for the defer-tail arm */
             const char * bn = NULL;
             for (int fzi = 0; fzi < g_sno_nfz; fzi++) if (g_sno_fz[fzi].pat == repl) { bn = g_sno_fz[fzi].procname; break; }
@@ -2608,13 +2576,11 @@ void sno_expr_thunks_build(int x0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_pat_count(void) { return g_sno_npat; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_const_graph_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CONST_GRAPH"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* CN-13 resurrection killswitch, read ONCE into a function-local static (the KW-5b lesson: an order-dependent switch is a defect generator). OPT-IN ONLY — this arm exists to measure a road that no program can currently reach. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_pat_thunks_build(int p0) {
     int sv = g_sno_in_patproc;
     g_sno_in_patproc = 1;
     for (int pi2 = p0; pi2 < g_sno_npat; pi2++) {
-        if (!sno_const_graph_on() && sno_fz_procname_is_dead(g_sno_pats[pi2].name)) continue;   /* PT-2: blob suppression — all refs inlined, no *name consumers; proc_PAT graph is dead code */   /* ⭐⭐⭐ CN-13 GRAPH-FORCE ARM (s166, DEFAULT OFF): PT-2 suppresses a pattern's graph when every reference inlined, which is correct for today's two-road world but is exactly the obstacle CN-13 must remove — a declared constant used at N sites needs a graph to LINK to, and the graph is not built until something refuses to inline. SCRIP_CONST_GRAPH=1 defeats the suppression so the graph is built and emitted; it re-routes NO SITE by itself, so under the flag the graph may be emitted UNREFERENCED. Default 0 keeps every byte identical. ⛔ PROVENANCE, recorded because a wrong claim was published from it: this arm was first written as a "resurrection test" for a road I had measured DEAD (0 of 59 programs). THAT MEASUREMENT WAS VOID — I grepped `proc_PAT$N_*`, a label s62's STUB-BLOB-DELETE renamed to `FN__PAT$N`/`PAT$N_α_body`. Measured correctly the road is LIVE at 58 of 318 crosscheck programs, so nothing here is a resurrection and the CLASS D protocol is well covered. THE LESSON, worth more than the arm: a grep returning ZERO is not evidence of absence until the pattern is proven to match something — run it against a case it MUST match first. Full record: FINDING-2026-08-19-s166 (a retraction document). */
         IR_graph_t * gp = IR_alloc(512);
         scx_t px; px.g = gp; px.loop_exit = NULL; px.loop_next = NULL; px.result_name = NULL; px.pat_fail = NULL; px.pat_seal = NULL; px.npre = 0;
         IR_t * ok = lc_build(gp, IR_SUCCEED, NULL, NULL);
@@ -2892,7 +2858,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx) {
     const tree_t ** st = (const tree_t **) calloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fragment_reject_define(st, nst);
-    g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nsnapref = 0; g_sno_nencl = 0;
+    g_sno_nfz = 0; g_sno_fz_unsafe = 1; g_sno_nencl = 0;
     g_sno_nt4 = 0; g_sno_t4_unsafe = 1;   /* T4: fragments never fold (the g-cn2 boundary precedent -- fragment-local rescans stay conservative) */
     int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;   /* ⭐⭐⭐ g-cn2 -- THE EVAL/CODE BOUNDARY, ENFORCED. g_sno_seal_enabled's own doc says the runtime fragment compiler "must stay conservative", but NOTHING enforced it: lower_sno_stage2 grants the flag once and no path ever cleared it, so a fragment re-entered sx_lower with the WHOLE PROGRAM's seal table live and T1 folded `&N` against a tree_t owned by the main compile. Measured (s153, pristine b69c63a5): m3 `EVAL('&N')` printed EMPTY with T1 on and 42 with SCRIP_CONST_T1=0, while m4 printed 42 in BOTH arms -- because a mode-4 binary compiles its fragments in a DIFFERENT PROCESS whose table is empty, i.e. m4 was accidentally correct for the reason this line now makes deliberate. That is a MODE34-IDENTICAL violation on the DEFAULT arm and a silent wrong answer, not an error. Clearing here is the one-line statement of ARCH-SN4-CONSTANTS's own ruling ("no fold in the runtime-compile path is the safe default") and it closes T1 and T2 together: sno_const_val and sno_const_pat are both gated on this flag alone, and an inlined T2 graph carries the same cross-compile pointer hazard. Fragments keep reading the SEALED CELL by name -- CN-2's binding is process-global and is what makes 341/342 answerable inside a thunk. Saved and restored rather than left 0 because mode 3 keeps lowering state alive for the life of the process. */
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
