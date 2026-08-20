@@ -73,11 +73,16 @@ run_all "goto_s"  "        'x' 'x'  :S(HIT)
 HIT     OUTPUT = 'hit'
 END" "hit"
 
+# ⛔ THE BARE `RETURN` LINE WAS A BUG IN THIS TEST, NOT IN SCRIP (s183, HQ Fable; queue row smoke-define, red since s169).
+# It read `DOUBLE  DOUBLE = X + X` / `        RETURN` -- but a bare `RETURN` is NOT a return in SNOBOL4, it is a
+# subject-only statement evaluating a variable named RETURN.  A function returns by TRANSFERRING to the RETURN label:
+# `:(RETURN)`.  ORACLE RECEIPT, byte-compared with od: on the OLD program the live sbl oracle emits ZERO BYTES and so
+# does SCRIP -- BYTE-IDENTICAL, i.e. SCRIP was right and the expectation "42" was the defect, a false red standing on
+# the mode-4 HARD GATE for 14 sessions.  On the corrected program both engines emit "42\n" (m3 and m4 both verified).
 run_all "define"  "        DEFINE('DOUBLE(X)')
         OUTPUT = DOUBLE(21)
         :(END)
-DOUBLE  DOUBLE = X + X
-        RETURN
+DOUBLE  DOUBLE = X + X    :(RETURN)
 END" "42"
 
 run_all "arith_sm" "        OUTPUT = 2 + 3
