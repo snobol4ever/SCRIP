@@ -1332,7 +1332,13 @@ n71_match_end_α:        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx304_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n66_match_begin_af
+.Lx304_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
@@ -1666,7 +1672,13 @@ n96_match_end_α:        mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx341_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n91_match_begin_af
+.Lx341_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
@@ -2201,7 +2213,13 @@ n140_match_end_α:       mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx412_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n138_match_begin_af
+.Lx412_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
@@ -2450,7 +2468,13 @@ n155_match_end_α:       mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx436_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n153_match_begin_af
+.Lx436_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
@@ -2699,7 +2723,13 @@ n170_match_end_α:       mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx460_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n168_match_begin_af
+.Lx460_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
@@ -2948,7 +2978,13 @@ n185_match_end_α:       mov              rcx, qword ptr [rip + rtccb@GOTPCREL] 
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
+                        test             rax, rax;                            je    .Lx484_13
                         add              rsp, 16
+                        add              rsp, 8
+                        pop              r13
+                        pop              r15
+                        pop              r14;                                 jmp   n183_match_begin_af
+.Lx484_13:              add              rsp, 16
                         add              rsp, 8
                         pop              r13
                         pop              r15
