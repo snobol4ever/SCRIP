@@ -10,7 +10,7 @@
 #include "pin_va.h"
 extern "C" {
 extern uint64_t rtccb[32];   /* RC-2: RTCC block base; slot layout per rtcc.h (R8=5,R9=6,R10=7,R11=8) */
-extern unsigned char g_rtcc_on;     /* RC-2: killswitch gate — 1=ON(default, s13), 0=OFF(SCRIP_RTCC=0, emergency bisect only) */
+extern unsigned char g_rtcc_on;     /* RC-2 → s180 ONE MODE: constant 1 (the SCRIP_RTCC=0 arm is deleted); kept only for the remaining always-true read sites — fold-out is hygiene */
 long *rt_anchor_ptr(void);         /* RC-5: C linkage declared here so the local use in rtcc_anchor_cmp gets C linkage */
 }
 /* RC-5 (s11): RTCC_SLOT_R8/R9, RTCC_GLOBAL_R8_ANCHOR, RTCC_GLOBAL_R9_GVA and RTCC_GVA_REG were DUPLICATED here
@@ -344,8 +344,7 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 #define RTCC_C_R11  8u
 #define RTCC_C_ALL  15u
 static inline unsigned x86_rtcc_clob(const char * sym) {
-    static const int cat_on = (getenv("SCRIP_RTCC_CAT") == NULL || getenv("SCRIP_RTCC_CAT")[0] != '0');   /* KILLSWITCH: =0 => every callee is RTCC_C_ALL => byte-identical to pre-categorization */
-    if (!cat_on || !sym) return RTCC_C_ALL;
+    if (!sym) return RTCC_C_ALL;   /* ⛔ ONE MODE (Lon 2026-08-20 s180): the SCRIP_RTCC_CAT off-arm is DELETED with SCRIP_RTCC's — categorization IS the decline mechanism and runs unconditionally.  DECLINE GROWTH LAW: a mask-0 (CLASS N) row is legal ONLY for a callee that cannot disturb the claimed tier on ANY road — pure-asm RT leaves (no jmp/call into C anywhere in their .S) and analyzed C leaves; a tail-jump hybrid joins this table in the SAME commit that converts its c_rt_* fallback to asm and deletes the C, never before (ARCH-RT-CONSOLIDATION.md). */
     static const struct { const char * n; unsigned m; } T[] = {
         { "rt_dcap_end_ok_close",       0 }, { "rt_faildescr",              0 },
         { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
@@ -446,8 +445,7 @@ static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
 /* x86_rtcc_call — RC-4 RTCC veneer for void/int/ptr-returning calls (no DESCR_t capture needed).               */
 /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC (x86_call_ro).                                             */
 inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
-    if (!g_rtcc_on) return x86_call_ro(sym, ptr);   /* KILLSWITCH: gate OFF → byte-identical to pre-RTCC */
-    unsigned m = x86_rtcc_clob(sym);
+    unsigned m = x86_rtcc_clob(sym);   /* ⛔ ONE MODE (Lon 2026-08-20 s180): the g_rtcc_on off-arm is DELETED — protection around C calls is unconditional; CLASS N below is the per-CALLEE decline, the only exemption. */
     if (m == 0) return x86_call_ro(sym, ptr);       /* CLASS N: callee cannot disturb the claimed tier — the whole dance is dead weight */
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) m |= RTCC_C_R10;             /* ⛔ the BINARY call stub is movabs r10,ptr / call r10 — WE clobber r10 regardless of the callee, so r10 always round-trips in mode 3 */
@@ -1847,15 +1845,13 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (!strcmp(mnem, "rtcc_wb")) {
         /* RC-4: emit the writeback half only (all 9 GPRs → block).  For chained post-call sequences where  */
-        /* cmp/je/capture all happen between the call and the reload.  KILLSWITCH: no-op when gate OFF.      */
-        if (!g_rtcc_on) return std::string();
+        /* cmp/je/capture all happen between the call and the reload.  ONE MODE (s180): unconditional.       */
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block)) : x86_rtcc_wb_text();
     }
     if (!strcmp(mnem, "rtcc_rl")) {
         /* RC-4: emit the reload half only (block → all 9 GPRs).  Paired with rtcc_wb above.               */
-        /* KILLSWITCH: no-op when gate OFF.                                                                  */
-        if (!g_rtcc_on) return std::string();
+        /* ONE MODE (s180): unconditional.                                                                   */
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block)) : x86_rtcc_rl_text();
     }
@@ -1865,7 +1861,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         /* When gate ON: emit 'test r8, r8' (3 bytes: REX.R=1 TEST rm64,r64 with both operands r8).        */
         /* The ZF flag semantics are identical: ZF=1 iff anchor==0 (unanchored), ZF=0 iff anchored.        */
         /* The conditional branch that follows uses 'jne' (branch if anchor != 0 = anchored), unchanged.   */
-        if (!g_rtcc_on || !RTCC_GLOBAL_R8_ANCHOR) {
+        if (!RTCC_GLOBAL_R8_ANCHOR) {   /* ONE MODE (s180): g_rtcc_on conjunct deleted; the guarded -D pair stays per the ABI-seal note */
             /* KILLSWITCH path: emit the original 3-insn sequence (byte-identical to pre-RC-5) */
             uint64_t anchor_addr = (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr();
             if (MEDIUM_BINARY) {
@@ -2744,10 +2740,7 @@ inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal) {
 /* KILLSWITCH: gate OFF → bare x86_call_ro + the two post-call moves (byte-identical to pre-RTCC template seq). */
 /* Defined here (after FRQ, x86_frame_off, x86() — all needed by FRQ) not at the earlier forward-decl site.    */
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot) {
-    if (!g_rtcc_on) {
-        return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
-    }
-    unsigned m = x86_rtcc_clob(sym);
+    unsigned m = x86_rtcc_clob(sym);   /* ONE MODE (s180): off-arm deleted */
     if (m == 0) return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");   /* CLASS N: no veneer, capture only */
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) m |= RTCC_C_R10;             /* BINARY call stub clobbers r10 itself — see x86_rtcc_call */
@@ -2766,8 +2759,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
 /* Same RETURN-BEFORE-RELOAD LAW, same killswitch OFF arm.  s98: minted for the NRETURN by-name consult.       */
 inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const std::string & r0, const std::string & r8) {
     std::string cap = x86("mov", r0.c_str(), "rax") + x86("mov", r8.c_str(), "rdx");
-    if (!g_rtcc_on) return x86_call_ro(sym, ptr) + cap;
-    unsigned m = x86_rtcc_clob(sym);
+    unsigned m = x86_rtcc_clob(sym);   /* ONE MODE (s180): off-arm deleted */
     if (m == 0) return x86_call_ro(sym, ptr) + cap;
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) m |= RTCC_C_R10;
