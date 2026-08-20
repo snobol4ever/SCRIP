@@ -946,6 +946,8 @@ static rt_dfx_t *rt_dfx_push(void) {
  * rt_proc_call_open("inner(c1)",0) -- a proc name that does not exist -- and segfaulted.  The FIFO pop (oldest
  * matching name first) restores left-to-right ordering: build pushes c1→c2, match traverses c1 then c2. */
 typedef struct { const char *nm; DESCR_t val; } rt_spk_t;
+static int rt_defer_xpat_on(void);
+static int rt_spk_take(const char *nm, DESCR_t *out);
 static rt_spk_t *g_spk;
 static int g_spk_n, g_spk_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1041,7 +1043,7 @@ int rt_defer_run_all(const char *varname, int cur_delta)
         s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(varname + 1, 0)); return c_rt_defer_close(cur_delta);
     }
     DESCR_t val = NV_GET_fn(varname ? varname : "");
-    if (val.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
@@ -1052,7 +1054,7 @@ int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
     DESCR_t val = patv_slot(hv, i, fb, 0);   /* ival measured 0 at every emitted site (all xor esi/ecx in bb_match_defer.cpp) -- the deref arm is c_rt_defer_open business, not this fold's */
-    if (val.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
@@ -1119,10 +1121,23 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
     { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }   /* fallback = the pre-s108 by-name read, taken only when the entry site could not supply a DTP (defensive; every MKPAT product carries snap) */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static void rt_spk_park(const char *nm, DESCR_t r) { if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; } if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d)\n", g_spk_cap); abort(); } g_spk[g_spk_n].nm = nm; g_spk[g_spk_n].val = r; g_spk_n++; }
+static int rt_spk_take(const char *nm, DESCR_t *out) { if (!nm) return 0; for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, nm)) { *out = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; return 1; } } return 0; }
+void *rt_defer_xpat_dtp(const char *nm)
+{
+    extern DESCR_t rt_call_proc_descr(const char *, int);
+    if (!rt_defer_xpat_on()) return NULL;
+    DESCR_t r = rt_call_proc_descr(nm ? nm : "", 0);
+    if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
+    rt_spk_park(nm, r);
+    return NULL;
+}
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb)
 {
     DESCR_t v = patv_slot(hv, i, fb, 0);
-    if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }   /* DTP_t out -- dtp_fn_of MATERIALIZES fn for recipe composites first (lazy-compile, its !fn&&rcp arm), then the template loads fn=[dtp+0] and rides dtp into the blob in rdx */
+    if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }
+    if (v.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(v.s); }   /* DTP_t out -- dtp_fn_of MATERIALIZES fn for recipe composites first (lazy-compile, its !fn&&rcp arm), then the template loads fn=[dtp+0] and rides dtp into the blob in rdx */
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1153,6 +1168,7 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
         else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
     }
     if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); dtp_fn_of(val.p); return val.p; }   /* materialize-then-return (lazy recipe compile) */
+    if (val.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(val.s); }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -17,6 +17,8 @@ extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_f
 extern "C" int rt_defer_run_all(const char *varname, int cur_delta);
 extern "C" int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta);
 extern "C" void *dtp_fn_of(void *headv);
+extern "C" void *rt_defer_xpat_dtp(const char *nm);
+static int defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ DEFER-XPAT (s178) emitter half -- SAME env name as the pattern_match.c runtime halves so all flip together (the CAP_NAME_STRICT law); =0 suppresses the DT_X arm's emission and the GVA fast road is byte-identical to pre-s178 */
 extern "C" uint64_t g_sno_defer_cells[4096];
 extern uint64_t g_scan_hit_start;
 extern int g_gva_active;
@@ -118,6 +120,19 @@ std::string bb_match_defer() {
              + x86("note", gva_name(_.op_gva_k)) + x86("mov",  "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))   /* s108: the C call clobbered rdx -- re-derive the DTP from the same GVA payload spelling so blob entry carries it */
              + x86("jmp",  L(10))
              + x86("def",  L(9))
+             + IF(defer_xpat_on(),
+                  x86("cmp",  "eax", (long)DT_X)
+                + x86("jne",  L(21))
+                + x86("mov",  "rdi", "rdx")
+                + x86_align_enter()
+                + x86("call", "rt_defer_xpat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *))rt_defer_xpat_dtp)   /* ⭐ DEFER-XPAT (s178): a DT_X cell (`P = *Q` MKEXPR) evaluates its thunk once; a PATTERN result returns the materialized dtp so the blob road matches it (c_rt_defer_close has no pattern arm and -1'd the whole class -- witness probe/bfn x3e / pt1_retreat_3layer_bare); NULL parks the non-pattern result for run_all */
+                + x86_align_leave()
+                + x86("mov",  "rdx", "rax")
+                + x86("test", "rax", "rax")
+                + x86("je",   L(21))
+                + x86("mov",  "rax", RDQ("rdx", 0))
+                + x86("jmp",  L(10))
+                + x86("def",  L(21)))
              + x86("xor",  "eax", "eax")
              + x86("def",  L(10)))
          + IF(ci >= 0,
