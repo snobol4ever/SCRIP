@@ -2590,32 +2590,41 @@ inline int x86_zdp_rbp_frames() {   /* ⛔⭐⭐⭐ "DOES THIS NODE ACTUALLY EMI
     if (_.op_node_kind == (int)IR_MATCH_DEFER) return (((_.op_seal == 1) || emit_defer_carve_rbp()) && x86_port_cstack() && emit_defer_rbp()) ? 1 : 0;
     return 0;
 }
-inline std::string x86_zsm_ev(int kind) {   /* ⭐ THE ONE EMITTED FORM for all three ports.  rdx must carry the TRUE rsp at the port -- the value BEFORE this instrumentation touched the stack -- so the addend is 8*(pushes above it); the four pushes and the `add rdx,32` ARE ONE FACT AND MOVE TOGETHER, the same law bb_zdp_anchor.cpp already states for its own three. */
+inline std::string x86_zsm_ev(int kind) {   /* ⭐ THE ONE EMITTED FORM for all three ports.  rdx must carry the TRUE rsp at the port -- the value BEFORE this instrumentation touched the stack -- so the addend is 8*(pushes above it); the pushes and the `add rdx,64` ARE ONE FACT AND MOVE TOGETHER, the same law bb_zdp_anchor.cpp already states for its own three.  ⛔ s179 REENTRANCY CURE (measured, ZSM-ALL audit): the old form used x86("call") = the RTCC veneer, which banks r10/r11 in the GLOBAL rtccb block -- non-reentrant, so an event firing inside emitted code that a C road re-entered (the fn/EVAL/CODE fragment roads) overwrote the OUTER road's banked wires and the instrument FLIPPED VERDICTS (52/106 ptc board under ZSM_ALL; fwctx ctl match->nomatch).  New form: bank the caller-saved VM tier r8..r11 on the STACK (reentrant by construction -- the PF-2 stack-pair argument in miniature) and call BARE.  Eight pushes keep the old form's rsp mod-16 parity; rax stays unsaved exactly as the veneer form left it. */
     return x86("comment", "ZSM")
          + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
+         + x86("push", "r8")  + x86("push", "r9")  + x86("push", "r10") + x86("push", "r11")
          + x86("mov",  "rdx", "rsp")
-         + x86("add",  "rdx", 32L)
+         + x86("add",  "rdx", 64L)
          + x86("mov",  "rdi", (long)_.nid)
          + x86("mov",  "rsi", "rbp")
          + x86("mov",  "rcx", (long)kind)
-         + x86("call", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
+         + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
+         + x86("pop",  "r11") + x86("pop", "r10") + x86("pop", "r9")  + x86("pop", "r8")
          + x86("pop",  "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
 }
+inline int x86_zsm_all() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_ALL"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ s179 ZSM-ALL (Lon 2026-08-20 marching orders, ARCH-PASSTHRU law 0b mechanized): under SCRIP_ZSM=1 SCRIP_ZSM_ALL=1 EVERY box's four ports emit events, not only the two frame-pushing kinds -- a frameless box's invariant is rbp@β == rbp@α (E-stable), carried to the runtime as kinds 5..8 (α β ω γ + 4).  OFF ⇒ byte-identical to the pre-rung instrument by construction. */
 inline std::string x86_zdp_rbp_at(int port) {   /* α/β ride the LABEL-DEFINE seam (x86_deflabel). */
-    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
-    if (port == X86P_ALPHA) return x86_zsm_ev(1);
-    if (port == X86P_BETA)  return x86_zsm_ev(2);
+    if (!x86_zdp_rbp_on()) return std::string();
+    if (x86_zdp_rbp_frames()) { if (port == X86P_ALPHA) return x86_zsm_ev(1); if (port == X86P_BETA) return x86_zsm_ev(2); return std::string(); }
+    if (!x86_zsm_all()) return std::string();
+    if (port == X86P_ALPHA) return x86_zsm_ev(5);
+    if (port == X86P_BETA)  return x86_zsm_ev(6);
     return std::string();
 }
 inline std::string x86_zdp_rbp_omega_at(int port) {   /* ω rides the TRANSFER seam (x86_jmp) -- it is a jmp, never a label define, which is why the teardown half went unmeasured until this rung.  UNCONDITIONAL ω only: a conditional ω may not be taken, and a flag-clobbering sequence ahead of the jcc would destroy the condition. */
-    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
+    if (!x86_zdp_rbp_on()) return std::string();
     if (port != X86P_OMEGA) return std::string();
-    return x86_zsm_ev(3);
+    if (x86_zdp_rbp_frames()) return x86_zsm_ev(3);
+    if (x86_zsm_all()) return x86_zsm_ev(7);
+    return std::string();
 }
 inline std::string x86_zdp_rbp_gamma_at(int port) {   /* ⭐ s142 -- γ, THE FOURTH PORT (FINDING-2026-08-17-s141 NEXT SEAT (a)): rides the SAME x86_jmp() TRANSFER seam ω already does -- x86_gamma() calls x86_jmp(X86P_GAMMA) (verified at the source, not assumed), so this needed zero new seams and zero template .cpp edits, exactly as the finding predicted ("γ already rides x86_jmp, no label minting"). UNCONDITIONAL γ only, same FLAGS CONTRACT reason x86_zdp_rbp_omega_at states for ω: x86_gamma(mnem) (the conditional/jcc overload) is deliberately NOT hooked here -- that is NEXT SEAT (b), condition inversion at the jcc seam, a separate rung. */
-    if (!x86_zdp_rbp_on() || !x86_zdp_rbp_frames()) return std::string();
+    if (!x86_zdp_rbp_on()) return std::string();
     if (port != X86P_GAMMA) return std::string();
-    return x86_zsm_ev(4);
+    if (x86_zdp_rbp_frames()) return x86_zsm_ev(4);
+    if (x86_zsm_all()) return x86_zsm_ev(8);
+    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* x86_zeta_mark_call(off) / x86_zeta_release_to_call(off) — graph-scope BB-OWNED-zeta mark/release_to calls,

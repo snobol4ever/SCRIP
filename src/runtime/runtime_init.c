@@ -115,7 +115,7 @@ static unsigned long g_zsm_seen_n = 0UL;
 static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* census mode: print EVERY port with its measured depth, agreements included -- s135's lesson that an instrument silent both when it agrees and when it never ran cannot be told from a dead one. */
 static int zsm_leak_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_LEAK_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
 void rt_bomb(const char *msg);
-static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : "?"; }
+static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?"; }   /* ⭐ s179 ZSM-ALL: 5..8 = the FRAMELESS spellings of 1..4 (SCRIP_ZSM_ALL=1, every box) -- the middle dot marks "no push rbp of its own; its invariant is rbp stable at E across all four ports". */
 static const char * zsm_sn(int s) { return s == ZSM_FRESH ? "FRESH" : s == ZSM_LIVE ? "LIVE" : s == ZSM_SUSPENDED ? "SUSPENDED" : s == ZSM_RESUMED ? "RESUMED" : s == ZSM_DEAD ? "DEAD" : "?"; }
 static void zsm_dump(void)
 {   /* the trace ring: the last ZSM_TRACE ports in execution order, so a violation arrives WITH the path that produced it rather than as a bare coordinate. */
@@ -160,6 +160,8 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind; g_zsm_tr_depth[t] = depth; g_zsm_tr_n++; g_zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), node, depth, rsp, rbp, zsm_sn(e->state));
     if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
+    long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;   /* ⭐ s179 ZSM-ALL: kinds 5..8 are the FRAMELESS α/β/ω/γ (SCRIP_ZSM_ALL=1, every box).  Normalized onto the same FSM by ONE identity: a frameless box's "own frame" IS the enclosing one, so F := rbp-at-α (see the kind==1 arm) -- after which all four existing checks read exactly as Lon's law 0b invariants (β/γ: rbp == rbp-at-α; ω: rbp == E; ω rsp >= rsp-at-α).  The trace ring and census above keep the raw 5..8 spelling so a frameless port is distinguishable in every dump.  A LOCAL, deliberately: this rung adds ZERO file-scope state (the NO-NEW-GLOBALS fact rule). */
+    if (fl) kind -= 4L;
     if (e->node != node && zsm_leak_report_on()) {   /* ⭐ s142 -- first time THIS slot is claimed by this node, remember it for the exit-time leak sweep.  Guarded by the same killswitch as the report itself, so it costs nothing when leak reporting is off.  A slot re-claimed by a DIFFERENT node (hash collision) simply gets re-recorded under the new node id -- the KNOWN LIMIT this file already names for recursion/collision aliasing applies here identically, and is not a new limitation. */
         if (g_zsm_seen_n < ZSM_N) g_zsm_seen_nodes[g_zsm_seen_n++] = node;
     }
@@ -167,18 +169,22 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         g_zsm_alpha_while_live++;
         if (getenv("SCRIP_ZSM_ALPHA_LOG")) fprintf(stderr, "[ZSM] α node=%lu WHILE state=%s (rbp=0x%lx) -- counted, not fatal; see MATCH_END cross-node whack note\n", node, zsm_sn(e->state), rbp);
     }
-    if (kind == 1) { e->node = node; e->E = rbp; e->F = rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }   /* s142: FRESH (or DEAD) --alpha--> LIVE.  The illegal-reentry arm above already ruled out LIVE/SUSPENDED/RESUMED reaching here. */
+    if (kind == 1) { e->node = node; e->E = rbp; e->F = fl ? rbp : rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }   /* s142: FRESH (or DEAD) --alpha--> LIVE.  The illegal-reentry arm above already ruled out LIVE/SUSPENDED/RESUMED reaching here.  s179: a FRAMELESS box (fl) predicts no push -- its F is the α-entry rbp itself, making the β/γ rbp==F checks the law-0b E-stability invariant. */
     if (e->node != node || !e->live) {   /* β, γ or ω with no live activation for this node */
         if (kind == 2) { g_zsm_beta_no_alpha++; fprintf(stderr, "[ZSM] β node=%lu WITH NO LIVE α (rbp=0x%lx rsp=0x%lx) -- claimed impossible; counted, not fatal, so one occurrence cannot mask the census\n", node, rbp, rsp); }
-        if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {   /* s142: ILLEGAL: gamma (success transfer) from a box with no live activation -- FSM violation, not merely a counted oddity like beta-no-alpha, because a success exit is impossible without having entered. */
-            g_zsm_fsm_illegal++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); }
+        if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {   /* s142: ILLEGAL: gamma (success transfer) from a box with no live activation -- FSM violation, not merely a counted oddity like beta-no-alpha, because a success exit is impossible without having entered.  s179: COUNTED, NOT FATAL for the FRAMELESS spellings -- the 16-bit node hash aliases under ZSM_ALL's full-population load, and a hash-collision γ must not kill an audit run (the framed kinds keep the bomb: their population is two node kinds and collision-improbable). */
+            g_zsm_fsm_illegal++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); } }
+            else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] γ· node=%lu with no live α (state=%s) -- counted (frameless arm)\n", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH));
         }
         return;
     }
-    if (kind == 2) {   /* β: SUSPENDED --beta--> RESUMED.  Reaching a live-but-non-SUSPENDED state (LIVE or RESUMED) via beta is the FSM violation; the existing rbp==F equality check remains the register-level test underneath it. g_zsm_beta_no_alpha (above) counts "no live α at ALL"; this branch is "live, but the WRONG state". */
-        if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
+    if (kind == 2) {   /* β: SUSPENDED --beta--> RESUMED.  Reaching a live-but-non-SUSPENDED state (LIVE or RESUMED) via beta is the FSM violation; the existing rbp==F equality check remains the register-level test underneath it. g_zsm_beta_no_alpha (above) counts "no live α at ALL"; this branch is "live, but the WRONG state".  s179: the STATE bomb is framed-kinds-only (hash aliasing under ZSM_ALL, same reason as the γ-no-live arm); the RBP bomb below stays FATAL FOR BOTH -- "RBP correct at β, every box, equal to what α set" is law 0b verbatim, the one invariant this instrument exists to enforce. */
+        if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
+            else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] β· node=%lu while state=%s -- counted (frameless arm)\n", node, zsm_sn(e->state)); }
         if (rbp != e->F) { g_zsm_violations++; zsm_dump();
             { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FRAME LOST: α established F=0x%lx (E=0x%lx); at β rbp=0x%lx skew=%ld", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
         e->state = ZSM_RESUMED;
@@ -186,20 +192,28 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     }
     if (kind == 4) {   /* γ (s142, new port): (LIVE|RESUMED) --gamma--> SUSPENDED.  Success hands control forward while leaving the frame standing for a possible later beta -- ζ-ACTIVATION FRAME's own "self-pop at ω" law (PLAN.md THE THREE ZETAS table) says the frame is NOT released here, so gamma checks rbp==F (this departing box's OWN frame, still intact) exactly like beta does, never rbp==E. */
         g_zsm_gamma_events++;
-        if (e->state != ZSM_LIVE && e->state != ZSM_RESUMED) { g_zsm_fsm_illegal++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FSM ILLEGAL: gamma while state=%s (need LIVE or RESUMED) -- success transfer from a box not currently entered", node, zsm_sn(e->state)); rt_bomb(b); } }
-        if (rbp != e->F) { g_zsm_violations++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FRAME LOST AT SUCCESS: α established F=0x%lx (E=0x%lx); at γ rbp=0x%lx skew=%ld -- localizes to the DEPARTING box, one hop earlier than the same defect would surface at the next β", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+        if (e->state != ZSM_LIVE && e->state != ZSM_RESUMED) { g_zsm_fsm_illegal++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FSM ILLEGAL: gamma while state=%s (need LIVE or RESUMED) -- success transfer from a box not currently entered", node, zsm_sn(e->state)); rt_bomb(b); } }
+            else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] γ· node=%lu while state=%s -- counted (frameless arm)\n", node, zsm_sn(e->state)); }
+        if (rbp != e->F) { g_zsm_violations++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM γ node=%lu FRAME LOST AT SUCCESS: α established F=0x%lx (E=0x%lx); at γ rbp=0x%lx skew=%ld -- localizes to the DEPARTING box, one hop earlier than the same defect would surface at the next β", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+            else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] γ· node=%lu rbp moved α→γ: α=0x%lx γ=0x%lx skew=%ld -- counted, not fatal (a WHACK-OWNING box legally retires the construct frame between its own α and γ, the MATCH_END shape; audit measured this on the FIRST green witness, s179 -- a fatal γ arm convicts passing programs and an instrument that convicts passing programs cannot testify about failing ones)\n", node, e->E, rbp, (long)(rbp - e->F)); }
         e->state = ZSM_SUSPENDED;
         return;
     }
     if (kind == 3) {   /* ω: (LIVE|SUSPENDED|RESUMED) --omega--> DEAD.  SUSPENDED->DEAD is legal here (ZW-1/BP-9 carve-only release, see the FSM comment block above) -- omega has no state precondition beyond "not already DEAD", which e->live already enforces via the not-live branch above. */
         e->live = 0UL;
         e->state = ZSM_DEAD;
-        if (rbp != e->E) { g_zsm_violations++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM ω node=%lu IMBALANCE: α banked enclosing E=0x%lx; at ω rbp=0x%lx skew=%ld -- teardown did not give the frame back", node, e->E, rbp, (long)(rbp - e->E)); rt_bomb(b); } }
-        if (rsp < e->rsp_a) { g_zsm_violations++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM ω node=%lu RSP LEAK: α rsp=0x%lx; at ω rsp=0x%lx still %ld bytes low -- carved and never released", node, e->rsp_a, rsp, (long)(e->rsp_a - rsp)); rt_bomb(b); } }
+        if (rbp != e->E) { g_zsm_violations++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM ω node=%lu IMBALANCE: α banked enclosing E=0x%lx; at ω rbp=0x%lx skew=%ld -- teardown did not give the frame back", node, e->E, rbp, (long)(rbp - e->E)); rt_bomb(b); } }
+            else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] ω· node=%lu rbp moved α→ω: α=0x%lx ω=0x%lx skew=%ld -- counted (frameless arm, whack-owner shape possible)\n", node, e->E, rbp, (long)(rbp - e->E)); }
+        if (rsp < e->rsp_a) { g_zsm_violations++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM ω node=%lu RSP LEAK: α rsp=0x%lx; at ω rsp=0x%lx still %ld bytes low -- carved and never released", node, e->rsp_a, rsp, (long)(e->rsp_a - rsp)); rt_bomb(b); } }
+            else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] ω· node=%lu rsp still %ld low vs α -- counted (frameless arm)\n", node, (long)(e->rsp_a - rsp)); }
     }
 }
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
