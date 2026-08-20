@@ -16,6 +16,22 @@
 # (GOAL-SNOBOL4-100 DOD item 2) — the oracle is re-run every time.
 #
 # ⛔ beauty.sno needs `sbl -bf`; plain `-b` SIGSEGVs after 34 lines (CLAUDE.md).  m4 links out/libscrip_rt.so.
+#
+# ⭐ FIRST READING (s183, SCRIP 3da13598, m3): 3/10 rungs green, first red at 10 lines; --bisect named the exact
+# first failing line as LINE 8 = the bare label START (lines 1-7 are comments and pass).  From there the wall
+# reduced BY HAND to two INDEPENDENT classes, checked into corpus as beauty/m1_lad_*.in with live-oracle .refs:
+#   CLASS A -- SEGV when beauty *COMPLETES* the parse; oracle returns the IDENTITY.  1-9 byte witnesses:
+#             m1_lad_empty "\n" · m1_lad_barelabel "X\n" · m1_lad_end "END\n" · m1_lad_comment "* hi\nEND\n"
+#             (the last PRINTS "* hi" CORRECTLY AND THEN DIES -- so the crash is in the completion/output path).
+#   CLASS B -- `Parse Error` where the oracle beautifies; bails before ever reaching class A:
+#             m1_lad_stmt · m1_lad_labelstmt · m1_lad_two · m1_lad_match.
+# They are SEQUENTIAL IN A RUN but INDEPENDENT IN THE CODE, so they are two rows worked in PARALLEL.  (This note
+# also restores the words a backtick ate out of this file's own commit message -- history is not force-rewritten
+# with seats pulling; the record is corrected in place, which is where a reader looks anyway.)
+#
+# ⛔ AN INPUT WITHOUT AN `END` IS NOT A PROGRAM.  beauty parses a WHOLE program; feed it a fragment and the
+# ORACLE ITSELF answers with EMPTY OUTPUT, so any verdict built on that input is meaningless.  HQ's first cut of
+# the class-B inputs had exactly this defect and was caught before dispatch.  Every ladder input ends with END.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
