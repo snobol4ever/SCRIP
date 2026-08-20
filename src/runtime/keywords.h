@@ -23,4 +23,5 @@ DESCR_t     rt_kw_write_idx(int64_t idx, DESCR_t v);
 const char *kw_cset_name(const char *ptr);
 int         kw_cset_len(const char *ptr);
 const char *kw_cset_const_str(const char *kw);
+void        rt_kw_publish_error(int code, const char *msg);
 #endif

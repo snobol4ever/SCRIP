@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "core.h"
+#include "keywords.h"
 #include "sil_macros.h"
 #include "../parser/snobol4/scrip_cc.h"
 #include "IR.h"
@@ -345,13 +346,23 @@ static void eval_chain_enter_only(eval_chain_fn fn) {
  * SIGSEGV at =0).  Pool exhaustion stays bounded and now fails HONESTLY: bb_alloc returns NULL at the 64MB reserve, eval_build_chain returns NULL, and the EVAL fails instead of jumping into
  * freed pages. */
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
+static int eval_chain_run_guarded(eval_chain_fn fn) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
+    if (!_ef) { eval_chain_enter_only(fn); return 1; }
+    int my = g_core_errjmp_n++; long esv = g_error; g_error = -1;
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
+    eval_chain_enter_only(fn);
+    g_core_errjmp_n = my; g_error = esv; return 1;
+}   /* ⭐⭐⭐ CN-EVAL-FAILS (this seat, queue row `cn-oracle-rulings`; Lon s168 "use SPITBOL as an Oracle") -- MANUAL v3.7 p.131, "EVAL fails if evaluation of its argument fails", MADE TRUE FOR THE RUN HALF. SCRIP already honoured p.131 for the COMPILE half: a fragment that will not parse returns a NULL chain and the EVAL takes :F (measured, EVAL('3 +') fails on both engines at HEAD). What it did NOT survive was an error raised while the fragment RAN -- core_runtime_error printed and exit(1)'d, killing the whole program where the oracle merely fails the statement and runs on. Measured on live x64 sbl: EVAL('&NEVERSET') -> :F &ERRTYPE 251, EVAL('UNDEFINEDFN(3)') -> :F &ERRTYPE 22, EVAL('1 / 0') -> :F &ERRTYPE 14, and 'reached-end' prints in every case. ⛔ WHY g_error IS BORROWED AND NOT A NEW FLAG: core_runtime_error's conversion arm is gated on g_error, the arm this boundary needs, and the FACT RULE forbids minting a global to say the same thing twice. It is SAVED AND RESTORED on both exits (esv) and on the catch path, so the borrow is invisible to any frame outside this one, and -1 is chosen deliberately -- the conversion arm decrements only `g_error > 0`, so an unlimited grant neither spends a credit nor perturbs a program that set the cell itself. The push/pop discipline (`my` snapshot, restore to `my` not a decrement) is by_name_dispatch.c:1483's, so a longjmp from a DEEPER frame that skipped its own pop cannot strand this one. ⛔ THE POOL AND THE CACHE ARE DELIBERATELY UNTOUCHED BY FAILURE: a chain that failed at RUN time is still a VALID compiled artifact -- it failed on program state, not on its own code -- so it caches and releases exactly as a successful one does, which keeps memory behaviour byte-identical to HEAD and keeps a failing EVAL in a loop from growing the pool. Releasing the blob on the failure path was the tempting alternative and is the s172 B2c use-after-free wearing a different hat. Killswitch SCRIP_EVAL_FAILS=0 restores the abort for A/B. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
     if (cached) {
         DESCR_t saved = NV_GET_fn(EVAL_TMP);
-        eval_chain_enter_only(cached);
-        DESCR_t result = NV_GET_fn(EVAL_TMP);
+        int ok = eval_chain_run_guarded(cached);
+        DESCR_t result = ok ? NV_GET_fn(EVAL_TMP) : FAILDESCR;
         NV_SET_fn(EVAL_TMP, saved);
         return result;
     }
@@ -359,8 +370,8 @@ DESCR_t eval_string_transient(const char *s) {
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) { bb_pool_release(mark); return FAILDESCR; }
     DESCR_t saved = NV_GET_fn(EVAL_TMP);
-    eval_chain_enter_only(fn);
-    DESCR_t result = NV_GET_fn(EVAL_TMP);
+    int ok = eval_chain_run_guarded(fn);
+    DESCR_t result = ok ? NV_GET_fn(EVAL_TMP) : FAILDESCR;
     NV_SET_fn(EVAL_TMP, saved);
     if (mark < eval_retain_budget()) eval_cache_put(s, fn);
     else bb_pool_release(mark);

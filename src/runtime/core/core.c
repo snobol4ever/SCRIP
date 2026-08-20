@@ -1948,18 +1948,20 @@ static const char *core_err_msgs[40] = {
 void core_runtime_error(int code, const char *msg) {
     if (!msg && code >= 1 && code <= 39)
         msg = core_err_msgs[code];
+    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+      extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
+      extern long g_error;
+      if (g_error != 0 && g_core_errjmp_n > 0) {
+          if (g_error > 0) g_error--;
+          extern void rt_kw_publish_error(int code, const char *msg);
+          g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
+          rt_kw_publish_error(code, msg);
+          longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+      } }   /* ⭐⭐⭐ CN-EVAL-FAILS (this seat) -- THE CONVERSION TEST MOVED ABOVE THE REPORT AND ABOVE THE TWO exit(1)s, AND BOTH MOVES ARE LOAD-BEARING, NOT TIDYING. (1) ABOVE THE PRINT: a converted error is one somebody CAUGHT, and a caught error has no business on stderr -- the codebase already spells that rule in KW-5's &ERRLIMIT arm ("no message is displayed", manual Ch.16 verbatim) and the live oracle spells it too (EVAL('&NEVERSET') takes :F in total silence). Leaving the fprintf first made every EVAL failure print an error the oracle never prints, which is a .ref divergence on any witness that merely EXERCISES the path. (2) ABOVE core_err_is_terminal: error 22 "undefined function called" is ON that list, and the oracle FAILS `EVAL('UNDEFINEDFN(3)')` rather than dying -- so a boundary that catches behind the terminal exit cannot implement p.131 at all, because the most ordinary fragment error of the lot exits before the handler is consulted. ⛔ THE GATE IS NARROWED IN THE SAME BREATH, `g_error != 0` -> `g_error != 0 && g_core_errjmp_n > 0`, SO NOTHING ELSE MOVES: with no handler pushed the old code set the icn_err* state and fell to exit(1), which is unobservable, so every path that is not actively being caught still prints and still exits exactly as before -- terminal, fatal and ordinary alike. Only a frame that has BOTH armed g_error AND pushed a jmp_buf sees new behaviour, and today that is the EVAL boundary alone. ⛔ AND THE PUBLISH HAPPENS *HERE*, NOT AT THE CATCH SITE, FOR A LIFETIME REASON THAT COST A DEBUG CYCLE: nearly every caller builds its message in a STACK buffer (`char eb[192]; snprintf(eb, ...); core_runtime_error(342, eb)` is the tier-3 keyword arm's exact shape), and longjmp unwinds that frame -- so a handler that read g_icn_errtext AFTER landing was reading freed stack, and &ERRTEXT came back null. rt_kw_publish_error copies the text while msg is still live, one frame before the jump. g_icn_errtext keeps pointing at the caller's buffer exactly as it always has, because the Icon path consumes it before unwinding; this line does not change that contract, it just stops the SNOBOL4 path from depending on it. */
     fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
             code, g_core_err_stmt, msg ? msg : "");
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
-    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-      extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
-      extern long g_error;
-      if (g_error != 0) {
-          if (g_error > 0) g_error--;
-          g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
-          if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
-      } }
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

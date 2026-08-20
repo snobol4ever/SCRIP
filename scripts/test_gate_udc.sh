@@ -44,16 +44,22 @@ for t1 in 0 1; do
   diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w CONST_T1=$t1"
 done
 done
-w=cn_t1_eval_undecl
-"$SCRIP" --compile "$CN/$w.err_sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
+for w in cn_t1_eval_undecl cn_eval_fails_not_aborts cn_indirect_is_ordinary_var; do
+"$SCRIP" --compile "$CN/$w.sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
-timeout 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/dev/null > /tmp/gate_u3.txt
+timeout 20 "$SCRIP" --run "$CN/$w.sno" < /dev/null 2>/dev/null > /tmp/gate_u3.txt
 timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/dev/null > /tmp/gate_u4.txt
-diff -q /tmp/gate_u3.txt /tmp/gate_u4.txt > /dev/null 2>&1; chk $? "$w stdout m3==m4"
-timeout 20 "$SCRIP" --run "$CN/$w.err_sno" < /dev/null 2>/tmp/gate_ue3.txt > /dev/null
+diff -q /tmp/gate_u3.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m3 $w == ref"
+diff -q /tmp/gate_u4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w == ref"
+timeout 20 "$SCRIP" --run "$CN/$w.sno" < /dev/null 2>/tmp/gate_ue3.txt > /dev/null
 timeout 20 "/tmp/gate_$w.bin" < /dev/null 2>/tmp/gate_ue4.txt > /dev/null
-diff -q /tmp/gate_ue3.txt /tmp/gate_ue4.txt > /dev/null 2>&1; chk $? "$w stderr m3==m4"
-grep -q "342" /tmp/gate_ue3.txt; chk $? "$w undeclared read in a fragment raises 342"
+[ -s /tmp/gate_ue3.txt ]; [ $? = 1 ]; chk $? "$w m3 stderr SILENT (a caught error is not reported)"
+[ -s /tmp/gate_ue4.txt ]; [ $? = 1 ]; chk $? "$w m4 stderr SILENT (a caught error is not reported)"
+done
+# ⭐⭐ CN-EVAL-FAILS (queue row `cn-oracle-rulings`): this block USED to assert the opposite -- `grep 342 <stderr>` on cn_t1_eval_undecl.err_sno, pinning the ABORT that manual v3.7 p.131 forbids.
+# s153 pinned it deliberately ("so KW-5 moves it deliberately rather than silently") and Lon's s168 oracle directive moved it: live sbl FAILS the EVAL and runs on, in total silence.  The three
+# witnesses now ride ONE loop because the ruling gave them one shape: a real .sno with a .ref in both media, and an EMPTY stderr -- the silence assertion is not decoration, it is the half that
+# catches a regression the .ref cannot see, since core_runtime_error printing before the conversion would leave stdout perfect and stderr full of errors the oracle never emits.
 w=cn_udc_closed
 "$SCRIP" --compile "$CN/$w.err_sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
