@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_oracle_flag_sweep.sh -- measure what the SPITBOL ORACLE FLAG is worth, per program, both arms.
 #
-# WHY THIS EXISTS.  scorecard_snobol4.sh runs the live oracle as `sbl -b` for 13 of its 14 suites and
+# WHY THIS EXISTS.  scorecard_snobol4.sh runs the live oracle as `sbl -b` for 12 of its 13 suites (11 once the off-limits lon suite is set aside) and
 # `sbl -bf` for beauty_self alone.  `-b` only suppresses the sign-on banner (manual l.6944); `-f` is the
 # CASE-FOLDING switch (l.6945), and folding is SPITBOL's DEFAULT (l.1205, l.7049).  Per the manual's own
 # words (l.11074-11077) `-f` is what you use "if compatibility with standard SNOBOL4 is desired", and
