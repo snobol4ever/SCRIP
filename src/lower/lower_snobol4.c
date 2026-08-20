@@ -1240,6 +1240,7 @@ static int fc_tail_walk(IR_graph_t * g, int k0, int k1) {
 static int sno_cap_name_strict(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat, FINDING-2026-08-19-s170): DEFAULT ON since the s178 flip (Lon greenlight; =0 reverts byte-identically).  Oracle law, measured: the target of `.`/`$` is a NAME CONTEXT — a deferred `*VAR` names the VARIABLE ITSELF (never its value), and a deferred `*F()` supplies a name only via NRETURN; a plain RETURN yields a VALUE, is not a name, and the pattern node RETREATS (sbl 4.0f: `A . *F()` prints F's output then nomatch, ZZ unassigned).  SCRIP instead read `. *E` as `. $E` — evaluate, use the VALUE as an indirect name, always succeed — so three witnesses answer match where the oracle retreats.  =1 arms both halves: the *VAR target lowers to the plain variable, and a *CALL target that did not NRETURN fails the match through IR_MATCH_END's new ω.  =0 restores the pre-s170 graph and asm byte-identically (no ω wired, no test/branch emitted). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_rtseq_resume(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTSEQ_RESUME"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐⭐⭐ RTSEQ-RESUME killswitch (=0 restores the pre-fix emission byte-identically: sno_pat_node route + the raw gp->all[before_pat] publication).  Function-local static, so this adds NO file-scope variable -- the same construction sno_defer_resume and sno_const_feature already use to satisfy the NO-NEW-GLOBALS FACT RULE. */
 static int sno_defer_resume(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ s124 DEFAULT INVERTED ON: half A of the SAME switch as emit.cpp's sn4_defer_resume -- s121's law that the two halves LAND TOGETHER binds their DEFAULTS too, and inverting only half B was measured this seat to be strictly WORSE than either uniform arm (seam 1/4 -> 0/4), which is exactly the "B without A is dead code" failure s121 named.  Both halves flip in lockstep or neither does. */   /* ⭐ SN4-DEFER-RESUME (s121, FINDING-2026-08-16-s120-arbno-stored-no-resume): ONE switch, TWO coupled halves that must land together — (A) the SEQ-RESUME-GATE below re-admits IR_MATCH_DEFER as a resume-bearing left neighbour, and (B) the PAT$ blob publishes a real resume carrier in body_root which emit.cpp's β dispatch lands.  A without B recreates the gate's measured rc=124 replay hang; B without A is dead code (no fail edge ever reaches the site β).  =0 restores the pre-s121 wiring byte-identically. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_contains_fence(const tree_t * t, int depth) { if (!t || depth > 64) return 0; if (sno_is_fence(t)) return 1; for (int i = 0; i < t->n; i++) if (sno_pat_contains_fence(t->c[i], depth + 1)) return 1; return 0; }   /* ⭐ SN4-DEFER-RESUME FENCE REFUSE (s121, board-convicted same session): the first cut published a resume carrier for EVERY unsealed blob and broke exactly the fence-bearing stored-pattern class, 7 movers one shape (114/119/129/130/148/149/150 — a fence NESTED in an ALT/ARBNO body slips both the top-level flatten check and sno_pat_right_sealed's rightmost-only chase, and the resume re-entry crosses a fence that backup must not re-run: FENCE0 aborts, FENCE1 passes through once, manual pp.203/222).  A blob whose TREE contains any fence anywhere therefore publishes NO carrier and keeps =0 behaviour verbatim; per-blob locality is compositional — a referenced inner pattern's blob applies its own guard, so VAR members are deliberately not chased (also the A=B;B=A cycle guard for free).  Witness set: the 7 named programs restored + arbnostore/earn0/180/181/183 kept. */
@@ -2845,11 +2846,22 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;
     int before_pat = gp->n;
-    IR_t * pe = sno_pat_node(&px, pat, ok, no);
+    IR_t * pe; IR_t * brt = NULL;
+    int pfenced = sno_pat_contains_fence(pat, 0);
+    if (getenv("SCRIP_FENCE_IGNORE")) pfenced = 0;   /* one verdict feeds both the nary diversion and the carrier publication below, exactly as the PAT$ site spells it */
+    { const tree_t * fel[128]; int fne = 0; sno_seq_flatten_pat(pat, fel, &fne);
+      pe = (sno_rtseq_resume() && sno_defer_resume() && fne > 1 && !pfenced) ? sno_seq_nary(&px, fel, fne, ok, no, &brt)
+                                                                            : sno_pat_node(&px, pat, ok, no); }
     if (px.npre > 0) sno_fatal("runtime-operand primitive reached the RT recipe graph builder — recipes must bake literal args (B-RE contract)", NULL);
     gp->entry = pe;
     gp->resumable_callable = 1;
-    gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? gp->all[before_pat] : NULL;
+    { IR_t * rn = NULL;
+      if (sno_rtseq_resume() && sno_defer_resume() && !pfenced) {
+          rn = brt;
+          if (!rn) for (int k2 = before_pat; k2 < gp->n; k2++) { IR_t * x2 = gp->all[k2]; if (x2 && !(x2->op == IR_GOTO && x2->n_operands == 0)) { rn = x2; break; } }
+      }
+      gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? (rn ? rn : gp->all[before_pat]) : NULL;
+      if (getenv("SCRIP_RESUME_WHY")) fprintf(stderr, "[RTGRAPH] pfenced=%d brt=%d rn=%d body_root_op=%d\n", pfenced, brt ? 1 : 0, rn ? 1 : 0, gp->body_root ? (int) gp->body_root->op : -1); }   /* ⛔ DIAGNOSTIC ONLY: names WHICH carrier the JIT road published, the RT twin of the PAT$ site's [RESUME-NIL]. */
     return gp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
