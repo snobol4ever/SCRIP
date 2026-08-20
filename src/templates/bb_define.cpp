@@ -219,14 +219,7 @@ static std::string bb_define_activate() {
       + [&]() -> std::string {
             char blbl[128];
             snprintf(blbl, sizeof blbl, "FN__%s", fname);
-            if (MEDIUM_BINARY) {
-                void *pfn = rt_proc_get_fn(fname);
-                if (pfn) return x86_jmpfn(blbl, (uint64_t)(uintptr_t)pfn);
-                /* Fallback if proc not yet registered — should not happen when hook fires post-proc-loop */
-                return x86_bomb("bb_define_activate: proc fn not registered for binary body-jmp");
-            }
-            bb_label_t *bp = emit_label_intern(blbl);
-            return x86_jmp_lblptr(bp, blbl);
+            return x86("jmp_fn", blbl, (uint64_t)(uintptr_t)rt_proc_get_fn(fname));   /* medium-retire s170: the two arms were one transfer ("go to FN's body") written twice -- BINARY by the registered live address, TEXT by the label gas resolves.  Both coordinates go to the sealed encoder now; the not-registered bomb fallback moved there with the BINARY arm it belongs to. */
         }()
       + x86_gamma()   /* dead after jmp; present for box structure */
     /* ── β — 3-way dispatch on cl (AB_TYPECODE_REG) ──────────────────────────────────────────── */
@@ -377,7 +370,7 @@ static std::string bb_define_activate() {
                 /* RO fname string slot 0 — used by both monitor taps */
       + x86_ro_seal_str(0, fname);
     /* mode-3 fn_cell residual store */
-    if (MEDIUM_BINARY && fn_cell_ptr) {
+    if (fn_cell_ptr) {   /* medium-retire s170: the MEDIUM_BINARY conjunct was already redundant -- fn_cell_ptr is assigned in the BINARY arm above and nowhere else, so it is non-null in BINARY only. */
         *fn_cell_ptr = (void *)(uintptr_t)rt_ab_undef_fn_stub;
     }
     return s;

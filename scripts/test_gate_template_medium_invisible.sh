@@ -30,7 +30,7 @@ fi
 # happened. The 29 is the GUARD-SITE count -- `if (MEDIUM_` plus `IF(MEDIUM_` -- and guard sites are what
 # the rule actually forbids ("any function gating output on MEDIUM_TEXT/MEDIUM_BINARY is a violation").
 # That is the number pinned here, computed, never typed. Retire the sites via queue row `medium-retire`.
-MEDIUM_RATCHET="${MEDIUM_RATCHET:-7}"
+MEDIUM_RATCHET="${MEDIUM_RATCHET:-5}"
 guards=$(grep -hoE 'if \(MEDIUM_|IF\(MEDIUM_' src/templates/bb_*.cpp 2>/dev/null | wc -l)
 echo "BOTH-MEDIUM guard sites in src/templates/bb_*.cpp: $guards  (ratchet ceiling $MEDIUM_RATCHET, target 0)"
 if [ "$guards" -gt "$MEDIUM_RATCHET" ]; then

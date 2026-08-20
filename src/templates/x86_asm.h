@@ -845,6 +845,12 @@ inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
     return x86_rec("jmp") + txt + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_jmp_fn_body — SEALED transfer to a DEFINE'd function's body, medium-retire s170 (queue row 13).  The R10 INTENTIONAL DIVERGENCE (live address vs link-time symbol) spelled ONCE, exactly the way    */
+/* the sealed `[rip + __]` 5-arg forms already spell it for RO loads: the caller hands over BOTH coordinates and the encoder picks the one its medium can resolve.  BINARY takes the registered proc's     */
+/* live address (movabs rax,fp; jmp rax); TEXT names the label and lets the assembler resolve it -- and interns it on the TEXT side only, because that intern is what put the name in the label table.     */
+/* Before this, bb_define carried the choice as an `if (MEDIUM_BINARY)` in the template, which is the shape the FACT RULE forbids; the divergence itself was never the violation, its LOCATION was.        */
+inline std::string x86_jmp_fn_body(const char * label, uint64_t fp);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* PL-DC — tail-transfer to a C runtime leaf from a stub-local shim: TEXT ` jmp sym@PLT`; BINARY `movabs rax, fp; jmp rax` (rax dead at both shims: γ carries the result in rdi:rsi, ω carries
  * nothing).  The leaf's own `ret` then returns to the emitted site through the retaddr the shim just re-pushed. */
 inline std::string x86_jmpfn(const char * sym, uint64_t fp) {
@@ -1810,6 +1816,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
             return x86_rtcc_call_descr(a.sym, (uint64_t)c.imm, (int)b.imm);
         return std::string();
     }
+    if (!strcmp(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }   /* medium-retire s170: the sealed (label, live-address) body transfer -- see x86_jmp_fn_body. */
     if (!strcmp(mnem, "call_bare")) {
         /* RC-4: emit the call instruction only, NO RTCC writeback/reload.  Used inside explicit rtcc_wb/rtcc_rl */
         /* brackets where the wb and rl are emitted separately by the template.  BOTH gates: always a bare call. */
@@ -2627,6 +2634,11 @@ inline std::string x86_bomb(const char * msg) {
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_jmp_fn_body(const char * label, uint64_t fp) {
+    if (MEDIUM_BINARY) return fp ? x86_jmpfn(label, fp) : x86_bomb("bb_define_activate: proc fn not registered for binary body-jmp");
+    return x86_jmp_lblptr(emit_label_intern(label), label);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(g_emit.xa_bb_emit_pair_jmp[idx] ? g_emit.xa_bb_emit_pair_jmp[idx] : g_emit.xa_bb_emit_pair_define[idx]); }   /* ZB-FC-3a: a jmp to a DEFINE-only pair (the sigma pad stubs' jmp na_s) targets the define label -- previously '??'/skipped patch = silent SEGV class */
