@@ -24,7 +24,7 @@ extern "C" {
  * is possible — but ⛔ NOT by copying FENCE1's own-extent shape: FENCE0's box is α→γ with NOTHING BETWEEN, so banking rsp at α and restoring it at γ frees exactly zero bytes.  FENCE0 has no extent
  * of its own; what its cut kills is the LEFT CONTEXT, which is why the retired whack reached for a floor rather than a watermark, and why it collided with UCLAIM.
  *
- * ⭐ FZ-1/FZ-2 SELECTIVE RELEASE (killswitch SCRIP_FENCE0_WHACK, DEFAULT OFF — and s166 found the SECOND reason it must stay off).  The planner measures how much of the frontier is provably dead:
+ * ⭐ FZ-1/FZ-2 SELECTIVE RELEASE (SCRIP_FENCE0_WHACK — ⭐ DEFAULT **ON** SINCE s172 BY HQ DESK RULING; the env var survives as the KILLSWITCH, `=0` restores the pre-flip box byte-for-byte.  The s166 SECOND reason it had to stay off was FZ-3, and FZ-3 LANDED AT s168 — the release is threaded through zd_plan's depth accumulator, so the two blocks below are HISTORY, not live law).  The planner measures how much of the frontier is provably dead:
  * fence0_release_bytes() (emit.cpp) walks the executed prefix over SPAN/BREAK/BREAKX/TAB/RTAB/REM/BAL — leaves whose 16B cell is their OWN cnt/cur retry state, dead the instant the cut forbids re-entry,
  * result delivered in r13/r14/r15 rather than the cell — and STOPS at the first carving node that is anything else, because LIFO means one pinned cell pins everything under it.  ASSIGN_SAVE excluded by
  * name though it carves 16 (its cell is read back by the paired COND/IMM across the fence).  The template spends the count, it does not compute it.
@@ -33,7 +33,7 @@ extern "C" {
  * dead cell, sat to the RIGHT at index 28 and was never counted.  It billed 32 where the emitted carve holds one releasable 16 standing on MATCH_BEGIN's LIVE 24, i.e. `add rsp,32` popped 16 bytes of the
  * bracket's own cell — the SAME over-release-into-live-storage class that cored the floor whack, reached by a different road.  FIXED by walking the EXECUTED prefix: chase γ from the enclosing MATCH_BEGIN
  * through zd_chase(), the same edge-following authority zd_plan's run walker uses, then step back down that prefix.  Witness now bills 16 and the release exactly matches the carve.
- * ⛔⛔ FZ-3 IS THE REAL WALL, AND IT IS WHY ARMING BY DEFAULT IS STILL REFUSED (s166, MEASURED — DO NOT ARM ON THE STRENGTH OF THE FIXED COUNT).  A CORRECT count is necessary and NOT sufficient: the release
+ * ⛔⛔ ⭐ SUPERSEDED s168 (FZ-3 landed) AND s172 (flipped ON) — READ AS HISTORY.  AS WRITTEN AT s166: FZ-3 IS THE REAL WALL, AND IT IS WHY ARMING BY DEFAULT IS STILL REFUSED (s166, MEASURED — DO NOT ARM ON THE STRENGTH OF THE FIXED COUNT).  A CORRECT count is necessary and NOT sufficient: the release
  * is INVISIBLE TO THE ζ DEPTH PLANNER.  zd_plan/zvo_resolve stage every [rsp+off] in the statement at the depth model they computed WITHOUT this `add rsp,K`, so the instant K>0 every static offset to the
  * RIGHT of the cut is stale by exactly K.  PROOF, one diff: armed vs disarmed on corpus/probe/fz/fz3 case D differs in ONLY the two `add rsp,16` lines — every staged offset is byte-identical while RSP moved.
  * WITNESS: `S ? (SPAN('a') FENCE SPAN('b')) . W` preceded by ANY other fenced statement prints W=`abbb` armed against the oracle's `aaabbb` (the group's COND reads its SAVE cursor back at a stale offset);

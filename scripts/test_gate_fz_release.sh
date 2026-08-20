@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # scripts/test_gate_fz_release.sh
 # FZ (FENCE0 SELECTIVE RELEASE) GATE -- two independent locks over corpus/probe/fz.
-#   LOCK 1 (verdict): every witness, DISARMED (the shipped default), m3 and m4, byte-equal to its
-#           oracle .ref.  Red here means the default arm regressed.
+#   LOCK 1 (verdict): every witness, DISARMED (SCRIP_FENCE0_WHACK=0), m3 and m4, byte-equal to its
+#           oracle .ref.  s172 FLIPPED THE DEFAULT ON, so this is no longer the shipped arm -- it is
+#           the KILLSWITCH RETREAT, and that is exactly why the lock keeps its verdict: an escape
+#           hatch nobody tests is not an escape hatch.  Red here means the retreat path rotted.
 #   LOCK 2 (verdict): NO OVER-RELEASE.  Re-derives each fence's releasable carve FROM THE EMITTED ASM
 #           -- follows the alpha-chain from each match_begin box, sums `sub rsp,N` over the contiguous
 #           whitelisted leaf boxes at the frontier, and asserts the fence's own `add rsp,R` never
