@@ -103,10 +103,15 @@ else echo "noise floor: NOT BAKED -- run scripts/bake_noise_floor_snobol4_timed.
 echo
 printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" BENCHMARK "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "min-det" "check"
 printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" "--------------------" "------------" "------------" "------------" "--------" "--------" "-----" "---------" "-----"
-tot_ok=0; tot_bad=0; tot_gc=0
+tot_ok=0; tot_bad=0; tot_gc=0; tot_xf=0; tot_xp=0; UNGRADED=""; XPASSED=""
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
-  grep -q "INCLUDE '.*harness.inc'" "$sno" || continue
+  # ⛔ UNGRADED IS PRINTED BY NAME, NEVER SILENTLY SKIPPED (owed since s158, landed s170).
+  # The guard grades only harness-driven programs, so a skipped program is INVISIBLE in the table
+  # above -- which is how 12 legacy-shaped programs sat in this directory reading as "not measured"
+  # and as "nothing to see". Its NAME now goes to the census under the summary. BM-2 finished s170:
+  # the list is EMPTY, the suite FAILS if it ever is not, and that is the end state made mechanical.
+  if ! grep -q "INCLUDE '.*harness.inc'" "$sno"; then UNGRADED="$UNGRADED $(basename "${sno%.sno}")"; continue; fi
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
   declare -A R=(); declare -A C=(); declare -A G=()
   for eng in $ENGINES; do
@@ -130,7 +135,15 @@ for sno in "$B"/*.sno; do
   if [ "$ckstat" = ok ] && [ -f "$ref" ]; then
     grep -q "^check: $base\$" "$ref" 2>/dev/null || ckstat="REF-DIFF"
   fi
-  [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_bad=$((tot_bad+1))
+  # XFAIL LANE -- the corpus-wide convention (CORPUS-LOCATIONS.md): a sibling .xfail marks
+  # known-unimplemented territory and is counted XFAIL, not FAIL. A row that PASSES with a marker
+  # present is an XPASS: printed loudly below so a stale marker cannot mask a later regression,
+  # but it never reddens the suite -- a defect getting fixed is not a suite failure.
+  if [ -f "${sno%.sno}.xfail" ]; then
+    if [ "$ckstat" = ok ]; then ckstat=XPASS; tot_xp=$((tot_xp+1)); XPASSED="$XPASSED $s"
+    else ckstat="XFAIL:$ckstat"; tot_xf=$((tot_xf+1)); fi
+  elif [ "$ckstat" = ok ]; then tot_ok=$((tot_ok+1))
+  else tot_bad=$((tot_bad+1)); fi
   sp3=$(awk -v a="${R[m3]:-NA}" -v b="${R[sbl]:-NA}" 'BEGIN{ if(a=="NA"||b=="NA"||b+0==0){print "-"} else printf "%.2fx", a/b }')
   sp4=$(awk -v a="${R[m4]:-NA}" -v b="${R[m3]:-NA}" 'BEGIN{ if(a=="NA"||b=="NA"||b+0==0){print "-"} else printf "%.2fx", a/b }')
   md="-"
@@ -143,11 +156,18 @@ for sno in "$B"/*.sno; do
     "$([ "$gcn" -gt 0 ] && echo "GC$gcn" || echo 0)" "$md" "$ckstat"
 done
 echo
-echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad"
+echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad xfail=$tot_xf xpass=$tot_xp"
+[ -n "$XPASSED" ] && echo "⛔ XPASS:$XPASSED -- passes WITH a sibling .xfail present. Re-measure, then RETIRE the marker."
+if [ -n "$UNGRADED" ]; then
+  echo "⛔ UNGRADED (in $B, not harness-driven, absent from the table above):$UNGRADED"
+  echo "   Every benchmark here must include harness.inc -- convert it or delete it (BM-2). This is a FAILURE."
+else
+  echo "ungraded: none -- every .sno in $B is harness-driven and graded (BM-2 end state, s170)."
+fi
 if [ "$tot_gc" -gt 0 ]; then
   echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window -- those rates are stall figures, not"
   echo "   throughput.  Raise HEAP (currently ${HEAP}MB) until the gc column reads 0 before quoting them."
 else
   echo "gc: 0 rows collected inside the window at HEAP=${HEAP}MB -- every rate above is stall-free."
 fi
-[ "$tot_bad" -eq 0 ]
+[ "$tot_bad" -eq 0 ] && [ -z "$UNGRADED" ]

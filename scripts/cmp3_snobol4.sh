@@ -11,8 +11,9 @@ RT=$ROOT/out
 OUT=${OUT:-/tmp/cmp3.tsv}
 T=${T:-90}
 cd "$ROOT"
-# light -> heavy ordering (so partial runs accumulate the cheap rows first)
-ORDER="indirect_dispatch arith_loop op_dispatch pattern_bt var_access string_concat eval_fixed mixed_workload table_access roman fibonacci string_pattern string_manip func_call_overhead func_call eval_dynamic"
+# light -> heavy; the list is the CORPUS, not a typed set: nine legacy variants were retired s170
+# (BM-2 "enough variations"), so a typed order would silently drop rows as the family changes.
+ORDER="${ORDER:-$(ls "$B"/*.sno 2>/dev/null | xargs -r -n1 basename | sed 's/\.sno$//' | tr '\n' ' ')}"
 wall() { awk "BEGIN{printf \"%.0f\",($2-$1)*1000}"; }
 selfms() { grep -i '^ms:' "$1" 2>/dev/null | grep -o '[0-9]\+' | head -1; }
 sans() { grep -vi '^ms:' "$1" 2>/dev/null; }

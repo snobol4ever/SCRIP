@@ -21,6 +21,7 @@ d_probebb()     { find "$CORPUS/probe/bb/probes" -name "*.sno" 2>/dev/null | wc 
 d_demo()        { find "$CORPUS/programs/snobol4/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
+d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)
 d_beauty_total(){ find "$CORPUS/programs/snobol4/beauty_suite" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_beauty_drivers(){ find "$CORPUS/programs/snobol4/beauty_suite" -maxdepth 1 -name "*.ref" 2>/dev/null | wc -l; }
 d_earn0()       { find "$CORPUS/probe/earn0" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
@@ -59,7 +60,7 @@ case "$SEL" in
         row probe_bb        "$(d_probebb)"          "moves on any BOARD mint — re-check every session"
         row demo            "$(d_demo)"             "top-level only; recursive find OVERCOUNTS (subdirs not board members)"
         row demo15          "$(d_demo15)"            "the 15-board is a FIXED named set (board_sno15_ident.sh's own for-loop), not a corpus count — will not drift with corpus size"
-        row bench           "$(d_bench)"            "1 xfail (indirect_dispatch.xfail) => $(($(d_bench)-1)) graded"
+        row bench           "$(d_bench)"            "$(d_bench_xfail) xfail => $(($(d_bench)-$(d_bench_xfail))) graded both modes; every .sno is harness-driven since s170 (BM-2) and the timed runner FAILS if one is not"
         row beauty_total    "$(d_beauty_total)"      ".sno files in beauty_suite/ (includes non-driver support files)"
         row beauty_drivers  "$(d_beauty_drivers)"    ".ref count = driver count = the SIGSEGV-floor denominator"
         row earn0           "$(d_earn0)"             "⛔ HAS MOVED 16→20→28→... at least 3x in one plan's lifetime — NEVER cite from memory"
