@@ -777,7 +777,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);   /* s98: EXPORTED — the staged-call det landings consult it through the RTCC veneer (by-name deref at value sites, manual p.133); was hidden while only rt.c-internal */
-DESCR_t rt_nret_fix(DESCR_t r, int wn) { if (rt_g_ret_by_name) { rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
+DESCR_t rt_nret_fix(DESCR_t r, int wn) { extern int rt_cap_name_strict(void); if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }   /* SN4-CAP-NAME-STRICT (s170): under the strict arm a NAME-CONTEXT caller (wn==1 -- only the deferred-capture sites set it) keeps the by-name flag STANDING so it can tell NRETURN from RETURN; it clears the flag itself.  Every wn==0 caller, and the whole default arm, clears exactly as before. */
 DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; DESCR_t o = rt_nret_fix(r, wn); rt_g_want_name = 0; return o; }
 /* NCB-1 leaves (defined below, beside the dyn trampolines they were split out of). */
 long    rt_proc_call_open(const char *name, int nargs);

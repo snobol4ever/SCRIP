@@ -663,6 +663,8 @@ void rt_dcap_lazy_init(void) {
         g_dcap_top = g_dcap_base;
     }
 }
+int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) runtime half — the emitter-side twin lives in lower_snobol4.c and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  DEFAULT OFF: =1 makes a deferred capture target that resolved to a VALUE rather than a NAME report failure to the terminus instead of silently assigning through it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
  * (*VAR) transfers move OUT of C into bb_match_end, which pumps: end_ok_open → [transfer → step]* → close.
@@ -686,6 +688,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     extern int rt_g_want_name;
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    long rc = 0;
     while (c->cur < c->top) {
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         int len = (int)e->len; if (len < 0) len = 0;
@@ -694,19 +697,24 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
+            const int strict = rt_cap_name_strict();
             extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+            extern int rt_g_ret_by_name;
             rt_g_want_name = 1;
             DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
             rt_g_want_name = 0;
-            if (IS_FAIL_fn(nm)) { fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
-            if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
+            const int by_name = rt_g_ret_by_name; rt_g_ret_by_name = 0;   /* SN4-CAP-NAME-STRICT: the RETURN-vs-NRETURN discriminator.  rt_nret_fix leaves this standing for a name-context caller (wn==1) instead of clearing it, because the DESCR ALONE CANNOT TELL THE TWO APART -- `F = \'ZZ\' :(NRETURN)` and `F = \'ZZ\' :(RETURN)` both hand back the same STRING, and sbl matches the first while retreating on the second.  Read once, cleared here. */
+            if (IS_FAIL_fn(nm)) { if (strict) { rc = 1; continue; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }   /* strict: an FRETURNing target is not a name either -- sbl retreats (witness p6), so report it rather than warn-and-succeed */
+            if (strict && !by_name) { rc = 1; continue; }   /* a plain RETURN yields a VALUE; a value is not a name, so the node retreats (oracle p3/p5/p8/p13 and all three b1 witnesses).  NRETURN falls through to the two assigning arms below, which stay pre-s170-identical. */
+            if (IS_STR_fn(nm)) {   /* ⭐ THE R2 WRONG ANSWER: a plain RETURN hands back a VALUE, which is not a name.  Pre-s170 this was spent as an INDIRECT name (NV_SET on the returned string) and the match went on to answer `match`; sbl 4.0f evaluates the target in NAME context, finds no name, and RETREATS.  NRETURN targets take the rt_assign_var arm below and stay green either way (p16/p17, oracle-identical at HEAD -- the s82 "NRETURN does not compile" blocker is FALSIFIED). */
+                                 const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
             else rt_assign_var(nm, d);
             continue;
         }
         if (e->varname && e->varname[0]) NV_SET_fn(e->varname, d);
     }
-    return 0;
+    return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Box contract (bb_match_end): rdi = MARK (head's saved ___, FRQ(head+32)), rsi = TOP (live ___), rdx =
@@ -740,10 +748,10 @@ long c_rt_dcap_step(DESCR_t nm)
 long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer)
 {   /* ONE-END (Lon s119 in-chat: "reduce blocks like n64_match_end_alpha down to ONE RT call"): open + close + ctx_restore in ONE call.  The box's transfer loop (glue_pass_wires(3,4) + epilogue_gamma/omega + rt_dcap_step) was MEASURED STATICALLY DEAD this seat: the pump's *VAR arm went C-complete (rt_call_proc_descr, the s117-fixed by-name entry) in a prior session, so c_rt_dcap_end_ok_open and c_rt_dcap_step both return rt_dcap_pump() == 0 unconditionally -- the L(3)/L(4) arms were unreachable plumbing.  A nested match during a *VAR transfer flushes its own disjoint [mark,top) range exactly as before (same pump, same LIFO ctx).  close = the ctx pop (rtx_match.S slice 7: "one test, one decrement").  ctx_restore takes the OUTER sig/len the box used to reload r13/r15 from its saved slots -- passed by value so this call is home-agnostic (mrbp [rbp-16]/[rbp-32] or legacy HKQ/FRQ). */
     extern void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-    (void)c_rt_dcap_end_ok_open(mark, top, subj);
+    long rc = c_rt_dcap_end_ok_open(mark, top, subj);   /* SN4-CAP-NAME-STRICT: nonzero = a deferred capture target was not a NAME; the box turns it into ω (strict arm only -- 0 on every pre-s170 path, so the discarded-return behaviour is unchanged at default) */
     if (g_dcf_top > 0) g_dcf_top--;
     rt_match_ctx_restore(outer[0], outer[1], 0);   /* outer pair rides ONE stack-built pointer (rcx): SysV arg5 is r8 and the x86("call") encoder OWNS r8 (rtccb spill) -- an r8-staged arg saves the argument over the VM global and reloads it back (caught by .s inspection this seat, never executed) */   /* arg3 discarded since CAPGEN-ERAD (gen_runtime.c (void)capgen); the emitted 2-reg call passed garbage rdx into the same discard */
-    return 0;
+    return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

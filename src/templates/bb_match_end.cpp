@@ -26,6 +26,8 @@ static int has_replace_l(void) { if (!g_emit_cfg) return 0; for (int _i = 0; _i 
 static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp# + %d]", 16 + 8 * k); return b[i]; }
 static const char * HKM() { return "qword ptr [rsp# + 8]"; }   /* ⭐ SLACK-RIDER RE-HOME (this session): the bb_match_begin twin, verbatim -- zls2_mark's negative home.  DELIBERATELY DUPLICATED rather than shared, exactly as HKQ already is across these two files: the pair is the head's ABI with itself and the existing file-local spelling is the established house shape here.  A drift between these two lines is the split-ends failure HKN(k) exists to catch, so both files name the slot through HKN(5) at every use. */
 static const char * HKD() { return "dword ptr [rsp# + 0]"; }   /* ⭐ SLACK-RIDER RE-HOME (this session): the bb_match_begin twin, verbatim -- start_δ's negative home.  RELEASE runs inside the SAME bracket as the head's α, so [___-64] is depth-free at the post-unwind write exactly as it was at the write that seeded it -- the same argument HKQ's own comment makes for the quartet, and the reason this cell can move homes without any change to WHEN it is read. */   /* SUBJ-ARM-2: the head's statement-bracket ___ housekeeping slots (bb_match_begin.cpp twin, same k map: 0=deep-___ 1=r13 2=r14 3=r15 4=capgen) -- RELEASE runs inside the SAME bracket, so [___-48+8k] is depth-free at the post-unwind read exactly as at the head's alpha write */
+static int cap_name_strict(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) emitter half -- same env name as the lower + runtime halves so all three flip together.  DEFAULT OFF ⇒ the strict stub below is NOT EMITTED and this box is byte-identical to pre-s170 (the killswitch-byte-identity law); =1 adds one test/jz pair plus a 4-instruction ω stub after the pump call. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string mend_bank_cursors() {   /* ⭐ R-3(c) CURSOR ARENA-RIDE, bank half (mrbp + has_repl only): {start,end} banked at alpha in the STANDING frame's reserved RESULT pair [rbp-48]/[rbp-56] (bb_match_begin.cpp:34 layout -- "the slot exists so wiring it is a template edit not a layout ripple"; frame_slot_scan slots start at -(64+16k), no collision) while r14=delta is still live -- the pump's C calls clobber it and the pump-tail reload seats OUTER delta.  ROOT CAUSE this retires for mrbp: the legacy rfc stash writes at raw-rsp op_off coordinates that are claim-backed ONLY in main-shaped graphs; inside a DEFINE body they alias the save_restore record (gdb on rd_min: R_gamma jumped through 0x300000002 = the subject descr tagword; the s99 op_off=42480 un-rebased flat coord is the same family).  The pair crosses the frame whack on the R12 ARENA (push half in release_pump), which the whack cannot touch. */
     return IF(({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; }) && emit_match_rbp(),
@@ -126,6 +128,15 @@ static std::string release_pump_one() {   /* ONE-END arm (Lon s119): {open + [de
          + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
          + x86("call", "rt_match_end_all", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, const char *, const char *, const uint64_t *))rt_match_end_all)
+         + IF(cap_name_strict(),
+               x86("comment", "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus fails instead of committing an indirect assignment (oracle: sbl retreats).  The stub undoes exactly what this box's alpha established (the two pushes, anchor, xfer) and jumps omega, which lower_snobol4.c wires to head -- the same continuation a failing rightmost pattern element takes, so retry-or-exhaust is decided by head as usual.")
+             + x86("test", "rax", "rax")
+             + x86("je",   L(13))
+             + x86("add",  "rsp", (long)16)
+             + x86_anchor_leave()
+             + x86_xfer_leave()
+             + x86_omega()
+             + x86("def",  L(13)))
          + x86("add",  "rsp", (long)16)
          + x86_anchor_leave()
          + x86_xfer_leave()
