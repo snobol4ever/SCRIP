@@ -25,7 +25,7 @@ static int g_sno_expr_salt = 0;
 void sno_expr_salt_next(void) { g_sno_expr_salt++; }
 static const char * sno_expr_collect(const tree_t * expr);
 #define SNO_PAT_MAX 256
-static struct { const char * name; const tree_t * pat; } g_sno_pats[SNO_PAT_MAX];
+static struct { const char * name; const tree_t * pat; int salt; } g_sno_pats[SNO_PAT_MAX];   /* PATSALT: the row carries its EVAL salt; the EXISTING table widens, g_sno_seal's `val` precedent */
 static int g_sno_npat = 0;
 static int g_sno_uses_stmtkw = 0;
 /*--- true iff the tree references &STNO/&STCOUNT/&LASTNO — those keywords need the per-statement rt_stmt_enter hook, others don't ---*/
@@ -1925,12 +1925,20 @@ static int sno_pat_right_sealed(const tree_t * t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* PATSALT (s184): sno_expr_collect (line ~86) has carried a `salt == g_sno_expr_salt` guard on its memo since the EXPR$<n>F<salt> naming landed; sno_pat_collect below NEVER RECEIVED IT.  Without it a
+ * stored row's `pat` is a DANGLING pointer into an EVAL fragment AST that ast_tree_free_dyn already released: the arena hands the 5th fragment the 1st fragment's addresses, and sno_expr_eq's `a == b`
+ * short-circuit then declares two unrelated patterns identical without reading a single field.  Measured on probe/passthru/ptw_min_epsshift8: fragments 5..8 arrive at 0x43e180/0x43dd70/0x43e0b0/
+ * 0x43f300 -- byte-for-byte the four pointers rows 0..3 hold -- so npat freezes at 4 and elements 5..8 are wired into elements 1..4's blobs.  Every static pattern is collected at salt 0, so the guard
+ * is inert for a program with no EVAL and the static emission is byte-identical. */
+static int sno_patsalt_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATSALT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* SCRIP_PATSALT=0 = unguarded memo */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_pat_collect(const tree_t * pat) {
-    for (int i = 0; i < g_sno_npat; i++) if (sno_expr_eq(g_sno_pats[i].pat, pat)) return g_sno_pats[i].name;
+    for (int i = 0; i < g_sno_npat; i++) if ((!sno_patsalt_on() || g_sno_pats[i].salt == g_sno_expr_salt) && sno_expr_eq(g_sno_pats[i].pat, pat)) return g_sno_pats[i].name;
     if (g_sno_npat >= SNO_PAT_MAX) sno_fatal("too many stored patterns in one program", NULL);
     char buf[32]; snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
     g_sno_pats[g_sno_npat].name = lp_strdup(buf);
     g_sno_pats[g_sno_npat].pat = pat;
+    g_sno_pats[g_sno_npat].salt = g_sno_expr_salt;
     return g_sno_pats[g_sno_npat++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
