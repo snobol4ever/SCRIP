@@ -44,10 +44,17 @@ feature_test    5 SCRIPTEST                                           -name *.sn
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 -
 csnobol4_suite  5 programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
 gimpel          5 programs/gimpel                                     -name *.sno                SELFDIR:programs/include   20 -
-lon             5 programs/lon                                        -name *.sno                SELFDIR:programs/lon/sno:programs/include:programs/include/ebnf:programs/snobol4/demo/beauty:programs/csnobol4-suite  20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
+# ⛔ LON IS EXCLUDED STRUCTURALLY, NOT SKIPPED AT RUN TIME (Lon in-chat 2026-08-20, via HQ; row `scorecard-drop-lon`, s189).  Lon ruled "We'll not run any programs/lon
+# programs" over ALL of corpus/programs/lon/, and until s189 this script still executed that suite through run_one in BOTH engines and BOTH modes -- so RUNNING THE SNOBOL4
+# SCORECARD WAS ITSELF AN INSTANCE OF THE VIOLATION (found by seat1 s185, .github 93aca5c8).  The `lon 5 programs/lon ...` row is DELETED from the table above rather than
+# filtered at run time, because a run-time skip is re-openable by anyone passing --suites lon; a deleted row is not.  The guard below closes the other door: no suite may
+# name that tree by ROOT or by LIB, so re-adding the row -- or quietly pointing some other suite's include path at it -- fails the script instead of running the programs.
+# ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
+# ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/programs/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
+case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names programs/lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
 MISC_DIRS="programs/snobol4/feat programs/snobol4/parser programs/snobol4/smoke programs/snobol4/jvm_j3 programs/snobol4/linker programs/snobol4/bench programs/dotnet programs/aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
@@ -131,6 +138,18 @@ cmd_run() {
   set -f
   local only="" jobs=1 out=""
   while [ $# -gt 0 ]; do case "$1" in --suites) only="$2"; shift 2;; --jobs) jobs="$2"; shift 2;; --out) out="$2"; shift 2;; *) shift;; esac; done
+  # ⛔ AN UNKNOWN --suites NAME IS REFUSED, NOT IGNORED (s189).  The filter below is `grep -q ",$name,"` over the TABLE, so a name that is not in the table simply matches
+  # nothing: `--suites lon` and `--suites crosschek` both used to run ZERO programs, truncate results.tsv, and then report a META over an empty or partial denominator that
+  # LOOKS like a whole board -- the exact failure the s182 warning at the top of this file describes, reached by a typo instead of by two runs sharing one --out.
+  local nm bad=""
+  for nm in $(echo "$only" | tr ',' ' '); do
+    echo "$SUITES" | awk 'NF{print $1}' | grep -qx -- "$nm" && continue
+    case "$nm" in
+      lon) echo "⛔ REFUSED --suites lon: Lon ruled corpus/programs/lon is not to be run, and the suite was DELETED from this scorecard at s189. There is no flag that runs it." >&2;;
+      *)   echo "⛔ REFUSED --suites $nm: no such suite. Known: $(echo "$SUITES" | awk 'NF{print $1}' | tr '\n' ' ')" >&2;;
+    esac; bad=1
+  done
+  [ -n "$bad" ] && exit 2
   [ -z "$out" ] && out="$SC/test-results/scorecard-$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$out"; : > "$out/results.tsv"; echo "$out"
   [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 1; }
@@ -159,6 +178,10 @@ cmd_report() {
   local out="${1:-$(ls -d "$SC"/test-results/scorecard-* 2>/dev/null | tail -1)}"
   [ -f "$out/results.tsv" ] || { echo "no results at $out"; exit 1; }
   echo "SNOBOL4 SCORECARD — $(basename "$out")  (SCRIP $(cd "$SC" && git rev-parse --short HEAD 2>/dev/null), corpus $(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null))  rows=$(wc -l < "$out/results.tsv")"
+  # ⛔ A WITHDRAWN SUITE'S ROWS ARE DROPPED SILENTLY BY THE awk BELOW (it builds W[] and ORD[] from $SUITES, so an unknown suite is never iterated and never reaches tw/ts).
+  # That is the CORRECT scoring -- a results.tsv measured before s189 still holds `lon` rows and they must not enter META -- but silence is how a plausible wrong number ships.
+  local orph; orph="$(cut -f1 "$out/results.tsv" | sort -u | grep -vxF -f <(echo "$SUITES" | awk 'NF{print $1}') | tr '\n' ' ')"
+  [ -n "$orph" ] && echo "⛔ IGNORED (rows measured, suite not in the table -- excluded from every number below, including META): $orph"
   printf '%-15s %3s %5s %5s %6s %6s %6s %6s %6s  %s\n' SUITE W N M3ok M4ok m3% m4% SCORE UNSCR "top failure classes"
   ${AWK:-awk} -F'\t' -v S="$SUITES" 'BEGIN{ n=split(S,L,"\n"); for(i=1;i<=n;i++){ split(L[i],f," "); W[f[1]]=f[2]; ORD[i]=f[1] } }
     { s=$1; if($3=="ORACLE_FAIL"){U[s]++; next} N[s]++; if($3=="PASS")P3[s]++; if($4=="PASS")P4[s]++; C[s","$3"/"$4]++;
