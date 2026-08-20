@@ -1147,13 +1147,16 @@ inline const char * x86_zref(int off, int q) {
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }
-inline const char * ZRES(int w)        { return x86_zref(w, 1); }
-inline const char * ZRESD(int w)       { return x86_zref(w, 0); }
+inline const char * RDQ(const char * base, int off);   /* forward: defined below -- the PF-1c accessor arms (ZRES/ZOPQ) need the rbp renderer above its definition */
+inline const char * RDD(const char * base, int off);
+inline const char * ZRES(int w)        { return _.op_xf_off != -1 ? RDQ("rbp", _.op_xf_off + w) : x86_zref(w, 1); }   /* ⭐ PF-1c (s178): a crossed-operand producer's OWN cell homes in the blob activation frame (op_xf_off staged from xop_frame_slot at the choke, -1 everywhere else = byte-identical spine spelling).  rbp is live and correct at every box under the blob protocol (RBP-correct-at-β law; γ record restores it) -- the depth-immune re-home, never a delta (s129). */
+inline const char * ZRESD(int w)       { return _.op_xf_off != -1 ? RDD("rbp", _.op_xf_off + w) : x86_zref(w, 0); }
+inline const char * ZRES_SPINE(int w)  { return x86_zref(w, 1); }   /* ⭐ PF-1c: the raw spine cell REGARDLESS of the frame home -- for protocol sites that address the carved K region itself (suspend/resume records), never the value. No current caller; exists so a future protocol site cannot be forced through the frame arm by accident. */
 inline const char * ZLOC(int o)        { return x86_zref(16 + o, 1); }
 inline const char * ZLOCD(int o)       { return x86_zref(16 + o, 0); }
 inline const char * ZLOC_B(int o)      { return x86_zref(_.op_ztail + 16 + o, 1); }   /* ⭐ ZK-2 IR_TO BETA-RESUME DEPTH FIX (this rung): β-time twin of ZLOC -- addresses IR_TO's own counter/limit cells from current RSP AFTER downstream run members have further decremented it.  ZLOC(o)=[rsp+16+o] is correct only at α (immediately after IR_TO's sub rsp,32, before any downstream K carves).  At β resume, each downstream node has fired its own sub rsp,K, pushing RSP down by op_ztail bytes total.  IR_TO's cells remain at their ORIGINAL RSP positions (the non-popping law: cells are never moved).  ZLOC_B(o)=[rsp+op_ztail+16+o] reaches them from the deeper current RSP.  When op_ztail=0 (IR_TO is the run terminal, no downstream members), ZLOC_B(o)==ZLOC(o) -- byte-identical.  ONE AUTHORITY: op_ztail is staged once at the emit_drive choke from g_zd_ztail computed in codegen_flat_chain_body.  Use ZLOC for α-only writes (initialization before L(0)); use ZLOC_B for all reads at/after L(0) (the loop body, which may execute at β-resume depth). */
-inline const char * ZOPQ(int k, int w) { return x86_zref(_.op_zread[k] + w, 1); }
-inline const char * ZOPD(int k, int w) { return x86_zref(_.op_zread[k] + w, 0); }
+inline const char * ZOPQ(int k, int w) { return _.op_zread_xf[k] != -1 ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref(_.op_zread[k] + w, 1); }   /* ⭐ PF-1c (s178): operand k of a crossed producer reads the SAME frame slot the producer's ZRES wrote (both staged from xop_frame_slot, ONE AUTHORITY) -- the flat difference-of-depths is unpriceable across a variable-retention box (FINDING s178-L2). -1 = spine road, byte-identical. */
+inline const char * ZOPD(int k, int w) { return _.op_zread_xf[k] != -1 ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref(_.op_zread[k] + w, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * FR(int off)            { return x86_zop(off, 0, 0); }      /* ZOP-1: was the dword arm of the five-boolean cascade; the decision moved into x86_zop, this is now pure width+bump binding. */
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
