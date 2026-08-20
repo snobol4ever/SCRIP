@@ -28,7 +28,7 @@ static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.
 static long sp_chainp() { return sp_gu() && !sp_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long sp_tablep() { return sp_gu() && !sp_rangep() && !sp_chainp(); }
 static std::string sp_memb(long u, long i) { return i >= CSK() ? x86("jmp", L(1)) + x86("def", L(10 + u)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(10 + u)) + sp_memb(u, i + 1); }
-static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge", L(1)) + x86("movzx", "esi", "[r13+rcx]") + (sp_rangep() ? sp_rmemb(u, 0) : sp_chainp() ? sp_memb(u, 0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("je", L(1))) + x86("add", "ecx", (long)1); }
+static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge", L(1)) + x86("movzx", "esi", "[r13+rcx]") + (sp_rangep() ? sp_rmemb(u, 0) : sp_chainp() ? sp_memb(u, 0) : (sn4_cset32() ? x86("bt", "[rdi]", "esi") + x86("jnc", L(1)) : x86("cmpb0", "[rdi+rsi]", "0") + x86("je", L(1)))) + x86("add", "ecx", (long)1); }
 std::string bb_match_span() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

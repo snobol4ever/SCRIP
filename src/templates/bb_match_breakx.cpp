@@ -15,7 +15,7 @@ extern "C" long rt_sg_member(void);
 static long bx_chainp() { return _.op_sa < 0 && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long bx_tablep() { return _.op_sa < 0 && !bx_chainp(); }
 static std::string bx_memb(long f, long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(f)) + bx_memb(f, i + 1); }
-static std::string bx_char(long f, long e) { return x86("cmp", "ecx", "r15d") + (e ? x86("jge", L(4)) : x86_omega("jge")) + x86("movzx", "esi", "[r13+rcx]") + (bx_chainp() ? bx_memb(f, 0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(f))) + x86("add", "ecx", (long)1); }
+static std::string bx_char(long f, long e) { return x86("cmp", "ecx", "r15d") + (e ? x86("jge", L(4)) : x86_omega("jge")) + x86("movzx", "esi", "[r13+rcx]") + (bx_chainp() ? bx_memb(f, 0) : (sn4_cset32() ? x86("bt", "[rdi]", "esi") + x86("jc", L(f)) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(f)))) + x86("add", "ecx", (long)1); }
 static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
     return x86("def",    L(t))
          + x86("mov",    "eax", LFC(4))

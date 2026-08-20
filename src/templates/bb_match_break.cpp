@@ -27,7 +27,7 @@ static std::string bk_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", FRQ(_.
 static long bk_chainp() { return bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long bk_tablep() { return bk_gu() && !bk_rangep() && !bk_chainp(); }
 static std::string bk_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(1)) + bk_memb(i + 1); }
-static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge") + x86("movzx", "esi", "[r13+rcx]") + (bk_rangep() ? bk_rmemb(0) : bk_chainp() ? bk_memb(0) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(1))) + x86("add", "ecx", (long)1); }
+static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge") + x86("movzx", "esi", "[r13+rcx]") + (bk_rangep() ? bk_rmemb(0) : bk_chainp() ? bk_memb(0) : (sn4_cset32() ? x86("bt", "[rdi]", "esi") + x86("jc", L(1)) : x86("cmpb0", "[rdi+rsi]", "0") + x86("jnz", L(1)))) + x86("add", "ecx", (long)1); }
 std::string bb_match_break() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

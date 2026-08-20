@@ -265,6 +265,10 @@ inline std::string x86_cset_probe() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b4(0x80, 0x3C, 0x37, 0x00)) : x86_rec("cmp") + "byte ptr [rdi+rsi], 0\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_cset_bt() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0xA3, 0x37)) : x86_rec("bt") + "dword ptr [rdi], esi\n";
+}   /* ⭐ THE 256-BIT CSET MEMBERSHIP PROBE (Lon 2026-08-20, FINDING s176 ruling: cset packs to 32 BYTES OF BITS): BT m,r with the bit index in a REGISTER reaches the whole bit string (base rdi + esi>>3, bit esi&7) -- the imm8 form masks to the operand width and can NEVER address 256 bits, which is why this encoder offers no immediate shape.  Same registers as x86_cset_probe (rdi = table, esi = char), CF = membership, so callers swap je<->jnc / jne,jnz<->jc.  0F A3 /r, ModRM 0x37 = mod00 reg:esi rm:[rdi].  Armed only under sn4_cset32(); the byte-table sibling above remains the default arm verbatim. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_push(const char * r) {
     int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("push") + r + "\n");
 }
@@ -2006,6 +2010,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0);
     }
     if (!strcmp(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
+    if (!strcmp(mnem, "bt"))     { (void)a; (void)b; return x86_cset_bt(); }
     if (!strcmp(mnem, "xorps"))  { return x86_xorps_xmm0(); }
     if (!strcmp(mnem, "movsd"))  {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }

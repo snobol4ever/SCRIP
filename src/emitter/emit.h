@@ -169,6 +169,7 @@ void xa_emit_strtab_rodata(void);
 void strtab_reset(void);
 int  strtab_intern(const char *s);
 const void *csettab_label(char *buf, size_t bufsz, const char *cset);
+int sn4_cset32(void);   /* 32-byte-cset killswitch authority (s176 ruling) -- see emit.cpp */
 void xa_emit_csettab_rodata(void);
 void csettab_reset(void);
 void xa_dispatch(XA_op_t op);

@@ -455,7 +455,8 @@ void xa_emit_strtab_rodata(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SMX_CSETTAB_CAP 256
-static struct { const char *s; int idx; unsigned char tbl[256]; } g_csettab[SMX_CSETTAB_CAP];
+int sn4_cset32(void) { static int _c = -1; if (_c < 0) { const char * e = getenv("SCRIP_CSET32"); _c = (e && *e == '1') ? 1 : 0; } return _c; }   /* ⭐ THE ONE AUTHORITY for the 32-BYTE-CSET killswitch (Lon 2026-08-20, s176 ruling).  THREE READER CLASSES in lockstep: csettab_label (the table address BINARY bakes), the rodata rows (TEXT), and the five template probes (any/notany/span/break/breakx) -- so the table FORMAT and the PROBE INSTRUCTION can never disagree.  Default OFF = today's 256-byte table + cmpb0, byte-identical; =1 = 256-bit bitmap + bt (CF=membership). */
+static struct { const char *s; int idx; unsigned char tbl[256]; unsigned char bits[32]; } g_csettab[SMX_CSETTAB_CAP];
 static int g_csettab_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void csettab_reset(void) { g_csettab_n = 0; }
@@ -464,15 +465,15 @@ const void *csettab_label(char *buf, size_t bufsz, const char *cset)
 {
     if (!cset) cset = "";
     for (int i = 0; i < g_csettab_n; i++)
-        if (g_csettab[i].s == cset || strcmp(g_csettab[i].s, cset) == 0) { snprintf(buf, bufsz, ".C%d", g_csettab[i].idx); return g_csettab[i].tbl; }
+        if (g_csettab[i].s == cset || strcmp(g_csettab[i].s, cset) == 0) { snprintf(buf, bufsz, ".C%d", g_csettab[i].idx); return sn4_cset32() ? (const void *)g_csettab[i].bits : (const void *)g_csettab[i].tbl; }
     if (g_csettab_n >= SMX_CSETTAB_CAP) { fprintf(stderr, "csettab overflow\n"); abort(); }
     int idx = g_csettab_n;
     g_csettab[idx].s = cset; g_csettab[idx].idx = idx;
-    memset(g_csettab[idx].tbl, 0, 256);
-    for (const unsigned char *p = (const unsigned char *)cset; *p; ++p) g_csettab[idx].tbl[*p] = 1;
+    memset(g_csettab[idx].tbl, 0, 256); memset(g_csettab[idx].bits, 0, 32);
+    for (const unsigned char *p = (const unsigned char *)cset; *p; ++p) { g_csettab[idx].tbl[*p] = 1; g_csettab[idx].bits[*p >> 3] |= (unsigned char)(1u << (*p & 7)); }
     g_csettab_n++;
     snprintf(buf, bufsz, ".C%d", idx);
-    return g_csettab[idx].tbl;
+    return sn4_cset32() ? (const void *)g_csettab[idx].bits : (const void *)g_csettab[idx].tbl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void xa_emit_csettab_rodata(void)
@@ -486,7 +487,8 @@ void xa_emit_csettab_rodata(void)
         snprintf(lblbuf[i], sizeof lblbuf[i], ".C%d:", g_csettab[i].idx);
         labels[i] = lblbuf[i];
         std::string r;
-        for (int j = 0; j < 256; j += 16) {
+        if (sn4_cset32()) { for (int j = 0; j < 32; j += 16) { r += " .byte "; for (int k = 0; k < 16; k++) { r += std::to_string((int)g_csettab[i].bits[j + k]); r += (k < 15) ? "," : "\n"; } } }
+        else for (int j = 0; j < 256; j += 16) {
             r += " .byte ";
             for (int k = 0; k < 16; k++) { r += std::to_string((int)g_csettab[i].tbl[j + k]); r += (k < 15) ? "," : "\n"; }
         }

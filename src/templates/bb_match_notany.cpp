@@ -83,8 +83,7 @@ std::string bb_match_notany() {
          + IF(na_chainp(), na_memb(0))
          + IF(na_tablep(),
              x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)ct, c)
-           + x86("cmpb0", "[rdi+rsi]", "0")
-           + x86_omega("jne"))
+           + (sn4_cset32() ? x86("bt", "[rdi]", "esi") + x86_omega("jc") : x86("cmpb0", "[rdi+rsi]", "0") + x86_omega("jne")))
          + x86("add",    "r14d", (long)1)
          + x86_gamma()
          + x86_beta()
