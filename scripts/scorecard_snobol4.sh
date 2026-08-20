@@ -18,6 +18,9 @@
 #
 # results: <out>/results.tsv  suite<TAB>program<TAB>m3<TAB>m4<TAB>t3<TAB>t4<TAB>note   (appended as it goes;
 # `report` works on a partial file, so a running sweep can be reported at any time).
+# ⛔ EVERY `run` TRUNCATES <out>/results.tsv FIRST.  Two --suites runs sharing one --out is NOT a union: the
+# second wipes the first, and `report` then scores a partial denominator that LOOKS like a whole board.  A
+# META number comes from ONE run naming every suite; a --suites run gets its OWN --out dir (s182).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
@@ -137,15 +140,15 @@ cmd_report() {
   [ -f "$out/results.tsv" ] || { echo "no results at $out"; exit 1; }
   echo "SNOBOL4 SCORECARD — $(basename "$out")  (SCRIP $(cd "$SC" && git rev-parse --short HEAD 2>/dev/null), corpus $(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null))  rows=$(wc -l < "$out/results.tsv")"
   printf '%-15s %3s %5s %5s %6s %6s %6s %6s %6s  %s\n' SUITE W N M3ok M4ok m3% m4% SCORE UNSCR "top failure classes"
-  ${AWK:-gawk} -F'\t' -v S="$SUITES" 'BEGIN{ n=split(S,L,"\n"); for(i=1;i<=n;i++){ split(L[i],f," "); W[f[1]]=f[2]; ORD[i]=f[1] } }
+  ${AWK:-awk} -F'\t' -v S="$SUITES" 'BEGIN{ n=split(S,L,"\n"); for(i=1;i<=n;i++){ split(L[i],f," "); W[f[1]]=f[2]; ORD[i]=f[1] } }
     { s=$1; if($3=="ORACLE_FAIL"){U[s]++; next} N[s]++; if($3=="PASS")P3[s]++; if($4=="PASS")P4[s]++; C[s","$3"/"$4]++;
       c3[s","$3]++; c4[s","$4]++ }
     END{ tw=0; ts=0;
       for(i=1;i<=n;i++){ s=ORD[i]; if(!(s in N) && !(s in U)) continue; nn=N[s]+0; p3=P3[s]+0; p4=P4[s]+0;
         r3=(nn?100*p3/nn:0); r4=(nn?100*p4/nn:0); sc=(r3+r4)/2; if(nn){tw+=W[s]; ts+=W[s]*sc}
         # top failure classes for this suite (m3/m4 pair keys)
-        top=""; k=0; for(key in C){ split(key,kk,","); if(kk[1]!=s) continue; if(kk[2]=="PASS/PASS") continue; A[C[key]" "kk[2]]=1 }
-        cnt=0; PROCINFO["sorted_in"]="@ind_num_desc"; for(a in A){ if(cnt++<3){ split(a,aa," "); top=top" "aa[2]"="aa[1] } } delete A
+        top=""; for(key in C){ split(key,kk,","); if(kk[1]!=s) continue; if(kk[2]=="PASS/PASS") continue; A[kk[2]]=C[key] }
+        for(cnt=0;cnt<3;cnt++){ best=""; bv=-1; for(a in A){ if(A[a]>bv){ bv=A[a]; best=a } } if(best=="") break; top=top" "best"="bv; delete A[best] } delete A
         printf "%-15s %3d %5d %5d %5d %6.1f %6.1f %6.1f %6d %s\n", s, W[s], nn, p3, p4, r3, r4, sc, U[s]+0, top }
       printf "%-15s %3d %5s %5s %5s %6s %6s %6.1f\n", "META SCORE", tw, "", "", "", "", "", (tw?ts/tw:0) }' "$out/results.tsv"
   echo "(SCORE = mean of m3%,m4% per suite; META = weight-averaged; UNSCR = oracle failed & no pin; classes are m3/m4 status pairs)"
