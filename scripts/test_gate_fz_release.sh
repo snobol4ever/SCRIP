@@ -8,8 +8,18 @@
 #           whitelisted leaf boxes at the frontier, and asserts the fence's own `add rsp,R` never
 #           exceeds it.  This is the FZ-1 defect's tripwire (it billed 32 against a 16 carve) and it
 #           pins NO golden: it checks the compiler's claim against the compiler's own output.
-#   REPORT (never a verdict): whether the FZ-3 arm-blocker still reproduces.  Arming by default is
-#           refused while it does; if it CLEARS, this line is the signal to re-evaluate, not an error.
+#   LOCK 5 (verdict): the same armed witnesses on the SECOND depth spelling -- bb_match_replace's
+#           non-rbp cursor/end road (SCRIP_MATCH_RBP=0), which reads op_zpat rather than the depth
+#           accumulator.  s168 found FZ-3 living there too (fz7 printed `R=Zaaabbbccc` for `R=Zccc`
+#           while op_zpat read 48 in BOTH arms), so it gets its own lock; witnesses whose road is
+#           already red DISARMED are skipped, because that is not an FZ fact.
+#   LOCK 3 (verdict): every witness, ARMED, m3 and m4, byte-equal to its oracle .ref.  This is the
+#           FZ-3 tripwire and it replaces the s166 "REPORT (never a verdict)" line, which existed only
+#           because the release was invisible to the depth planner and the armed board was therefore
+#           expected to be red.  s168 threaded the release through zd_plan's depth accumulator, so the
+#           armed board is now expected to be GREEN and a red LOCK 3 means the depth model stopped
+#           spending what the cut spends -- exactly the skew that printed `abbb` for `aaabbb`.  It is
+#           proven NON-VACUOUS the same way LOCK 2 was: it goes RED on the pre-fix baseline binary.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
@@ -86,12 +96,49 @@ print("  %-32s %s" % (name, "OK (no fence releases more than its carve)" if not 
 sys.exit(1 if bad else 0)
 PY
 done
-echo "=== FZ REPORT (not a verdict): FZ-3 arm-blocker status ==="
-blk="$FZ/fz3_capture_across_fence.sno"
-if [ -f "$blk" ]; then
-    got=$(SCRIP_FENCE0_WHACK=1 timeout 10s "$SCRIP" --run "$blk" < /dev/null 2>&1)
-    if [ "$got" = "$(cat "${blk%.sno}.ref")" ]; then echo "  FZ-3 CLEARED armed -- the depth-model staging may be fixed; RE-EVALUATE arming by default (see bb_match_fence0.cpp)"
-    else echo "  FZ-3 still reproduces armed (expected) -- SCRIP_FENCE0_WHACK stays DEFAULT OFF"; fi
-fi
+echo "=== FZ GATE -- LOCK 3: witnesses vs oracle .ref, ARMED, both modes (the FZ-3 tripwire) ==="
+for sno in "$FZ"/*.sno; do
+    b=$(basename "$sno" .sno); ref="$FZ/$b.ref"
+    [ -f "$ref" ] || { echo "  MISS   $b (no .ref)"; rc=1; continue; }
+    m3=$(SCRIP_FENCE0_WHACK=1 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    ok3=FAIL; [ "$m3" = "$(cat "$ref")" ] && ok3=PASS
+    m4=FAIL
+    if SCRIP_FENCE0_WHACK=1 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a.s" 2>/dev/null \
+       && gcc -no-pie -o "$WORK/$b.a.bin" "$WORK/$b.a.s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null; then
+        out=$(timeout 20s "$WORK/$b.a.bin" < /dev/null 2>&1); [ "$out" = "$(cat "$ref")" ] && m4=PASS
+    fi
+    printf '  %-32s m3=%s m4=%s\n' "$b" "$ok3" "$m4"
+    [ "$ok3" = PASS ] && [ "$m4" = PASS ] || rc=1
+done
+echo "=== FZ GATE -- LOCK 4: the cut is visible to the depth planner (armed offsets REBASE) ==="
+for sno in "$FZ"/*.sno; do
+    b=$(basename "$sno" .sno)
+    SCRIP_FENCE0_WHACK=0 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.d0.s" 2>/dev/null || continue
+    SCRIP_FENCE0_WHACK=1 timeout 20s "$SCRIP" --compile "$sno" < /dev/null > "$WORK/$b.a0.s" 2>/dev/null || continue
+    python3 - "$WORK/$b.d0.s" "$WORK/$b.a0.s" "$b" <<'PY' || rc=1
+import re, sys
+dis, arm, name = open(sys.argv[1]).read().split("\n"), open(sys.argv[2]).read().split("\n"), sys.argv[3]
+if len(dis) != len(arm):
+    print("  %-32s LINE COUNT MOVED (%d vs %d) -- the arm changed more than the cut" % (name, len(dis), len(arm))); sys.exit(1)
+rel = sum(int(m.group(1)) for l in arm for m in [re.search(r"match_fence0_\u03b1:.*add\s+rsp,\s*(\d+)", l)] if m)
+reads = sum(1 for a, b in zip(dis, arm) if a != b and "rsp + " in a)
+adds  = sum(1 for a, b in zip(dis, arm) if a != b and "match_fence0" in b)
+other = sum(1 for a, b in zip(dis, arm) if a != b) - reads - adds
+if rel == 0:
+    print("  %-32s NO RELEASE (bills 0) -- vacuous for this lock, not an error" % name); sys.exit(0)
+if other:
+    print("  %-32s ARM MOVED %d LINE(S) THAT ARE NEITHER THE CUT NOR A STAGED OFFSET" % (name, other)); sys.exit(1)
+print("  %-32s OK (releases %dB; %d cut line(s), %d staged offset(s) rebased)" % (name, rel, adds, reads)); sys.exit(0)
+PY
+done
+echo "=== FZ GATE -- LOCK 5: the OTHER depth spelling (op_zpat road, SCRIP_MATCH_RBP=0), ARMED ==="
+for sno in "$FZ"/*.sno; do
+    b=$(basename "$sno" .sno); ref="$FZ/$b.ref"
+    [ -f "$ref" ] || continue
+    got=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=1 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    base=$(SCRIP_MATCH_RBP=0 SCRIP_FENCE0_WHACK=0 timeout 10s "$SCRIP" --run "$sno" < /dev/null 2>&1)
+    if [ "$base" != "$(cat "$ref")" ]; then printf '  %-32s SKIP (this road is red DISARMED too -- not an FZ fact)\n' "$b"; continue; fi
+    if [ "$got" = "$(cat "$ref")" ]; then printf '  %-32s PASS\n' "$b"; else printf '  %-32s FAIL (armed diverges on the non-rbp road)\n' "$b"; rc=1; fi
+done
 [ $rc -eq 0 ] && echo "FZ GATE: GREEN" || echo "FZ GATE: RED"
 exit $rc
