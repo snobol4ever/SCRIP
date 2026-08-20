@@ -43,8 +43,8 @@ crosscheck     10 crosscheck                                          -name *.sn
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 -
 csnobol4_suite  5 programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
-gimpel          5 programs/gimpel                                     -name *.sno                SELFDIR      20 -
-lon             5 programs/lon                                        -name *.sno                SELFDIR      20 -
+gimpel          5 programs/gimpel                                     -name *.sno                SELFDIR:programs/include   20 -
+lon             5 programs/lon                                        -name *.sno                SELFDIR:programs/lon/sno:programs/include:programs/include/ebnf:programs/snobol4/demo/beauty:programs/csnobol4-suite  20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
@@ -60,19 +60,26 @@ stdin_for() {  # $1 = program path -> input file or /dev/null
   esac
   echo /dev/null
 }
+# ---------------------------------------------------------------- library search path -- ONE view, handed to BOTH engines
+# The lib column is a COLON LIST of SELFDIR (the program's own dir) | CORPUS | <corpus-relative dir>, resolved here and given
+# to SCRIP as SNO_LIB and to sbl as SETL4PATH.  s185 MEASURED: BOTH accept a colon list (scrip.c:941 strsep(":"); sbl tested
+# A:B / B:A / A/:B/ all resolve, /nonexistent -> ERROR 285), so neither engine needs a pooled include dir.  Program dir first.
+sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
+  local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"
+}
 # ---------------------------------------------------------------- one program, one line
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
   local d n in ref_pin ref_live have_pin=0 have_live=0 W st3 st4 t0 t3 t4 rc out note=""
   d="$(dirname "$prog")"; n="$(basename "$prog" .sno)"; in="$(stdin_for "$prog")"
-  case "$lib" in SELFDIR) lib="$d";; CORPUS) lib="$CORPUS";; *) lib="$CORPUS/$lib";; esac
+  lib="$(sc_libpath "$lib" "$d")"
   W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
   [ -f "$d/$n.ref" ] && { cp "$d/$n.ref" "$W/pin"; have_pin=1; }
   local sblflags="-b -d512m -i64m"; [ "$suite" = beauty_self ] && sblflags="-bf -d512m -i64m"
   local ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
-  (cd "$ocwd" && SETL4PATH=. timeout 60 "$SBL" $sblflags "$prog" < "$in" > "$W/live" 2>/dev/null); rc=$?
+  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $sblflags "$prog" < "$in" > "$W/live" 2>/dev/null); rc=$?
   [ $rc -eq 0 ] && have_live=1
   if [ $have_pin -eq 0 ] && [ $have_live -eq 0 ]; then
     echo -e "$suite\t${prog#$CORPUS/}\tORACLE_FAIL\tORACLE_FAIL\t0\t0\tsbl rc=$rc"; rm -rf "$W"; return; fi
@@ -105,7 +112,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
