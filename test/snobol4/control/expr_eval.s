@@ -4252,19 +4252,19 @@ n283_statement_begin_α:                                                       j
 n283_statement_begin_β:                                                       jmp   n293_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n284_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 176]            # integer
-                        mov              rdx, qword ptr [r9 + 184]
+                        mov              rax, qword ptr [r9 + 208]            # epsilon
+                        mov              rdx, qword ptr [r9 + 216]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n285_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n285_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 384], rax            # PAT$1$V1
-                        mov              qword ptr [r9 + 392], rdx;           jmp   n286_var_α
+                        mov              qword ptr [r9 + 368], rax            # PAT$1$V0
+                        mov              qword ptr [r9 + 376], rdx;           jmp   n286_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n286_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 208]            # epsilon
-                        mov              rdx, qword ptr [r9 + 216]
+                        mov              rax, qword ptr [r9 + 176]            # integer
+                        mov              rdx, qword ptr [r9 + 184]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n287_assign_α
 n286_var_β:             add              rsp, 16
@@ -4272,8 +4272,8 @@ n286_var_β:             add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n287_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 368], rax            # PAT$1$V0
-                        mov              qword ptr [r9 + 376], rdx;           jmp   n288_lit_string_α
+                        mov              qword ptr [r9 + 384], rax            # PAT$1$V1
+                        mov              qword ptr [r9 + 392], rdx;           jmp   n288_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n288_lit_string_α:      sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
@@ -4338,15 +4338,15 @@ n293_statement_begin_α:                                                       j
 n293_statement_begin_β:                                                       jmp   n313_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n294_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 192]            # exponent
-                        mov              rdx, qword ptr [r9 + 200]
+                        mov              rax, qword ptr [r9 + 176]            # integer
+                        mov              rdx, qword ptr [r9 + 184]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n295_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n295_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 496], rax            # PAT$2$V6
-                        mov              qword ptr [r9 + 504], rdx;           jmp   n296_var_α
+                        mov              qword ptr [r9 + 400], rax            # PAT$2$V0
+                        mov              qword ptr [r9 + 408], rdx;           jmp   n296_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n296_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 176]            # integer
@@ -4358,8 +4358,8 @@ n296_var_β:             add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n297_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 480], rax            # PAT$2$V5
-                        mov              qword ptr [r9 + 488], rdx;           jmp   n298_var_α
+                        mov              qword ptr [r9 + 416], rax            # PAT$2$V1
+                        mov              qword ptr [r9 + 424], rdx;           jmp   n298_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n298_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 208]            # epsilon
@@ -4370,8 +4370,8 @@ n298_var_β:             add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n299_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 464], rax            # PAT$2$V4
-                        mov              qword ptr [r9 + 472], rdx;           jmp   n300_var_α
+                        mov              qword ptr [r9 + 432], rax            # PAT$2$V2
+                        mov              qword ptr [r9 + 440], rdx;           jmp   n300_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n300_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 192]            # exponent
@@ -4394,8 +4394,8 @@ n302_var_β:             add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n303_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 432], rax            # PAT$2$V2
-                        mov              qword ptr [r9 + 440], rdx;           jmp   n304_var_α
+                        mov              qword ptr [r9 + 464], rax            # PAT$2$V4
+                        mov              qword ptr [r9 + 472], rdx;           jmp   n304_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n304_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 176]            # integer
@@ -4406,20 +4406,20 @@ n304_var_β:             add              rsp, 16;                             j
 #-----------------------------------------------------------------------------------------------------------------------
 n305_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 416], rax            # PAT$2$V1
-                        mov              qword ptr [r9 + 424], rdx;           jmp   n306_var_α
+                        mov              qword ptr [r9 + 480], rax            # PAT$2$V5
+                        mov              qword ptr [r9 + 488], rdx;           jmp   n306_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n306_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 176]            # integer
-                        mov              rdx, qword ptr [r9 + 184]
+                        mov              rax, qword ptr [r9 + 192]            # exponent
+                        mov              rdx, qword ptr [r9 + 200]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n307_assign_α
 n306_var_β:             add              rsp, 16;                             jmp   n304_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n307_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 400], rax            # PAT$2$V0
-                        mov              qword ptr [r9 + 408], rdx;           jmp   n308_lit_string_α
+                        mov              qword ptr [r9 + 496], rax            # PAT$2$V6
+                        mov              qword ptr [r9 + 504], rdx;           jmp   n308_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n308_lit_string_α:      sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
@@ -4589,19 +4589,19 @@ n325_statement_begin_α:                                                       j
 n325_statement_begin_β:                                                       jmp   n335_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n326_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 176]            # integer
-                        mov              rdx, qword ptr [r9 + 184]
+                        mov              rax, qword ptr [r9 + 224]            # real
+                        mov              rdx, qword ptr [r9 + 232]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n327_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
 n327_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 528], rax            # PAT$5$V1
-                        mov              qword ptr [r9 + 536], rdx;           jmp   n328_var_α
+                        mov              qword ptr [r9 + 512], rax            # PAT$5$V0
+                        mov              qword ptr [r9 + 520], rdx;           jmp   n328_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n328_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 224]            # real
-                        mov              rdx, qword ptr [r9 + 232]
+                        mov              rax, qword ptr [r9 + 176]            # integer
+                        mov              rdx, qword ptr [r9 + 184]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n329_assign_α
 n328_var_β:             add              rsp, 16
@@ -4609,8 +4609,8 @@ n328_var_β:             add              rsp, 16
 #-----------------------------------------------------------------------------------------------------------------------
 n329_assign_α:          mov              rax, qword ptr [rsp + 0]             # var
                         mov              rdx, qword ptr [rsp + 8]
-                        mov              qword ptr [r9 + 512], rax            # PAT$5$V0
-                        mov              qword ptr [r9 + 520], rdx;           jmp   n330_lit_string_α
+                        mov              qword ptr [r9 + 528], rax            # PAT$5$V1
+                        mov              qword ptr [r9 + 536], rdx;           jmp   n330_lit_string_α
 #-----------------------------------------------------------------------------------------------------------------------
 n330_lit_string_α:      sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
