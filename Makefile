@@ -31,7 +31,7 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
-RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # FACT RULE O0-DEV (s119): runtime .so DEFAULTS to -O0 — feature-dev builds must be FAST. -O2 is PERF-ONLY, explicit opt-in: make RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" libscrip_rt  (or PERF=1 via jcon_selfhost_build.sh). NEVER -O1/-O2 while developing features.
+RT_OPT  ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O2-ALWAYS (Lon 2026-08-20 in-chat, s178, SUPERSEDES O0-DEV/s119 and O2-DIRECTED-ONLY/s126): -O2 ALL the time — normal work recompiles subsets, full rebuilds are rare, and perf numbers stop needing a special build. RT_OPT="-O0 ..." remains the explicit opt-out for debugging sessions that want unoptimized frames.
 DEPFLAGS := -MMD -MP
 CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
@@ -332,7 +332,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var_frame.cpp \
     $(SRC)/templates/bb_var_frame_ref.cpp
 
-RT_OPT ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # FACT RULE O0-DEV (s119): default -O0; -O2 is perf-only explicit opt-in
+RT_OPT ?= -O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O2-ALWAYS (Lon 2026-08-20 s178): default -O2 everywhere; -O0 is the explicit debug opt-out
 RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
     -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer
 RT_OBJDIR := out/rt_pic
