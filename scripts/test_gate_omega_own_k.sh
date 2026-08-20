@@ -8,7 +8,7 @@
 #         - own _ω body: add rsp,K_own present inside _ω: .. next-label
 #         - DRIVE_PAIR alias _β: add rsp,K_own + jmp (the ruling's own alias clause)
 #   (c) ORPHAN-ADDS = add rsp,J where J matches no single carve size in this file
-#         WHITELIST: add rsp,8 (alignment, until SHED-5); mov rsp,rbp restores (framed whacks)
+#         REGISTRY: add rsp,8 (alignment, until SHED-5); mov rsp,rbp restores (framed whacks)
 #         ΣK FOLD: J equal to a contiguous carve-run sum → fold column, never orphan bucket
 #         ⛔ MODEL THE POP YOU AUDIT (s38 lesson 2b): skip fold model → 100+ false orphans
 #   (d) Output per-file + rollup + worst-10 by uncovered K>0 boxes
@@ -172,7 +172,7 @@ for path in files:
     fold_cnt = 0
     rbp_restore_cnt = sum(1 for ln in lines if MOV_RSP_RBP.search(ln))
     for j, cnt in add_cnt.items():
-        if j == 8:            # alignment whitelist
+        if j == 8:            # alignment registry
             continue
         if j in carve_sizes:  # own-carve release
             continue

@@ -7,13 +7,13 @@
 # adopted from GOAL-PROLOG-BB's session-sync three-mode stepping). With no --mode (or --mode all, the
 # DEFAULT) every corpus program is run through all three engine paths against its .expected:
 #   interp  (Mode 2, --run)                 — reference oracle — HARD GATE (PASS must be >= previous).
-#   run     (Mode 3, --run, stackless native)  — TRACKED. A shape with no native template DECLINES LOUD
-#                                                 with the [SMX] banner -> counted DECLINED (NOT a FAIL).
+#   run     (Mode 3, --run, stackless native)  — TRACKED. A shape with no native template REFUSES LOUD
+#                                                 with the [SMX] banner -> counted REFUSED (NOT a FAIL).
 #   compile (Mode 4, --compile --target=x86)   — emit .s -> as -> link out/libscrip_rt.so -> exec.
-#                                                 TRACKED, same [SMX] -> DECLINED rule.
-# A mode-3/4 run whose stderr carries the [SMX] decline banner is reported DECLINED (expected mid-Ground
+#                                                 TRACKED, same [SMX] -> REFUSED rule.
+# A mode-3/4 run whose stderr carries the [SMX] refuse banner is reported REFUSED (expected mid-Ground
 # -Zero, NOT FAIL) and auto-resumes counting toward PASS the moment that box family gets a native template.
-# This is the Icon twin of test_prolog_rung_suite.sh; the [SMX]->DECLINED mechanism is identical.
+# This is the Icon twin of test_prolog_rung_suite.sh; the [SMX]->REFUSED mechanism is identical.
 # Pass --mode interp|run|compile to run a single mode. This is the THREE-MODE source of truth for the Icon
 # rung ladder (test_icon_all_rungs.sh remains the mode-2-only category-tally view).
 #
@@ -29,7 +29,7 @@ RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
 RUNG=""
 MODE="all"                              # DEFAULT: run all three modes
-SMX_SIG='\[SMX\]'                       # the loud-decline banner — same token Prolog uses
+SMX_SIG='\[SMX\]'                       # the loud-refuse banner — same token Prolog uses
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -72,9 +72,9 @@ run_prog() {
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; bin="$WORK/${name}_bin"
             if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
-                return 1   # emit failed; a loud [SMX] banner in errf still wins (DECLINED) in run_corpus
+                return 1   # emit failed; a loud [SMX] banner in errf still wins (REFUSED) in run_corpus
             fi
-            # a loud [SMX] decline prints to stderr and emits no usable .s — surface the banner, no asm step
+            # a loud [SMX] refuse prints to stderr and emits no usable .s — surface the banner, no asm step
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
             if ! as "$s" -o "$o" 2>>"$errf"; then return 1; fi
             if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 1; fi
@@ -106,7 +106,7 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 DECLINED=0
+    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0
     MODE_FAIL=0
     local icn base name exp got want errf rc
     errf="$WORK/err.txt"
@@ -121,10 +121,10 @@ run_corpus() {
         fi
         : > "$errf"
         got=$(run_prog "$mode" "$icn" 8 "$errf"); rc=$?
-        # loud-decline -> DECLINED (expected mid-Ground-Zero, NOT a FAIL). interp never declines.
+        # loud-refuse -> REFUSED (expected mid-Ground-Zero, NOT a FAIL). interp never refuses.
         if [ "$mode" != interp ] && grep -qE "$SMX_SIG" "$errf"; then
-            [ "$VERBOSE" = 1 ] && echo "DECLINED $name"
-            DECLINED=$((DECLINED+1)); continue
+            [ "$VERBOSE" = 1 ] && echo "REFUSED $name"
+            REFUSED=$((REFUSED+1)); continue
         fi
         # SUITE-HONESTY (GOAL-ICON-BB 2026-06-03): a nonzero exit without the [SMX] banner is a FAIL in
         # EVERY mode (m2 included), even when stdout happens to match .expected — kills the vacuous pass
@@ -146,8 +146,8 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    if [ "$DECLINED" -gt 0 ]; then
-        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL DECLINED=$DECLINED TOTAL=$((PASS+FAIL+XFAIL+DECLINED)) ---"
+    if [ "$REFUSED" -gt 0 ]; then
+        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$((PASS+FAIL+XFAIL+REFUSED)) ---"
     else
         echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
     fi

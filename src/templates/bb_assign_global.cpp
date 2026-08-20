@@ -40,7 +40,7 @@ std::string bb_assign_global() {
                 + x86("def",    L(0))
                 + x86(".quad",  LS(0), _.op_sval)
                 + x86("label",  LS(0))
-                + x86(".string", _.op_sval));   /* ZD-1 (Lon s21x-v): the assign is the statement's SINK -- K=0 (no result cell of its own; chained assigns decline at the planner), the value is the producer's suspended cell read at the staged difference (mode 3), and its gamma is where op_zgpop returns rsp to statement entry (the hook's statement-terminal release).  The flat op_res_live store dies here: a ZD statement HAS no flat readers by verdict. */
+                + x86(".string", _.op_sval));   /* ZD-1 (Lon s21x-v): the assign is the statement's SINK -- K=0 (no result cell of its own; chained assigns refuse at the planner), the value is the producer's suspended cell read at the staged difference (mode 3), and its gamma is where op_zgpop returns rsp to statement entry (the hook's statement-terminal release).  The flat op_res_live store dies here: a ZD statement HAS no flat readers by verdict. */
     return IF(g_gva_active && _.op_gva_k >= 0,
               x86("comment", "IR_ASSIGN gva")
             + x86_alpha()

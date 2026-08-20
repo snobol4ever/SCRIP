@@ -112,7 +112,7 @@ int main(void) {
     both("aliased operand a==b",      Sraw(big, 20), Sraw(big, 20));
     both("huge 599+599",              Sraw(big, 599), Sraw(big2, 599));
     /* SXT token interaction: the armed token from a previous concat must be honored, i.e. the
-     * asm must decline the fast path when the left operand IS the owner and let C extend. */
+     * asm must refuse the fast path when the left operand IS the owner and let C extend. */
     for (int rep = 0; rep < 3; rep++) {
         DESCR_t acc = S("seed");
         for (int k = 0; k < 6; k++) {

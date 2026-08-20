@@ -70,7 +70,7 @@
 # changes.  Corpus count is now 0 and FC_BASELINE is 0: a real zero-assert at last.
 # ---- WHAT ZERO DOES *NOT* MEAN ----
 # It means no GRANTED box addresses its OWN field outside its cell.  It does NOT mean the FORTH
-# conversion is complete: fc_geom still grants cells to an enumerated whitelist only, and IR_MATCH_BEGIN
+# conversion is complete: fc_geom still grants cells to an enumerated registry only, and IR_MATCH_BEGIN
 # (570 local fields/160 programs), IR_CALL (405), SEQUENCE (66), DEFER (64), FENCE1 (32), ARBNO (30)
 # and VALUE (6) remain unconverted.  Coverage is tracked by fc_geom's list, never by this counter.
 # ==============================================================================================

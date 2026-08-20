@@ -6,7 +6,7 @@
 #   (m3 stderr has NO INTERP-FALLBACK banner; m4 .s HAS gzq labels + CELL_UNIFY boxes).
 # Probe D (failure): X = a, X = b — ω/unwind path: EMPTY stdout in all three modes, proving
 #   the semidet fail wiring (test/je→ω) in BOTH mediums.
-# Probe E (non-admitted: compound X = f(a)): BOTH branches decline identically through the
+# Probe E (non-admitted: compound X = f(a)): BOTH branches refuse identically through the
 #   ONE shared pl_gz_admit (m3 stderr HAS the INTERP-FALLBACK marker; m4 .s has NO gzq labels).
 set -u
 cd "$(dirname "$0")/.."
@@ -60,5 +60,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg m3 did NOT show the loud fallb
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
 grep -q "gzq" "$TMP/n.s" && fail "neg m4 .s has gzq labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ3 PASS: =/2 (cell↔const, cell↔cell) + write(Var) + single-clause ground-fact head-unify m2==m3==m4 byte-identical on the GZ path; failure unwinds; compound and multi-clause declined identically by both branches"
+echo "GATE-PL-GZ3 PASS: =/2 (cell↔const, cell↔cell) + write(Var) + single-clause ground-fact head-unify m2==m3==m4 byte-identical on the GZ path; failure unwinds; compound and multi-clause refused identically by both branches"
 exit 0

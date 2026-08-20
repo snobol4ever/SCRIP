@@ -53,7 +53,7 @@ int g_gc_pending;
  * C-side
  * store of that pointer (NV_SET_fn / rt_assign_var / table_set_descr* hooks — one predictable compare each), (b) any allocation (block no longer ends at top — self-invalidating), (c) every collect
  * (cleared in rt_gc_collect; SLIDE may move the block). GVA-resident aliases (Z = S is an emitted 16-byte move, no C hook) are caught POSITIVELY at extend time: scan the registered GVA slots and
- * decline unless at most ONE slot references the buffer (the accumulator itself). Residual, documented: a DESCR copy held only in a suspended ζ frame with ZERO allocations in between is invisible to
+ * refuse unless at most ONE slot references the buffer (the accumulator itself). Residual, documented: a DESCR copy held only in a suspended ζ frame with ZERO allocations in between is invisible to
  * both layers — same exposure class as the pre-existing in-flight-args stress hole (212 m4). Right-operand reads are safe: read window [bsp,bsp+bl) never overlaps the write window [buf+al,..) even
  * when b aliases a (suffix/whole), because bl excludes the old NUL at buf+al. */
 typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
@@ -140,7 +140,7 @@ static void rt_gcheap_init(void)
     if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
     /* HP-1: the arena is bump-filled through VIRGIN memory, so every 4K page costs a minor fault + a kernel zero-fill; tgrlink touched 61MB = 14,999 faults vs iconx's 607. THP is [madvise] here, so opt the
-     * 2MB-aligned interior in explicitly: 61MB then costs ~30 huge-page faults. Alignment is required — an unaligned range silently declines to back with hugepages. SCRIP_NOHUGE=1 restores 4K (A/B). */
+     * 2MB-aligned interior in explicitly: 61MB then costs ~30 huge-page faults. Alignment is required — an unaligned range silently refuses to back with hugepages. SCRIP_NOHUGE=1 restores 4K (A/B). */
     { const char *nh = getenv("SCRIP_NOHUGE"); if (!(nh && *nh && *nh != '0')) { uintptr_t a = ((uintptr_t)g_hp_arena + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)g_hp_end) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); } }
     g_hp_virgin = g_hp_arena;
     gc_static_segs_init();
@@ -335,7 +335,7 @@ char *rt_ws_strdup_c(const char *s)
  * locals holding raw payload ptrs across the triggering alloc — what makes allocation-site collection sound, §6d), and the CURRENT scan subject (Σ lives in r13, unrewritable — D10 pin-cell realized
  * as pin-the-block; OUTER subjects restore through scan_stack and adjust precisely). SLIDE runs a dest cursor; pins are barriers; sub-pin gaps get HB_FILL titles so the linear walk stays verifiable
  * and compact away next cycle. Dedup/cycle hash makes every cell adjust EXACTLY once (double-adjust is corruption — new addresses land inside the arena). GC-U-7 (s90) retired the §6b-finding-ii
- * coexpr DECLINE: every scrip_coctx_t is enumerated (registry in rt_coexpr.c) — gc_spill (callee-saved regs spilled by scrip_coswitch just before every suspension) + xmit + entry pkg regs are
+ * coexpr REFUSE: every scrip_coctx_t is enumerated (registry in rt_coexpr.c) — gc_spill (callee-saved regs spilled by scrip_coswitch just before every suspension) + xmit + entry pkg regs are
  * scanned conservatively, each live stack window is a registered pin + conservative range, the suspended main [stack] region scans in full when a coexpr thread collects, and the current thread's
  * anchor..top scan is window-aware. Registered pins/ranges (rt_gc_root_pin_add/rt_gc_root_range_add) + the writable-PT_LOAD statics scan (dl_iterate_phdr: exe + libscrip) run at EVERY collect, and
  * gateway collects are now conservative too — raw HB_WS pointers in C locals across gateway seams must survive the un-pin (the fill window absorbs the residual top-pin ratchet risk, measured s90).

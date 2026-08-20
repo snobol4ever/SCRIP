@@ -28,7 +28,7 @@
 #
 # WHAT IS CHECKED (textual, deliberately — a dataflow proof is out of scope for a grep gate):  every mention of
 # r10/r11 in any spelling, in CODE (comments stripped), under src/templates/ and src/emitter/, minus the
-# whitelist.  The whitelist encodes the four site classes LADDER WREG licenses to own the wires:
+# registry.  The registry encodes the four site classes LADDER WREG licenses to own the wires:
 #   glue emitters · blob-exit emitters · x86_asm.h encoder internals · suspension-capture site.
 #
 # STATUS TIERS (mirrors the RTCC gate's live/pending discipline — do not skip the middle one):
@@ -41,7 +41,7 @@
 #
 # Usage: bash scripts/test_gate_wreg_claim.sh [--strict]
 #   default  : INFORMATIONAL — print the sweep burn-down, exit 0.
-#   --strict : HARD GATE — exit 1 if any non-whitelisted site remains.  WREG-0's exit criterion.
+#   --strict : HARD GATE — exit 1 if any non-registered site remains.  WREG-0's exit criterion.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -49,7 +49,7 @@ cd "$ROOT"
 strict=0
 [ "${1:-}" = "--strict" ] && strict=1
 
-WHITELIST="scripts/wreg_claim_whitelist.txt"
+REGISTRY="scripts/wreg_claim_registry.txt"
 WREG_CLAIM_LIVE=0
 
 # EVERY spelling of the two claimed registers.  Word-boundary anchored so r10 does not match r100 and the
@@ -60,16 +60,16 @@ REGPAT='\br1[01][dwb]?\b'
 # RTCC gate's helper (// line comments then /* */ blocks, non-greedy, across newlines).
 strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; }
 
-wl_has() { [ -f "$WHITELIST" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$WHITELIST"; }
+wl_has() { [ -f "$REGISTRY" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$REGISTRY"; }
 
 # wl_expect FILE — the PINNED occurrence count for a licensed file, or empty if the line carries no `occ=N`.
-# ⛔ WHY PINNING EXISTS (W-0, 2026-08-12).  The whitelist licenses a file by BASENAME, so a bare entry for a
+# ⛔ WHY PINNING EXISTS (W-0, 2026-08-12).  The registry licenses a file by BASENAME, so a bare entry for a
 # large file licenses every future r10/r11 use in it too — which turns the registry into the silencer its own
 # header forbids.  `emit.cpp` is the live case: 6 occurrences, ALL of them wire-owning today, inside a file no
 # one would claim is finished.  Pinning records the count that was actually reviewed; the gate then reports
 # DRIFT the moment the file grows a use nobody cleared, so the license covers what was inspected and nothing
 # more.  An entry with no `occ=N` keeps the old blanket behaviour and is reported as UNPINNED.
-wl_expect() { [ -f "$WHITELIST" ] && grep -E "^[[:space:]]*$1[[:space:]]" "$WHITELIST" | grep -oE 'occ=[0-9]+' | head -1 | cut -d= -f2; }
+wl_expect() { [ -f "$REGISTRY" ] && grep -E "^[[:space:]]*$1[[:space:]]" "$REGISTRY" | grep -oE 'occ=[0-9]+' | head -1 | cut -d= -f2; }
 
 # ⛔ NEVER `| grep -q` UNDER pipefail (s11 conviction, recorded in test_gate_rtcc_claimed_regs.sh): grep -q exits
 # on first match and closes the pipe, the upstream sed|perl takes SIGPIPE(141), pipefail propagates it, and A
@@ -133,8 +133,8 @@ for f in src/runtime/rtx/*.S; do
   fi
 done
 
-echo "--- LICENSED (whitelisted wire-owning sites) ---"
-if [ -n "$wl_listed" ]; then printf "%b" "$wl_listed"; else echo "  (none yet — whitelist is empty until WREG-1 creates the glue emitters)"; fi
+echo "--- LICENSED (registered wire-owning sites) ---"
+if [ -n "$wl_listed" ]; then printf "%b" "$wl_listed"; else echo "  (none yet — registry is empty until WREG-1 creates the glue emitters)"; fi
 echo "  licensed: $wl_total lines / $wl_occ occurrences"
 [ "$drift" -gt 0 ] && echo "  ⛔ $drift LICENSED FILE(S) DRIFTED PAST THEIR PINNED occ= COUNT — re-review, then update the pin"
 echo
@@ -174,7 +174,7 @@ if [ "$strict" = 1 ]; then
     echo "GATE: FAIL ($drift licensed file(s) drifted past their pinned occ= count -- re-review the new uses, then update the pin)"; exit 1
   fi
   if [ $((total + rtx_total)) -gt 0 ]; then
-    echo "GATE: FAIL ($((occ_total + rtx_occ)) non-whitelisted occurrences -- $occ_total template/emitter + $rtx_occ RTX-asm -- across $((offenders + rtx_offenders)) files)"; exit 1
+    echo "GATE: FAIL ($((occ_total + rtx_occ)) non-registered occurrences -- $occ_total template/emitter + $rtx_occ RTX-asm -- across $((offenders + rtx_offenders)) files)"; exit 1
   fi
   echo "GATE: PASS"; exit 0
 fi

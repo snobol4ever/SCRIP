@@ -69,19 +69,19 @@ cmp -s "$TMP/bfail.o3" "$TMP/bfail.o4" || fail "bfail m3 vs m4 stdout differ"
 printf 'a\n' | cmp -s - "$TMP/bfail.o3" || fail "bfail m3 output is not canon (expected exactly one a — no re-entry into the exhausted soft-disj)"
 
 # neg1: arm0 does NOT end in IR_FAIL — arm0 can succeed, which needs arm0-success wiring (disj
-# success continues to B but a later B failure must redo INTO arm0): out of scope; decline.
+# success continues to B but a later B failure must redo INTO arm0): out of scope; refuse.
 printf ':- initialization(main).\np(a).\np(b).\nmain :- ( p(X), write(X), nl ; true ), write(done), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (arm0 not ending in fail) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg1.pl" > "$TMP/n1.s" 2>/dev/null || fail "neg1 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (arm0 not ending in fail) m4 .s has gz labels (GZ wrongly admitted)"
 
-# neg2: disj NOT at goals[0] of the query conj — mid/suffix position needs general disj wiring; decline.
+# neg2: disj NOT at goals[0] of the query conj — mid/suffix position needs general disj wiring; refuse.
 printf ':- initialization(main).\np(a).\nmain :- write(start), nl, ( p(X), write(X), nl, fail ; true ).\n' > "$TMP/neg2.pl"
 "$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (disj not at goals[0]) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (disj not at goals[0]) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ6B PASS: query-prefix soft-disj as a TWO-SEGMENT query frame (soft landing = unwind(query mark) + jmp B0 α via δ; B0 ω → hard land_ω; last B γ → land_γ) — the FULL seed runs as ONE program b c d b, m2==m3==m4; soft-landing unwind observable; B-fail = hard ω pinned m3==m4==gprolog canon (m2 disj-resume re-walk divergence LOGGED for PL-GZ-7); non-FAIL arm0 and mid-conj disj declined identically by both branches"
+echo "GATE-PL-GZ6B PASS: query-prefix soft-disj as a TWO-SEGMENT query frame (soft landing = unwind(query mark) + jmp B0 α via δ; B0 ω → hard land_ω; last B γ → land_γ) — the FULL seed runs as ONE program b c d b, m2==m3==m4; soft-landing unwind observable; B-fail = hard ω pinned m3==m4==gprolog canon (m2 disj-resume re-walk divergence LOGGED for PL-GZ-7); non-FAIL arm0 and mid-conj disj refused identically by both branches"
 exit 0

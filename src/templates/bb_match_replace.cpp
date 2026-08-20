@@ -21,7 +21,7 @@ std::string bb_match_replace() {
               + x86("note", ZOPN(2)) + x86("mov", "rdx", ZOPQ(2, 8)))   /* ⭐ R-3(c) SUBJECT SEAT (s99 "fourth seat"): the armed splice reads the subject from its producer's LIVE spine cell via the staged op_zread[2] (emit.cpp REPLACE choke -- zunder + producer-below-head offset, physically exact post-whack), per the ZD-5 MATCH-SPINE ZOPQ(2) design of record.  The op_sa flat slot has NO writer in the armed world since s97 deleted the head's mirror from both arms (the deletion was right -- the mirror wrote unbacked flat coordinates -- the READER was the half left behind). */
          + IF(!(_.op_zres && _.op_zread[2] >= 0),
                 x86("mov",  "rsi", FRQ(_.op_sa))
-              + x86("mov",  "rdx", FRQ(_.op_sa + 8)))   /* legacy/declined + -1-sentinel fallback: byte-identical to the pre-fix read -- degrade never die. */
+              + x86("mov",  "rdx", FRQ(_.op_sa + 8)))   /* legacy/refused + -1-sentinel fallback: byte-identical to the pre-fix read -- degrade never die. */
          + (emit_match_rbp()
               ? x86("note", "repl_start") + x86("mov", "ecx", RDD("r12", -16))
               + x86("note", "repl_end")   + x86("mov", "r8",  RDQ("r12", -8))

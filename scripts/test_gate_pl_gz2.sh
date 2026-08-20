@@ -2,7 +2,7 @@
 # test_gate_pl_gz2.sh — PL-GZ-2 gate: the hello rung on the Proebsting-pure path.
 # Probe 1 (hello class): m2 == m3 == m4 stdout BYTE-IDENTICAL, and BOTH m3 and m4 took the
 #   new path (m3 stderr has NO INTERP-FALLBACK banner; m4 .s HAS gzq labels).
-# Probe 2 (non-admitted: X = a): BOTH branches decline identically through the ONE shared
+# Probe 2 (non-admitted: X = a): BOTH branches refuse identically through the ONE shared
 #   pl_gz_admit (m3 stderr HAS the INTERP-FALLBACK marker; m4 .s has NO gzq labels).
 # PL-M34 equal-sets LAW enforced at the new-path boundary from day one.
 set -u
@@ -34,5 +34,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg m3 did NOT show the loud fallb
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
 grep -q "gzq" "$TMP/n.s" && fail "neg m4 .s has gzq labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ2 PASS: hello m2==m3==m4 byte-identical on the GZ path; non-admitted declined identically by both branches"
+echo "GATE-PL-GZ2 PASS: hello m2==m3==m4 byte-identical on the GZ path; non-admitted refused identically by both branches"
 exit 0

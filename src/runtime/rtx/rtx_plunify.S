@@ -20,7 +20,7 @@
  *
  * ⛔⛔ SCOPE — THIS IS A WRAPPER PORT AND IT SAYS SO IN ITS OWN SOURCE
  *   PL-SINK-1 (landed s142) already inlines the FAST unify arm in the EMITTER, so the arrivals that
- *   reach this leaf are the residue SINK declined.  Re-implementing a fast arm in asm here would
+ *   reach this leaf are the residue SINK refused.  Re-implementing a fast arm in asm here would
  *   therefore be VACUOUS BY CONSTRUCTION — the exact class RTX-8 SLICE3 fell into (passed every
  *   step-0 check, was vacuous).  What is portable WITHOUT that risk is the CEREMONY the C pays on
  *   every arrival regardless of shape:
@@ -42,7 +42,7 @@
  *
  * ⭐ THE nargs GUARD RETURNS WITHOUT TOUCHING THE FLOOR OR THE SAFEPOINT
  *   Read from the C's disassembly, not from its source shape: the nargs!=2 arm jumps straight to the
- *   epilogue, so it never saves, sets, or restores the floor and never reaches the GC point.  A decline
+ *   epilogue, so it never saves, sets, or restores the floor and never reaches the GC point.  A refuse
  *   is side-effect-free.  Reproduced exactly — the guard precedes the frame work.
  *
  * LINKAGE SPLIT — CHECKED WITH nm ON THE OBJECT FILES, NEVER ON THE .so (shared §7, s209 lesson)
@@ -100,7 +100,7 @@ RTX_GATE_DEF(plunify)
 RTX_FUNC(rt_pl_dop_unify)
     RTX_GATE(plunify, c_rt_pl_dop_unify)
     cmp     esi, 2
-    jne     .Lpu_fail_bare                          /* decline BEFORE any side effect              */
+    jne     .Lpu_fail_bare                          /* refuse BEFORE any side effect              */
     sub     rsp, 24                                 /* RSP-ONLY: entry%16==8, -24 => aligned calls; slots [rsp+FR_ARGS],[rsp+FR_FLOOR]; exit adds 24 */
     mov     qword ptr [rsp + FR_ARGS], rdi
     mov     rax, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]

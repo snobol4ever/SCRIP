@@ -8,7 +8,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ALT-FLAT (s202, Lon design session): the N-ary alternation as a ZERO-CELL flat box with ADDRESS dispatch.
  * Three facts replace the whole ZB-FC-3a pad-to-max machinery (S10d), which is deleted:
- *   (1) FLAT ARMS.  Every node inside a granted ALT's arms declines its FORTH cell (fc_arm_member,
+ *   (1) FLAT ARMS.  Every node inside a granted ALT's arms refuses its FORTH cell (fc_arm_member,
  *       zeta_storage.c) and keeps its flat zls quad -- an arm's rsp footprint is 0, so every arm yields at
  *       the ALT's own frontier and nodes after the ALT sit at the SAME static depth for every arm.  No pad,
  *       no per-arm exact footprints, no uniform-depth stubs.  "Fixed offsets all the way down the graph."

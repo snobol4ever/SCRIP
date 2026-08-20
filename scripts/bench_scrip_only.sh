@@ -66,7 +66,7 @@ for name in $progs; do
       else s4="RUNFAIL rc=$rc4"; fi
     else s4="LINKFAIL: $(grep -m1 'undefined reference' "$WORK/$name.m4l.err"|head -c40)"; fi
   else
-    if grep -q '\[SMX\]' "$WORK/$name.m4c.err"; then s4="DECLINED"; else s4="COMPILEFAIL: $(tail -c50 "$WORK/$name.m4c.err"|tr '\n' ' ')"; fi
+    if grep -q '\[SMX\]' "$WORK/$name.m4c.err"; then s4="REFUSED"; else s4="COMPILEFAIL: $(tail -c50 "$WORK/$name.m4c.err"|tr '\n' ' ')"; fi
   fi
 
   # byte-identity m3 vs m4 (only meaningful if both produced output)

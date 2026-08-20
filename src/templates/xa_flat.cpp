@@ -413,12 +413,12 @@ static int xa_flat_class_zf(void) {
 }
 /* ⭐⭐⭐ CLASS-C ADMISSION PREDICATE — ONE AUTHORITY (s114, the s113 cursor's routed DEFECT C).  CLASS C = the chain-entered citizens of the
  * EXIT-CLASS LEDGER (EVAL/CODE runtime fragments, rt_chain_enter/rt_chain_enter_v).  emit_jmp_entry_arm_region arms them flat_jmp_entry=1 and
- * publishes flat_frame_bytes = (48 + jcon_value_region + 15) & ~15 — the LAYOUT every declined node's FRQ([rsp+off]) read addresses — but the
+ * publishes flat_frame_bytes = (48 + jcon_value_region + 15) & ~15 — the LAYOUT every refused node's FRQ([rsp+off]) read addresses — but the
  * prologue dispatch in emit.cpp has carried NO ARM for them since CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue, the PRODUCER half.
  * The consumer half survived, so the chain addresses a frame nobody carved: it writes over its own caller, destroying the return address.
  * MEASURED (SCRIP_LP_DIAG=1, corpus/probe/eval): ev_fn_literal armed=2 of 6 nodes, ev_fn_var armed=6 of 6 — IDENTICAL flags otherwise
  * (jmp=1 pat=0 gen=0 region=64, kt=112).  The passing sibling survives only because it is FULLY ZD-armed and addresses no frame at all, which
- * is why the symptom read as "literal vs variable" — that is a PROXY for ZD-ARMED vs DECLINED, never a semantic distinction.
+ * is why the symptom read as "literal vs variable" — that is a PROXY for ZD-ARMED vs REFUSED, never a semantic distinction.
  * NARROW BY MEASUREMENT, NOT BY TASTE: flat_pat blobs carve at α_body through BLOB-GRANT (blob_frame_bytes), flat_lcl_proc and zframe_graph
  * have their own prologue arms above, and DEFINE stubs (g_flat_frame_floor > 0, flat_stmt_frame with the kt=48 override) are CLASS P — their
  * wire quad is filled by the role-3 wire-adopt box and their statements self-allocate.  Each is EXCLUDED because it already has a producer,

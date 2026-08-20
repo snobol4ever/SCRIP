@@ -168,8 +168,8 @@ def main():
     print(f"  by kind: β={dk['β-resume']} α={dk['α-start']} γ={dk['γ-succeed']} ω={dk['ω-fail']} comb={dk['combinator']} other={dk['other']}")
 
 # --------------------------------------------------------------------------------------------------
-# BP-9 (ii) TRIVIAL-β WHITELIST GATE (--gate): backs flat_trivial_beta (src/emitter/emit.cpp) — the
-# driver inlines whitelisted ops' β trampolines at ω-jmp sites, which is sound ONLY while those ops'
+# BP-9 (ii) TRIVIAL-β REGISTRY GATE (--gate): backs flat_trivial_beta (src/emitter/emit.cpp) — the
+# driver inlines registered ops' β trampolines at ω-jmp sites, which is sound ONLY while those ops'
 # emitted β bodies are exactly [add rsp,K]* jmp <target>.  This mode verifies that invariant across a
 # .s corpus, converting template-knowledge-in-driver from a drift hazard into a checked invariant: a
 # template edit that grows a real β body for a listed op fails HERE, loudly, not silently at runtime.
@@ -201,13 +201,13 @@ def gate(paths):
                 continue
             real = [ins for ins in labels[blbl] if not ins.startswith('#')]
             if cmt in GATE_FC and any(x.split()[:1] == ['call'] for x in real):
-                continue   # push variant: real β body (rt_cap_pop) by design, never driver-whitelisted
+                continue   # push variant: real β body (rt_cap_pop) by design, never driver-registered
             checked += 1
             ok = len(real) >= 1 and jmp_re.match(real[-1]) and all(body_re.match(x) for x in real[:-1])
             if not ok:
                 bad += 1
                 print(f"GATE VIOLATION {os.path.basename(path)} {blbl} ({cmt}): body={real}")
-    print(f"zpop-whitelist gate: {checked} whitelisted β bodies checked, {bad} violations")
+    print(f"zpop-registry gate: {checked} registered β bodies checked, {bad} violations")
     return 1 if bad else 0
 
 if __name__ == '__main__':

@@ -3,16 +3,16 @@
 # Four sections per the FENCE spec:
 #   (a) all nine IR_SCAN_* kinds OFF icn_kind_native_stub (and present in src/contracts);
 #   (b) the ladder probe sweep — every ICN-SCAN-0..13a probe, three modes, policy per documented flags:
-#         STRICT  m2==m3==m4==expected AND no [SMX] (an decline must not masquerade as a fail-probe pass)
+#         STRICT  m2==m3==m4==expected AND no [SMX] (an refuse must not masquerade as a fail-probe pass)
 #         M34     m3==m4==expected, m2 recorded informationally (the SCAN-3 pre-existing oracle pos gap)
 #         PIN     m2==m3==m4==ONE-SHOT expected (ORACLE SCAN-FN GENERATIVITY flag: goal probes specify
 #                 multi-result; the m2 oracle is one-shot for every scan builtin; native matches the oracle
 #                 bit-for-bit and is pump-ready. Making m2 generative SHIFTS THE 129 BASELINE — Lon's call.
 #                 Until that re-baseline rung, this gate pins three-mode AGREEMENT on the one-shot value.)
-#         X34     m2==expected AND m3 AND m4 each print [SMX] with rc=0 (LOUD DECLINE — the =s var-operand
-#                 shape, the wave-1 dynamic-arg declines; SCAN-13b deferral PROMOTED to STRICT at ICN-VAR-3)
+#         X34     m2==expected AND m3 AND m4 each print [SMX] with rc=0 (LOUD REFUSE — the =s var-operand
+#                 shape, the wave-1 dynamic-arg refuses; SCAN-13b deferral PROMOTED to STRICT at ICN-VAR-3)
 #   (c) the corpus scan bucket — every corpus .icn whose --dump-bb graph carries IR_GEN_SCAN, all three
-#       modes vs .expected, with ratchet floors (DECLINED->PASS deltas land here as future boxes light up);
+#       modes vs .expected, with ratchet floors (REFUSED->PASS deltas land here as future boxes light up);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
 #       icn_one_reg_frame (HARD); no_vstack informational; medium-invisible scoped to the
 #       scan-family templates (the global --strict RED is the documented Prolog-lane bb_* WIP).
@@ -63,7 +63,7 @@ probe() {
         PIN)    { [ "$A2" = "$exp" ] && [ "$A3" = "$exp" ] && [ "$A4" = "$exp" ] && [ "$SMX3" = 0 ] && [ "$SMX4" = 0 ]; } || ok=0
                 note="(one-shot pin — ORACLE GENERATIVITY flag)" ;;
         X34)    { [ "$A2" = "$exp" ] && [ "$SMX3" = 1 ] && [ "$SMX4" = 1 ] && [ "$RC3" = 0 ]; } || ok=0
-                note="(m3/m4 LOUD DECLINED by design)" ;;
+                note="(m3/m4 LOUD REFUSED by design)" ;;
     esac
     if [ "$ok" = 1 ]; then PP=$((PP+1)); printf "  OK   %-22s %s\n" "$name" "$note"
     else PF=$((PF+1)); BAD=1; printf "  FAIL %-22s m2='%s' m3='%s'(smx=%s) m4='%s'(smx=%s) exp='%s' %s\n" "$name" "$A2" "$A3" "$SMX3" "$A4" "$SMX4" "$exp" "$note"; fi
@@ -236,11 +236,11 @@ while IFS= read -r f; do
     exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
     run3 "$f" 30
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
-    if [ "$SMX3" = 1 ]; then r3=DECLINED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
-    if [ "$SMX4" = 1 ]; then r4=DECLINED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
+    if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
+    if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
     printf "  %-44s m2=%-4s m3=%-7s m4=%s\n" "$(basename "$f" .icn)" "$r2" "$r3" "$r4"
 done < <(find "$CORPUS" -name '*.icn' | sort)
-echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F DECLINED=$C3E | m4 PASS=$C4P FAIL=$C4F DECLINED=$C4E"
+echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F REFUSED=$C3E | m4 PASS=$C4P FAIL=$C4F REFUSED=$C4E"
 [ "$C2P" -ge "$SCAN_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $SCAN_M2_MIN"; BAD=1; }
 [ "$C3P" -ge "$SCAN_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $SCAN_M3_MIN"; BAD=1; }
 [ "$C4P" -ge "$SCAN_M4_MIN" ] || { echo "  FLOOR FAIL m4 $C4P < $SCAN_M4_MIN"; BAD=1; }

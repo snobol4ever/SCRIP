@@ -10,7 +10,7 @@
 # ⛔ IT HAD NEVER BEEN WRITTEN. Measured s212-ICN: absent from scripts/, while
 # three sessions' prose asserted it was the thing keeping the ledger honest.
 # s209-SN4 recorded in the ledger's own message board that it "took the OUT:/FREE
-# rows at face value ... that was luck, not verification." s212-ICN then declined
+# rows at face value ... that was luck, not verification." s212-ICN then refused
 # to port rt_binop_overload purely on a hand-asserted allocation row. Both were
 # correct BY LUCK. This closes that.
 #

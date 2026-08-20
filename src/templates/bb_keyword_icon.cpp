@@ -52,9 +52,9 @@ std::string bb_keyword_icon() {
                  + x86("mov", ZRES(0), (long)DT_SNUL)
                  + x86("mov", ZRES(8), (long)0)
                  + x86_gamma() + x86_beta_trampoline();
-        /* Any other keyword in the ZD arm is a whitelist error -- zd_wl_kind restricts
+        /* Any other keyword in the ZD arm is a op-filter error -- zd_wl_kind restricts
          * admission to &null/&pos/&subject only (see emit.cpp ONE AUTHORITY).  If this bomb
-         * fires, widen the whitelist AND add a matching ZRES arm above. */
+         * fires, widen the op-filter AND add a matching ZRES arm above. */
         return x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm");
     }
     std::string tail = x86_gamma() + x86_beta() + x86_omega();

@@ -9,8 +9,8 @@
 # their ω so all-det clauses collapse to the advance block). Facts admit as empty-body rule clauses,
 # so multi-clause FACT preds called from callee bodies become framed callees (the seed's edge/2);
 # self/mutual recursion terminates at admit time via the visiting list + shell-first memo.
-# Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new path. Negatives: cut clauses decline (PL-GZ-6
-# territory); compound/list head args decline; >4-clause preds decline (the gz4 clause cap).
+# Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new path. Negatives: cut clauses refuse (PL-GZ-6
+# territory); compound/list head args refuse; >4-clause preds refuse (the gz4 clause cap).
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -52,7 +52,7 @@ run_admitted mixed ':- initialization(main).\nr(a).\nr(X) :- s(X).\ns(b).\ns(c).
 # pos4: recursion depth — every activation owns its frame, hence its cursor and child slots.
 run_admitted chain ':- initialization(main).\nedge(a,b).\nedge(b,c).\nedge(c,d).\nedge(d,e).\npath(X,Y) :- edge(X,Y).\npath(X,Z) :- edge(X,Y), path(Y,Z).\nmain :- path(a,Q), write(Q), nl, fail ; true.\n' 'b\nc\nd\ne\n'
 
-# neg1 (ratcheted by PL-GZ-6: cut inside a clause now ADMITS): cut at QUERY level — dynamic territory; both branches must decline identically.
+# neg1 (ratcheted by PL-GZ-6: cut inside a clause now ADMITS): cut at QUERY level — dynamic territory; both branches must refuse identically.
 printf ':- initialization(main).\nf(a).\nf(b).\nmain :- f(Q), !, write(Q), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (query-level cut) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
@@ -66,12 +66,12 @@ grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (list heads) m3 did NOT show
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (list heads) m4 .s has gz labels (GZ wrongly admitted)"
 
-# neg3: 5 clauses — over the clause cap; both branches decline identically.
+# neg3: 5 clauses — over the clause cap; both branches refuse identically.
 printf ':- initialization(main).\nc5(a). c5(b). c5(c). c5(d). c5(e).\nmain :- c5(Q), write(Q), nl, fail ; true.\n' > "$TMP/neg3.pl"
 "$SCRIP" --run "$TMP/neg3.pl" </dev/null > "$TMP/n33" 2>"$TMP/ne33" || fail "neg3 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne33" || fail "neg3 (5-clause pred) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg3.pl" > "$TMP/n3.s" 2>/dev/null || fail "neg3 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n3.s" && fail "neg3 (5-clause pred) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ5C PASS: multi-clause RULE predicates (full path/2: callee-level choice, cursor@[ζ+4], per-clause body chains, clause-advance unwind blocks, β cmp-chain dispatch; facts as empty-body clauses; mixed fact+rule preds; self-recursion) m2==m3==m4 byte-identical on the GZ path; cut, list-head, and >4-clause preds declined identically by both branches"
+echo "GATE-PL-GZ5C PASS: multi-clause RULE predicates (full path/2: callee-level choice, cursor@[ζ+4], per-clause body chains, clause-advance unwind blocks, β cmp-chain dispatch; facts as empty-body clauses; mixed fact+rule preds; self-recursion) m2==m3==m4 byte-identical on the GZ path; cut, list-head, and >4-clause preds refused identically by both branches"
 exit 0

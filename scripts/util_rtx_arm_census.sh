@@ -16,7 +16,7 @@
 # and correct and STILL does not license the port.
 #
 # THE MEASUREMENT: every gated RTX symbol tail-jumps to a `c_*` fallback when it
-# declines an arm (the RTX_GATE / bail-before-mutate shape).  So counting BOTH
+# refuses an arm (the RTX_GATE / bail-before-mutate shape).  So counting BOTH
 # `sym` and `c_sym` splits the traffic mechanically:
 #     entries  = calls that reached the asm symbol
 #     bailed   = calls that tail-jumped to the C fallback

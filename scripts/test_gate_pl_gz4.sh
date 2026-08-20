@@ -6,7 +6,7 @@
 # conjunction is wired as the Byrd-Box backward redo chain (goal[i].ω → goal[i-1].β) so `fail`
 # (the pure-wiring bb_fail leaf) IS the backtracking driver.
 # Probes A-E (admitted): m2 == m3 == m4 stdout BYTE-IDENTICAL, both branches on the new path.
-# Probe F (non-admitted: 5 clauses > cap): BOTH branches decline identically via pl_gz_admit.
+# Probe F (non-admitted: 5 clauses > cap): BOTH branches refuse identically via pl_gz_admit.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -56,5 +56,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne3" || fail "neg (5 clauses) m3 did NOT show th
 "$SCRIP" --compile --target=x86 "$TMP/neg.pl" > "$TMP/n.s" 2>/dev/null || fail "neg m4 compile rc"
 grep -q "gzq" "$TMP/n.s" && fail "neg (5 clauses) m4 .s has gzq labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ4 PASS: multi-clause choice + backtracking + query-tail (G ; true) soft-fail promotion (fail-driven enumeration, mixed-arg fold, mid-chain redo, stacked choices, soft tails) m2==m3==m4 byte-identical on the GZ path; over-cap declined identically by both branches"
+echo "GATE-PL-GZ4 PASS: multi-clause choice + backtracking + query-tail (G ; true) soft-fail promotion (fail-driven enumeration, mixed-arg fold, mid-chain redo, stacked choices, soft tails) m2==m3==m4 byte-identical on the GZ path; over-cap refused identically by both branches"
 exit 0

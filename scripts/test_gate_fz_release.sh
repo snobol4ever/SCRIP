@@ -7,7 +7,7 @@
 #           hatch nobody tests is not an escape hatch.  Red here means the retreat path rotted.
 #   LOCK 2 (verdict): NO OVER-RELEASE.  Re-derives each fence's releasable carve FROM THE EMITTED ASM
 #           -- follows the alpha-chain from each match_begin box, sums `sub rsp,N` over the contiguous
-#           whitelisted leaf boxes at the frontier, and asserts the fence's own `add rsp,R` never
+#           registered leaf boxes at the frontier, and asserts the fence's own `add rsp,R` never
 #           exceeds it.  This is the FZ-1 defect's tripwire (it billed 32 against a 16 carve) and it
 #           pins NO golden: it checks the compiler's claim against the compiler's own output.
 #   LOCK 5 (verdict): the same armed witnesses on the SECOND depth spelling -- bb_match_replace's
@@ -92,7 +92,7 @@ for start in [l for l in boxes if boxes[l]['kind'] == 'match_begin']:
             if rel > budget:
                 bad = 1
                 if cur not in told:
-                    told.add(cur); print("  OVER-RELEASE %s: %s releases %d but only %d bytes of whitelisted carve stand at the frontier" % (name, cur, rel, budget))
+                    told.add(cur); print("  OVER-RELEASE %s: %s releases %d but only %d bytes of registered carve stand at the frontier" % (name, cur, rel, budget))
         chain.append(cur); cur = boxes[cur]['jmp']
 print("  %-32s %s" % (name, "OK (no fence releases more than its carve)" if not bad else "OVER-RELEASE DETECTED"))
 sys.exit(1 if bad else 0)

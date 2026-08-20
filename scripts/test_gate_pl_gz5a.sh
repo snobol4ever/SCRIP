@@ -8,8 +8,8 @@
 # its own row; γ/ω land verdict-in-rax and ret to the call box's λ; β re-pushes and jumps into
 # the body redo chain (δ). Caller const args materialize as synthetic query cells + unify-const.
 # Probes (admitted): m2 == m3 == m4 stdout BYTE-IDENTICAL, both branches on the new path.
-# Negatives: 2-clause rule pred + nested call decline IDENTICALLY via pl_gz_admit (m3 loud
-# fallback, m4 no gz labels) — recursion therefore stays declined until 5b's rt_enter ζ-tree.
+# Negatives: 2-clause rule pred + nested call refuse IDENTICALLY via pl_gz_admit (m3 loud
+# fallback, m4 no gz labels) — recursion therefore stays refused until 5b's rt_enter ζ-tree.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -59,5 +59,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (compound in rule body) m3 d
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (compound in rule body) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ5A PASS: user-predicate calls via δ/ε port fills (call box + callee frame: arg cell-pointer marshaling, value flow out through head vars, per-activation locals, trail mark/unwind in the callee row, redo re-entry via ε, choice-driven α re-entry, cross-var heads) m2==m3==m4 byte-identical on the GZ path; arity-3 and compound-body rule preds declined identically by both branches"
+echo "GATE-PL-GZ5A PASS: user-predicate calls via δ/ε port fills (call box + callee frame: arg cell-pointer marshaling, value flow out through head vars, per-activation locals, trail mark/unwind in the callee row, redo re-entry via ε, choice-driven α re-entry, cross-var heads) m2==m3==m4 byte-identical on the GZ path; arity-3 and compound-body rule preds refused identically by both branches"
 exit 0

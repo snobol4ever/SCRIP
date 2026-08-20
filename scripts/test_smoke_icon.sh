@@ -4,8 +4,8 @@
 #   mode 4 = --compile (standalone x86-64 asm -> assemble -> link libscrip_rt.so -> run -> compare).
 # NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — the harness no longer
 #    invokes --run. m3 is now the primary correctness mode (it replaced the m2 oracle's build-sanity role).
-#    DONE BAR: m3 AND m4 each zero silent FAIL (all 14 emit natively today; add [SMX]-DECLINED tracking here if
-#    a future Icon test legitimately declines a rung).
+#    DONE BAR: m3 AND m4 each zero silent FAIL (all 14 emit natively today; add [SMX]-REFUSED tracking here if
+#    a future Icon test legitimately refuses a rung).
 # Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude  DATE: 2026-05-30 (de-interp'd to 2-mode 2026-06-15)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

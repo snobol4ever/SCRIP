@@ -556,7 +556,7 @@ static std::string bb_define_sr() {
         int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;   /* R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted; the shim's faces are same-chain extlbl, its body transfer rides the body$<ENTRY> cell (x86_jmp_via_cell) */
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
-        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return inl5 ? x86("comment", "role 5: shim declined inline (hatch or probe/formals shape) — sites fall to the slim arm") :   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs decline to slim */ (x86("comment", "IR_DEFINE role 4: shim declined (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
+        if (!(ok4 && nf4 >= 0 && nf4 <= np4 && nf4 <= 29)) return inl5 ? x86("comment", "role 5: shim refused inline (hatch or probe/formals shape) — sites fall to the slim arm") :   /* nf<=29: L-id budget (one-byte ids, [0,250)); wider DEFINEs refuse to slim */ (x86("comment", "IR_DEFINE role 4: shim refused (hatch, non-TEXT, or probe/formals shape) — sites fall to the slim arm") + x86_alpha() + x86_gamma());
         int xt4 = ns4 - nf4;   /* extra = locals + unshadowed result name (probe layout: gk[0..np)=formals then locals, gk[np..ns)=result iff unshadowed) */
         long T4 = 16L * xt4 + 32;   /* tail: extras' olds + {r10,r11} + {K,spare} */
         int rgx = rg4 < 0 ? 0 : rg4;
@@ -781,15 +781,15 @@ static std::string bb_define_sr() {
      * an IR_DEFINE and an IR_CALL").  THE CALL-SITE SAVE/INSTALL BOX: this box's LOCALS are the save-set slots — carved by its OWN single `sub rsp` (never a whole-graph carve, never ___-indexed),
      * offsets slide from RSP.  Body = the BP-7 SCC prefix migrated out of bb_call_proc_staged: (1) spill the DEFINE save-set's old GVA cell values (fname/formals/locals per manual Ch.8 p.104 + Ch.19
      * DEFINE: "saved prior to function entry, and restored upon function return") into the own slots; (2) open_slim — ALL runtime guards re-checked before ANY side effect, so a 0 return needs nothing
-     * undone (the spilled copies are pure reads, released by the decline's add); (3) committed: install the staged args into the formals' NV GLOBAL cells (SNOBOL4's one namespace — no ζ in the call
-     * process, Lon SCOPE LAW).  The outcome rides rax into the adjacent staged call box (1 = record open + block LIVE across the edge for its landings to restore+release; 0 = declined + block released
+     * undone (the spilled copies are pure reads, released by the refuse's add); (3) committed: install the staged args into the formals' NV GLOBAL cells (SNOBOL4's one namespace — no ζ in the call
+     * process, Lon SCOPE LAW).  The outcome rides rax into the adjacent staged call box (1 = record open + block LIVE across the edge for its landings to restore+release; 0 = refused + block released
      * → the call box's classic fallback at base depth).  Handoff via bb_scc_handoff_set = the emit-order contract (sr0.γ → call, chain-adjacent); non-eligible sites and any unresolved arg slot fall to
      * a pass-through so the call box keeps its full merged body — behavior identical to the gate-off world at those sites.  FRQB(slot, sb) self-compensates the live carve (the 083 FLATDISP-LIVE-BUMP
      * law); the fc_hit window arm lives inside FRQB, self-disabling here since DRIVE_FILL reset this node's grant fields. */
     int c2np = 0, c2nsave = 0, c2res_gk = -1; int c2gk[64]; long c2nargs = (long)_.op_arg_slot_n;
     int elig = bb_scc_probe(_.op_sval, (int)c2nargs, &c2np, &c2nsave, c2gk, &c2res_gk);
     for (int i = 0; elig && i < (int)c2nargs; i++) if (_.op_arg_slot[i] < 0) elig = 0;
-    if (elig && !bb_scc_handoff_room()) elig = 0;   /* pending missing (drive shape surprise) or table full: decline safely — the call box keeps its merged body */
+    if (elig && !bb_scc_handoff_room()) elig = 0;   /* pending missing (drive shape surprise) or table full: refuse safely — the call box keeps its merged body */
     if (!elig) { bb_scc_handoff_pending_clear(); return x86("comment", "IR_DEFINE role 0: site not SCC-eligible (or an arg slot unresolved, or no handoff room) — pass-through; the staged call box runs its full merged body")
              + x86_alpha()
              + x86_gamma(); }

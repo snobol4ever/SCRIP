@@ -6,10 +6,10 @@
 # GOAL-PROLOG-BB mandates running ALL modes on every gate run (see GOAL "Testing discipline").
 # With no --mode (or --mode all, the DEFAULT) the corpus is run in all three engine paths:
 #   interp  (Mode 2, --run)            — reference path      — HARD GATE (PASS must be >= previous).
-#   run     (Mode 3, --run)               — native/stackless    — TRACKED (DECLINED until GZ regrows it).
+#   run     (Mode 3, --run)               — native/stackless    — TRACKED (REFUSED until GZ regrows it).
 #   compile (Mode 4, --compile x86)       — emit→assemble→link→exec via run_prolog_via_x86_backend.sh
-#                                                                — TRACKED (DECLINED until BB-native x86 emit returns).
-# A mode whose probe prints the Stack-Machine-eXcision banner is reported DECLINED (expected mid-Ground-Zero)
+#                                                                — TRACKED (REFUSED until BB-native x86 emit returns).
+# A mode whose probe prints the Stack-Machine-eXcision banner is reported REFUSED (expected mid-Ground-Zero)
 # and its per-file loop is skipped (no point running 100+ aborts); it auto-resumes the moment the mode regrows.
 # Pass --mode interp|run|compile to run a single mode. GATE-3 source of truth for the Prolog rung ladder.
 #
@@ -23,7 +23,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/programs/prolog}"
 RUNG=""
 MODE="all"                              # DEFAULT: run all three modes
-SMX_SIG='\[SMX\]'                       # both decline banners begin with "[SMX]"
+SMX_SIG='\[SMX\]'                       # both refuse banners begin with "[SMX]"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -59,10 +59,10 @@ run_prog() {
 # return 0 if MODE is currently Stack-Machine-eXcised (probe with a trivial program).
 # Capture output first, THEN grep: under `set -o pipefail` the aborting scrip (rc 134) would
 # otherwise dominate the pipeline status and mask the match.
-mode_is_declined() {
+mode_is_refused() {
     local mode="$1" out
     case "$mode" in
-        interp)  return 1 ;;                              # the reference path is never declined
+        interp)  return 1 ;;                              # the reference path is never refused
         run)     out=$("$SCRIP" --run "$PROBE" </dev/null 2>&1 || true) ;;
         compile) out=$("$SCRIP" --compile --target=x86 "$PROBE" </dev/null 2>&1 || true) ;;
     esac
@@ -92,12 +92,12 @@ collect_files() {
 # run the whole corpus in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 DECLINED=0
+    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0
     MODE_FAIL=0
-    if mode_is_declined "$mode"; then
+    if mode_is_refused "$mode"; then
         local pend=0 f
         for f in "${FILES[@]}"; do [ -f "${f%.pl}.expected" ] && pend=$((pend+1)); done
-        echo "--- Prolog ($mode): DECLINED (Stack Machine declined) — $pend files pending regrow ---"
+        echo "--- Prolog ($mode): REFUSED (Stack Machine refused) — $pend files pending regrow ---"
         return 0
     fi
     local pl base name exp got want
@@ -111,12 +111,12 @@ run_corpus() {
             XFAIL=$((XFAIL+1)); continue
         fi
         got=$(run_prog "$mode" "$pl" 8) || true
-        # Per-file decline: mode-4 is now PARTIALLY live (PLG-9a hello tier emits+runs); a shape
-        # the flat tier does not yet cover declines with the [SMX] banner. Per the testing discipline
-        # that is DECLINED (pending regrow), NOT a FAIL — identical to test_smoke_prolog.sh.
+        # Per-file refuse: mode-4 is now PARTIALLY live (PLG-9a hello tier emits+runs); a shape
+        # the flat tier does not yet cover refuses with the [SMX] banner. Per the testing discipline
+        # that is REFUSED (pending regrow), NOT a FAIL — identical to test_smoke_prolog.sh.
         if printf '%s' "$got" | grep -qE "$SMX_SIG"; then
-            [ "$VERBOSE" = 1 ] && echo "DECLINED $name"
-            DECLINED=$((DECLINED+1)); continue
+            [ "$VERBOSE" = 1 ] && echo "REFUSED $name"
+            REFUSED=$((REFUSED+1)); continue
         fi
         want=$(cat "$exp")
         if [ "$got" = "$want" ]; then
@@ -131,8 +131,8 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    if [ "$DECLINED" -gt 0 ]; then
-        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL DECLINED=$DECLINED TOTAL=$((PASS+FAIL+XFAIL+DECLINED)) ---"
+    if [ "$REFUSED" -gt 0 ]; then
+        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$((PASS+FAIL+XFAIL+REFUSED)) ---"
     else
         echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
     fi

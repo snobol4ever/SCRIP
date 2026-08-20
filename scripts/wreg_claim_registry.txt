@@ -1,4 +1,4 @@
-# wreg_claim_whitelist.txt — capability registry for test_gate_wreg_claim.sh
+# wreg_claim_registry.txt — capability registry for test_gate_wreg_claim.sh
 #
 # A file listed here is LICENSED TO OWN the WREG wire registers rGamma=r10 / rOmega=r11.  LADDER WREG names
 # exactly four such site classes:
@@ -15,7 +15,7 @@
 #
 # ⛔ PRODUCT-WIDE RULING (Lon, 2026-08-12 s36c): rGamma=r10 / rOmega=r11 are reserved PRODUCT-WIDE — the 30
 # SN4-unreachable RTX occurrences (FINDING-2026-08-12h census) are NOT licensable by unreachability and are
-# hereby DEBT, not whitelist candidates.  They stay counted until reassigned (tracked at GOAL-SN4-HOME-WIRES
+# hereby DEBT, not registry candidates.  They stay counted until reassigned (tracked at GOAL-SN4-HOME-WIRES
 # W-0 closure note).  Nothing in this registry may be justified by "SNOBOL4 can't reach it".
 #
 # This is a REGISTRY, not a silencer.  A file here has been cleared to MENTION the wires because owning them is

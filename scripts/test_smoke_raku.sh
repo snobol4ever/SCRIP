@@ -4,8 +4,8 @@
 #   mode 4 = --compile (standalone x86-64 asm -> as -> link libscrip_rt -> run).
 # NOTE (2026-06-15): the IR-graph interpreter (mode 2 / --run) was DELETED — nothing walks an IR graph to
 #    interpret it in any mode. The harness no longer invokes --run; m3 and m4 are the only modes. A program
-#    either runs natively (PASS) or is cleanly declined with a loud [SMX] banner (DECLINED) — there is no oracle
-#    fallback. DONE BAR: m3 AND m4 each PASS-or-DECLINED with ZERO silent FAIL (no abort, no miscompile).
+#    either runs natively (PASS) or is cleanly refused with a loud [SMX] banner (REFUSED) — there is no oracle
+#    fallback. DONE BAR: m3 AND m4 each PASS-or-REFUSED with ZERO silent FAIL (no abort, no miscompile).
 # Exit 0 iff mode-3 has zero FAIL AND mode-4 has zero FAIL AND m3 PASS >= $MODE3_MIN AND m4 PASS >= $MODE4_MIN.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Opus  DATE: 2026-05-31 (3-mode; de-interp'd to 2-mode 2026-06-15)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,8 +32,8 @@ raku() {
             a4=$(timeout 8 "$bin4" 2>/dev/null </dev/null); rc4=$?
         fi
     fi
-    # [SMX] on stderr => the native mode DELIBERATELY DECLINES this rung (its bb_*.cpp template is not built
-    # yet) => counted DECLINED, NOT FAIL. The done bar (interp now deleted): m3 AND m4 each PASS-or-DECLINED —
+    # [SMX] on stderr => the native mode DELIBERATELY REFUSES this rung (its bb_*.cpp template is not built
+    # yet) => counted REFUSED, NOT FAIL. The done bar (interp now deleted): m3 AND m4 each PASS-or-REFUSED —
     # never a silent FAIL / abort / miscompile.
     # rc != 0 AND NOT smx => crash or bad exit => FAIL even if stdout matched (RK-ZC-7: harness sees rc).
     local smx3=0 smx4=0
@@ -1137,7 +1137,7 @@ EOF
 
 # --- RK-OO-B2 op-800 is-required DATA MODEL: present-case (field supplied) constructs + reads back. The
 #     absent-case death is wired in dat_construct but its NATIVE surfacing waits on the die-route prerequisite
-#     (uncaught die aborts; caught needs try/CATCH which DECLINES) — so only the present case is asserted here. ---
+#     (uncaught die aborts; caught needs try/CATCH which REFUSES) — so only the present case is asserted here. ---
 raku "attr_required_present" "7" << 'EOF'
 class Point { has $.x is required; has $.y; }
 sub main() { my $p = Point.new(x => 7, y => 9); say($p.x); }
@@ -1293,7 +1293,7 @@ class Config { has %.opts; }
 sub main() { my %seed = ''; hash_set(%seed, 'lang', 'Raku'); my $d = Config.new(opts => %seed); my $h2 = $d.opts; say(hash_get($h2, 'lang')); }
 EOF
 
-# --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly DECLINE (regex is run-only here) ---
+# --- ~~ smartmatch verdict: regex rides the C NFA matcher (re.c); m3/m4 cleanly REFUSE (regex is run-only here) ---
 raku "smatch digits => match" "match" <<'EOF'
 sub main() { if ('abc123' ~~ /\d+/) { say("match"); } else { say("nomatch"); } }
 EOF
@@ -3991,9 +3991,9 @@ sub f($a, *@r) { say $a ~ "|" ~ @r.elems; }
 f(1,2,3);
 EOF
 
-echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 DECLINED=$X3  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
-echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 DECLINED=$X4  / $N   (done bar: PASS or DECLINED, never silent FAIL)"
+echo "mode-3 (--run):      PASS=$P3 FAIL=$F3 REFUSED=$X3  / $N   (done bar: PASS or REFUSED, never silent FAIL)"
+echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 REFUSED=$X4  / $N   (done bar: PASS or REFUSED, never silent FAIL)"
 # COMPLETION BAR (interp deleted 2026-06-15 — two native modes only): ZERO silent m3/m4 FAIL — every native
-# mode is either PASS or a LOUD [SMX] DECLINE (no abort, no miscompile, no oracle fallback). A rung is promoted
+# mode is either PASS or a LOUD [SMX] REFUSE (no abort, no miscompile, no oracle fallback). A rung is promoted
 # only when BOTH m3 and m4 are accounted for together. Floors retained as a backstop ratchet.
 [ "$F3" -eq 0 ] && [ "$F4" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]

@@ -11,9 +11,9 @@
 # stateful cut (truncate once per activation), cp_cut_away commit detection in IR_CHOICE redo, and
 # cut-aware liveness (only the cut's goal-suffix can offer alternatives) in IR_CHOICE + IR_GOAL.
 # GATE-1 / GATE-3 counts are byte-identical to the pre-fix baseline (115/115 · 18/0/97 · 105/0/10).
-# Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new path. Negatives: cut at QUERY level declines
+# Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new path. Negatives: cut at QUERY level refuses
 # (dynamic territory — paper §4.5 frame gate, a later rung); cut inside a query soft-disj arm
-# declines (it must sever the ;true soft-fail promotion = dynamic). Both branches decline identically.
+# refuses (it must sever the ;true soft-fail promotion = dynamic). Both branches refuse identically.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -56,7 +56,7 @@ run_admitted notreached ':- initialization(main).\nv(X) :- w(X), !.\nv(z).\nw(q)
 # β dispatches to the cut's β → cl_ω and NEVER resumes path (the seed's firstpath_β law).
 run_admitted firstpath ':- initialization(main).\nedge(a,b).\nedge(b,c).\nedge(b,d).\npath(X,Y) :- edge(X,Y).\npath(X,Z) :- edge(X,Y), path(Y,Z).\nfirstpath(Q) :- path(a,Q), !.\nmain :- firstpath(Q), write(Q), nl, fail ; true.\n' 'b\n'
 
-# neg1: cut at QUERY level (in main's own body) — dynamic cut territory; both branches decline.
+# neg1: cut at QUERY level (in main's own body) — dynamic cut territory; both branches refuse.
 printf ':- initialization(main).\nf(a).\nf(b).\nmain :- f(Q), !, write(Q), nl.\n' > "$TMP/neg1.pl"
 "$SCRIP" --run "$TMP/neg1.pl" </dev/null > "$TMP/n13" 2>"$TMP/ne13" || fail "neg1 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (query-level cut) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
@@ -64,12 +64,12 @@ grep -q "INTERP-FALLBACK" "$TMP/ne13" || fail "neg1 (query-level cut) m3 did NOT
 grep -q "gzq\|gzp" "$TMP/n1.s" && fail "neg1 (query-level cut) m4 .s has gz labels (GZ wrongly admitted)"
 
 # neg2: cut inside a query soft-disj arm — it must kill the ;true promotion (main would FAIL after
-# the pump), i.e. dynamic wiring; both branches decline identically until that rung lands.
+# the pump), i.e. dynamic wiring; both branches refuse identically until that rung lands.
 printf ':- initialization(main).\np(a).\np(b).\nmain :- p(X), !, write(X), nl, fail ; true.\n' > "$TMP/neg2.pl"
 "$SCRIP" --run "$TMP/neg2.pl" </dev/null > "$TMP/n23" 2>"$TMP/ne23" || fail "neg2 m3 rc"
 grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (cut in soft-disj arm) m3 did NOT show the loud fallback (GZ wrongly admitted?)"
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (cut in soft-disj arm) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ6 PASS: lexical cut as PURE WIRING (cut box = det four-port shape, driver wires ω→cl_ω; redo never resumes pre-cut goals nor later clauses; post-cut alternatives live; cut-not-reached advances) m2==m3==m4 byte-identical on the GZ path; m2 cut-redo oracle re-baselined with GATE-1/GATE-3 counts unchanged; query-level cut and soft-disj-arm cut declined identically by both branches"
+echo "GATE-PL-GZ6 PASS: lexical cut as PURE WIRING (cut box = det four-port shape, driver wires ω→cl_ω; redo never resumes pre-cut goals nor later clauses; post-cut alternatives live; cut-not-reached advances) m2==m3==m4 byte-identical on the GZ path; m2 cut-redo oracle re-baselined with GATE-1/GATE-3 counts unchanged; query-level cut and soft-disj-arm cut refused identically by both branches"
 exit 0

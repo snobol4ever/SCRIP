@@ -2,7 +2,7 @@
 # util_fc_conversion_map.py -- RUNG ZB-FC: per-IR-kind FORTH conversion STATUS, derived from source.
 #
 # WHY THIS EXISTS.  "Is this kind converted to the rsp FORTH cell?" cannot be answered from fc_geom's
-# whitelist, and a census of the FLAT-frame field map (scrip --dump-zeta) answers it WRONGLY -- it cannot see
+# registry, and a census of the FLAT-frame field map (scrip --dump-zeta) answers it WRONGLY -- it cannot see
 # a kind converted by RETIRING its state instead of being granted a cell.  IR_MATCH_SEQUENCE is the trap:
 # fc_geom never mentions it and --dump-zeta shows it owning locals, yet it is fully converted via
 # fc_seq_active (ZB-FC-3b, "seq_i/delta retired; the LIFO stack position IS the element index").  A widening

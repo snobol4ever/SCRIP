@@ -43,7 +43,7 @@ extern "C" void rt_cap_finish(DESCR_t fret);
  * its cell relative to CAPTURE's tiny transient frame instead; CAPTURE's own IMM then popped that frame out
  * from under ARBNO before ARBNO's own retries were done, corrupting the yield cursor on backtrack. When
  * op_cap_frame_off == -1 (no enclosing MATCH_BEGIN in scope -- the PAT$N stored-pattern-blob boundary; or
- * SCRIP_MATCH_RBP=0), CAPTURE now BOMBS honestly instead of reaching for its own frame -- the identical decline
+ * SCRIP_MATCH_RBP=0), CAPTURE now BOMBS honestly instead of reaching for its own frame -- the identical refuse
  * bb_match_arbno.cpp's own ARBNO-FRAME arm already takes at the same boundary (arbno_frame_off == -1).
  *
  * COND (`.` conditional assign) parks {varname, start, len} on the r12 CAS pend-array -- pure asm, no C call
@@ -75,7 +75,7 @@ std::string bb_match_capture() {
            + x86_beta_trampoline() )
          : (int)_.op_phase == 0 && _.op_frame_need
          ? ( x86_alpha()
-           + x86_bomb("IR_MATCH_CAPTURE_SAVE: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable (no enclosing MATCH_BEGIN in scope, or SCRIP_MATCH_RBP=0) -- CAPTURE never pushes its own activation frame (s88 revert: the s81/s83 own-transient-rbp arm crossed over with an ARBNO nested in its own span and corrupted the yield cursor, D11). Honest decline, matching bb_match_arbno.cpp's identical boundary bomb.")
+           + x86_bomb("IR_MATCH_CAPTURE_SAVE: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable (no enclosing MATCH_BEGIN in scope, or SCRIP_MATCH_RBP=0) -- CAPTURE never pushes its own activation frame (s88 revert: the s81/s83 own-transient-rbp arm crossed over with an ARBNO nested in its own span and corrupted the yield cursor, D11). Honest refuse, matching bb_match_arbno.cpp's identical boundary bomb.")
            + x86_beta_trampoline() )   /* dead code after the bomb's abort/ud2 -- beta is unreachable at runtime (alpha always bombs first) but the label must still be DEFINED for any sibling box's forward jump to it to resolve at emit-end, same discipline as bb_match_arbno.cpp's bomb arm defining PAIR(2)/PAIR(3). */
          : (int)_.op_phase == 0 && havehome()
          ? ( x86("comment", "IR_MATCH_CAPTURE_SAVE spine (ordinary, unchanged mechanism)")
@@ -86,7 +86,7 @@ std::string bb_match_capture() {
          : (int)_.op_phase == 0
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_SAVE: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_push fallback is deliberately not rebuilt (s83)")
-           + x86_beta_trampoline() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- a port-less bomb whose sibling references β is a LINK BUG (m1_alt_* witnesses), never a decline */
+           + x86_beta_trampoline() )   /* R-0 (s93): dead code after the bomb, but β is DEFINED -- a port-less bomb whose sibling references β is a LINK BUG (m1_alt_* witnesses), never a refuse */
          : (int)_.op_phase == 1 && _.op_sval && _.op_sval[0] == '*' && !nret_cap_live()
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_COND: computed-name (*VAR/NRETURN) target not yet rebuilt -- blocked on the :(NRETURN) lowering bug (s82), see this file's header comment")

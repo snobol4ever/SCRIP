@@ -4,10 +4,10 @@
 #   (a) IR_ASSIGN + IR_VAR absent from icn_kind_native_stub (they have real templates);
 #   (b) ladder probe sweep — VAR-1/VAR-2/VAR-AUGOP/VAR-3 probes, STRICT (m2==m3==m4==expected)
 #       except: augop_concat X34 (the ||:= concat BINOP is outside the VAR-2 numrel+arith lens —
-#       m2-correct + clean native DECLINE, documented in the AUGOP handoff) and neg_unassigned X34
-#       (an unassigned local var read must LOUDLY DECLINE, never the op_off=-1 runtime bomb);
+#       m2-correct + clean native REFUSE, documented in the AUGOP handoff) and neg_unassigned X34
+#       (an unassigned local var read must LOUDLY REFUSE, never the op_off=-1 runtime bomb);
 #   (c) corpus IR_ASSIGN bucket — every corpus rung*.icn whose --dump-bb carries IR_ASSIGN,
-#       all three modes vs .expected, with ratchet floors (m3/m4 = PASS or DECLINED, never FAIL);
+#       all three modes vs .expected, with ratchet floors (m3/m4 = PASS or REFUSED, never FAIL);
 #   (d) standing structural gates: no_bb_bin_t . no_handencoded --strict . icn_no_stack .
 #       icn_one_reg_frame (HARD); no_vstack informational; medium-invisible
 #       scoped to the var-family templates (bb_assign_local, bb_var_frame).
@@ -54,7 +54,7 @@ probe() {
     case "$policy" in
         STRICT) { [ "$A2" = "$exp" ] && [ "$A3" = "$exp" ] && [ "$A4" = "$exp" ] && [ "$SMX3" = 0 ] && [ "$SMX4" = 0 ]; } || ok=0 ;;
         X34)    { [ "$A2" = "$exp" ] && [ "$SMX3" = 1 ] && [ "$SMX4" = 1 ] && [ "$RC3" = 0 ]; } || ok=0
-                note="(m3/m4 LOUD DECLINED by design)" ;;
+                note="(m3/m4 LOUD REFUSED by design)" ;;
     esac
     if [ "$ok" = 1 ]; then PP=$((PP+1)); printf "  OK   %-30s %s\n" "$name" "$note"
     else PF=$((PF+1)); BAD=1; printf "  FAIL %-30s m2='%s' m3='%s'(smx=%s) m4='%s'(smx=%s) exp='%s' %s\n" "$name" "$A2" "$A3" "$SMX3" "$A4" "$SMX4" "$exp" "$note"; fi
@@ -212,7 +212,7 @@ procedure main()
 end
 EOF
 
-# NEGATIVE: unassigned var must DECLINE (not crash)
+# NEGATIVE: unassigned var must REFUSE (not crash)
 probe neg_unassigned X34 "" << 'EOF'
 procedure main()
   write(undef_var);
@@ -240,16 +240,16 @@ while IFS= read -r f; do
     exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
     run3 "$f" 30
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
-    if [ "$SMX3" = 1 ]; then r3=DECLINED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
-    if [ "$SMX4" = 1 ]; then r4=DECLINED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
+    if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
+    if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
     printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$(basename "$f" .icn)" "$r2" "$r3" "$r4"
 done < <(find "$CORPUS" -maxdepth 1 -name 'rung*.icn' | sort)
-echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F DECLINED=$C3E | m4 PASS=$C4P FAIL=$C4F DECLINED=$C4E"
+echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F REFUSED=$C3E | m4 PASS=$C4P FAIL=$C4F REFUSED=$C4E"
 [ "$C2P" -ge "$VAR_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $VAR_M2_MIN"; BAD=1; }
 [ "$C3P" -ge "$VAR_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $VAR_M3_MIN"; BAD=1; }
 [ "$C4P" -ge "$VAR_M4_MIN" ] || { echo "  FLOOR FAIL m4 $C4P < $VAR_M4_MIN"; BAD=1; }
-[ "$C3F" -eq 0 ] || { echo "  HARD FAIL m3 has $C3F unexpected FAILs (must be 0 — only PASS or DECLINED)"; BAD=1; }
-[ "$C4F" -eq 0 ] || { echo "  HARD FAIL m4 has $C4F unexpected FAILs (must be 0 — only PASS or DECLINED)"; BAD=1; }
+[ "$C3F" -eq 0 ] || { echo "  HARD FAIL m3 has $C3F unexpected FAILs (must be 0 — only PASS or REFUSED)"; BAD=1; }
+[ "$C4F" -eq 0 ] || { echo "  HARD FAIL m4 has $C4F unexpected FAILs (must be 0 — only PASS or REFUSED)"; BAD=1; }
 
 echo "--- (d) standing structural gates ---"
 gate_hard() {

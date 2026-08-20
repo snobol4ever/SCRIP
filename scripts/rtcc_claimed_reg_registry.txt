@@ -1,4 +1,4 @@
-# rtcc_claimed_reg_whitelist.txt — capability registry for test_gate_rtcc_claimed_regs.sh
+# rtcc_claimed_reg_registry.txt — capability registry for test_gate_rtcc_claimed_regs.sh
 #
 # A file listed here has been CLEARED for writing an RTCC live-claimed register despite also reading
 # GVARQ.  This is a REGISTRY, not a silencer: clearing means someone PROVED, by probe or monitor, that

@@ -29,7 +29,7 @@ count=$(grep -rnE 'sm_interp_run *\(|sm_run_native *\(|g_vstack *\[' \
 
 echo "SM-execution-surface live references: $count  (MAX $MAX)"
 if [ "$count" -gt "$MAX" ]; then
-    echo "FAIL: SM execution surface GREW ($count > $MAX). The decline only removes; it never adds."
+    echo "FAIL: SM execution surface GREW ($count > $MAX). The refuse only removes; it never adds."
     grep -rnE 'sm_interp_run *\(|sm_run_native *\(|g_vstack *\[' \
         src/ --include='*.c' --include='*.h' 2>/dev/null \
         | grep -vE ':[0-9]+:[[:space:]]*(/\*|\*|//)' \

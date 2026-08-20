@@ -192,7 +192,7 @@ RTX_FUNC(rt_jct_relop)
 .Leqv_equal:
 /* Bit-identical descriptors. Guard the cset spelling out of the fast path: for DT_S with
  * slen 0xFFFFFFFF the C reaches cset_resolve, and although an identical pointer would also compare
- * equal there, this port does not model cset_resolve's failure mode, so it declines the case. */
+ * equal there, this port does not model cset_resolve's failure mode, so it refuses the case. */
     cmp     edi, DT_S
     jne     .Leqv_settled
     mov     rax, rdi

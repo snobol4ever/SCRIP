@@ -40,7 +40,7 @@ def apply_file(path, commit):
     ap = attic_path(path)
     os.makedirs(os.path.dirname(ap), exist_ok=True)
     rel = os.path.relpath(path, ROOT)
-    header = ("/* ATTIC: dead code declined from %s (commit base %s) — "
+    header = ("/* ATTIC: dead code refused from %s (commit base %s) — "
               "unreachable from main per --gc-sections oracle. Provenance only; not compiled. */\n"
               % (rel, commit))
     mode = 'a' if os.path.exists(ap) else 'w'

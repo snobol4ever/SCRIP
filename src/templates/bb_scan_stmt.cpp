@@ -32,5 +32,5 @@ std::string bb_scan_stmt() {
         return x86_bomb("bb_scan: non-literal subject needs native PB-RB graph (pending)");
     if (_.op_ival && !_.op_scan_replace_lit)
         return x86_bomb("bb_scan: non-literal replacement needs native PB-RB graph (pending)");
-    return x86_bomb("bb_scan: non-literal pattern needs native PB-RB graph (pending)");   /* medium-retire s170: the medium selected only the DIAGNOSTIC WORDING here -- TEXT split the decline three ways by which operand was non-literal, BINARY lumped all three under "pattern".  The real discriminator is behavioural, not the medium, so it is spelled that way; m3 gains the subject/replacement precision it never had.  The second test no longer needs its subject conjunct: falling past the first test already proves a literal subject. */
+    return x86_bomb("bb_scan: non-literal pattern needs native PB-RB graph (pending)");   /* medium-retire s170: the medium selected only the DIAGNOSTIC WORDING here -- TEXT split the refuse three ways by which operand was non-literal, BINARY lumped all three under "pattern".  The real discriminator is behavioural, not the medium, so it is spelled that way; m3 gains the subject/replacement precision it never had.  The second test no longer needs its subject conjunct: falling past the first test already proves a literal subject. */
 }

@@ -306,13 +306,13 @@ std::string bb_match_arbno() {
              ? bb_match_arbno_frame()
          : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0)
              /* FALLBACK BOMB (W-7 / K0-DEFER companion, HOME-WIRES s38 / this session): reached only when emit_match_rbp()==0 -- ζ-STANDING is not an rbp frame under the legacy carve, so arbno_frame_slot()
-              * declined and there is nowhere immune to a DEFER body member's frontier movement to put this cell.  Same two named classes, same D12/D13 / arb1.sno conviction the ARBNO-FRAME arm above now
+              * refused and there is nowhere immune to a DEFER body member's frontier movement to put this cell.  Same two named classes, same D12/D13 / arb1.sno conviction the ARBNO-FRAME arm above now
               * cures under emit_match_rbp()==1 -- converts silent stack corruption into a loud compile-time refusal rather than silently re-admitting the aliasing class.
               * PAIR(1)/PAIR(2)/PAIR(3) (β/na_s/na_f) are all registered UNCONDITIONALLY for every node (betas[i] in the generic per-node label pass, emit.cpp ~2412) and for every IR_MATCH_ARBNO with operands
               * (na_s/na_f, flat_drive_match_alt, emit.cpp ~1201) -- sibling boxes' forward references to them exist independent of which arm this dispatcher picks, so the bomb path must still `def` all
               * three (dead code after `ud2`, never reached, but required for bb_emit_end's forward-reference resolution to succeed at all). */
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a DEFER unsafe for the plain-frameless arm, and emit_match_rbp() is off -- ARBNO-FRAME slot unavailable (SCRIP_MATCH_RBP=0)")
-                            + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe decline)")
+                            + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe refuse)")
                             + x86("def", PAIR(2)) + x86("def", PAIR(3))
              : bb_match_arbno_frameless();
 }

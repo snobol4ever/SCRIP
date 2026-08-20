@@ -14,7 +14,7 @@
 #
 # Caveats the consumer MUST honour (NOT decided here):
 #   * Backend KEEP policy: js_/jvm_/net_/wasm_ symbols are dead under X86-ONLY but
-#     are RETAINED. Filter them before decline.
+#     are RETAINED. Filter them before refuse.
 #   * Symbols reached only by dynamic by-name lookup (dlsym) would be false-positives;
 #     scrip resolves its own runtime by baked address (the emitter takes &rt_*, which
 #     the linker sees), so this class is empty for the scrip binary — but verify if the

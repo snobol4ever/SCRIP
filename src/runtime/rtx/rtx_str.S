@@ -182,7 +182,7 @@ RTX_FUNC(str_concat_d)
 /* rt_sxt_note, inline and FAITHFUL — it clears the token unconditionally and re-arms only
  * when the block is a DT_S title ending exactly at the heap frontier. That condition is NOT
  * automatic: c_rt_str_alloc can satisfy a request from the fill window or a recycled block,
- * in which case C declines to arm and so must we. The arena lower-bound test in the C is
+ * in which case C refuses to arm and so must we. The arena lower-bound test in the C is
  * subsumed — a block whose end equals g_hp_top and whose title validates is in-arena. */
     lea     rax, [rip + g_sxt_fr]
     mov     qword ptr [rax + 0], 0      /* g_sxt_owner = 0, unconditionally     */

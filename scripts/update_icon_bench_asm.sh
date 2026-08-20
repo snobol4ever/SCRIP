@@ -9,7 +9,7 @@
 # ASLR but keep a stable order of appearance) are renumbered to a deterministic bb<00001>
 # sequence, so a git diff reflects a REAL emitter change, never run-to-run churn.
 #
-# Programs that DECLINE (native arm pending), fail to compile, or fail to assemble are
+# Programs that REFUSE (native arm pending), fail to compile, or fail to assemble are
 # REPORTED and their existing .s is left untouched (legacy artifact retained until the
 # emitter covers them; a later run regenerates it automatically).
 #
@@ -53,11 +53,11 @@ for icn in "$CORPUS"/$GLOB; do
   base="${icn%.icn}"; s="$base.s"; name="$(basename "$base")"
   raw="$TMP/$name.raw"; can="$TMP/$name.s"
   if ! timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw" 2>"$TMP/err"; then
-    if grep -q '\[SMX\]' "$TMP/err"; then echo "DECLINED  $name"; exc=$((exc + 1));
+    if grep -q '\[SMX\]' "$TMP/err"; then echo "REFUSED  $name"; exc=$((exc + 1));
     else echo "CERR     $name"; cerr=$((cerr + 1)); fi
     continue
   fi
-  if grep -q '\[SMX\]' "$TMP/err" || [ ! -s "$raw" ]; then echo "DECLINED  $name"; exc=$((exc + 1)); continue; fi
+  if grep -q '\[SMX\]' "$TMP/err" || [ ! -s "$raw" ]; then echo "REFUSED  $name"; exc=$((exc + 1)); continue; fi
   raw2="$TMP/$name.raw2"; raw3="$TMP/$name.raw3"
   timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw2" 2>/dev/null
   timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw3" 2>/dev/null
@@ -77,7 +77,7 @@ for icn in "$CORPUS"/$GLOB; do
   if [ "$CHECK" = "1" ]; then echo "WOULD-$label  $name$asmnote";
   else cp "$can" "$s"; echo "$label  $name$asmnote"; fi
 done
-echo "--- icon bench .s: total=$total new=$new updated=$upd unchanged=$same declined=$exc nondet=$nd compile-err=$cerr asm-warn=$aerr ---"
+echo "--- icon bench .s: total=$total new=$new updated=$upd unchanged=$same refused=$exc nondet=$nd compile-err=$cerr asm-warn=$aerr ---"
 if [ "$CHECK" = "1" ] && [ "$drift" -gt 0 ]; then
   echo "CHECK: $drift artifact(s) out of date — run scripts/update_icon_bench_asm.sh to refresh."; exit 1
 fi

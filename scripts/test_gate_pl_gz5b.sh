@@ -10,7 +10,7 @@
 # zeroed by GC_malloc / the query frame by BSS). Recursion depth works because every activation has
 # its own frame, hence its own child slots. Admit-time recursion terminates via the shell-first memo;
 # emission discovers nested callees via a worklist. Probes: m2 == m3 == m4 BYTE-IDENTICAL on the new
-# path. Negatives: arity-3 rule preds decline (ar>2 is outside the rsi/rdx arg ABI); arith bodies decline.
+# path. Negatives: arity-3 rule preds refuse (ar>2 is outside the rsi/rdx arg ABI); arith bodies refuse.
 set -u
 cd "$(dirname "$0")/.."
 SCRIP=./scrip
@@ -54,5 +54,5 @@ grep -q "INTERP-FALLBACK" "$TMP/ne23" || fail "neg2 (arith body behind a nested 
 "$SCRIP" --compile --target=x86 "$TMP/neg2.pl" > "$TMP/n2.s" 2>/dev/null || fail "neg2 m4 compile rc"
 grep -q "gzq\|gzp" "$TMP/n2.s" && fail "neg2 (arith body behind a nested call) m4 .s has gz labels (GZ wrongly admitted)"
 
-echo "GATE-PL-GZ5B PASS: ζ-tree child frames (rt_enter reuse-or-alloc, per-site child slots, caller-ζ push/restore) + nested and self-recursive user-predicate calls (callee-frame synth cells for nested const args; per-activation frames make depth sound) m2==m3==m4 byte-identical on the GZ path; arity-3 and deep-arith rule preds declined identically by both branches"
+echo "GATE-PL-GZ5B PASS: ζ-tree child frames (rt_enter reuse-or-alloc, per-site child slots, caller-ζ push/restore) + nested and self-recursive user-predicate calls (callee-frame synth cells for nested const args; per-activation frames make depth sound) m2==m3==m4 byte-identical on the GZ path; arity-3 and deep-arith rule preds refused identically by both branches"
 exit 0

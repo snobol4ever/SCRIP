@@ -199,7 +199,7 @@ for name in $progs; do
       m4_status="LINKFAIL(likely-same-fault-as-m3): $(grep -m1 'undefined reference' "$WORK/$name.m4.link.err"|head -c50)"
     fi
   else
-    if grep -q '\[SMX\]' "$WORK/$name.m4.compile.err"; then m4_status="DECLINED"
+    if grep -q '\[SMX\]' "$WORK/$name.m4.compile.err"; then m4_status="REFUSED"
     else m4_status="COMPILEFAIL: $(tail -c70 "$WORK/$name.m4.compile.err"|tr '\n' ' ')"; fi
   fi
 

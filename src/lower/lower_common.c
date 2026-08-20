@@ -289,8 +289,8 @@ const char * bb_src_of(const IR_t * nd) {
  * and could not find.  It is the EXACT disease fc_tables_reset (s67) was written for and the sibling that sweep left behind -- same keying (raw IR_t*), same lifecycle (fed by MAIN lowering,
  * never reset), same trigger (eval_build_chain ends in IR_free_dyn, so a runtime chain's fresh malloc'd IR_t land on dead main-graph addresses).  The payload is different and worse than fc's
  * wrong-displacement: zd_plan's run walk BREAKS a run at any node where bb_src_of() is non-NULL (emit.cpp:2365 head test, :2372 continuation test), so a stale hit SPLITS the chain -- the earlier
- * run's gpop releases the spine cell a later node's operand still needs, the second run declines ("opnd"), and the declined nodes fall to flat FRQ reads of a frame that no longer holds their
- * value.  MEASURED on the s114 witness pair: ev_pad_alias_0 splits `run h=0 len=2` + `run h=2 len=4 DECLINED at i=3 (opnd op=3)` and prints 2; ev_pad_alias_1 -- the SAME program plus one inert
+ * run's gpop releases the spine cell a later node's operand still needs, the second run refuses ("opnd"), and the refused nodes fall to flat FRQ reads of a frame that no longer holds their
+ * value.  MEASURED on the s114 witness pair: ev_pad_alias_0 splits `run h=0 len=2` + `run h=2 len=4 REFUSED at i=3 (opnd op=3)` and prints 2; ev_pad_alias_1 -- the SAME program plus one inert
  * assignment, which merely shifts the allocator -- forms one `run h=0 len=6`, arms 6/6 and prints 3.  Address-decided output, which is why every semantic hypothesis s114 tried (source-line
  * attribution, global registry, fc widening) measured inert: none of them moved malloc. SHAPE IS fc_tables_reset's VERBATIM (`fct_n = 0`) and so is its lifecycle argument: emission consults the
  * table only for the graph lowered SINCE the reset, and every pre-reset graph is already emitted (mode-3 emits main wholesale before run; in mode-4 the runtime compile happens in the COMPILED

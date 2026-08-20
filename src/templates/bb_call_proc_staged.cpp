@@ -50,7 +50,7 @@ extern "C" int g_gc_pending;
 int  rt_proc_is_registered(const char *name);
 long rt_proc_call_open_slim(const char *name, int np, int nargs);
 int  rt_proc_nformals(const char *name);
-void rt_c2b_arm_trap(void);   /* CALL2BB 3b: loud abort for the slim runtime-decline landing on an fc-armed call -- the flat fallback does not exist as storage on an armed statement (correct-or-loud, FLATDISP-6 conservatism) */
+void rt_c2b_arm_trap(void);   /* CALL2BB 3b: loud abort for the slim runtime-refuse landing on an fc-armed call -- the flat fallback does not exist as storage on an armed statement (correct-or-loud, FLATDISP-6 conservatism) */
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result);
@@ -162,7 +162,7 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("mov", "rdx", r8.c_str())
          + x86("def", L(29));
 }
-static long bcps_sig_disp(int slot) {   /* SIG: entry-rsp-relative displacement of a frame cell, derived from THE ONE OPERAND ADDRESS AUTHORITY itself (FRQB with bump 0 — the identical resolution the record gather used, minus the record's live carve) so no regime logic is re-derived here.  Returns -1 unless the authority renders a plain non-negative [rsp(+N)] form: pinned ___ / island / dynamic-depth spellings DECLINE, and the caller falls to the slim arm — sig only where the address is a static truth. */
+static long bcps_sig_disp(int slot) {   /* SIG: entry-rsp-relative displacement of a frame cell, derived from THE ONE OPERAND ADDRESS AUTHORITY itself (FRQB with bump 0 — the identical resolution the record gather used, minus the record's live carve) so no regime logic is re-derived here.  Returns -1 unless the authority renders a plain non-negative [rsp(+N)] form: pinned ___ / island / dynamic-depth spellings REFUSE, and the caller falls to the slim arm — sig only where the address is a static truth. */
     const char * t = FRQB(slot, 0); const char * p = strstr(t, "[rsp");
     if (!p) return -1;
     p += 4; if (*p == '#') p++;
@@ -186,12 +186,12 @@ static long bcps_parse_rsp(const char * t) {   /* SIG: shared [rsp(+N)] text par
     long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
     return (*p == ']') ? v : -1;
 }
-static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }   /* SIG ZD twin: entry-rsp-relative displacement of a ZD cell — x86_zref with bias 0 (the record's live carve removed), same decline rule as bcps_sig_disp */
+static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }   /* SIG ZD twin: entry-rsp-relative displacement of a ZD cell — x86_zref with bias 0 (the record's live carve removed), same refuse rule as bcps_sig_disp */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CALL2BB slice 2 (Lon s21x-c: "DEFINE, when CONSTANT FOLDED, emits exactly TWO BBs: an IR_DEFINE and an IR_CALL") — the SCC eligibility PROBE + the role-0 producer→consumer HANDOFF.
  * bb_scc_probe is the BP-7 emit-time predicate factored to ONE body so the role-0 IR_DEFINE template (bb_define.cpp) and this consumer compute the SAME answer from the SAME inputs —
  * structural agreement, no drift (a disagreement bombs loudly below).  !is_generator is explicit here: the det arm arrives pre-filtered by its dispatch but role-0 has no such gate, and open_slim's
- * runtime guard declines generators anyway, so the conjunct is redundant-true for this file and load-bearing for role-0.  The handoff is a template-file static (the fc_pair_extent side-table idiom —
+ * runtime guard refuses generators anyway, so the conjunct is redundant-true for this file and load-bearing for role-0.  The handoff is a template-file static (the fc_pair_extent side-table idiom —
  * PEERS RULE: not an IR_t field; not g_emit: DRIVE_FILL owns that lifecycle): role-0 sets it as its string is built, and THIS box consumes-and-clears on its very next build (sx_call_named chains
  * sr0.γ → call adjacently, emission is chain-ordered and single-threaded, so the window is exactly one box).  Every shape surprise is an in-band x86_bomb per RULES — loud over silent. */
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
@@ -208,7 +208,7 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
     if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return scc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTHORITY: the role-4 shim's exact emit condition, shared by every tiny site — a site may jmp <fn>_alpha iff this returns 1, so the shim and its consumers can never drift (1010 linked jmps to a shim the role-4 box had declined). env+probe+formals-bounds mirror bb_define verbatim; nargs kept for signature stability (arity routing stays rt_define_tiny_ok's job inside). */
+extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTHORITY: the role-4 shim's exact emit condition, shared by every tiny site — a site may jmp <fn>_alpha iff this returns 1, so the shim and its consumers can never drift (1010 linked jmps to a shim the role-4 box had refused). env+probe+formals-bounds mirror bb_define verbatim; nargs kept for signature stability (arity routing stays rt_define_tiny_ok's job inside). */
     static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
     if (_nt || !fname) return 0;
     if (!rt_define_tiny_ok(fname, nargs)) return 0;
@@ -222,7 +222,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {   /* s59 ONE-AUTH
 /* Node-exact handoff: BFS emission ORDER interleaves sr0 boxes and their calls freely (measured: two role-0 boxes emitted back-to-back on the operand-position witness), but CONTROL follows the γ edge —
  * sr0 jmps directly to ITS call's α with rax + the live block riding, so runtime adjacency holds regardless of text order.  The consumer key is therefore the CALL NODE POINTER, deposited by the sr0
  * DRIVE arm (drivers own nodes; templates never see them), promoted to ARMED only when the role-0 template actually emits the prefix, and consumed in the call-family drive arm which marshals the clean
- * scalar op_c2 for the template.  Table capacity 64 outstanding pairs; overflow declines the new sr0 to pass-through (safe).  Reset per graph at emit_chain (stale-entry hygiene). */
+ * scalar op_c2 for the template.  Table capacity 64 outstanding pairs; overflow refuses the new sr0 to pass-through (safe).  Reset per graph at emit_chain (stale-entry hygiene). */
 #define BB_C2H_MAX 64
 static struct { const void *call; char name[256]; } g_c2h_tab[BB_C2H_MAX]; static int g_c2h_n;
 static struct { const void *call; const char *name; int live; } g_c2h_pend;
@@ -312,21 +312,21 @@ static std::string bcps_det_arm() {
              + x86_scan_sync_out()
              + x86_anchor_enter()
              + ((scc_z || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)))
-                /* s58 OVER-ARITY ROUTING, ZD twin — same as the non-ZD gate: K>nf sites reach the tiny arm (the shim discards extras); tiny-declined non-scc sites return empty and fall through. */
+                /* s58 OVER-ARITY ROUTING, ZD twin — same as the non-ZD gate: K>nf sites reach the tiny arm (the shim discards extras); tiny-refused non-scc sites return empty and fall through. */
                 ? [&]() -> std::string {
                     /* TINY-REAL s58 ZD twin (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  Same protocol as the non-ZD twin
                      * below: sub-rsp pushdown block, save-set spill BEFORE install (the r_keepn recursion law), actuals install DIRECT into formal GVA cells from their ZD cells (ZOPQC bias compensates
                      * the live carve — the AB-3b spelling), locals+result NULVCL, site wires, ONE jmp to the body α; landings capture the result into rdi:rsi then reverse-restore.  Shim + g_call_args
                      * GONE from this path.  TEXT-only this seat (m3 owed: cross-chain body-α target). */
                     static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
-                    static int _b1cz = -1; if (_b1cz < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1cz = (_e && *_e == '0') ? 0 : 1; }   /* B1c (s168): D-18a seals alpha$ for every fragment proc, so the D-18b blanket decline is OVER-BROAD -- the slim/legacy fallback's pushed-landing protocol mismatches wire-exit callees (FINDING s168: rsp climbs past the stack top); DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
-                    if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* D-18b decline now B1c-gated (see above) */   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
+                    static int _b1cz = -1; if (_b1cz < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1cz = (_e && *_e == '0') ? 0 : 1; }   /* B1c (s168): D-18a seals alpha$ for every fragment proc, so the D-18b blanket refuse is OVER-BROAD -- the slim/legacy fallback's pushed-landing protocol mismatches wire-exit callees (FINDING s168: rsp climbs past the stack top); DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
+                    if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* D-18b refuse now B1c-gated (see above) */   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                         /* ZD twin of the push-K site above: args read from their ZD cells (ZOPQT, bias = the live carve), everything else identical — see the non-ZD comment. */
                         std::string laz = std::string(_.op_sval) + "_\xce\xb1";
                         if (bcps_fnsig()) {
                             /* SIG s66 ZD twin — same protocol and same eligibility guard as the non-ZD sig arm below (see its full comment): entry-relative offsets of the ZD cells, derived from the
                              * SAME authority the gather would have used with the record bias removed (x86_zref bias 0); any half that does not render a static consecutive [rsp+N] pair, or that sits in
-                             * the fc window, DECLINES TINY ENTIRELY (the sig-only shim must never receive a record entry) and falls to slim/legacy exactly as a tiny-declined site always has. */
+                             * the fc window, REFUSES TINY ENTIRELY (the sig-only shim must never receive a record entry) and falls to slim/legacy exactly as a tiny-refused site always has. */
                             long soffz[29]; int sigokz = ((long)_.op_ival <= 29);
                             for (int i = 0; sigokz && i < (int)_.op_ival; i++) {
                                 int zs = _.op_zread[i];
@@ -358,8 +358,8 @@ static std::string bcps_det_arm() {
                              + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
                         }
                     }
-                    if (!scc_z) return std::string();   /* s58: tiny declined AND no scc shape — legacy fall-through, byte-identical to the old gate */
-                    _tiny_declined_z: ;
+                    if (!scc_z) return std::string();   /* s58: tiny refused AND no scc shape — legacy fall-through, byte-identical to the old gate */
+                    _tiny_fallback_z: ;
                     /* RTX-FUNC-0 (ZD AB-3b): when this program has DEFINE activation blocks (ab_n>0), replace
                      * rt_arg_stage×n + open_slim + open_fn + epilogue with: save-set spill (same as non-ZD),
                      * install actuals from their ZD-frame cells (ZOPQ) directly into formal GVA slots, pass
@@ -465,7 +465,7 @@ static std::string bcps_det_arm() {
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
-                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (!e || *e != (char)48) ? 1 : 0; } return (_sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched declines, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (!e || *e != (char)48) ? 1 : 0; } return (_sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
                    + bb_glue_pass_wires(3, 4)
                    + x86("def", L(3))
                    + bcps_epi_named(0, epig_fp_z)
@@ -519,7 +519,7 @@ static std::string bcps_det_arm() {
     int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
     /* PL-DC (REGAIN-1 SLICE C, 2026-07-20 s108) — the DIRECT det call: `call proc_X_dcα` (m4 named / m3 through the fixed dc slot), args as CELL POINTERS in the SAME rsi/rdx/rcx/r8 the fused open
      * took, result lands rax:rdx by the callee's ret-shims — no open crossing, no wire leas, no landing pair, no epilogue calls; the callee's stub+prep+leave carry the whole per-call residue.
-     * Eligibility = the callee-side table predicate verbatim (rt_pl_dc_ok: registered !dyn !gen nparams==nargs<=4 jmp_entry, hatch SCRIP_NO_DC) so site and stub agree by construction; any decline
+     * Eligibility = the callee-side table predicate verbatim (rt_pl_dc_ok: registered !dyn !gen nparams==nargs<=4 jmp_entry, hatch SCRIP_NO_DC) so site and stub agree by construction; any refuse
      * falls through to the fused arm unchanged. */
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
@@ -527,7 +527,7 @@ static std::string bcps_det_arm() {
         { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char) *nm; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') mang[mi++] = (char) u; else mi += snprintf(mang + mi, (size_t) (256 - mi), "$%02X", u); } mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", mang); } } }
     /* BP-7 SCC — STATIC SAVE-SET CALL CONVENTION (GOAL-SNOBOL4-BB BP-7).  Emit-time eligibility: literal target, registered dyn-scope table proc, every save-set name (formals+locals per the DEFINE
      * prototype, plus the result name unless shadowed by a formal) GVA-resident, nargs within the prototype, program free of OPSYN/UNLOAD (scc_program_ok), hatch SCRIP_SCC_OFF unset.  The arm saves
-     * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a decline falls through L(5) into
+     * the old cell values inline (GVA absolute -> an rsp block below the anchor), calls the open_slim leaf (guards re-checked with ZERO side effects before commit -- a refuse falls through L(5) into
      * the classic sequence verbatim), installs the staged-slot args inline (rsp-load compensated by the block size while the bump is live), and jmps the wire; the L(6)/L(7) landings read the result
      * from the result cell BEFORE restoring, restore the save-set in reverse, and close through the slim epilogue leaves.  Runtime residue (Sigma, pcall, wn/NRETURN, monitor, k_level, vtmark) stays
      * in the slim leaves; rt_name_save_push/restore and rt_arg_stage vanish from this path.  ZC_FRAME_RSP only: the callee's LIFO exits land at the jmp's rsp, so the save block is live at both wires. */
@@ -549,7 +549,7 @@ static std::string bcps_det_arm() {
          + (c2
             /* CALL2BB slice 2 — STAGED-BOX SKIP: the role-0 IR_DEFINE box just ahead of this one carved the save block (still LIVE at rsp on the committed path), spilled the save-set, ran
              * open_slim, and installed the staged args into the NV globals.  rax==1 = slim record OPEN → transfer here (landings restore + release sr0's block through the slim epilogues, exactly the
-             * merged shape); rax==0 = runtime decline (redefined / fastpath-off / prototype drift) → sr0 already released its block → fall to L(5) = the classic sequence verbatim, at base depth. */
+             * merged shape); rax==0 = runtime refuse (redefined / fastpath-off / prototype drift) → sr0 already released its block → fall to L(5) = the classic sequence verbatim, at base depth. */
             ? x86("test", "rax", "rax")
             + x86("je", L(5))
             + bb_glue_pass_wires_blob(6, 7)   /* FUNCTION LINKAGE s55: open_slim's return IS the target (rax channel; rt_proc_open_fn crossing DELETED — read an eradicated record); site-set r10/r11 wires */
@@ -574,7 +574,7 @@ static std::string bcps_det_arm() {
             : std::string(""))
          + ((scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))) && !c2
             /* s58 OVER-ARITY ROUTING: scc admission is nargs<=nformals, but the role-4 shim discards extras per the manual — a tiny-eligible K>nf site must reach the tiny arm, not fall to the
-             * eradicated legacy path (measured: SEGV, no bomb).  Inside, a non-scc site that the tiny gate ALSO declines returns empty and falls through to legacy exactly as before. */
+             * eradicated legacy path (measured: SEGV, no bomb).  Inside, a non-scc site that the tiny gate ALSO refuses returns empty and falls through to legacy exactly as before. */
             ? [&]() -> std::string {
                 /* ⭐⭐⭐ TINY-REAL s58 (Lon in-chat: "Remove stupid TEST_shim and make it real. Do not use g_call_args, instead push on the stack via RSP.").  The shim and its g_call_args transport are
                  * DELETED; the site now carries the REAL SPITBOL going-in protocol (manual Ch.8 p.104: "any existing values ... will be saved on a pushdown stack ... set to the null string ... when
@@ -583,13 +583,13 @@ static std::string bcps_det_arm() {
                  * carve); (4) locals + result clear to NULVCL (all-zero quads, DT_SNUL==0 static-asserted); (5) site-set r10/r11 wires + ONE jmp to the body α — the fold target itself, no shim
                  * between.  γ landing captures the result from the result cell into rdi:rsi BEFORE the reverse restore pops the pushdown block back into the cells (rax is the restore scratch); ω
                  * restores likewise and loads FAILDESCR.  Recursion works by construction: each site's block is LIFO on RSP, so the inner call's restore hands the outer its cells back untouched.
-                 * Eligibility EMIT-TIME (rt_define_tiny_ok: registered dyn_scope !gen !variadic !redefined, nargs==nformals>0) — no runtime decline arm exists; everything else keeps the slim arm
+                 * Eligibility EMIT-TIME (rt_define_tiny_ok: registered dyn_scope !gen !variadic !redefined, nargs==nformals>0) — no runtime refuse arm exists; everything else keeps the slim arm
                  * below (its NULVCL under-arity pad still matters there).  Residue owed to the return-side rung: k_level, GC-pending shield on the installs.  SCRIP_NO_TINY=1 restores the slim arm.
                  * TEXT-only this seat (m3 owed: cross-chain body-α target, the same class as the fold arm's sealed-cell slice-2). */
                 static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
                 { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d c2=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc,c2); }
-                static int _b1ct = -1; if (_b1ct < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1ct = (_e && *_e == '0') ? 0 : 1; }   /* B1c (s168): D-18a seals alpha$ for every fragment proc, so the D-18b blanket decline is OVER-BROAD -- the slim/legacy fallback's pushed-landing protocol mismatches wire-exit callees (FINDING s168: rsp climbs past the stack top); DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
-                if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* D-18b decline now B1c-gated (see above) */   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
+                static int _b1ct = -1; if (_b1ct < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1ct = (_e && *_e == '0') ? 0 : 1; }   /* B1c (s168): D-18a seals alpha$ for every fragment proc, so the D-18b blanket refuse is OVER-BROAD -- the slim/legacy fallback's pushed-landing protocol mismatches wire-exit callees (FINDING s168: rsp climbs past the stack top); DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
+                if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {   /* D-18b refuse now B1c-gated (see above) */   /* TINY-REAL s58; R-1 s94 (Fable 5): BOTH MEDIA -- the MEDIUM_TEXT conjunct is lifted, cross-chain reach = x86_jmp_via_cell */
                     /* Lon s58: the site is TRULY tiny — push {K}{succ,fail conts}{actual_i at [32+i*16]}, one jmp to <fn>_alpha.  ALL callee knowledge (save-set, arity fill/discard, wires, restore,
                      * result) lives in the role-4 shim (bb_define).  r10/r11 UNTOUCHED here: they are the ENCLOSING activation's ports; the shim banks and re-establishes them.  <fn>_gamma
                      * delivers the result in rax:rdx and <fn>_omega delivers FAILDESCR, so BOTH conts land on the shared L(2) tail — its DT_FAIL cmp routes success/fail exactly as before. */
@@ -603,7 +603,7 @@ static std::string bcps_det_arm() {
                          * old formal parks in the caller's own cell — same pushdown-by-swap as s58, one copy fewer, and the K-dependent frame geometry on the shim dies (see bb_define s66).
                          * Consequences: over-arity extras never move and are released by statement_end like every other operand cell; the shim release is a CONSTANT.  ELIGIBILITY: every operand half
                          * must resolve to a static consecutive [rsp+N] pair AND be outside the fc window (a parked old-formal in a rotating window is a clobber hazard unproven this rung) — otherwise
-                         * DECLINE TINY ENTIRELY and fall to slim, so the sig-only shim never receives a record-shaped entry.  γcont==ωcont==L(2) kept this rung (the DT_FAIL cmp routes; the γ≠ω split
+                         * REFUSE TINY ENTIRELY and fall to slim, so the sig-only shim never receives a record-shaped entry.  γcont==ωcont==L(2) kept this rung (the DT_FAIL cmp routes; the γ≠ω split
                          * is a separable follow-up).  SCRIP_FN_SIG=0 restores the s58 record protocol below, byte-identical. */
                         long soff[29]; int sigok = ((long)_.op_ival <= 29);
                         for (int i = 0; sigok && i < (int)_.op_ival; i++) {
@@ -624,7 +624,7 @@ static std::string bcps_det_arm() {
                             for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
                             return s;
                         }
-                        /* SIG-ineligible site under SIG mode: the shim speaks sig ONLY, so this site must NOT jmp <fn>_alpha — fall through to slim/legacy exactly as a tiny-declined site always has */
+                        /* SIG-ineligible site under SIG mode: the shim speaks sig ONLY, so this site must NOT jmp <fn>_alpha — fall through to slim/legacy exactly as a tiny-refused site always has */
                     } else {
                     long Kb = 16L * (long)_.op_ival + 32;
                     return x86("sub", "rsp", Kb)
@@ -638,7 +638,7 @@ static std::string bcps_det_arm() {
                          + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str());
                     }
                 }
-                if (!scc) return std::string();   /* s58: tiny declined AND no scc shape — fall through to the legacy path outside this lambda, byte-identical to the old gate */
+                if (!scc) return std::string();   /* s58: tiny refused AND no scc shape — fall through to the legacy path outside this lambda, byte-identical to the old gate */
                 /* AB-3b path: when this program has DEFINE activation blocks (SCRIP_AB on, ab_n>0),
                  * replace open_slim+open_fn+arg-install with: save-set spill, install actuals into
                  * formal GVA cells, pass wires rcx/rdx, jmp [fn_cell$FN] → FN_act_α.
@@ -743,7 +743,7 @@ static std::string bcps_det_arm() {
              * REG-7 s80 GUARD WIDENED (was && !_.flat_pat): proc callees are ALWAYS the determinate full-unwind class under ZC_FRAME_RSP — the suspending zr-exit class is PAT$ fragments, which a proc call
              * can never land in — so a flat_pat CALLER takes this anchor-free wire too, retiring the REG-6 hazard (r12 = pend top rides untouched through the call). */
             ? (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (_sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both decline and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (_sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
             + bb_glue_pass_wires(3, 4)   /* GLUE-SYM (s22x) */
             + x86("def", L(3))
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)

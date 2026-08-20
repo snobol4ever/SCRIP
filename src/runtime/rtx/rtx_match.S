@@ -716,7 +716,7 @@ RTX_ENDF(rt_dcap_end_ok_close)
  *
  * THE ARMS (0(f) pre-port half -- read from the C body, since the census tool needs a c_* edge and is post-port by
  * construction).  This body is NOT straight-line, so entries are NOT commits by construction and the arm census is
- * owed AFTER the port.  Everything the asm declines is tail-jumped to the untouched C:
+ * owed AFTER the port.  Everything the asm refuses is tail-jumped to the untouched C:
  *   BAIL  gate off                                     -> byte-identity path
  *   BAIL  g_repl_trace != 0   (incl. -1 = first call)  -> the SCRIP_REPL_TRACE fprintf arm
  *   BAIL  name == NULL || name[0] == 0                 -> C allocates+copies then discards; not worth an arm

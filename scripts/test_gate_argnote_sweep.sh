@@ -29,8 +29,8 @@ for f in $(find "$CORPUS" -name '*.sno' | sort); do
     stray=$((stray + s)); jumpnote=$((jumpnote + j)); notes=$((notes + n))
     if [ "$s" -ne 0 ] || [ "$j" -ne 0 ]; then echo "VIOLATION $f stray=$s jumpnote=$j"; fi
 done
-echo "programs=$total  emit-decline=$emitfail  stray-markers=$stray  notes-on-jumps=$jumpnote  notes=$notes"
-echo "NOTE: emit-decline is NOT the watermark and must never be quoted as one -- this sweep walks EVERY .sno in the"
+echo "programs=$total  emit-refuse=$emitfail  stray-markers=$stray  notes-on-jumps=$jumpnote  notes=$notes"
+echo "NOTE: emit-refuse is NOT the watermark and must never be quoted as one -- this sweep walks EVERY .sno in the"
 echo "      tree, including CRLF files, include fragments, and programs outside the graded set.  The watermark is"
 echo "      xc.sh over corpus/crosscheck (.ref-anchored, both modes).  This number is a TRIPWIRE for the two"
 echo "      annotation invariants above, nothing more."

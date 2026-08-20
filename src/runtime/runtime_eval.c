@@ -199,7 +199,7 @@ void rt_chain_enter(eval_chain_fn fn);
  * Without it the dcap pump's rt_proc_call_open on EXPR$N finds no body and the conditional assignment is a
  * no-op.  dyn_scope=1 on every thunk, so the pump's open lands the dyn prologue and the NRETURN'd NAME rides
  * the rt_g_want_name the pump re-arms. */
-int g_rt_fragment_emit = 0;   /* D-18b (s161): TRUE while the RUNTIME fragment compiler is emitting -- bb_call_proc_staged's TINY arms consult it and DECLINE, because a fragment's callees (EXPR$/PAT$ thunks and cross-chain mains) carry no <name>_α staging label for the alpha$ cell to seal against (measured: alpha$EXPR$0F1 / alpha$PAT$0 MISS under SCRIP_SEAL_DIAG); declined sites fall to the slim/legacy call = the rt fn-pointer machinery main programs already use for every thunk call (m1 witness family green). */
+int g_rt_fragment_emit = 0;   /* D-18b (s161): TRUE while the RUNTIME fragment compiler is emitting -- bb_call_proc_staged's TINY arms consult it and REFUSE, because a fragment's callees (EXPR$/PAT$ thunks and cross-chain mains) carry no <name>_α staging label for the alpha$ cell to seal against (measured: alpha$EXPR$0F1 / alpha$PAT$0 MISS under SCRIP_SEAL_DIAG); refused sites fall to the slim/legacy call = the rt fn-pointer machinery main programs already use for every thunk call (m1 witness family green). */
 static void eval_thunks_emit_from(int pc0)
 {
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);

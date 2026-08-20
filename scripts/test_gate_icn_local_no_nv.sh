@@ -33,7 +33,7 @@ end
 EOF
 "$SCRIP" --compile "$TMP/locals.icn" < /dev/null > "$TMP/locals.s" 2> "$TMP/locals.err"
 if grep -qiE '\[SMX\]' "$TMP/locals.s" "$TMP/locals.err"; then
-    echo "LVA-1 SKIP: locals-only program declined (cannot check) — investigate, not a pass"
+    echo "LVA-1 SKIP: locals-only program refused (cannot check) — investigate, not a pass"
     exit 2
 fi
 nv=$(grep -icE 'call[[:space:]]+NV_GET|call[[:space:]]+NV_SET' "$TMP/locals.s")
@@ -61,7 +61,7 @@ end
 EOF
 "$SCRIP" --compile "$TMP/global.icn" < /dev/null > "$TMP/global.s" 2> "$TMP/global.err"
 if grep -qiE '\[SMX\]' "$TMP/global.s" "$TMP/global.err"; then
-    echo "LVA-1 SKIP: global program declined (cannot check LOCK 3)"
+    echo "LVA-1 SKIP: global program refused (cannot check LOCK 3)"
     exit 2
 fi
 gva=$(grep -icE 'r9[[:space:]]*[+]' "$TMP/global.s")

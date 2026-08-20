@@ -21,7 +21,7 @@
 # reports the HAZARD SURFACE and hard-fails only the COLLISION CLASS — files that both write a live-claimed
 # register and read through GVARQ.  Those are the files where H1/H2 can co-occur inside one emitted region.
 # A flagged file is NOT automatically a defect; it is a file that MUST be cleared by probe (RULES.md forbids
-# conviction by code-reading) or entered in the whitelist with a justification.  Whitelisting is a capability
+# conviction by code-reading) or entered in the registry with a justification.  Op-filtering is a capability
 # registry, not a silencer: each line records WHO cleared it and HOW.
 #
 # LIVE CLAIMS ONLY.  Registers claimed-but-unassigned (no VM global living in them yet) are harmless to
@@ -30,7 +30,7 @@
 #
 # Usage: bash scripts/test_gate_rtcc_claimed_regs.sh [--strict]
 #   default  : INFORMATIONAL — print hazard surface + collision class, exit 0.
-#   --strict : HARD GATE — exit 1 if any non-whitelisted file is in the collision class.
+#   --strict : HARD GATE — exit 1 if any non-registered file is in the collision class.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -39,7 +39,7 @@ strict=0
 [ "${1:-}" = "--strict" ] && strict=1
 
 TPL="src/templates"
-WHITELIST="scripts/rtcc_claimed_reg_whitelist.txt"
+REGISTRY="scripts/rtcc_claimed_reg_registry.txt"
 
 # LIVE_CLAIMS — registers with a VM global actually assigned by an RC-5 rung.  reg:global:rung
 LIVE_CLAIMS="r9:RT_GVA_VA:RC-5-GVA"
@@ -47,7 +47,7 @@ LIVE_CLAIMS="r9:RT_GVA_VA:RC-5-GVA"
 # strip_comments FILE — code only, so a comment naming a register does not count as a live use.
 strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; }
 
-wl_has() { [ -f "$WHITELIST" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$WHITELIST"; }
+wl_has() { [ -f "$REGISTRY" ] && grep -qE "^[[:space:]]*$1[[:space:]]" "$REGISTRY"; }
 
 rc=0
 echo "=== RTCC CLAIMED-REGISTER COLLISION GATE ==="
@@ -99,9 +99,9 @@ for claim in $LIVE_CLAIMS; do
     echo "COLLISION CLASS:$collide"
     for f in $collide; do
       if wl_has "$f"; then
-        echo "  [WHITELISTED] $f — $(grep -E "^[[:space:]]*$f[[:space:]]" "$WHITELIST" | head -1 | cut -c1-160)"
+        echo "  [REGISTRYED] $f — $(grep -E "^[[:space:]]*$f[[:space:]]" "$REGISTRY" | head -1 | cut -c1-160)"
       else
-        echo "  [UNCLEARED]   $f — clobbers $reg AND reads GVARQ. Clear by probe or whitelist with justification."
+        echo "  [UNCLEARED]   $f — clobbers $reg AND reads GVARQ. Clear by probe or registry with justification."
         rc=1
       fi
     done

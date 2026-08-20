@@ -4,7 +4,7 @@
 # THREE CHECKS:
 #   1. CORRECTNESS: CELLS=1 global witness produces same output as baseline.
 #   2. ASSERTION: SCRIP_ZD_CENSUS=1 run does NOT abort (ZK-5 global-cells=0 invariant held).
-#   3. CENSUS: census shows 0 armed nodes for the global-only witness program (globals all declined).
+#   3. CENSUS: census shows 0 armed nodes for the global-only witness program (globals all refused).
 #
 # Completion criterion (ZK-5): these three checks green on the global witness.
 # Authors: LCherryholmes · Claude Sonnet 4.6
