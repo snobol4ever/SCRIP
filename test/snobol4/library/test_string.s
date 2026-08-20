@@ -1590,7 +1590,7 @@ n88_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         push             r13                                  # outer_Σ
                         push             r14                                  # outer_δ
                         push             r15                                  # outer_Δ
-                        sub              rsp, 24
+                        sub              rsp, 40
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1609,7 +1609,7 @@ n88_match_begin_α:      mov              rdi, qword ptr [rsp + 0]             #
                         lea              rax, [rip + .Lx515_13]
                         mov              qword ptr [rcx + 248], rax;          jmp   n89_match_pos_α
 n88_match_begin_β:
-.Lx515_13:              lea              rsp, [rbp + -56]                     # retry_whack
+.Lx515_13:              lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx515_1
@@ -1768,8 +1768,8 @@ n98_match_lit_α:                                                              j
 n98_match_lit_β:                                                              jmp   n90_match_alternate_af
 #-----------------------------------------------------------------------------------------------------------------------
 n99_match_span_α:       lea              rdi, [rip + .S1]
-                        lea              rsi, [rsp + 1440]
-                        lea              rdx, [rsp + 1448]
+                        lea              rsi, [rbp + -80]
+                        lea              rdx, [rbp + -72]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -1779,27 +1779,27 @@ n99_match_span_α:       lea              rdi, [rip + .S1]
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64]
                         test             rax, rax;                            js    n90_match_alternate_af
-                        mov              r8, qword ptr [rsp + 1440]
-                        mov              dword ptr [rsp + 1440], 0
+                        mov              r8, qword ptr [rbp + -80]
+                        mov              dword ptr [rbp + -80], 0
 .Lx534_0:               mov              eax, r14d
-                        add              eax, dword ptr [rsp + 1440]
+                        add              eax, dword ptr [rbp + -80]
                         cmp              eax, r15d;                           jge   .Lx534_1
                         movsxd           rcx, eax
                         movzx            esi, byte ptr [r13+rcx]
-                        mov              eax, dword ptr [rsp + 1448]
+                        mov              eax, dword ptr [rbp + -72]
                         mov              edx, 0
 .Lx534_2:               cmp              edx, eax;                            jge   .Lx534_1
                         movzx            edi, byte ptr [r8 + rdx]
                         cmp              esi, edi;                            je    .Lx534_3
                         add              edx, 1;                              jmp   .Lx534_2
-.Lx534_3:               add              dword ptr [rsp + 1440], 1;           jmp   .Lx534_0
-.Lx534_1:               mov              eax, dword ptr [rsp + 1440]
+.Lx534_3:               add              dword ptr [rbp + -80], 1;            jmp   .Lx534_0
+.Lx534_1:               mov              eax, dword ptr [rbp + -80]
                         test             eax, eax;                            jle   n90_match_alternate_af
                         mov              edx, r14d
-                        mov              dword ptr [rsp + 1444], edx
+                        mov              dword ptr [rbp + -76], edx
                         add              edx, eax
                         mov              r14d, edx;                           jmp   n90_match_alternate_s0
-n99_match_span_β:       mov              r14d, dword ptr [rsp + 1444];        jmp   n90_match_alternate_af
+n99_match_span_β:       mov              r14d, dword ptr [rbp + -76];         jmp   n90_match_alternate_af
 #=======================================================================================================================
 #         <stmt 15, line 53: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
