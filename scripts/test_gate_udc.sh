@@ -44,7 +44,11 @@ for t1 in 0 1; do
   diff -q /tmp/gate_m4.txt "$CN/$w.ref" > /dev/null 2>&1; chk $? "m4 $w CONST_T1=$t1"
 done
 done
-for w in cn_t1_eval_undecl cn_eval_fails_not_aborts cn_indirect_is_ordinary_var; do
+# ⭐⭐ CN-DOLLAR-ORACLE (queue row `cn-oracle-rulings`, HQ-61 ORACLE-FAITHFUL CONFIRMED) added cn_indirect_rewrite and cn_indirect_seal to this loop.  The first is a LIVE-ORACLE .ref covering the half its
+# sibling could not see -- cn_indirect_is_ordinary_var writes each indirect cell exactly ONCE, so it was green all along against a runtime that sealed the cell and raised 341 on the SECOND write.  The
+# second is the s153 RULING-REQUEST pin, rewritten to the ruled table; it went red on the first run after the flip, which is exactly what s153 minted it to do.  Both ride the stderr-SILENT assertion too:
+# the oracle assigns in total silence, and a 341 printed before an otherwise-correct stdout is a regression the .ref alone structurally cannot see.
+for w in cn_t1_eval_undecl cn_eval_fails_not_aborts cn_indirect_is_ordinary_var cn_indirect_rewrite cn_indirect_seal; do
 "$SCRIP" --compile "$CN/$w.sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null
 timeout 20 "$SCRIP" --run "$CN/$w.sno" < /dev/null 2>/dev/null > /tmp/gate_u3.txt

@@ -2146,6 +2146,10 @@ static NV_t *_var_bucket_find(const char *name) {
     return (NV_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }   /* ⭐⭐⭐ CN-DOLLAR-ORACLE killswitch (queue row `cn-oracle-rulings`, HQ-61 "ORACLE-FAITHFUL CONFIRMED"). SCRIP_KWSPACE_SPLIT=0 restores the pre-ruling single-namespace regime EXACTLY -- every guard below is written as `is_const && _nv_kwsplit()` and every seal as `'&' && !_nv_kwsplit()`, so the OFF arm reads byte-for-byte like the code this ruling replaced and the revert probe can prove the flip is not vacuous. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }   /* ⭐⭐⭐ THE TWO NAMESPACES, MEASURED ON THE ORACLE AND ENFORCED IN ONE PREDICATE. Live `x64/bin/sbl -b`: `&ANCHOR = 1` then `$('&ANCHOR')` reads NULL, an indirect WRITE leaves the keyword at 1, `$('&NEVERSET') = 99` is accepted silently, and a second and third indirect write are accepted too (w1/w2/w3 = 1/2/3, DATATYPE INTEGER). So in SPITBOL `$('&X')` names an ORDINARY VARIABLE literally spelled "&X" in a namespace WHOLLY DISJOINT from the keyword &X, in BOTH directions. SCRIP kept ONE hash table for both, so a user-declared constant `&N` and the indirect variable `$('&N')` shared a cell: the read answered 42 where the oracle answers null, and the write raised 341 where the oracle assigns. `is_const` is ALREADY exactly the set of keyword-space (tier-3) cells -- NV_SET_fn seals on the leading '&' and nothing else sets the bit -- so it becomes the NAMESPACE TAG and no key mangling is needed: a mangled string key could always be collided with by `$()`, which names variables with ARBITRARY strings (beauty.sno:104 is literally `$'$' = ...`), whereas a per-entry tag cannot be. Two entries may now share a name in one bucket chain -- that IS the two cells -- so every ORDINARY walker filters through here and the keyword walkers (NV_KW_GET_fn/NV_KW_SET_fn/NV_CONST_ASSIGNED_fn) take the complement. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
@@ -2174,7 +2178,7 @@ DESCR_t NV_GET_fn(const char *name) {
     }
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) return e->is_gva ? *e->cell : e->val;
+        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *);
       if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
     return NULVCL;
@@ -2232,10 +2236,10 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next) {
-        if (strcmp(e->name, name) == 0) {
+        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
-            if (name[0] == '&') e->is_const = 1;   /* ⭐ SN4-CONSTANTS CN-10 -- SEAL AT THE FIRST REAL STORE, NOT AT ENTRY BIRTH. Reachable only for an `&`-entry born WITHOUT a value (NV_PTR_fn's intern, which no longer pre-seals -- see its create site): that entry's first store IS the one-time assignment, so it stores and seals here; the second store then meets is_const above and raises 341 exactly as a SET-created constant does. `is_const` is thereby made truthful -- 1 iff the one-time assignment has EXECUTED -- which is what lets NV_CONST_ASSIGNED_fn below answer the 342 read-side predicate (s148 item 3: NV_EXISTS_fn tested entry EXISTENCE, so a valueless intern suppressed 342 and pre-armed 341 against the first legitimate write). */
+            if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;   /* ⭐⭐⭐ CN-DOLLAR-ORACLE NARROWED THIS TO THE KILLSWITCH-OFF ARM, AND THAT IS THE HALF OF THE RULING THE READ SIDE CANNOT DO ALONE. Reached only through the ORDINARY namespace now (the walk above filters keyword-space entries out), so leaving it armed would re-seal the very cell `$('&X') = ...` just created and the SECOND indirect write would raise 341 -- measured on live sbl as w1/w2/w3 = 1/2/3, three accepted writes. The tier-3 seal did not move: it lives in NV_KW_SET_fn, which owns keyword space outright. Original CN-10 note kept below because its predicate lesson still holds. ⭐ SN4-CONSTANTS CN-10 -- SEAL AT THE FIRST REAL STORE, NOT AT ENTRY BIRTH. Reachable only for an `&`-entry born WITHOUT a value (NV_PTR_fn's intern, which no longer pre-seals -- see its create site): that entry's first store IS the one-time assignment, so it stores and seals here; the second store then meets is_const above and raises 341 exactly as a SET-created constant does. `is_const` is thereby made truthful -- 1 iff the one-time assignment has EXECUTED -- which is what lets NV_CONST_ASSIGNED_fn below answer the 342 read-side predicate (s148 item 3: NV_EXISTS_fn tested entry EXISTENCE, so a valueless intern suppressed 342 and pre-armed 341 against the first legitimate write). */
             comm_var(name, val);
             return val;   /* CN-10 drive-by, same region: this was a BARE `return;` in a DESCR_t-returning function -- any caller consuming the update-path result read garbage. All sibling paths already return val. */
         }
@@ -2246,16 +2250,20 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
-    e->is_const = (name[0] == '&') ? 1 : 0;
+    e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;   /* ⭐⭐⭐ CN-DOLLAR-ORACLE: THE ORDINARY CREATOR NO LONGER MINTS KEYWORD-SPACE CELLS. `$('&NEVERSET') = 99` arrives here and the oracle accepts it silently as an ordinary variable (measured; and reads back 99), so tagging it is_const would both hide it from every later ordinary read and refuse the next write with 341. Keyword space is minted in NV_KW_SET_fn and nowhere else -- which is what keeps `is_const` a truthful namespace tag. */
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     comm_var(name, val);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return 1; return 0; }
+int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }   /* CN-DOLLAR-ORACLE: an ORDINARY-namespace existence test, filtered like every other ordinary walker so it cannot answer 1 for a keyword-space twin. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->is_const; return 0; }   /* SN4-CONSTANTS CN-10 -- the 342 read-side predicate: 1 iff the one-time assignment has EXECUTED (is_const is sealed at SET-create or at the first store into a PTR-interned cell, never at valueless birth). NV_EXISTS_fn answers a different question (entry existence) and keywords.c asking IT was s148 item 3. */
+int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }   /* ⭐ CN-DOLLAR-ORACLE MADE THIS A KEYWORD-SPACE SCAN INSTEAD OF A FIRST-NAME-MATCH. Two entries may now share a name (the constant &N and the indirect variable $('&N')), and the bucket chain prepends, so `return e->is_const` on the first match would answer 0 the moment an indirect write to "&N" landed in front of the constant -- the 342 predicate would then say a declared constant was never assigned. Identical when only one entry exists, which is every pre-ruling program. SN4-CONSTANTS CN-10 -- the 342 read-side predicate: 1 iff the one-time assignment has EXECUTED (is_const is sealed at SET-create or at the first store into a PTR-interned cell, never at valueless birth). NV_EXISTS_fn answers a different question (entry existence) and keywords.c asking IT was s148 item 3. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }   /* ⭐⭐⭐ THE KEYWORD-SPACE READER (CN-DOLLAR-ORACLE). rt_keyword_read_snobol4's tier-3 arms called NV_GET_fn, which is now the ORDINARY reader -- pointing them here is what keeps a declared constant readable while `$('&N')` reads the disjoint ordinary cell. Deliberately NOT routed through NV_GET_fn's preamble: that preamble is the ORDINARY namespace's (INPUT, the I/O-channel association scan, &subject/&pos, the write/writes proc values), and none of it can own a tier-3 name -- kw_read answers &subject/&pos long before the tier-3 arm is reached, so consulting it here would only add ways for keyword space to leak into ordinary state. The killswitch-OFF arm delegates to NV_GET_fn verbatim, which IS the pre-ruling call, so SCRIP_KWSPACE_SPLIT=0 is an exact revert and not an approximation. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; comm_var(name, val); return val; }   /* ⭐⭐⭐ THE KEYWORD-SPACE WRITER, AND THE ONLY MINTER OF SEALED CELLS LEFT IN THE FILE (CN-DOLLAR-ORACLE). The one-time-assignment seal is UNCHANGED in force and in wording -- second tier-3 store still raises 341 with the same text -- it merely stopped being a property of the leading '&' in an ordinary store and became a property of the namespace the store came from, which is what the oracle measures: `$('&NEVERSET') = 99` is silent, `&C = "one"` then `&C = "two"` is not. It creates UNCONDITIONALLY rather than reusing an ordinary same-named entry, because reusing one would re-merge the two cells this ruling separates. It skips NV_SET_fn's I/O-association and OUTPUT/TERMINAL preamble for the same reason NV_KW_GET_fn skips its twin -- a tier-3 constant is not an ordinary variable and must not be able to fire an I/O association -- but keeps rt_sxt_break (the GC/string bookkeeping every store owes) and comm_var (tracing, which the sealed cell owes exactly as before). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -2276,7 +2284,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     if (strcmp(name, "RTNTYPE")  == 0) return NULL;
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) return e->is_gva ? e->cell : &e->val;
+        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
     { static long _nvc = -1; if (_nvc < 0) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
     NV_t *e = rt_ws_alloc(sizeof(NV_t));
     e->name = rt_ws_strdup(name);
@@ -2297,7 +2305,7 @@ int NV_bind_gva(const char *name, DESCR_t *cell) {
     _var_init();
     unsigned h = _var_hash(name);
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if (strcmp(e->name, name) == 0) { e->cell = cell; e->is_gva = 1; return 1; }
+        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) { e->cell = cell; e->is_gva = 1; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

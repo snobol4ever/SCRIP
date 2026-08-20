@@ -312,6 +312,8 @@ DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
 int NV_EXISTS_fn(const char *name);
+DESCR_t NV_KW_GET_fn(const char *name);   /* CN-DOLLAR-ORACLE: keyword-space (tier-3 &constant) reader -- the complement of NV_GET_fn, which is the ORDINARY namespace's. */
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);   /* CN-DOLLAR-ORACLE: keyword-space writer and the one-time-assignment seal (341). */
 int NV_CONST_ASSIGNED_fn(const char *name);   /* SN4-CONSTANTS CN-10: the 342 read-side predicate -- "the one-time assignment EXECUTED", which NV_EXISTS_fn above does NOT answer (it answers "an entry exists"). */
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
