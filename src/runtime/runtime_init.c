@@ -49,6 +49,7 @@ static unsigned long g_zsm_tr_n = 0UL;
 unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 0UL;
 unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;
 static unsigned long g_zsm_rsp0 = 0UL;
+static unsigned long g_zsm_stmt0 = 0UL;
 static unsigned long g_zsm_seen_nodes[ZSM_N];
 static unsigned long g_zsm_seen_n = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -56,6 +57,7 @@ static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = g
 static int zsm_leak_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_LEAK_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zsm_overpop_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_OVERPOP"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zsm_bskew_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_BSKEW"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int zsm_aexp_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_AEXP"); v = (e && *e == '0') ? 0 : 1; } return v; }
 void rt_bomb(const char *msg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?"; }
@@ -95,7 +97,7 @@ void rt_zdp_sm_init(void)
     atexit(zsm_leak_report);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind)
+void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind, long exp_depth)
 {
     long zop = (kind >> 8) & 0xFFFFL; kind &= 0xFFL;
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
@@ -103,7 +105,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
     long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;
     g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind | (zop << 8); g_zsm_tr_depth[t] = depth; g_zsm_tr_stno[t] = (long)kw_stcount; g_zsm_tr_n++; g_zsm_events++;
     if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));
-    if (kind == 0) { g_zsm_rsp0 = rsp; return; }
+    if (kind == 0) { if (exp_depth >= 0L) g_zsm_rsp0 = rsp + (unsigned long)exp_depth; else if (!g_zsm_rsp0) g_zsm_rsp0 = rsp; return; }
     long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
     if (e->node != node && zsm_leak_report_on()) {
@@ -113,7 +115,9 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         g_zsm_alpha_while_live++;
         if (getenv("SCRIP_ZSM_ALPHA_LOG")) fprintf(stderr, "[ZSM] α node=%lu WHILE state=%s (rbp=0x%lx) -- counted, not fatal; see MATCH_END cross-node whack note\n", node, zsm_sn(e->state), rbp);
     }
-    if (kind == 1) { e->node = node; e->E = rbp; e->F = fl ? rbp : rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }
+    if (kind == 1) { if (zop == 113L) g_zsm_stmt0 = rsp;
+        if (exp_depth >= 0L && g_zsm_rsp0 && zsm_aexp_on()) { long d = (long)(g_zsm_rsp0 - rsp); if (d >= 0L && d != exp_depth) fprintf(stderr, "[ZSM-AEXP] α%s node=%lu op=%ld(%s) RSP EXPECTED-VALUE MISMATCH AT ALPHA (Lon s196: RSP-RSP0 must equal the operand offset the emitter baked): statement-anchor depth=%ld but op_zdepth=%ld (delta=%ld) -- the operand access that follows resolves [rsp + off + %ld] and reads %ld bytes off; rsp=0x%lx rsp0=0x%lx st=%ld\n", fl ? "·" : "", node, zop, bb_op_name((IR_e)zop), d, exp_depth, d - exp_depth, exp_depth, d - exp_depth, rsp, g_zsm_rsp0, (long)kw_stcount); }
+        e->node = node; e->E = rbp; e->F = fl ? rbp : rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }
     if (e->node != node || !e->live) {
         if (kind == 2) { g_zsm_beta_no_alpha++; fprintf(stderr, "[ZSM] β node=%lu WITH NO LIVE α (rbp=0x%lx rsp=0x%lx) -- claimed impossible; counted, not fatal, so one occurrence cannot mask the census\n", node, rbp, rsp); }
         if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {

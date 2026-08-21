@@ -2019,6 +2019,7 @@ inline std::string x86_zsm_ev(int kind) {
          + x86("mov",  "rdi", (long)_.nid)
          + x86("mov",  "rsi", "rbp")
          + x86("mov",  "rcx", (long)(kind | ((long)_.op_node_kind << 8)))
+         + x86("mov",  "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
          + x86("pop",  "r11") + x86("pop", "r10") + x86("pop", "r9")  + x86("pop", "r8")
          + x86("pop",  "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
