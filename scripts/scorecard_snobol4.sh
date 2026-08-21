@@ -227,6 +227,16 @@ cmd_run() {
   sc_prov "$prov" suites "${only:-ALL}"; sc_prov "$prov" jobs "$jobs"; sc_prov "$prov" nproc "$(nproc 2>/dev/null || echo 0)"
   sc_prov "$prov" scrip_head "$(cd "$SC" && git rev-parse --short HEAD 2>/dev/null)"; sc_prov "$prov" corpus_head "$(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null)"
   sc_prov "$prov" scrip_bin_md5 "$(md5sum "$SCRIP" 2>/dev/null | cut -c1-12)"; sc_prov "$prov" scrip_bin_mtime "$(date -r "$SCRIP" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
+  # ⛔ HQ-27 IN ITS OWN RIGHT, AND THE BRIEF NAMED IT AS THIS ROW\'S PARENT CLASS: a stale build is indistinguishable from a current
+  # one by inspecting its output.  The git HEAD in the report header is the TREE, not the BINARY -- a seat that pulls and does not
+  # rebuild gets a header reading the new HEAD over numbers measured by the old compiler.  MEASURED, on this very session: the
+  # header printed `scrip 21819132` beside a binary md5 and mtime that had not moved since an earlier HEAD.  So record what the
+  # binary could have been built FROM (newest commit touching the compiler) and whether that source is dirty, and let `report`
+  # compare -- the same cure as the load half, applied to the other axis of provenance.
+  sc_prov "$prov" src_commit_epoch "$(cd "$SC" && git log -1 --format=%ct -- src Makefile 2>/dev/null)"
+  sc_prov "$prov" src_commit_iso "$(cd "$SC" && git log -1 --format=%cd --date=format:%Y-%m-%dT%H:%M:%S -- src Makefile 2>/dev/null)"
+  sc_prov "$prov" scrip_bin_epoch "$(date -r "$SCRIP" +%s 2>/dev/null)"
+  sc_prov "$prov" src_dirty "$(cd "$SC" && git status --porcelain -- src Makefile 2>/dev/null | grep -c .)"
   sc_prov "$prov" rt_so_md5 "$(md5sum "$SC/out/libscrip_rt.so" 2>/dev/null | cut -c1-12)"; sc_prov "$prov" rt_so_mtime "$(date -r "$SC/out/libscrip_rt.so" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
   sc_prov "$prov" start_epoch "$st"; sc_prov "$prov" start_iso "$(date +%Y-%m-%dT%H:%M:%S)"; sc_prov "$prov" load_start "${l0%% *}"
   sc_prov "$prov" forced "${force:-0}"; sc_prov "$prov" peers_at_start "$(printf '%s' "$peers" | tr '\n' ';')"
@@ -296,6 +306,9 @@ cmd_report() {
       printf "PROVENANCE  root=%s pid=%s  jobs=%d/%d cores  suites=%s  start=%s  %s\n", V["root"], V["pid"], j, np, V["suites"], V["start_iso"], tail;
       printf "            scrip %s (bin md5 %s, built %s) · corpus %s · rt.so md5 %s\n", V["scrip_head"], V["scrip_bin_md5"], V["scrip_bin_mtime"], V["corpus_head"], V["rt_so_md5"];
       printf "            load 1-min: start %s · mean %s · PEAK %s   runnable PEAK %d   samples %s@%ss   concurrent boards seen: %d %s\n", V["load_start"], V["load_mean"], V["load_peak"], rk, V["samples"], sp, pm, pl;
+      be=V["scrip_bin_epoch"]+0; se=V["src_commit_epoch"]+0; dy=V["src_dirty"]+0;
+      if(be>0 && se>0 && be<se) printf "⛔ STALE BINARY — scrip was built %s but the compiler source moved at %s, AFTER it. This board measured a tree that is no longer checked out. `make pristine` and re-measure before quoting any number from it (HQ-27).\n", V["scrip_bin_mtime"], V["src_commit_iso"];
+      else if(dy>0) printf "⛔ UNCOMMITTED COMPILER SOURCE — %d modified file(s) under src/ or Makefile at measure time, so the binary md5 above may correspond to no commit at all and this board is not reproducible from its own HEAD.\n", dy;
       why="";
       if(f) why=why" started under --force while another board held the registry;";
       if(pm>0) why=why sprintf(" %d foreign board(s) registered DURING this run %s;", pm, pl);
