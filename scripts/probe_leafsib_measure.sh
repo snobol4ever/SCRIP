@@ -7,11 +7,11 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.." || exit 1
 P=$S4E/corpus/probe/leafsib
-SIBS="${SIBS:-span tab rtab rem arb bal break breakx}"
-ARM="${SCRIP_SPAN_FRAME:-0}"
+SIBS="${SIBS:-span tab rtab rem arb bal break breakx arb_flat_red arb_flat_grn bal_flat_red bal_flat_grn}"   # the eight one-per-member siblings, plus the s193 PADDED pairs.  ⛔ THE EIGHT ARE INERT AT HEAD: all eight emit BYTE-IDENTICAL --compile output under BOTH killswitch arms, because they take the STORED road (`t = (... | ARB . I)`) whose cell is already rbp-resident by blob-frame authority, so they are green for a reason unrelated to the switch they exist to test.  The padded pairs put the same leaf on an INLINE ALT arm, where the cell IS a raw flat rsp coordinate, and are the members that still discriminate the arms (row alt-arb-bal-witness, s193).
+case "${SCRIP_SPAN_FRAME-}" in 0) ARM=0;; *) ARM=1;; esac   # ⛔ COMPUTED, NEVER TYPED: this must mirror sn4_span_frame() (emit.cpp) EXACTLY -- `(e && *e == '0') ? 0 : 1`, i.e. UNSET IS ON.  It read `${SCRIP_SPAN_FRAME:-0}` from s131 until s193 and so labelled every default-arm run `=0` after the s188 flip (d3251f23) made unset mean ON: the instrument printed the OFF label over ON-arm numbers for five sessions.
 printf '=== leafsib  SCRIP_SPAN_FRAME=%s ===\n' "$ARM"
-printf '%-8s | %-22s | %-22s\n' "sib" "m3 (--run BINARY)" "m4 (--compile TEXT)"
-printf -- '---------|------------------------|------------------------\n'
+printf '%-14s | %-22s | %-22s\n' "sib" "m3 (--run BINARY)" "m4 (--compile TEXT)"
+printf -- '---------------|------------------------|------------------------\n'
 pass3=0; pass4=0; tot=0
 for f in $SIBS; do
     src="$P/leafsib_$f.sno"; ref="$P/leafsib_$f.ref"
@@ -28,7 +28,7 @@ for f in $SIBS; do
             if [ "$r4" -eq 0 ] && cmp -s /tmp/ls_m4.out "$ref"; then d4="pass"; pass4=$((pass4+1)); fi
         else r4="gcc"; fi
     fi
-    printf '%-8s | rc=%-4s %-14s | rc=%-4s %-14s\n' "$f" "$r3" "$d3" "$r4" "$d4"
+    printf '%-14s | rc=%-4s %-14s | rc=%-4s %-14s\n' "$f" "$r3" "$d3" "$r4" "$d4"
 done
-printf -- '---------|------------------------|------------------------\n'
-printf 'TOTAL    | m3 %d/%d                 | m4 %d/%d\n' "$pass3" "$tot" "$pass4" "$tot"
+printf -- '---------------|------------------------|------------------------\n'
+printf '%-14s | m3 %d/%d%-17s | m4 %d/%d\n' "TOTAL" "$pass3" "$tot" "" "$pass4" "$tot"
