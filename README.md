@@ -782,89 +782,72 @@ Reproduce: `scripts/test_bench_prolog_4way.sh` (correctness), `scripts/bench_pro
 
 ## Icon Benchmark — SCRIP vs Arizona Icon (`icont`/`iconx`) vs JCON (JVM)
 
-**Measured 2026-08-21 at SCRIP `3b70bf67`, `RT_OPT=-O2`** — the benchmark arm of FACT RULE
-O0-DEV-O2-BENCH (`-O0` is the development default; `-O2` is passed explicitly for benchmark and
-demo runs only, and the tree was restored to `-O0` afterwards). **A number quoted without its
-`RT_OPT` is not comparable.** 16 cores, load average 1.1, min-of-3 wall clock.
+**Measured 2026-08-21 at SCRIP `3b70bf67`, `RT_OPT=-O2`** (the benchmark arm of FACT RULE
+O0-DEV-O2-BENCH; `-O0` is the development default and the tree is restored to it afterwards).
+Runner: `scripts/bench_icon_rate_3way.sh`. Programs: `corpus/benchmarks/icon/rate/`.
 
-⛔ **TWO REFERENCE ENGINES, TWO DIFFERENT JOBS — do not blur them.** **Arizona Icon 9.5.25a is the
-CORRECTNESS ORACLE** (Lon, 2026-07-21: never grade Icon against Java/JVM). **JCON 2.2+git is a SPEED
-REFERENCE ONLY**, added at Lon's request 2026-08-21; it grades nothing. Every correctness verdict
-below is against `iconx`.
+⛔ **TWO REFERENCE ENGINES, TWO DIFFERENT JOBS.** **Arizona Icon 9.5.25a is the CORRECTNESS ORACLE**
+(Lon, 2026-07-21: never grade Icon against Java/JVM). **JCON 2.2+git is a SPEED REFERENCE ONLY**,
+added at Lon's request 2026-08-21; it grades nothing.
 
-Both oracles are built from source in-sandbox, and each has a trap worth recording:
+### Method — fixed TIME, count iterations, report a rate
 
-- **Arizona** (`refs/icon-master`): `make X-Configure name=linux && make All` fails on a headless box
-  because the `linux` config enables graphics. Comment out `#define Graphics 1` in `src/h/define.h`
-  **and** blank `XLIBS =` in both `Makedefs` and `config/linux/Makedefs`, or the build stops at
-  `X11/xpm.h` and then again at `-lXpm`.
-- **JCON** (`refs/jcon-master`, OpenJDK 21): **its translator is itself written in Icon**, so
-  `icont` must be built and on `PATH` first — `jcon/Makefile` generates `iTrampoline.java` by running
-  `icont -us trampgen -x`. Build with `make build`.
+Each program reads its own **`&time`**, warms untimed so a JIT can reach steady state, then runs whole
+**UNIT**s until a wall-clock budget expires and reports `units elapsed_ms checksum`. Rate =
+`units × UNIT ÷ ms`. Startup is excluded **by construction on every engine** — verified equivalent:
+SCRIP 21 ms internal / 25 ms wall, `iconx` 170/175, JCON 90/162 (JCON's gap is exactly its JVM
+startup).
 
-### Method — why every timing is paired with a correctness verdict
+⛔ **This replaces fixed-iteration timing, which this project used until 2026-08-21 and which is not
+trustworthy on this corpus** (Lon: *"I do not trust those numbers"* — he was right, and inverting the
+loop changed the answer):
 
-Compilation is **excluded** from the timed region for `m4`, `iconx` and `jcon` (each is compiled once,
-then the executable alone is timed); it is **included** for `m3` by nature, since `--run` compiles and
-jumps in. Each engine's fixed process floor is measured separately on a trivial program and must be
-subtracted before quoting any ratio:
+1. Fixed-iteration runs here last 12–80 ms, so **process startup is a large fraction** and has to be
+   hand-subtracted — an error-amplifying step.
+2. It **never lets a JIT warm.** It measured JCON cold and reported it ~2.9× *behind* SCRIP. Warm,
+   **JCON is ahead of SCRIP on 7 of the 9 scored benchmarks.**
+3. At those durations **contention swings a single sample by >50%**: the `iconx` oracle — an unchanged
+   binary — read 26,560 then 17,312 ops/ms on two consecutive runs. The table below is **best-of-3**
+   with the machine load recorded.
 
-| floor | iconx | jcon | SCRIP m3 | SCRIP m4 |
-|---|---:|---:|---:|---:|
-| trivial program | 2 ms | **72 ms** (JVM startup) | 4 ms | 3 ms |
+⛔ **A matching checksum does not prove the work happened.** Each program's checksum is per-UNIT, so it
+is identical on every engine regardless of how many units each completed — one run yields the rate
+*and* a cross-engine correctness check. But **SCRIP constant-folds `"abcdefgh" || "ijklmnop"`** in
+`concat_dispatch` (measured: **zero** concat calls in its emitted `.s`, against 2 in every other concat
+benchmark) and the folded constant still has the right length, so the checksum matched anyway. That row
+is **excluded from scoring**. Audit the emitted asm for the operation under test before trusting a row.
 
-**A timing on a program that skipped its workload is not a benchmark.** This section has been burned
-by that twice — see the superseded 2026-07-18 grid below, and `tgrlink` in this very run, which
-"finished" in 31 ms against `iconx`'s 127 ms and looked like a 4× win while emitting **2 lines where
-both oracles emit 3,239**. Timings and output checks are therefore always reported together.
+### Rate — ops/ms, higher is better, best-of-3, load 1.9
 
-### The ten self-contained microbenchmarks — all three engines byte-identical to `iconx`
+| benchmark | `iconx` | JCON | SCRIP m3 | SCRIP m4 | m4 vs `iconx` | m4 vs JCON |
+|---|---:|---:|---:|---:|---:|---:|
+| `int_loop` | 22,987 | 96,947 | 246,320 | **226,760** | **9.86×** | **2.34×** |
+| `int_mod` | 24,867 | 121,347 | 164,893 | **155,507** | **6.25×** | **1.28×** |
+| `concat_table` | 800 | 22,573 | 1,738 | 1,671 | **2.09×** | 0.07× |
+| `concat_strvar` | 22,787 | 74,680 | 43,973 | 42,932 | **1.88×** | 0.57× |
+| `concat_int_dispatch` | 18,093 | 67,200 | 19,133 | 18,759 | 1.04× | 0.28× |
+| `concat_intvar` | 20,147 | 78,400 | 18,987 | 19,253 | 0.96× | 0.25× |
+| `sub_table_miss` | 20,907 | 75,413 | 15,293 | 16,480 | 0.79× | 0.22× |
+| `sub_list` | 15,413 | 41,733 | 12,614 | 12,093 | 0.78× | 0.29× |
+| `table_semantics` | 8,030 | 39,990 | 2,577 | 2,625 | 0.33× | 0.07× |
+| ~~`concat_dispatch`~~ | 24,653 | 71,213 | 206,920 | 201,947 | *(void — SCRIP folds it)* | *(void)* |
 
-These carry real workloads (2,000,000 iterations each) and the work demonstrably happens:
-`bench_icnint_loop` prints `2000001000000` = Σ1..2,000,000 on every engine. Min-of-3 ms, as measured
-(subtract the floors above for execution-only ratios):
+**Scoreboard (9 scored): against Arizona Icon SCRIP wins 4, ties 2, loses 3. Against JCON SCRIP wins
+2 and loses 7.**
 
-| benchmark | iconx | jcon | SCRIP m3 | SCRIP m4 |
-|---|---:|---:|---:|---:|
-| `bench_icnint_loop` | 73 | 118 | 14 | **12** |
-| `bench_icnint_mod_isolate` | 87 | 110 | 19 | **17** |
-| `bench_icnstr_concat_dispatch` | 94 | 140 | 16 | **14** |
-| `bench_icnstr_concat_int_dispatch` | 128 | 145 | 84 | **81** |
-| `bench_icnstr_concat_intvar` | 115 | 136 | 83 | **75** |
-| `bench_icnstr_concat_strvar` | 97 | 137 | **33** | 35 |
-| `bench_icnstr_concat_table` | 227 | **100** | 75 | 77 |
-| `bench_icnsub_list_dispatch` | 144 | 149 | **55** | 55 |
-| `bench_icnsub_table_miss_dispatch` | 109 | **124** | 77 | 75 |
-| `bench_icnsub_table_miss_semantics` | 4 | 91 | 11 | 8 |
+The shape of that result is consistent and unsurprising once seen: **SCRIP's native compilation wins
+where the work is register-shaped** — integer loops (**9.9×** over `iconx`) and integer modulo
+(**6.3×**) — and **loses where the work lives in the runtime library**: list subscripting, table
+lookup, and above all the table-building `table_semantics` benchmark, where SCRIP is **3× slower than
+`iconx` and 15× slower than JCON**. Concatenation is the boundary: ~1.9× ahead on a string variable,
+at parity on an integer variable. **This mirrors the SNOBOL4 result in this same README**, whose
+losses also concentrate in the runtime library rather than in emitted code.
 
-**Correctness: 10/10 byte-identical to `iconx` on all three engines.** Floor-adjusted, SCRIP `m4`
-beats `iconx` on nine of ten — **6–8× on integer and concat-dispatch work**, 1.5–3× on string and
-subscript work.
-
-⛔ **Against JCON the result SPLITS, and the losing half is a live optimization target.** SCRIP wins
-integer and concat work by roughly 5×, but **JCON is faster on table-heavy work**: `concat_table`
-**28 ms vs SCRIP's 74 ms** and `table_miss_dispatch` **52 ms vs 72 ms**, both floor-adjusted. The
-JVM's hash tables beat ours. That is a measurement to act on, not noise to average away.
-
-### Long-run headline — 20,000,000-iteration integer loop
-
-Floor-adjusted, output identical on all three engines:
-
-| engine | time | vs SCRIP |
-|---|---:|---|
-| Arizona `iconx` | 819 ms | 8.8× slower |
-| JCON (JVM) | 270 ms | 2.9× slower |
-| SCRIP `m3` (JIT, compile included) | 95 ms | — |
-| SCRIP **`m4`** (native) | **93 ms** | — |
-
-**SCRIP is 8.8× faster than Arizona Icon and 2.9× faster than JCON on sustained integer work.**
-Note also that **JCON beats Arizona ~3× once its JIT warms** while paying 72 ms of startup: the JVM is
-the stronger of the two reference engines on long runs and by far the weaker on short ones.
-
-On `micro` (the IPL timing harness, arg `0.05`) — a genuine multi-second workload — SCRIP runs
-**2.3× faster than `iconx`**: 6,212 ms (`m4`) / 6,256 ms (`m3`) against 14,525 ms, with JCON at
-13,052 ms. Its output reports measured times and is therefore inherently nondeterministic, so it
-cannot be graded by byte-equality.
+⛔ **The table/list runtime is therefore the single highest-value Icon optimization target**, and JCON
+is the proof that the headroom is real: a JVM implementation is **14×** faster on `concat_table` and
+**15×** faster on `table_semantics`. JCON also beats Arizona ~3–5× across the board once warm, while
+paying ~72 ms of JVM startup — it is the stronger reference engine on sustained work and by far the
+weaker on short runs.
 
 ### ⛔ The larger corpus programs do not run — no speed claim may be made for them
 
@@ -877,36 +860,45 @@ cannot be graded by byte-equality.
 
 The five link-dependent programs crash **even when `options.icn` / `post.icn` / `shuffle.icn` are
 passed to `--compile`** (SCRIP accepts multiple source files without complaint), so this is not simply
-a missing-library problem. Closing this is `GOAL-ICON-100.md` Definition-of-Done item 3; until it is
-green, the microbenchmark and long-loop numbers above are the only Icon performance claims this
-project stands behind.
+a missing-library problem. Closing it is `GOAL-ICON-100.md` Definition-of-Done item 3. `tgrlink` is the
+standing reminder of why every timing here is paired with an output check: it "finished" in 31 ms
+against `iconx`'s 127 ms — a 4× "win" — while doing almost none of the work.
 
-Two harness traps that will bite anyone reproducing this: link-dependency libraries must be passed to
-**SCRIP** as well as to `icont`/`jcont`, or the comparison indicts the wrong engine; and `post.icn`
-prints an engine-specific `&features` preamble (`Icon Version…` / `Jcon Version…`, `Java`,
-`co-expressions`, `dynamic loading`), so a raw `cmp` reports **JCON itself** as wrong on five
-programs.
+Reproduce: build both oracles (below), then
+`RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" make pristine` and
+`bash scripts/bench_icon_rate_3way.sh`. Correctness on the full corpus:
+`bash scripts/honest_icon_correctness.sh`.
+
+**Oracle build traps, both hit this session.** *Arizona* (`refs/icon-master`): the `linux` config
+enables graphics, so on a headless box you must comment `#define Graphics 1` in `src/h/define.h`
+**and** blank `XLIBS =` in both `Makedefs` and `config/linux/Makedefs`, or the build stops at
+`X11/xpm.h` and then at `-lXpm`. *JCON* (`refs/jcon-master`, OpenJDK 21): **its translator is itself
+written in Icon**, so `icont` must be built and on `PATH` first.
 
 ### Superseded grids — kept for the lessons, not the numbers
 
-⚠ **The 2026-07-18 grid (`f405c6a7`) reported `m4` as 6.8×/6.5×/13.8× faster than `iconx` on
-concord/deal/queens. Those numbers are void and must not be cited:** five of that grid's six times sat
-on the ~4 ms process floor, and the suite then stood at 6/10 with `geddump`/`tgrlink` emitting zero
-output — the "skipped the workload" signature that output-diffing exists to catch.
+⚠ **The fixed-iteration grid published earlier on 2026-08-21 is superseded by the table above.** It
+reported SCRIP m4 beating `iconx` on 9 of 10 microbenchmarks and being 2.9× faster than JCON. Both
+claims were artifacts of the method: the runs were startup-dominated with hand-subtracted floors, and
+**JCON was measured cold**. Under fixed-time measurement SCRIP wins 4 of 9 against `iconx` and loses 7
+of 9 to JCON.
 
-⚠ **The 2026-07-25 grid (`2cbdc2b1`, `RT_OPT=-O0`) reported the opposite of this one — `m4` at 0.62×
-geomean, i.e. SCRIP 1.62× *slower* than `iconx` — on 6/9 byte-identical correctness.** Two things
-changed since, and both matter: that grid was taken at **`-O0`**, the development arm, where the
-runtime is unoptimized; and the larger programs it timed **have regressed to SEGV** (recorded
-independently at s230 and re-measured here per-program). Its architectural finding still stands and is
-worth keeping: measured with callgrind, SCRIP executed **fewer instructions than the `iconx` bytecode
-interpreter on `tgrlink`** (1.303 G vs 1.339 G Ir) and still lost on wall clock, which located the
-deficit in **memory behaviour** — a cold bump-allocated arena against `iconx`'s small warm heap, with
-25× the LL misses and 25× the page faults at s163 — rather than in instruction count.
+⚠ **The 2026-07-18 grid (`f405c6a7`) reported 6.8×/6.5×/13.8× on concord/deal/queens. Void:** five of
+its six times sat on the ~4 ms process floor, and the suite then stood at 6/10 with `geddump`/`tgrlink`
+emitting zero output.
 
-Reproduce: build both oracles as described above, then compare with
-`scripts/honest_icon_bench.sh` (timing) and `scripts/honest_icon_correctness.sh` (real-output diff
-against `iconx`).
+⚠ **The 2026-07-25 grid (`2cbdc2b1`, `RT_OPT=-O0`) reported `m4` at 0.62× geomean — SCRIP 1.62×
+*slower* than `iconx`** — on 6/9 byte-identical correctness. It was taken on the **`-O0` development
+arm**, and the larger programs it timed have since regressed to SEGV. ⛔ Its build-arm lesson is live:
+measuring the `-O0` build against optimized oracles understates SCRIP by roughly 2× on every
+runtime-heavy benchmark, an error made and caught during this harness's own bring-up. Its
+architectural finding still stands: measured with callgrind, SCRIP executed **fewer instructions than
+the `iconx` interpreter** on `tgrlink` (1.303 G vs 1.339 G Ir) and still lost on wall clock, locating
+the deficit in **memory behaviour** — a cold bump-allocated arena against `iconx`'s small warm heap,
+25× the LL misses and 25× the page faults at s163 — not in instruction count. ⛔ A related hypothesis
+was tested and **falsified** this session: SCRIP's throughput does **not** decay over a sustained
+window (concat_intvar held 9,461→10,507 ops/ms from a 500 ms to a 6,000 ms budget), so the runtime
+deficit is per-operation cost, not progressive GC degradation.
 
 ---
 
