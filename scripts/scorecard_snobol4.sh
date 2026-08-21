@@ -279,10 +279,18 @@ cmd_report() {
   # a timing is the jobs of this board NOT EACH HOLDING A CORE, i.e. peak > nproc; seat5\'s measured collision (two boards at
   # --jobs 12 on 16 cores, peak ~24) trips that, a 6-job board beside an idle desktop does not.  Foreign load below that line is
   # reported as NOISY with its number so a later board can be compared against it, and never as "not comparable".
+  # ⛔ THE ALARM RIDES THE SMOOTHED 1-MINUTE AVERAGE, NOT THE INSTANTANEOUS RUNNABLE COUNT, AND THE REASON WAS MEASURED HERE, NOT
+  # REASONED: a 6-job board on an IDLE box sampled `runnable PEAK 13` against a 1-min average of 3.69, because each run_one slot
+  # briefly holds two processes (timeout plus its child) and gcc bursts on top of that -- so a board can transiently out-run its
+  # own job count all by itself.  Alarming on that would fire OVERSUBSCRIBED on every honest --jobs 12 board, which is the
+  # cry-wolf failure again.  The runnable peak is kept and PRINTED because it is the responsive half and shows the burst shape;
+  # the VERDICT uses the peak of the 1-minute average, which no single sample can spike.  Both of the failures this row exists to
+  # catch still trip it: two --jobs 12 boards for an hour drive the AVERAGE past 16 cores, and a foreign burst inside a long board
+  # is caught because load_peak is the max ACROSS samples, not the value at the end.
   if [ -f "$out/provenance.tsv" ]; then
     ${AWK:-awk} -F'\t' '{V[$1]=$2} END{
       j=V["jobs"]+0; np=V["nproc"]+0; pk=V["load_peak"]+0; rk=V["runnable_peak"]+0; pm=V["peers_max"]+0; f=V["forced"]+0; d=V["duration_s"]+0;
-      hi=(pk>rk?pk:rk); ex=hi-j; sp=ENVIRON["S4E_SAMPLE"]; if(sp=="") sp="5";
+      hi=pk; ex=hi-j; sp=ENVIRON["S4E_SAMPLE"]; if(sp=="") sp="5";
       if(V["end_epoch"]=="") tail="⛔ RUN IN PROGRESS or KILLED -- no end recorded"; else tail=sprintf("end=%s  wall=%dm%02ds", V["end_iso"], d/60, d%60);
       pl=""; if(pm>0 && V["peers_seen"]!="-" && V["peers_seen"]!="") pl=sprintf("(pids %s)", V["peers_seen"]);
       printf "PROVENANCE  root=%s pid=%s  jobs=%d/%d cores  suites=%s  start=%s  %s\n", V["root"], V["pid"], j, np, V["suites"], V["start_iso"], tail;
@@ -294,8 +302,8 @@ cmd_report() {
       if(V["peers_at_start"]!="" && V["peers_at_start"]!="-") why=why" a board was already running when this one started;";
       if(np>0 && hi>np) why=why sprintf(" box OVERSUBSCRIBED -- peak %.2f runnable on %d cores, so the %d jobs of this board did NOT each hold a core;", hi, np, j);
       if(why!="") printf "⛔ CONTENDED — the timings of this board are NOT comparable to a quiet board:%s Nine of twelve suites grade on a 20s budget and rc 124 becomes TIMEOUT, so TIMEOUT and SIG rows here may be load artefacts rather than tree state.\n", why;
-      else if(ex>2) printf "· NOISY (not contended) — about %.1f runnable beyond the %d jobs of this board, but peak %.2f still fits in %d cores, so every job held one. Timings are comparable; the estimate is printed so a later board can be compared against it.\n", ex, j, hi, np;
-      else printf "⭐ CLEAN — nothing beyond the %d jobs of this board was runnable at any sample; these timings are comparable to a quiet board.\n", j;
+      else if(ex>2) printf "· NOISY (not contended) — about %.1f of sustained load beyond the %d jobs of this board, but peak %.2f still fits in %d cores, so every job held one. Timings are comparable; the estimate is printed so a later board can be compared against it.\n", ex, j, hi, np;
+      else printf "⭐ CLEAN — sustained load never rose above the %d jobs of this board and no other board was seen; these timings are comparable to a quiet board.\n", j;
     }' "$out/provenance.tsv"
   else
     echo "⛔ NO PROVENANCE FOR THIS BOARD (measured before s190, or by a runner that does not record it): jobs, wall time, load and concurrent-board state are UNKNOWN, so a TIMEOUT row here CANNOT be distinguished from a load artefact. Re-measure before quoting these numbers."
