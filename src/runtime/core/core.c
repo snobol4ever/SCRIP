@@ -441,6 +441,23 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- UNLOAD(name).  EVERY ARM MEASURED ON THE LIVE ORACLE, none chosen: a user-defined name succeeds and returns
+ *--- the NULL STRING, removing ONLY the function binding -- the same name's VARIABLE VALUE SURVIVES; a name never
+ *--- DEFINEd succeeds silently; unloading twice succeeds; a builtin raises ERROR 248 "attempted redefinition of
+ *--- system function", which is the manual's user-functions-only rule spoken as SPITBOL speaks it; a non-name
+ *--- STRING ('1BAD') and an INTEGER both succeed, so the argument is not name-validated, only TYPE-validated; and
+ *--- the null string or an aggregate (ARRAY measured) raises ERROR 201 "unload argument is not natural variable
+ *--- name".  The type test is one comparison because the descriptor encoding puts every scalar below DT_P. ---*/
+static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
+    if (n < 1 || a[0].v >= DT_P) { core_runtime_error(201, "unload argument is not natural variable name"); return FAILDESCR; }
+    extern int UNLOAD_fn(const char *);
+    int r = UNLOAD_fn(VARVAL_fn(a[0]));
+    if (r < 0) { core_runtime_error(201, "unload argument is not natural variable name"); return FAILDESCR; }
+    if (r == 0) { core_runtime_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }   /* ⭐ s189 (HQ Fable, autobug unblock; delegates to mon_name_is_internal, the s112 MON-CAP ONE AUTHORITY -- identifier-head test, so the user variable named "$" survives): compiler-SYNTHETIC frames (EXPR$n defer thunks, PAT$n blobs) never cross the trace/monitor surface -- the oracle structurally cannot emit them ($ is not a name character in source), so every such CALL/RETURN/VALUE event is a GUARANTEED false divergence that kills the 2-way sync-step at the first deferred evaluation and blinds Lon's automatic bug finder exactly where beauty's bug lives (step 1568: spl CALL PushCounter vs scr CALL EXPR$173, the *Command thunk).  Filtering here also moves &FTRACE toward oracle behavior (SPITBOL user tracing has no synthetic frames).  SCRIP_MON_SYNTH=1 restores the old stream for A/B.  NAMESPACE-LAW-consistent (ARCH-PASSTHRU: synthetic names are pollution and die); function-local static cache per the tree's killswitch idiom, ZERO new file-scope state. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
@@ -1824,6 +1841,7 @@ void core_lib_init(void) {
     register_fn("TRACE",    _TRACE_,       1, 4);
     register_fn("STOPTR",   _STOPTR_,      1, 2);
     register_fn("LOAD",            _b_LOAD_stub,        1, 2);
+    register_fn("UNLOAD",          _UNLOAD_,            1, 1);
     register_fn("MON_OPEN",        _b_MON_OPEN,         3, 3);
     register_fn("MON_PUT_S_VALUE", _b_MON_PUT_S_VALUE,  2, 2);
     register_fn("MON_PUT_I_VALUE", _b_MON_PUT_I_VALUE,  2, 2);
@@ -2622,6 +2640,27 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
             return 1;
         }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- UNLOAD's registry half (manual v3.7 p.245 "Remove function definition ... In SPITBOL, only user-defined
+ *--- functions can be UNLOADed").  Builtins and user functions share THIS ONE table -- register_fn is a thin
+ *--- wrapper over DEFINE_fn -- so the system/user discriminator is ->fn: register_fn is its only writer, and a
+ *--- SNOBOL4 DEFINE always registers with fn NULL (_DEFINE_ passes NULL down both its arms).  Answers 1 removed
+ *--- or never-there, 0 system function (caller raises 248), -1 unusable name (caller raises 201).  A name that
+ *--- was never DEFINEd answering 1 is not laxness: the live oracle SUCCEEDS on it, in silence, measured. ---*/
+int UNLOAD_fn(const char *name) {
+    _func_init();
+    if (!name || !*name) return -1;
+    unsigned h = _func_hash(name);
+    FNCBLK_t *prev = (FNCBLK_t *)0;
+    for (FNCBLK_t *e = _func_buckets[h]; e; prev = e, e = (FNCBLK_t *)e->next) {
+        if (strcmp(e->name, name) != 0) continue;
+        if (e->fn) return 0;
+        if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
+        return 1;
+    }
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn_alias(const char *newname, const char *oldname) {
