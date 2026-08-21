@@ -36,6 +36,7 @@ DESCR_t INVOKE_fn(const char *name, DESCR_t *args, int nargs);
 DESCR_t dat_field_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t ARGVAL_fn(DESCR_t d);
 DESCR_t VARVAL_d_fn(DESCR_t d);
+const char *rt_sno_indirect_name(DESCR_t v);
 DESCR_t INTVAL_fn(DESCR_t d);
 DESCR_t PATVAL_fn(DESCR_t d);
 DESCR_t VARVUP_fn(DESCR_t d);

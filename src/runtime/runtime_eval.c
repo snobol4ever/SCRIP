@@ -443,7 +443,7 @@ void *rt_goto_resolve(const char *name)
     if (!name || !*name) return NULL;
     if (name[0] == '$') {
         DESCR_t iv = NV_GET_fn(name + 1);
-        const char *inm = VARVAL_fn(iv);
+        const char *inm = rt_sno_indirect_name(iv);
         if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
         return rt_goto_resolve(inm);
     }
