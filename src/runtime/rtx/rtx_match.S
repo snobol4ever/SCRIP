@@ -1092,7 +1092,9 @@ RTX_ENDF(rt_defer_get_pat_fn)
  * byte-identity and correctness only.
  *===================================================================================================================*/
 RTX_FUNC(rt_cap_open)
-    RTX_GATE(match, c_rt_cap_open)
+    /* s196 (Lon in-chat): ONE IMPLEMENTATION TO MAINTAIN — the RTX_GATE is DELETED and this asm ARM A is the
+     * SOLE spelling of the plain-name immediate-$ commit; c_rt_cap_open keeps ONLY the computed-name '*' arm
+     * (file-static g_capx machinery unreachable from a .S TU) and bombs if a plain name ever reaches it.     */
     /* EARLY BAIL: null or empty varname -> C (returns 0 — early exit in C body) */
     test    rdi, rdi
     jz      c_rt_cap_open

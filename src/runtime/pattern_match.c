@@ -738,7 +738,7 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-    if (varname[0] != '*') { NV_SET_fn(varname, matched); return 0; }
+    if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.S is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
