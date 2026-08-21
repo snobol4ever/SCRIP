@@ -488,6 +488,114 @@ dominate `.so` build time. Forward plan: the C runtime is to be replaced by a
 hand-written **x86 ASM runtime**, optimal for mode 3 and mode 4 alike — no C
 compiler, no opt level, in the runtime at all.
 
+## ⭐ Performance — SCRIP vs SPITBOL (2026-08-21 s198, current)
+
+Measured at SCRIP `1f6cea4d` — the **Milestone 1** tree (`beauty.sno < beauty.sno` byte-identical
+to its own source, both modes) — and re-verified at `3b70bf67`. Engines: **SPITBOL x64 `sbl -bf`**
+(the `-f` arm is the only one matching SCRIP's case-sensitivity, per the s189 ruling) vs SCRIP
+**m3** (`--run`, in-process) and **m4** (`--compile` → `as`+`gcc`, links `libscrip_rt.so`).
+Instrument: `scripts/test_bench_snobol4_timed.sh` — fixed 500 ms budget, **iterations counted**
+(a ratio, not a delta), every row's `check:` line diffed against its `.ref` so **correctness
+travels with every number**. `SCRIP_NOHUGE=1`, arena sized past the window (**gc=0 on every row
+quoted** — a window containing a collection is a stall figure, not throughput).
+
+### ⛔ `-O2` IS NOT CORRECTNESS-EQUIVALENT — read this before quoting any `-O2` number
+
+`RT_OPT` defaults to `-O0`; `-O2` is for benchmark runs only (O0-DEV-O2-BENCH). That rule is
+usually explained by build time (~1m40 vs ~9m30). **It is also a correctness rule:** at `-O2`,
+same tree, `RT_OPT` the only variable, the Milestone 1 ladder collapses **10/10 → 3/10 in both
+modes** and `beauty.sno` self-host emits md5 `1c75f97d…` instead of `6f1671c0…`. Ablation puts
+the whole defect in **`libscrip_rt.so`** (rebuilding only the runtime at `-O2`, compiler left at
+`-O0`, reproduces it exactly — the emitter is exonerated); the ζ-SM tracer brackets it to **one
+port event**: 3,126 events agree, then both arms fire `ORIGIN op=114 IR_STATEMENT_END` on
+*different* nodes and `-O2` skips ~68 iterations of beauty's scan loop. Tracked as rank-0
+`o2-runtime-red-on-m1`. **The suites below are correctness-gated and pass in both arms; beauty
+is quoted at `-O0`, the only arm where it is right.**
+
+### Beauty self-host — the Milestone 1 program (`RT_OPT=-O0`)
+
+Interleaved min-of-7; every single run's md5 checked against the fixed point (**7/7 correct for
+all three engines**, so this is a like-for-like race). `sbl` and m3 both *compile and run*;
+m4 is run-only and its one-time image build is listed separately.
+
+| engine | min | med | max | spread | vs `sbl` |
+|---|---:|---:|---:|---:|---:|
+| **SPITBOL `sbl -bf`** | **36 ms** | 36 | 39 | 8.3% | 1.00× |
+| SCRIP m4 (run only) | 358 ms | 370 | 391 | 9.2% | **0.10× — 10× slower** |
+| SCRIP m3 (compile+run) | 2,568 ms | 2,591 | 2,602 | 1.3% | **0.01× — 71× slower** |
+
+m4 image build, once: `--compile` **1,812 ms** + `gcc` link 274 ms. **SPITBOL compiles *and* runs
+beauty in 36 ms — less time than SCRIP spends emitting it.** m3's 2.5 s is dominated by
+compilation, not execution.
+
+### Microbenchmark family — 15 programs, **15/15 correct in both arms**, throughput (iters/s)
+
+`m3:sbl > 1.00×` means **SCRIP is faster**. Both `RT_OPT` arms shown, because the gap between
+them is itself the finding (see below).
+
+| benchmark | `sbl`/s | m3/s `-O0` | m3/s `-O2` | m3:sbl `-O0` | m3:sbl `-O2` |
+|---|---:|---:|---:|---:|---:|
+| var_access | 8.7M | 60.6M | 57.9M | **6.99×** | **6.71×** |
+| func_call | 13.3M | 80.4M | 78.7M | **6.04×** | **5.87×** |
+| op_dispatch | 10.5M | 60.1M | 58.7M | **5.75×** | **5.58×** |
+| arith_loop | 23.3M | 125.1M | 121.7M | **5.37×** | **5.05×** |
+| fibonacci | 6.6K | 30.4K | 30.5K | **4.62×** | **4.83×** |
+| string_concat | 5.1M | 17.1M | 32.3M | **3.34×** | **5.95×** |
+| array_sum | 19.7K | 17.8K | 18.3K | 0.91× | 0.93× |
+| pattern_bt | 3.9M | 2.9M | 3.6M | 0.73× | 0.94× |
+| string_pattern | 8.2M | 5.8M | 7.5M | 0.70× | 0.91× |
+| eval_fixed | 6.3M | 3.5M | 4.5M | 0.56× | 0.72× |
+| table_access | 16.5K | 8.1K | 9.5K | 0.49× | 0.56× |
+| mixed_workload | 376.8K | 158.1K | 196.9K | 0.42× | 0.52× |
+| indirect_dispatch | 11.1M | 4.6M | 5.5M | 0.41× | 0.50× |
+| string_manip | 9.5M | 2.6M | 3.2M | 0.28× | 0.33× |
+| roman | 812.7K | 212.6K | 334.0K | 0.26× | 0.42× |
+
+**m4:m3 = 0.95–1.08× on every row** — the two modes are performance-equal, as the m3 ≡ m4 design
+invariant requires.
+
+### Demo / real-workload family — 15 programs (`HEAP=4096`, GC-free window)
+
+| benchmark | `sbl`/s | m3/s `-O0` | m3:sbl `-O0` | m3:sbl `-O2` |
+|---|---:|---:|---:|---:|
+| claws5-match-fence | 9.1K | 15.0K | **1.65×** | **1.58×** |
+| claws5-match | 10.3K | 15.8K | **1.53×** | **1.54×** |
+| treebank-match-fence | 2.3K | 2.0K | 0.85× | 0.99× |
+| treebank-match | 2.5K | 1.9K | 0.74× | 0.81× |
+| calculator-1-match | 34 | 22 | 0.65× | 0.74× |
+| calculator-1-match-fence | 80 | 39 | 0.49× | 0.69× |
+| calculator-1 | 171 | 71 | 0.42× | 0.45× |
+| calculator-2-match-fence | 2.2K | 864 | 0.40× | 0.53× |
+| calculator-2-match | 3.4K | 851 | 0.25× | 0.35× |
+| claws5 (unmatched) | 213 | 41 | 0.19× | 0.22× |
+
+⛔ **5 of 15 rows are red in BOTH arms and are therefore standing defects, not `-O2` fallout**
+(attribution measured, not assumed): `json` / `json-match` / `json-match-fence` CRASH, `porter`
+CRASH/BUILD-ERR, `calculator-2` DISAGREE. ⛔ `json-match-fence` at `HEAP=4096` printed a nonsense
+**74.27G/s** for m4 — a broken row emitting a rate. Never quote it.
+
+### ⭐⭐ What the numbers say — the split follows the *binary* boundary
+
+`RT_OPT` governs **only the C runtime library**, never SCRIP's emitted code. So the `-O2` − `-O0`
+delta on each row measures **how much of that row runs in C**, and it separates the table cleanly:
+
+* **Rows SCRIP wins 4.6–7.0× move ≤4% between arms** (var_access, func_call, op_dispatch,
+  arith_loop, fibonacci) — statistically nothing against their 2.4–14% min-detectable. They run
+  almost entirely in emitted x86. **That engine really is 5–7× faster than SPITBOL.**
+* **Rows SCRIP loses are exactly the rows `-O2` helps** — string_concat 1.89×, roman 1.57×,
+  string_pattern / eval_fixed 1.29×, mixed_workload 1.25×, pattern_bt 1.24×, table_access 1.17× —
+  because they spend their time in the C runtime, which is where SCRIP is behind.
+
+**The road to "ten times faster" runs through the runtime library, not the code generator** — and
+beauty is the extreme case: 1.8 s to emit a program SPITBOL compiles and runs in 36 ms. This
+confirms and sharpens the s111 reading below (*"the remaining losses concentrate in the runtime
+library"*), which was inferred from build flags; here it is measured with `RT_OPT` as the only
+variable.
+
+*(Interface note: the build/flag sections earlier in this file are historical — `scrip-cc` and the
+per-backend `-asm`/`-jvm`/`-net` flags are gone. Today there is one `scrip` binary with two modes,
+`--run` (m3) and `--compile` (m4), x86-64 only; the other backends are dormant under X86-ONLY.)*
+
 ## SNOBOL4 Benchmark — SCRIP vs SPITBOL vs CSNOBOL4
 
 The SNOBOL4 frontend is measured against the two reference engines — **SPITBOL x64**
