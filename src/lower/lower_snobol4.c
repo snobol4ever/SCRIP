@@ -2193,6 +2193,7 @@ void sno_expr_thunks_build(int x0) {
     int sv = g_sno_in_patproc;
     g_sno_in_patproc = 1;
     for (int xi = x0; xi < g_sno_nexpr; xi++) {
+        { static int _xd = -1; if (_xd < 0) _xd = getenv("SCRIP_EXPR_DBG") ? 1 : 0; if (_xd) fprintf(stderr, "[EXPRDBG] %s want_name=%d expr.t=%d expr.sval=%.32s\n", g_sno_exprs[xi].name, g_sno_exprs[xi].want_name, g_sno_exprs[xi].expr ? (int)g_sno_exprs[xi].expr->t : -1, (g_sno_exprs[xi].expr && g_sno_exprs[xi].expr->v.sval) ? g_sno_exprs[xi].expr->v.sval : "?"); }
         IR_graph_t * gx = IR_alloc(256);
         scx_t ex; ex.g = gx; ex.loop_exit = NULL; ex.loop_next = NULL; ex.result_name = g_sno_exprs[xi].name; ex.pat_fail = NULL; ex.pat_seal = NULL; ex.npre = 0;
         IR_t * ok = lc_build(gx, IR_SUCCEED, NULL, NULL);

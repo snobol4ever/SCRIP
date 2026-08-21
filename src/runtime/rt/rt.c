@@ -1201,6 +1201,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     rt_k_level++;
+    rt_g_want_name = wn;
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
