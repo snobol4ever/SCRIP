@@ -26,7 +26,15 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"
 SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/programs/snobol4/demo"; NRM='/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d'
+DEMO="$CORPUS/programs/snobol4/demo"
+# ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines, and without stripping them this
+#    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4-suite/tab.sno had its keywords uppercased
+#    CORRECTLY -- normalized -bf output byte-identical to the pre-edit -b output -- and still read as a MOVER on
+#    `memory used (bytes) 15912` vs `15888` alone (24 bytes, the symbol table holding different identifier strings).
+#    4 of the 42 movers at s191 dissolved on this rule with nothing else changed.  Same argument the iters:/ms: rule
+#    already makes.  `stmts executed` and `REGENERATIONS` are DELIBERATELY LEFT IN: those are deterministic given the
+#    program, so a change in them is a real behavioural change this sweep should keep failing on.
+NRM='/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^execution time msec[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory used (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory left (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d'
 [ -x "$SBL" ] || { echo "FATAL: no oracle at $SBL -- a board without it prints a plausible all-FAIL table (PLAN.md 1b)"; exit 1; }
 # ⛔ THIS TABLE IS A SECOND COPY OF scorecard_snobol4.sh's SUITES TABLE AND NOTHING KEEPS THEM IN STEP (named s191, row `gimpel-suite-harness`).
 # The two are edited independently and have already drifted once: s191 changed the gimpel row there to `-name *_driver.sno` -- the 145 files in

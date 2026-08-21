@@ -54,8 +54,21 @@ def fix_line(line):
         parts.append(text)
     return "".join(parts)
 
+END_STMT = re.compile(r"^[Ee][Nn][Dd][ \t]*(?:[;*].*)?$")
 def fix_text(src):
-    return "".join(fix_line(l) for l in src.splitlines(keepends=True))
+    """⛔ s191: STOP AT THE END STATEMENT.  Everything after `END` is the program's inline INPUT DATA,
+    not code, and uppercasing it CORRUPTS THE DATA.  Measured on csnobol4-suite/tab.sno, whose data is the
+    Gettysburg Address: `or any nation` -> `or ANY nation`, `that field` -> `that FIELD`.  Already landed
+    once (corpus c8a687ef, s188): trim0/trim1 read `this line has a leading tab` -> `... leading TAB`, so a
+    file whose data DESCRIBES ITSELF now contradicts itself.  Inert under SPITBOL, which never reads
+    post-END text -- but CSNOBOL4 does, and a re-pin would bake the corruption in."""
+    out, done = [], False
+    for l in src.splitlines(keepends=True):
+        if done: out.append(l); continue
+        fixed = fix_line(l)
+        out.append(fixed)
+        if END_STMT.match(l.rstrip("\n").rstrip("\r")): done = True   # the END line itself is still uppercased; only what FOLLOWS is data
+    return "".join(out)
 
 if __name__ == "__main__":
     p = sys.argv[1]

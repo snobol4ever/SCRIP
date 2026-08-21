@@ -9,14 +9,32 @@ DECISION PROCEDURE (per program):
              `Integer` != INTEGER and `bal` != BAL.  Blanket uppercasing would break them.
   accept     iff after the edit, -bf rc == 0 AND output == pin (if pinned) else == the -b output
              the program produced BEFORE the edit.  Otherwise REVERT and report.
-⛔ corpus/programs/lon/ is never opened."""
+⛔ TWO DIRECTORIES ARE NEVER OPENED, BY CONSTRUCTION (OFF_LIMITS below, enforced in closure() so the
+   walk never descends and in the write loop as a belt): corpus/programs/lon/ (RULES.md ABSOLUTE --
+   do not run, do not read) and corpus/programs/include/ (HQ interim s191 -- inherits the do-not-read
+   half pending Lon's credential ruling).  Both locks are READ locks, not just write locks: closure()
+   open()s every file it reaches, and a secret read into a transcript has been copied somewhere new.
+   CONSEQUENCE, STATED SO IT IS NOT MISREAD AS A BUG: a gimpel program whose fix needs an uppercased
+   file under programs/include/ cannot be completed, so the accept test fails and the driver REVERTS
+   and names it.  That is the correct outcome, not a failure of the tool."""
 import os, re, subprocess, sys, hashlib, shutil
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from util_uppercase_keywords import fix_text
-S4E="/home/claude1"; CORPUS=S4E+"/corpus"; SBL=S4E+"/x64/bin/sbl"; SC=S4E+"/SCRIP"
+S4E=os.environ.get("S4E_HOME") or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # D-17 PORTABLE-HOME: sibling root from $0, as util_oracle_flag_sweep.sh does; the hardcoded /home/claude1 made this script seat-local
+CORPUS=S4E+"/corpus"; SBL=(os.environ.get("SBL") or S4E+"/x64/bin/sbl"); SC=S4E+"/SCRIP"
+OFF_LIMITS=("/programs/lon/","/programs/include/")   # lon: RULES.md ABSOLUTE (do not run, do not read).  include/: HQ interim s191 -- inherits the do-not-read half pending Lon's credential ruling, so it is excluded BY CONSTRUCTION here, not skipped at run time
+def off_limits(path): return any(k in path.replace(os.sep,"/") for k in OFF_LIMITS)
 DEMO=CORPUS+"/programs/snobol4/demo"
 NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
-def norm(b): return NRM.sub(b"", b)
+# ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines.  Measured on
+# csnobol4-suite/tab.sno: the uppercasing was CORRECT and the only difference from the -b baseline was
+# `memory used (bytes) 15912` vs `15888` (24 bytes, from the symbol table holding different identifier
+# strings) -- so the accept test REVERTED a good conversion.  These three lines are not a semantic
+# property of the program, exactly as the scorecard already argues for its own iters:/ms: rule.
+# `stmts executed` and `REGENERATIONS` are DELIBERATELY NOT stripped: those are deterministic given
+# the program and a change in them is a real behavioural change worth failing on.
+ENVN=re.compile(rb"^(?:execution time msec|memory used \(bytes\)|memory left \(bytes\))\s+[0-9]+\n", re.M)
+def norm(b): return ENVN.sub(b"", NRM.sub(b"", b))
 def libspec(su): return {"beauty_self":"demo/beauty","patterns":"demo/inc","crosscheck":"demo/inc",
     "feature_test":"CORPUS","gimpel":"SELFDIR:programs/include"}.get(su,"SELFDIR")
 def libpath(spec,pd):
@@ -41,7 +59,7 @@ INC=re.compile(r"^-[Ii][Nn][Cc][Ll][Uu][Dd][Ee]\s+['\"]([^'\"]+)['\"]", re.M)
 def closure(prog, L, seen=None):
     """program + every file it -INCLUDEs, resolved along the lib path (transitive)."""
     if seen is None: seen=set()
-    if prog in seen or not os.path.exists(prog): return seen
+    if prog in seen or not os.path.exists(prog) or off_limits(prog): return seen   # off-limits files are never opened, so they can never be read into a transcript nor rewritten
     seen.add(prog)
     try: txt=open(prog,"rb").read().decode("utf-8","surrogateescape")
     except Exception: return seen
@@ -56,7 +74,7 @@ def main():
     fixed=[]; left=[]; failed=[]
     for su,prog,rb,rf,mb,mf,tag in movers:
         full=prog if prog.startswith("/") else CORPUS+"/"+prog
-        assert "/programs/lon/" not in full
+        assert not off_limits(full), full
         if not os.path.exists(full): continue
         d=os.path.dirname(full); L=libpath(libspec(su),d); stdin=stdin_for(full)
         ref=full[:-4]+".ref"; pin=norm(open(ref,"rb").read()) if os.path.exists(ref) else None
@@ -76,6 +94,7 @@ def main():
         target = pin if pin_is_target else out_b
         files=sorted(closure(full,L)); backup={}
         for f in files:
+            assert not off_limits(f), f
             raw=open(f,"rb").read(); src=raw.decode("utf-8","surrogateescape"); out=fix_text(src)
             if out!=src: backup[f]=raw; open(f,"wb").write(out.encode("utf-8","surrogateescape"))
         if not backup: failed.append((su,prog,"broken-under-bf but uppercaser changes NOTHING")); continue
@@ -91,4 +110,4 @@ def main():
     for lbl,lst in (("FIXED",fixed),("LEFT ALONE",left),("NOT FIXED",failed)):
         print("\n=== %s (%d) ==="%(lbl,len(lst)))
         for su,p,note in lst: print("  %-15s %-52s %s"%(su,p,note))
-main()
+if __name__ == "__main__": main()   # ⛔ s191: main() used to run at MODULE level, so `import util_fix_folding_dialect` to reuse stdin_for/libpath/run/norm SILENTLY EXECUTED A FULL FIX PASS over whatever sys.argv[1] happened to be.  Measured: it did, over all 42 movers instead of a reviewed 21.  Nothing was damaged -- every file failed the accept test and was reverted, which is the guard working -- but a reader must be able to import this module for its helpers without editing the corpus.
