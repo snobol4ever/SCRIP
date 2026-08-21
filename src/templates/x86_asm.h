@@ -304,8 +304,10 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 #define RTCC_C_R11  8u
 #define RTCC_C_ALL  15u
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline unsigned x86_rtcc_wire_bank(void) { const char * e = getenv("SCRIP_RTCC_BANK_WIRES"); return (e && *e == '1') ? (RTCC_C_R10 | RTCC_C_R11) : 0u; }
+static inline unsigned x86_rtcc_nowire(unsigned m) { return m & (~(unsigned)(RTCC_C_R10 | RTCC_C_R11) | x86_rtcc_wire_bank()); }
 static inline unsigned x86_rtcc_clob(const char * sym) {
-    if (!sym) return RTCC_C_ALL;
+    if (!sym) return x86_rtcc_nowire(RTCC_C_ALL);
     static const struct { const char * n; unsigned m; } T[] = {
         { "rt_dcap_end_ok_close",       0 }, { "rt_faildescr",              0 },
         { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
@@ -315,8 +317,8 @@ static inline unsigned x86_rtcc_clob(const char * sym) {
         { "rt_cap_top",         RTCC_C_R10 }, { "rt_match_ctx_restore", RTCC_C_R10 },
         { "rt_cmp_d", RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 },
     };
-    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return T[i].m;
-    return RTCC_C_ALL;
+    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return x86_rtcc_nowire(T[i].m);
+    return x86_rtcc_nowire(RTCC_C_ALL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
@@ -1491,11 +1493,11 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (!strcmp(mnem, "rtcc_wb")) {
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block)) : x86_rtcc_wb_text();
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, x86_rtcc_nowire(RTCC_C_ALL))) : x86_rtcc_wb_text(x86_rtcc_nowire(RTCC_C_ALL));
     }
     if (!strcmp(mnem, "rtcc_rl")) {
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block)) : x86_rtcc_rl_text();
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, x86_rtcc_nowire(RTCC_C_ALL))) : x86_rtcc_rl_text(x86_rtcc_nowire(RTCC_C_ALL));
     }
     if (!strcmp(mnem, "rtcc_anchor_cmp")) {
         if (!RTCC_GLOBAL_R8_ANCHOR) {
