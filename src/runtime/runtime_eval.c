@@ -432,30 +432,34 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GOTO_FRAME_BYTES (64 * 1024)
-void rt_goto_transfer(const char *name)
-{
-    if (!name || !*name) return;
+void *rt_goto_resolve(const char *name)
+{   /* ⭐ THE RESOLVE HALF, SPLIT OUT (row beauty-return-pair-shift): identical lookup order to what rt_goto_transfer has always done, but it RETURNS the chain address instead of entering it.  NULL means "no transfer" -- today only the END sentinel and the empty name, exactly the two cases the old code answered with a bare `return`.  Splitting is behaviour-preserving BY CONSTRUCTION: rt_goto_transfer below is now literally resolve-then-enter, so every existing caller sees the same sequence of lookups, the same diagnostics and the same exit(1) on an undefined label.  It exists so a CALLER CAN TAIL-TRANSFER: rt_chain_enter runs the transferee as a NESTED one-shot activation with chain-scoped wires (rcx/rdx -> its own landing, five callee-save pushes below), which is right for an EVAL/CODE fragment that terminates and WRONG for a computed goto into a labelled statement that ends in `:(RETURN)` -- the manual's own return idiom (v3.7 p.130: RETURN is a reserved LABEL reached by a goto, not a statement).  Such a transferee reaches the shared RETURN floater at the NESTED depth, where the {γ,ω} pair its DEFINE α pushed is not, and the depth-exact `pop rcx` reads C save-set data. */
+    if (!name || !*name) return NULL;
     if (name[0] == '$') {
         DESCR_t iv = NV_GET_fn(name + 1);
         const char *inm = VARVAL_fn(iv);
         if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
-        rt_goto_transfer(inm);
-        return;
+        return rt_goto_resolve(inm);
     }
-    if (!strcmp(name, "END")) return;
-    eval_chain_fn fn = rt_label_get_fn(name);
-    if (fn) { rt_chain_enter(fn); return; }
+    if (!strcmp(name, "END")) return NULL;
+    { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
     {
         extern void *rt_proc_get_fn(const char *);
         char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
-        fn = (eval_chain_fn)rt_proc_get_fn(lname);
-        if (fn) { rt_chain_enter(fn); return; }
+        eval_chain_fn fn = (eval_chain_fn)rt_proc_get_fn(lname);
+        if (fn) return (void *)fn;
     }
     {
         DESCR_t d = NV_GET_fn(name);
-        if (d.v == DT_C && d.slen == 3) { rt_chain_enter((eval_chain_fn)d.ptr); return; }
+        if (d.v == DT_C && d.slen == 3) return d.ptr;
     }
     fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_goto_transfer(const char *name)
+{   /* UNCHANGED BEHAVIOUR, RESTATED: resolve, then enter nested.  Every pre-existing caller keeps this exact shape; the tail-transfer road is opt-in at the emission site (bb_goto_deferred, SCRIP_GOTO_TAIL), never here. */
+    void *fn = rt_goto_resolve(name);
+    if (fn) rt_chain_enter((eval_chain_fn)fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
