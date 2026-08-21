@@ -55,6 +55,7 @@ static unsigned long g_zsm_seen_n = 0UL;
 static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zsm_leak_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_LEAK_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zsm_overpop_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_OVERPOP"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int zsm_bskew_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_BSKEW"); v = (e && *e == '1') ? 1 : 0; } return v; }
 void rt_bomb(const char *msg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?"; }
@@ -124,12 +125,15 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         return;
     }
     if (kind == 2) {
+        if (rsp != e->rsp_a && zsm_bskew_on()) { fprintf(stderr, "[ZSM-BSKEW] β%s node=%lu op=%ld(%s) rsp at β differs from α by %ld bytes (α rsp=0x%lx β rsp=0x%lx) st=%ld\n", fl ? "·" : "", node, zop, bb_op_name((IR_e)zop), (long)(e->rsp_a - rsp), e->rsp_a, rsp, (long)kw_stcount); }
         if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
               { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
             else if (g_zsm_fsm_illegal <= 8UL) fprintf(stderr, "[ZSM] β· node=%lu while state=%s -- counted (frameless arm)\n", node, zsm_sn(e->state)); }
-        if (rbp != e->F) { g_zsm_violations++; zsm_dump();
-            { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FRAME LOST: α established F=0x%lx (E=0x%lx); at β rbp=0x%lx skew=%ld", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+        if (rbp != e->F) { g_zsm_violations++;
+            if (!fl) { zsm_dump();
+              { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FRAME LOST: α established F=0x%lx (E=0x%lx); at β rbp=0x%lx skew=%ld", node, e->F, e->E, rbp, (long)(rbp - e->F)); rt_bomb(b); } }
+            else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] β· node=%lu rbp moved α→β: F=0x%lx at β rbp=0x%lx skew=%ld -- counted, not fatal (the γ arm's whack-owner exemption mirrored per s195 caveat (b): a whack-owning box legally retires the construct frame before a frameless sibling's β; the FRAMED tier still bombs)\n", node, e->F, rbp, (long)(rbp - e->F)); }
         e->state = ZSM_RESUMED;
         return;
     }
