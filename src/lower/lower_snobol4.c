@@ -125,6 +125,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
     }
     return entry;
 }
+static void sx_sub_container_only(IR_t * sub) { const char * e = getenv("SCRIP_SUB_AGG"); if (!(e && *e == '0')) IR_LIT(sub).sval = "container-only"; }   /* ⭐⭐⭐ CONTAINER-ONLY SUBSCRIPT (queue row `subscript-silent-accept`) -- THE MARK THIS LOWERER PUTS ON EVERY x[i] IT BUILDS, AND THE WHOLE OF WHAT DISTINGUISHES SPITBOL SUBSCRIPTING FROM ICON'S.  SPITBOL v3.7 p.89-90 (Array referencing) and p.94-95 (Table referencing) admit exactly two subscriptable objects -- an ARRAY and a TABLE -- and Appendix D 235 is what every other operand answers: "Subscripted operand is not table or array".  ORACLE-MEASURED ON sbl -bf, four shapes, all 235: an UNSET variable (the null string), a NON-NULL STRING (`A = 'hello'; X = A[2]`), an INTEGER, and a program-defined DATA object (`DATA('P(X,Y)'); Q = P(1,2); Q[1]`).  ⛔ IT IS A MARK AND NOT A CHECK BECAUSE THE OPERAND'S DATATYPE IS A RUNTIME VALUE: the lowerer cannot know what A holds, so it records WHICH RULE APPLIES and the runtime applies it.  ⛔ AND THE RULE CANNOT LIVE IN THE SHARED RUNTIME UNMARKED: rt_subscript_var serves Icon too, where `s[i]` on a STRING is a legal substring variable and `L[i]` on a list is a legal element -- the two arms SCRIP was answering SNOBOL4 with.  That is why the un-marked witnesses were not merely silent: `A = 'hello'; X = A[2]` printed `e` in both modes where the oracle raises 235, a SILENT WRONG ANSWER, and `X = A[1]` on an unset A produced nothing at all with rc=0 where the oracle TERMINATES at statement 1.  ⛔ NOT A LANGUAGE NAME: the mark says what the subscript DOES ("the base must be an aggregate"), which is the behavioural description the emit-no-lang gate requires; .sc and .reb ride this lowerer and inherit it because they inherit SPITBOL's aggregate rule with it.  sval is free on the 2-operand form -- bb_section reads "lv"/"+"/"-" but only ever sees n_operands != 2 (emit.cpp:1261), and no optimizer pass reads IR_SUBSCRIPT at all -- so the union write cannot collide.  Killswitch SCRIP_SUB_AGG=0 leaves the mark off and restores the permissive arm verbatim. */
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -379,6 +380,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
             lc_γ_to(cur, ie);
             IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+            sx_sub_container_only(sub);
             lc_γ_to(ir, sub);
             ir_operand_push(sub, cur); ir_operand_push(sub, ir);
             cur = sub;
@@ -875,6 +877,7 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
         IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[k], NULL, ω, &ir);
         lc_γ_to(cur, ie);
         IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+        sx_sub_container_only(sub);
         lc_γ_to(ir, sub);
         ir_operand_push(sub, cur); ir_operand_push(sub, ir);
         cur = sub;
