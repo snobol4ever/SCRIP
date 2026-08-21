@@ -818,6 +818,8 @@ int main(int argc, char **argv)
         else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : strcmp(z, "forth") == 0 ? 6 : strcmp(z, "heap") == 0 ? 7 : -1;  if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack, forth, heap)\n", z); return 2; } if (pm == ZC_PORT_FORTH) rt_zeta_storage_set(ZC_STORAGE_CELL_STACK); else if (pm == ZC_PORT_CSTACK) rt_zeta_storage_set(ZC_STORAGE_FRAME_RSP); else if (pm == ZC_PORT_HEAP) rt_zeta_storage_set(ZC_STORAGE_CELL_HEAP); else rt_zeta_port_set_mode(pm); argi++; }
         else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { const char *z = argv[argi] + 15; if (strcmp(z, "frame-r12") == 0) { fprintf(stderr, "scrip: --zeta-storage=frame-r12 RETIRED s23k ZW-0 (r12 = COND-ASSIGN stack, Lon directive; island zeta-frame technique withdrawn)\n"); return 2; } int sm = strcmp(z, "frame-rsp") == 0 ? 1 : strcmp(z, "cell-stack") == 0 ? 2 : strcmp(z, "cell-heap") == 0 ? 3 : -1;  if (sm < 0) { fprintf(stderr, "scrip: bad --zeta-storage=%s (valid: frame-r12, frame-rsp, cell-stack, cell-heap)\n", z); return 2; } rt_zeta_storage_set(sm); argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
+        else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
+        else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
         else break;
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimo", argv[argi][1])) {
@@ -1293,6 +1295,7 @@ int main(int argc, char **argv)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
                 emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
+            { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
@@ -1361,6 +1364,7 @@ int main(int argc, char **argv)
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            { extern int g_monitor_bin; extern int g_mon_max_stno; if (g_monitor_bin) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);
@@ -1469,6 +1473,7 @@ int main(int argc, char **argv)
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
+            { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             if (rt_zc_frame_live() == ZC_FRAME_RSP) {
                 if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
@@ -1552,6 +1557,7 @@ int main(int argc, char **argv)
             g_frame_active = 0;
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            { extern int g_monitor_bin; extern int g_mon_max_stno; if (g_monitor_bin) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
             fflush(stdout);
@@ -1585,7 +1591,7 @@ int main(int argc, char **argv)
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
                 gva_collect_reset();
                 gva_collect_icon_globals();
-                int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
+                int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
@@ -1727,7 +1733,7 @@ int main(int argc, char **argv)
                 IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
                 if (_mg) gva_collect_graph(_mg);
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }
-                int n_gva_m3 = getenv("MONITOR_BIN") ? 0 : gva_count();
+                int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));

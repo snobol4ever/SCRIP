@@ -183,6 +183,25 @@ fi
 # no source modification, no LOAD-chain.
 if [[ "$want_scr" = "1" ]]; then
     SCR_RUN_FLAG="${SCRIP_RUN_FLAG:---run}"
+    if [[ "$SCR_RUN_FLAG" == "--m4" || "${SCRIP_M4:-0}" == "1" ]]; then
+        # s196 m4 participant (Lon: m4 in the 2-way monitor outranks m3).  Compile with
+        # --monitor so the inline WRITE taps + stmt/label/call taps BAKE into the .s
+        # (shared codegen: identical instrumentation to m3), link against libscrip_rt.so
+        # (whose core init reads MONITOR_READY_PIPE at run time), run the binary.
+        ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
+            || { echo "FAIL m4 compile: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
+        gcc -no-pie "$TMP/scr.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$TMP/scr.bin" >> "$TMP/scr.cc.out" 2>&1 \
+            || { echo "FAIL m4 link: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
+        MONITOR_BIN=1 \
+        MONITOR_READY_PIPE="$TMP/scr.ready" \
+        MONITOR_GO_PIPE="$TMP/scr.go" \
+        MONITOR_NAMES_OUT="$TMP/scr.names" \
+        SCRIP_TRACE="${SCRIP_TRACE:-99999}" \
+        SNO_LIB="$INC" \
+            timeout "$((TIMEOUT*2))" "$TMP/scr.bin" \
+            < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
+        PIDS+=($!)
+    else
     MONITOR_BIN=1 \
     MONITOR_READY_PIPE="$TMP/scr.ready" \
     MONITOR_GO_PIPE="$TMP/scr.go" \
@@ -192,6 +211,7 @@ if [[ "$want_scr" = "1" ]]; then
         timeout "$((TIMEOUT*2))" "$SCRIP" "$SCR_RUN_FLAG" "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
     PIDS+=($!)
+    fi
 fi
 
 # snobol4dotnet — runtime under test for GOAL-NET-BEAUTY-SELF.
