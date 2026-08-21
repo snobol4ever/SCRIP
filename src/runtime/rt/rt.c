@@ -918,6 +918,13 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
       void **cell = (void **)bb_ab_fn_cell_ptr(cn);
       return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }   /* ⭐⭐⭐ D-18c (s161, HQ): AN UNSEALED CELL IS NOT A TARGET. bb_ab_slot_for initializes every cell to rt_ab_undef_fn_stub AND bb_ab_fn_cell_ptr ALLOCATES on first request -- so this reader, asking for a name nobody sealed (every EVAL-fragment EXPR$/PAT$ thunk: their chains carry no <name>_α label for the seal walk to find), minted a stub-holding cell and "preferred" the stub over the LIVE fallback (p->fn, the registered chain entry). Error 22 at match time for every deferred call inside an EVAL-built pattern, both modes -- beauty's grammar wall (B1b witness probe/b1/b1_eval_pattern_defer_call). The stub is the allocator's OWN sentinel, so testing against it is exact, not heuristic. */
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_seal_alpha(const char * name, void * fn) {
+    static int live = -1; if (live < 0) { const char * e = getenv("SCRIP_M4_ALPHA_SEAL"); live = e ? (e[0] != '0') : 1; }
+    if (!live || !name || !fn) return;
+    { extern void * bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
+      void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
+}
 #define RT_INITIAL_MAX 8192
 static int64_t g_initial_fired[RT_INITIAL_MAX];
 static int     g_initial_fired_n = 0;

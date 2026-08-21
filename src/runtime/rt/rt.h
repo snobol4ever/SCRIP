@@ -99,6 +99,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
 DESCR_t rt_proc_resume_frame(void *frame);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *sl);
+void rt_proc_seal_alpha(const char *name, void *fn);
 DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs);
 int rt_proc_index_of(const char *name);
 void rt_proc_table_fill(int64_t *tab, const char **names, int n);
