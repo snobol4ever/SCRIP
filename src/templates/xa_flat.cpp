@@ -386,7 +386,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
     }
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; restore caller ___ from header; jmp γ wire")
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24]; unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
@@ -412,7 +412,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("call", "rt_gen_save_wires", _sw_fp)
              + x86("jmp", "r15");
     }
-    return x86("comment", "ICN-FR-2 zframe epilogue-ω: unwind to flat base; load ω wire; restore caller ___; jmp")
+    return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + x86("add", "rsp", (long)kt)
          + std::string("")

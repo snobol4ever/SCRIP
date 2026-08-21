@@ -2698,7 +2698,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
-            _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16, frame_total - 8);
+            _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
             if (!_lseed.empty()) bb_emit_x86(_lseed);
             _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
@@ -2707,7 +2707,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (frame_total <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)frame_total); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)frame_total); }
             { int _d = frame_total - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
-            { int _d = frame_total - 8;  ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } }
+            { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }   /* ⭐ N-1(a) s247: the [frame_total-8] "caller ____" slot is WRITE-ONLY — three sites fill it with two different registers (this one rbp, xa_flat:195/:247 rsp) and NOTHING READS IT: both zframe epilogues carry an empty string where the restore used to be, and neither arg installer touches the header (they write only [base+16*(i+1)]).  The store was BINARY-ONLY: the TEXT arm's snprintf passed frame_total-8 as a FOURTH vararg to a format with THREE conversions, so it was silently dropped — an m3 ≢ m4 divergence in the Icon prologue, inert only because the slot is dead.  Removed rather than added to TEXT: the media agree by losing an instruction, not by gaining a dead one.  SCRIP_ICN_HDR_DEAD=1 restores the store byte-exactly for A/B.  The slot disappears entirely at N-1(b/c) when the wire header gives way to the caller-pushed pair. */
             if (!_lseed.empty()) bb_emit_x86(_lseed);
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
