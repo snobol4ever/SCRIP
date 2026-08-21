@@ -2105,7 +2105,8 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
      * left-to-right construction order.  The pre-chain runs ONCE per statement entry — never per anchor, never
      * per element α — so LEN(1) $ V BREAK(V) sees the PRE-statement V (oracle probe p5). */
     IR_t * after = head;
-    for (int pi = 0; pi < cx->npre; pi++) {
+    static int _preord = -1; if (_preord < 0) { const char * e = getenv("SCRIP_PRE_ORDER"); _preord = (e && *e == '0') ? 0 : 1; }   /* ⭐ s191 PRE-CHAIN ORDER (HQ, beauty lane): the drain below builds each entry with `after` as its CONTINUATION, so the chain EXECUTES in reverse loop order.  The header above asserts "SEQ lowers right-first so forward iteration here yields left-to-right construction order" -- that premise is FALSE at this HEAD and the IR proves it: for `GT(A,0) LEN(A-10)` the LEN argument coerces BEFORE the GT predicate, i.e. right-to-left, so a failing guard cannot short-circuit the operand it guards (manual p.85-86 + the oracle: evaluation is left-to-right and a failure ABORTS the statement).  Iterating the drain backwards restores source order.  SCRIP_PRE_ORDER=0 restores the old direction verbatim. */
+    for (int pi = _preord ? cx->npre - 1 : 0; _preord ? (pi >= 0) : (pi < cx->npre); pi += _preord ? -1 : 1) {
         if (cx->pre[pi].snapg) {   /* PB-1s: stage-2 snapshot -- VAR(live name) -> ASSIGN(hidden global) in the pre-chain; the IR_MATCH_DEFER (prim) fetches the frozen global at scan time by name */
             static int g_snapctr = 0; char nb[32]; snprintf(nb, sizeof nb, "PATV$%d", g_snapctr++);
             char * gname = lp_strdup(nb); sno_reg_var(gname);
