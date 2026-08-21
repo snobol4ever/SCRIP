@@ -1546,6 +1546,30 @@ main_ω:
                         call             exit@PLT
 module_init:
                         sub              rsp, 8
+                        .section         .rodata
+.Lseala2:               .string          "fact"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            fact_α
+                        lea              rdi, [rip + .Lseala2]
+                        mov              rsi, qword ptr [rip + fact_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala3:               .string          "facto"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            facto_α
+                        lea              rdi, [rip + .Lseala3]
+                        mov              rsi, qword ptr [rip + facto_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala4:               .string          "fact2"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            fact2_α
+                        lea              rdi, [rip + .Lseala4]
+                        mov              rsi, qword ptr [rip + fact2_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
                         add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits
