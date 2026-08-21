@@ -20,21 +20,10 @@ Trail         g_resolve_trail;
 int           g_resolve_cut_flag = 0;
 #include "../../parser/prolog/pl_cell.h"
 pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 };
-/* RSP-F-2 VALUE-TRAIL DEATH TIDY (2026-07-18): a determinate jmp-entry callee fully unwinds its rsp-carved activation at exit, but the value trail still holds {addr,old} entries pointing INTO that dead
- * stack window (the callee's own frame cells, bound and trailed during its run).  Left in place, a later unwind to an older mark RESTORES through those addresses into whatever now occupies the memory —
- * reused C helper frames (the measured *** stack smashing *** in rt_call_arr) or, worse, a LIVE later activation carved over the same region (silent corruption).  Unwind-time filtering is UNSOUND
- * against that reuse-aliasing, so the drop happens at the only sound moment — FRAME DEATH: the det call's landing walks the segment pushed since call-open and compacts out entries whose address lies in
- * the just-vacated stack window (floor = this leaf's own C frame, the deepest live stack byte — the (floor,upper) span is inside the stack VMA, so no heap cell can alias it; upper = the landing rsp,
- * passed by the epilogue as its frame address + 16).  Entries at or above upper are the caller's live cells (head-unification bindings that backtracking MUST later undo) and entries outside the stack
- * span are heap cells — both kept, order preserved (same-address restore pairs are either both dead or both live, so value-restore commutation is untouched).  Behavioral leaves, no language identity:
- * a program that never pushes the value trail gets mark==top and a zero-iteration walk. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_value_trail_mark(void) { return g_pl_trail.top; }
 _Static_assert(__builtin_offsetof(pl_trail_t, top) == 32 && sizeof(pl_area_t) == 32, "rtx_plcall.S AND src/templates/bb_define.cpp (RTX-FUNC-1 alpha inline) both bake PL_TRAIL_TOP=32 to inline rt_value_trail_mark; pl_area_t grew or shrank -- the asm would stamp the vtmark from the WRONG WORD, which links fine and makes the epilogue landings tidy the wrong span of the value trail");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-DC s108 WINDOW FORM — the (lower,upper) span is the EXACT dead activation [frame base, landing rsp), carried by the caller (pcall c.fb on the wire path, the dc micro-stack pair on the direct
- * path), replacing the floor-heuristic band below whose width was accidentally the tidying C leaves' own frame extent: entries in the suffix zone deeper than that band survived forever (the measured
- * dc 28K saw; latent on the wire path too for any graph whose locals span exceeds the epilogue's frame).  lower==0 (no recorded frame: dyn/slim callers) degrades to the empty window — heap and
- * caller cells were never this walk's business. */
 void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper) {
     pl_trail_ent_t *ents = (pl_trail_ent_t *)g_pl_trail.area.base;
     char *lo = (char *)lower;
@@ -62,7 +51,6 @@ void rt_value_trail_tidy_dead_below(int mark, void *upper) {
     }
     g_pl_trail.top = w;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_area_t     g_pl_env_area       = { (char *)0, (char *)0, (char *)0, 0 };
 int           g_resolve_active   = 0;
 resolve_choice    *g_resolve_bfr      = NULL;

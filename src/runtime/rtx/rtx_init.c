@@ -5,11 +5,9 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_misc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_alloc;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_str;
-/* rtx_gate_call / rtx_gate_plcall ERADICATED with rtx_call.S / rtx_plcall.S (GLOBALS-GONE s55: their subject was the g_pcall record). */
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_leaf;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_arith;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icnvar;
@@ -23,28 +21,11 @@ extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_icnsub;
 extern __attribute__((visibility("hidden"))) unsigned char rtx_gate_plunify;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char rtx_env_on(const char *name, unsigned char dflt) { const char *e = getenv(name); if (!e || !*e) return dflt; return (unsigned char)(e[0] != '0'); }
-/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s112 MON-CAP — UNDER THE MONITOR THE RTX ASM PORTS DEFAULT OFF, so every traced operation reaches the C body where the fire-points live.  This is the SAME design the driver already uses for GVA
- * (MONITOR_BIN ⇒ n_gva_m3=0, scrip.c:1560/1708) applied to the other half of the bypass problem: an RTX port re-implements its C body's FAST arms in hand asm and re-enters C only for the cold ones, so
- * a tap added to the C body fires for the cold arm and is DARK for the fast one.  MEASURED on rtx_icnvar: a TABLE store falls to C and tapped correctly, while an ARRAY-element store was served entirely
- * in asm and emitted no event — the monitor's second beauty-class blindness, and one that would have read as a missing assignment rather than a missing tap.  The monitor regime is a TRACING regime, not
- * a performance regime, so correctness of the trace outranks the port.  An explicit SCRIP_RTX_*=1 still wins (rtx_env_on honours any set value), so a seat can re-arm one port to bisect a suspected RTX
- * defect under the monitor.  Zero effect when the monitor is dark: MONITOR_BIN unset ⇒ every default is 1 exactly as before. */
 static unsigned char rtx_mon_dflt(void) { const char *m = getenv("MONITOR_BIN"); return (unsigned char)((m && *m && m[0] != '0') ? 0 : 1); }
-/*---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rtx_gates_init(void) { unsigned char d = rtx_mon_dflt(); rtx_gate_misc = rtx_env_on("SCRIP_RTX_MISC", d); rtx_gate_alloc = rtx_env_on("SCRIP_RTX_ALLOC", d); rtx_gate_str = rtx_env_on("SCRIP_RTX_STR", d); rtx_gate_leaf = rtx_env_on("SCRIP_RTX_LEAF", d); rtx_gate_arith = rtx_env_on("SCRIP_RTX_ARITH", d); rtx_gate_icnvar = rtx_env_on("SCRIP_RTX_ICNVAR", d); rtx_gate_icnnum = rtx_env_on("SCRIP_RTX_ICNNUM", d); rtx_gate_icnrel = rtx_env_on("SCRIP_RTX_ICNREL", d); rtx_gate_icnagg = rtx_env_on("SCRIP_RTX_ICNAGG", d); rtx_gate_match = rtx_env_on("SCRIP_RTX_MATCH", d); rtx_gate_icngen = rtx_env_on("SCRIP_RTX_ICNGEN", d); rtx_gate_icncall = rtx_env_on("SCRIP_RTX_ICNCALL", d); rtx_gate_icnsub = rtx_env_on("SCRIP_RTX_ICNSUB", d); rtx_gate_plunify = rtx_env_on("SCRIP_RTX_PLUNIFY", d); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int Σlen; extern uint32_t g_cap_gen; extern uint32_t g_cap_gen_next;
 _Static_assert(sizeof(g_cap_gen) == 4 && sizeof(g_cap_gen_next) == 4, "rtx_match.S stores g_cap_gen/g_cap_gen_next with `dword ptr` because they sit ADJACENT at +0x0/+0x4 in pattern_match.o; if either widens, that dword store truncates and an 8-byte store would clobber the sibling generation well -- links fine, passes short tests (s218)");
 _Static_assert(sizeof(Σlen) == 4, "rtx_match.S stores Σlen with `dword ptr` (rt_match_enter, rt_match_ctx_restore); Σlen is `int` and has a neighbour at +0x14 in stmt_exec.o -- a qword store there is the s217 store-width class");
-/* s220 CORRECTION TO THE s218 ITEM AS WORDED: the s218 cursor asked for a _Static_assert on the g_cap_gen/g_cap_gen_next
- * and Σ/Σlen ADJACENCIES, and that is why it stayed undone for three sessions -- C cannot express it. offsetof works
- * only inside an aggregate; two independent globals have no statically-known relative address, so no _Static_assert
- * can name their distance. WHAT IS EXPRESSIBLE IS THE WIDTH, and width is the whole of what the adjacency endangers:
- * the hazard is never "they moved apart", it is "a store wider than the target reached the neighbour." The two asserts
- * above pin that statically; scripts/test_gate_rtx_store_width.sh (s219b) enforces the same property dynamically from
- * ELF symbol sizes, which additionally catches a store to a global these asserts do not name. Item closed as CORRECTED,
- * not as done-as-asked. */
 _Static_assert(RT_DCAP_TOP == 0x70000000UL, "rtx_match.S's rt_match_enter hardcodes RTX_DCAP_TOP_VA 0x70000000 as an absolute disp32 to inline the rt_dcap_lazy_init test; pin_va.h moved the pin -- the asm would test a DEAD page, read 0 forever, and call the initializer on EVERY match instead of once");
 extern __attribute__((visibility("hidden"))) int g_repl_trace;
 _Static_assert(sizeof(g_repl_trace) == 4, "rtx_match.S SLICE 9 tests g_repl_trace with `cmp dword ptr`; if it widens, the compare reads half the flag and the asm would run the hot arm while tracing is on -- silently swallowing every [REPL] line the flag exists to produce");

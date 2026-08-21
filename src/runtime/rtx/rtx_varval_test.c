@@ -1,27 +1,3 @@
-/* rtx_varval_test.c — differential battery: asm VARVAL_fn vs c_VARVAL_fn.
- *
- * VARVAL_fn is comparable arm-for-arm in a way the allocator is not, and the two arms
- * demand DIFFERENT comparisons — which is the whole point of this battery:
- *
- *   THE PORTED ARM (DT_S, .s non-NULL) MUST RETURN THE CALLER'S OWN POINTER. The C reads
- *   `return v.s ? v.s : ...`, so it hands back the identical address and allocates nothing.
- *   Comparing BYTES there would pass even if the asm had quietly strdup'd, and a silent
- *   strdup on a path taken 20,000,006 times in one benchmark run is exactly the regression
- *   this file exists to catch. So the fast arm is checked with POINTER IDENTITY, not strcmp.
- *
- *   THE DELEGATED ARMS mint fresh storage on every call, so asm and C legitimately return
- *   DIFFERENT addresses and only the BYTES are comparable. Those are checked with strcmp.
- *
- * The integer and real cases are the SPITBOL Ch.3 conversion rules, and they are the reason
- * those arms stay in C rather than becoming asm: integer->string suppresses leading zeros and
- * carries a sign with zero rendering as "0", and real->string is the standard representation
- * with a mandatory decimal point. Both PRODUCE a string, so both must allocate.
- *
- * DT_N / DT_K / populated DT_A / DT_T / DT_DATA are deliberately ABSENT. They dereference
- * their payload (and DT_N/DT_K recurse through rt_deref / NV_GET_fn), so fabricating one here
- * would test the fixture rather than the port. Their NULL-payload guards ARE covered, because
- * those the C answers without dereferencing anything.
- */
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>

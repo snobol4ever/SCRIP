@@ -17,8 +17,8 @@
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
          abort(); } while (0)
 DESCR_t (*g_eval_str_hook)(const char *s) = NULL;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DATBLK_t *g_lf_type;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     if (o.v != DT_DATA || !o.u) return 0;
     DATBLK_t *t = o.u->type;
@@ -27,11 +27,11 @@ static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     DESCR_t ea = o.u->fields[0]; *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL; *n = (int)o.u->fields[1].i;
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct dtp_rcp { int tt; const char *s; uint32_t slen; int64_t ival; struct dtp_rcp *l; struct dtp_rcp *r; } dtp_rcp_t;
-typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int32_t zpad; DESCR_t *snap; int64_t nsnap; } DTP_t;   /* PS-1 (s150): zsz = per-activation frame bytes stamped at compile (0=unknown); zstatic = 1 iff blob graph has no DEFER/VALUE nodes (extent sound for ARBNO frame arithmetic); fields APPENDED — fn stays offset 0, future asm consumers read zsz at [p+16] */   /* PB-1s (s108): snap/nsnap = PER-CONSTRUCTION value snapshot (manual p.85-86: each construction freezes ITS OWN values) — filled by rt_patv_freeze at SNO$MKPAT from the per-site PAT$n$V<i> globals, read by the blob's $V slot arm via [rbp-24]->snap[i] at [p+32]/[p+40]; rt_ws_alloc island block = immortal + conservatively root-scanned every collect, so the held DESCRs (which can be patterns holding patterns) are GC roots by construction */
+typedef struct DTP { void *fn; dtp_rcp_t *rcp; int64_t zsz; int32_t zstatic; int32_t zpad; DESCR_t *snap; int64_t nsnap; } DTP_t;
 _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache reads DTP_t.fn at offset 0");
 _Static_assert(__builtin_offsetof(DTP_t, zsz) == 16, "PS-3 ARBNO stride latch reads DTP_t.zsz at offset 16");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pstamp_trace(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PSTAMP_TRACE"); v = e ? (atoi(e) != 0) : 0; } return v; }
 static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_ws_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; h->snap = 0; h->nsnap = 0; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
@@ -41,14 +41,11 @@ int dtp_zstatic_of(void *headv) { DTP_t *h = (DTP_t *)headv; return h ? (int)h->
 static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)rt_ws_alloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
 static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_P && d.p) {
         DTP_t *h = (DTP_t *)d.p;
         if (h->rcp) return h->rcp;
-        /* S-C (s104): a recipe-less compiled DT_P (SNO$MKPAT patproc product) composes via a minted-global
-         * DEFER — the ARB$ self-reference trick one function down, generalized.  The defer resolves through
-         * rt_defer_get_pat_fn -> dtp_fn_of -> h->fn at match time and rides the S-A suspend-gamma protocol;
-         * the nested-blob-defer class this arm previously refused (124/143/147) landed with that fix. */
         static int opq_uid = 0; char nb[24]; snprintf(nb, sizeof nb, "OPQ$%d", opq_uid++);
         NV_SET_fn(nb, d);
         { const char *pn = rt_ws_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
@@ -60,6 +57,7 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
     tree_t *t = ast_stmt_new((tree_e)r->tt);
@@ -88,6 +86,7 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     }
     return t;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *dtp_fn_of(void *headv) {
     DTP_t *h = (DTP_t *)headv;
     if (!h) return (void *)0;
@@ -342,13 +341,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     core_runtime_error(3, NULL);
     return 0;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s112 MON-CAP — THE SUBSCRIPTED-LVALUE VALUE TAP.  MEASURED on beauty.sno: the sync-step monitor's FIRST divergence (step 49, global.inc:29 `UTF[CHAR(194) CHAR(160)] = 'NO_BREAK_SPACE'`) was the oracle
- * emitting `VALUE <lval> = STRING(14)='NO_BREAK_SPACE'` where SCRIP emitted NOTHING and ran straight on to the next LABEL.  IT IS NOT A PROGRAM DEFECT — the discriminating probe stores and reads back
- * table AND array subscripts oracle-identically; SCRIP was simply DARK for this assignment class, which RULES.md names explicitly ("blind to the divergence CLASS ... reinstating/extending it comes
- * FIRST").  The simple-name taps live on the NV_SET family in rt.c; a subscripted store never passes through NV_SET, so it had no tap anywhere.  SPELLING IS THE ORACLE'S, NOT INVENTED: `<lval>` is
- * verbatim what the x64 `sbl` fire-point prints for a non-simple target (measured on a 4-form probe covering table, array, simple and indirect targets).  Wrapped rather than patched at each `return`
- * so every success path taps exactly once and the arms stay ONE AUTHORITY — `_body` keeps the whole original decision tree byte-for-byte.  Fires only under g_monitor_bin: zero cost when dark. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
@@ -356,6 +349,7 @@ DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
     if (((-ii) ^ (-ee)) < 0) return FAILDESCR;
     return subscript_get2(arr, i, end);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     if (arr.v == DT_A)
         return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));
@@ -409,7 +403,7 @@ static int subscript_set2_body(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     }
     return 0;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
@@ -465,7 +459,7 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     if (!nm || !old || !*old) return FAILDESCR;
     register_fn_alias(nm, old);
     return NULVCL;
-}   /* ⭐⭐⭐ OPSYN-3ARG (queue row `opsyn-3arg-ruling`) -- THE THIRD ARGUMENT IS A KIND SELECTOR AND opsyn() USED TO DISCARD IT (`(void)type;`), SO EVERY FORM WAS A FUNCTION ALIAS.  MANUAL v3.7 p.116 + p.234-235: OPSYN(s1,s2,i), i omitted/0 = FUNCTION synonym ("it cannot be an operator"), i=1 = s1 must be an UNUSED UNARY operator, i=2 = s1 must be an UNUSED BINARY operator; anything else is ERROR 156, and the manual names the restriction DELIBERATE -- "This is one of the few places where SPITBOL is more restrictive than other SNOBOL4 dialects.  However, by not allowing basic system functions and operators to be redefined, SPITBOL is able to optimize the code it generates."  THE ENGINE SPELLS IT THE SAME WAY (v37.min s$ops 16803-16862): gtsmi loads arg 3, `bnz wb,sops2` takes the OPERATOR path on non-zero, `bne wa,=num01,sops5` refuses a name that is not ONE CHARACTER, and the surviving char is looked up in a table holding only the UNDEFINED operators -- `erb 156` otherwise.  ⛔ THREE FACTS HERE ARE MEASURED ON THE LIVE ORACLE, NOT COPIED FROM THE PROSE, AND EACH ONE CONTRADICTS THE OBVIOUS READING.  (1) THE SETS: a 19-character sweep of `OPSYN(c,'SIZE',1)` / `OPSYN(c,'DIFFER',2)` returns unary = ! # % / = | (6) and binary = # % & @ ~ (5) -- exactly the manual's lists, and 1 + 5 == 6 is the `add =opbun,wb / beq wb,=opuun,sops3` arithmetic, so the SIL and the sweep confirm each other.  (2) i IS NOT RESTRICTED TO {0,1,2}: that same arithmetic sends 1 to the unary table and EVERYTHING ELSE NON-ZERO to the binary one, so i=3 and i=99 are BINARY opsyns and the oracle accepts them (measured).  A `kind == 2` test would have been stricter than SPITBOL.  (3) THE 153 CUTOFF IS 2^24, BISECTED ON THE ORACLE: 16777216 accepted, 16777217 refused, and negatives refused -- gtsmi's small-integer range, not INT_MAX (2147483647 is already ERROR 153).  Coercion is is_numeric_like + to_int because the oracle coerces the way every other numeric argument does: '2' and '  2  ' and 2.0 and 2.7 all reach the binary path, -0.5 truncates to 0, null is 0, and a non-numeric string is ERROR 152.  ⭐ WHY THIS IS A CORRECTNESS FIX AND NOT CONFORMANCE PEDANTRY: SCRIP'S OWN OPTIMIZER ALREADY ASSUMES THE RULE THIS FUNCTION DID NOT ENFORCE.  optimizer/proc_collect.c scc_taint_graph treats a literal third argument of 1 or 2 as PROOF that the OPSYN is an operator rebind and leaves SCC on; with the check absent, `OPSYN('SUM','+',2)` rebound a FUNCTION name through that exemption.  Refusing it closes the hole at the one authority instead of widening the taint.  And the old behaviour was not permissive-but-harmless -- it was a SILENT WRONG ANSWER: `OPSYN('SUM','+',2); OUTPUT = SUM(3,4)` printed NOTHING in both modes (oracle: ERROR 156, csnobol4: 7) and `OPSYN('+','ADD',2); OUTPUT = 3 + 4` printed 7 with the rebind quietly dropped.  ⛔ DELIBERATELY NOT DONE: ERROR 155 (i=0 first arg not a natural variable name) has no witness and no measured definition of "natural variable name" -- the oracle accepts `OPSYN('&','DIFFER',0)` -- so guessing at it could only reject programs that work.  ⛔ AND THIS CANNOT MAKE SCRIP ACCEPT MORE: the legal unary form (`OPSYN('!','SIZE',1)` then `!'x'`) still does not PARSE (checked-in reds probe/opsyn/d_unary + opsyn_unary_target, and opsyn_builtin_target for binary `#`), so this rung teaches the refusal half only and says so.  ⛔ THE ERRORS RIDE kwb_error, NOT core_runtime_error, AND THE PROBE IS WHAT FORCED IT: core_runtime_error's conversion arm needs a pushed jmp_buf (`g_error != 0 && g_core_errjmp_n > 0`) and only the EVAL boundary pushes one, so the first cut PRINTED AND EXITED where the oracle merely fails the statement.  kwb_error is KW-5's ONE authority for "&ERRLIMIT says convert or report" -- it decrements the credit, publishes &ERRTYPE/&ERRTEXT and returns 0 for the caller to propagate FAIL, exactly as 208/209/210 do -- and at the DEFAULT &ERRLIMIT of 0 it calls core_runtime_error itself, so the default arm is behaviourally unchanged and only a program that has ASKED to catch errors sees anything new.  That is also what makes the contract PINNABLE at all: an unconverted OPSYN error prints a SPITBOL dump no .ref may honestly carry (`sbl` exits 0 while dying), whereas under &ERRLIMIT the oracle prints clean, diffable lines -- witness corpus/probe/opsyn/opsyn_kind_selector.sno, .ref taken byte-identical from the live oracle.  ⭐ AND THE 2^24 BOUND IS NOT AN OPSYN FACT: keywords.c's KW-7 range test bisected the SAME 16777216 ceiling for ERROR 210 on keyword assignment, independently and one rung earlier.  Two arguments, two error codes, one SPITBOL small-integer range (gtsmi) -- corroboration, not a second authority.  Killswitch SCRIP_OPSYN_KIND=0 restores the discard verbatim.  ONE AUTHORITY: by_name_dispatch.c BID_OPSYN and core.c _OPSYN_ both funnel here, so there is no second spelling to keep in step. */
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _sort_type_rank(DESCR_t d) {
     switch (d.v) {
@@ -582,40 +576,6 @@ DESCR_t eval_ast_pat(tree_t *e) {
     fprintf(stderr, "[B0b] BOMB eval_ast_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
     abort();
 }
-/* ___-dcap (2026-07-13, Lon directive: "the conditional assignment capture should not call a C function when
- * all it must do is increment ___ and decrement ___ in the capture BB").  The bounded ring (RT_DCAP_MAX 32) +
- * mark/depth arrays + active flag are DELETED; the pend stack is an UNBOUNDED register-anchored island (the
- * rt_gva_island precedent, ARCH-ZETA §12) whose live cursor is REGISTER ___ in emitted code.  Entry = 24B,
- * pointer-free into Region 2 (varname is sealed RO strtab; saved_delta resolved against the subject at flush
- * via the pump ctx, never stored as a pointer — no GC root, no ADJUST entry).  Layout: varname@+0,
- * saved_delta@+8 (zero-extended u32), len@+16 (zero-extended u32).  Future entry species (SZ-3's *FN() commit
- * chains — the Python engine's one-cstack uniformity) discriminate on the varname qword, as '*' names do
- * today.  Push = box-inline stores + add ___,24 (capture γ).  Pop = sub ___,24 (capture β) — balanced by
- * generator LIFO scoping (the s45 Python insight; snobol4python Δ.γ append/yield/pop).  MARK = per-match-head
- * frame qword (head α saves ___; nesting = ζ frames nest; the depth array dies).  Head-fail/release restore
- * ___=mark AND g_dcap_top=mark inline.  g_dcap_top is the MIRROR: match-head α loads its cursor from it, and
- * every mid-match transfer window in a MATCH-FAMILY box mirrors ___ out first so a nested graph's heads see
- * the live top (a stale-low mirror would let nested pushes overwrite live pends).  Non-SNOBOL graphs never
- * touch ___ or the mirror (mirror-out sites are IR-kind-conditioned, per the no-language-sentinel FACT RULE).
- * KNOWN INHERITED LIMIT (status quo ante, the old shared ring had it too): a generator that SUSPENDS mid-match
- * with pends live shares the one stack non-LIFO — the suspended-ζ residue class, NCB-2/TR-6 territory. */
-/* CAS-1 (Lon directive s60: "SNOBOL4 will have a CONDITIONAL ASSIGN stack in separate mmap"; GOAL-SNOBOL4-BB.md
- * RUNG GC-U).  The conditional-assign machinery's DESCR-BEARING side stacks — the *FN() commit-value stack
- * (g_capx), the deferred-function frame stack (g_dfx) and the pump's re-entrant cursor stack (g_dcf) — move off
- * libc realloc onto ONE base-pinned island in the rt_gva_island / g_dcap class (ARCH-ZETA §12): reserved once,
- * carved once, NEVER moved, NEVER freed, NEVER slid.  WHY THIS IS A GC RUNG AND NOT HYGIENE: these three hold
- * live DESCR_t — pointers into the collected workspace — and malloc'd memory was never GC-scanned (the TR-2
- * lesson, which cost a GC_add_roots compensation there).  ⛔ THE NEXT SENTENCE WAS FALSE AND IS CORRECTED (RC-8a / HOME-RBX X-1, s33): this banner used to read "on the island they are covered by
- * RT_SLAB_GC_ROOTS today". They were NOT. RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) and gates ZERO `#if` bodies tree-wide — it was a TR-3 compensation and died at TR-4,
- * taking
- * the coverage with it and leaving only the claim; rt_cas_roots, the "named root area" export, had zero consumers from the day it was written. For the whole interval these stacks held live DESCRs
- * that
- * no root phase walked. THEY ARE NOW SCANNED FOR REAL: rt_cas_live_span (below) exports the live prefix of each sub-stack and gc_root_cas (gc_heap.c) walks it with gc_zeta_frame every collection.
- * Fixed caps + a loud bomb replace doubling:
- * an island cannot realloc-move under a collector that has recorded its base.  ⚠ NOT this island (named, so the
- * next session does not re-derive): g_dcap itself is ALREADY an island and its 24B entry is deliberately
- * POINTER-FREE (no root, no adjust — see the block below); rt_zcol_push's per-iteration COLLECTIONS ride the
- * ZC_COLLECTION flavor switch and belong to ZB-ITER, not here. */
 #define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
 #define RT_CAS_CAPX_MAX     (1 << 16)
 #define RT_CAS_DFX_MAX      (1 << 14)
@@ -623,6 +583,7 @@ DESCR_t eval_ast_pat(tree_t *e) {
 #define RT_CAS_SPK_MAX      256
 static char  *g_cas_base = 0;
 static size_t g_cas_used = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_cas_carve(size_t bytes)
 {
     extern void *rt_slab_region(size_t);
@@ -632,22 +593,16 @@ static void *rt_cas_carve(size_t bytes)
     void *p = g_cas_base + g_cas_used; g_cas_used += bytes; memset(p, 0, bytes);
     return p;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cas_roots(void **base, size_t *bytes) { if (base) *base = (void *)g_cas_base; if (bytes) *bytes = g_cas_used; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* CAS-SENTINEL-CLEAN (this session): g_patstk_sp / g_patstk_base / c_rt_patstk_lazy_init DELETED.
- * The pattern stack island was carry-state in the 24-byte CAS sentinel ([+0]=tag, [+8]=rsp_mark,
- * [+16]=patstk_snapshot) so the failure path could restore g_patstk_sp without a frame-addressed
- * reload.  The model is pure R12/DCAP-island — no separate pattern stack exists.  The sentinel
- * shrinks to 16 bytes ([+0]=tag, [+8]=rsp_mark); scan loops use `sub r10,16` not `sub r10,24`.
- * Call sites in rtx_match.S (rt_match_enter, rt_patstk_lazy_init stub) and gen_runtime.c
- * (c_rt_match_enter) are pruned in the same commit. */
-uint64_t g_scan_hit_start = 0;   /* SPD-2 RETRY-INTERNAL: flat_pat blob publishes the WINNING attempt-start on scan-mode gamma; the statement defer gamma-cont copies it into the head counter slot (replace-span source) */
-uint64_t g_sno_defer_cells[4096];   /* s142 DEFER-SITE DIET: per-site fn cache for WRITE-ONCE deferred names (IR_t.seal==2) — emit assigns indices via g_emit.sn4_defer_cell_n; the site's cold path runs the full GVA/DT_P/dtp_fn_of dance once and stores the fn here; steady state = lea+load+test.  Write-once (single program-wide assignment, fz-safe — the g_sno_seal eligibility) is what makes the cache sound: once DT_P appears the fn can never change.  Zero-init .bss; a 0 store on the not-yet-DT_P path is a harmless no-op. */
+uint64_t g_scan_hit_start = 0;
+uint64_t g_sno_defer_cells[4096];
 uint64_t g_pat_main_rsp = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
-static int g_rspd_active = 0;   /* M4-DESTR-FIX: cached at startup — destructor must not call getenv() at exit time (libc may have cleaned up); constructor caches the flag instead */
+static int g_rspd_active = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_rspd_init(void) { g_rspd_active = (getenv("SCRIP_RSPDIFF") != NULL); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((destructor)) static void rt_rspd_report(void) {
     if (!g_rspd_active) return;
     fprintf(stderr, "RSPDIFF raw: save=%#lx g4=%#lx g5=%#lx s2=%#lx g6=%#lx beta=%#lx\n", (unsigned long)g_rspd_save, (unsigned long)g_rspd_g4, (unsigned long)g_rspd_g5, (unsigned long)g_rspd_s2, (unsigned long)g_rspd_g6, (unsigned long)g_rspd_beta);
@@ -656,12 +611,12 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
     if (g_rspd_save && g_rspd_beta) fprintf(stderr, "RSPDIFF beta-children (save-beta)  = %ld\n", (long)(g_rspd_save - g_rspd_beta));
     if (g_rspd_s2 && g_rspd_g6)    fprintf(stderr, "RSPDIFF exhaust-delta (s2-g6)      = %ld\n", (long)(g_rspd_s2 - g_rspd_g6));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_DCAP_ISLAND_BYTES (4u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
 #include "pin_va.h"
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_lazy_init(void) {
     extern void *rt_slab_region(size_t);
     if (!g_dcap_top) {
@@ -670,17 +625,9 @@ void rt_dcap_lazy_init(void) {
         g_dcap_top = g_dcap_base;
     }
 }
-int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐⭐⭐ s193 CAPTURE-TARGET FAILURE EDGE, runtime half (SCRIP_CAP_FAIL_RETREAT, DEFAULT ON) -- the emitter twin is cap_fail_retreat() in emit.cpp and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  THE DEFECT: c_rt_cap_open resolves a `*target` ITSELF (the asm fast path delegates every '*' to it) and returns 0 == "fully handled" whether the target ASSIGNED or FAILED -- the box then takes `je L(1)` straight to its success continuation, which is why the transfer's ω landing was dead code on this witness and why no existing killswitch moved it.  ARMED, a FAILING target returns -1, a value the box tests for BEFORE the transfer test.  ⛔ -1 AND NOT 1: the box's `test rax,rax; je L(1)` treats every non-zero rax as A TRANSFER ADDRESS to `jmp rax`, so a naive non-zero failure code jumps to address 1 (the hazard the s191 FINDING named at the MATCH_END site, and it is the same overloaded channel here).  A sentinel cannot collide with fbytes, which is a positive frame size. */
-int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) runtime half — the emitter-side twin lives in lower_snobol4.c and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  DEFAULT ON (s178 flip, Lon greenlight; =0 reverts): a deferred capture target that resolves to a VALUE rather than a NAME reports failure to the terminus instead of silently assigning through it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NCB-1c M3 (2026-07-11): the commit-time flush is BOX-DRIVEN.  rt_dcap_flush_from's 0..N computed-name
- * (*VAR) transfers move OUT of C into bb_match_end, which pumps: end_ok_open → [transfer → step]* → close.
- * Manual Ch.6: conditional assignments are performed ONLY when the whole match succeeds — hence the deferred
- * batch, hence 0..N calls in one commit.  The cursor rides a LIFO because the OLD loop was re-entrant through
- * its C locals (a *VAR proc body may run its own match, which commits its own pends); a static cursor would
- * have silently corrupted that.  g_rt_dcap_n is re-read every iteration, exactly as the old for-loop did, so
- * pends recorded by a nested match are still swept by the outer pump. */
+int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
@@ -690,6 +637,7 @@ _Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.S RTX-8 slice 8 hardcode
 _Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.S RTX-8 slice 8 hardcodes subj at +16");
 _Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.S RTX-8 slice 8 hardcodes pending at +24");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S RTX-8 slice 8 stores pending as v/slen qword + s qword");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
@@ -712,10 +660,10 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             rt_g_want_name = 1;
             DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
             rt_g_want_name = 0;
-            const int by_name = rt_g_ret_by_name; rt_g_ret_by_name = 0;   /* SN4-CAP-NAME-STRICT: the RETURN-vs-NRETURN discriminator.  rt_nret_fix leaves this standing for a name-context caller (wn==1) instead of clearing it, because the DESCR ALONE CANNOT TELL THE TWO APART -- `F = \'ZZ\' :(NRETURN)` and `F = \'ZZ\' :(RETURN)` both hand back the same STRING, and sbl matches the first while retreating on the second.  Read once, cleared here. */
-            if (IS_FAIL_fn(nm)) { if (strict) { rc = 1; continue; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }   /* strict: an FRETURNing target is not a name either -- sbl retreats (witness p6), so report it rather than warn-and-succeed */
-            if (strict && !by_name) { rc = 1; continue; }   /* a plain RETURN yields a VALUE; a value is not a name, so the node retreats (oracle p3/p5/p8/p13 and all three b1 witnesses).  NRETURN falls through to the two assigning arms below, which stay pre-s170-identical. */
-            if (IS_STR_fn(nm)) {   /* ⭐ THE R2 WRONG ANSWER: a plain RETURN hands back a VALUE, which is not a name.  Pre-s170 this was spent as an INDIRECT name (NV_SET on the returned string) and the match went on to answer `match`; sbl 4.0f evaluates the target in NAME context, finds no name, and RETREATS.  NRETURN targets take the rt_assign_var arm below and stay green either way (p16/p17, oracle-identical at HEAD -- the s82 "NRETURN does not compile" blocker is FALSIFIED). */
+            const int by_name = rt_g_ret_by_name; rt_g_ret_by_name = 0;
+            if (IS_FAIL_fn(nm)) { if (strict) { rc = 1; continue; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
+            if (strict && !by_name) { rc = 1; continue; }
+            if (IS_STR_fn(nm)) {
                                  const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
             else rt_assign_var(nm, d);
             continue;
@@ -725,16 +673,9 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Box contract (bb_match_end): rdi = MARK (head's saved ___, FRQ(head+32)), rsi = TOP (live ___), rdx =
- * SUBJECT base (r13, by value).  The subject rides the ctx BY VALUE so a mid-pump *VAR transfer that runs a
- * nested match (clobbering Σ and r13 under xfer save) cannot skew the resolution of the REMAINING entries —
- * the old ring was immune by snapshotting base pointers at record time; the pointer-free entry moves that
- * immunity here.  Walk range is FIXED [mark, top): nested matches during a transfer push above top, flush
- * their own range through their own open/close, and restore ___/mirror to their mark == our top — disjoint by
- * construction (the old g_rt_dcap_n re-read compensated for a SHARED counter; ranges need no compensation). */
 long c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
-    { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }   /* BP-2c: cached getenv — this ran per match-with-captures (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class.  RTX-8 slice 8: the cache moved from a function-local static to the hidden file-scope g_dcap_trace so the asm entry can TEST it; -1 (unresolved) is nonzero, so the asm's first call delegates here and resolution still happens exactly once. */
+    { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
     if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];
@@ -754,48 +695,26 @@ long c_rt_dcap_step(DESCR_t nm)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer)
-{   /* ONE-END (Lon s119 in-chat: "reduce blocks like n64_match_end_alpha down to ONE RT call"): open + close + ctx_restore in ONE call.  The box's transfer loop (glue_pass_wires(3,4) + epilogue_gamma/omega + rt_dcap_step) was MEASURED STATICALLY DEAD this seat: the pump's *VAR arm went C-complete (rt_call_proc_descr, the s117-fixed by-name entry) in a prior session, so c_rt_dcap_end_ok_open and c_rt_dcap_step both return rt_dcap_pump() == 0 unconditionally -- the L(3)/L(4) arms were unreachable plumbing.  A nested match during a *VAR transfer flushes its own disjoint [mark,top) range exactly as before (same pump, same LIFO ctx).  close = the ctx pop (rtx_match.S slice 7: "one test, one decrement").  ctx_restore takes the OUTER sig/len the box used to reload r13/r15 from its saved slots -- passed by value so this call is home-agnostic (mrbp [rbp-16]/[rbp-32] or legacy HKQ/FRQ). */
+{
     extern void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-    long rc = c_rt_dcap_end_ok_open(mark, top, subj);   /* SN4-CAP-NAME-STRICT: nonzero = a deferred capture target was not a NAME; the box turns it into ω (strict arm only -- 0 on every pre-s170 path, so the discarded-return behaviour is unchanged at default) */
+    long rc = c_rt_dcap_end_ok_open(mark, top, subj);
     if (g_dcf_top > 0) g_dcf_top--;
-    rt_match_ctx_restore(outer[0], outer[1], 0);   /* outer pair rides ONE stack-built pointer (rcx): SysV arg5 is r8 and the x86("call") encoder OWNS r8 (rtccb spill) -- an r8-staged arg saves the argument over the VM global and reloads it back (caught by .s inspection this seat, never executed) */   /* arg3 discarded since CAPGEN-ERAD (gen_runtime.c (void)capgen); the emitted 2-reg call passed garbage rdx into the same discard */
+    rt_match_ctx_restore(outer[0], outer[1], 0);
     return rc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* DEAD EXPORT, PARKED NOT DELETED (PARK-NEVER-DELETE): zero callers at NCB-1c.  Its body was the C-side flush
- * loop whose *VAR arm was a C→BB pathway; that pathway is now the box's (rt_dcap_end_ok_open/step/close).  A
- * silent plain-only flush here would be a semantic trap, so it bombs loudly instead.  If a caller ever appears,
- * it must drive the pump from an emitted box. */
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ___-dcap: rt_dcap_begin (depth-mark push) → head α's inline `mov FRQ(+32), ___` after loading the mirror;
- * rt_dcap_end_fail (truncate-to-mark) → head ω's inline mirror-store + `mov ___, FRQ(+40)` incoming restore;
- * rt_cap_unpend (dead-trial discard by name) had ZERO callers — the balanced capture-β pop is the discard.
- * All three DELETED with their ring.  end_ok's bomb stays parked (PARK-NEVER-DELETE, NCB-1c). */
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
-uint32_t g_cap_gen = 1;   /* ⛔ VISIBILITY IS LOAD-BEARING AND MUST STAY DEFAULT — DO NOT RE-ADD visibility("hidden") (2026-07-29): the α template reads this symbol BY NAME in the EMITTED program text, so in mode 4 the reference lives in a SEPARATE object linked against libscrip_rt.so and a hidden symbol is not in the dynamic table ⇒ 173/316 programs failed to LINK while mode 3 stayed green (mode 3 bakes the address in-process and cannot see the defect).  hidden is reachable from a .S INSIDE the .so and unreachable from emitted code OUTSIDE it — those are two different axes and ARCH §7 step 0(c) only documents the first.  PATCTX-2 (2026-07-29): un-static'd — IR_MATCH_BEGIN's α reads it via [rip+g_cap_gen] (both media) into head.capgen_save (+72) BEFORE rt_match_enter issues a fresh id.  nest1 autopsy: with nesting live (PATCTX), the inner match's stamp invalidated the OUTER match's open brackets — pop no-op'd on stale gen, top returned 0, R captured [0,end).  The id is pattern context. */
-__attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;   /* PATCTX-2: the monotonic WELL.  Exits restore g_cap_gen to the SAVED id (an old draw) — never the counter itself, because a restored-then-re-bumped counter would re-issue the inner match's retired stamp and zombie its success-exited frames.  Retired ids never re-issue (modulo the same 2^32 wrap exposure the old counter had), so the lazy-kill invariant — stale gen ⟹ dead frames — survives nesting. */
+uint32_t g_cap_gen = 1;
+__attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.S hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.S hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");
 _Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.S hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
 _Static_assert(sizeof(uint32_t) == 4, "rtx_match.S scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_push(void *slot, int delta)
 {
-    /* SN4-PAT-CAPTURE-STACK (Lon directive 2026-07-05): capture frames on a per-box stack — the SAVE box's
-     * α does ++ (push), its β does -- (pop); the COND at each yield reads the top-of-stack span, so the
-     * β-resume chain survives a generator re-entry between capture-open and capture-close.  The slot is the
-     * box's 16B zls grant: +0 buf (rt_ws_alloc u32[]: [0]=cap, frames from [1] — cursor ints only, ZERO
-     * pointers out, so no GC root compensation is owed; TR-3(c) workspace = grow-only, the abandoned buffer
-     * on a grow is reclaimed by GC-W-2, not sooner — the doubling keeps total waste under 2x), +8 gen, +12 sp.  gen is a
-     * per-match generation stamped by rt_match_enter: a stale-gen slot lazily resets sp=0, so success-exited
-     * frames (never β-popped — the γ-exit-live case, ZB-ALLOC §3) die at the next match instead of leaking
-     * across statement executions; it also validates ZC_INIT_ZERO-fresh ζ frames (gen 0 ≠ any live gen). */
     rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
     if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
     if (!s->buf) { s->buf = (uint32_t *)rt_ws_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
@@ -807,20 +726,11 @@ void rt_cap_push(void *slot, int delta)
     }
     s->buf[1 + s->sp++] = (uint32_t)delta;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NCB-1c M2 (2026-07-11): rt_cap_assign_cursor split into strict leaves — the computed-name (*VAR) transfer
- * moves OUT of C into the emitted capture box (the NCB-1b arm).  rt_cap_open does everything up to the
- * transfer and returns fbytes (a proc call is owed: box does sub rsp / rt_frame_prep / call rax / finish) or
- * 0 (fully handled: plain name assigned, dcap recorded, empty name, or *proc unresolvable — no assign, the
- * FAILDESCR behavior of the old path).  The matched DESCR rides a LIFO beside the pcall ctx (the callee may
- * itself capture); rt_g_want_name is set here and captured/cleared by rt_proc_call_open into the ctx. */
 static DESCR_t *g_capx; static int g_capx_top, g_capx_cap;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
 {
-    (void)is_imm; /* ___-dcap: the COND (deferred) arm no longer calls here — bb_match_capture phase 1 records
-                   * its entry inline on the ___ stack.  Every remaining caller is the immediate ($) path. */
+    (void)is_imm;
     if (!varname || !*varname) return 0;
     int len = cur_delta - saved_delta;
     if (len < 0) len = 0;
@@ -835,7 +745,7 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     rt_g_want_name = 1;
     DESCR_t nm = rt_call_proc_descr(varname + 1, 0);
     rt_g_want_name = 0;
-    if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;   /* ⭐⭐⭐ s193: the failing deferred capture target. Pre-cure this fell into the shared `return 0` = "fully handled", indistinguishable from a target that assigned, and the element matched anyway (oracle retreats). -1 is the sentinel the box tests before its transfer test; =0 restores the old fall-through exactly. */
+    if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;
     if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm, matched);
     return 0;
 }
@@ -912,24 +822,7 @@ void rt_at_cursor(const char *varname, int cur_delta)
 extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl, int has_repl);
 extern const char *Σ;
 extern int Σlen;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NCB-1c M1 (2026-07-11): rt_defer_match split into strict leaves — the *X / DT_X transfers move OUT of C into
- * bb_match_defer (the NCB-1b arm, looped).  Manual p.85-86: *X re-fetches at EVERY match-time reference; the
- * Expression datatype (DT_X) is evaluated only when referenced in a match, and its evaluation may itself run a
- * match — hence the LIFO, and hence the box (not C) must own the transfer.  Round discipline mirrors the old
- * body EXACTLY: one '*'-triggered call and at most one DT_X-triggered call (dtx_used); a second DT_X result is
- * stored, not re-called, and falls out of close as -1 (it is neither S nor I nor R).
- *   rt_defer_open  -> fbytes (a call is owed) | 0 (resolved or failed)
- *   rt_defer_step  -> fbytes (another call owed) | 0 (resolved or failed)   [after each transfer]
- *   rt_defer_close -> new cursor | -1 */
 typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
-/* RTX-8 SLICE 2 (s215): these three were `static`, i.e. LOCAL in pattern_match.o and per ARCH section 7 step
- * 0(c) NOT REFERENCEABLE FROM A .S AT ALL. Promoted to non-static hidden so rtx_match.S can reach them with a
- * direct [rip+sym] -- NOT through the GOT. `hidden` and not default is the correct tier, VERIFIED not assumed
- * (the s214 g_cap_gen defect): none of the three is named by any template and none appears in any emitted .s,
- * so they are .so-internal only. scripts/test_gate_no_hidden_global_in_emitted.sh keeps that true.
- * The offsets below are the asm's contract. Anchored so a struct change breaks the BUILD, not the runtime --
- * the RTX-4 slice-3 stride lesson: a probe can miss a layout drift, a _Static_assert cannot. */
 __attribute__((visibility("hidden"))) rt_dfx_t *g_dfx;
 __attribute__((visibility("hidden"))) int g_dfx_top, g_dfx_cap;
 _Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.S strides g_dfx by 24");
@@ -937,40 +830,18 @@ _Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.S reads val at
 _Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.S reads failed at +16");
 _Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.S reads dtx_used at +20");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S assumes the 16-byte DESCR pair");
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_dfx_t *rt_dfx_push(void) {
     if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
     if (g_dfx_top >= g_dfx_cap) { fprintf(stderr, "rt_cas: dfx overflow (%d) — raise RT_CAS_DFX_MAX\n", g_dfx_cap); abort(); }
     rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RTX-8 SLICE 2 (s215): promoted off `static` for the same step-0(c) reason as the g_dfx trio above. This is
- * the ONE-ENTRY LATCH the rung is required to FIX rather than transliterate (the s161 EVAL/deferred slot
- * collision). It is NOT touched by the slice-2 asm: measured 0(d) on json.sno + twitter.json is star=0 of
- * 402,121 opens, so the star path this latch serves carries ZERO traffic on the graded workload and cannot be
- * graded by it. The fix is therefore a SEPARATE correctness deliverable with its own canary (140/141), not a
- * clause of a speed rung -- keeping them apart is what stops a correctness fix borrowing a speed number.
- * DEFER-LATCH FIX (this session): replaced the one-entry g_star_peek with a per-site FIFO stack g_spk[].
- * Root cause: pattern concatenation `outer('c1') outer('c2')` calls rt_defer_get_pat_fn twice at build time,
- * pushing c1 then c2; the single latch kept only the last (c2), so c1's defer_open fell through to
- * rt_proc_call_open("inner(c1)",0) -- a proc name that does not exist -- and segfaulted.  The FIFO pop (oldest
- * matching name first) restores left-to-right ordering: build pushes c1→c2, match traverses c1 then c2. */
 typedef struct { const char *nm; DESCR_t val; } rt_spk_t;
 static int rt_defer_xpat_on(void);
 static int rt_spk_take(const char *nm, DESCR_t *out);
 static rt_spk_t *g_spk;
 static int g_spk_n, g_spk_cap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RC-8a / HOME-RBX X-1 (s33): THE ISLAND WAS NEVER SCANNED.  The CAS-1 banner above says these stacks "are covered by RT_SLAB_GC_ROOTS today" — FALSE AT HEAD, and stale in two independent ways:
- * RT_SLAB_GC_ROOTS is #defined 0 (rt_slab.h:14) AND there is not one `#if RT_SLAB_GC_ROOTS` body left in the tree — it was a TR-3 root-registration compensation and died at TR-4,
- * taking the
- * coverage with it and leaving only the sentence. rt_cas_roots has had ZERO consumers since it was written ("for GC-W-1's MARK tomorrow"), so nothing walked the island either. Net: g_capx (a
- * DESCR_t
- * stack), g_dfx (DESCR val), g_dcf (three char* INTO THE SUBJECT plus a pending DESCR) and g_spk (name ptr + DESCR) held live references into the collected workspace that no root phase could see.
- * rt_cas_live_span is the fix's read side: it enumerates the LIVE PREFIX of each sub-stack — the used cursor, not the carved reserve, exactly as the CAS-1 banner specifies — so the collector walks
- * a few
- * KB of live entries instead of the multi-MB zero-filled carve. Index-driven so gc_root_cas can loop it the way gc_root_zeta loops the zeta frames; returns 0 to end the walk. A not-yet-carved or
- * empty
- * stack yields bytes==0 and is skipped by the caller, which is why lazy carve needs no special case here. */
 int rt_cas_live_span(int i, void **base, size_t *bytes)
 {
     void *b = 0; size_t n = 0;
@@ -984,6 +855,7 @@ int rt_cas_live_span(int i, void **base, size_t *bytes)
     if (base) *base = b; if (bytes) *bytes = n;
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
@@ -1033,19 +905,19 @@ int c_rt_defer_close(int cur_delta)
     }
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_XPAT_CHAIN_MAX 256
-static int rt_defer_xstar_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XSTAR"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* CLASS-B (s188) killswitch, DEFAULT ON; =0 restores the pre-fix STAR arm byte-for-byte (no drain, park the EXPRESSION, return NULL).  Same one function-static getenv-cache idiom as rt_defer_xpat_on above -- not a new global. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_defer_xstar_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XSTAR"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_dtx_drain(DESCR_t r)
-{   /* THE ONE AUTHORITY for "walk a chain of deferred EXPRESSIONs to its non-EXPRESSION end".  Manual v3.7 p.85-86: an EXPRESSION is evaluated only when referenced, and its evaluation may itself yield another EXPRESSION, so the walk repeats; p.196 says a value built with the * at the OUTERMOST level IS an EXPRESSION, which is what makes `V = *W` produce one.  BOUNDED, not a while: the oracle loops forever on a self-referential `V = *V`, so RT_XPAT_CHAIN_MAX terminates a cycle back into the pre-s187 answer (store the DT_X and let close -1 it) instead of hanging.  DT_FAIL (0x68) is not DT_X, so a failed hop exits the walk and every caller's own IS_FAIL test still sees it -- which is why rt_defer_take keeps its check and needs no per-hop one.  Extracted s188 from the three sites that had each spelled this loop for themselves (rt_defer_take, rt_defer_xpat_dtp, and the STAR arm that was MISSING it); a drift between them is the spelled-twice disease. */
+{
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_call_proc_descr(r.s, 0);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
-{   /* ONE-DEFER shared tail: rt_defer_step's val handling for a DESCR-call result -- FAIL sets failed; else val=r.  ⭐ DEFER-DEPTH FLOOR (s187): the old arm resolved a DT_X only when !dtx_used, so a chain of deferred EXPRESSIONs (`G0 = *G1` then `P = *G0`, matched as `*P`) got exactly ONE evaluation and the SECOND DT_X was stored unresolved -- close then -1'd it, and a plain string two links down came back NOMATCH in both modes.  Manual p.85-86 (quoted at rt_defer_match above) says a DT_X evaluation may itself run a match, so the chain is walked to exhaustion; the oracle agrees and loops forever on a self-referential `V = *V`, which is why the walk is BOUNDED rather than a while.  RT_XPAT_CHAIN_MAX terminates a cycle back into the pre-s187 answer (store the DT_X, close -1s it) instead of hanging.  Twinned with rt_defer_step above; a drift between them is the spelled-twice disease. */
+{
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     if (IS_FAIL_fn(r)) { s->failed = 1; return; }
     if (r.v == DT_X && r.s) { s->dtx_used = 1; r = rt_dtx_drain(r); if (IS_FAIL_fn(r)) { s->failed = 1; return; } }
@@ -1053,7 +925,7 @@ static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_run_all(const char *varname, int cur_delta)
-{   /* ONE-DEFER (Lon s119 in-chat: "reduce blocks like n63_match_defer_alpha down to ONE RT call"): c_rt_defer_open's resolution, with every rt_proc_call_open(nm,0)+wire-enter+epilogue+rt_defer_step round replaced by ONE rt_call_proc_descr(nm,0) -- the s117-fixed C-complete by-name entry into emitted EXPR$ thunks (sealed alpha$ + tiny-record; rt.c:875's named hazard, cured s104/s108/s117).  This is the NCB-1c arc closing: the pump went box-driven BECAUSE the C-to-BB pathway was broken; that pathway is now the runtime's own front door, so the loop folds home.  Resolution arms mirror c_rt_defer_open line-for-line (FAIL literal, g_spk FIFO, ival NAMEVAL/NAMEPTR deref, DT_X thunk); tail = c_rt_defer_close(cur_delta).  Returns the new cursor or -1, exactly close's contract. */
+{
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
     if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
@@ -1066,13 +938,13 @@ int rt_defer_run_all(const char *varname, int cur_delta)
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
-{   /* ONE-DEFER patv twin: rt_patv_defer_open's slot read + the same descr-call substitution + close.  PB-1s: the $V slot is frozen-per-construction; a DT_X slot still owes its call. */
+{
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
-    DESCR_t val = patv_slot(hv, i, fb, 0);   /* ival measured 0 at every emitted site (all xor esi/ecx in bb_match_defer.cpp) -- the deref arm is c_rt_defer_open business, not this fold's */
+    DESCR_t val = patv_slot(hv, i, fb, 0);
     if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
@@ -1120,16 +992,12 @@ void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PB-1s (s108) PER-CONSTRUCTION SNAPSHOT: manual p.85-86 -- "NPAT captures the value of variable N at the time of pattern construction"; only unary * defers.  The lowered per-SITE PAT$n$V<i> globals
- * are stage-2 marshalling only: SNO$MKPAT freezes them into the fresh DTP_t's snap vector (one per construction), and the blob's $V DEFER reads slot i of THE DTP IT IS RUNNING UNDER ([rbp-24], stored
- * by the blob preamble from entry rdx) instead of the global by name.  Cures both failure modes of the per-site cell: the self-reference STRUCTURAL CYCLE (SIG11, case_driver / pb_selfref_alt_cycle --
- * iteration 2's cell held a pattern deferring to the cell itself) and the SILENT STALE VALUE (pb_stale_snapshot_value -- a saved construction re-read a later construction's overwrite). */
 void rt_patv_freeze(void *hv, const char *bn, long n)
 {
     DTP_t *h = (DTP_t *)hv;
     if (!h || !bn || n <= 0) return;
     DESCR_t *v = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
-    for (long i = 0; i < n; i++) { char nb[64]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }   /* indices are the SPARSE api order shared with $A leaves (lower_snobol4.c 2222/2504's identical-traversal invariant): a non-snapg index probes an unregistered name and freezes the harmless null value nothing reads */
+    for (long i = 0; i < n; i++) { char nb[64]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }
     h->snap = v; h->nsnap = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1137,12 +1005,13 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
 {
     DTP_t *h = (DTP_t *)hv;
     if (h && h->snap && i >= 0 && i < h->nsnap) return h->snap[i];
-    { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }   /* fallback = the pre-s108 by-name read, taken only when the entry site could not supply a DTP (defensive; every MKPAT product carries snap) */
+    { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static void rt_spk_park(const char *nm, DESCR_t r) { if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; } if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d)\n", g_spk_cap); abort(); } g_spk[g_spk_n].nm = nm; g_spk[g_spk_n].val = r; g_spk_n++; }
 static int rt_spk_take(const char *nm, DESCR_t *out) { if (!nm) return 0; for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, nm)) { *out = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; return 1; } } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_xpat_dtp(const char *nm)
 {
     extern DESCR_t rt_call_proc_descr(const char *, int);
@@ -1153,11 +1022,12 @@ void *rt_defer_xpat_dtp(const char *nm)
     rt_spk_park(nm, r);
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb)
 {
     DESCR_t v = patv_slot(hv, i, fb, 0);
     if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }
-    if (v.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(v.s); }   /* DTP_t out -- dtp_fn_of MATERIALIZES fn for recipe composites first (lazy-compile, its !fn&&rcp arm), then the template loads fn=[dtp+0] and rides dtp into the blob in rdx */
+    if (v.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(v.s); }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1166,18 +1036,18 @@ long rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag)
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
     DESCR_t val = patv_slot(hv, i, fb, ival_flag);
-    if (val.v == DT_X) { s->dtx_used = 1; long fb2 = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb2) s->failed = 1; return fb2; }   /* same owed-call arm as c_rt_defer_open: a frozen DT_X still opens its call */
+    if (val.v == DT_X) { s->dtx_used = 1; long fb2 = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb2) s->failed = 1; return fb2; }
     s->val = val;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
-{   /* s108: DTP-returning twin of c_rt_defer_get_pat_fn for the non-GVA defer arm -- caller does fn=[dtp+0] and carries dtp into the blob in rdx so $V-bearing interiors can slot-read; scalar/absent returns NULL exactly as the fn twin does */
+{
     if (varname && varname[0] == '*') {
         extern DESCR_t rt_call_proc_descr(const char *, int);
         DESCR_t r = rt_call_proc_descr(varname + 1, 0);
-        if (rt_defer_xstar_on()) r = rt_dtx_drain(r);   /* ⭐⭐⭐ CLASS B (s188): A DEFERRED THUNK MAY RETURN AN EXPRESSION, AND THIS ARM COULD NOT SEE ONE.  `Expr = *Expr0` makes Expr an EXPRESSION (p.196: the * must be OUTERMOST to create one), so the compiler-minted thunk this arm calls hands back a DT_X, not a pattern.  With only a DT_P arm here the EXPRESSION was parked and NULL returned, the site fell to the SCALAR road (rt_defer_run_all), and THAT road resolved it correctly to a genuine PATTERN and handed the PATTERN to c_rt_defer_close -- a closer that can only literal-match a scalar and therefore -1s it.  The pattern was found and thrown away one line later, in both media, and beauty.sno answered `Parse Error` on every real statement because its object expression is reached exactly this way.  The by-name sibling below has always had this arm (its `val.v == DT_X` -> rt_defer_xpat_dtp); the star arm is where it was missing.  Draining HERE leaves the evaluation count unchanged -- the outer thunk ran once either way, and the inner hop that run_all used to make is the one made here -- so the scalar road still parks a scalar and closes it exactly as before. */
-        if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }   /* materialize-then-return (lazy recipe compile) */
+        if (rt_defer_xstar_on()) r = rt_dtx_drain(r);
+        if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
         if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
         if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d) — raise RT_CAS_SPK_MAX\n", g_spk_cap); abort(); }
         g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
@@ -1188,17 +1058,11 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
         else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
     }
-    if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); dtp_fn_of(val.p); return val.p; }   /* materialize-then-return (lazy recipe compile) */
+    if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); dtp_fn_of(val.p); return val.p; }
     if (val.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(val.s); }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SN4 kill-manufactured-names (2026-07-22): the VALUE-operand siblings of rt_defer_get_pat_fn / rt_defer_open.
- * IR_MATCH_VALUE hands the already-computed pattern value in by POINTER (operand[0]'s frame slot) instead of a
- * global name, so there is no NV_GET, no *X star-transfer, and no DT_X owed call (the eager TT_FNC result is a
- * concrete value).  DT_P -> run the compiled pattern fn (dtp_fn_of, the box's first arm); a scalar -> store it
- * and let rt_defer_close do the literal match (the box's second arm).  A DT_P or DT_X reaching close is not a
- * scalar and close returns -1 (clean fail), so the box's DT_P-first order is what keeps semantics correct. */
 void *rt_match_value_get_pat_fn(DESCR_t *pval)
 {
     if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); return dtp_fn_of(pval->p); }
@@ -1206,8 +1070,8 @@ void *rt_match_value_get_pat_fn(DESCR_t *pval)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_match_value_get_pat_dtp(DESCR_t *pval)
-{   /* s108: DTP-returning twin -- bb_match_value loads fn=[dtp+0] and carries dtp into the blob in rdx (same per-construction $V contract as the defer twins) */
-    if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); dtp_fn_of(pval->p); return pval->p; }   /* materialize-then-return (lazy recipe compile) */
+{
+    if (pval && pval->v == DT_P && pval->p) { extern void *dtp_fn_of(void *); dtp_fn_of(pval->p); return pval->p; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1268,7 +1132,7 @@ DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     if (IS_VARREF_fn(b)) b = rt_deref(b);
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     return rt_subscript_var(base, idx);
-}   /* ⭐⭐⭐ THE CONTAINER-ONLY FACE OF rt_subscript_var (queue row `subscript-silent-accept`) -- SPITBOL Appendix D 235, "Subscripted operand is not table or array".  It is a FACE and not a fork: after the one test it hands the ORIGINAL base -- varref and all -- to rt_subscript_var, so every arm below (array, table, the RTX veneer's fast paths) is reached by the identical descriptors it has always been reached by, and there is no second copy of the subscript body to keep in step.  ⛔ THE TEST IS `!= DT_A && != DT_T`, NOT A LIST OF REFUSED TYPES: the manual admits two subscriptable objects and Appendix D gives one error for everything else, so an ALLOW-list is the honest spelling and a new datatype cannot silently slip through it.  The deref before the test is required, not defensive -- a SNOBOL4 base arrives as the VARREF the lowerer built (IR_VAR, --dump-ir), and only rt_deref can say what it holds.  It is also idempotent here: rt_subscript_var re-derefs the same varref and the IS_VARREF_fn(bvar) tests below still see the original.  ⛔ CHAINED SUBSCRIPTS ARE COVERED BY THE SAME TEST AND THAT IS WHY IT IS PLACED AFTER THE DEREF: `A[1,2]` lowers to TWO 2-operand IR_SUBSCRIPTs (verified --dump-ir, and the emitted .s carries two rt_subscript_var calls, not one subscript_get2), so the second one's base is the NAMETRAP the first returned; it derefs to the ROW ARRAY, answers DT_A, and passes.  ⛔ kwb_error, NOT core_runtime_error, FOR THE REASON THE OPSYN RUNG MEASURED ONE ROW EARLIER: core_runtime_error's conversion arm needs a pushed jmp_buf that only the EVAL boundary supplies, so it would PRINT AND EXIT where a program that set &ERRLIMIT expects statement failure.  kwb_error is KW-5's one authority -- it decrements the credit, publishes &ERRTYPE/&ERRTEXT and returns 0 so this returns FAILDESCR and the box takes its omega edge -- and at the DEFAULT &ERRLIMIT of 0 it calls core_runtime_error itself, so the default arm terminates exactly as the oracle does.  ORACLE-MEASURED, sbl -bf: with `&ERRLIMIT = 10` the oracle prints `235` / `subscripted operand is not table or array` from the :F branch and runs on; with &ERRLIMIT untouched it reports and stops at the statement.  ⛔ OUT-OF-BOUNDS STILL FAILS AND MUST NEVER BECOME AN ERROR: the manual (p.90) makes looping until an array reference fails the idiomatic traversal, so the bounds test stays where it is, inside the DT_A arm, BELOW this gate.  The gate is about the OPERAND'S TYPE only. */
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
@@ -1424,7 +1288,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR: asm entry is rt_assign_var (rtx_icnvar.S); this is the gate-off body */
+static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
     { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
@@ -1459,12 +1323,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {   /* RTX ICNVAR:
     }
     return FAILDESCR;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s112 MON-CAP — THE SUBSCRIPTED-LVALUE VALUE TAP (fire point 2 of 2).  SNOBOL4 does NOT reach subscript_set for `T[k] = v`: the front-end lowers a subscripted target to rt_subscript_var, which
- * returns a NAMETRAP lvalue, and the store lands HERE — measured from the emitted asm of a 4-form probe (rt_subscript_var/rt_assign_var, never subscript_set).  This is where beauty.sno's step-49
- * blindness actually lived.  ONLY NON-SIMPLE TARGETS TAP: the `DT_N slen==0` arm is a plain NAME (`$'Y' = ...`), whose event is already emitted by rt_indirect_assign_* in rt.c under the REAL variable
- * name, so tapping it here too would double-emit and desync the very instrument this rung exists to fix.  Cell/table/tvsubs targets have no other tap anywhere and get the oracle's `<lval>` spelling.
- * FAIL results do not tap — the oracle emits no VALUE for a store that did not happen.  Wrapped, not patched per-return, so the original decision tree stays byte-for-byte ONE AUTHORITY. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val)
 {
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
@@ -1519,14 +1378,6 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
 {
-    /* ZB-5 ARBNO v2 COLLECTION (ARCH-ZETA-LOCAL-STORAGE.md section 5f): grow the owner's per-iteration
-     * element store to hold index i, ZERO element i (the fresh-iteration rule — body boxes may read-before-
-     * write via rt_cap_push and a reused index must not leak a popped iteration's state; POP never zeroes,
-     * resume needs the state), return its address.  ZC_COLLECTION = MALLOC (D7): realloc house style, with
-     * the zeta arena (TR-4 s67: the external rooting this once leaned on is gone; the unified collector's root story is GC-W-1's);
-     * roots move with the block.  Known v1 lifetime residual (watermarked): the block is reused across
-     * anchor retries and statement re-executions within a frame, but leaks at frame death — the per-
-     * activation grown-collection release list (5f) or the GC backing (GC-4) retires this. */
     extern void rt_bomb(const char *);
 #if ZC_COLLECTION == ZC_COL_MALLOC
     if (i + 1 > *cap_cell) {
@@ -1539,17 +1390,6 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
         *ptr_cell = np; *cap_cell = nc;
     }
 #elif ZC_COLLECTION == ZC_COL_ARENA
-    /* BB-OWNED-ζ pivot (statement-scope mark/release_to, this session): grow onto the SAME LIFO arena
-     * rt_zls_alloc/rt_zls_release already use, instead of realloc.  No per-table root churn here (TR-4) —
-     * rt_zls_alloc already widened the arena's root range to cover every byte up to the new hiwater
-     * (zeta_alloc.c rt_zls_alloc), so a block living INSIDE the arena is already GC-visible by construction;
-     * per-block rooting was only ever needed for the malloc arm, where each block was its own separate
-     * allocation outside any pre-rooted range.  Deliberately NO free of the old block: it chained onto
-     * g_zls_cur when it was allocated (rt_zls_alloc's own header write) and stays reachable there even
-     * after *ptr_cell moves past it — the enclosing statement's rt_zls_release_to(mark) walks the WHOLE
-     * chain back to the mark at statement end and reclaims it then, same backstop property already
-     * documented for a mid-iteration ARBNO activation in zeta_alloc.c's rt_zls_release_to comment.  This is
-     * what retires the "leaks at frame death" residual noted above: nothing here can outlive the mark. */
     extern void * rt_zls_alloc(long bytes);
     if (i + 1 > *cap_cell) {
         int nc = *cap_cell > 0 ? *cap_cell : 4;

@@ -1,25 +1,3 @@
-/* rtx_str_bench.c — RTX-3 targeted A/B for str_concat_d. NOT a rail; a single-symbol probe.
- *
- * WHY NOT THE RAIL: s163 measured this container's whole-program windows swinging 1.4-3.9x
- * under the rail's 800ms floor, so a rail delta for one runtime symbol is unreadable. A single
- * symbol CAN be measured, because we control the iteration count and can drive it far above the
- * noise floor. This reports ns/concat, which is the honest unit for the thing that was ported.
- *
- * WHAT IS CONTROLLED FOR:
- *  - Same binary, same process image, both arms. Only SCRIP_RTX_STR differs, and it is read once
- *    by the constructor in rtx_init.c, so the arm is fixed for the process's whole life.
- *  - Operands are two FIXED static strings, never an accumulator. That matters: concatenating
- *    onto the previous result would arm the SXT ownership token and route the port to C on every
- *    iteration after the first, so the benchmark would measure the C extend path in BOTH arms and
- *    report a fake null result. With fixed operands the token never matches and the fast path is
- *    genuinely exercised every iteration.
- *  - HEAP EXHAUSTION IS THE CONFOUND TO WATCH. Every concat carves a fresh block and nothing is
- *    freed, so a long run fills the heap, provokes collection, and both arms then measure the
- *    collector instead of the copy. N is kept well under capacity and g_gc_pending is reported;
- *    a run that reports collections is not comparable and says so.
- *  - Reported statistic is the MINIMUM over repetitions, not the mean: on a shared 1-core box the
- *    minimum is the least-contaminated estimator, since scheduler noise only ever adds time.
- */
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -31,8 +9,8 @@ extern int g_gc_pending;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t S(const char *s, uint32_t n) { DESCR_t d; d.v = DT_S; d.slen = n; d.s = (char *)s; return d; }
 static double now_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static volatile uint64_t sink = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static double run(DESCR_t a, DESCR_t b, long n) {
     double t0 = now_ns();
     for (long i = 0; i < n; i++) { DESCR_t r = str_concat_d(a, b); sink += (uint64_t)(uintptr_t)r.s + r.slen; }

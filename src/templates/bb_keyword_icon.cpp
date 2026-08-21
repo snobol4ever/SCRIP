@@ -14,15 +14,8 @@ DESCR_t rt_keyword_gen(const char *sval, long idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_icon() {
     if (!PLATFORM_X86) return std::string();
-    if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");   /* ZK-2: op_zres writes ZRES(0/8), does not use op_off; suppress bomb for ZD-armed nodes. */
+    if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
-    /* ZK-2 (s220): Icon cells-arm ZD dispatch. op_zres=1 iff admitted by zd_wl_kind + planned by zd_plan.
-     * Generator keywords split to IR_KEYWORD_ICON_GEN (lower_icon.c:319) -- never reach here.
-     * &fail goes straight to omega (no result); op_zres path omitted (topology drives no ZRES write).
-     * R13/R14 reads are read-only -- not scratching the scan registers per REGISTER CONTRACT.
-     * ONE AUTHORITY: only this arm writes ZRES for IR_KEYWORD_ICON on the cells arm.
-     * SN4 watermark: icn_cells_graph=0 -> op_zres never staged -> arm invisible by construction.
-     * BOTH MEDIA: x86() encoders handle binary and text. */
     if (_.op_zres) {
         if (!strcmp(kw, "subject")) {
             if (g_scan_regs_live)
@@ -52,9 +45,6 @@ std::string bb_keyword_icon() {
                  + x86("mov", ZRES(0), (long)DT_SNUL)
                  + x86("mov", ZRES(8), (long)0)
                  + x86_gamma() + x86_beta_trampoline();
-        /* Any other keyword in the ZD arm is a op-filter error -- zd_wl_kind restricts
-         * admission to &null/&pos/&subject only (see emit.cpp ONE AUTHORITY).  If this bomb
-         * fires, widen the op-filter AND add a matching ZRES arm above. */
         return x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm");
     }
     std::string tail = x86_gamma() + x86_beta() + x86_omega();
@@ -73,14 +63,6 @@ std::string bb_keyword_icon() {
              + tail;
     }
     if (!strcmp(kw, "pos")) {
-        /* &pos ALWAYS reads the register-world cursor r14 (+1 for Icon's 1-based &pos), never the scan_pos global.
-         * r14 is the per-thread scan cursor: it is inherited across calls, so a ?-less scanning callee
-         * (preproc_scan_text) that runs inline scan primitives on the caller's ambient subject sees the live cursor
-         * here, matching those primitives. The old g_scan_regs_live gate routed in_scan=0 reads through
-         * rt_keyword_pos (the scan_pos global), which the inline primitives never update -> &pos read stale ->
-         * e.g. `&subject[&pos-1]` computed the wrong char and upto scanned for the wrong set. Outside any scan r14
-         * is 0 so &pos reads 1, matching the scan_pos default; &pos:= and by-name scan dispatch keep r14 and the
-         * global in lock-step, so this never diverges from a correctly-maintained global. */
         return x86("comment", "KEYWORD_pos_reg [always r14+1: register cursor is the source of truth, incl. ?-less scanning callees]")
              + x86_alpha()
              + x86("mov", FRQ(_.op_off), (long)DT_I)

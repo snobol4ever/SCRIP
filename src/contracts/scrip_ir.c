@@ -96,7 +96,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_MATCH_FENCE0] = "IR_MATCH_FENCE0",
     [IR_MATCH_FENCE1] = "IR_MATCH_FENCE1",
     [IR_MATCH_ABORT] = "IR_MATCH_ABORT",
-
     [IR_MATCH_ALTERNATE] = "IR_MATCH_ALTERNATE",
     [IR_MATCH_ASSIGN_IMM] = "IR_MATCH_ASSIGN_IMM",
     [IR_MATCH_ASSIGN_COND] = "IR_MATCH_ASSIGN_COND",
@@ -238,7 +237,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
         || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION
-        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN || op == IR_KEYWORD_ASSIGN_SNOBOL4;   /* KW-3b: a SNOBOL4 keyword assignment YIELDS THE ASSIGNED VALUE, preserving the contract of the SNO$KWSET builtin it replaces (by_name_dispatch.c: `*out = args[1]`), so the statement value seen by a caller is unchanged by the retarget. */
+        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN || op == IR_KEYWORD_ASSIGN_SNOBOL4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
@@ -272,14 +271,13 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     extern int zls_g_vslot_count(const IR_graph_t *);
     extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
     zls_build(g);
-    { extern int zdp_analyze(IR_graph_t *); extern int x86_zdp_on_c(void); extern int zdp_mode(void); extern int zzone_plan(IR_graph_t *); extern int zzone_on_c(void); if (zdp_mode() || x86_zdp_on_c() || zzone_on_c()) { zdp_analyze(g); zzone_plan(g); } }   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136): THE LATTICE HOOK, RESTORED.  s133 reported it "hooked in ir_drive_slot_assign after zls_build" but NO CALLER OF zdp_analyze EXISTED anywhere in src/ at this HEAD, so zdp_valid stayed 0 and zdp_alpha/zdp_beta returned ⊤ for EVERY node -- which is why the s136 first census read 100% ⊤ on a program whose measured deltas were visibly determinate (0/16/32/128/144/224).  ⛔ THAT CENSUS MEASURED PLUMBING, NOT THE LATTICE, and any inherited ⊤ number predating this line is void.  Placed AFTER zls_build because the transfer function reads zw_carve_k/zls_result_live, which zls_build populates.  Fires under EITHER gate so the probe cannot silently measure an unanalyzed graph. */
+    { extern int zdp_analyze(IR_graph_t *); extern int x86_zdp_on_c(void); extern int zdp_mode(void); extern int zzone_plan(IR_graph_t *); extern int zzone_on_c(void); if (zdp_mode() || x86_zdp_on_c() || zzone_on_c()) { zdp_analyze(g); zzone_plan(g); } }
     g->n_vslots = 0;
     for (int v = 0; v < zls_g_vslot_count(g); v++) { int off = -1; const char * vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0) drv_vslot_push(g, vn, off); }
     g->resume_slot = zls_g_resume(g);
     g->zeta_mark_slot = zls_g_zeta_mark(g);
     g->jcon_value_region = zls_g_region(g);
     g->nvalue_slots = zls_g_nslots(g);
-    /* PL-FR-4: populate pl_zf_trail_mark_off in the ZLS graph record for zframe Prolog generators.  The trail mark is emitted as the first IR_CALL_BUILTIN_PROLOG node with sval=="$trail_mark"; its ZLS result slot is zls_off(nd) after zls_build runs.  This is read at emit time by bcps_spine_gen_arm via zls_g_pl_trail_mark_by_name() to know which frame slot to restore when β-resuming a fresh callee zframe. */
     if (g->zframe_graph) {
         extern int zls_off(const IR_t *);
         extern void zls_g_set_pl_trail_mark(const IR_graph_t *, int);
@@ -293,12 +291,11 @@ void ir_drive_slot_assign(IR_graph_t * g) {
             }
         }
     }
-    { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }   /* ZDP CENSUS HOOK -- DEFAULT-INERT.  Sited HERE and nowhere else because zls_build has just run, so zw_node_k / zls_result_live (THE ONE K AUTHORITY and the holds-live flag) are populated and the transfer function reads the same numbers the allocator will spend.  zdp_mode() is 0 unless SCRIP_ZDP is set, so the shipped build does not call the pass at all and this line is a predicted-not-taken branch: byte-identity is BY CONSTRUCTION, not by measurement.  No template consults the predicate yet -- that is a later rung under its own killswitch, per the migration law that retracted s127 and reverted s130. */
-    /* ICN-FR-3 / PL-FR-2 (s4, MEASURED BOTH LANGUAGES): the zframe param/local vslot OVERRIDE that stood here is DELETED, not gated — it was pure damage on BOTH tracks that stamp zframe_graph (lower_icon.c:1422, lower_prolog.c:1385).  ZLS is already the ONE AUTHORITY for the flat-frame vslot table and is already correct under the pin: zeta_storage.c grants params at 16+i*16, then base = 16+nparams*16, then node RESULT cells at base+k*16 for k=0..K-1, then named locals AFTER them at base+K*16+j*16 — and its own IR_ASSIGN/IR_VAR/IR_VAR_REF name scan (~:536) already grants IMPLICIT locals (undeclared names, e.g. x in an `initial` body) with a dedup guard, which is the exact case the override was written to catch.  Every ZLS vslot offset is a FLAT-FRAME offset in the graph root scope, so with ___ pinned to the flat base FRQ(off)=[___+off] addresses it correctly BY CONSTRUCTION; the override premise that these were "FORTH-spine offsets" was false.  THE DAMAGE: the override re-granted locals at (np+j+1)*16 = base+j*16, which IS node result cell k=j — every local ALIASED onto a result cell, each write stomping the other.  The prior in-tree comment conceded the collision ("may overlap for k=0,np=0") and shipped anyway.  A/B MEASURED THIS SESSION at this base, deletion vs present: ICON 293-program suite 206/57/30 -> 217/46/30 under the OFFICIAL harness (per-program .stdin fed, cwd = program dir, mirroring test_icon_all_rungs.sh:89-97 -- an earlier ad-hoc runner that fed /dev/null and never chdir'd mis-scored 8 programs and its numbers are void), fail sets STRICTLY NESTED (11 fixed, ZERO broken: rung07_control_repeat_break rung16_subscript_sub_every rung18_real_relop_{mixed_relop,real_eq,real_lt} rung35_block_body_{every_do_block,if_block,if_else_block} rung36_jcon_{concord,meander} rung37_mutual).  PROLOG rung suite 47/117 -> 132/32 interp and 47/117 -> 126/38 compile (+85 / +79).  SNOBOL4 R-ICN-D proven by DIRECT BYTE COMPARISON, not by argument: all 318 crosscheck programs emitted via --compile both ways, 0 differing files, concatenated md5 47ef94a6a76f53503e0c9f49bb41b26c identical — lower_snobol4.c never sets zframe_graph and this measurement is what makes that structural claim a fact.  Deleted rather than gated: a killswitch on a proven-wrong arm is dead code. */
+    { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const int * g_seq_of_node = (const int *)0;
 static int g_seq_of_node_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_seq_of(int ix) { return (g_seq_of_node && ix >= 0 && ix < g_seq_of_node_n) ? g_seq_of_node[ix] : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {

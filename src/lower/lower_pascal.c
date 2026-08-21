@@ -28,14 +28,17 @@ static int g_pas_has_nesting = 0;
 #define PAS_MAX_CAPTURED 256
 typedef struct { const char * proc; const char * var; } pas_cap_t;
 static pas_cap_t g_pas_captured[PAS_MAX_CAPTURED]; static int g_pas_captured_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_cap_find(const char * proc, const char * var) {
     for (int i = 0; i < g_pas_captured_n; i++) if (g_pas_captured[i].proc && g_pas_captured[i].var && proc && var && !strcmp(g_pas_captured[i].proc, proc) && !strcmp(g_pas_captured[i].var, var)) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_cap_add(const char * proc, const char * var) {
     if (!proc || !var || pas_cap_find(proc, var) || g_pas_captured_n >= PAS_MAX_CAPTURED) return;
     g_pas_captured[g_pas_captured_n].proc = proc; g_pas_captured[g_pas_captured_n].var = var; g_pas_captured_n++;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pas_cap_mangle(const char * proc, const char * var) {
     char buf[128]; snprintf(buf, sizeof buf, "__up_%s_%s", proc ? proc : "", var ? var : "");
     return lp_strdup(buf);
@@ -45,10 +48,12 @@ static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(pcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 extern void global_register(const char * name);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_reg_var(const char * nm) { if (nm && nm[0]) global_register(lp_strdup(nm)); }
 static int pas_in_real_proc(const pcx_t * cx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_in_real_proc(const pcx_t * cx) { return cx && cx->sc.proc_name && strcmp(cx->sc.proc_name, "main") != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scope_slot(const pas_scope_t * sc, const char * name) {
     if (!name) return -1;
     for (int i = 0; i < sc->n; i++) if (sc->names[i] && !strcmp(sc->names[i], name)) return i;
@@ -70,8 +75,8 @@ static int pas_name_is_byref(pcx_t * cx, const char * name) {
     for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return (int)((s->byref >> sl) & 1LL); }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int pas_is_agg_local(const char * name);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pas_resolve_name(pcx_t * cx, const char * name, int * slot_out) {
     const pas_scope_t * found_sc = NULL;
     int slot = -1;
@@ -109,8 +114,8 @@ static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * 
     if (slot < 0 && rn == name && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
     IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = rn; return nd;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** res) {
     char * nm = (char *) malloc(16);
     snprintf(nm, 16, "__pbt%d", cx->npbt++);
@@ -137,6 +142,7 @@ static IR_t * pas_mat_rv(pcx_t * cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_condish(const tree_t * t) { return t && (is_relop(t->t) || t->t == TT_NOT); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res) {
     if (t && t->t == TT_NOT && t->n > 0) return pas_cond(cx, t->c[0], F, T, res);
     if (t && is_relop(t->t)) {
@@ -240,6 +246,7 @@ static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tre
     }
     return entry;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_call_args(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs, IR_t * ω) {
     (void) dv;
     return pas_call_args_brm(cx, call, 0, args, nargs, ω);
@@ -825,8 +832,8 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
             }
         }
     }
-    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PAS_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* PAS-ZF-2 killswitch: default ON; SCRIP_PAS_ZFRAME=0 reproduces pre-rung HEAD byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
-      if (_zf) { /* stamp all bbp graphs EXCEPT main: main uses C-ABI entry (not the proc-table dispatcher), so the zframe prologue's rcx/rdx wire-saves would capture garbage C args and jmp rcx would crash */
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PAS_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
+      if (_zf) {
           int _mx = -1; for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) if (g_stage2.proc_table[_pi].name && strcmp(g_stage2.proc_table[_pi].name, "main") == 0) { _mx = g_stage2.proc_table[_pi].bb_idx; break; }
           for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && _gi != _mx) g_stage2.bbp.table[_gi]->zframe_graph = 1; } }
     return &g_stage2;

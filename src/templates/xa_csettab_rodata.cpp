@@ -22,6 +22,7 @@ static std::string xa_csettab_rodata_str(void) {
     }
     return std::string();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_csettab_rodata(void) {
     std::string s = xa_csettab_rodata_str();
     if (!s.empty()) emit_text_n(s.data(), s.size());

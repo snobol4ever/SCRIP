@@ -1,25 +1,19 @@
-/* rt_slab.c — RUNG TR-1 (GOAL-SNOBOL4-BB.md PHASE 0). Malloc-backed slab pool.
- * TWO-REGION RULE: this file is the ONLY malloc caller in the TR-8 end state.
- * D5 proposed defaults (Lon may flip): 3 size classes 64K/1M/16M, one mutex,
- * slabs recycled on a per-class free list, never returned to libc. */
 #include "rt_slab.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
-
 #define NKLASS 3
 static const size_t k_bytes[NKLASS] = { 64u << 10, 1u << 20, 16u << 20 };
-
 static rt_slab_t      *g_free[NKLASS];
 static size_t          g_pool_bytes = 0;
 static pthread_mutex_t g_mx = PTHREAD_MUTEX_INITIALIZER;
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint32_t pick_klass(size_t need) {
     for (uint32_t k = 0; k < NKLASS; k++) if (k_bytes[k] >= need) return k;
-    return NKLASS; /* oversize: exact-fit, own class */
+    return NKLASS;
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_slab_t *rt_slab_get(size_t min_bytes) {
     uint32_t k = pick_klass(min_bytes);
     pthread_mutex_lock(&g_mx);
@@ -40,20 +34,20 @@ rt_slab_t *rt_slab_get(size_t min_bytes) {
     pthread_mutex_unlock(&g_mx);
     return s;
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_slab_put(rt_slab_t *s) {
     if (!s) return;
     if (s->magic != RT_SLAB_MAGIC) { fprintf(stderr, "rt_slab_put: bad magic\n"); abort(); }
-    if (s->klass >= NKLASS) { free(s); return; } /* oversize: no class to pool under; ledgered libc return */
+    if (s->klass >= NKLASS) { free(s); return; }
     pthread_mutex_lock(&g_mx);
     s->next = g_free[s->klass];
     g_free[s->klass] = s;
     pthread_mutex_unlock(&g_mx);
 }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t rt_slab_pool_bytes(void) { return g_pool_bytes; }
-
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_slab_region(size_t n) {
     rt_slab_t *s = rt_slab_get(n);
-    return RT_SLAB_BASE(s);   /* region-lifetime = program; never put back */
+    return RT_SLAB_BASE(s);
 }

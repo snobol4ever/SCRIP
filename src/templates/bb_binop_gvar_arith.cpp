@@ -12,7 +12,6 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi);
 extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GVA_LD(reg, k, nm, pl, lb) ( \
       x86("note", gva_name((k))) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((k), 0) : ABSQ(RT_GVA_VA + (k) * 16)) \
     + x86("cmp", "edx", (long)DT_I) \
@@ -24,6 +23,7 @@ extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
     + x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int) \
     + IF(strcmp((reg), "rax") != 0, x86("mov", (reg), "rax")) \
     + x86("def", L((lb) + 1)) )
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_arith() {
     x86_begin();
     if (PLATFORM_X86) return IF(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval,

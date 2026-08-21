@@ -23,14 +23,6 @@ std::string bb_keyword_assign() {
     if (_.op_a_slot < 0) return x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
     if (!strcmp(kw, "pos")) {
-        /* ICN-SCAN-SYNC (unconditional): validate the new position against the current subject via
-         * rt_keyword_pos_set (which uses strlen(scan_subj) — always the live subject because &subject:= keeps
-         * scan_subj current) and set the scan_pos global so global-world by-name scan dispatch (rt_call_arr in a
-         * ?-less scanning callee) sees it; ALSO publish delta=pos-1 into r14 so register-world scan primitives (in a
-         * caller's ? ) track the same position. rt_keyword_pos_set returns {DT_I,pos} (rax=type, rdx=pos). r15 (length)
-         * stays valid from the governing &subject:=/? enter, which &pos:= never changes. This replaces the old
-         * g_scan_regs_live-gated split that left one of the two worlds stale whenever the emitter misjudged scan
-         * membership across a co-expression @ or in a ?-less scanning callee (JTRAN lexer coord corruption). */
         return x86("comment", "BOX ICN IR_KEYWORD_ASSIGN pos [unconditional two-world sync: scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
@@ -55,14 +47,6 @@ std::string bb_keyword_assign() {
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     (long)DT_S)
              + x86("mov",  FRQ(_.op_off + 8), "rax")
-             /* ICN-SCAN-SYNC (unconditional): r13/r14/r15 are the dedicated, register-resident scan cursor and are
-              * passed through calls; keeping them in lock-step with the scan_subj/scan_pos globals on EVERY &subject
-              * assignment is what makes register-world scan primitives (in a caller's ? ) and global-world by-name scan
-              * dispatch (rt_call_arr in a ?-less callee like lex_yylex0) agree. The prior g_scan_regs_live gate skipped
-              * the reload whenever the emitter judged the box "not in scan" — true for an assignment reached across a
-              * co-expression @ or living in a ?-less scanning callee — desyncing the two worlds (JTRAN lexer). rax=ptr,
-              * rdx=len returned by rt_keyword_subject_set; &pos:=1 semantics -> delta(r14)=0. Dedicated regs, so a stray
-              * reload outside any scan is harmless (overwritten at the next ? enter). */
              + x86("mov", "r13", "rax")
              + x86("mov", "r15", "rdx")
              + x86("mov", "r14", (long)0)

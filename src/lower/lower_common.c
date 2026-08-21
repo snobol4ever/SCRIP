@@ -178,7 +178,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
 void lc_γ_to(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α", 3); nd->γ.sz[3] = 0; } }
 void lc_ω_to(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "α", 3); nd->ω.sz[3] = 0; } }
 void lc_γ_to_β(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "β", 3); nd->γ.sz[3] = 0; } }
-void lc_γ_tag_β(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "β", 3); nd->γ.sz[3] = 0; } }   /* R1 STMT-BETA-LAND: tag-only helper -- sets the β port tag WITHOUT changing γ.node.  Used for fB: γ.node stays = fJ (preserving the full GOTO chain to fT for the emitter's used-scan and all other consumers), but the β tag propagates through the chain so the emitter routes to betas[sbeg_k] when it chases past fB.  lc_γ_to_β would sever the chain (both effects in one call). */
+void lc_γ_tag_β(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "β", 3); nd->γ.sz[3] = 0; } }
 void lc_ω_to_β(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "β", 3); nd->ω.sz[3] = 0; } }
 void lc_γ_to_α(IR_t * nd, IR_t * t) { if (nd) { nd->γ.node = t; memcpy(nd->γ.sz, "α!", 4); } }
 void lc_ω_to_α(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω.sz, "α!", 4); } }
@@ -246,15 +246,15 @@ void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * 
     for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
     (void)(blks);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static struct { const IR_t ** nd; const char ** src; int n; int max; } g_bb_src = { 0, 0, 0, 0 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_note(const IR_t * nd, const char * src) {
     if (!nd || !src || !src[0]) return;
     for (int i = 0; i < g_bb_src.n; i++) {
         if (g_bb_src.nd[i] != nd) continue;
         { const char * h = g_bb_src.src[i]; size_t ls = strlen(src);
           while (h) { const char * e = strchr(h, '\n'); size_t seg = e ? (size_t)(e - h) : strlen(h);
-                      if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }   /* ⭐ ON-4 (s23e, Lon's ORIGINAL s23b complaint -- "srccomment statement echoes OUT OF ORDER + DUPLICATED"): the append arm below is a legitimate accumulator (one node CAN head several statements), but it accumulated BLINDLY, so a text already present was appended AGAIN -- roman.s carried `ROMAN = REPLACE(...)` on two ADJACENT lines of the same node's blob.  Exact-segment match against the lines already held makes the note IDEMPOTENT; a genuinely distinct statement still appends.  Compares whole '\n'-delimited SEGMENTS, not strstr, so a statement that is a substring of another (`TEST(1,100)` inside a longer echo) is not swallowed. */
+                      if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
         size_t la = strlen(g_bb_src.src[i]);
         size_t lb = strlen(src);
         char * j = (char *) malloc(la + lb + 2);
@@ -285,17 +285,6 @@ const char * bb_src_of(const IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* bb_src_reset -- ⭐ THE s115 CARRIER, NAMED AT LAST: g_bb_src is the pointer-keyed table s114 predicted ("one pointer-keyed table consulted by zd_plan run-formation that survives IR_free_dyn")
- * and could not find.  It is the EXACT disease fc_tables_reset (s67) was written for and the sibling that sweep left behind -- same keying (raw IR_t*), same lifecycle (fed by MAIN lowering,
- * never reset), same trigger (eval_build_chain ends in IR_free_dyn, so a runtime chain's fresh malloc'd IR_t land on dead main-graph addresses).  The payload is different and worse than fc's
- * wrong-displacement: zd_plan's run walk BREAKS a run at any node where bb_src_of() is non-NULL (emit.cpp:2365 head test, :2372 continuation test), so a stale hit SPLITS the chain -- the earlier
- * run's gpop releases the spine cell a later node's operand still needs, the second run refuses ("opnd"), and the refused nodes fall to flat FRQ reads of a frame that no longer holds their
- * value.  MEASURED on the s114 witness pair: ev_pad_alias_0 splits `run h=0 len=2` + `run h=2 len=4 REFUSED at i=3 (opnd op=3)` and prints 2; ev_pad_alias_1 -- the SAME program plus one inert
- * assignment, which merely shifts the allocator -- forms one `run h=0 len=6`, arms 6/6 and prints 3.  Address-decided output, which is why every semantic hypothesis s114 tried (source-line
- * attribution, global registry, fc widening) measured inert: none of them moved malloc. SHAPE IS fc_tables_reset's VERBATIM (`fct_n = 0`) and so is its lifecycle argument: emission consults the
- * table only for the graph lowered SINCE the reset, and every pre-reset graph is already emitted (mode-3 emits main wholesale before run; in mode-4 the runtime compile happens in the COMPILED
- * program's process, which never lowered a main graph -- which is precisely why m4 already passes this witness and stands as the working reference).  ZERO NEW STATE: truncation of the existing
- * count, no epoch field, no parallel array, no new file-scope variable (RULES.md NO-NEW-GLOBALS).  Killswitch SCRIP_SRC_RESET=0 restores the stale-visible behaviour byte-for-byte for A/B. */
 void bb_src_reset(void) {
     static int _sr = -1;
     if (_sr < 0) { const char * e = getenv("SCRIP_SRC_RESET"); _sr = (e && e[0] == '0') ? 0 : 1; }

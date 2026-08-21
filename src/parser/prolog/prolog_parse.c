@@ -154,7 +154,6 @@ static const char *op_type_unclassify(Assoc assoc, Fixity fix) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bin_ops_count(void) { int n = 0; for (const OpEntry *op = BIN_OPS; op->name; op++) n++; return n; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_table_count(void) { return bin_ops_count() + g_uinfix_n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out) {
@@ -202,6 +201,7 @@ static void register_op_directive(tree_t *goal) {
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
     register_op_one((int)pn->v.ival, tn->v.sval, nn);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int prefix_arg_starts(Token pk) {
     switch (pk.kind) {
         case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
@@ -1155,7 +1155,6 @@ static PlClause *parse_clause(Parser *p) {
     }
     return cl;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"
     "member(X,[_|T]):-member(X,T).\n"

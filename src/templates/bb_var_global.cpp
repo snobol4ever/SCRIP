@@ -9,7 +9,7 @@ DESCR_t NV_GET_fn(const char * name);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }   /* ZD-1 (Lon s21x-v): the ONE destination switch -- under op_zres the result IS the box's own alpha-carved cell (mode 1 of the FOUR), read downstream via the staged op_zread differences; otherwise the legacy flat slot.  Same body serves both regimes, zero arm duplication. */
+static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {
     if (PLATFORM_X86)

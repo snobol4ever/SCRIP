@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 typedef uint8_t * bb_buf_t;
-#define BB_POOL_SIZE   (64 * 1024 * 1024)   /* s91: reserve only (MAP_ANON, pages commit on touch); FLAT_BUF_MAX grew 1MB->4MB for beauty-class mains */
+#define BB_POOL_SIZE   (64 * 1024 * 1024)
 void     bb_pool_init    (void);
 int      bb_in_pool      (const void * p);
 bb_buf_t bb_alloc        (size_t size);

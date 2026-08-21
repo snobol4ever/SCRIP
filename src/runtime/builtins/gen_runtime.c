@@ -123,7 +123,6 @@ ScanSubjRegs rt_scan_reenter(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
@@ -132,7 +131,6 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern void rt_dcap_lazy_init(void);
     rt_cap_match_begin();
     rt_dcap_lazy_init();
-    /* CAS-SENTINEL-CLEAN: rt_patstk_lazy_init call removed — no pattern stack island exists */
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
@@ -142,9 +140,8 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
+__attribute__((visibility("hidden"))) int g_repl_trace = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) int g_repl_trace = -1;   /* RTX-8 SLICE 9: was a function-local `static int _rpt` inside the body below, which a .S cannot reach at all. static->hidden is a WIDENING (absent from the dynamic table, direct [rip+sym], interposition-proof) — NOT the g_cap_gen default->hidden NARROWING that cost 173/316 mode-4 LINK failures. -1 means unresolved, so the FIRST call of every process delegates to C by design; that is the s223 lazy-resolution shape and a probe must be sized from COMMITS, never entries */
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
     uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
@@ -155,9 +152,9 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
     int64_t rlen = (int64_t)strlen(rs);
-    int64_t raw_start = start, raw_end = end;   /* FINDING-2026-08-12f: pre-clamp snapshot for the trace ONLY -- the old trace printed post-clamp, so a reported end==slen was indistinguishable from end>slen (a raw GC-pointer read, the L-3 non-carving class); clamp arithmetic below is UNCHANGED */
+    int64_t raw_start = start, raw_end = end;
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
-    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }   /* BP-2c: cached getenv — ran on EVERY replacement (gdb-sampled ~3% of string_pattern), the BP-2b environ-scan class */
+    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
     if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }

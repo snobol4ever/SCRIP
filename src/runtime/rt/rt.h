@@ -87,12 +87,12 @@ typedef struct {
 #include "bb_box.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
-typedef struct rt_proc_reg_rec { const char *name; void *fn; void *dcfn; const char *result_name; const char *const *pnames; int32_t nparams; int32_t nformals; int32_t frame_bytes; int32_t flags; int32_t rest_kind; int32_t named_rest; } rt_proc_reg_rec_t;   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the 64-byte static .rodata registration record the m4 startup emits per proc — layout is LAW, mirrored by scrip.c .quad/.long directives and pinned by the _Static_asserts beside rt_proc_register_rec.  flags: bit0 dyn_scope, bit1 zstatic, bit2 variadic, bit3 generator, bit4 jmpentry. */
+typedef struct rt_proc_reg_rec { const char *name; void *fn; void *dcfn; const char *result_name; const char *const *pnames; int32_t nparams; int32_t nformals; int32_t frame_bytes; int32_t flags; int32_t rest_kind; int32_t named_rest; } rt_proc_reg_rec_t;
 void rt_proc_register_rec(const rt_proc_reg_rec_t *r);
 void rt_proc_reset(void);
-__attribute__((noreturn)) void rt_ab_undef_fn_stub(void);   /* LADDER AB: fn_cell initial value — fires error 022 */
-int     rt_ab_enter_env(void *frame);               /* AB-2: Σ/wn/vtmark snapshot + k_level++ (called from α after frame established) */
-DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail);   /* AB-2: vtmark tidy + Σ restore + k_level-- + nret_fix (called from β before LEAVE) */
+__attribute__((noreturn)) void rt_ab_undef_fn_stub(void);
+int     rt_ab_enter_env(void *frame);
+DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail);
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
@@ -105,9 +105,9 @@ int rt_proc_index_of(const char *name);
 void rt_proc_table_fill(int64_t *tab, const char **names, int n);
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);
 void rt_proc_set_frame_bytes(const char *name, int bytes);
-void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn);   /* DEFINE-SITE s57 (Lon): the ONE idempotent leaf the statement-site fold calls — refresh if registered (m3), full register if not (m4 executable); redefined set ONLY on a genuine fn change */
-int rt_define_tiny_ok(const char *name, int nargs);   /* TINY-SITE s57: emit-time eligibility for the one-shot glue call site */
-const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out);   /* DEFINE-SITE s57: emit-time registry read for the template — returns malloc'd params CSV */
+void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn);
+int rt_define_tiny_ok(const char *name, int nargs);
+const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out);
 void rt_proc_set_zstatic(const char *name, int bit);
 long rt_fn_zstatic_known(void *fn);
 int  rt_proc_frame_nslots(const char *name);
@@ -121,16 +121,16 @@ int64_t rt_gvar_get_int(const char *name);
 DESCR_t rt_gvar_get_descr(const char *name);
 DESCR_t rt_proc_define(const char *spec);
 void rt_arg_stage(int idx, DESCR_t v);
-void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals);   /* ICN-PROC-FRAME (s211): copy g_call_args into lexical-proc frame param slots and zero locals; nargs from g_pcall top. */
-void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals);   /* ICN-FR-2: ζ-frame variant — reads g_call_args[0..nparams-1] directly (no pcall-nargs clamp); correct for both dc-stub path (no pcall record) and jmp-entry C path. */
-void  rt_pl_retry_push(void *addr);   /* PL-FR-4: push retry continuation onto the choice-point stack (WAM ALTB write; frame-independent — rt.c). */
-void *rt_pl_retry_pop(void);          /* PL-FR-4: pop retry continuation (WAM `return ALTB(B)` read); 0 = exhausted = fail. */
-void  rt_pl_cp_push(void *addr);      /* PL-FR-4 ZFRAME: push β-resume addr onto zframe retry stack (separate from cells g_pl_retry — rt.c). */
-void *rt_pl_cp_pop(void);             /* PL-FR-4 ZFRAME: pop β-resume addr; 0 = exhausted = fail, jump to omega. */
-void  rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);   /* PL-FR-4 ZFRAME TRIPLE: push {trail_mark_lo, trail_mark_hi, cont_addr} as one entry (3 slots); called by bb_suspend zframe arm at each yield. */
-void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);               /* PL-FR-4 ZFRAME TRIPLE: pop triple and return cont_addr (0 = exhausted = omega); writes trail marks to *tm_lo/*tm_hi for caller to restore. */
-void  rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);   /* PL-FR-4 ZFRAME RESUME: set pending-resume globals before re-calling rt_proc_call_open_det; xa_flat epilogue-γ picks them up while callee frame is live. */
-void  rt_pl_zf_resume_clear(void);   /* PL-FR-4 ZFRAME RESUME: clear g_pl_zf_pending_cursor after the intercept writes the cursor. */
+void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals);
+void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals);
+void  rt_pl_retry_push(void *addr);
+void *rt_pl_retry_pop(void);
+void  rt_pl_cp_push(void *addr);
+void *rt_pl_cp_pop(void);
+void  rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);
+void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);
+void  rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);
+void  rt_pl_zf_resume_clear(void);
 extern DESCR_t g_call_args[];
 int  rt_proc_is_registered(const char *name);
 void rt_c2b_arm_trap(void);
@@ -166,7 +166,7 @@ int  rt_toby_real(DESCR_t *cur_slot, int64_t lo_bits, int64_t hi_bits, int64_t s
 void *  rt_cs_new    (const char *chars);
 void rt_cap_assign(const char *varname, const char *base, int len);
 long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
-long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm); /* asm in rtx_match.S */
+long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 void rt_cap_finish(DESCR_t fret);
 void rt_cap_match_begin(void);
 void rt_cap_push(void *slot, int delta);
@@ -174,7 +174,7 @@ void rt_cap_pop(void *slot);
 int rt_cap_top(void *slot);
 void rt_subject_load_nv(const char *name, void *slot);
 long rt_defer_open(const char *varname, int ival_flag);
-long rt_pat_prim_int(const char *varname);   /* D08 FIX: match-time integer fetch for LEN(*var) deferred-integer primitives */
+long rt_pat_prim_int(const char *varname);
 long rt_defer_step(DESCR_t fret);
 int  rt_defer_close(int cur_delta);
 void *rt_defer_get_pat_fn(const char *varname, int ival_flag);

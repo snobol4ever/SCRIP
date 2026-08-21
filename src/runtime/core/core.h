@@ -138,7 +138,6 @@ DESCR_t  NV_GET_fn(const char *name);
 DESCR_t  NV_SET_fn(const char *name, DESCR_t val);
 void    NV_CLEAR_fn(void);
 typedef struct { const char *name; DESCR_t val; } NvPair;
-/* ⛔ NO DEFINITION SINCE 1308f790 (2026-06-15 dead-code sweep) -- these two are still CALLED by src/driver/sync_monitor.c:31/100, so `make scrip-monitor` cannot link. NOT repaired here: that target also needs CSNOBOL4 and belongs to R-6/MON-CAP, whose SIGSEGV is a DIFFERENT mechanism (the MONITOR_BIN env gate inside the ordinary binary, core.c:1694 -- do not conflate the two). Declared, undefined, and named so the next seat reads it here instead of from a link error. */
 int     nv_snapshot(NvPair **out);
 void    nv_restore(const NvPair *pairs, int n);
 DESCR_t  INDR_GET_fn(const char *name);
@@ -311,14 +310,14 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 DESCR_t rt_deref(DESCR_t d);
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
-DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);   /* RTX ICNVAR gate-off body */
+DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
 int NV_EXISTS_fn(const char *name);
-DESCR_t NV_KW_GET_fn(const char *name);   /* CN-DOLLAR-ORACLE: keyword-space (tier-3 &constant) reader -- the complement of NV_GET_fn, which is the ORDINARY namespace's. */
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);   /* CN-DOLLAR-ORACLE: keyword-space writer and the one-time-assignment seal (341). */
-int NV_CONST_ASSIGNED_fn(const char *name);   /* SN4-CONSTANTS CN-10: the 342 read-side predicate -- "the one-time assignment EXECUTED", which NV_EXISTS_fn above does NOT answer (it answers "an entry exists"). */
+DESCR_t NV_KW_GET_fn(const char *name);
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);
+int NV_CONST_ASSIGNED_fn(const char *name);
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
 extern DESCR_t (*g_eval_pat_hook)(DESCR_t pat);

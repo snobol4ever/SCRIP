@@ -12,10 +12,6 @@ std::string bb_make_list() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();
     if (_.op_zres) {
-        /* ZK-2 ZD ARM: element DESCRs from ZOPQ predecessor cells -> rt_make_list -> ZRES(0/8).
-         * No DT_FAIL omega: rt_make_list always succeeds (returns a list DESCR).
-         * x86_reg_disp32_lea64("rdi","rsp",0): bypass x86() RSP-offset adder (same law as bb_call_fn ZD-7).
-         * ONE AUTHORITY: only this arm writes the list result to ZRES for icn_cells_graph. */
         int na = _.op_arg_slot_n;
         std::string s = x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")
                       + x86_alpha();

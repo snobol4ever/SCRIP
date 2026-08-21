@@ -7,9 +7,10 @@ extern "C" {
 #include "bb_templates.h"
 }
 #include "x86_asm.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define LITN() ((long) strlen(_.op_sval ? _.op_sval : ""))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long LITD(long k) { uint32_t w; memcpy(&w, _.op_sval + k, 4); return (long)(int32_t)w; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string lit_chain(long n, long k) {
     return k >= n
              ? std::string()
@@ -29,9 +30,10 @@ static std::string lit_chain(long n, long k) {
              + x86_omega("jne")
              + lit_chain(n, k + 1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_lit_body() {
     static char b[24];
-    return x86("comment", "IR_MATCH_LIT")   /* ZD arm (A-7/ZD-5b, s24b): K=0 — scanner-register only (r14d=cursor, r15d=limit, r13=string base); no cell allocated, no cell read via ZOPQ, no ZRES write.  Body is IDENTICAL in both regimes because the template operates entirely through scanner registers, not the value spine.  Gate: _.op_zres.  One authority: this function shared by both arms. */
+    return x86("comment", "IR_MATCH_LIT")
          + x86_alpha()
          + IF(LITN() > 0,
               x86("mov",    "eax", "r14d")
@@ -53,6 +55,7 @@ static std::string bb_match_lit_body() {
          + IF(LITN() > 0, x86("sub", "r14d", LITN()))
          + x86_omega();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_lit() {
     x86_begin();
     if (!PLATFORM_X86) return std::string();

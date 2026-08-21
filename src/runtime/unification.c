@@ -229,8 +229,8 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
     extern int rt_type_test_term(const char *fn, void *t0);
     return rt_type_test_term(fn, pl_cell_to_term((pl_cell_t *)cell_term));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int g_pl_functor_slot_ctr = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
 {
     extern int rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
@@ -645,8 +645,8 @@ static int rt_pl_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
 {
     pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
@@ -660,7 +660,7 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
     if (op == 4) return c == 0;
     return c != 0;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -827,8 +827,8 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { Term *rest; int mark; } pl_baggrp_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_bag_group_gen(DESCR_t *args, int nargs, int64_t *resume)
 {
     extern pl_trail_t g_pl_trail;
@@ -932,7 +932,6 @@ static const char *pl_atom_text(pl_cell_t *d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_nil(pl_cell_t *d) { const char *s = pl_atom_text(d); return s && !strcmp(s, "[]"); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t pl_nil_cell(void) { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : "[]"; return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_name_singleton_vars_cell(void *term_cell) {
@@ -1151,9 +1150,9 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
     }
     return term_new_var(-1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int g_pl_copy_slot_mode = 0;
 int g_pl_copy_slot_ctr = 1048576;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -1416,7 +1415,6 @@ void *rt_pl_dyn_iter_begin(const char *name, long arity)
     cur->next = row ? row->head : (dyn_clause_t *)0;
     return cur;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { dyn_clause_t *cur; int mark; } pl_dyn_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
@@ -1450,7 +1448,6 @@ DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { dyn_clause_t *cur; int mark; } pl_clause_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
@@ -1490,7 +1487,6 @@ DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; long arity; } pl_pi_cand_t;
 typedef struct { pl_pi_cand_t *v; int n; int i; int mark; } pl_curpred_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1515,7 +1511,6 @@ DESCR_t rt_pl_current_predicate_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *props[4]; int n; int i; int mark; } pl_predprop_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) {
@@ -1550,9 +1545,7 @@ DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) 
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int prec; const char *type; } pl_op_cand_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { pl_op_cand_t *v; int n; int i; int mark; } pl_curop_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
@@ -1583,11 +1576,11 @@ DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; int rw; char val[32]; int is_int; long long ival; } pl_flag_ent_t;
 static pl_flag_ent_t g_pl_flags[] = { { "bounded", 0, "true", 0, 0 }, { "max_integer", 0, "", 1, 9223372036854775807LL }, { "min_integer", 0, "", 1, (-9223372036854775807LL - 1) }, { "double_quotes", 1, "atom", 0, 0 }, { "unknown", 1, "error", 0, 0 }, { "occurs_check", 1, "false", 0, 0 }, { "dialect", 1, "gnu", 0, 0 } };
 static const int g_pl_flags_n = (int)(sizeof g_pl_flags / sizeof g_pl_flags[0]);
 typedef struct { int i; int mark; } pl_flagit_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_ent_t *pl_flag_find(const char *nm) { if (!nm) return (pl_flag_ent_t *)0; for (int i = 0; i < g_pl_flags_n; i++) if (!strcmp(g_pl_flags[i].name, nm)) return &g_pl_flags[i]; return (pl_flag_ent_t *)0; }
 int rt_pl_dialect_is_swi(void) { pl_flag_ent_t *e = pl_flag_find("dialect"); return e && !strcmp(e->val, "swi"); }
 static Term *pl_flag_value_term(const pl_flag_ent_t *f) { if (f->is_int) return term_new_int(f->ival); return term_new_atom(prolog_atom_intern(f->val)); }
@@ -1645,8 +1638,8 @@ DESCR_t rt_pl_current_stream_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_stream_property_gen(DESCR_t *args, int nargs, int64_t *resume) {
     extern pl_trail_t g_pl_trail; extern FILE *fh_get(int); extern int prolog_atom_intern(const char *); extern void *rt_ws_alloc(size_t); extern char *fh_name[]; extern char fh_mode[]; extern char fh_type[];
     if (nargs < 2 || !resume) return FAILDESCR;

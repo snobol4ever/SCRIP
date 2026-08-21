@@ -1,33 +1,13 @@
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rtcc_init.c — RTCC block storage, gate initialisation, GC root, coexpr block-swap (GOAL-RTCC.md RC-1).                                                                                            */
-/* KILLSWITCH LAW: SCRIP_RTCC=0 is the default; the block exists in BSS but is never accessed by the                                                                                                  */
-/* veneer (the x86("call") dispatch arm is a dead branch when g_rtcc_on==0); binary output is byte-identical                                                                                          */
-/* to the pre-RTCC tree at gate OFF. SCRIP_RTCC=1 arms the writeback/load protocol at every boundary.                                                                                                 */
-/* COEXPR RULING (RC-0 FINDING, Option B): block-swap at the existing scrip_coswitch save/restore sites                                                                                               */
-/* — no new encoder arm, zero cost for non-coexpr programs, one memcpy of RTCC_BLOCK_BYTES at each switch.                                                                                            */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "rtcc.h"
 #include "gc_heap.h"
 #include "../../contracts/pin_va.h"
 #include <stdlib.h>
 #include <string.h>
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The RTCC block: 256-byte aligned BSS.  32 uint64 = 256 bytes.                                                                                                                                      */
-/* GPR slots [0..8]: RAX RCX RDX RSI RDI R8 R9 R10 R11 (8 bytes each).                                                                                                                               */
-/* XMM slots [9..24]: XMM8..XMM15 (two uint64 each, low then high).                                                                                                                                   */
-/* Slots [25..31]: reserved/pad (keep block cache-line-multiple).                                                                                                                                      */
 __attribute__((aligned(64))) uint64_t rtccb[32];
-unsigned char g_rtcc_on = 1;   /* ⛔ ONE MODE (Lon 2026-08-20 in-chat, s180, completing s13's "Make RTCC=ON ALWAYS"): protection around C runtime calls is ALWAYS on -- the SCRIP_RTCC=0 emergency-bisect arm is DELETED; this cell is a constant 1 kept only because 9 read sites (templates, driver, x86_asm.h) still spell the truth through it, and folding those reads is hygiene, not behavior.  Per-CALLEE declination is the one legitimate exemption: x86_rtcc_clob answers CLASS N (mask 0) for callees PROVEN unable to disturb the claimed tier -- pure-asm RT leaves and analyzed C leaves; a tail-jump hybrid (rtx fast path -> jmp c_rt_* fallback) may NEVER decline until its C fallback is converted to asm, because the C body returns straight to the call site and the caller's veneer is the only protection it has (ARCH-RT-CONSOLIDATION.md). */
+unsigned char g_rtcc_on = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((constructor)) static void rtcc_init(void) { rtcc_gc_register(); if (RTCC_GLOBAL_R9_GVA) rtccb[RTCC_SLOT_R9] = (uint64_t)(uintptr_t)(void *)RT_GVA_VA; }   /* RC-5-GVA: seed R9 slot with the constant GVA base pointer ONCE — RT_GVA_VA never changes after rt_pin_init; no companion writes needed anywhere in the runtime (BLOCK-CANONICAL EXCEPTION for constant globals). */
+__attribute__((constructor)) static void rtcc_init(void) { rtcc_gc_register(); if (RTCC_GLOBAL_R9_GVA) rtccb[RTCC_SLOT_R9] = (uint64_t)(uintptr_t)(void *)RT_GVA_VA; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RC-8a / HOME-RBX X-1 (s33): PIN != SCAN.  rt_gc_root_pin_add feeds rt_gc_pin_ptr, which keeps the CONTAINING BLOCK alive; rt_gc_root_range_add feeds gc_cons_scan, which walks the INTERIOR and marks
- * what it references (gc_heap.c:625-626).  Registering the pin alone therefore kept the 256 BSS bytes alive while leaving every DESCR the block holds invisible to the marker — "BLOCK-CANONICAL is
- * sufficient" is true for LIVENESS OF THE BLOCK and false for REACHABILITY THROUGH IT.  The range is added over the WHOLE block, XMM slots included: a real in an XMM slot whose bit pattern happens to
- * land in the heap span costs one conservatively pinned block (false retention, bounded and safe) whereas a missed GPR root costs a collected live object, so the asymmetry decides it. LATENT, NOT
- * DEAD,
- * at HEAD: slots [0..4] (the rax/rcx/rdx/rsi/rdi arg tier) are unclaimed, and the claimed slots hold non-collectible values — R9 the constant GVA base, R10/R11 the Gamma/Omega wires (code addresses).
- * X-5 claiming the arg tier is what makes it LIVE, which is exactly why GOAL-SN4-HOME-RBX gates X-5 on X-1.  SCRIP_GC_UNROOT=rtcc re-opens the hole for the gate's positive control ONLY. */
 void rtcc_gc_register(void)
 {
     const char *e = getenv("SCRIP_GC_UNROOT");
@@ -36,16 +16,8 @@ void rtcc_gc_register(void)
     rt_gc_root_range_add((const char *)&rtccb[0], (const char *)&rtccb[32]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Coexpr block-swap (Option B): called from scrip_coswitch at save and restore sites.                                                                                                                */
-/* When g_rtcc_on==0 these are no-ops; the coswitch path is unchanged.                                                                                                                                */
-/* rtcc_load_scratch — RC-2 INBOUND LOAD at every C→generated edge (RC-0(d) edge classes 1-5).                                                                                                        */
-/* BLOCK-CANONICAL LAW: registers are a cache valid only inside generated code; a C→generated crossing LOADS.                                                                                          */
-/* The four scratch-tier registers are clobbered by this asm on purpose — that IS the load.  gcc is told so.                                                                                           */
-/* At g_rtcc_on==0 this returns without touching a register (killswitch: the caller's regs are untouched).                                                                                             */
 void rtcc_load_scratch(void) { if (!g_rtcc_on) return; __asm__ __volatile__ ("movq %0, %%r10\n\tmovq %1, %%r11\n\tmovq %2, %%r8\n\tmovq %3, %%r9\n" : : "m"(rtccb[RTCC_SLOT_R10]), "m"(rtccb[RTCC_SLOT_R11]), "m"(rtccb[RTCC_SLOT_R8]), "m"(rtccb[RTCC_SLOT_R9]) : "r8", "r9", "r10", "r11"); }
-/* rtcc_load_all — RC-4 full 9-GPR inbound load at C→generated edges.  Gate: g_rtcc_on==0 → no-op.           */
-/* Uses block base as a single pointer input; loads all nine slots in one asm block.                            */
-/* r11 loaded last (it is the block pointer scratch; reloading it last means we keep the base until the end).   */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rtcc_load_all(void) {
     if (!g_rtcc_on) return;
     const uint64_t * blk = rtccb;

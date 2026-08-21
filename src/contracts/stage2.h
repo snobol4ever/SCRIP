@@ -22,7 +22,7 @@ typedef struct ProcEntry {
     tree_t             *proc;
     int                 entry_pc;
     int                 nparams;
-    int                 nformals;   /* NPSPLIT (s22w): FORMALS-ONLY count per the DEFINE prototype's (…) segment — the arg-bind/excess-clamp bound.  nparams KEEPS the full-name-set meaning every existing consumer relies on (save/restore, pname bound, pad loop); 0 here = "unsplit registrant" (Icon/Raku/Prolog), consumers fall back to nparams.  SPITBOL manual Ch.8: ALL prototype names save/restore and locals init null, but only FORMALS bind arguments and excess arguments are evaluated then IGNORED. */
+    int                 nformals;
     Scope            lower_sc;
     int                 bb_idx;
     int                 is_generator;

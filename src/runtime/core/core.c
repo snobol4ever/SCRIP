@@ -277,23 +277,13 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_label_bin(int64_t stno) {
-    kw_stcount = stno;   /* s189 (HQ Fable): the dead counter becomes the CURRENT-STNO latch -- nothing incremented it anywhere and nothing reads it back into the language, so this is instrument state riding an existing cell; the ZSM ring stamps it per port so a crash window names its statements without a monitor run */
+    kw_stcount = stno;
     if (monitor_fd < 0 || !g_monitor_bin) return;
     unsigned char buf[8];
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s112 MON-CAP — IS THIS NAME A COMPILER-MINTED INTERNAL?  ONE AUTHORITY for both VALUE fire-points (mon_emit_value_bin and comm_var's binary arm); they are separate code paths and this seat
- * measured the cost of fixing only one — the filter went into mon_emit_value_bin, the rebuild was clean, and beauty.sno's divergence did not move ONE STEP, because the events came out of the other path.
- * Every name the SNOBOL4 lowerer mints for itself carries an embedded '$' after an identifier head: PAT$n, PAT$n$A<i>, PAT$n$V<i>, PATV$k, PATTMP$n, EXPR$n, IGT$n, SNO$*.  The oracle has no such
- * variables, so each emitted a VALUE event with no counterpart and desynced the trace (beauty step 951: `spl @663 VALUE DQ` vs `scr @663 VALUE PAT$9$A0`).
- * ⛔ THE HEAD TEST IS LOAD-BEARING, AND A NAIVE strchr(name,'$') IS WRONG — THIS SEAT SHIPPED THAT VERSION AND BEAUTY FALSIFIED IT IN ONE RUN.  `$` is SPITBOL's indirect-reference OPERATOR, so a name
- * cannot be WRITTEN with one — but indirect assignment CREATES variables named by arbitrary strings, and beauty.sno:104 is literally `$'$' = *White '$' *White`, i.e. a user variable whose whole name is
- * "$".  Suppressing on '$' anywhere killed that legitimate event and moved the divergence to step 1007 instead of past it.  Requiring an identifier HEAD ([A-Za-z_] then [A-Za-z0-9_]* then '$') keeps
- * every minted form and spares punctuation-named user variables ($, !, **) — the exact shapes beauty builds its operator table from.
- * RESIDUAL RISK, STATED RATHER THAN PAPERED OVER: a user CAN still collide via `$('A$B')`, an identifier-headed name containing '$'.  Nothing in the corpus does, and no name written in source can
- * reach this shape, but this filter is a HEURISTIC over a namespace the lowerer shares with the user — not a proof.  The durable fix is a mint-time marker on compiler names; until then, keep it here. */
 static int mon_name_is_internal(const char *name)
 {
     if (!name || !name[0] || name[0] == '<') return 0;
@@ -441,14 +431,6 @@ static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*--- UNLOAD(name).  EVERY ARM MEASURED ON THE LIVE ORACLE, none chosen: a user-defined name succeeds and returns
- *--- the NULL STRING, removing ONLY the function binding -- the same name's VARIABLE VALUE SURVIVES; a name never
- *--- DEFINEd succeeds silently; unloading twice succeeds; a builtin raises ERROR 248 "attempted redefinition of
- *--- system function", which is the manual's user-functions-only rule spoken as SPITBOL speaks it; a non-name
- *--- STRING ('1BAD') and an INTEGER both succeed, so the argument is not name-validated, only TYPE-validated; and
- *--- the null string or an aggregate (ARRAY measured) raises ERROR 201 "unload argument is not natural variable
- *--- name".  The type test is one comparison because the descriptor encoding puts every scalar below DT_P. ---*/
 static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
     if (n < 1 || a[0].v >= DT_P) { core_runtime_error(201, "unload argument is not natural variable name"); return FAILDESCR; }
     extern int UNLOAD_fn(const char *);
@@ -458,7 +440,7 @@ static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }   /* ⭐ s189 (HQ Fable, autobug unblock; delegates to mon_name_is_internal, the s112 MON-CAP ONE AUTHORITY -- identifier-head test, so the user variable named "$" survives): compiler-SYNTHETIC frames (EXPR$n defer thunks, PAT$n blobs) never cross the trace/monitor surface -- the oracle structurally cannot emit them ($ is not a name character in source), so every such CALL/RETURN/VALUE event is a GUARANTEED false divergence that kills the 2-way sync-step at the first deferred evaluation and blinds Lon's automatic bug finder exactly where beauty's bug lives (step 1568: spl CALL PushCounter vs scr CALL EXPR$173, the *Command thunk).  Filtering here also moves &FTRACE toward oracle behavior (SPITBOL user tracing has no synthetic frames).  SCRIP_MON_SYNTH=1 restores the old stream for A/B.  NAMESPACE-LAW-consistent (ARCH-PASSTHRU: synthetic names are pollution and die); function-local static cache per the tree's killswitch idiom, ZERO new file-scope state. */
+static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
@@ -483,7 +465,7 @@ void comm_var(const char *name, DESCR_t val) {
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
     if (kw_trace <= 0 && !trace_registered(name)) return;
-    if (g_monitor_bin && mon_name_is_internal(name)) return;   /* s112 MON-CAP: same suppression as mon_emit_value_bin — comm_var is the SECOND VALUE fire-point (the &TRACE path) and is the one beauty.sno's step-951 events were actually coming out of.  Scoped to the monitor regime so ordinary &TRACE output is byte-unchanged. */
+    if (g_monitor_bin && mon_name_is_internal(name)) return;
     if (g_monitor_bin) {
         uint32_t name_id = intern_name_bin(name, (int)strlen(name));
         if (name_id == MW_NAME_ID_NONE) return;
@@ -921,8 +903,6 @@ static DESCR_t _DUPL_(DESCR_t *a, int n) {
 static DESCR_t _REMDR_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
     extern int operand_is_real_str(DESCR_t v);
-    /* .cmth extends remdr to reals in the SAME sentence as the 8 math fns (sbl.min:260); the real/int decision is arithmetic.c's, reused not respelled.  REMDR-by-zero stays a FAIL here:      */
-    /* the oracle raises 167/312 instead, a SEPARATE measured divergence with its own blast radius over every program relying on the failure signal, and NOT part of this family.             */
     if (IS_REAL_fn(a[0]) || IS_REAL_fn(a[1]) || operand_is_real_str(a[0]) || operand_is_real_str(a[1])) {
         double ry = to_real(a[1]);
         if (ry == 0.0) return FAILDESCR;
@@ -934,9 +914,6 @@ static DESCR_t _REMDR_(DESCR_t *a, int n) {
     if (y == 0) return FAILDESCR;
     return INTVAL(x % y);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SPITBOL extended math (.cmth, sbl.min:1658): ATAN CHOP COS EXP LN SIN SQRT TAN.  Each takes ONE arg, coerces INT/REAL/STRING via to_real, returns REAL ALWAYS -- CHOP(7) is 7. and         */
-/* DATATYPE(SQRT(4)) is REAL, both measured against the live oracle.  Domain/overflow arms carry SPITBOL's own numbered errors (sbl.min:13223-15753): hard errors, not statement failures.   */
 #define MATH_ARG(ECODE, EMSG)                                              \
     if (n < 1) return FAILDESCR;                                           \
     if (!is_numeric_like(a[0])) { core_runtime_error((ECODE), (EMSG)); return FAILDESCR; }
@@ -1116,7 +1093,7 @@ static DESCR_t _TABLE_(DESCR_t *a, int n) {
     int init = (n >= 1) ? (int)to_int(a[0]) : 0;
     int inc  = (n >= 2) ? (int)to_int(a[1]) : 0;
     return TABLE_VAL(table_new_args(init, inc));
-}   /* ⛔ THE 10s WERE A THIRD COPY OF THE TABLE DEFAULTS AND THEY WERE THE STALE COPY: this face passed 10 for an absent header count while the oracle's default is 11, so a table born here would have prototyped 10.  Passing 0 says "not supplied" and lets table_new own the answer, which is the same discipline the PROTOTYPE faces now follow.  Live only above nargs 3 today (BID_TABLE claims 0..3), and that is exactly why it must not be allowed to drift unobserved. */
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
@@ -1172,7 +1149,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                 char kb[64];
                 table_set_descr(tbl, tbl_key_str(kd, kb, sizeof kb), kd, vd);
             }
-            return TABLE_VAL(tbl);   /* ⛔ THE KEY ENCODING IS SPELLED ONCE, IN tbl_key_str, AND THIS ARM WAS THE SECOND SPELLING.  It stored under VARVAL_fn(kd) -- the PLAIN string -- while every table read and write in the runtime (rt_subscript_var, subscript_set, the pattern paths) keys through tbl_key_str, which TYPE-TAGS the key: INTEGER 7 hashes as "\001i7", not "7".  So an integer key survived CONVERT(a,'TABLE') into a bucket no subscript could ever find, and crosscheck rung11 1113/006 `DIFFER(ata<7>, 45)` was measuring it -- vacuously, because the CONVERT above it had already failed and taken the same :f branch.  Dropping the `if (!key) continue` with it is not a widening: tbl_key_str answers for every datatype including the null string ("\001n"), so the guard could only ever have discarded a key the table is required to hold. */
+            return TABLE_VAL(tbl);
         }
         return FAILDESCR;
     }
@@ -1673,8 +1650,7 @@ static DESCR_t _PAT_ARBNO_(DESCR_t *a, int n)   { return n>=1 ? pat_arbno(a[0]) 
 static DESCR_t _PAT_FENCE_(DESCR_t *a, int n)   { return n>=1 ? pat_fence_p(a[0]) : pat_fence(); }
 static DESCR_t _PAT_ALT_(DESCR_t *a, int n)     { return n>=2 ? pat_alt(a[0], a[1])  : (n>=1 ? a[0] : FAILDESCR); }
 static DESCR_t _PAT_CONCAT_(DESCR_t *a, int n)  { return n>=2 ? pat_cat(a[0], a[1])  : (n>=1 ? a[0] : FAILDESCR); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) { return agg_prototype(n >= 1 ? a[0] : NULVCL); }   /* ⛔ THIS IS A FACE, NOT AN IMPLEMENTATION -- see agg_prototype (aggregates.c) for the one authority and the oracle receipts.  The body that stood here was the SECOND spelling of PROTOTYPE and the one every non-1-argument call reached, and it was wrong three ways at once: it stringified answers the oracle gives as INTEGERs, it answered the null string for a TABLE where the oracle answers the hash-header count, and it failed the statement for an invalid object where the oracle raises ERROR 164.  It is kept as a face rather than deleted because the registry it is registered in is a REACHABLE entry point -- APPLY and OPSYN's register_fn_alias both resolve through it, and a runtime OPSYN('P','PROTOTYPE') alias was measurably answering '1:3' where the direct call answered 3.  n >= 1 is argument PRESENCE, not an argument COUNT: a call written with no argument passes the null string, which is an invalid object and takes the 164 like any other. */
+static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) { return agg_prototype(n >= 1 ? a[0] : NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ITEM_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
@@ -1702,10 +1678,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
 int core_stack_floor_raised = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_lib_init(void) {
-    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (mode-4 twin): mode-4's generated main calls core_lib_init directly and never calls
-     * rt_gcheap_warmup itself (only scrip.c's mode-3 driver did, at two call sites before rt_outer_call/rt_outer_call_delta0). gc_static_segs_init's dl_iterate_phdr
-     * uses movaps and requires 16B-aligned rsp; core_lib_init runs from a genuine C prologue (called via plain `call` from generated main, before any JIT blob),
-     * so driving the one-time census here gives mode-4 the same guarantee mode-3 already has. Idempotent via gc_static_segs_init's own g_gc_nseg>=0 guard. */
+    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
     if (!core_stack_floor_raised) {
         core_stack_floor_raised = 1;
         long floor = 64L * 1024 * 1024;
@@ -1720,7 +1693,7 @@ void core_lib_init(void) {
     }
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
-    { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }   /* KW-5b: the keyword block's oracle-true initials must be live BEFORE statement one, or a program that never mentions a keyword runs on the C initializers -- measured as a wrong &TRIM answer on a bare `L = INPUT` (see rt_kw_seed_defaults). Unconditional since KW-4 deleted the killswitch. */
+    { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ms = (int64_t)_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -1912,7 +1885,6 @@ char *c_VARVAL_fn(DESCR_t v) {
             return rt_ws_strdup_c(buf + _p);
         }
         case DT_R: {
-            /* SPITBOL standard representation via the one authority (string_ops.c). */
             extern const char *real_str(double r, char *b, int bufsz);
             real_str(v.r, buf, sizeof(buf));
             return rt_ws_strdup_c(buf);
@@ -1977,7 +1949,7 @@ const char *rt_sno_indirect_name(DESCR_t v) {
         if (refused && !(ks && *ks == '0')) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); return 0; }
     }
     return VARVAL_fn(v);
-}   /* ⭐⭐⭐ THE $ OPERATOR'S ONE REFUSAL, ERROR 239 (queue row `indirect-nonname-silent-accept`) -- AND THE DEFECT WAS THAT `$` ASKED A *DISPLAY* FUNCTION WHETHER ITS OPERAND WAS A NAME.  bn_sno_name read `VARVAL_fn(args[0])` and refused only the empty C string, so the null-string case merely FAILED THE STATEMENT (no code, no message, &ERRTYPE 0) where SPITBOL raises 239 -- and every AGGREGATE was ACCEPTED, because VARVAL_fn is the OUTPUT-side stringifier and answers "ARRAY('3')" / "TABLE(11,11)" / "PATTERN" / the DATA type name for objects that have NO name conversion at all.  `$ARRAY(3) = 'x'` therefore created a variable literally called ARRAY('3') and the program ran on: a SILENT FALSE ACCEPT, which is the worse half of this row.  MANUAL v3.7 p.83 IS THE RULE -- "Indirection may proceed to any depth, provided the null string is never encountered as a variable name", with the worked example `$RUFF` through an unset RUFF answering "Error #239, Indirection operand is not a name" -- and p.196 is why a NAME operand skips the conversion test entirely: "$(.A) is the same as using the variable A".  ⛔ THE ADMISSION SET IS ORACLE-MEASURED, NOT READ OFF THE PROSE (sbl -bf, &ERRLIMIT non-zero so the oracle prints clean diffable lines instead of a dump it exits 0 from).  ACCEPTED: non-null STRING including punctuation names (`$'='`, which beauty.sno:104 depends on), INTEGER (`$3`, `$0`), REAL (`$3.5` -- the name is literally 3.5, round-tripped), NAME (`$(.ABC)`).  REFUSED WITH 239: the null string (unset variable and `$''` alike), ARRAY, TABLE, PATTERN, CODE, EXPRESSION, and a programmer-defined DATA object.  &ERRLIMIT is the corroborating count -- 1000 -> 995 across five refusals and 1000 -> 992 across eight, one credit each, never two.  ⛔ THE TEST READS THE DESCRIPTOR, NEVER THE C STRING, AND THAT IS LOAD-BEARING: `&ALPHABET` is 256 bytes whose FIRST byte is NUL, the oracle ACCEPTS `$&ALPHABET`, and a `!*sv` test would have raised a FALSE 239 on it -- the exact 'NOWHERE ELSE' half of the row's done-when.  So the null decision is `slen == 0` (plus DT_SNUL), and VARVAL_d_fn -- argval.c's DESCRIPTOR twin, which already answers FAILDESCR for precisely the non-convertible datatypes -- is the classifier, so the refusal set is not spelled a second time here.  ⛔ NOT DONE AND NAMED, NOT HIDDEN: SCRIP's variable namespace is C-string keyed (NV_GET_fn/NV_SET_fn take `const char *`), so a name whose first byte is NUL CANNOT BE SPELLED AT ALL; `$&ALPHABET` therefore still fails the statement below exactly as it always has -- a visible refusal, never a false 239 and never a fabricated empty name, which is what admitting it would have created.  A counted-string namespace is a different rung.  ⛔ ERROR 38 IS NOT THIS ROW EITHER: rt_goto_resolve conflated 'indirection operand is not name' with 'Goto undefined label' (Appendix D 38) in ONE printf, and the oracle separates them -- `:($N)` answers 38 for N='NOSUCHLABEL' and 239 for N unset (both measured).  This rung splits the 239 half out at the shared authority and leaves 38's legacy printf+exit alone rather than half-fixing it.  ⛔ AND THE GOTO FACE STILL CANNOT TAKE :F -- GOTO_DEFERRED carries no ω edge (--dump-ir prints '.'), so under a non-zero &ERRLIMIT, where the oracle converts the error and branches, that face reports and exits instead of failing the statement.  Loud, not silent, and said out loud here.  DT_FAIL IS EXCLUDED DELIBERATELY: a failed operand expression must keep failing the statement and must never be promoted into an error.  ⭐ ONE AUTHORITY, TWO FACES, because `$` is spelled twice in this runtime: bn_sno_name serves BOTH the value position and the assignment position (`$X` and `$X = v` both lower to CALL "SNO$NAME" -- checked with --dump-ir), while rt_goto_resolve spells `$` a second time as a STRING PREFIX on the label name.  Both now ask this function, so the boundary cannot drift between them.  The error rides kwb_error, not core_runtime_error, for the reason the OPSYN rung records: core_runtime_error's conversion arm needs a pushed jmp_buf that only the EVAL boundary supplies, so raising there would PRINT AND EXIT where the oracle merely fails the statement.  At the default &ERRLIMIT of 0 kwb_error calls core_runtime_error itself, so the default arm reports and terminates exactly as SPITBOL does.  Killswitch SCRIP_IND_NAME=0 restores the old accept VERBATIM (fall through to VARVAL_fn), and it is read ONLY on the refusal edge -- the `$` hot path that beauty.sno hammers takes no getenv per evaluation, and a cached flag would have been a new global. */
+}
 #include <setjmp.h>
 jmp_buf g_core_err_jmp;
 int     g_core_err_active = 0;
@@ -2038,21 +2010,22 @@ void core_runtime_error(int code, const char *msg) {
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
           longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
-      } }   /* ⭐⭐⭐ CN-EVAL-FAILS (this seat) -- THE CONVERSION TEST MOVED ABOVE THE REPORT AND ABOVE THE TWO exit(1)s, AND BOTH MOVES ARE LOAD-BEARING, NOT TIDYING. (1) ABOVE THE PRINT: a converted error is one somebody CAUGHT, and a caught error has no business on stderr -- the codebase already spells that rule in KW-5's &ERRLIMIT arm ("no message is displayed", manual Ch.16 verbatim) and the live oracle spells it too (EVAL('&NEVERSET') takes :F in total silence). Leaving the fprintf first made every EVAL failure print an error the oracle never prints, which is a .ref divergence on any witness that merely EXERCISES the path. (2) ABOVE core_err_is_terminal: error 22 "undefined function called" is ON that list, and the oracle FAILS `EVAL('UNDEFINEDFN(3)')` rather than dying -- so a boundary that catches behind the terminal exit cannot implement p.131 at all, because the most ordinary fragment error of the lot exits before the handler is consulted. ⛔ THE GATE IS NARROWED IN THE SAME BREATH, `g_error != 0` -> `g_error != 0 && g_core_errjmp_n > 0`, SO NOTHING ELSE MOVES: with no handler pushed the old code set the icn_err* state and fell to exit(1), which is unobservable, so every path that is not actively being caught still prints and still exits exactly as before -- terminal, fatal and ordinary alike. Only a frame that has BOTH armed g_error AND pushed a jmp_buf sees new behaviour, and today that is the EVAL boundary alone. ⛔ AND THE PUBLISH HAPPENS *HERE*, NOT AT THE CATCH SITE, FOR A LIFETIME REASON THAT COST A DEBUG CYCLE: nearly every caller builds its message in a STACK buffer (`char eb[192]; snprintf(eb, ...); core_runtime_error(342, eb)` is the tier-3 keyword arm's exact shape), and longjmp unwinds that frame -- so a handler that read g_icn_errtext AFTER landing was reading freed stack, and &ERRTEXT came back null. rt_kw_publish_error copies the text while msg is still live, one frame before the jump. g_icn_errtext keeps pointing at the caller's buffer exactly as it always has, because the Icon path consumes it before unwinding; this line does not change that contract, it just stops the SNOBOL4 path from depending on it. */
+      } }
     fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
             code, g_core_err_stmt, msg ? msg : "");
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
     exit(1);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n) {
     switch (n) { case 101: return "integer expected or out of range"; case 102: return "numeric expected"; case 103: return "string expected"; case 104: return "cset expected";
                  case 106: return "procedure or integer expected"; case 107: return "record expected"; case 108: return "list expected"; case 110: return "file expected"; case 115: return "structure expected"; case 210: return "invalid tab stop"; }
     return "run-time error";
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_error(int code, DESCR_t val) {
     extern long g_error;
     if (g_error != 0) {
@@ -2202,12 +2175,11 @@ typedef struct _VarEntry {
     DESCR_t  val;
     DESCR_t *cell;
     int      is_gva;
-    int      is_const;   /* SN4-CONSTANTS (s145, Lon's bit grant): 1 = sealed &constant cell -- one-time assignment, any later write = error 341 */
+    int      is_const;
     struct _VarEntry *next;
 } NV_t;
 static NV_t *_var_buckets[VAR_BUCKETS];
 static int _var_init_done = 0;
-
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _var_init(void) {
     if (_var_init_done) return;
@@ -2227,9 +2199,8 @@ static NV_t *_var_bucket_find(const char *name) {
     return (NV_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }   /* ⭐⭐⭐ CN-DOLLAR-ORACLE killswitch (queue row `cn-oracle-rulings`, HQ-61 "ORACLE-FAITHFUL CONFIRMED"). SCRIP_KWSPACE_SPLIT=0 restores the pre-ruling single-namespace regime EXACTLY -- every guard below is written as `is_const && _nv_kwsplit()` and every seal as `'&' && !_nv_kwsplit()`, so the OFF arm reads byte-for-byte like the code this ruling replaced and the revert probe can prove the flip is not vacuous. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }   /* ⭐⭐⭐ THE TWO NAMESPACES, MEASURED ON THE ORACLE AND ENFORCED IN ONE PREDICATE. Live `x64/bin/sbl -b`: `&ANCHOR = 1` then `$('&ANCHOR')` reads NULL, an indirect WRITE leaves the keyword at 1, `$('&NEVERSET') = 99` is accepted silently, and a second and third indirect write are accepted too (w1/w2/w3 = 1/2/3, DATATYPE INTEGER). So in SPITBOL `$('&X')` names an ORDINARY VARIABLE literally spelled "&X" in a namespace WHOLLY DISJOINT from the keyword &X, in BOTH directions. SCRIP kept ONE hash table for both, so a user-declared constant `&N` and the indirect variable `$('&N')` shared a cell: the read answered 42 where the oracle answers null, and the write raised 341 where the oracle assigns. `is_const` is ALREADY exactly the set of keyword-space (tier-3) cells -- NV_SET_fn seals on the leading '&' and nothing else sets the bit -- so it becomes the NAMESPACE TAG and no key mangling is needed: a mangled string key could always be collided with by `$()`, which names variables with ARBITRARY strings (beauty.sno:104 is literally `$'$' = ...`), whereas a per-entry tag cannot be. Two entries may now share a name in one bucket chain -- that IS the two cells -- so every ORDINARY walker filters through here and the keyword walkers (NV_KW_GET_fn/NV_KW_SET_fn/NV_CONST_ASSIGNED_fn) take the complement. */
+static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
+static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
@@ -2320,9 +2291,9 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
-            if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;   /* ⭐⭐⭐ CN-DOLLAR-ORACLE NARROWED THIS TO THE KILLSWITCH-OFF ARM, AND THAT IS THE HALF OF THE RULING THE READ SIDE CANNOT DO ALONE. Reached only through the ORDINARY namespace now (the walk above filters keyword-space entries out), so leaving it armed would re-seal the very cell `$('&X') = ...` just created and the SECOND indirect write would raise 341 -- measured on live sbl as w1/w2/w3 = 1/2/3, three accepted writes. The tier-3 seal did not move: it lives in NV_KW_SET_fn, which owns keyword space outright. Original CN-10 note kept below because its predicate lesson still holds. ⭐ SN4-CONSTANTS CN-10 -- SEAL AT THE FIRST REAL STORE, NOT AT ENTRY BIRTH. Reachable only for an `&`-entry born WITHOUT a value (NV_PTR_fn's intern, which no longer pre-seals -- see its create site): that entry's first store IS the one-time assignment, so it stores and seals here; the second store then meets is_const above and raises 341 exactly as a SET-created constant does. `is_const` is thereby made truthful -- 1 iff the one-time assignment has EXECUTED -- which is what lets NV_CONST_ASSIGNED_fn below answer the 342 read-side predicate (s148 item 3: NV_EXISTS_fn tested entry EXISTENCE, so a valueless intern suppressed 342 and pre-armed 341 against the first legitimate write). */
+            if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
             comm_var(name, val);
-            return val;   /* CN-10 drive-by, same region: this was a BARE `return;` in a DESCR_t-returning function -- any caller consuming the update-path result read garbage. All sibling paths already return val. */
+            return val;
         }
     }
     { static long _nvc = -1; if (_nvc < 0) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
@@ -2331,20 +2302,17 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
-    e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;   /* ⭐⭐⭐ CN-DOLLAR-ORACLE: THE ORDINARY CREATOR NO LONGER MINTS KEYWORD-SPACE CELLS. `$('&NEVERSET') = 99` arrives here and the oracle accepts it silently as an ordinary variable (measured; and reads back 99), so tagging it is_const would both hide it from every later ordinary read and refuse the next write with 341. Keyword space is minted in NV_KW_SET_fn and nowhere else -- which is what keeps `is_const` a truthful namespace tag. */
+    e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     comm_var(name, val);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }   /* CN-DOLLAR-ORACLE: an ORDINARY-namespace existence test, filtered like every other ordinary walker so it cannot answer 1 for a keyword-space twin. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }   /* ⭐ CN-DOLLAR-ORACLE MADE THIS A KEYWORD-SPACE SCAN INSTEAD OF A FIRST-NAME-MATCH. Two entries may now share a name (the constant &N and the indirect variable $('&N')), and the bucket chain prepends, so `return e->is_const` on the first match would answer 0 the moment an indirect write to "&N" landed in front of the constant -- the 342 predicate would then say a declared constant was never assigned. Identical when only one entry exists, which is every pre-ruling program. SN4-CONSTANTS CN-10 -- the 342 read-side predicate: 1 iff the one-time assignment has EXECUTED (is_const is sealed at SET-create or at the first store into a PTR-interned cell, never at valueless birth). NV_EXISTS_fn answers a different question (entry existence) and keywords.c asking IT was s148 item 3. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }   /* ⭐⭐⭐ THE KEYWORD-SPACE READER (CN-DOLLAR-ORACLE). rt_keyword_read_snobol4's tier-3 arms called NV_GET_fn, which is now the ORDINARY reader -- pointing them here is what keeps a declared constant readable while `$('&N')` reads the disjoint ordinary cell. Deliberately NOT routed through NV_GET_fn's preamble: that preamble is the ORDINARY namespace's (INPUT, the I/O-channel association scan, &subject/&pos, the write/writes proc values), and none of it can own a tier-3 name -- kw_read answers &subject/&pos long before the tier-3 arm is reached, so consulting it here would only add ways for keyword space to leak into ordinary state. The killswitch-OFF arm delegates to NV_GET_fn verbatim, which IS the pre-ruling call, so SCRIP_KWSPACE_SPLIT=0 is an exact revert and not an approximation. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; comm_var(name, val); return val; }   /* ⭐⭐⭐ THE KEYWORD-SPACE WRITER, AND THE ONLY MINTER OF SEALED CELLS LEFT IN THE FILE (CN-DOLLAR-ORACLE). The one-time-assignment seal is UNCHANGED in force and in wording -- second tier-3 store still raises 341 with the same text -- it merely stopped being a property of the leading '&' in an ordinary store and became a property of the namespace the store came from, which is what the oracle measures: `$('&NEVERSET') = 99` is silent, `&C = "one"` then `&C = "two"` is not. It creates UNCONDITIONALLY rather than reusing an ordinary same-named entry, because reusing one would re-merge the two cells this ruling separates. It skips NV_SET_fn's I/O-association and OUTPUT/TERMINAL preamble for the same reason NV_KW_GET_fn skips its twin -- a tier-3 constant is not an ordinary variable and must not be able to fire an I/O association -- but keeps rt_sxt_break (the GC/string bookkeeping every store owes) and comm_var (tracing, which the sealed cell owes exactly as before). */
+int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
+int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
+DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; comm_var(name, val); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -2372,7 +2340,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
-    e->is_const = 0;   /* ⭐ SN4-CONSTANTS CN-10 -- A POINTER INTERN IS NOT AN ASSIGNMENT. This creator mints a VALUELESS cell; pre-sealing it (the old `name[0]=='&'` arm, twin of NV_SET_fn's create) made is_const mean "an `&`-entry exists" rather than "the one-time assignment executed", which is precisely the wrong predicate s148 item 3 names: 342 suppressed (entry exists) AND 341 pre-armed (first legitimate write refused). No `&`-name reaches this function today (census 2026-08-19: mon_emit_value_bin excludes them, gva_collect refuses them, rt_cell_for serves call-plumbing locals), so this is prophylactic like the rc-recording -- the seal now lands at the first real store in NV_SET_fn's update path. */
+    e->is_const = 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e;
     return &e->val;
@@ -2402,7 +2370,7 @@ void NV_CLEAR_fn(void) {
     _var_init();
     for (int _i = 0; _i < VAR_BUCKETS; _i++) {
         for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next)
-            if (!_e->is_const && !is_protected_pat_name(_e->name)) { if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL; }   /* ⭐⭐⭐ SN4-CONSTANTS CN-6 + CN-7 — CLEAR SKIPS WHAT IS PROTECTED AND STORES THROUGH THE BINDING THE ENTRY ALREADY CARRIES. Manual Ch.19 CLEAR: "the null string is assigned to all user variables in the system", and SPITBOL "differs from SNOBOL4 by not clearing protected variables, such as ARB". ORACLE-MEASURED, not inferred: DATATYPE(ARB) reads PATTERN both before and after CLEAR() while an ordinary variable goes null in the same program. CN-6 (is_const): a sealed &constant raises 341 on any write, so it is protected under SCRIP's own regime -- nulling it drove PATTERN->NULL while leaving the ENTRY alive, so 342 could not fire (NV_EXISTS_fn stays true) and 341 then refused every restore, leaving the cell permanently null AND permanently unwritable. CN-7 (is_gva): this was the ONLY writer in the file that ignored the GVA binding -- 2185/2227/2242/2302/2345 all ask `is_gva ? *cell : val`, CLEAR alone stored to `val` unconditionally, so it nulled a copy the compiled program never reads and every CLEAR() was silently a no-op for ordinary variables. Deliberately NOT routed through NV_SET_fn even though that is the store authority: an I/O association sets g_call_fastpath_off (2912/2940), which would send every entry down the slow path into _io_chan_find_by_var -- a bulk reset must not fire I/O associations or raise 42 on a protected name the way an ordinary assignment does. CN-8 DELETED _var_reg outright: its producer NV_REG_fn and consumer NV_SYNC_fn were both removed as GC-proven-dead by the 2026-06-15 sweep 1308f790, leaving three write-through loops and a GC root visit bounded by a counter nothing incremented -- a modes-1/2 name-to-DESCR* registry with no meaning in modes 3/4, where the compiled program reads GVA cells and NV entries directly. Deletion is identity by reachability, not by measurement. */
+            if (!_e->is_const && !is_protected_pat_name(_e->name)) { if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2637,9 +2605,6 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* OPSYN operator dispatch (s10): the by-name chain consults the core fn table for operator-symbol names
- * (non-identifier lead char) so an OPSYN-aliased operator like `@` reaches the aliased C builtin.  Returns
- * 0 when the name is absent or carries no C fn (SNOBOL-defined synonym targets are a follow-on). */
 int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!name || !*name) return 0;
     _func_init();
@@ -2653,13 +2618,6 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*--- UNLOAD's registry half (manual v3.7 p.245 "Remove function definition ... In SPITBOL, only user-defined
- *--- functions can be UNLOADed").  Builtins and user functions share THIS ONE table -- register_fn is a thin
- *--- wrapper over DEFINE_fn -- so the system/user discriminator is ->fn: register_fn is its only writer, and a
- *--- SNOBOL4 DEFINE always registers with fn NULL (_DEFINE_ passes NULL down both its arms).  Answers 1 removed
- *--- or never-there, 0 system function (caller raises 248), -1 unusable name (caller raises 201).  A name that
- *--- was never DEFINEd answering 1 is not laxness: the live oracle SUCCEEDS on it, in silence, measured. ---*/
 int UNLOAD_fn(const char *name) {
     _func_init();
     if (!name || !*name) return -1;
@@ -2753,11 +2711,6 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
             return STRVAL(rt_ws_strdup_c(e->params[idx - 1]));
         }
     }
-    /* Fallback: the compiled (mode-4) backend registers DEFINE'd functions in the
-     * rt_proc registry (rt_proc_register carries the param-name table), NOT in
-     * _func_buckets, which only the in-process (mode-3) runtime DEFINE fills. Consult
-     * rt_proc so ARG introspection has the same result in both backends — same class
-     * of two-registry parity gap as the proc/1 fix. Fixes 1017 mode-4 (SZ-7). */
     { extern int rt_proc_nparams(const char *); extern const char *rt_proc_pname(const char *, int);
       int np = rt_proc_nparams(fname);
       if (np > 0 && idx >= 1 && idx <= (int64_t)np) {

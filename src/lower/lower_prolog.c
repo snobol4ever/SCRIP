@@ -9,8 +9,7 @@ typedef struct { IR_graph_t * g; IR_t * tω; IR_t * beta; IR_t * cut_ω; IR_t * 
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_cells_stamp(IR_graph_t * g) { static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_PL_CELLS"); _on = (e && *e == '1') ? 1 : 0; } if (_on && g) g->pl_cells_graph = 1; }   /* PL-ZK-0: opt-IN stamp per R-PL-ZK-A. SCRIP_PL_CELLS=1 routes this graph to the per-BB RSP FORTH cells arm. Unset = current ZD path byte-identical. THIS IS THE ONE SETTER — no second spelling anywhere. Called at every IR_alloc site in lower_prolog.c (5 sites). Mutual exclusion with zframe_graph is structural: lower_icon.c owns zframe_graph; lower_prolog.c never touches it. */
+static void pl_cells_stamp(IR_graph_t * g) { static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_PL_CELLS"); _on = (e && *e == '1') ? 1 : 0; } if (_on && g) g->pl_cells_graph = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_var_name(int slot) {
     static char * cache[1024]; static char buf[24];
@@ -82,8 +81,8 @@ static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, 
     if (entry_out) *entry_out = first;
     return nd;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return NULL;
@@ -118,6 +117,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     default: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term(lcx_t * cx, const tree_t * t) { return term_e(cx, t, NULL); }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -126,27 +126,17 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_var_name((int) t->v.ival); return nd; }
     return term_e(cx, t, entry_out);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_lval(lcx_t * cx, const tree_t * t) { return term_lval_e(cx, t, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_same_functor(const tree_t * a, const tree_t * b) {
     return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-REGAIN-5 slice B (2026-07-19): a [E|T] pattern (ONE element + bar) in a unify — the qsort/nrev/append clause-head shape — lowers to ONE $unify_lst(Subject,E,T) goal instead of $mkc('.',E,T) feeding
- * $unify: the read-mode try skips the pattern BUILD entirely (3 PLJ allocs + 2 trail pushes per clause-try today), the write-mode leaf rebuilds it bit-identically.  Kids lower exactly as they did as mkc
- * operands (any shape: var refs, literals, nested builds).  Deeper patterns ([A,B|T], nested compounds) keep the classic pair untouched.  SCRIP_NO_UL=1 compile-time hatch = the same-lib twin instrument
- * (SCC-off pattern, rides beside SCRIP_NO_CU). */
 static int pl_no_ul(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_UL"); p = (e && e[0] == '1') ? 1 : 0; } return p; }
 static int pl_is_lstpat1(const tree_t * t) { return t && t->t == TT_MAKELIST && t->v.ival == 1 && t->n == 2; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-SPEED-5 slice A (2026-07-20) — FIRST-ARG PRE-TRY GUARD.  Per gprolog Pl2Wam/indexing.pl split2 the clause-head arg0 KEY taxonomy is {var, atm(A), int(N), lst, stc(F/N)}; a clause whose key is
- * non-var gets a $ix_g(Subject, Kind|Arity<<8, Key) goal BEFORE its head-unify chain: bound subject with a provably-non-unifiable principal functor SKIPS the clause (γ of the PREVIOUS chain link jumps
- * straight to the NEXT clause's entry — nothing was bound since the activation's $trail_mark on this path, so no unwind crossing is spent), var/unknown subject PROCEEDS.  Skip legality is exactly the
- * arms the unify leaves already compute: PLREF-vs-const = ci/cs PLREF→fail; PLREF slen≠slen = plw_unify_cells:119; bound-const-vs-compound-key = either-PLREF/lst-total-case; same-type const mismatch =
- * ci int-compare / rt_descr_equal S-S strcmp.  CROSS-TYPE const pairs (int-vs-atom either direction) PROCEED — rt_descr_equal's VARVAL arm coerces there and the guard must not change outcomes.  Kinds:
- * 1=int(Key=imm) 2=atom(Key=str; nil folds here as "[]") 3=lst(Key unused) 4=stc(Key=name, arity in bits 8+).  gprolog runtime precedent: Pl_Switch_On_Term routes every tag outside {INT,ATM,LST,STC}
- * (floats, FDV) to the try-all path — mirrored by the leaf's terminal PROCEED.  SCRIP_NO_IX=1 = compile-time hatch (same-lib twin instrument, SCC/CU/UL pattern). */
 static int pl_no_ix(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_IX"); p = (e && e[0] == '1') ? 1 : 0; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ix_key(const tree_t * h, long long * ki, const char ** ks) {
     if (!h) return 0;
     if (h->t == TT_ILIT) { *ki = (long long) h->v.ival; return 1; }
@@ -154,6 +144,7 @@ static int pl_ix_key(const tree_t * h, long long * ki, const char ** ks) {
     if (h->t == TT_FNC && h->v.sval) { if (h->n == 0) { *ks = h->v.sval; return 2; } *ks = h->v.sval; *ki = (long long) h->n; return 4; }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * unify_lst_build(lcx_t * cx, IR_t * subj, IR_t * subj_entry, const tree_t * eh, const tree_t * et, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify_lst";
     IR_t * e1 = NULL; IR_t * a1 = term_lval_e(cx, eh, &e1);
@@ -766,7 +757,7 @@ static void pl_bounded_dump(const IR_graph_t * g) {
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
     if (!clause || clause->t != TT_CLAUSE) return NULL;
     IR_graph_t * g = IR_alloc(256);
-    pl_cells_stamp(g);   /* PL-ZK-0 site 1/5 */
+    pl_cells_stamp(g);
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
@@ -811,7 +802,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     else return -1;
     if (arity < 0) arity = 0;
     IR_graph_t * g = IR_alloc(1024);
-    pl_cells_stamp(g);   /* PL-ZK-0 site 2/5 */
+    pl_cells_stamp(g);
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
@@ -833,7 +824,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
         IR_t * ab = redo ? redo : next_fail;
         if (suspend_deliver) { ir_operand_push(ml, mk); ir_operand_push(ml, ab); }
         else {
-            IR_LIT(ml).ival = (ab && ab->op != IR_DISJUNCTION && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;   /* MOVE_LABEL-ERAD pin (Icon session 2026-07-18): IR_DISJUNCTION joined ir_is_generator_kind for the Icon nary form; this exclusion FREEZES the ival this line computed before that change (dj was not generator-kind then). Prolog-session review: drop the exclusion iff ival=1 for a dj-β arm is wanted. */
+            IR_LIT(ml).ival = (ab && ab->op != IR_DISJUNCTION && (ir_is_generator_kind(ab->op) || ab->op == IR_CALL || ab->op == IR_CALL_PROC_STAGED)) ? 1 : 0;
             ir_operand_push(ml, ab); ir_operand_push(ml, dj); ir_operand_push(ml, NULL);
         }
         if (arity > 0 && nc > 1 && !pl_no_ix() && (int) clauses[k]->v.dval >= 1) { long long ki = 0; const char * ks = 0; int kk = pl_ix_key(clauses[k]->c[0], &ki, &ks);
@@ -854,7 +845,6 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     g->body_root = dj;
     g->nslots = arity + (maxlocal + 1) + nc + 8;
     g->resume_slot = 0;
-    /* PL-FR-2 BODY-VAR LNAMES: register G0..G{maxlocal} as locals so ir_drive_slot_assign grants them frame vslots.  Each Gk = body variable (TT_VAR slot k); pnames cover A0..A{arity-1}; lnames cover G0..G{maxlocal}.  ir_drive_slot_assign (zframe arm) assigns local j at [___+(nparams+j+1)*16] — shared by ALL uses of Gk.  Frame slot is init'd to NULVCL by rep-stosb zero-fill (NULVCL = {DT_SNUL=0} = unbound per plw_unbound_tag).  Result: every IR_VAR_REF/IR_VAR for Gk gets op_sa = (arity+k+1)*16 (positive ___-relative) via bb_varslot_peek → the named arm fires → correct identity across all uses of the same body var.  rt_pl_fresh_var_ref in bb_var_ref is now only reached for G-named vars that somehow have no lnames entry (e.g. a var that appears ONLY as IR_VAR_REF with no pnames/lnames coverage — should not happen with this fix) or for pathological edge cases; the common path is this frame-slot grant.  ONE AUTHORITY: only this site populates lnames for pred-graphs; ir_drive_slot_assign is the only grant site (TE-4 law).  SNOBOL4/Icon watermark: only runs for Prolog pred-graphs; other lowerers unaffected. */
     if (maxlocal >= 0) { g->nlocals = maxlocal + 1; g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *)); for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
     free(centry); free(uw);
     return bb_program_add(&g_stage2.bbp, g);
@@ -881,7 +871,7 @@ static int lower_pl_choice_graph(const tree_t *choice) {
     if (!any) return -1;
     IR_graph_t *g = IR_alloc(8);
     if (!g) return -1;
-    pl_cells_stamp(g);   /* PL-ZK-0 site 3/5 */
+    pl_cells_stamp(g);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
     IR_t *nd = IR_node_alloc(g, IR_OP_COUNT);
@@ -953,7 +943,7 @@ static void pl_dyn_mark_prepass(void) {
 static int lower_pl_dyniter_graph(const char *name, int arity) {
     IR_graph_t *g = IR_alloc(64);
     if (!g) return -1;
-    pl_cells_stamp(g);   /* PL-ZK-0 site 4/5 */
+    pl_cells_stamp(g);
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
@@ -978,7 +968,7 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
     { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return; }
     IR_graph_t * g = IR_alloc(64);
     if (!g) return;
-    pl_cells_stamp(g);   /* PL-ZK-0 site 5/5 */
+    pl_cells_stamp(g);
     lcx_t cx; cx.g = g; cx.tω = NULL; cx.beta = NULL; cx.cut_ω = NULL; cx.ite_funnel = NULL;
     g->nparams = nparams;
     g->pnames = (const char **) calloc((size_t) nparams, sizeof(const char *)); for (int i = 0; i < nparams; i++) g->pnames[i] = pl_param_name(i);
@@ -1009,10 +999,8 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ensure_call_bridge(int nparams) { if (nparams >= 1 && nparams <= 8) pl_ensure_gen_builtin_pred("$call", "$call", nparams); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_det_compute(void);
 static int pl_det_key_is_det(const char * key);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_pl_disj_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dj_collect_vars(const tree_t * t, int * idx, int * n, int max) {
@@ -1090,8 +1078,8 @@ static void lower_pl_register_all_preds(void) {
                 const char *slash2 = strrchr(key, '/');
                 static char nmbuf[200]; int kl = slash2 ? (int)(slash2 - key) : (int)strlen(key); if (kl > 199) kl = 199; memcpy(nmbuf, key, kl); nmbuf[kl] = 0;
                 bb_idx = lower_pl_dyniter_graph(nmbuf, ar);
-            } else if (ch->t == TT_CLAUSE || ch->t == TT_CHOICE) {   /* RSP-F-2 (2026-07-18): a classified-DET pred IS a plain procedure — lower it suspend-free (MOVE_LABEL delivery, the main/0 det regime) and register is_generator=0, so the emitter arms flat_gen=0 (det epilogue, full LIFO rsp unwind — the Icon/Raku det proc regime) and the call site takes bcps_det_arm's jmp-entry wire with β=ω: no frame retention, no resume record, no once-flag.  ≤1-solution soundness is pl_det_compute's default-deny closure (RSP-F-1); redo into a DET call must fail, which β=ω delivers by construction. */
-                det = (strcmp(key, "main/0") != 0) && !(getenv("SCRIP_PL_DET") && !strcmp(getenv("SCRIP_PL_DET"), "0")) && pl_det_key_is_det(key);   /* SCRIP_PL_DET=0: emergency-only escape (SCRIP_OPT=0 shape) — all preds back to the suspend/gen regime for isolating a suspected classifier or det-regime bug; NOT a supported configuration */
+            } else if (ch->t == TT_CLAUSE || ch->t == TT_CHOICE) {
+                det = (strcmp(key, "main/0") != 0) && !(getenv("SCRIP_PL_DET") && !strcmp(getenv("SCRIP_PL_DET"), "0")) && pl_det_key_is_det(key);
                 bb_idx = lower_pl_pred_graph_new(ch, ar, strcmp(key, "main/0") != 0 && !det);
             }
             if (bb_idx >= 0) {
@@ -1131,9 +1119,7 @@ static void lower_pl_register_dyn_only_preds(void) {
 typedef struct { const char * key; const tree_t * ch; int state; } pl_det_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_det_name_in(const char * nm, const char * const * lst) { for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_det_lookup(const char * nm, int ar, const pl_det_ent_t * v, int n) { char kb[256]; snprintf(kb, sizeof kb, "%s/%d", nm, ar); for (int i = 0; i < n; i++) if (v[i].key && !strcmp(v[i].key, kb)) return i; return -1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_det_top_cut(const tree_t * t) { if (!t) return 0; if (t->t == TT_CUT) return 1; if (t->t == TT_PROGRAM || (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ","))) { for (int i = 0; i < t->n; i++) if (pl_det_top_cut(t->c[i])) return 1; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_det_goal_ok(const tree_t * t, const pl_det_ent_t * v, int n) {
@@ -1200,11 +1186,10 @@ static int pl_det_pred_ok(const tree_t * ch, const pl_det_ent_t * v, int n) {
     if (!ch) return 0;
     if (ch->t == TT_CLAUSE) return pl_det_clause_ok(ch, 0, v, n);
     if (ch->t == TT_CHOICE && ch->n == 2 && pl_det_heads_allvar_same(ch->c[0], ch->c[1]) && pl_det_guard_comp(ch->c[0], ch->c[1])
-        && pl_det_clause_ok(ch->c[0], 0, v, n) && pl_det_clause_ok(ch->c[1], 0, v, n)) return 1;   /* GUARD COMPLEMENTARITY (RSP-F-2 widening, quantified by the RSP-F-1 rung — the tak class): 2 clauses, all-distinct bare-var heads with identical positional slot vectors (head unification always succeeds, selects nothing), first body goals are the SAME arithmetic comparison args under a complementary operator pair — at most one guard can succeed (both throw or both fail on non-evaluable args, still ≤1 solution), so clause selection is determinate without a cut, exactly gprolog's Level-1 reasoning done at the source level.  Bodies must pass the same default-deny goal test as the cut-committed case. */
+        && pl_det_clause_ok(ch->c[0], 0, v, n) && pl_det_clause_ok(ch->c[1], 0, v, n)) return 1;
     if (ch->t == TT_CHOICE && ch->n >= 1) { for (int i = 0; i < ch->n; i++) if (!pl_det_clause_ok(ch->c[i], (i < ch->n - 1), v, n)) return 0; return 1; }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { PL_DET_MAX = 4096 };
 static pl_det_ent_t g_pl_det_v[PL_DET_MAX]; static int g_pl_det_n = 0; static int g_pl_det_done = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1237,7 +1222,6 @@ static void pl_det_classify_all(void) {
               { int bx = g_stage2.proc_table[pi].bb_idx; if (bx >= 0 && bx < g_stage2.bbp.count && g_stage2.bbp.table[bx]) g_stage2.bbp.table[bx]->deterministic = 1; } } }
       if (getenv("SCRIP_DET_REPORT")) { fprintf(stderr, "DET-CLASS preds=%d det=%d\n", g_pl_det_n, ndet); for (int i = 0; i < g_pl_det_n; i++) fprintf(stderr, "DET-CLASS %-6s %s\n", g_pl_det_v[i].state == 1 ? "DET" : "NONDET", g_pl_det_v[i].key); } }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 static int pl_ll_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1391,7 +1375,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     lower_pl_register_all_preds();
     lower_pl_register_dyn_only_preds();
     pl_det_classify_all();
-    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PL_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* PL-FR-2 killswitch: default ON; SCRIP_PL_ZFRAME=0 leaves zframe_graph=0 → pre-FR-2 HEAD path byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PL_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
       if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     return &g_stage2;
 }

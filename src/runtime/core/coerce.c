@@ -33,11 +33,6 @@ DESCR_t descr_to_str(DESCR_t d)
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* descr_to_str renders reals in SPITBOL's trailing-point convention ("10." -- string_ops.c real_str), which is what the SNOBOL4/Snocone .ref corpus is generated from and must keep byte-for-byte.  Icon's
- * conversion is a DIFFERENT convention: canonical cater() (refs/icon-master/src/runtime/ocat.r) applies cnv:string to BOTH operands unconditionally and declares abstract{return string}, and Icon's real
- * conversion always carries a fraction digit ("10.0" -- rtos() in cnv.r line 930 appends ".0" when no decimal point survives, line 932 appends "0" when the point is trailing).  The two are not a caller
- * flag on one function: they are two conventions, so they are two entry points named for what they produce, and the choice is made where the language is still known -- LOWER and the per-box template --
- * never by a language sentinel the runtime reads.  Everything that is NOT a real is delegated, so the two agree by construction on ints, strings, null and every failure shape. */
 DESCR_t descr_to_str_fracdigit(DESCR_t d)
 {
     if (IS_REAL_fn(d)) return real_descr_via(d.r, icon_real_str);

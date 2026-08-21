@@ -56,6 +56,7 @@ static int rk_type_provides_real_method(const tree_t * decl, const char * mname)
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 static tree_t * leaf_sval2(tree_e kind, const char * s) { tree_t * n = ast_node_new(kind); n->v.sval = (char *)s; return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = lc_build(cx->g, op, γ, ω);
     if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
@@ -70,7 +71,6 @@ static int rk_is_binop(tree_e tt) {
 static int rk_is_relop(tree_e tt) {
     switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_LEQ: case TT_LNE: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: return 1; default: return 0; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static int rk_proc_known(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -213,14 +213,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * asP = build(cx, IR_ASSIGN, einit, ω); IR_LIT(asP).sval = t->c[0]->v.sval;
             IR_t * r3 = NULL; IR_t * elast = lower_rcall(cx, rhs, "arr_last", 1, asP, ω, &r3); if (r3) ir_operand_push(asP, r3); *res = asA; return elast; }
         if (rhs && rk_is_relop(rhs->t)) {
-            /* RK-ZC-6: use IR_BINOP_RELOP_VAL (materialises DT_I/1 or DT_I/0 unconditionally, no
-             * ω fan-out from the comparison itself) so there is ONE assign node downstream.  The old
-             * two-ASSIGN diamond (at/af each wired to γ, lower_cond wiring n1/n0 as γ/ω of the
-             * BINOP_TEST) misrouted under zframe_graph=1: the UCLAIM planner allocated a single sub-
-             * RSP frame for the whole run, and the BINOP_TEST ω resolved to the statement-level ω
-             * rather than the in-run false-lit node, jumping into the NEXT statement's true-path
-             * evaluation after popping the entire 832B frame (measured: 6-comparison smoke printed
-             * garbage for every false result after the first true result in the sequence). */
             IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
             IR_t * op = build(cx, IR_BINOP_RELOP_VAL, nd, ω); IR_LIT(op).ival = lc_binop_code(rhs->t);
             IR_t * lr = NULL, * rr = NULL;
@@ -312,16 +304,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
-        /* RK-ZC-5: centry is the loop-back landing (LOOP.γ/ω → centry on every iteration).
-         * Without a bb_src_of annotation here, the entire chain is ONE UCLAIM run rooted at
-         * the chain entry (n0).  The UCLAIM sub rsp,K fires once at n0; the back-edge re-enters
-         * at centry mid-run, skipping n0, so the matching add rsp,K from the condition's omega
-         * exit fires against a claim that was never made on that iteration — RSP drifts K bytes
-         * above the zframe base.  Annotating centry makes it a statement head: the UCLAIM
-         * planner starts a new run there, emitting sub rsp,K at centry's alpha on every entry
-         * (first entry and every loop-back).  Killswitch: SCRIP_RK_ZFRAME=0 skips zframe_graph,
-         * so this annotation is inert (bb_src_of is only read by the UCLAIM planner, which only
-         * fires under ZC_PORT_FORTH with zframe_graph nodes admitted). */
         bb_src_note(centry, "rk_while_cond");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
@@ -333,10 +315,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
-        /* RK-ZC-5: same UCLAIM back-edge law as TT_WHILE.  centry is the condition re-entry on
-         * every loop-back (LOOP.γ/ω → centry); incr_entry is the loop_next target (the increment
-         * block re-entered by `next`).  Both need statement-head annotations so the UCLAIM
-         * planner segments them as run roots with their own sub/add rsp,K brackets. */
         bb_src_note(centry, "rk_cloop_cond");
         if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
@@ -349,7 +327,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
-        /* RK-ZC-5: same law as TT_WHILE. */
         bb_src_note(centry, "rk_until_cond");
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
@@ -360,8 +337,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = γ; cx->loop_next = centry;
         IR_t * bentry = lower_rblock(cx, t->c[0], centry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        /* RK-ZC-5: BACK.γ/ω → bentry (body re-entry on continue); centry is the loop_next
-         * target.  Both are back-edge landing sites that need their own UCLAIM claim heads. */
         bb_src_note(bentry, "rk_repeat_body");
         bb_src_note(centry, "rk_repeat_cond");
         γ_to(BACK, bentry); ω_to(BACK, bentry);
@@ -372,7 +347,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = ω; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        /* RK-ZC-5: bare `loop {}` — LOOP.γ/ω → bentry is the back-edge. */
         if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body");
         γ_to(LOOP, bentry); ω_to(LOOP, bentry);
         *res = LOOP; return bentry; }
@@ -764,7 +738,6 @@ static const char * rk_gram_class_members(const char * nm) {
     if (!strcmp(nm, "xdigit")) return "0123456789abcdefABCDEF";
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int is_lit; char s[256]; } rk_gleaf_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_gram_seq_leaves(const char * body, rk_gleaf_t * out, int maxlv) {
@@ -794,8 +767,6 @@ static int rk_gram_seq_leaves(const char * body, rk_gleaf_t * out, int maxlv) {
     return nlv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RK-GRAM-3d: split body at the first top-level '|' (not inside quotes or angle-brackets).
- * Returns 1 and writes the two halves into lbuf/rbuf on success; 0 if no bare '|' found. */
 static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbuf, int rsz) {
     if (!body || !lbuf || !rbuf) return 0;
     int n = (int) strlen(body); int depth = 0;
@@ -817,20 +788,15 @@ static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbu
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Build a leaf chain (tail-first) for a sequence of rk_gleaf_t entries.
- * Every leaf: γ=next-leaf (or NULL for the last leaf = success exit), ω=fail_tgt.
- * If beta_tag=1 (arm-1), ω edges are tagged β so the drive resolves them to IR_GALT.β
- * (delta-restore + jmp arm-2).  If a mid-sequence leaf fails, δ is restored to the value
- * saved at IR_GALT.α, which is the correct full-arm restart. */
 static IR_t * rk_gram_build_leaf_chain(IR_graph_t * gg, rk_gleaf_t * lv, int nlv, IR_t * fail_tgt, int beta_tag) {
-    IR_t * next = NULL; /* γ of the most-recently-built leaf (= successor in forward order) */
+    IR_t * next = NULL;
     for (int e = nlv - 1; e >= 0; e--) {
         IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
         IR_LIT(nd).sval = lp_strdup(lv[e].s);
         if (beta_tag) lc_ω_to_β(nd, fail_tgt); else lc_ω_to(nd, fail_tgt);
         next = nd;
     }
-    return next; /* head of the chain (first leaf in forward order) */
+    return next;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_lower_grammar_boxes(const tree_t * prog) {
@@ -852,26 +818,18 @@ static void rk_lower_grammar_boxes(const tree_t * prog) {
             char pn[320]; snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
             IR_graph_t * gg = IR_alloc(64);
             IR_t * entry = NULL;
-            /* RK-GRAM-3d: detect two-arm alternation (body contains bare '|') */
             char lbody[512]; char rbody[512];
             if (rk_gram_split_alt(body, lbody, sizeof lbody, rbody, sizeof rbody)) {
                 rk_gleaf_t lv1[32]; int nlv1 = rk_gram_seq_leaves(lbody, lv1, 32);
                 rk_gleaf_t lv2[32]; int nlv2 = rk_gram_seq_leaves(rbody, lv2, 32);
-                if (nlv1 <= 0 || nlv2 <= 0) continue; /* arm not recognizable — fall back */
-                /* IR_GALT: gamma=NULL (proc_γ), omega=NULL (proc_ω).
-                 * operands[0]=arm-2 root (RPO pushes first → emitted second = after arm-1).
-                 * operands[1]=arm-1 root (RPO pushes second → pops first → emitted first = after IR_GALT).
-                 * Template uses lbl_t0=arm-1 α (explicit jmp) and lbl_t1=arm-2 α (β jmp). */
-                IR_t * galt = lc_build(gg, IR_GALT, NULL /*γ=proc_γ via DRIVE_FILL*/, NULL /*ω=proc_ω*/);
-                /* arm-2: all leaves ω=NULL (proc_ω); no beta tag */
+                if (nlv1 <= 0 || nlv2 <= 0) continue;
+                IR_t * galt = lc_build(gg, IR_GALT, NULL , NULL );
                 IR_t * arm2_root = rk_gram_build_leaf_chain(gg, lv2, nlv2, NULL, 0);
-                ir_operand_push(galt, arm2_root); /* operands[0]=arm-2 root → lbl_t1 */
-                /* arm-1: all leaves ω tagged β→galt (triggers galt.β = delta-restore + jmp arm-2) */
-                IR_t * arm1_root = rk_gram_build_leaf_chain(gg, lv1, nlv1, galt, 1 /*beta_tag*/);
-                ir_operand_push(galt, arm1_root); /* operands[1]=arm-1 root → lbl_t0 */
+                ir_operand_push(galt, arm2_root);
+                IR_t * arm1_root = rk_gram_build_leaf_chain(gg, lv1, nlv1, galt, 1 );
+                ir_operand_push(galt, arm1_root);
                 entry = galt;
             } else {
-                /* No alternation: pure sequence (existing behavior) */
                 rk_gleaf_t lv[64]; int nlv = rk_gram_seq_leaves(body, lv, 64);
                 if (nlv <= 0) continue;
                 IR_t * next = NULL;
@@ -1047,7 +1005,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         }
     }
     rk_reclassify_calls();
-    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_RK_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* RK-ZC-2 (mirrors ICN-FR-2 lower_icon.c:1422): carry Raku graphs onto the ζ-cells-on-stack regime; killswitch SCRIP_RK_ZFRAME=0 restores the pre-rung path byte-exactly */
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_RK_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
       if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     return &g_stage2;
 }

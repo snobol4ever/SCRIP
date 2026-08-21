@@ -25,8 +25,8 @@ int  rt_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
-static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_write_slot_str(IR_t *);
 extern std::string bb_call_write_binop_str(IR_t *);
@@ -167,7 +167,6 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
@@ -281,7 +280,6 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    /* ZD-7 (c): ZD arm -- same shape as bb_call_fn_str ZD arm; by-name route uses rt_call_arr identically. */
     if (_.op_zres) {
         uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
         std::string s = x86_alpha()
@@ -297,7 +295,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         }
         {
             std::string fl = std::string(".Lbynamefnzd") + std::to_string((long long)_.nid);
-            bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+            bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
             if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
             s += x86("directive", ".section .rodata");
             s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
@@ -326,20 +324,9 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
-    for (int i = (int)narg - 1; i >= 0; i--)   /* PAS-ZF-6b alias fix (mirrors bb_call_fn.cpp:570): marshal highest arg first — argbase = resoff+16 overlaps the ZLS source region; forward copy clobbers source[i+1] before it is consumed; reverse order is safe because ZLS assigns offsets in chain order (op_arg_slot[i] < op_arg_slot[i+1]) so each reverse write lands above the remaining unread sources */
+    for (int i = (int)narg - 1; i >= 0; i--)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
-    /* ICN-SCAN-CALL-SYNC (?-less callee): a by-name scan builtin reads/writes the scan_pos/scan_subj globals, so
-     * publish the register-world cursor (r14 -> scan_pos) before the call even when this box is in_scan=0. Without it,
-     * a ?-less scanning callee (preproc_scan_text / lex_yylex0) mixes inline scan primitives (r14) with by-name
-     * dispatch (global scan_pos), the two desync, and a stale sync_out later resets &pos to 1 -> infinite co-expr
-     * re-scan -> coexpr-stack overflow. See x86_scan_sync_out_force in x86_asm.h. */
     bool scansync = x86_is_scan_builtin_name(fn);
-    /* ICN-BYNAME-CURSOR-RESTORE: tab/move are the only two δ-writing scan primitives (ARCH-ICON.md two-family split).
-     * Reached by-name (no lexical ?, so no inline bb_scan_tab box) they advanced r14 and left β a bare jmp ω, so a
-     * failed conjunct never unwound &pos — `&subject := "p.coord"; tab(many(&letters)); ="." & tab(many(&digits))`
-     * reported &pos=3 where iconx reports 2, which is exactly what killed JCON's ?-less lex_yylex0 on every
-     * IDENT.IDENT (irgen.icn:29 `\p.coord` -> invalid character: "c"). Save δ here, restore it in β below; the slot
-     * is the extra quad zls_node_bytes grants this node, at the same offset formula the emitters use. */
     bool curmov = fn && (!strcmp(fn, "tab") || !strcmp(fn, "move"));
     int  dsave  = argbase + 16 * (int)narg;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
@@ -351,7 +338,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "esi", (long)narg);
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
     } else {
-        { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+        { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
           if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
         s += x86("directive", ".section .rodata")
            + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())
@@ -390,21 +377,13 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");
-    for (int i = (int)narg - 1; i >= 0; i--)   /* PAS-ZF-6b alias fix: same reverse-order discipline as bb_call_byname_str above and bb_call_fn.cpp:570 */
+    for (int i = (int)narg - 1; i >= 0; i--)
         s += marshal_call_arg(subs && subs[i] ? subs[i]->entry : NULL, subs && subs[i] ? subs[i] : NULL, argbase + i * 16, _.node, i);
     s += x86("mov", FRQ(genoff), (long)0);
-    /* ICN-SCAN-CALL-SYNC (?-less callee, generator variant): publish the register-world cursor (r14 -> scan_pos)
-     * ONCE at alpha, before the re-pump loop. A scan generator such as upto/find/bal reads scan_pos as the lower
-     * bound of its generation; `while tab(upto(c))` re-evaluates the condition each iteration, re-entering this box
-     * at alpha, so this alpha-only publish makes each fresh evaluation start from the current cursor. The beta
-     * re-pump (backtracking within a single evaluation) deliberately does NOT re-publish, so the generator
-     * continues its in-progress enumeration rather than restarting. Without this, a ?-less scanning callee
-     * (preproc_scan_text) leaves scan_pos stale and the generator re-enumerates from a wrong position, so the
-     * co-expression never advances past the first token -> the same line is yielded forever. */
     bool scansync = x86_is_scan_builtin_name(fn);
     if (scansync) s += x86_scan_sync_out_force();
     s += x86("def", L(60));
-    { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());   /* SN4-M34-5b (s60): emit the .string DEFINITION once per compilation. The same node's template is re-invoked (SN4-M34-5a group-root pull-in residue), and each re-invocation re-defined this rodata label, which `as` rejects; the lea REFERENCE is harmless and stays unguarded. ONE AUTHORITY: the existing label pool is the registry -- a $def sentinel is interned so the real label's offset stays free for binary patching. NO new global (RULES NO-NEW-GLOBALS). */
+    { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
       if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
     s += x86("directive", ".section .rodata")
        + x86("directive", (fl + ": .string \"" + fn + "\"").c_str())

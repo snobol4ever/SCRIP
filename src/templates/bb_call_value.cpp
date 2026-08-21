@@ -59,7 +59,7 @@ std::string bb_call_value() {
             + x86("call",  "rt_call_value_spine_prep", vprep_fp))
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
-       + bb_glue_pass_wires_blob(3, 4)   /* FUNCTION LINKAGE s55 (Lon in-chat): proc-by-value enters the same blob interface — site-set r10/r11 */
+       + bb_glue_pass_wires_blob(3, 4)
        + x86("def", L(3))
        + bb_glue_wire_land()
        + x86("mov",  FRQ(H + 8), "rsp")

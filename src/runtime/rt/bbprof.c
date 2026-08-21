@@ -10,10 +10,9 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include "bbprof.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { uintptr_t lo, hi; int32_t nid, kind, uid; uint64_t direct, viac; } bbprof_e;
 static bbprof_e *g_tab; static int g_n, g_cap, g_sorted, g_armed;
-static bbprof_e *g_live_tab; static int g_live_n, g_late_n;   /* frozen snapshot the handler searches; records after start count as late (not sampled) */
+static bbprof_e *g_live_tab; static int g_live_n, g_late_n;
 static uint64_t g_c_samples, g_unattr, g_total;
 typedef struct { uintptr_t pc; uint64_t n; } bbprof_pc;
 #define BBPROF_PC_CAP 2048
@@ -32,6 +31,7 @@ void bbprof_record(int nid, int kind, int uid, void *lo, void *hi)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_cmp(const void *a, const void *b) { uintptr_t x = ((const bbprof_e *)a)->lo, y = ((const bbprof_e *)b)->lo; return x < y ? -1 : x > y ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_find(uintptr_t pc)
 {
     int lo = 0, hi = g_live_n - 1;
@@ -62,8 +62,8 @@ static void bbprof_sig(int sig, siginfo_t *si, void *uctx)
     for (int d = 0; d < 512; d++) { uintptr_t v; v = w[d]; int j = bbprof_find(v); if (j >= 0) { g_live_tab[j].viac++; return; } }
     g_unattr++;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static timer_t g_timer; static int g_timer_ok;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bbprof_start(void)
 {
     if (!bbprof_on() || g_armed || g_n == 0) return;
@@ -95,6 +95,7 @@ static int bbprof_rank(const void *a, const void *b)
     uint64_t xs = x->direct + x->viac, ys = y->direct + y->viac;
     return xs < ys ? 1 : xs > ys ? -1 : 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_pc_rank(const void *a, const void *b) { uint64_t x = ((const bbprof_pc *)a)->n, y = ((const bbprof_pc *)b)->n; return x < y ? 1 : x > y ? -1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bbprof_report(void)

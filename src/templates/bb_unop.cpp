@@ -14,11 +14,6 @@ struct DESCR_t rt_deref(struct DESCR_t d);
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZTOS-1 (Lon s21x-o "Do not put RSP references directly into the templates"): the private rspq helper is RETIRED -- its four call sites below now speak ZTOS, the sanctioned spine accessor in x86_asm.h.
- * This template is the first conversion and the measured witness: rspq spelled a bare [rsp+off] on the assumption that nothing was carved between the producer's push and this box's read, which stopped
- * being true the moment the universal per-BB carve armed this kind.  028_arith_unary_minus printed 5 for -5 because alpha's own sub rsp,16 slid the operand cell out from under rspq(0)/rspq(8): the box
- * negated its own uninitialised cell, stored the answer there, and popped it.  ZTOS adds op_zdepth, so the read follows the carve instead of being displaced by it. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
     if (PLATFORM_X86 && _.op_zres && (_.op_node_kind == IR_UNOP))
         return x86("comment", "IR_UNOP zd")
@@ -32,7 +27,7 @@ std::string bb_unop() {
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();   /* ZD-1 (Lon s21x-v): operand = the producer's suspended cell at the STAGED DIFFERENCE OF TWO DEPTHS (mode 3), result = the box's own alpha-carved cell (mode 1). */
+             + x86_beta_trampoline();
     if (PLATFORM_X86)
         return !(_.op_off >= 0) ? std::string() :
                _.op_node_kind == IR_NULLTEST_VAR ?

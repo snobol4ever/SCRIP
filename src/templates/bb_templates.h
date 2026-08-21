@@ -33,8 +33,6 @@ std::string bb_match_abort();
 std::string bb_match_fence0();
 std::string bb_match_fence1();
 std::string bb_match_alternate();
-
-
 std::string bb_scan_sequence();
 std::string bb_scan_alternate();
 std::string bb_match_cat();
@@ -55,22 +53,22 @@ std::string bb_rev_assign_var();
 std::string bb_goto();
 std::string bb_bound();
 std::string bb_statement();
-std::string bb_glue_flat_enter();     /* GLUE-1 (Lon s21x-n): per-BB storage bracket, no frame pointer -- the ~99.999% case (s21x-c law 3). */
+std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();
-std::string bb_glue_framed_enter();   /* GLUE-2 (Lon s21x-n): same + ___ activation base; ONLY the four ___ constructs (STATEMENT/FUNCTION/ARBNO/FENCE1, s21x-c law 4).  Wiring this wires the prologue -- s21x-m law 3. */
+std::string bb_glue_framed_enter();
 std::string bb_glue_framed_leave();
 std::string bb_glue_outer_γ();
 std::string bb_glue_outer_ω();
-std::string bb_main_entry_bridge();   /* TOP-PORTS (s122): the hoisted top section's first emission — jmp past the ports into α_body.  MANDATORY in BINARY: emit_chain returns the buffer base as the entry point. */
-std::string bb_main_β();              /* TOP-PORTS (s122): CLASS-O main β = jmp ω.  γ/ω bodies delegate to bb_glue_outer_γ/ω above — bb_main.cpp carries no MEDIUM_* of its own. */
-std::string bb_main_floater(int kind);   /* FLOATERS (s123): the hoisted RETURN(1)/FRETURN(2)/NRETURN(3) singleton landings.  Ports staged emit-side; bodies delegate to bb_define/bb_nreturn_mark — no second copy.  ⛔ kind 3 = NRETURN, NOT bb_define role 3 (wire-adopt). */
-std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the open pcall record, restore caller rsp/___(/r12 island) from it, jmp the port's wire -- gw for γ (RETURN), ww for ω (FRETURN).  ONE authority; the role-1/2 floaters and the stub-blob shared ports both consume it. */
+std::string bb_main_entry_bridge();
+std::string bb_main_β();
+std::string bb_main_floater(int kind);
+std::string bb_glue_wire_exit(int is_gamma);
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();
-std::string bb_glue_pass_wires(int gid, int wid);   /* PASS-THROUGH (s22v): the bare wire contract -- lea rcx,<L(gid)>; lea rdx,<L(wid)>; jmp rax.  One-shot = this + the pcall record; pass-through = this alone. */
-int bb_wire_stack_on(void);   /* ⭐ WIRE-STACK (Lon s194): 1 iff the γ/ω pair rides the STACK instead of r10/r11.  SCRIP_WIRE_STACK=1 arms it; default OFF. */
-std::string bb_glue_wire_land(void);   /* ⭐ WIRE-STACK: emitted at EVERY γ/ω continuation label of a pass site — drops the 16-byte pair the site pushed.  Empty string when the arm is off, so the off-arm is byte-identical BY CONSTRUCTION. */
-std::string bb_glue_pass_wires_blob(int gid, int wid);   /* ⭐ LADDER WREG blob-entry glue: lea r10,<L(gid)>; lea r11,<L(wid)>; jmp rax.  Falls back to bb_glue_pass_wires verbatim when the switch is off. */
+std::string bb_glue_pass_wires(int gid, int wid);
+int bb_wire_stack_on(void);
+std::string bb_glue_wire_land(void);
+std::string bb_glue_pass_wires_blob(int gid, int wid);
 std::string bb_disjunction();
 std::string bb_cut();
 std::string bb_fail();
@@ -106,9 +104,9 @@ std::string bb_keyword_snobol4();
 std::string bb_keyword_assign();
 std::string bb_keyword_assign_snobol4();
 std::string bb_goto_deferred();
-std::string bb_define();   /* ONE-BB DEFINE (Lon s116): role via g_emit.op_define_role -- 0..4 Ch.8 citizens, 5 shim-inline, 6 bind, 7 activation, 8 dynamic rt_define reserved */
-std::string bb_nreturn_mark();   /* NRETURN floater body (s98): depth-agnostic by-name mark — GOT/abs store of rt_g_ret_by_name=1, glue jmp continues at RETURN */
-extern "C" void * bb_ab_fn_cell_ptr(const char * fname);   /* R-1 s94: C linkage so the m3 driver (scrip.c) fills alpha$<FN>/body$<ENTRY> at the seals -- ONE allocator, one name */   /* AB-3b: fn_cell$<FN> binary slot pointer for the call-site indirect jmp; TEXT uses the label string directly */
+std::string bb_define();
+std::string bb_nreturn_mark();
+extern "C" void * bb_ab_fn_cell_ptr(const char * fname);
 std::string bb_scan_stmt();
 std::string bb_scan_splice_empty();
 std::string bb_gen_scan();
@@ -126,8 +124,8 @@ std::string bb_case_arm();
 std::string bb_var_frame();
 std::string bb_var_frame_ref();
 std::string bb_to();
-std::string bb_match_len();   /* SN4-PAT: SNOBOL4 LEN(n) matcher */
-std::string bb_match_lit();   /* SN4-PAT: SNOBOL4 literal-string matcher */
+std::string bb_match_len();
+std::string bb_match_lit();
 std::string bb_to_by();
 std::string bb_make_list();
 std::string bb_limit();

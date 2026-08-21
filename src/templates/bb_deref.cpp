@@ -21,7 +21,7 @@ std::string bb_deref() {
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();   /* ZD-2j: ONE operand (the :1563 mapping operands[0] -> op_a_slot -> rdi/rsi), by value at its staged difference; result to the box's own cell.  This is SNOBOL4 indirect reference, the $ operator (manual Ch.7 "Indirect Reference", p.81): the operand's STRING VALUE names a variable and the box yields that variable's value, so the DT_FAIL omega is the name-not-resolvable edge and is preserved exactly as the legacy arm has it. */
+             + x86_beta_trampoline();
     return IF(_.op_off < 0 || _.op_a_slot < 0, x86_alpha() + x86_bomb("bb_deref: needs own slot + variable operand slot"))
          + IF(!(_.op_off < 0 || _.op_a_slot < 0),
              x86("comment", "IR_DEREF variable -> value")

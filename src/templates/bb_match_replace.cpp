@@ -18,29 +18,29 @@ std::string bb_match_replace() {
          + x86("mov",  "rdi", ROQ(0))
          + IF(_.op_zres && _.op_zread[2] >= 0,
                 x86("note", ZOPN(2)) + x86("mov", "rsi", ZOPQ(2, 0))
-              + x86("note", ZOPN(2)) + x86("mov", "rdx", ZOPQ(2, 8)))   /* ⭐ R-3(c) SUBJECT SEAT (s99 "fourth seat"): the armed splice reads the subject from its producer's LIVE spine cell via the staged op_zread[2] (emit.cpp REPLACE choke -- zunder + producer-below-head offset, physically exact post-whack), per the ZD-5 MATCH-SPINE ZOPQ(2) design of record.  The op_sa flat slot has NO writer in the armed world since s97 deleted the head's mirror from both arms (the deletion was right -- the mirror wrote unbacked flat coordinates -- the READER was the half left behind). */
+              + x86("note", ZOPN(2)) + x86("mov", "rdx", ZOPQ(2, 8)))
          + IF(!(_.op_zres && _.op_zread[2] >= 0),
                 x86("mov",  "rsi", FRQ(_.op_sa))
-              + x86("mov",  "rdx", FRQ(_.op_sa + 8)))   /* legacy/refused + -1-sentinel fallback: byte-identical to the pre-fix read -- degrade never die. */
+              + x86("mov",  "rdx", FRQ(_.op_sa + 8)))
          + (emit_match_rbp()
               ? x86("note", "repl_start") + x86("mov", "ecx", RDD("r12", -16))
               + x86("note", "repl_end")   + x86("mov", "r8",  RDQ("r12", -8))
-              + x86("sub", "r12", (long)16)   /* ⭐ R-3(c) CURSOR ARENA-RIDE, pop half (mrbp): {start,end} pushed by MEND's release_pump after its r12 reload -- LIFO pop, immune to every rsp geometry (op_off/op_zpat/op_zfc/op_fc_disp ALL retired on this arm; the raw-rsp coordinates alias the save_restore record inside DEFINE bodies, the repldef1/Qize class).  Nested matches inside the replacement chain push and pop their own pairs above this one by the same discipline. */
+              + x86("sub", "r12", (long)16)
               : [&]() -> std::string { int _dispc = _.op_zfc ? _.op_off : (_.op_off - _.op_zpat); int _dispe = _.op_zfc ? (_.op_off + 24) : (_.op_off + 24 - _.op_zpat);
               std::string _cur = FR(_dispc); std::string _end = FRQ(_dispe);
               if (getenv("SCRIP_REPL_ADDR_DIAG")) fprintf(stderr, "[ADDR] cursor=%s end=%s op_off=%d op_zpat=%d op_zfc=%d\n", _cur.c_str(), _end.c_str(), _.op_off, _.op_zpat, _.op_zfc);
-              return x86("mov", "ecx", _cur) + x86("mov", "r8", _end); }())   /* L-3b STEP-0' FIX (s38, superseding the s37 STEP-6 comment's unwired ADDITIVE description -- that comment's formula, op_off+op_zfc, was tried and DISPROVED by direct counter-example this session, see FINDING-2026-08-12j).  ROOT CAUSE, confirmed by a THREE-witness triangulation (l3_spl_len_pure 0 carvers / l3_spl_span_nonterm 1 carver / the newly-minted l3_spl_span_span_double 2 carvers, all op_off=48): the WRITER's own op_off+op_fc_disp+32 formula (bb_match_end.cpp) already exactly CANCELS however many bytes of un-popped match-primitive backtrack cells (op_fc_disp = the sum of every intervening SPAN/ARB/BAL-family primitive's un-popped `sub rsp,K`) accumulate before MATCH_END runs -- so the writer lands on the SAME fixed absolute address (measured: RSP_B_common+48, where RSP_B_common is the unwind target `cas_rsp_mark` saved at MATCH_BEGIN's own alpha, BEFORE any match-primitive fires, and is therefore IDENTICAL across every witness sharing this op_off, independent of pattern shape) regardless of op_fc_disp's value.  The READER must reach that SAME carve-independent address, which means op_fc_disp/op_zfc must NOT appear in the read formula's arithmetic at all -- FR's own op_zdepth term (x86_frame_off, tracking ONLY the replacement expression's own K, uniformly +16 for a 1-char literal across all three witnesses, confirmed by back-solving the baseline formula's actual emission in each) supplies exactly the remaining compensation.  Net: FR(op_off) / FRQ(op_off+24) reaches the writer's address on every non-carving (op_zfc!=0) witness by construction, with ZERO op_fc_disp/op_zpat/op_zfc term in the passed offset.  op_zpat's SUBTRACTIVE formula is LEFT UNTOUCHED for the disjoint carving class (op_zfc==0: TAB/RTAB/POS/RPOS, still a separate open defect, unaffected by this edit).  GATE WITNESSES: l3_spl_span_nonterm/arb_nonterm/break_nonterm/rem_nonterm/VACUOUS_terminal_trap/span_concat/span_span_double (non-carving, op_zfc!=0, expected to flip PASS) vs l3_spl_tab_nonterm/rtab_nonterm/tab_linear3 (carving, op_zpat arm untouched) vs l3_spl_len_pure/len_nonterm/lit_len/pos (op_zfc==0 controls, byte-identical -- the ternary's false arm is the exact untouched legacy expression). */
-         + IF(_.op_zres,  x86("note", ZOPN(1)) + x86("lea", "r9", ZOPQ(1, 0)))   /* ZD-5 MATCH-SPINE: the replacement travels BY ADDRESS -- r9 points at rv's own cell instead of the flat replp slot the armed producer no longer writes. */
+              return x86("mov", "ecx", _cur) + x86("mov", "r8", _end); }())
+         + IF(_.op_zres,  x86("note", ZOPN(1)) + x86("lea", "r9", ZOPQ(1, 0)))
          + IF(!_.op_zres, x86("lea",  "r9",  FRQ(_.op_sb)))
          + x86("call", "rt_match_replace", (uint64_t)(uintptr_t)(void *)rt_match_replace)
          + x86_align_leave()
-         + IF(_.op_zres && _.op_zdepth > 0, x86("note", "repl_subtree_free") + x86("add", "rsp", (long)_.op_zdepth))   /* ⭐ R-3(c) SPLICE CONSUMES ITS SUBTREE (the DEFINE RETURN-linkage root cause, gdb-stepped on rd_min: RETURN reached at delta -16 from R_body entry, the floater's pop rcx loaded a statement cell descr tagword 0x300000002 and jumped into it): the replacement subtree's zunder bytes (op_zdepth, staged at the choke) were released by NOBODY -- the MEND whack frees only the frame, statement_end's add rsp,16 is the SUBJECT cell (M-2 BUG-6 comment), and the planner already models post-REPLACE depth as if the subtree were gone (statement_end emitted 16, not 16+zunder) -- so the template owed the model exactly this one release.  Post-call placement: the ZOPQ(2) subject read, the arena cursor pop, and r9's lea of rv's cell all consume BEFORE the call; after it the subtree is dead per the MODEL's WHACK law.  Main-shaped graphs tolerated the leak silently (the s97 INCLUDE-leak flavor); the RETURN floater's depth-exact pop could not. */
+         + IF(_.op_zres && _.op_zdepth > 0, x86("note", "repl_subtree_free") + x86("add", "rsp", (long)_.op_zdepth))
          + x86_jmp_id(1)
          + x86("def",    L(0))
          + x86(".quad",  LS(0), _.op_sval ? _.op_sval : "")
          + x86("label",  LS(0))
          + x86(".string", _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         + IF(_.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))   /* BRACKET-GATE (s193): paired with head's gated +40 save.  OBJ-NOTE ON-3 (s23e): third restore site of the same k=0 slot, named from the one HKN table with head and release.  REPL-PIN (this session): the !op_stmt_pin gate release:78 has carried since s22z lands here too -- the widened pin put replace statements INSIDE the pin population for the first time, and this unconditional restore mid-statement handed the terminal cut a stale base (measured: tB correct output then SEGV; patmin died on INNER re-entry).  Under the pin the terminal cut is the SOLE restore authority, per the head's own twin-gate law. */
+         + IF(_.flat_deep_arrival, x86("note", HKN(0)) + std::string(""))
          + x86_gamma();
 }

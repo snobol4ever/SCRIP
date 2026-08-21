@@ -10,15 +10,12 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    /* ICN-BREAK-CHAIN: stack of enclosing (exit,next) so `break expr` can target an outer loop.
-       Pushed around each loop body; `break break …` exits that many nested loops. */
     IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; int loop_sp;
 } icx_t;
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
-/* FAIL-CONDUIT γ: a node whose γ port is reached ONLY on the failing path — it restores state and hands control to the fail continuation, and it never fills its own value slot. Structurally indistinguishable from a value-yielding sibling (same op, both edges to the same target), so the producer MARKS it at construction; the nary arm retag below then preserves the mark instead of clobbering it to σ. Inert when the γ target has no fail-glue: emit.cpp's node_γ resolution falls through φ to lbls[k] exactly as an unmarked α would. */
 static void icn_mark_γ_fail_conduit(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "φ", 3); nd->γ.sz[3] = 0; } }
 static int icn_γ_is_fail_conduit(const IR_t * nd) { return nd && (unsigned char) nd->γ.sz[0] == 0xcf && (unsigned char) nd->γ.sz[1] == 0x86; }
 static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
@@ -88,13 +85,7 @@ static int is_resumable(const tree_t * t) {
     case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_ITERATE: return 1;
     default: return 0; }
 }
-/* ICN-CURSOR-BACKTRACK: tab/move (and the unary =s == tab(match(s))) advance &pos and, on backtrack, must run
- * their beta to RESTORE &pos (register-world r14). They are not generators, so is_resumable()/icn_call_allow_gen()
- * return 0 for them, which made the conjunction wiring below skip their beta as a resume target -> a failing right
- * operand (`tab(2) & &fail`, lexer `="." & tab(many(&digits))`) fell straight through to the statement's ω without
- * ever rewinding the cursor. This predicate marks exactly the cursor-moving operands so the conjunction routes a
- * later operand's failure back through their β. (upto/many/any/find/bal/pos/match do NOT move &pos and are handled
- * by is_resumable via icn_call_allow_gen where they are generators, so they are intentionally excluded here.) */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_is_cursor_mover(const tree_t * a) {
     if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a) return 0;
     if (a->t == TT_MATCH_UNARY) return 1;
@@ -153,7 +144,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         }
     }
     int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
-                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));   /* 1-arg implicit-subject forms retag to IR_SCAN_* (icn_retag_scan_body) whose templates suspend/resume -- they are generators and need the same beta/resume wiring as the 2-arg explicit-subject forms (scan1 tables: every writes(hdr | upto(skips) | nl) generated one value) */
+                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
@@ -164,16 +155,16 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
         IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
-        if (prev) lc_γ_to(prev, ae); /* ARG-BOUNDARY α-FORCE: forward success edge into the next arg is a fresh entry, never a resume; auto-β (γ_to) here made a keyword/generator-entry arg swallow the whole call. Resume direction flows via aω/cx->beta, untouched. */
+        if (prev) lc_γ_to(prev, ae);
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
     if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
     int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
-    int chain_live = (aω != ω);   /* ARG RESUME CHAIN LIVE: the unconditional aω threading (L126) routes each arg's failure to the previous arg's β; if any arg carried a resume, aω has moved off the outer ω and now points INTO the generator chain (the rightmost generator's resume, reached right-to-left through any trailing constants whose own β is a pass-through of the ω handed to them). Keying on this — not on is_resumable(la) — makes a generator in a NON-LAST arg followed by a constant (every f(!L,k); interfacegen `every gen_procedure(!f,def,"fieldref")`) route call-failure back to re-pump it, while staying byte-identical wherever la itself is the (only/last) generator. Also immune to is_resumable's TT_LIMIT/TT_REPALT gaps, which reach here via the L126 chain, not via la. */
-    if (la_res || chain_live) ω_to(call, aω);   /* GOAL-DIRECTED ARG RESUME: call failure backtracks into suspended arg generators right-to-left (aω chain) for ALL calls, not just generator-name builtins -- a no-return user proc under every wf("a"|"b"|"c") FAILS each iteration and must resume the alternation, not exit via the outer ω (fncs1 q5) */
-    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));   /* SUCCESS-RESUME SYMMETRY: a non-generator call with any resumable arg resumes THROUGH the arg chain -- every write(upto(c)) inside a scan body must re-drive upto, not exit via scan-close (scan1 tables, FZ-E) */
+    int chain_live = (aω != ω);
+    if (la_res || chain_live) ω_to(call, aω);
+    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -217,7 +208,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
     IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = (b0->t == TT_VAR || b0->t == TT_IDX) ? NULL : cx->beta;
     for (int k = 1; k < t->n; k++) {
         IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir); prevβ = cx->beta;
-        lc_γ_to(hook, ie);   /* FORWARD FIRST-ENTRY: base resolved -> START the index expr at α.  γ_to's generator-β promotion is for BACKTRACK edges only; promoting here enters a generator (e.g. IR_CALL_VALUE aseq()) at β with no staged activation -> jmp through the zeroed resume cell (rip=0, tgrlink class).  Resume-for-more-values rides sub's ω (β-tagged by build) below. */
+        lc_γ_to(hook, ie);
         IR_t * sub = build(cx, IR_SUBSCRIPT, NULL, prevβ ? prevβ : ω);
         γ_to(ir, sub);
         ir_operand_push(sub, cur); ir_operand_push(sub, ir);
@@ -278,7 +269,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         if (!ce || !clv) return NULL;
         IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω); IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
         ir_operand_push(ut, clv); lc_γ_to(clv, ut);
-        if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);   /* LVALUE re-pump: a failing null-test over a GENERATOR lvalue (every /(!L) := v) must resume that generator's β for the next element. Gated on generator-kind because bare ω_to's non-generator arm RETARGETS ω to the operand, which breaks the /x := v init idiom (initial/static: 12 rungs, s168). */
+        if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);
         *var_res = ut; return ce;
     }
     return NULL;
@@ -310,7 +301,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
 static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
     if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
-    if (id && !strcmp(id, "progname")) { char pb[1024]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = strdup(pb); *res = nd; return nd; }   /* ICN-PROGNAME (s238): constant-folded at LOWER exactly like &ucase/&lcase/&digits/&letters above and the &file arm below -- the program stem is known at compile time, so no runtime state and no new global is needed, and both media get it for free.  Arizona semantics: init.r:212 sets prog_name to the icode name, init.r:618 publishes it as kywd_prog, keyword.r:384 returns it; `icont -s foo.icn -x` therefore yields "foo".  VERIFIED against live Icon 9.5.25a built from refs/icon-master.  Previously fell through to rt_keyword_read, which has no progname arm and returned &null.  Read-only: Icon permits `&progname := s` (rmisc.r:64 binds it as a variable) and a folded literal cannot carry that; no corpus program assigns it, and the prior behaviour was &null, so this is strictly forward. */
+    if (id && !strcmp(id, "progname")) { char pb[1024]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = strdup(pb); *res = nd; return nd; }
     if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; *res = nd; return nd; }
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
@@ -320,7 +311,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
     IR_t * nd = build(cx, is_gen_kw ? IR_KEYWORD_ICON_GEN : IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
     if (is_gen_kw) {
-        cx->beta = nd; *res = nd; return nd;   /* IR_GOTO-survey site 6 ERADICATED: returned-entry channel (pilot protocol) — unshielded promoting wirings into returned entries are already force-α (lower_every mark→body); naked-return probed against the full harness this session */
+        cx->beta = nd; *res = nd; return nd;
     }
     *res = nd; return nd;
 }
@@ -336,7 +327,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (all_scan) return icn_scan_seq_nary(cx, elems, ne, γ, ω, res);
         }
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
-        int64_t bcode = lc_binop_code(t->t); if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;   /* lc_binop_code is the SHARED token->opcode map and must stay convention-neutral; the concatenation convention is chosen HERE, at the one point where the source language is still legitimately known, per gen.h's two-opcode note (Icon renders reals "10.0", SPITBOL "10.") */
+        int64_t bcode = lc_binop_code(t->t); if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;
         int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
@@ -372,7 +363,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(co, orr); ir_operand_push(op, co); *res = op; return ea;
         }
         IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
-        IR_t * uβ = cx->beta;   /* operand's resume edge (β): for a generator operand (\!L, \(a|b)) the null-test's FAILURE must re-pump the generator, not exit — else \!keys stops at the first null (interfacegen bc_keywords: every i := \!keys). Mirrors the binop path's opfail/cx->beta handling (L307-313). */
+        IR_t * uβ = cx->beta;
         if (uop_kind == IR_UNOP_TEST && uβ && uβ != ω && uβ != op) { ω_to(op, uβ); cx->beta = uβ; }
         return ea; }
     switch (t->t) {
@@ -383,7 +374,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_NULL: {
         if (t->n > 0 && t->c[0]) {
             IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
-            IR_t * nβ = cx->beta;   /* operand's resume edge (β): TT_NULL is NOT in is_unop_tt, so it never reaches the L373 re-pump that TT_NONNULL gets — without this, a failing /x over a generator operand (/(!L), irgen.icn ir_a_Call "every /(!p.args.exprList) := a_Key(...)") exits instead of pumping the next element, so elided call arguments past the first are never defaulted. */
+            IR_t * nβ = cx->beta;
             if (nβ && nβ != ω && nβ != op) { ω_to(op, nβ); cx->beta = nβ; }
             return ea;
         } IR_t * nd = build(cx, IR_FAIL, γ, ω);
@@ -416,7 +407,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
     case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
     case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
-    case TT_NUL: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }   /* empty list slot / trailing-comma element ([a,b,c,] and [a,,c]) is the &null VALUE — Icon list literals count the trailing null (oracle *[a,b,c,]=4). Parser mints TT_NUL (icon_parse.c L157/161/162); without this arm it fell to the default SUCCEED and pushed a value-less operand into IR_MAKE_LIST, silently corrupting construction (interfacegen keywords list dies before its first write). */
+    case TT_NUL: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
     case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
@@ -517,20 +508,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = ret; return ret; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_BREAK: {
-        /* `break` exits the current loop.  In Icon `break expr` evaluates expr in the ENCLOSING
-           loop's context, so a chain of bare breaks (`break break …`) exits that many nested
-           loops.  Count the leading break-chain depth k and target the k-th enclosing loop. */
         int k = 1; const tree_t * ch = (t->n >= 1) ? t->c[0] : NULL;
         while (ch && ch->t == TT_LOOP_BREAK) { k++; ch = (ch->n >= 1) ? ch->c[0] : NULL; }
         if (!ch) {
             int idx = cx->loop_sp - k;
             IR_t * lx = (idx >= 0 && idx < ICN_LOOP_STK_MAX) ? cx->loop_stk_exit[idx] : NULL;
-            if (!lx) lx = cx->loop_exit;   /* fewer enclosing loops than breaks: fall to outermost known */
+            if (!lx) lx = cx->loop_exit;
             IR_t * nd = lx ? build(cx, IR_GOTO, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd;
         } else {
-            /* break <non-break-expr>: peel the current loop, evaluate expr in the enclosing loop's
-               context (so a break/next inside targets one loop out), then exit the current loop.
-               The expr's value is not propagated (loops here carry no break-value). */
             IR_t * cur_exit = cx->loop_exit;
             IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
             int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next;
@@ -573,29 +558,29 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (has_dflt) {
             IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], NULL, ω, &dv);
             IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
-            { IR_t * dvf = icn_arm_result(dv); if (dvf) ir_operand_push(dasn, dvf); }   /* shared wiring-kind filter — return/suspend/goto arms are valueless (slice-3 precedent) */
-            { IR_t * dvf = icn_arm_result(dv); if (dvf) γ_to(dvf, dasn); else if (!dv) γ_to(de, dasn); }   /* wiring-kind arm keeps its own exit edge (return leaves the proc, not the case) */
+            { IR_t * dvf = icn_arm_result(dv); if (dvf) ir_operand_push(dasn, dvf); }
+            { IR_t * dvf = icn_arm_result(dv); if (dvf) γ_to(dvf, dasn); else if (!dv) γ_to(de, dasn); }
             chain_next = de;
         }
         for (int i = npairs - 1; i >= 0; i--) {
             int ki = 1 + i * 2; int bi = ki + 1;
-            cx->beta = ω;   /* ICN-CASE-ALT: fresh β so kβ below reflects THIS selector only */
-            IR_t * ksel_ω = is_resumable(t->c[ki]) ? chain_next : ω;   /* ICN-CASE-ALT residual CLOSED (jtran parse_expr11 blocker): canonical ir_a_Case L[i].expr.ir.failure -> L[i+1].expr.ir.start — a RESUMABLE selector's exhaustion (alternation spent, generator dry) falls to the NEXT clause / default / case-ω-if-last. Non-resumable selectors keep ω=case-ω byte-identical (their ω edge is statically dead — literals cannot fail — and passing chain_next there was the rung14/rung33 emit-walk/fold regression, so the gate is the resumability predicate, not the wiring shape). */
+            cx->beta = ω;
+            IR_t * ksel_ω = is_resumable(t->c[ki]) ? chain_next : ω;
             IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ksel_ω, &kn);
-            IR_t * kβ = cx->beta;   /* selector's resume point (alternation/generator inside, or ω) */
+            IR_t * kβ = cx->beta;
             IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
             IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
-            { IR_t * bvf = icn_arm_result(bv); if (bvf) ir_operand_push(asn, bvf); }   /* shared wiring-kind filter — return/suspend/goto arms are valueless (slice-3 precedent) */
-            { IR_t * bvf = icn_arm_result(bv); if (bvf) γ_to(bvf, asn); else if (!bv) γ_to(be, asn); }   /* wiring-kind arm keeps its own exit edge (return leaves the proc, not the case) */
+            { IR_t * bvf = icn_arm_result(bv); if (bvf) ir_operand_push(asn, bvf); }
+            { IR_t * bvf = icn_arm_result(bv); if (bvf) γ_to(bvf, asn); else if (!bv) γ_to(be, asn); }
             IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
             IR_LIT(idc).sval = (char *) "IDENTICAL";
-            if (is_resumable(t->c[bi]) || (be && ir_is_generator_kind(be->op))) lc_γ_to_α(idc, be);   /* ICN-CASE-ALT-BODY α-FORCE: a matched arm whose body is a naked resumable (alternation/if/every) must ENTER FRESH — default γ wiring β-stamps the entry, so `{ A | B }` enters at B (second alternand) skipping A; the jtran bc_transfer_to/bc_conditional_transfer_to `put(...) | runerr` blocker, 2026-07-21. GATE WIDENED s167 2026-07-26 (rsg): is_resumable() tests the SOURCE arm body, but the β stamp lands on the ENTRY NODE — a COMPOUND arm `{ pending := [1,2] | [9]; n +:= 0 }` is a TT_SEQ_EXPR ending in a plain assign, so is_resumable()==0 and the α-FORCE was skipped even though be is STILL the naked dj that build() just auto-β-stamped. The selector then entered the disjunction at β, which falls straight into the af glue (alt_i += 1) and selects the LAST arm — `int=9` instead of `int=1 int=2`. Canonical ir_a_Case (refs/jcon-master/tran/irgen.icn L276) targets L[i].body.ir.START unconditionally, so gating on the entry node's generator-kind is the faithful predicate */
+            if (is_resumable(t->c[bi]) || (be && ir_is_generator_kind(be->op))) lc_γ_to_α(idc, be);
             ir_operand_push(idc, sr);
             ir_operand_push(idc, kn);
             γ_to(kn, idc);
-            if (kβ && kβ != ω) lc_ω_to_β(idc, kβ);   /* ICN-CASE-ALT irgen: ir_opfn("===",[e,v], L[i].expr.ir.resume) — mismatch RESUMES the selector generator for its next alternative; exhaustion then exits via the selector's ω (chain_next above) */
+            if (kβ && kβ != ω) lc_ω_to_β(idc, kβ);
             IR_t * ke_target = ke ? ke : idc;
-            if (ke && is_resumable(t->c[ki])) {   /* ICN-CASE-ALT SELECTOR α-FORCE: a resumable alternation selector must ENTER FRESH on each case-evaluation. The promoting helpers (γ_to :16 / build auto-β :22) β-stamp a generator-kind entry, so when the case sits inside a generator context (every v := gen do case v of {a|b|c:}) the selector is entered in RESUME mode = exhausted = no match (even the first alternand misses). Mirrors the BODY α-FORCE at :541 and the IR_GOTO trampoline idiom at :842/:1128. Stepping through alternands on mismatch still uses kβ at :545; this only fixes the INITIAL entry edge. */
+            if (ke && is_resumable(t->c[ki])) {
                 IR_t * KENT = build(cx, IR_GOTO, NULL, NULL);
                 lc_γ_to_α(KENT, ke); lc_ω_to_α(KENT, ke);
                 ke_target = KENT;
@@ -642,7 +627,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         for (int i = 0; i < k; i++) {
             if (i > 0 && jn[i]) {
                 IR_t * tgt = ω; if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
-                if (lr >= 0 && lr_cm && tgt && tgt != ω) { lc_γ_to_β(jn[i], tgt); lc_ω_to_β(jn[i], tgt); }   /* ICN-CURSOR-BACKTRACK-β: tab/move (and =s == tab(match(s))) are {0,1+} cursor-movers, deliberately NOT ir_is_generator_kind (ARCH-ICON.md two-family split), so γ_to/ω_to silently DOWNGRADE this backtrack edge to α. Re-entering α re-runs the match at the SAME δ and re-succeeds -> infinite spin -> stack exhaustion (the =s β SEGV, jcon self-host blocker 2026-07-26). Guard on the SOURCE TREE, not tgt->op: at this point the node is still a generic IR_CALL and is only specialized to IR_SCAN_TAB by a later pass. Their β is the documented restore-δ-and-FAIL port (bb_scan_tab: mov r14,[saved]; jmp ω). */
+                if (lr >= 0 && lr_cm && tgt && tgt != ω) { lc_γ_to_β(jn[i], tgt); lc_ω_to_β(jn[i], tgt); }
                 else { γ_to(jn[i], tgt); ω_to(jn[i], tgt); }
             }
             if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) { lr = i; lr_cm = (!is_resumable(S[i]) && icn_tree_is_cursor_mover(S[i])); }
@@ -695,17 +680,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
         IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
         IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
-        icn_mark_γ_fail_conduit(leave_fail);   /* both leaves are IR_SCAN with γ and ω on the same target; only the producer knows which one is the fail path, so record it here (line 706's γ_to legitimately overrides when the subject supplies a resume surface — canonical ir_a_Scan body-failure -> goto p.expr.ir.resume) */
+        icn_mark_γ_fail_conduit(leave_fail);
         ir_operand_push(leave_succ, enter);
         ir_operand_push(leave_fail, enter);
-        /* SCAN-α-FORCE: IR_SCAN is generator-kind (ir_query.c), so build()'s auto-β stamp would land the
-         * body's success/fail edges on leave_*'s β (re-enter) instead of α (env-restore), skipping the
-         * leave entirely. Interpose α-stamped GOTOs. (Same trampoline idiom as the STMT-BOUNDARY case.) */
         IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
         IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
-        int scan_body_lo = cx->g->n;   /* ICN-SCAN-STRUCT: first node index of the ? body (enter/leave/subject-expr boxes are built outside [lo,n) and stay in_scan=0) */
+        int scan_body_lo = cx->g->n;
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
-        for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;   /* ICN-SCAN-STRUCT: every node created while lowering the ? body is structurally in-scan; nested scans re-mark their bodies to the same 1. This is the structural source of truth for r13/r14/r15 liveness, read per-node by emit_drive. */
+        for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
         lc_γ_to(enter, b_entry);
@@ -714,9 +696,6 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(enter, sr);
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
-        /* RESUME-THROUGH-SCAN (canonical ir_a_Scan: /bounded & p.ir.resume -> ScanSwap + goto p.body.ir.resume).
-         * NARROWING GUARD: only a GENERATOR body has a meaningful resume; a compound/bounded body (while, ...)
-         * re-pumped through its β restarts its own loop forever, so those keep the subject-resume chain. */
         cx->beta = (bv && ir_is_generator_kind(bv->op)) ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
         *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -773,8 +752,6 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
         int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
         if (kw_l && kw_r) {
-            /* kw <-> kw (&pos :=: &subject): both reads via IR_KEYWORD_ICON, both writes via
-             * IR_KEYWORD_ASSIGN, canonical oasgn.r order lhs := rhs_old first, then rhs := lhs_old. */
             IR_t * lv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(lv_old).sval = (char *) lt->v.sval;
             IR_t * rv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(rv_old).sval = (char *) rt2->v.sval;
             lc_γ_to(lv_old, rv_old);
@@ -784,10 +761,6 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             *res = write_r; return lv_old;
         }
         if (kw_l || kw_r) {
-            /* Keyword operand: emit sequential read-old/write-new per canonical oasgn.r :=: swap.
-             * Canonical order from oasgn.r: lhs := rhs_old FIRST, then rhs := lhs_old.
-             * kw_l (&pos :=: x): &pos := x_old first (fails OOB -> both unchanged); then x := &pos_old.
-             * kw_r (x :=: &pos): x := &pos_old first (always succeeds); then &pos := x_old (fails OOB -> x updated, &pos not). */
             IR_t * kv_old = build(cx, IR_KEYWORD_ICON, NULL, ω);
             IR_t * pv_old = build(cx, IR_VAR, NULL, ω);
             const tree_t * kw_tree = kw_l ? lt : rt2;
@@ -796,13 +769,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_LIT(pv_old).sval = (char *) pl_tree->v.sval;
             lc_γ_to(kv_old, pv_old);
             if (kw_l) {
-                /* lhs=kw: write kw := plain_old first (can fail), then write plain := kw_old */
                 IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 IR_t * write_plain = build(cx, IR_ASSIGN,          γ,    ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
                 lc_γ_to(pv_old, write_kw); lc_γ_to(write_kw, write_plain);
                 *res = write_plain; return kv_old;
             } else {
-                /* lhs=plain: write plain := kw_old first (always ok), then write kw := plain_old (can fail) */
                 IR_t * write_plain = build(cx, IR_ASSIGN,          NULL, ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
                 IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 lc_γ_to(pv_old, write_plain); lc_γ_to(write_plain, write_kw);
@@ -847,7 +818,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
             IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
             if (rbeta) ω_to(nd, rbeta);
-            else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);   /* ICN-CURSOR-BACKTRACK-β FACE 2: `str <- ="."` — backtracking must unwind BOTH the reversible assignment (restore the var, this node's β) AND the cursor-mover (restore δ, the rhs's β). The ω→rhs-β chain above already expresses that, but cursor-movers never publish cx->beta (they are built as generic IR_CALL and only retagged to IR_SCAN_TAB later by icn_retag_scan_body), so rbeta is NULL and the chain was silently dropped, leaving &pos past the match. Guard on the SOURCE TREE for the same reason as face 1. */
+            else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);
             γ_to(lr, re);
             lc_γ_to(rr, nd);
             ir_operand_push(nd, rr);
@@ -863,10 +834,6 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int name_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval;
         int name_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval;
         if (name_l && name_r) {
-            /* x <-> y (oasgn.r rswap): ONE box; alpha = save both olds + forward swap in canonical order
-             * (lhs := rhs_old first, fail -> omega with rhs untouched; then rhs := lhs_old, fail -> omega
-             * with lhs committed); beta = restore lhs first (fail -> omega skipping rhs), then rhs, omega.
-             * rhs name rides a dangling IR_LIT_STRING carrier (operands[0], control-unreachable, data only). */
             IR_t * nd = build(cx, IR_REV_SWAP, γ, ω); IR_LIT(nd).sval = (char *) lt->v.sval;
             IR_t * rc = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(rc).sval = (char *) rt2->v.sval;
             ir_operand_push(nd, rc);
@@ -941,29 +908,15 @@ static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     IR_t * nullv = build(cx, IR_VAR, γ, ω); IR_LIT(nullv).sval = (char *) "&null";
     IR_graph_t * g = cx->g; int before = g->n;
     IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
-    for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == ω) icn_mark_γ_fail_conduit(x); }   /* canonical ir_a_Not lowers the inner expr with succ=ω, so EVERY γ edge landing ω means "inner succeeded ⇒ the not FAILED" — a fail conduit, never a value-yielding σ. Unmarked, the nary retag (1045) sees only `γ.node == dj` and stamps σ, so `if not (1=1) then A else B` jumped the disjunction's SUCCESS glue whose γ is the dj's own ω=FAIL: neither arm ran (geddump's `A | (not B)` guard then succeeded for the wife and printed every child twice). Same producer-marks-at-construction contract as the scan leave_fail at 692; inert outside a nary (φ falls through to lbls[k]). */
+    for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == ω) icn_mark_γ_fail_conduit(x); }
     cx->beta = ω; *res = nullv; return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* wiring-kind arm results (return/suspend/fail/goto...) carry no value slot and never σ-land — pushing the
- * node itself as a nary trailing result operand makes the emit chain BFS queue it EARLY, so e.g. an
- * IR_RETURN drives before its value producer arrives on the γ-spine: bb_slot_get misses (IR_RETURN's drive
- * has no nd_slot fallback) and bb_return emits the &null descriptor (rung02_proc_fact via lower_if; absv
- * `n > 0 | return -n` via lower_alt — same disease, slice-3 session). Push NULL for these. */
 static IR_t * icn_arm_result(IR_t * rv) {
     if (rv) switch (rv->op) { case IR_GOTO: case IR_SUCCEED: case IR_FAIL: case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: return NULL; default: break; }
     return rv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* FRESH ENTRY = dj itself (IR_GOTO survey — TRAMPOLINE ERADICATED, α-force protocol pilot).  dj is
- * generator-kind, so any wiring site that reaches this entry through a PROMOTING helper would β-stamp the
- * fresh edge (enter exhausted → statement-continue: the rung35 break/next disease, the FZ-E family).  The
- * protocol: sites that wire a FRESH entry use the lc_γ_to_α/lc_ω_to_α force writers (edge tag "α!", CE B1 21
- * — classifies as α everywhere: emitter 1732-1738/1801 positive-match only β/σ/φ; bc_chase preserves the tag
- * on unchased edges); sites that wire a RESUME surface (cx->beta) keep promotion.  Empirically (naked-return
- * probe, this session) exactly ONE unshielded promoting site existed: lower_every's mark→body wiring — the
- * bounded body enters fresh per interp.r Op_Mark, now force-α.  All other paths are shielded by their own
- * A-family tramps (STMT-BOUNDARY :~1120, SENT, seed, scan-leave) — those convert per-site on later rungs. */
 static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
     (void) g;
     return dj;
@@ -971,17 +924,9 @@ static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    /* MOVE_LABEL-ERAD (Lon 2026-07-15/18, FINDING-2026-07-15-...-BB-SELF-STATE): nary self-state form, the
-     * icn_scan_seq_nary / SN4-NARY-ALT construction verbatim.  One DISJUNCTION node; arms lowered with
-     * succ=fail=dj and their inside edges re-tagged σ (γ→dj, land success-glue) / φ (ω→dj and FAIL-goto γ→dj,
-     * land fail-glue).  operands = (entry_i, resume_i)×N then result_i×N (trailing, invisible to the pair
-     * walker whose N rides ival); ival = N.  The φ-glue dispatches entry_{alt_i} at α — the fresh-entry
-     * semantics the old per-arm GOTO trampolines (FZ-E) existed to force — and the σ-glue copies the
-     * succeeding arm's result into the disjunction's OWN value slot (option B), so consumers read ONE fixed
-     * slot: zero MOVE_LABELs, zero INDIRECT_GOTO, zero cascade GOTOs. */
     IR_graph_t * g = cx->g;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
-    γ_to(dj, γ); ω_to(dj, ω);   /* β-promoting helpers (file lines 15-16), NOT raw lc_*: the outer fail/succ targets may be generator-kind (e.g. the LEFT alternation of a binop — its resume surface is its β; a raw α edge RESTARTS it: the rung13_alt_alt_nested ax-ay-ay-ay loop). The old build() promoted; the scan-nary idiom's raw lc_ω_to does not. */
+    γ_to(dj, γ); ω_to(dj, ω);
     IR_t * resv[64];
     for (int j = 0; j < n && j < 64; j++) {
         int before = g->n;
@@ -989,7 +934,7 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
         IR_t * ej = lower(cx, t->c[j], dj, dj, &ar);
         IR_t * ab = cx->beta;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
-        IR_t * rj = ab_in_arm ? ab : dj;   /* arm installed its own resume surface (cx->beta moved to a node of THIS arm) → dispatch its β; otherwise the arm is valueless-on-resume and rj = dj is the ARBNO-precedent SELF MARKER the drive redirects to the φ-glue (resume ≡ advance) */
+        IR_t * rj = ab_in_arm ? ab : dj;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
             if (!x) continue;
@@ -999,51 +944,32 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
         ir_operand_push(dj, ej);
         ir_operand_push(dj, rj);
         resv[j] = ar;
-
     }
     for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) (n < 64 ? n : 64);
     cx->beta = dj; *res = dj;
-    return icn_dj_α_entry(g, dj);   /* fresh entry through dj.α — see icn_dj_α_entry */
+    return icn_dj_α_entry(g, dj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    /* MOVE_LABEL-ERAD slice 3 (GOAL-ICON-BB cursor, FINDING §6): if C then T else E as a COMMITTED
-     * IR_DISJUNCTION self-state box — the SAME kind, template (bb_disjunction), zls grant, and pair layout
-     * the slice-2 alternation landed; zero IR_MOVE_LABEL, zero IR_INDIRECT_GOTO.  The committed deltas live
-     * entirely in the wiring, not the machinery:
-     *   arm0 entry = C's entry (C: succ=T_entry, fail=dj → its ω-edges retag "φ").  C-fail lands the φ-glue,
-     *     whose alt_i++/dispatch IS the selection: alt_i 0→1 enters E (or, N=1 no-else, exhausts → ω).
-     *     C is BOUNDED by construction (interp.r's Op_Mark/Op_Unmark bracket): its resume surface is never
-     *     entered in the pair table — a later T-failure exits ω, never re-drives C; C's abandoned
-     *     suspensions are the pre-existing ICN-BOUND-UNMARK ladder, not this rung.
-     *   T and E lower with succ=dj (γ-edges retag "σ": the σ-glue copies the TAKEN arm's result into the
-     *     box's own slot, option B verbatim) and fail=ω-OUT — a PLAIN edge escaping the box.  That plain
-     *     escape is the commit: then-exhaust never falls into else, else-exhaust never advances (the φ-glue
-     *     only ever fires from C-fail, so alt_i is exactly the taken-branch index β dispatches on).
-     *   resume_j = the arm's own resume surface when it is a generator (ab-in-arm scan, lower_alt verbatim);
-     *     otherwise the shared IR_FAIL SENTINEL — chain-filtered (emit.cpp BFS drops FAIL/SUCCEED), so the
-     *     pair row falls to its node_ω default: resuming an exhausted valueless branch ≡ fail outward.  NOT
-     *     the dj self-marker: self ≡ advance (alternation's resume-≡-φ), which for a committed if would
-     *     leak a then-resume into else. */
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
     IR_graph_t * g = cx->g;
     int n = EL ? 2 : 1;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
-    γ_to(dj, γ); ω_to(dj, ω);   /* promoting helpers, NOT raw lc_* — the outer targets may be generator-kind (lower_alt:854's rung13 lesson holds verbatim here) */
-    IR_t * fs = IR_node_alloc(g, IR_FAIL);   /* shared valueless-resume sentinel (never emitted; resolves to the dj's node_ω) */
+    γ_to(dj, γ); ω_to(dj, ω);
+    IR_t * fs = IR_node_alloc(g, IR_FAIL);
     IR_t * entv[2]; IR_t * resumev[2]; IR_t * resv[2];
     for (int j = 0; j < n; j++) {
         const tree_t * ARM = j ? EL : TH;
         int before = g->n;
         IR_t * ar = NULL; cx->beta = dj;
-        IR_t * aent = lower(cx, ARM, dj, ω, &ar);   /* succ=dj → σ; fail=ω-OUT → the commit */
+        IR_t * aent = lower(cx, ARM, dj, ω, &ar);
         IR_t * ab = cx->beta; int arm_end = g->n;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
-        if (j == 0) {   /* the condition belongs to arm 0's retag range: its fail=dj edges land the φ-glue = the selector */
+        if (j == 0) {
             IR_t * aent0 = aent; int cbefore = g->n;
             IR_t * cval = NULL; aent = lower(cx, C, aent, dj, &cval); (void) cval;
-            for (int k = cbefore; k < g->n; k++) { IR_t * x = g->all[k]; if (!x) continue;   /* C-succ into the arm entry is a FRESH FIRST ENTRY (interp.r Op_Mark bracket: C is bounded, nothing in C resumes T) -- γ_to's generator-β promotion fires when aent is a NAKED dj (post tramp-erad), landing the committed box's resume≡ω glue and silently failing the whole if (pc3/prepro precheck class); force-α exactly the survey's lower_every mark→b_entry precedent */
+            for (int k = cbefore; k < g->n; k++) { IR_t * x = g->all[k]; if (!x) continue;
                 if (x->γ.node == aent0 && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) memcpy(x->γ.sz, "α!", 4);
                 if (x->ω.node == aent0 && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) memcpy(x->ω.sz, "α!", 4); }
         }
@@ -1056,14 +982,10 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
     }
     for (int j = 0; j < n; j++) { ir_operand_push(dj, entv[j]); ir_operand_push(dj, resumev[j]); }
-    /* wiring-kind arm results (return/suspend/fail/goto...) carry no value slot and never σ-land (they exit
-     * the proc or the box) — push NULL, not the node: the dj operand walk (emit.cpp chain BFS) queues ALL
-     * operands, and an early-queued IR_RETURN drives BEFORE its value producer arrives on the γ-spine —
-     * bb_slot_get misses and bb_return emits the &null descriptor (rung02_proc_fact 120→0, this slice). */
-    for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));   /* shared filter, see icn_arm_result */
+    for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) n;
     cx->beta = dj; *res = dj;
-    return icn_dj_α_entry(g, dj);   /* fresh entry through dj.α (arm0=C) — see icn_dj_α_entry */
+    return icn_dj_α_entry(g, dj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
@@ -1123,14 +1045,6 @@ static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     (void) nargs;
-    /* key(t) is a generator: yield each key of table t in turn.  Reuse the
-     * proven IR_ITERATE (unary-bang) Byrd box, tagged with the "key" variant
-     * so the box calls rt_list_bang_key_at (keys) instead of rt_list_bang_at
-     * (values).  The operand's entry (ee) is the box entry; wire operand-γ
-     * into the generator, and leave cx->beta at the generator so backtracking
-     * resumes it for the next key.  (Previously this was a bare IR_FAIL stub,
-     * so key() always failed and every table-key iteration produced nothing —
-     * silently breaking tgrlink/ipxref/rsg/geddump output.) */
     IR_t * kg = build(cx, IR_ITERATE, γ, ω);
     IR_LIT(kg).sval = "key";
     IR_t * orr = NULL; IR_t * ee = lower(cx, t->c[argbase], NULL, ω, &orr);
@@ -1171,7 +1085,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
       if (by && last_op && ir_is_generator_kind(last_op->op)) resume_op = last_op;
       else if (mr && ir_is_generator_kind(mr->op)) resume_op = mr;
       else if (lr && ir_is_generator_kind(lr->op)) resume_op = lr;
-      if (resume_op) lc_ω_to_β(to, resume_op); } /* range-exhausted resumes the RIGHTMOST GENERATOR operand (right-to-left over by/hi/lo), re-pumping it for a fresh bound; operand-fail edges already cascade leftward (mid ω=lβ, by ω=mβ), so resuming any operand replays the full cross-product; all-literal bounds leave ω at the threaded caller edge — extends the prior rightmost-only wiring to generator LOWER bounds ((1 to 2) to 3) without disturbing the literal-bound every-loop exit */
+      if (resume_op) lc_ω_to_β(to, resume_op); }
     cx->beta = to; *res = to; return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1182,13 +1096,6 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
-        /* BOUNDED-BODY UNMARK (Op_Mark/Op_Unmark, interp.r): the do-body is a bounded expression — retained
-         * suspension cells its constructs carve on the RSP spine (scan-function FC cells, deferred β records)
-         * are structurally dead once the body completes, but nothing cut rsp, so each lap leaked its carves
-         * until the 8MB guard (micro bench: "abcde" ? tab(3) per lap = 16B/lap, SEGV at ~515K laps).  MARK's
-         * α saves rsp to its ζ slot before body entry; every body exit (γ, ω, and `next`) routes through
-         * UNMARK, whose α restores rsp from the paired slot — canonical Op_Unmark `rsp = efp-1` — then
-         * re-pumps the control generator.  `break` exits to ω uncut (bounded by the enclosing bound). */
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
         IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
         ir_operand_push(unmk, mark);
@@ -1196,10 +1103,10 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
         b_entry = lower(cx, B, unmk, unmk, &bval);
         cx->loop_sp--;
-        lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);   /* α-FORCE (IR_GOTO-survey protocol): the bounded body ENTERS FRESH each lap (interp.r Op_Mark — bounded ≡ fresh evaluation, never resume); promoting γ_to would β-stamp a naked generator-kind entry (if/alternation as first body stmt) = enter exhausted = statement-continue (rung35 break/next disease). Contrast unmk→gen_beta above: that IS a resume, its promotion stays. */
+        lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
         b_entry = mark;
     }
-    else { b_entry = gen_beta; }   /* IR_GOTO-survey site 8 ERADICATED: the tail γ_to(eval, b_entry) promotes to gen_beta's β directly (γ_to mirrors exactly the promotion the deleted build(IR_GOTO, gen_beta, gen_beta) applied); non-generator gen_beta stays α — same as before */
+    else { b_entry = gen_beta; }
     cx->loop_exit = sle; cx->loop_next = sln;
     γ_to(eval, b_entry);
     cx->beta = ω; *res = NULL; return e_entry;
@@ -1209,15 +1116,10 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PSUCC; IR_t * fail = PFAIL;   /* ICN-PROC-EXIT (s208 clean-build): the last statement's γ must reach PSUCC (procedure succeeds), not PFAIL. Icon semantics: a procedure that falls off the end of its body succeeds with the value of the last expression (or null). PFAIL for succ was the SNOBOL4 "both start as the next statement" seed applied without adjustment -- wrong because Icon has no explicit next-statement threading; the emitted γ wires to the graph's own success exit, not a continuation. */
+    IR_t * succ = PSUCC; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
-        /* STMT-BOUNDARY α-FORCE: the next statement (source order) reaches this one's entry as a
-         * fresh evaluation, never a resume. If that entry is generator-kind, build()'s auto-β stamp
-         * (lc_ω_to_β/lc_γ_to_β) would make a subsequent statement's fail/success edge land on its β
-         * (resume-and-fail) label, skipping the statement body. Interpose an α-stamped GOTO so the
-         * cross-statement edge enters at α. (Same trampoline idiom as lower_while/until/repeat.) */
         if (entry && ir_is_generator_kind(entry->op)) {
             IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry);
             entry = tramp;
@@ -1225,7 +1127,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         succ = entry; fail = entry;
     }
     g->entry = succ;
-    { static int _ic = -1; if (_ic < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } else _ic = 1; } if (_ic) g->icn_cells_graph = 1; }   /* ⭐ Z-1 UNIFIED ROUTING (s230, Lon's THREE-ZETAS ruling): the ζ-SPINE cells substrate (ZK-0..5) is THE Icon routing — every graph stamps icn_cells_graph=1 by DEFAULT, which via the R-ZK-A conjunct below suppresses all zframe stamping, so the env-var dual-arm regime is retired as a default.  Transition killswitch SCRIP_ICN_LEGACY=1 restores the s229-era routing byte-exactly (opt-in cells via SCRIP_ICN_CELLS=1, default zframe per SCRIP_ICN_ZFRAME) until Z-8 deletes all three switches.  This remains the ONE setter for lower_proc_body graphs (no second spelling); the stub-graph arm below and the ZK-3 conjunct in emit.cpp are the two mirrors, all keyed on the SAME env pair. */
+    { static int _ic = -1; if (_ic < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } else _ic = 1; } if (_ic) g->icn_cells_graph = 1; }
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1241,7 +1143,6 @@ static void fill_pnames(const tree_t * prog, lc_vec * pn) {
     collect_procs_vec(prog, &ps);
     for (int i = 0; i < ps.n; i++) if (LC_AT(&ps, const tree_t *, i)->v.sval) lc_vec_push(pn, &LC_AT(&ps, const tree_t *, i)->v.sval);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** mangled, int cnt) {
     if (!n) return;
@@ -1297,9 +1198,9 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
         }
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
-    if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; } return g; }   /* ICN-FR-3: stamp nparams/pnames/nlocals/lnames on the graph so graph_has_local is correct for zframe graphs; WITHOUT this, graph_has_local returns 0 for every local, IR_VAR takes the global arm (op_sa=-1), and local reads address wrong memory (the static/initial null-read bug). Parallel to stage-2 lines 1396/1410/1418 which set these for the precompiled path; this covers the jmp-entry lower_proc_body path. lnv holds [params(0..np-1), locals(np..nln-1)] in that order per the fill loops above. */
+    if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; } return g; }
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
-    { static int _ic2 = -1; if (_ic2 < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } else _ic2 = 1; } if (_ic2) g->icn_cells_graph = 1; }   /* ZK-0 stub-graph arm, same law as lower_proc_body — Z-1 UNIFIED (mirror of the lower_proc_body setter above; SCRIP_ICN_LEGACY=1 restores s229 routing). */
+    { static int _ic2 = -1; if (_ic2 < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } else _ic2 = 1; } if (_ic2) g->icn_cells_graph = 1; }
     return g;
 }
 #include "bb_program.h"
@@ -1421,9 +1322,9 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
         }
     }
     lower_icon_resolve_call_kinds();
-    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_ICN_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; } /* ICN-FR-2 killswitch: default ON; SCRIP_ICN_ZFRAME=0 leaves zframe_graph=0 → pre-FR-2 HEAD path byte-exactly (zframe_graph calloc-zeroed by IR_alloc, no write needed for the off path) */
-      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }   /* R-ZK-A ENFORCEMENT (m3 CELLS=1 SEGV, s214): cells-arm graphs must NOT receive zframe_graph=1 — the driver's ICN-FR-2 branch (scrip.c:1614 zframe_graph check) routes zframe=1 graphs through icn_zf_main_call which passes rcx/rdx wire pointers the cells arm never reads (no [___+kt-24/-16] header), causing immediate SEGV.  R-ZK-A ruling: one graph is NEVER in both arms; icn_cells_graph=1 suppresses zframe stamping here.  SCRIP_ICN_CELLS=0 → icn_cells_graph=0 for all graphs → stamp is unconditional → byte-identical to pre-fix HEAD.  ADDITIVE: no ZFRAME graph changed; the conjunct is invisible when CELLS is off. */
-    { for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) { int _bi = g_stage2.proc_table[_pi].bb_idx; if (_bi >= 0 && g_stage2.proc_table[_pi].is_generator && g_stage2.bbp.table[_bi] && g_stage2.bbp.table[_bi]->zframe_graph) g_stage2.bbp.table[_bi]->icn_zframe_gen = 1; } }   /* ICN-FR-4 BISECT-FIX (PL-ZD-WINDOW2, s8): stamp icn_zframe_gen=1 on Icon zframe generator graphs (is_generator=1 via icn_body_has_suspend, already filtered by lower_icon). The ICN-FR-4 global-save wire/caller____ path (rt_gen_save_wires, rt_gen_save_caller____, rt_gen_get_*) is safe ONLY for Icon generators where at most one suspension is active at a time; Prolog zframe graphs also set flat_gen=1 (is_generator=1 for multi-clause predicates) but have concurrent activations that overwrite g_gen_pending_* before the first epilogue fires (bisect witness: cal/nrev/qsort SEGV at e33e703b). Gate in xa_flat.cpp: all four ICN-FR-4 sites check g_emit_cfg->icn_zframe_gen. ONE AUTHORITY: only this loop sets it; all other lowerers leave it 0 by calloc. Gated _bi>=0 (proc must have a body graph); gated zframe_graph (ICN-FR-4 path is exclusively in the zframe epilogue). CELLS arm unaffected: icn_cells_graph=1 graphs never reach the xa_flat_zframe_epilogue. */
+    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_ICN_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
+      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
+    { for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) { int _bi = g_stage2.proc_table[_pi].bb_idx; if (_bi >= 0 && g_stage2.proc_table[_pi].is_generator && g_stage2.bbp.table[_bi] && g_stage2.bbp.table[_bi]->zframe_graph) g_stage2.bbp.table[_bi]->icn_zframe_gen = 1; } }
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1438,7 +1339,6 @@ static int icn_callable_proc_index(const char * fn) {
     }
     return -1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int g_icon_write_reassignable = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_scan_write_reassignable(void) {

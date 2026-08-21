@@ -17,33 +17,6 @@
 #ifndef STRVAL
 #  define STRVAL(s_)   ((DESCR_t){ .v = DT_S, .slen = 0, .s = (s_) })
 #endif
-/* ⛔ THE IR OPCODE ENUM IS ALPHABETICAL (Lon 2026-08-20 in-chat, s181: "I want those IR's sorted alphabetically") -- one A-to-Z index, so a kind is FOUND by name and a new kind is INSERTED where its
- * name says, never appended to a tail or wedged into a family block.  NOTHING may depend on the ORDER again: family membership is STATED by the ir_is_* predicates below the enum (the five positional
- * ranges that used to encode it were converted first, SCRIP commit 'IR FAMILY MEMBERSHIP BECOMES A STATED FACT'), and no value is ever serialised out of the process.  The two FAMILY commentaries that
- * used to sit as positional section headers inside the enum are hoisted here verbatim -- they describe a family, not the member that happened to follow them. */
-    /* ---- SNOBOL4 pattern family (SN4-PAT) ---------------------------------------------------
-     * Re-added onto the post-GZ#5 spine. Amputated wholesale by 8de0fb46 (GZ#5 ENUM-AMPUTATION);
-     * design recovered from parent 41b53078. Two families + one sealed-blob ref, mirroring SPITBOL:
-     *   IR_MATCH_*   = MATCHERS: the inline needle. One node per pattern element, wired by γ (success)
-     *                  / ω (failure) ports; IR_MATCH_ALTERNATE builds the backtrack tree,
-     *                  IR_MATCH_ASSIGN_IMM/_COND do `$`/`.`. Used when a
-     *                  pattern is matched directly (`SUBJECT PAT [= REPL]`) — lower_pat_node emits these.
-     *   IR_PATTERN_* = STITCH boxes ONLY (D7 pivot d7ba0fd9 → RT build/stitch 52fce031): the per-element
-     *                  builders were ABANDONED — FZ-3/FZ-4 constant folding freezes every invariant
-     *                  subpattern to IR_REF_INVARIANT, so only VARIANT parts get stitched (CAT/ALT) around
-     *                  sealed blobs; + CAPTURE passthrough, DEFER, and IR_DTP_ASSIGN for stored `.`/`$`.
-     *   IR_REF_INVARIANT = a compile-time constant-folded pattern sealed into a RO blob (FZ-3,
-     *                  18133720): an all-constant (VARIANT-free) subpattern is built ONCE, not per-match.
-     * Re-seating is incremental (see GOAL-IR-IMMUTABLE-EMIT.md SN4-PAT ladder): enum first (here),
-     * then templates back into the Makefile + emitter dispatch, then lower_snobol4.c, matcher by matcher.
-     * Inert until lower_snobol4.c emits them, so this addition keeps Icon + the current build green. */
-    /* ---- RK-GRAM grammar-box family (RK-GRAM-3a) ---------------------------------------------------------------------------
-     * Native recursive-descent grammar leaves/edges for Raku `rule`/`token`/`regex` bodies, replacing the runtime gram_expand
-     * flatten-to-NFA stopgap (by_name_dispatch.c). Register contract = the ARCH-ICON String-scanning family verbatim: R13=Σ
-     * subject base, R14=δ cursor (callee-saved so it stays ambient across subrule recursion), R15=Δ end bound. Four ports keep
-     * pattern-lang meaning: α=fresh entry, β=resume/backtrack-retry, γ=match advanced δ, ω=fail. Choice points save δ into the
-     * per-activation ζ frame (a δ-snapshot slot, NOT a value stack). INERT until the RK-GRAM-3a lowering seam in lower_raku.c
-     * emits them (only migrated rule shapes take this path; others keep the string fallback) — behavior-neutral, build/smoke green. */
 typedef enum {
     IR_ACTIVATE,
     IR_ASSIGN,
@@ -51,7 +24,7 @@ typedef enum {
     IR_BINOP,
     IR_BINOP_RELOP_VAL,
     IR_BINOP_TEST,
-    IR_BOUND,            /* Op_Mark analogue (icon-master interp.r): α saves rsp into its ζ slot then jmp γ (bounded-expression entry); the paired IR_UNMARK restores it, discarding retained suspension cells the bound abandoned */
+    IR_BOUND,
     IR_CALL,
     IR_CALL_BUILTIN,
     IR_CALL_BUILTIN_GEN,
@@ -60,43 +33,34 @@ typedef enum {
     IR_CALL_BUILTIN_SNOBOL4,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
-    IR_CMP_TEST,            /* predicate compare: operands[0]/[1] = the two coerced values; ival = relop 0..5 (EQ NE LT LE GT GE); gamma = succeed (own slot := null string), omega = fail */
-    IR_COERCE_INTEGER,      /* operand[0] = value node; own slot gets a DT_I DESCR; ival = nonint_errcode | (negative_errcode << 16); neg code 0 = negatives allowed */
-    IR_COERCE_NUMERIC,      /* SNOBOL4 predicate arg (2026-07-10): operands[0]=self [1]=other; joint INTEGER-vs-REAL decision needs BOTH (either real -> both real); own slot DT_I or DT_R; ival = positional errcode */
-    IR_COERCE_REAL,         /* directed cnv:C_double (Icon oarith.r/fstranl.r discipline): operand[0] = value node; own slot gets a DT_R DESCR; ival = errcode raised on unconvertible (0 = permissive -> 0.0) */
-    IR_COERCE_STRING,       /* operand-edge coercion (2026-07-10 GEM/operand rung): operand[0] = value node; own slot gets a DT_S DESCR; ival = SPITBOL error code raised on null/non-string (0 = permissive) */
+    IR_CMP_TEST,
+    IR_COERCE_INTEGER,
+    IR_COERCE_NUMERIC,
+    IR_COERCE_REAL,
+    IR_COERCE_STRING,
     IR_COFAIL,
     IR_CONJUNCTION,
     IR_CORET,
     IR_CREATE,
     IR_CUT,
-    IR_DEFINE,  /* LADDER AB (2026-08-08): per-DEFINE ACTIVATION BLOCK.  α = ___-framed entry: push ___; mov ___,rsp; sub rsp,K; save save-set+meta into frame; null missing formals + result cell; &FNCLEVEL++; static jmp body-entry.  β = return landing (3-way on type-code r15b set by floaters): result pre-restore → restore → &FNCLEVEL-- → unlink anchor → leave → jmp γ(RETURN/NRETURN) or ω(FRETURN).  op_sval = fname (compile-time constant).  op_ival = nsave.  operands = GVA indices {fname, formal0..N-1, local0..M-1}.  s116 ONE-IR (Lon in-chat: "There is only one IR and one BB.  There is no IR_SAVE_RESTORE.  There is no IR_FUNC_ACTIVATE."): the Ch.8 save/restore citizens ride THIS kind, role in ival -- 1 RETURN floater, 2 FRETURN floater, 3 wire-adopt, 4 per-DEFINE shim; site-0 = sval + γ IS its paired call (CALL2BB); bind = sval + zero operands; activation = sval + operands; role-8 dynamic DEFINE(variable) -> rt_define RESERVED until the runtime leaf lands. */
+    IR_DEFINE,
     IR_DEREF,
     IR_DISJUNCTION,
-    IR_DTP_ASSIGN,       /* stored-pattern `.`/`$` capture (B3, DTP frag — see src/include/dtp.h) */
+    IR_DTP_ASSIGN,
     IR_FAIL,
     IR_FIELD_GET,
     IR_FIELD_VAR,
-    IR_GALT,             /* alternation: α saves δ to [___+op_off]; tries arm-1 (lbl_t0); β restores δ and tries arm-2 (lbl_t1); any γ→γ; all-ω→ω (RK-GRAM-3d) */
-    IR_GCC,              /* char-class-match: match one char at [Σ+δ] against sealed cset (sval), advance δ by 1; γ on member, ω else */
-    IR_GLIT,             /* literal-match: match fixed string sval at [Σ+δ], bounds δ<Δ; γ advances δ by len, ω on mismatch/EOS */
+    IR_GALT,
+    IR_GCC,
+    IR_GLIT,
     IR_GOTO,
-    IR_GOTO_DEFERRED,         /* EVAL/CODE (manual Ch.9): goto whose target label is unknown at lower time — a label
-                          * defined only inside a runtime-compiled CODE fragment, a `$X` indirect label name, or a
-                          * variable holding a CODE value (the lexer maps `:<C>` direct-goto brackets onto the
-                          * plain-name form).  sval = the name as written (`$`-prefixed when indirect).  α marshals
-                          * rt_goto_transfer(name), which resolves via the runtime label registry (fragment labels,
-                          * which per the manual OVERRIDE same-named main labels), then the LBL__ pseudo-proc table
-                          * (main-program labels, exported only when the program uses CODE), then a DT_C variable,
-                          * else faults "transfer to undefined label".  The transferee runs nested; when it
-                          * terminates, control cascades back here and γ (wired to the graph's exit) unwinds this
-                          * chain too — SNOBOL4 gotos never resume their source, so return-here means END. */
-    IR_GSUBRULE,         /* subrule call: recurse into named rule's box graph (sval=rule name) with Σ/δ/Δ ambient in R13/R14/R15 */
+    IR_GOTO_DEFERRED,
+    IR_GSUBRULE,
     IR_INDIRECT_GOTO,
     IR_INITIAL,
     IR_ITERATE,
     IR_KEYWORD_ASSIGN,
-    IR_KEYWORD_ASSIGN_SNOBOL4,   /* ⭐ KW-3b: the WRITE twin of IR_KEYWORD_SNOBOL4, and a SEPARATE KIND from IR_KEYWORD_ASSIGN for two MEASURED reasons, not for symmetry.  (1) NAMESPACE COLLISION: `TRACE` and `DUMP` are named by BOTH the SNOBOL4 keyword block and Icon's assign template, so the keyword NAME -- the only key a shared template could dispatch on -- cannot tell the two apart, and sval/ival are a UNION (this file, the IR_lit_t decl) so the lowerer cannot stash a resolved index beside the name to disambiguate.  (2) DIFFERENT FAILURE TOPOLOGY: Icon's `&pos := v` genuinely FAILS and takes an omega edge; a SNOBOL4 keyword write RAISES (208 non-integer / 209 protected) and, at the default &ERRLIMIT of 0, TERMINATES -- manual Ch.16 &ERRLIMIT: only a NON-ZERO &ERRLIMIT "converts the error to statement failure", and core_runtime_error exits for SNOBOL4 today.  So this kind is gamma-only; wiring it to Icon's omega-bearing arms would encode a statement-failure mechanism SCRIP does not have.  Language stays implicit in PARSER/LOWER exactly as the read side does it -- the lowerer picks the KIND, the emitter dispatches on the KIND and never tests a language. */
+    IR_KEYWORD_ASSIGN_SNOBOL4,
     IR_KEYWORD_ICON,
     IR_KEYWORD_ICON_GEN,
     IR_KEYWORD_SNOBOL4,
@@ -106,7 +70,7 @@ typedef enum {
     IR_LIT_REAL,
     IR_LIT_STRING,
     IR_MAKE_LIST,
-    IR_MATCH,               /* base/abstract matcher tag */
+    IR_MATCH,
     IR_MATCH_ABORT,
     IR_MATCH_ALTERNATE,
     IR_MATCH_ANY,
@@ -114,7 +78,7 @@ typedef enum {
     IR_MATCH_ARBNO,
     IR_MATCH_ASSIGN_COND,
     IR_MATCH_ASSIGN_IMM,
-    IR_MATCH_ASSIGN_SAVE,   /* SN4-PAT-3h: phase-0 cursor SAVE for multi-element capture (its own δ-slot) */
+    IR_MATCH_ASSIGN_SAVE,
     IR_MATCH_ATP,
     IR_MATCH_BAL,
     IR_MATCH_BEGIN,
@@ -122,17 +86,7 @@ typedef enum {
     IR_MATCH_BREAKX,
     IR_MATCH_CALLOUT,
     IR_MATCH_DEFER,
-    IR_MATCH_END,       /* BB-OWNED-ζ statement-scope pivot: α reads the saved rt_zls_mark() pointer from
-                             * its operand[0] (the statement's own IR_MATCH_BEGIN node, via drive_value_slot,
-                             * same operand[0]-owner convention IR_MATCH_ARBNO phases 1/2/4/5 already use to
-                             * read role 0's slot) and calls rt_zls_release_to, then falls through γ.  Spliced
-                             * as the pattern's own new tail (sno_lower_match passes this node's α as `succ`
-                             * to the outermost sno_pat_node call, with this node's own γ = the statement's
-                             * true sJ) so the success exit gets release_to the same way IR_MATCH_BEGIN's ω
-                             * already gives the failure exit release_to for free -- HEAD owns fail (single
-                             * fixed choke point, the scanner's own exhaustion); RELEASE owns success (which
-                             * has no fixed choke point of its own, since it's whichever element the pattern
-                             * happens to end on -- this node IS that fixed point, added for exactly this). */
+    IR_MATCH_END,
     IR_MATCH_FENCE0,
     IR_MATCH_FENCE1,
     IR_MATCH_LEN,
@@ -140,38 +94,24 @@ typedef enum {
     IR_MATCH_NOTANY,
     IR_MATCH_POS,
     IR_MATCH_REM,
-    IR_MATCH_REPLACE,       /* SN4-REPL (doctrine stages 4/5): the statement's replacement splice, α-only like
-                             * RELEASE.  operands: [0]=head (start@FR(slot), end stashed@FRQ(slot+24) by RELEASE
-                             * when its dval=1), [1]=replacement value node, [2]=subject value node (raw DESCR
-                             * quads, coerced runtime-side exactly as rt_match_enter does); sval=subject var name.
-                             * α marshals rt_match_replace(name, sub_lo, sub_hi, start, end, &repl) which builds
-                             * prefix+repl+suffix and NV_SET_fn's it; γ = the statement's true sJ.  Sits AFTER the
-                             * replacement expression chain (RELEASE.γ → repl chain → this) so a repl expr that
-                             * nests its own match cannot stale the end cursor — end left r14 at RELEASE time. */
+    IR_MATCH_REPLACE,
     IR_MATCH_RETRY,
     IR_MATCH_RPOS,
     IR_MATCH_RTAB,
     IR_MATCH_SPAN,
     IR_MATCH_SPAN_VAR,
     IR_MATCH_TAB,
-    IR_MATCH_VALUE,         /* SN4 kill-manufactured-names (2026-07-22): match a pattern VALUE carried in operand[0]
-                             * (a fresh slot, drive_value_slot) instead of a manufactured global name; the eager
-                             * TT_FNC pattern-position call lowers its result once into operand[0] and this node
-                             * reads FR(op_a_slot) and matches it — DT_P runs the compiled pattern fn, a scalar is
-                             * a literal match — no NV_SET/NV_GET, no global slot, no thunk-proc registration (that
-                             * per-occurrence name minting is the GLOBAL_MAX/zls flood blocking beauty self-host).
-                             * Structural clone of IR_MATCH_DEFER at every plumbing site; only the value SOURCE
-                             * differs (operand slot vs op_sval name), so it never owes a *X/DT_X call transfer. */
+    IR_MATCH_VALUE,
     IR_MOVE_LABEL,
     IR_NULLTEST_VAR,
-    IR_PATTERN_ALT,      /* STITCH-ALT box (B3 7a12aedd): rt_pattern_stitch_alt */
-    IR_PATTERN_CAPTURE,  /* passthrough since FZ-4 6141434 (Raku passthrough kept) */
-    IR_PATTERN_CAT,      /* STITCH-CAT box (B6 409f62a9/a59f38b8): rt_pattern_stitch_cat */
-    IR_PATTERN_DEFER,    /* *EXPR deferred build */
+    IR_PATTERN_ALT,
+    IR_PATTERN_CAPTURE,
+    IR_PATTERN_CAT,
+    IR_PATTERN_DEFER,
     IR_PROC_GEN,
     IR_PROC_VALUE,
     IR_RANDOM,
-    IR_REF_INVARIANT,       /* sealed constant-folded pattern blob (FZ-3) */
+    IR_REF_INVARIANT,
     IR_REPALT,
     IR_RETURN,
     IR_REV_ASSIGN,
@@ -190,9 +130,9 @@ typedef enum {
     IR_SCAN_SEQUENCE,
     IR_SCAN_TAB,
     IR_SCAN_UPTO,
-    IR_STATEMENT,        /* s23k ZW-5 slice 0 (DORMANT — lower does not mint yet): the ENTIRE-statement bracket box. alpha = bare label s<stno>_alpha (zero ceremony); gamma = the one whack add rsp,K_total; omega = per-distinct-arrival-depth stub ladder. Design of record: GOAL-SNOBOL4-BB.md s23k addendum + FINDING-2026-08-02d. */           /* Op_Unmark analogue: α restores rsp from operand[0]'s (the paired IR_BOUND's) ζ slot then jmp γ — `rsp = efp-1` in interp.r Op_Unmark; the every-do bounded-exit cut that reclaims abandoned FC carves */
-    IR_STATEMENT_BEGIN,  /* s26 (Lon directive 2026-08-02): statement HEAD bracket -- alpha = the statement's attribution label (BEGIN..END brackets the statement's byte range for perf attribution), body = frame setup IF NECESSARY (the FINDING-2026-08-02h STF-bracket population; K=0 pure relay until that rung lands), gamma = jmp to the statement's first BB.  Minted by the post-loop shim in lower_snobol4.c under the zw5_on() regime gate. */
-    IR_STATEMENT_END,    /* s26 (Lon directive): statement TERMINAL -- the ZW-5 trailer re-kinded into the pair; gamma jmp carries op_zgpop (the SOLE release authority, staged at the choke from the planner -- semantics unchanged from IR_STATEMENT), omega = the fail-side arrival, dead until the BEGIN frame makes restore depth-free (the per-depth ladder is deprecated and is NOT coming back). */
+    IR_STATEMENT,
+    IR_STATEMENT_BEGIN,
+    IR_STATEMENT_END,
     IR_SUBSCRIPT,
     IR_SUCCEED,
     IR_SUSPEND,
@@ -208,27 +148,19 @@ typedef enum {
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s181 (Lon 2026-08-20 in-chat: sort the IR enum alphabetically) -- FAMILY MEMBERSHIP IS A STATED FACT, NOT AN EMERGENT PROPERTY OF ENUM ORDER.  Five sites spelled it as a POSITIONAL RANGE
- * (op >= IR_MATCH_LIT && op <= IR_MATCH_RETRY / .. <= IR_MATCH_ASSIGN_SAVE), so the declaration ORDER of IR_e was load-bearing semantics that nothing named and no gate protected -- reordering the
- * enum for any reason (alphabetising, inserting a kind mid-family) would have SILENTLY changed what five predicates match.  The two member lists below were GENERATED from the enum order that
- * stood at SCRIP 1a5c3ff5, never transcribed, so this refactor is inert BY CONSTRUCTION and the .s sweep proves it.  ir_is_matcher = the whole inline-needle family incl. its brackets (BEGIN/END/
- * REPLACE/RETRY) and the crossing kinds (ATP/CALLOUT/DEFER/VALUE); ir_is_matcher_element = the pattern ELEMENTS proper, the subset a consumer walks when it wants needle boxes and not brackets
- * (its two callers re-add DEFER/VALUE resp. MATCH_BEGIN explicitly -- that re-adding is what the subset is FOR).  Parameter is int, not IR_e: C++ forbids the implicit int->enum the call sites need. */
 static inline int ir_is_matcher(int t) {
     switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:
     case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ARB: case IR_MATCH_ARBNO: case IR_MATCH_REM: case IR_MATCH_BAL: case IR_MATCH_FENCE0:
     case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ALTERNATE: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ATP:
     case IR_MATCH_CALLOUT: case IR_MATCH_DEFER: case IR_MATCH_VALUE: case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_REPLACE: case IR_MATCH_RETRY: return 1;
     default: return 0; } }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* THE ELEMENT SUBSET -- see ir_is_matcher above for why these are lists and not ranges. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_matcher_element(int t) {
     switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:
     case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ARB: case IR_MATCH_ARBNO: case IR_MATCH_REM: case IR_MATCH_BAL: case IR_MATCH_FENCE0:
     case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ALTERNATE: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE: return 1;
     default: return 0; } }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) {
@@ -246,14 +178,15 @@ struct IR_t {
     IR_ref_t     ω;
     IR_t       ** operands;
     int           n_operands;
-    int           in_scan;   /* ICN-SCAN-STRUCT: 1 iff this node is lexically inside a ? scan body. Set structurally at lower time (TT_SCAN range-mark); read by emit_drive to set g_scan_regs_live per-node. Replaces the emit-order-dependent running counter, whose value depended on the four-port BFS walk order and dropped to 0 mid-body when a scan's leave box (IR_SCAN) was emitted before in-scan keyword-assigns reached via an IR_ACTIVATE fail edge. */
-    int           seal;      /* s137 OVER-SEAL (Lon ruling): 1 iff this IR_MATCH_DEFER's target is a STATICALLY right-sealed stored pattern (single-write name whose tree's rightmost element is a fence form, sno_pat_right_sealed with the VAR/DEFER chase) — the defer's γ is then a fence-demarked sync point in the CALLER's activation: α saves an rsp watermark, γ/ω restore it (whacking the callee's entire retained subtree — its frame, its suspend record, everything it carved), and β is an unconditional exhaust (the sealed blob's resume is dead by NCB-2/SZ-1, so the record the whack destroys is never read). Set at lower time (defer build sites), promoted to templates as op_seal by the emit_drive DEFER case. */
-    int           pat_static; /* ZD-5 PATREF/DEFER STATIC-SHAPE (s23i): 1 iff this IR_MATCH_DEFER's target name eligibly resolves (g_sno_seal: single write, fz-safe, main lowering) to a tree whose TRANSITIVE closure over spine-position VAR references contains ZERO TT_DEFER — i.e. the stored pattern provably cannot re-enter any blob (manual p.122: only `*` recurses), so its match runs enter-scan-return with no unmodeled-depth re-entry.  Consumed by zd_plan's dynamic-box scan: a static-shape DEFER/PATREF no longer vetoes the statement quartet's ZD arming; 0 (the calloc default, and every composite `*expr` site) keeps the refused regime — the 135/136 recursive class verbatim.  Set at the lower_snobol4.c DEFER build site; NOT promoted to templates (the interior box itself stays flat either way). */
+    int           in_scan;
+    int           seal;
+    int           pat_static;
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))
-static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }   /* s116 ONE-IR: Ch.8 role read -- bind/activation/site-0 carry sval and lp heap pointers are >=8-aligned, so the union read is never 1..4 */
-static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }   /* citizen = ch8 role OR the CALL2BB site-0 box (its γ IS the paired call per the lower mint); the bind's γ is its statement successor, never call-kind -- the old IR_SAVE_RESTORE population survives the kind merge EXACTLY */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
+static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }
 typedef struct {
     const char * sval;
     int64_t      ival;
@@ -278,10 +211,10 @@ struct IR_graph_t {
     int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;
-    IR_t        ** balias_node;   /* BODY-ALIAS (Lon s62): DEFINE entry statements in the ONE shared graph — the m4 driver fills these before main's emit_chain; the emitter renames that statement_begin's α to <FN>_body IN PLACE, so the entry label is bound AT the statement, at its source position, and the standalone pre-main body-chain emission is deleted.  Parallel arrays, n_balias entries; zero for every other graph (IR_alloc callocs). */
+    IR_t        ** balias_node;
     const char  ** balias_name;
     int            n_balias;
-    IR_t        ** dentry_node;   /* FN-FACE-DELETE + NATURAL-LABEL (Lon s114 in-chat: "DELETE this label FN__ROMAN"; "Change the label LBL__ROMAN to be n25_statement_begin_α as it was before"): per-DEFINE bind boxes in the ONE shared graph, paired with the body-entry STATEMENT NODE (dentry_entry, the balias chase's landing) — the m4 driver stamps these BEFORE the balias build (which now skips DEFINE-linked rows so the entry keeps its natural port label), codegen_flat_chain_body fills dentry_name with the node's allocated natural label name at alloc time, the bind dispatch deposits it into g_emit.lbl_t0, and both bb_define_bind's rt_define_site fn lea and the inline role-5 shim's body jmp target it.  Same parallel-array-on-the-graph shape as balias_node above (the s62 precedent); zero for every other graph (IR_alloc callocs). */
+    IR_t        ** dentry_node;
     IR_t        ** dentry_entry;
     const char  ** dentry_name;
     int            n_dentry;
@@ -289,15 +222,15 @@ struct IR_graph_t {
     DESCR_t        ring[AG_RING];
     int            ring_head;
     int            ring_depth;
-    int            zframe_graph; /* ICN-FR-2 / PL-FR-2 / PAS-ZF-2: whole-graph ζ frame on rsp — ONE activation frame per graph, wire header above, ___ pinned; set by lower_icon.c (all Icon graphs, killswitch SCRIP_ICN_ZFRAME=0), lower_prolog.c (all Prolog graphs, killswitch SCRIP_PL_ZFRAME=0), and lower_pascal.c (all Pascal proc graphs, killswitch SCRIP_PAS_ZFRAME=0); never set by SN4 or Raku lowerers (invariance guaranteed by construction).  Named for WHAT it decides ("this graph uses the ζ-frame storage regime"), never for a language.  Emitter routes on this flag: prologue sub rsp,kt + wire header + pin + seed (lex arm: rt_jmp_frame_lexprep2; non-lex arm: rt_icn_zframe_args_install); epilogue wire-header read + jmp; γ-retain for suspending graphs.  SCRIP_ICN_ZFRAME=0 reproduces pre-FR-2 HEAD for Icon graphs; SCRIP_PL_ZFRAME=0 reproduces pre-FR-2 HEAD for Prolog graphs; SCRIP_PAS_ZFRAME=0 reproduces pre-ZF-2 HEAD for Pascal graphs. */
-    int            icn_cells_graph; /* ZK-0 (s212): 1 = Icon graph admitted to the per-BB ζ-cells-on-RSP-FORTH-spine arm (GOAL-ICN-ZETA-CELLS). Named for WHAT it decides (per-activation RSP cell regime), never a language. Set by lower_icon.c when SCRIP_ICN_CELLS=1; zero in every other lowerer — SN4/Prolog/Pascal byte-identical by construction. Emitter reads it additively at the ZD staging choke. Default 0 = today's path (unset = ZFRAME arm or current ZD regime). APPENDED AT STRUCT END per s141 ABI law. ⭐ Z-1 (s230, Lon's THREE-ZETAS ruling): stamped 1 by DEFAULT for every Icon graph — the cells substrate IS the one Icon routing; SCRIP_ICN_LEGACY=1 restores the opt-in-era behavior byte-exactly until the Z-8 fold. */
-    int            pl_cells_graph; /* PL-ZK-0 (s1): 1 = Prolog graph admitted to the per-BB ζ-cells-on-RSP-FORTH-spine arm (GOAL-PL-ZETA-CELLS).  Named for WHAT it decides (per-activation RSP cell regime); the pl_ prefix is a TRACK tag, not a dispatch key -- no emitter arm branches on it to learn a language, and test_gate_emit_no_lang.sh is identifier-scoped (it bans the g_lang global, the LANG_ and IR_LANG_ enums, is_prolog, and the lang field access) so this field is gate-legal.  DRAFT RULING R-PL-ZK-A: a separate field, NOT a rename of icn_cells_graph, because that field is a CONCURRENT track's live arm and the concurrency banner forbids editing another track's arm; consolidation onto one behavior-named cells_graph is a later hygiene rung once both language arms are proven.  Set ONLY by pl_cells_stamp() in lower_prolog.c when SCRIP_PL_CELLS=1 (ONE AUTHORITY, five call sites, no second spelling); zero in every other lowerer by calloc -- SN4/Icon/Raku/Pascal byte-identical by construction.  Mutually exclusive with zframe_graph per R-PL-ZK-A routing (lower_prolog does not stamp zframe today; when PL-FR-2 makes it the second zframe stamper, that stamp must test this flag first).  Default 0 = today's path.  APPENDED AT STRUCT END per s141 ABI law. */
-    int            is_variadic;  /* RK-ZC-4: propagated from ProcEntry.is_variadic by lower_raku.c; 0 on every other lowerer. Named for WHAT it decides (variadic arg-bind at zframe prologue), never a language. */
-    int            rest_kind;    /* RK-ZC-4: REST_LIST=0/REST_FLAT_AGG=1/REST_NESTED=2; from ProcEntry.rest_kind; zero on non-variadic/non-Raku graphs. */
-    int            icn_zframe_gen; /* ICN-FR-4 BISECT-FIX (PL-ZD-WINDOW2): 1 = this is an Icon zframe generator (flat_gen=1 via lower_icon.c icn_body_has_suspend, single-active-suspension guarantee). The ICN-FR-4 global-save wire/caller____ path is safe ONLY for this class — Prolog zframe graphs also set flat_gen=1 (via is_generator=1 on multi-clause predicates) but have concurrent activations that overwrite g_gen_pending_* globals before the first activation's epilogue fires. Set by lower_icon.c ONE AUTHORITY for graphs where icn_body_has_suspend is true; zero on every other lowerer by calloc. Gate in xa_flat.cpp: the rt_gen_save_wires / rt_gen_save_caller____ / rt_gen_get_* path gates on g_emit_cfg->icn_zframe_gen. APPENDED AT STRUCT END per s141 ABI law. */
-    int            pl_zf_trail_mark_off; /* PL-FR-4: frame slot offset of the $trail_mark result in this Prolog zframe graph (>0 = valid; 0 = unset/not-a-Prolog-zframe-gen). Set by ir_drive_slot_assign after zls_build by scanning for the first IR_CALL_BUILTIN_PROLOG with sval==$trail_mark. Read by xa_flat_zframe_epilogue_γ_str (Prolog zframe gen arm) and by bcps_spine_gen_arm (pl_zf_resume β arm). Calloc-zero = unset. APPENDED AT STRUCT END per s141 ABI law. */
-    IR_t         * ab_nodes[32]; /* LADDER AB (2026-08-09 AB-1): IR_DEFINE nodes minted in this graph; emitted as dead-code text after the main chain by the driver (jump-target-only until AB-3 flips call sites).  Max 32 DEFINEs per program (sufficient; checked in lower_snobol4.c).  Zero-initialized by calloc in IR_alloc.  APPENDED AT STRUCT END per s141 ABI law. */
-    int            ab_n;         /* count of valid entries in ab_nodes[] */
+    int            zframe_graph;
+    int            icn_cells_graph;
+    int            pl_cells_graph;
+    int            is_variadic;
+    int            rest_kind;
+    int            icn_zframe_gen;
+    int            pl_zf_trail_mark_off;
+    IR_t         * ab_nodes[32];
+    int            ab_n;
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);

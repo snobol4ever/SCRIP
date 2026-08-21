@@ -1,15 +1,3 @@
-/* rtx_alloc_test.c — RTX-2 differential battery: asm rt_gcheap_alloc vs c_rt_gcheap_alloc.
- *
- * An allocator cannot be tested by "call both with the same input and compare the answers" —
- * the first call moves the frontier, so the second CANNOT return the same pointer. What is
- * comparable is the STATE DELTA each call produces. For one (type, payload) we record, for
- * each implementation: how far top advanced, how far virgin advanced, whether blocks went up
- * by one, where the returned pointer sits relative to the pre-call top, and the three title
- * fields the carve writes. Those tuples must be bit-identical, and that is the whole contract.
- *
- * Runs each case ASM-then-C and again C-then-ASM, so a bug that only shows up on one side of
- * an alternation (an off-by-one in the frontier, say) cannot hide behind ordering.
- */
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -55,7 +43,7 @@ static void pair_str(const char *what, long len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     int i;
-    for (i = 0; i < 8; i++) (void)c_rt_gcheap_alloc(1, 64);   /* warm the lazy init + arm the detax latch */
+    for (i = 0; i < 8; i++) (void)c_rt_gcheap_alloc(1, 64);
     if (!g_hp_fr.armed) { printf("RTX alloc unit: heap never armed — cannot compare fast paths\n"); return 2; }
     pair("payload 0",        1, 0);
     pair("payload 1",        1, 1);

@@ -33,8 +33,8 @@ static inline pl_cell_t *pl_deref(pl_cell_t *c) {
         return c;
     }
 }
-static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_PLVAR || d->v == DT_SNUL || d->v == DT_FAIL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_PLVAR || d->v == DT_SNUL || d->v == DT_FAIL; }
 static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return pl_cell_unbound(d); }
 static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I; }
 static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
@@ -63,7 +63,7 @@ static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int plc_dead_cstack(const void *p) {
     extern char *g_plw_unwind_floor;
-    if (!g_plw_unwind_floor) return 0;   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): guard moved BEFORE the fgets/sscanf block. When floor is NULL (Prolog zframe JIT execution window), short-circuit immediately — Prolog trail entries are heap-resident, never C-stack locals, so this function must always return 0 for them. The original placement after the maps-read caused SEGV: on the first call stk_have=0 triggers fopen+fgets+sscanf with char ln[256] on stack, and sscanf (glibc movaps) requires 16-byte RSP alignment; the misalignment originates in dop_unwind_nothrow's -O0 frame (push ___ + push rbx + sub 0x38 = 72 bytes = 8 mod 16) propagating through pl_trail_unwind and plc_dead_cstack's own sub 0x140 frame. Moving the guard here makes the floor=NULL path zero-overhead (no fopen, no stack alloc, no SSE). Semantics preserved: the g_plw_unwind_floor check was always the correct answer for Prolog — just in the wrong position relative to the stack-map initialization. */
+    if (!g_plw_unwind_floor) return 0;
     static char *stk_lo, *stk_hi; static int stk_have;
     if (!stk_have || ((char *)p < stk_lo && (char *)p >= stk_lo - (64L << 20))) {
         FILE *mf = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;

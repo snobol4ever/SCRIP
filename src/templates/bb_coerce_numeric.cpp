@@ -35,7 +35,7 @@ std::string bb_coerce_numeric() {
              + x86("mov",  "rcx", (long)_.op_ival)
              + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
              + x86_gamma()
-             + x86_beta_trampoline();   /* ZD-2e: operand 0 is the value, operand 1 the PARTNER whose type is peeked to decide the already-numeric fast path, both at driver-staged differences; the out slot is this box's own cell.  THREE lea sites take the ADDRESS of a cell (self, partner, out) -- ZOPQ/ZRES render the raw-channel marker [rsp# + N] which x86_parse routes to the XK_RSP lea arm, so an address-of-cell is the same one authority as a load.  TWO gamma exits (fast path and post-call) and NO omega: an unparseable operand is a RUNTIME ERROR through core_runtime_error (rt.c:289), not a statement failure -- SPITBOL manual Ch.17 conversion is an error-or-succeed contract, and the failure signal in SNOBOL4 arithmetic comes from the predicates (Ch.4 p.33), never from the coercion itself.  Matches the legacy arm's port topology exactly. */
+             + x86_beta_trampoline();
     return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0, x86_bomb("bb_coerce_numeric: needs self slot (op_sa) + other slot (op_sb) + own value slot (op_off)"))
          + IF(!(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_NUMERIC")

@@ -202,8 +202,8 @@ int operand_is_real_str(DESCR_t v) {
     char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);
     if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
@@ -224,7 +224,6 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     g_core_errjmp_n = my;
     return r;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_BINOP_ENTRY(fn, code, fast) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
@@ -243,11 +242,11 @@ RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    return INTVAL(a.i - b.i);)
 RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    return INTVAL(a.i * b.i);)
 RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i / b.i);)
 RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i % b.i);)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
 RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
 RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);

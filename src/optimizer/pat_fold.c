@@ -30,4 +30,4 @@ static int pf_lit_internal(IR_t * el, IR_t * seq, IR_graph_t * g, const int * in
     return j >= 0 && in[j] == 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pf_run(IR_graph_t * g) { (void)g; return 0; }   /* SEQ-ERAD SE-5/SE-6: IR_MATCH_SEQUENCE deleted; literal-adjacency folding was its only customer */
+int pf_run(IR_graph_t * g) { (void)g; return 0; }

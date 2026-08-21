@@ -13,15 +13,9 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 #include "x86_asm.h"
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ZTOS-1 (Lon s21x-o "Do not put RSP references directly into the templates"): private raw-rsp helper RETIRED -- call sites now speak the sanctioned spine accessor ZTOS/ZTOSD (x86_asm.h), which adds op_zdepth so a box's own carve and its own TOS reads compose instead of colliding.  Byte-identical while this kind is unarmed (op_zdepth==0); correct once it is armed, which is what lets the _spine exclusion list retire. */
 static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_ival) && _.op_sa >= 0 && _.op_sb >= 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The ONE place the concatenation convention picks its runtime authority, chosen from the IR payload the lowerer stamped -- never from a language sentinel, which the emitter is forbidden to see.  Both
- * arms below feed this through the same x86() encoder call, so the NAME (mode-4 TEXT, resolved against libscrip_rt.so at link) and the ADDRESS (mode-3 BINARY, baked into the call site) can never drift
- * apart or disagree between media. */
 static inline const char *bcs_rt_name() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : "str_concat_d"; }
 static inline void *bcs_rt_addr() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : (void*)str_concat_d; }
-
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     if (PLATFORM_X86 && _.op_zres)
@@ -37,7 +31,7 @@ std::string bb_binop_concat_slot() {
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86("rtcc_rl")
              + x86_gamma()
-             + x86_beta_trampoline();   /* ZD-2a: the purest clone of bb_binop_arith's ZD arm -- operands are the two producers' suspended cells at the driver-staged differences op_zread[0]/[1] (mode 3), the result is this box's own alpha-carved cell (mode 1), and no release rides the body: cells persist to the statement boundary where op_zgpop/op_wpop restore rsp wholesale.  NO DT_FAIL test and NO omega edge, matching BOTH legacy arms below and the SPITBOL semantics they encode: concatenation propagates failure only from its OPERANDS (manual Ch.4 p.33 "if any function failed, the entire concatenation would fail" -- the LT(N,10) N + 1 idiom), which in the four-port model is the PRODUCER box taking its own omega so this box never runs; the concat operation itself has no failure mode, and a non-string non-pattern operand is an Appendix-D ERROR against &ERRLIMIT, not a statement failure.  str_concat_d stays the sole authority for the type-preserving null-string identity (manual Ch.3 p.22: (20-17) '' is the INTEGER 3, not the string) -- the DESCR pair is handed through unexamined, so the arm must never coerce or shortcut on either operand. */
+             + x86_beta_trampoline();
     return IF(PLATFORM_X86 && bcs_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_CONCAT")

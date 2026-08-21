@@ -11,18 +11,7 @@
 #include "gc_heap.h"
 #include "descr.h"
 #include "pin_va.h"
-/* GC-0 (ARCH-ZETA-LOCAL-STORAGE §6e) — scrip-owned bump heap, SIL title-word headers; THE ONE unified collector, no external GC library (GC-U-4, s67).
- * Allocation bumps until exhaustion, then storage regeneration (§6a) — the SIL way; the collector proper (mark/adjust/slide with pins) is gc_collect_ex below. */
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
-/* PL-SINK-3 (2026-07-25) — THE CARVE FRONTIER, EXPORTED.  The emitted $unify_lst WRITE arm (src/templates/bb_call_fn.cpp, sink_mkcons_str) inlines rt_gcheap_alloc's DETAX fast path (line ~170 below):
- * armed && top + total <= end -> carve at top, bump, done.  That path needs top/end/blocks as ADDRESSABLE storage, so the three former file-statics move into ONE exported struct and the old spellings
- * become macros over its fields — every existing reference in this TU compiles unchanged, and exactly one new symbol crosses the .so boundary (contract §3: sanctioned exported cell, named in the rung's
- * FINDING; gc_heap.c is outside the Prolog no_new_global gate's policed set, so the floor is untouched but the addition is declared here on purpose).  `armed` mirrors (g_alloc_detax == 1 && g_ah_on <= 0)
- * so the inline tests ONE byte instead of re-deriving the predicate; it is recomputed wherever g_alloc_detax is.  Layout is _Static_assert-anchored below and baked by the template (contract §6). */
-/* RTX-2 ALLOC (s163) — the cell gains TWO MORE fields so the asm port of rt_gcheap_alloc can decide the ZERO-ELISION question without a call: `virgin` is the HP-2 high-water mark (a block carved at or
- * above it is untouched mmap-fresh memory and needs no memset) and `zfull` is the resolved SCRIP_ZSKIP_OFF latch (-1 unresolved / 0 elide / 1 force-full).  Both were previously a file-static and a
- * FUNCTION-static inside rt_gcheap_carve; promoting them is the same sanctioned move PL-SINK-3 made above and g_plw_cellws_on made in rt_arena.c — semantics are UNCHANGED, the resolving read still
- * happens in carve, and the asm treats anything but 0 as "defer to C".  APPENDED at the tail on purpose: offsets 0/8/16/24 are baked into bb_call_fn.cpp's sink_carve48 and MUST NOT MOVE. */
 typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; } rt_hp_fr_t;
 rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0 };
 _Static_assert(sizeof(rt_hp_fr_t) == 48, "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put");
@@ -47,15 +36,6 @@ __attribute__((visibility("hidden"))) long  g_wsi_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
-/* BP-5 STRING EXTEND-IN-PLACE (the SPITBOL trick, guarded for SCRIP's verbatim-DESCR-store world): str_concat_d's O(n^2) copy loop becomes O(n) when the LEFT operand is the single-reference NEWEST
- * heap block — the title grows and g_hp_top bumps, no left-copy. SPITBOL's descriptors carry length so aliases never see appended bytes; SCRIP strings are NUL-read (%s/strcmp), so extending a SHARED
- * buffer would corrupt aliases through the overwritten NUL. Guard = OWNERSHIP TOKEN {owner,len}: armed only on a fresh concat result whose DT_S block ends exactly at g_hp_top; broken by (a) any
- * C-side
- * store of that pointer (NV_SET_fn / rt_assign_var / table_set_descr* hooks — one predictable compare each), (b) any allocation (block no longer ends at top — self-invalidating), (c) every collect
- * (cleared in rt_gc_collect; SLIDE may move the block). GVA-resident aliases (Z = S is an emitted 16-byte move, no C hook) are caught POSITIVELY at extend time: scan the registered GVA slots and
- * refuse unless at most ONE slot references the buffer (the accumulator itself). Residual, documented: a DESCR copy held only in a suspended ζ frame with ZERO allocations in between is invisible to
- * both layers — same exposure class as the pre-existing in-flight-args stress hole (212 m4). Right-operand reads are safe: read window [bsp,bsp+bl) never overlaps the write window [buf+al,..) even
- * when b aliases a (suffix/whole), because bl excludes the old NUL at buf+al. */
 typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.S bakes g_sxt_fr.owner @0");
@@ -65,8 +45,10 @@ _Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.S bakes g_
 #define g_sxt_owner (g_sxt_fr.owner)
 #define g_sxt_len   (g_sxt_fr.len)
 #define g_sxt_gva_n (g_sxt_fr.gva_n)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
 void rt_sxt_break(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_note(char *s, long len)
 {
     g_sxt_owner = (char *)0;
@@ -75,12 +57,14 @@ void rt_sxt_note(char *s, long len)
     rt_hblk_t *h = ((rt_hblk_t *)s) - 1;
     if ((h->flags & HBF_TTL) && h->type == (uint16_t)DT_S && (char *)h + h->size == g_hp_top) { g_sxt_owner = s; g_sxt_len = len; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_sxt_match(const char *s)
 {
     if (g_sxt_fr.off < 0) { const char *e = getenv("SCRIP_SXT_OFF"); g_sxt_fr.off = (e && *e && *e != '0') ? 1 : 0; }
     if (g_sxt_fr.off) return -1;
     return (s && s == g_sxt_owner) ? g_sxt_len : -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_sxt_extend(char *s, long al, long bl)
 {
     if (!s || s != g_sxt_owner || al != g_sxt_len || al < 0 || bl < 0) return (char *)0;
@@ -133,14 +117,9 @@ static void rt_gcheap_init(void)
 {
     long mb = (long)ZC_HEAP_MB;
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
-    /* TR-2: slab-pool backing (was private mmap). Contiguity is load-bearing here —
-     * the linear TITLE WALK (rt_gcheap_verify / mark-sweep) strides block-to-block
-     * across the whole region by size header, which only works on one contiguous span. */
     g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
     if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
-    /* HP-1: the arena is bump-filled through VIRGIN memory, so every 4K page costs a minor fault + a kernel zero-fill; tgrlink touched 61MB = 14,999 faults vs iconx's 607. THP is [madvise] here, so opt the
-     * 2MB-aligned interior in explicitly: 61MB then costs ~30 huge-page faults. Alignment is required — an unaligned range silently refuses to back with hugepages. SCRIP_NOHUGE=1 restores 4K (A/B). */
     { const char *nh = getenv("SCRIP_NOHUGE"); if (!(nh && *nh && *nh != '0')) { uintptr_t a = ((uintptr_t)g_hp_arena + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)g_hp_end) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); } }
     g_hp_virgin = g_hp_arena;
     gc_static_segs_init();
@@ -148,16 +127,11 @@ static void rt_gcheap_init(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
 {
-    /* Carve a block from the LOW end of a bump region [at, region_end); caller guarantees fit and, for the fill window, rewrites the remainder's HB_FILL title so the linear title walk stays valid.
-     * BP-6: char-payload classes (DT_S, HB_WSC — the scanner never pointer-reads them, s91/s92 typing) zero only the FINAL 32 payload bytes: that always covers the NUL slot n (round16(n+1)-16 <= n)
-     * on the main path AND under the fill-window's +16 sliver absorb; every caller fills its request or writes an explicit terminator (audited s97). SCRIP_ZSKIP_OFF=1 restores full zeroing (A/B). */
     rt_hblk_t *h = (rt_hblk_t *)at;
     h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
     uint64_t pay = total - sizeof(rt_hblk_t);
     if (g_hp_fr.zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (e && *e && *e != '0') ? 1 : 0; }
     { const int zfull = g_hp_fr.zfull;
-    /* HP-2: mmap-fresh anonymous pages are ALREADY zero, so re-zeroing a block carved above the high-water mark is pure redundant write traffic. Skip it for fully-virgin blocks only; anything at or below
-     * g_hp_virgin may be GC-recycled (the g_hp_win fill window always is) and MUST still be zeroed. Straddling blocks take the conservative memset. SCRIP_ZSKIP_OFF=1 forces full zeroing (A/B). */
     int fresh = !zfull && at >= g_hp_virgin;
     if (at >= g_hp_virgin && at + total > g_hp_virgin) g_hp_virgin = at + total;
     if (fresh) { }
@@ -166,7 +140,6 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     g_hp_blocks += 1;
     return (void *)(h + 1); }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_on = -1; static int g_ah_reg = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_alloc_hist_report(void)
@@ -182,6 +155,7 @@ int rt_alloc_hist_on(void)
     if (g_ah_on < 0) { const char *e = getenv("SCRIP_ALLOC_HIST"); g_ah_on = (e && *e && *e != '0') ? 1 : 0; if (g_ah_on && !g_ah_reg) { g_ah_reg = 1; atexit(rt_alloc_hist_report); } }
     return g_ah_on;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_alloc_hist_init(void) { (void)rt_alloc_hist_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes)
@@ -191,18 +165,12 @@ void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes)
         if (!g_ah_ra[i].n) { g_ah_ra[i].ra = ra; g_ah_ra[i].type = type; g_ah_ra[i].n = 1; g_ah_ra[i].b = (long)bytes; return; }
         if (g_ah_ra[i].ra == ra && g_ah_ra[i].type == type) { g_ah_ra[i].n += 1; g_ah_ra[i].b += (long)bytes; return; } }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
     if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
-    /* Allocation order: (1) main bump at g_hp_top; (2) the FILL WINDOW — a secondary bump region installed by the collector inside the largest HB_FILL gap, needed when a conservative pin holds the
-     * heap TOP at exhaustion time (the pinned block is near-always the allocating expression's own in-flight operand, so the top cannot retreat and all reclaimed space lands BELOW it — discovered by
-     * the 213/214 exhaustion tortures, 2026-07-05); (3) regenerate, recompute both, retry; (4) honest bomb. Window carves rewrite the remainder fill title in step, keeping rt_gcheap_verify green.
-     * s90 NOTE: a window-FIRST variant was built and WITHDRAWN — it exposed (not caused) the malloc→WS reference hole in the s90 finding: interned names live in HB_WS blocks reachable only from
-     * raw-malloc'd IR, so HB_WS stays blanket-pinned until the WS-class split; with WS pinned, window-first had no remaining motivation and the SIL top-bump order stands. */
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
     void *r;
     static long stress_n = -1, stress_c = 0;
@@ -232,9 +200,6 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 char *c_rt_str_alloc(long n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)DT_S, 0);
-    /* THE DT_S entry point (GC-5 strings row, landed with GC-0 as the Lon-directed proof family):
-     * n characters + NUL. Manual pin 3's "all words within a block must be properly filled in" is the POINTER-POSITION rule (per-type relocatable-word maps) — for char payloads it is discharged
-     * by the s91/s92 class typing (scanner never pointer-reads DT_S/HB_WSC), so BP-6 zeroes only the final pad window (NUL slot covered — see rt_gcheap_carve). */
     long want = (n < 0 ? 0 : n) + 1;
     _Static_assert(DT_S < HB_ZCOL, "value-world heap types carry DTYPE_t verbatim: DT_S is the ONLY DTYPE_t ever passed as a block type (every other caller passes HB_*), so the invariant is that it can never be mistaken for one -- it is NOT that DT_S holds any particular value. This assert read DT_S == 1 until s230, which pinned an incidental number instead of the property its own message names, and therefore fired on the TAG-3 class-bit renumber while the property still held.");
     return (char *)rt_gcheap_alloc((uint16_t)DT_S, (uint64_t)want);
@@ -242,8 +207,6 @@ char *c_rt_str_alloc(long n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_str_dup(const char *s)
 {
-    /* GC-5 strings-row TAIL: the mechanical strdup replacement flagged in ARCH-ZETA-LOCAL-STORAGE.md
-     * §6e. Reuses rt_str_alloc so both heap paths (scrip-owned / atomic fallback) stay in sync automatically. */
     if (!s) s = "";
     long n = (long)strlen(s);
     char *b = rt_str_alloc(n);
@@ -251,20 +214,6 @@ char *rt_str_dup(const char *s)
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* WSI — THE WORKSPACE ISLAND (s131, Lon "all your choices" ruling on the s130 pin-floor diagnosis; supersedes the s84 "workspace IN the collected span" placement): the IMMORTAL classes HB_WS
- * (pointer-bearing: interned names, registries, growth tables — anything a raw-malloc'd structure may reference) and HB_WSS (zero-pointer immortal strings, rt_ws_strdup/lp_strdup) move to their
- * OWN rt_slab_region in the rt_gva_island/CAS class: base-pinned, never in the block walk, never a slide barrier, never collected — so the value heap compacts to ARENA START, the reset walk and
- * pmap refill go O(live), and warm-page reuse (the SPITBOL regeneration property, ARCH-ZETA §6a) becomes reachable. TWO CURSORS, ONE REGION (the ZLS/ZLS2 idiom): HB_WS bumps UP from base with
- * FULL-ZERO payloads (manual pin 3 — the conservative scanner reads every word, uninitialized bytes would mint random pins); HB_WSS bumps DOWN from end, payload = the copied bytes, NEVER scanned
- * (zero-pointer contract; scanning string bytes mints false pins — the s130 lesson). Both keep 16B rt_hblk_t titles so rt_ws_realloc's old-size decode is unchanged and the island stays verifiable.
- * ROOT DUTY: gc_collect_ex conservatively scans [g_wsi_base, g_wsi_ws) — the WS side ONLY — as a root pass each collect (replaces the reset-time blanket pin + transitive scan of marked WS blocks;
- * covers the s88 latent gap the same way: DESCRs inside WS blocks reference value blocks nothing else roots; referenced aggregates ride the existing marked-block fixpoint). Raw-malloc'd referrers
- * INTO the island need no adjust — the island never moves (which is why TR-5 stops being a prerequisite for the pin-floor fix and stays the later precision path). HB_WSC is UNTOUCHED by this move:
- * the COLLECTABLE workspace class stays in the span (ws_only filters, PIN-when-marked, reclaimed when dead) — CONTRACT TIGHTENED s131: a WSC/PLJ/AGG/ZBLK block referenced ONLY from a writable C
- * static must have that static REGISTERED (rt_gc_root_range_add) — the EVERY-COLLECT blanket dl_iterate_phdr statics scan is OFF by default (SCRIP_GC_STATICS_BLANKET=1 restores it, debug/A-B
- * flavor). CENSUS EVIDENCE (s131): 48.4MB of writable statics scanned per collect; across json-match B=16 (656 collects), the full gc torture suite at STRESS=7, and icon+prolog smokes at STRESS=7,
- * tag=1 minted ZERO pins except ONE self-artifact — g_hp_arena (the allocator's own base pointer) pinning block 0; ws_only gating means the scan could never root plain DT_S anyway (value-world
- * statics are the precise enumerators' job). HB_ZBLK unchanged (registration-governed). Exhaustion = loud bomb naming ZC_WSI_MB. */
 static void rt_wsi_init(void)
 {
     long mb = (long)ZC_WSI_MB;
@@ -326,20 +275,6 @@ char *rt_ws_strdup_c(const char *s)
     if (!s) return (char *)0;
     { size_t n = strlen(s); char *q = (char *)rt_ws_alloc_c(n + 1); memcpy(q, s, n + 1); return q; }
 }
-/*====================================================================================================================================================================================================*/
-/* GC-1 MARK + GC-2 ADJUST + GC-3 SLIDE (ARCH-ZETA-LOCAL-STORAGE §6a/§6b/§6e) — the SIL 3-stage storage regeneration, v1 scope = the DT_S strings family (the only resident family after GC-0).
- * TWO ROOT LAYERS. PRECISE (tag-driven, §6b: DESCR_t.v discriminates — marked AND adjusted): NV buckets incl. bound GVA cells (core_gc_roots), g_call_args window (rt_gc_root_args),
- * drive_val + frame_stack env/return_val + gen svals + scan_stack sigma/subj (gen_gc_roots — restored FROM MEMORY at scan-leave, hence adjustable), and full aggregate tracing through non-moving
- * ARBLK/TBBLK/DATINST/VCELL/NAMEPTR cells (they do not move; the DESCR cells INSIDE them adjust). CONSERVATIVE (marked and PINNED via HBF_PIN, fwd=self, NEVER moved, never adjusted-through — the
- * manual pin-3 XNBLK precedent): the live ζ chain (mode-4 has no zls maps at runtime; conservative-pin is the sound v1 until ZB-4 emits layouts), the C stack + setjmp register spill (covers rt-helper
- * locals holding raw payload ptrs across the triggering alloc — what makes allocation-site collection sound, §6d), and the CURRENT scan subject (Σ lives in r13, unrewritable — D10 pin-cell realized
- * as pin-the-block; OUTER subjects restore through scan_stack and adjust precisely). SLIDE runs a dest cursor; pins are barriers; sub-pin gaps get HB_FILL titles so the linear walk stays verifiable
- * and compact away next cycle. Dedup/cycle hash makes every cell adjust EXACTLY once (double-adjust is corruption — new addresses land inside the arena). GC-U-7 (s90) retired the §6b-finding-ii
- * coexpr REFUSE: every scrip_coctx_t is enumerated (registry in rt_coexpr.c) — gc_spill (callee-saved regs spilled by scrip_coswitch just before every suspension) + xmit + entry pkg regs are
- * scanned conservatively, each live stack window is a registered pin + conservative range, the suspended main [stack] region scans in full when a coexpr thread collects, and the current thread's
- * anchor..top scan is window-aware. Registered pins/ranges (rt_gc_root_pin_add/rt_gc_root_range_add) + the writable-PT_LOAD statics scan (dl_iterate_phdr: exe + libscrip) run at EVERY collect, and
- * gateway collects are now conservative too — raw HB_WS pointers in C locals across gateway seams must survive the un-pin (the fill window absorbs the residual top-pin ratchet risk, measured s90).
- * Triggers: exhaustion in rt_gcheap_alloc (regenerate-then-retry, the SIL way), SCRIP_GC_STRESS=N every-N-allocs, and rt_gc_collect() exported for GC-7's COLLECT(). */
 #include <setjmp.h>
 #include "../core/core.h"
 #include "rt_coexpr.h"
@@ -368,9 +303,12 @@ static long g_gc_nraw = 0, g_gc_rcap = 0;
 static int g_gc_in = 0;
 static long g_gc_runs = 0, g_gc_interior = 0;
 static char *g_gc_stktop = (char *)0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_walk_fold(void) { const char *e = getenv("SCRIP_GC_WALKFOLD"); return (e && *e == (char)48) ? 0 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_live_grow(long need) { if (need < g_gc_lcap) return; g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096; while (g_gc_lcap <= need) g_gc_lcap *= 2;
     g_gc_liveo = (rt_hblk_t **)realloc((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)realloc((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
 static long gc_collect_ex(int cons_stack);
 static DESCR_t *g_gc_shield_arr = (DESCR_t *)0;
@@ -404,8 +342,8 @@ static int gc_hins(void *p)
       while (g_gc_hs[s]) { if (g_gc_hs[s] == p) return 0; s = (s + 1) & (g_gc_hcap - 1); }
       g_gc_hs[s] = p; g_gc_hn++; return 1; }
 }
+static char *g_gc_pmap_top = (char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *g_gc_pmap_top = (char *)0;   /* g_hp_top at the time the pmap was filled — addresses past this were not indexed */
 static rt_hblk_t *gc_blk_of(const char *p)
 {
     if (!p || p < g_hp_arena || p >= g_hp_top || !g_gc_idx) return (rt_hblk_t *)0;
@@ -425,7 +363,6 @@ void rt_gc_pin_ptr(const char *p)
     rt_hblk_t *h = gc_blk_of(p);
     if (h) gc_mark_blk(h, HBF_PIN);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_gc_scan_tag = 0; static long g_gc_pin_tag[8][16]; static void *g_gc_pin_src[32][2]; static int g_gc_pin_src_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
@@ -547,7 +484,6 @@ static int gc_phdr_cb(struct dl_phdr_info *info, size_t sz, void *data)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_static_segs_init(void)
 {
-    /* ONE census, ON MAIN, at heap init — s90 probe measured __dl_iterate_phdr faulting when first driven lazily inside a collect running on a coexpr pthread; the segment set is load-time fixed. */
     if (g_gc_nseg >= 0) return;
     g_gc_nseg = 0;
     dl_iterate_phdr(gc_phdr_cb, (void *)0);
@@ -555,7 +491,6 @@ static void gc_static_segs_init(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gcheap_warmup(void)
 {
-    /* W1-GC-WARMUP (PL-ZFRAME-RESTORE s9): drive gc_static_segs_init from a proper C frame BEFORE any JIT blob runs.  dl_iterate_phdr uses movaps internally (SSE/AVX) and requires 16-byte RSP alignment; inside JIT-emitted code whose zframe prologue was deleted, alignment at the first rt_plj_alloc call is not guaranteed — SEGV in dl_iterate_phdr was the whole-bench killer for derive/divide10/log10/ops8/times10 (all structure-building programs).  Called from scrip.c before rt_outer_call/icn_zf_main_call so the census runs with a guaranteed-aligned C stack.  The g_gc_nseg >= 0 guard in gc_static_segs_init makes this idempotent. */
     gc_static_segs_init();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -606,14 +541,8 @@ static void gc_root_zeta(void)
     void *fb = rt_zls_frames_head();
     while (fb) { long sz = rt_zls_frame_size(fb); gc_zeta_frame((char *)fb, (char *)fb + sz); fb = rt_zls_frame_prev(fb); }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* RC-8a / HOME-RBX X-1 (s33) — THE CAS ISLAND JOINS THE ROOT PHASE. Loops rt_cas_live_span exactly as gc_root_zeta loops the zeta frames, and hands each live span to gc_zeta_frame (NOT
- * gc_cons_scan):
- * every CAS sub-stack is DESCR-BEARING, so the DESCR-aware walker is the correct instrument — it recognises the 16B descriptor shape and falls back to raw pointer scan for the interleaved pointer
- * and int
- * fields of rt_dcf_t and rt_dfx_t.  SCRIP_GC_UNROOT=cas is the GATE'S POSITIVE CONTROL, not a killswitch: it re-opens the pre-s33 hole on demand so test_gate_rc8a_gc_coverage.sh can prove the gate is
- * capable of going RED (RULES: a gate that cannot fail for the right reason is not a gate).  It is never a bisect aid and nothing may depend on it. */
 static long g_gc_cas_bytes = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_root_cas(void)
 {
     extern int rt_cas_live_span(int, void **, size_t *);
@@ -748,6 +677,5 @@ long rt_gc_collect(void)
     return gc_collect_ex(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* TR-4 s67: the two counters the &STORAGE/&COLLECTIONS keywords and the FREESPACE arm re-point at since GC-U-4. */
 long rt_gcheap_free(void) { return (long)(g_hp_end - g_hp_top); }
 long rt_gc_runs_count(void) { return g_gc_runs; }

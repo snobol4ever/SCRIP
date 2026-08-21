@@ -31,7 +31,7 @@ static std::string bcws_slot(int off, bb_label_t * beta_tgt) { uint64_t fptr; { 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
-    return bcws_slot(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target());   /* medium-retire s170: the TEXT arm was the SAME box hand-spelled -- and it hand-spelled its ports as raw x86("label", _.lbl_β) (TWICE, which `as` would reject), bypassing the x86_deflabel port-hook seam that carries canary/ZDP/ZLS2 flavor.  The former BINARY body is medium-complete already (x86("mov",reg,FRQ(off)) dispatches to x86_frame_load64; x86_beta/x86_omega/x86_pair_jmp all switch internally), so it is now the ONE body and TEXT gains the seam it was silently missing. */
+    return bcws_slot(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcws_binop_concat(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
@@ -58,7 +58,7 @@ std::string bb_call_write_binop_str(IR_t * pBB) {
     IR_t * a0 = ir_call_arg(_.node, 0);
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }
-    return (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival)) ? bcws_binop_concat(off, bb_call_write_beta_target()) : bcws_binop_int(off, bb_call_write_beta_target());   /* medium-retire s170: same collapse as the slot box above -- one medium-invisible body per concat/int shape. */
+    return (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival)) ? bcws_binop_concat(off, bb_call_write_beta_target()) : bcws_binop_int(off, bb_call_write_beta_target());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_legacy_str(IR_t * pBB, int arg_is_any) {

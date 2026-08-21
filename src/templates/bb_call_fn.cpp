@@ -18,14 +18,7 @@ extern "C" char g_hp_fr[];
 extern "C" uint32_t g_plw_dot_sl;
 extern "C" int g_plw_cellws_on;
 extern "C" int g_zeta_mode;
-/* PL-SINK-1 (2026-07-24) — EMITTED $unify FAST PATH.  The data-plane leaves measured 86% of Prolog wall live in C (s141 FINDING §ARCHITECTURAL VERDICT); this sinks the hot arms of plw_unify_cells
- * (by_name_dispatch.c) into the box itself: deref chase (DT_PLVAR chain), ptr-equal, one-side bind (inline trail push + 16-byte cell copy), int==int, and a bit-identical-descr shortcut.  Every arm the
- * fast path cannot decide EXACTLY (DT_N entry forms, both-unbound join/VVB, compound recursion, floats/NaN, non-identical atoms → rt_descr_equal, trail uninitialized/full → area grow) falls into the
- * UNTOUCHED C leaf rt_pl_dop_unify with UNMODIFIED inputs, so outcomes are bit-identical by construction: the inline path either completes a whole plw arm verbatim or defers the whole call.  The GC
- * safepoint + unwind-floor discipline are alloc/throw-time concerns — the inline arms allocate nothing and cannot throw, so both stay in the leaf (the slow path).  Layout literals (tag offsets 0/+8,
- * trail base+0/cap+24/top+32, 24-byte entries) are _Static_assert-anchored beside plw_bind in by_name_dispatch.c.  Internal label ids 40..54 (marshal uses idx*2/idx*2+1 ≤ 3).  Kill switch:
- * SCRIP_NO_SINK=1 at emit time (the SCRIP_SLOT_ELIDE / SCRIP_NO_CU pattern); the SCRIP_NO_DOP / SCRIP_DOP_SKIP hatches disable it too (the sink nests inside the dfp branch), and poison-trap debug
- * sessions (SCRIP_PL_POISON_TRAP) should set SCRIP_NO_SINK since inline arms skip poison reads. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
     return x86_deflabel_id(lh)
          + x86("mov", "eax", (std::string("dword ptr [") + reg + " + 0]").c_str())
@@ -51,6 +44,7 @@ static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
          + x86_jmp_id(lh)
          + x86_deflabel_id(ld);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_unb(const char * reg, int lyes, int lno) {
     return x86("mov", "eax", (std::string("dword ptr [") + reg + " + 0]").c_str())
          + x86("cmp", "eax", (long)DT_SNUL)  + x86_jcc_id("je", lyes)
@@ -60,6 +54,7 @@ static std::string sink_unb(const char * reg, int lyes, int lno) {
          + x86("cmp", "rax", reg)      + x86_jcc_id("je", lyes)
          + x86_jmp_id(lno);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_trailpush(const char * creg, int lslow) {
     return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail")
          + x86("mov", "r11", "[r10 + 0]")
@@ -80,14 +75,14 @@ static std::string sink_trailpush(const char * creg, int lslow) {
          + x86("add", "eax", (long)1)
          + x86("mov", "dword ptr [r10 + 32]", "eax");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_cp16(const char * dst, const char * src) {
     return x86("mov", "rax", (std::string("[") + src + " + 0]").c_str())
          + x86("mov", (std::string("[") + dst + " + 0]").c_str(), "rax")
          + x86("mov", "rax", (std::string("[") + src + " + 8]").c_str())
          + x86("mov", (std::string("[") + dst + " + 8]").c_str(), "rax");
 }
-/* PL-SINK-3 (2026-07-25) — THE CARVE.  sink_tp_nc is sink_trailpush MINUS the base-null and room tests: the WRITE arm pre-reserves room for its THREE worst-case entries (H, T, subject) in ONE check before
- * any mutation, so the per-push tests are provably dominated and re-emitting them would be dead code on the hot path.  Requires r10 = &g_pl_trail (caller loads it); clobbers rax/rsi/r11; reads creg. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_tp_nc(const char * creg) {
     return x86("mov", "r11", "[r10 + 0]")
          + x86("mov", "eax", "dword ptr [r10 + 32]")
@@ -103,9 +98,7 @@ static std::string sink_tp_nc(const char * creg) {
          + x86("add", "eax", (long)1)
          + x86("mov", "dword ptr [r10 + 32]", "eax");
 }
-/* Inline rt_gcheap_alloc's DETAX fast path (gc_heap.c ~:170) for EXACTLY one shape: HB_PLJ, 32-byte payload (two DESCR_t kids) => total 48.  armed==0 or top+48 > end -> SLOW, so the C keeps sole ownership
- * of init / grow / collect / the fill window (contract §4).  The carve's payload memset is SKIPPED because the WRITE arm overwrites all 32 payload bytes unconditionally (both kid arms write a full 16-byte
- * DESCR) — bit-identical by construction, and the one per-alloc lever s141 measured as safe-and-free here precisely because we are the sole writer.  Leaves rdx = kids, clobbers rax/r10/r11. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_carve48(int lslow) {
     return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
          + x86("mov", "eax", "dword ptr [r10 + 24]")
@@ -115,6 +108,7 @@ static std::string sink_carve48(int lslow) {
          + x86("sub", "rax", (long)48)
          + x86("cmp", "r11", "rax")             + x86_jcc_id("ja", lslow);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_carve48_take(void) {
     return x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
          + x86("mov", "r11", "[r10 + 0]")
@@ -129,9 +123,7 @@ static std::string sink_carve48_take(void) {
          + x86("add", "rax", (long)1)
          + x86("mov", "[r10 + 16]", "rax");
 }
-/* One kid of plw_mkc_kids (by_name_dispatch.c :1335), ar==2.  creg = the already-derefed source cell; koff = 0 or 16 into rdx=kids.  UNBOUND source -> seed kids[i] as a SELF-PLVAR and forward the source to
- * &kids[i] (gprolog write-mode Pl_Unify_Variable's shape: *S itself is the fresh REF).  BOUND source -> kids[i] = *F.  Both arms are TOTAL — no sub-shape defers — which is why the carve above can safely
- * precede them (contract §1: nothing after the first mutation can reach SLOW).  Requires the 3-entry trail reservation already checked. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int ljoin) {
     std::string s = sink_unb(creg, lunb, lbnd);
     s += x86_deflabel_id(lunb);
@@ -152,8 +144,8 @@ static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int
     s += x86_deflabel_id(ljoin);
     return s;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
-    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
     auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-1 inline $unify fast path: deref/bind/trail/int-eq emitted; rt_pl_dop_unify stays the slow-path oracle (bit-identical fallback, unmodified args)");
     s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
@@ -196,10 +188,10 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym,
     s += x86("cmp", "edx", (long)DT_I);
     s += x86_jcc_id("jne", 50);
     s += x86("mov", "rax", "[r8 + 0]");
-    s += x86("cmp64", "rax", (long)DT_I);   /* PACKED tag+slen: (slen 0 << 32) | DT_I -- the s230 invisible-packed-literal class; the branch symbolized the 32-bit cmp two lines up and missed this one. */
+    s += x86("cmp64", "rax", (long)DT_I);
     s += x86_jcc_id("jne", 53);
     s += x86("mov", "rax", "[r9 + 0]");
-    s += x86("cmp64", "rax", (long)DT_I);   /* PACKED tag+slen: (slen 0 << 32) | DT_I -- the s230 invisible-packed-literal class; the branch symbolized the 32-bit cmp two lines up and missed this one. */
+    s += x86("cmp64", "rax", (long)DT_I);
     s += x86_jcc_id("jne", 53);
     s += x86("mov", "rax", "[r8 + 8]");
     s += x86("mov", "rsi", "[r9 + 8]");
@@ -229,15 +221,8 @@ static std::string sink_unify2_str(int argbase, uint64_t ufp, const char * usym,
     s += x86_deflabel_id(54);
     return s;
 }
-/* PL-SINK-2 (2026-07-25) — EMITTED $unify_lst(Subject,Head,Tail) READ-MODE FAST PATH.  Mirrors dop_unify_lst (by_name_dispatch.c) arm-for-arm; rt_pl_dop_unify_lst stays the slow-path oracle, entered with
- * UNMODIFIED rdi=args (esi=3), so every deferred shape is bit-identical by construction (contract §1 WHOLE-ARM-OR-DEFER).  INLINE ARM = the nrev input-list destructuring hot spot: bound './2 subject, BOTH
- * H and T deref to DISTINCT unbound cells -> double bind (H<-kids[0], T<-kids[1]) with a single 2-entry trail push.  DEFERRED to slow: unbound subject (WRITE mode allocates kids -> SINK-3), H/T aliasing (the
- * C's sequential deref sees H's bind when tc==hc; a double-bind would diverge), and any BOUND H or T arm (int-eq / bit-ident / recursive-unify arms are SINK-2's follow-on; deferring them is zero-partial-state).
- * dot_sl (intern(".")<<16|2) is RUNTIME-assigned and UN-BAKEABLE (contract §3): RIPSEAL-load the exported g_plw_dot_sl cell (the leaf fills it on first slow hit); ==0 -> SLOW so a not-yet-interned run defers to
- * the leaf (which interns + answers) rather than mis-failing a real cons.  Layout (DESCR 16B q0@0/slen@4/p@8, trail base@0/cap@24[bytes]/top@32[count], 24B entries) reuses SINK-1's _Static_asserts beside
- * plw_bind.  Internal label ids 60..77 (SINK-1 owns 40..58; marshal owns idx*2 <= 5). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1) {
-    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
     auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-2 inline $unify_lst READ-mode fast path: bound './2 subject + both-unbound-distinct H,T -> double bind; rt_pl_dop_unify_lst is the slow-path oracle (unmodified args)");
     s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
@@ -300,10 +285,6 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("mov", "rax", "[r8 + 0]");
     s += x86("mov", "rdx", "[r8 + 8]");
     s += x86_jmp_id(77);
-    /* PL-SINK-3 WRITE ARM (unbound subject) — dop_unify_lst's first branch inlined: kids = plw_mkc_kids(args+1, 2); w = {DT_PLREF, dot_sl, kids}; plw_bind(subject, w).  ALL FOUR DEFERRAL TESTS RUN BEFORE
-     * ANY MUTATION (contract §1): dot_sl interned, carve armed + 48 bytes of room, trail live + room for THREE entries.  Past that point every remaining step is total, so no partial state can reach SLOW.
-     * H and T are derefed SEQUENTIALLY, each immediately before its own bind — which is exactly the C's order, so the ALIASING case SINK-2 had to defer (H and T the same cell) falls out correct for free:
-     * the second deref observes the first bind and chases into kids[0], producing the C's chain rather than a double bind.  Labels 80..94. */
     s += x86_deflabel_id(80);
     s += x86("comment", "PL-SINK-3 inline $unify_lst WRITE mode: carve 2 kids off the PLJ frontier, join unbound args, bind subject to the './2 cell");
     s += x86("lea", "r10", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
@@ -348,33 +329,16 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86_deflabel_id(77);
     return s;
 }
-/* PL-SINK-8 (2026-07-25) — EMITTED $trail_mark FAST PATH.  The leaf is one load (`return t->top`) wrapped in a ceremony that measured ~12% of Prolog wall (s145 45-sample profile): rt_pl_dop_trail_mark saves
- * and restores g_plw_unwind_floor, calls rt_gc_point_arr, then calls plw_zh_mark_push -> plw_cw_mark_push -> rt_pl_cellws_on and rt_zeta_mode, EVERY ONE of which early-returns in the default configuration.
- * That default is the whole rung: the cellws island is off unless SCRIP_PL_WS_RECLAIM=1, and the zh pair stack is live only under --zeta=zh, so in the shipped configuration the entire zh/cw push is a
- * PROVEN NO-OP and the leaf's observable effect is exactly `{DT_I, 0, (long long)g_pl_trail.top}`.  The inline arm proves that precondition at runtime rather than baking it (contract §3 — both cells are
- * runtime state, and --zeta= is a CLI flag the m4 compile cannot see): read g_plw_cellws_on (-1 unresolved / 0 off / 1 on) and reject anything but 0, so an UNRESOLVED cell defers to the leaf exactly like a
- * not-yet-interned dot_sl (correctness never depends on the cell being populated); then read g_zeta_mode LIVE and reject ZH(2).  Either guard failing -> SLOW with UNMODIFIED rdi=args, esi=0, bit-identical
- * by construction (contract §1: the guards run BEFORE any state is touched, and this arm never touches any).  The GC safepoint and unwind floor stay in the leaf per contract §4 — this arm allocates nothing,
- * writes nothing and cannot throw, so it is the same non-allocating class as SINK-1; skipping a safepoint only defers collection to the next one, and with zero args there is nothing to protect.  Result is
- * built in the rax:rdx return pair the call convention already uses: rax = q0 = {v=DT_I(6), slen=0}, rdx = the payload.  `top` is a 32-bit signed int widened by the C's (long long) cast, so the widening is
- * movsxd (via eax) and NOT a bare 32-bit mov — provably identical here since top is a count that only ever rises from 0 or resets to an earlier mark, but written exactly rather than resting on that proof.
- * Internal label ids 100..101 (SINK-1 owns 40..58, SINK-2 60..77, SINK-3 80..99; marshal owns idx*2, unused at nargs==0). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * usym, int zd_rsp = -1, int resoff = -1) {
-    /* PL-ZK-2b: zd_rsp >= 0 = ZD arm (args at [rsp+zd_rsp]); -1 = legacy FRQ(argbase). Slow-path rdi: ZD uses lea rdi,[rsp+zd_rsp]; legacy uses lea rdi,FRQ(argbase).
-     * PL-FR-4 N0-SUPPRESS: resoff >= 0 && zframe_graph = Prolog zframe arm.  When g_pl_zf_pending_cursor is set (β-resume re-entry into a fresh callee frame), rt_jmp_frame_lexprep2 already wrote the
-     * saved trail mark into [___+resoff] (= FRQ(resoff)) BEFORE n0 ($trail_mark) runs.  Running pl_trail_mark() again would overwrite that with the CURRENT trail top (= 1 after backtrack unwind), making
-     * $unwind_nothrow a no-op and leaving clause-1's bindings live into clause-2.  Canonical fix: skip the trail-mark computation on the resume path; load rax:rdx from FRQ(resoff) (already correct) and jmp
-     * to label 101.  Byte-identical for SN4/ICN: zframe_graph=0 → this block is never emitted.  ONE AUTHORITY: both the fast-path and slow-path share this guard (label 102 is new in the SINK-8 range). */
     std::string s = x86("comment", "PL-SINK-8 inline $trail_mark fast path: guards prove the zh/cw mark push is a no-op, then mark = g_pl_trail.top; rt_pl_dop_trail_mark is the slow-path oracle (unmodified args)");
     if (resoff >= 0 && g_emit_cfg && g_emit_cfg->zframe_graph) {
         extern void *g_pl_zf_pending_cursor;
         s += x86("comment", "PL-FR-4 N0-SUPPRESS: if pending β-resume, lexprep2 already wrote correct trail mark — skip pl_trail_mark and use frame slot as-is");
-        /* Mirror bb_suspend.cpp line 44-45: lea r11,[rip+g_pl_zf_pending_cursor]; mov rax,[r11] — r11 parses XK_MEMIND (x86_load_mem64 dispatch); r10 would parse XK_R10MIR (store-cursor-only, no load arm). */
         s += x86("lea", "r11", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor");
         s += x86("mov", "rax", "[r11]");
         s += x86("test", "rax", "rax");
-        s += x86_jcc_id("je", 102);                /* 0 = normal path: fall through to pl_trail_mark */
-        /* pending resume: load rax:rdx from the slot lexprep2 wrote, then jmp 101 (skip the mark computation) */
+        s += x86_jcc_id("je", 102);
         s += x86("mov", "rax", FRQ(resoff));
         s += x86("mov", "rdx", FRQ(resoff + 8));
         s += x86_jmp_id(101);
@@ -401,17 +365,7 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-SINK-4 (2026-07-25) — EMITTED $ix_g SPECIALIZED INDEX GUARD.  Measured the HOTTEST un-sunk dop leaf by DYNAMIC count (PLT interposition; perf/gdb are absent in this container): nrev 1022 calls vs
- * unify 31 and mkc 30, qsort 649 vs 448/100 — and static site counts INVERT that ranking (mkc has 51 sites in qsort to ix_g's 5), so site counts must never be used to pick a rung.  rt_pl_dop_ix_g has NO
- * wrapper fast path and does NOT go through dop_call (no setjmp ceremony), so unlike the s147-falsified SINK-6/7 the cost really is the call + leaf body.  kk (index kind) and the key are EMIT-TIME LITs
- * (lower_prolog.c:837 builds args[1] as LIT_INTEGER kk|kar<<8 and args[2] as LIT int/string), so this emits a guard SPECIALIZED PER kk rather than the leaf's general switch.  Arms mirror dop_ix_g
- * (:1425) tag-for-tag; anything not inline-decidable falls into the UNTOUCHED leaf with UNMODIFIED rdi=args (esi=3), bit-identical by construction (contract §1).  MEASURED: args[0] is DT_N in 100% of
- * calls, the contract §2 trap that made SINK-1's first cut a NET LOSS — sink_deref is reused VERBATIM so the name-ref chase is faithful.  kk==3 reuses SINK-2's exported g_plw_dot_sl (==0 -> SLOW, so a
- * not-yet-interned run defers rather than mis-failing); kk==2 inlines the hot PLREF->FAIL / DT_I->OK tag arms and defers ONLY the atom-vs-atom strcmp; kk==1 compares against the emit-time imm; kk==4
- * (functor) takes NO sink here — it needs a per-site intern cache (contract §3) and is the follow-on rung.  NO NEW GLOBALS: the no_new_global floor does not move.  Internal label ids 110..120 (SINK-1
- * 40..58, SINK-2 60..77, SINK-3 80..99, SINK-8 100..101).  Kill switches: SCRIP_NO_SINK (family) + SCRIP_NO_SINK4 (this rung, per the s146 isolation amendment — the family switch CANNOT measure a rung). */
 static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, int kk, long long kival, int zd_rsp = -1) {
-    /* PL-ZK-2c: zd_rsp >= 0 = ZD arm; -1 = legacy FRQ(argbase). */
     auto ZDFRQ = [&](int n) -> const char * { return zd_rsp >= 0 ? x86_zref(zd_rsp+n, 1) : FRQ(argbase+n); };
     std::string s = x86("comment", "PL-SINK-4 inline $ix_g specialized guard (kk emit-time constant); rt_pl_dop_ix_g stays the slow-path oracle (unmodified args)");
     s += (zd_rsp >= 0 ? x86_reg_disp32_lea64("rdi", "rsp", zd_rsp) : x86("lea", "rdi", FRQ(argbase)));
@@ -483,11 +437,6 @@ std::string bb_call_fn_str(IR_t * pBB) {
     if (!PLATFORM_X86) return std::string();
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
-    /* ZD-7 (c): ZD arm for bare IR_CALL (builtins via rt_call_arr, non-registered procs excluded by zd_wl_kind).
-     * Alpha already carved K=16 for the result cell (op_fc_bytes=16 set by zd_plan).
-     * Args are read from predecessor ZD cells via ZOPQ(i,0/8), written into arg scratch on stack, then rt_call_arr called.
-     * rsi = &args[0] via x86_reg_disp32_lea64 DIRECTLY -- bypassing x86() parser which adds +op_zdepth to RSP operands.
-     * Result stored to ZRES(0/8); omega on DT_FAIL; gamma + beta_trampoline (det leaf, no re-entry). */
     if (_.op_zres) {
         std::string s = x86_alpha()
                       + x86("comment", std::string("BOX IR_CALL ZD-7 ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
@@ -500,17 +449,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
                 s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r8");
             }
         }
-        /* ZD-PL-A (s163): THE ZD ARM IS A STORAGE FLAVOR, NOT A DISPATCH ROUTE.  Until this rung the ZD arm above early-returned to a hard-wired rt_call_arr by-name call, so an ARMED call could never reach the dop/sink dispatch at the legacy arm below (measured s163 by line: ZD arm returns 498, dop_direct_fp first consulted 507, the four PL-SINK arms 553-559).  That conflation is FREE in SNOBOL4 -- rt_call_arr IS its dispatch -- and expensive in Prolog, whose entire data plane rides dop: emitted nrev.s counts 65 call rt_pl_dop_* against 2 rt_call_arr, so admitting IR_CALL_BUILTIN_PROLOG into zd_wl_kind while this arm chose its own route would have discarded PL-SINK-1/2/4/8 + PL-REGAIN-5 and stayed GREEN on every correctness gate (rt_call_arr is correct, only slow) -- a silently-green perf regression, the worst class.  The gate consulted here is the SAME dop_direct_fp the legacy arm consults, so the dispatch DECISION is spelled once; only the STORAGE differs (args from this box's own rsp scratch built out of the ZOPQ predecessor cells rather than FRQ(argbase), result to ZRES rather than FRQ(resoff)).  Same law as ONE MEDIUM, INVISIBLE, applied to storage instead of medium.  INERT FOR SNOBOL4 BY CONSTRUCTION: dop_direct_fp's table is 100% Prolog $-builtins, so a SNOBOL4 callee never matches, zdfp stays 0, and the rt_call_arr block below is reached verbatim -- which is the positive control this rung is verified against (SNOBOL4 .s byte-identical).  nargs==0 is EXCLUDED deliberately: the only 0-arity dop is $trail_mark, and with no sub rsp there is no scratch array to point rdi at, so it keeps the by-name path until its own rung ($mkc is ar=-1/narg>=1 and is covered).  The INLINE sinks (sink_unify2_str et al) still live only on the legacy arm because they address operands through FRQ; lifting them needs the addressing parameterized, which is ZD-PL-A slice 2, not this slice. */
-        /* PL-ZK-2b: $trail_mark (nargs=0) interception BEFORE dop_direct_fp (which excludes nargs==0). The fast-path sink does not use args at all; slow path uses rdi=&args[0] which is [rsp+0] in ZD. SCRIP_NO_SINK and SCRIP_NO_SINK8 honor as in the legacy arm. */
         bool zd_sank = false;
         if (nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
             const char * tm_sym = 0; void * tm_fp = dop_direct_fp(fn, 0, &tm_sym);
-            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0, _.op_off); zd_sank = true;   /* PL-FR-4 N0-SUPPRESS: ZD arm passes _.op_off (= FRQ result slot = pl_trail_mark_off) as resoff for the pending-resume skip guard */
-                if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): $trail_mark result in ZRES(0/8) must ALSO land in FRQ(op_off+0/8). β-continuation nodes ($unwind_nothrow, $trail_unwind) are NOT on the gamma-chain (zd_on=0, never armed) so they read from FRQ at their own activation depth, not from the FORTH spine. The trail mark integer must survive backtrack at any RSP depth; FRQ(op_off) = [___+op_off] is ___-relative and depth-immune. ONE AUTHORITY. */
+            if (tm_fp) { s += sink_trail_mark_str(0, (uint64_t)(uintptr_t)tm_fp, tm_sym, 0, _.op_off); zd_sank = true;
+                if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }
             }
         }
         const char * zdsym = 0; void * zdfp = (nargs > 0) ? dop_direct_fp(fn, (int64_t)nargs, &zdsym) : (void *)0;
-        /* PL-ZK-2c: sink dispatch under ZD — args at [rsp+0..], so zd_rsp=0. Mirrors the legacy arm's sink order. SCRIP_NO_SINK / SCRIP_NO_SINK4 honored. */
         if (zdfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_SINK")) {
             s += sink_unify2_str(0, (uint64_t)(uintptr_t)zdfp, zdsym, 0);
         } else if (zdfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
@@ -534,22 +480,21 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("directive", ".intel_syntax noprefix");
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
-        /* lea rsi, [rsp + 0]: use encoder directly -- x86("lea","rsi","qword ptr [rsp + 0]") adds +op_zdepth via RSP operand path */
         if (nargs > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
-        { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }   /* ZK-3 EVERY-BODY PRE-ZERO (s213-cont): zero both releases BEFORE the DT_FAIL omega("je") so BOTH exits (fail-path and success-path) land at TO.beta with all cells live. GATED op_sb (=icn_cells_graph+IR_SUCCEED+beta-omega): SN4/Prolog leave op_sb=0, releases unaffected. ONE-AUTHORITY: both zeroes belong to THIS pre-zero; the restore below is the paired twin. */
+        { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }
         s += x86("cmp", "eax", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
-        if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }   /* PL-ZK-5B DUAL-WRITE (Bug 4 Option C): copy ZRES to FRQ(op_off) for Prolog cells arm so bcps_spine_gen_arm can read results via FRQ(slot). NOT for trail_mark (handled above). SN4/Icon: pl_cells_graph=0 -- byte-identical. ONE AUTHORITY. */
-        if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }   /* ZK-3 EVERY-BODY SUCCESS PATH (s213-cont): success exit also bare-jmps to omega (=TO.beta). Both releases were zeroed above; restore for non-op_sb callers. BOTH-MEDIUM. ONE LINE per s22k law. Root cause: zd_plan stages gpop=K_total=64 at CALL's node (oin=0, omega exits run); without zeroing, x86_omega("je") emitted add rsp,64 before jmp TO.beta, corrupting the live TO counter + two LIT cells (depth=0 at back-edge vs expected 32, ZD-DEPTH WALL measured). */
+        if (_.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) { s += x86("mov", "r10", ZRES(0)); s += x86("mov", FRQ(_.op_off), "r10"); s += x86("mov", "r11", ZRES(8)); s += x86("mov", FRQ(_.op_off + 8), "r11"); }
+        if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }
         s += x86_gamma();
-        s += (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? (x86_beta() + x86_jmp(X86P_OMEGA)) : x86_beta_trampoline();   /* PL-ZK-5B BUG-BETA: on pl_cells_graph, bused[] is unreliable in BINARY mode (GVA RPO node-index shift class); emit β unconditionally so the BINARY resolver always finds the define. x86_beta()=x86_deflabel(X86P_BETA), x86_jmp(X86P_OMEGA)=the trampoline body; net output identical to trampoline with op_beta_dead=0. SN4/Icon: pl_cells_graph=0 → x86_beta_trampoline() unchanged = byte-identical. ONE AUTHORITY. */
+        s += (g_emit_cfg && g_emit_cfg->pl_cells_graph) ? (x86_beta() + x86_jmp(X86P_OMEGA)) : x86_beta_trampoline();
         return s;
     }
     int resoff = bcfn_result_slot(pBB);
@@ -560,10 +505,6 @@ std::string bb_call_fn_str(IR_t * pBB) {
     std::string s = x86_alpha()
                   + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, (int64_t)nargs, &dsym);
-    /* PL-REGAIN-5 (2026-07-19): const head-unify — when one $unify side is an emit-time LIT (int / atom-as-LIT_STRING, the lower_prolog shapes), the const rides in a REGISTER and only the other side is
-     * marshaled (to args[0], where the ci/cs leaf expects it).  Eligibility is emit-time-static and rides UNDER the dop hatches (SCRIP_NO_DOP / SCRIP_DOP_SKIP=unify disable it with the leaf).  The RO
-     * string uses the LIT_S arm's in-band seal idiom verbatim (both-media); the skipped arg's seal ids (cui*2, cui*2+1) are free exactly because its LIT marshal is skipped.  Producer boxes still emit;
-     * only the site-side copy and the DESCR-pair operand die. */
     int cui = -1; long long cival = 0; const char * csval = 0;
     if (dfp && nargs == 2 && !strcmp(fn, "$unify") && !getenv("SCRIP_NO_CU")) {
         for (int i = 0; i < 2 && cui < 0; i++) {
@@ -588,7 +529,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         int vi = 1 - cui;
         s += marshal_call_arg((subs && subs[vi]) ? subs[vi]->entry : ir_call_arg(pBB, vi), (subs && subs[vi]) ? subs[vi] : NULL, argbase, _.node, vi);
     } else {
-        for (int i = nargs - 1; i >= 0; i--)   /* PAS-ZF-6 alias fix: marshal highest arg first — argbase = resoff+16 overlaps the ZLS source region; forward copy clobbers source[i+1] before it is consumed; reverse order is safe because ZLS assigns offsets in chain order (op_arg_slot[i] < op_arg_slot[i+1]) so each reverse write lands above the remaining unread sources */
+        for (int i = nargs - 1; i >= 0; i--)
             s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     }
     if (dfp && cui >= 0) {
@@ -609,7 +550,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     } else if (dfp && nargs == 3 && !strcmp(fn, "$unify_lst") && !getenv("SCRIP_NO_SINK")) {
         s += sink_unify_lst_str(argbase, (uint64_t)(uintptr_t)dfp, dsym);
     } else if (dfp && nargs == 0 && !strcmp(fn, "$trail_mark") && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK8")) {
-        s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, -1, resoff);   /* PL-FR-4 N0-SUPPRESS: pass resoff for the pending-resume skip guard */
+        s += sink_trail_mark_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, -1, resoff);
     } else if (dfp && nargs == 3 && !strcmp(fn, "$ix_g") && ix_kk > 0 && !getenv("SCRIP_NO_SINK") && !getenv("SCRIP_NO_SINK4")) {
         s += sink_ix_g_str(argbase, (uint64_t)(uintptr_t)dfp, dsym, ix_kk, ix_kival);
     } else if (dfp) {

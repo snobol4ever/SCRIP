@@ -8,7 +8,6 @@ static inline size_t sv_len(DESCR_t arg, const char *coerced) {
     return coerced ? strlen(coerced) : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ICN-ENTAB-NXTTAB: port of refs/icon-master/src/runtime/fstr.r nxttab() -- smallest tab stop strictly greater than col, from the explicit stops[] list, then repeating every gap columns past the last explicit stop. */
 static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
     for (int k = 0; k < nstops; k++) if (stops[k] > col) return stops[k];
     int base = stops[nstops - 1]; int beyond = col - base;
@@ -74,23 +73,26 @@ int icn_builtin_is_known(const char *name)
     for (int i = 0; icn_known[i]; i++) if (!strcmp(icn_known[i], name)) return 1;
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "../parser/prolog/pl_cell.h"
 #include "../parser/prolog/term.h"
 extern pl_trail_t g_pl_trail;
 typedef struct { const char *key; void *alpha; void *beta; int nslots; } plw_pred_t;
 static plw_pred_t g_plw_preds[512]; static int g_plw_pred_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_pred_bind(const char *key, void *alpha, void *beta, int nslots) {
     for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) { g_plw_preds[i].alpha = alpha; g_plw_preds[i].beta = beta; g_plw_preds[i].nslots = nslots; return; }
     if (g_plw_pred_n < 512) { g_plw_preds[g_plw_pred_n].key = strdup(key); g_plw_preds[g_plw_pred_n].alpha = alpha; g_plw_preds[g_plw_pred_n].beta = beta; g_plw_preds[g_plw_pred_n].nslots = nslots; g_plw_pred_n++; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_pred_alpha(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].alpha; fprintf(stderr, "rt_pl_pred_alpha: unknown predicate %s\n", key); abort(); }
 void *rt_pl_pred_beta(const char *key)  { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].beta;  fprintf(stderr, "rt_pl_pred_beta: unknown predicate %s\n", key);  abort(); }
 int rt_pl_pred_nslots_rt(const char *key) { for (int i = 0; i < g_plw_pred_n; i++) if (!strcmp(g_plw_preds[i].key, key)) return g_plw_preds[i].nslots; return 8; }
 static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
 static int g_plw_poison = -1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_poison_trap(void) { if (g_plw_poison < 0) { const char *e = getenv("SCRIP_PL_POISON_TRAP"); g_plw_poison = (e && atoi(e) != 0) ? 1 : 0; } return g_plw_poison; }
 __attribute__((constructor)) static void plw_poison_init(void) { (void)plw_poison_trap(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     DESCR_t *prev = (DESCR_t *)0;
     int pt = g_plw_poison > 0;
@@ -103,6 +105,7 @@ static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     }
     return c;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c) {
     if (__builtin_expect(g_plw_poison > 0, 0)) return plw_cell_deref_slow(c);
     if (c->v != DT_N && (c->v != (DTYPE_t)DT_PLVAR || !c->p || c->p == (void *)c)) return c;
@@ -113,14 +116,10 @@ _Static_assert(sizeof(pl_trail_ent_t) == 24 && sizeof(DESCR_t) == 16 && offsetof
 _Static_assert(offsetof(pl_trail_t, area) == 0 && offsetof(pl_area_t, base) == 0 && offsetof(pl_area_t, cap) == 24 && offsetof(pl_trail_t, top) == 32, "PL-SINK-1: pl_trail_t field offsets are baked into bb_call_fn.cpp sink_trailpush — update both together");
 _Static_assert(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, i) == 8 && sizeof(((pl_trail_t *)0)->top) == 4, "PL-SINK-8: $trail_mark's inline result build ({DT_I,0,(long long)top} as rax=q0, rdx=movsxd top) bakes DESCR v@0 / payload@8 and a 32-bit signed trail top — update bb_call_fn.cpp sink_trail_mark_str together");
 uint32_t g_plw_dot_sl = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
-/* PL-REGAIN-5 slice B (2026-07-19) — VAR-VAR DIRECT BIND, stack-stack only.  Canonical rule (gprolog unify.c:68 `if (u_adr > v_adr) Bind_UV(u_adr, REF(v_adr))`; SWI pl-prims.c "always point downwards"):
- * the SHORTER-LIVED cell forwards to the LONGER-LIVED one, no fresh join cell.  gprolog's stacks grow UP (younger=higher), ours grows DOWN, so the law inverts to LOWER(younger frame)→HIGHER(older frame).
- * Scope is BOTH-ON-C-STACK only (test = above this leaf's own frame, the rt_value_trail_tidy_dead_below floor idiom — the (floor,∞) span is stack VMA, no heap cell aliases it): stack-stack is LIFO, so
- * every pointer dies no-later than its target, and death-tidy drops exactly the pointing cell's trail entry at its frame death (restore into dead stack is the smash bug tidy exists for) while the
- * pointed-at older cell's entry survives for real backtrack restore.  Any non-stack participant (PLJ kid cells, ZLS generator frames, GVA) keeps the JOIN — SWI's globalize arm verbatim: the fresh PLJ
- * cell is the proven-stable target, and PLJ/ZLS lifetimes are not address-ordered so no cheap age exists.  SCRIP_NO_VVB=1 restores the join unconditionally (same-lib A/B instrument, SCC-off pattern). */
 static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
@@ -147,31 +146,32 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
     if (tmp->v == DT_N && tmp->slen == 1 && tmp->p) return (DESCR_t *)tmp->p;
     if (tmp->v == DT_N && tmp->slen == 2 && tmp->p && ((VCELL_t *)tmp->p)->cellp) return ((VCELL_t *)tmp->p)->cellp;
     return tmp;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb) {
     DESCR_t ta = va, tb = vb;
     return plw_unify_cells(plw_entry(&ta), plw_entry(&tb));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
     { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
     DESCR_t *c = plw_cell_deref(plw_entry(tmp));
     if (c->v == DT_SNUL || c->v == DT_FAIL) { c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; }
     return c;
 }
-DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
-DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }   /* PL-FR-2: Prolog anonymous var (G0/G1 etc from _) has no frame vslot (op_sa==-1); bb_var_ref emits a call here to produce a fresh unbound PLVAR on the PLJ heap.  Pattern matches plc_iso_fresh: alloc 16-byte self-referential cell, return {DT_PLVAR,0,cell} — a reference descriptor that plw_cell_deref follows correctly.  ONE AUTHORITY: only bb_var_ref calls this; no emitter allocates heap cells.  SNOBOL4/Icon watermark: zframe_graph=0 for those lowerers; anonymous-var arm unreachable for them. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
+DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
 typedef struct { int m; unsigned bm; } plw_zhpair_t;
 static plw_zhpair_t *g_plw_zhp = 0; static int g_plw_zhp_n = 0, g_plw_zhp_cap = 0;
-/* PL-WS-2 step 2 (SCRIP_PL_WS_RECLAIM=1): cellws-island twin of the zh pair stack below — trail mark → island
- * cursor; rewind the pl_cell_t builder stream on backtrack. Same push/pop discipline as plw_zh (pop >= on push,
- * exact-match rewind on kill). Rides INSIDE plw_zh_mark_push/kill_to so every existing call site is wired. */
 typedef struct { int m; arena_mark_t am; } plw_cwpair_t;
 static plw_cwpair_t *g_plw_cwp = 0; static int g_plw_cwp_n = 0, g_plw_cwp_cap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_cw_mark_push(int m) {
     extern int rt_pl_cellws_on(void); extern arena_mark_t rt_pl_cellws_mark(void);
     if (!rt_pl_cellws_on()) return;
@@ -179,12 +179,14 @@ static void plw_cw_mark_push(int m) {
     if (g_plw_cwp_n >= g_plw_cwp_cap) { g_plw_cwp_cap = g_plw_cwp_cap ? g_plw_cwp_cap * 2 : 64; g_plw_cwp = (plw_cwpair_t *)realloc(g_plw_cwp, (size_t)g_plw_cwp_cap * sizeof(plw_cwpair_t)); if (!g_plw_cwp) abort(); }
     g_plw_cwp[g_plw_cwp_n].m = m; g_plw_cwp[g_plw_cwp_n].am = rt_pl_cellws_mark(); g_plw_cwp_n++;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_cw_kill_to(int m) {
     extern int rt_pl_cellws_on(void); extern void rt_pl_cellws_release(arena_mark_t);
     if (!rt_pl_cellws_on()) return;
     while (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m > m) g_plw_cwp_n--;
     if (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m == m) rt_pl_cellws_release(g_plw_cwp[g_plw_cwp_n - 1].am);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_zh_mark_push(int m) {
     extern int rt_zeta_mode(void); extern unsigned rt_zh_birthmark(void);
     plw_cw_mark_push(m);
@@ -193,6 +195,7 @@ static void plw_zh_mark_push(int m) {
     if (g_plw_zhp_n >= g_plw_zhp_cap) { g_plw_zhp_cap = g_plw_zhp_cap ? g_plw_zhp_cap * 2 : 64; g_plw_zhp = (plw_zhpair_t *)realloc(g_plw_zhp, (size_t)g_plw_zhp_cap * sizeof(plw_zhpair_t)); if (!g_plw_zhp) abort(); }
     g_plw_zhp[g_plw_zhp_n].m = m; g_plw_zhp[g_plw_zhp_n].bm = rt_zh_birthmark(); g_plw_zhp_n++;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plw_zh_kill_to(int m) {
     extern int rt_zeta_mode(void); extern void rt_zh_kill_since(unsigned);
     plw_cw_kill_to(m);
@@ -261,7 +264,6 @@ int pl_builtin_is_known(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_is_truthy is RTX asm (rtx_misc.S); its c_rt_is_truthy C-of-record twin was DELETED s180 (RT-CONSOLIDATION rung 1) — the golden battery rtx_unit_test.c carries the twin's final 21-row testimony (NaN, ±0.0, slen!=0, "0x" edges included). */
 int rt_builtin_is_known(const char *name)
 {
     if (!name) return 0;
@@ -483,7 +485,6 @@ const char *rt_grammar_qname(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i
 const char *rt_grammar_body(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].body : NULL; }
 int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavor : 0; }
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern DESCR_t rk_gram_enter_box(bb_box_fn fn, const char *sigma, long delta, void *zeta, long *out_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_gram_run_native(bb_box_fn bf, const char *subj, DESCR_t *out) {
@@ -615,6 +616,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
 static long g_pas_heap_ctr = 0;
 static DESCR_t *g_pas_heap = (DESCR_t *)0;
 static long g_pas_heap_cap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_cell(long n, int grow) {
     if (n <= 0) return (DESCR_t *)0;
     if (n >= g_pas_heap_cap) {
@@ -863,20 +865,17 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *icon_real_str(double r, char *buf, int bufsz);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz) {
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
     return icon_real_str(r, buf, bufsz);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ ICN-PAD-CONV (s241): STRING COERCION FOR THE PADDING FAMILY, IN ICON'S REAL CONVENTION -- the THIRD site of the s240 class after concat and image().  VARVAL_fn renders a real in SPITBOL's convention, which differs from Icon's in TWO ways that both corrupt a fixed-width field: an integral real prints "1." where Icon needs "1.0", and a magnitude below 0.1 prints in scientific form ("0.831412E-1") where Icon prints positional ("0.08314123188844123").  left()/right()/center() TRUNCATE their argument to a width, so the second one is the damaging one: left(atan(0.25,3),5) yielded "0.831" -- the mantissa's leading digits, a plausible-looking number that is off by a factor of ten -- against Icon's "0.083".  Witness rung36_jcon_fncs1, whose wf() is exactly `writes(left(v,5)," ")`.  These are Icon builtins reached by NAME/BID dispatch, so the convention is chosen here and no opcode is needed -- the same reasoning image() uses at its own site, and the same authority (icon_real_str) that write()/string() already reach.  ⛔ Applies ONLY to the DT_REAL arm: every other type falls through to VARVAL_fn UNCHANGED, so integers, strings, csets and the null/fail paths are byte-identical by construction. */
 static const char *icn_pad_str(DESCR_t d, char *buf, int bufsz) {
     if (IS_REAL_fn(d)) return icon_real_str(d.r, buf, bufsz);
     return VARVAL_fn(d);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
     if (v.v != DT_E) return 0;
@@ -1002,19 +1001,22 @@ static const char *pl_atom_str(DESCR_t v) {
     if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm ? nm : ""; }
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_mk_atom(const char *s) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = s; return d; }
 static DESCR_t pl_nil(void) { return pl_mk_atom("[]"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *kids = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); kids[0] = head; kids[1] = tail;
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(".")) << 16) | (2u & 0xFFFFu); c.p = (void *)kids;
     return c;
 }
-static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
 static void pl_count_var_occ(DESCR_t t, void *target, int *cnt) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(t); if (d.v == (DTYPE_t)DT_PLVAR) { if (d.p == target) (*cnt)++; return; } if (d.v == (DTYPE_t)DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); DESCR_t *kids = (DESCR_t *)d.p; for (int i = 0; i < ar; i++) pl_count_var_occ(kids[i], target, cnt); } }
 static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_ws_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
     DESCR_t v = rt_pl_deref_val(a);
@@ -1027,6 +1029,7 @@ static int pl_sink_kind(DESCR_t a) {
     if (!strcmp(fnm, "chars")) return 4;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_sink_build(int kind, const char *s, size_t n) {
     if (kind == 1 || kind == 2) return pl_mk_atom_dup(s, n);
     DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
@@ -1039,11 +1042,13 @@ static DESCR_t pl_sink_build(int kind, const char *s, size_t n) {
 typedef struct { char *buf; size_t sz; int saved_out; int idx; } PlWotFrame;
 static PlWotFrame pl_wot_stk[32];
 static int pl_wot_sp = -1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_nil(DESCR_t v) {
     if (v.v == DT_S || v.v == DT_SNUL) return v.s && !strcmp(v.s, "[]");
     if (v.v == (DTYPE_t)DT_A) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm && !strcmp(nm, "[]"); }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_list_to_arr(DESCR_t lst, DESCR_t *out, int max) {
     extern DESCR_t rt_pl_deref_val(DESCR_t);
     int n = 0; DESCR_t cur = rt_pl_deref_val(lst);
@@ -1053,6 +1058,7 @@ static int pl_list_to_arr(DESCR_t lst, DESCR_t *out, int max) {
     }
     return pl_is_nil(cur) ? n : -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pl_list_to_cstr(DESCR_t arg, int codes) {
     DESCR_t elems[4096]; int n = pl_list_to_arr(arg, elems, 4096);
     if (n < 0) return (char *)0;
@@ -1084,32 +1090,38 @@ static DESCR_t pl_term_to_cell(Term *t) {
     }
 }
 typedef struct { Term **items; int n; int cap; } PlFindallAcc;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_findall_new(void) {
     PlFindallAcc *acc = (PlFindallAcc *)rt_ws_alloc(sizeof(PlFindallAcc)); acc->items = NULL; acc->n = 0; acc->cap = 0;
     DESCR_t h; h.v = (DTYPE_t)DT_I; h.slen = 0; h.i = (int64_t)(intptr_t)acc; return h;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_findall_add(DESCR_t handle, DESCR_t tmpl_val) {
     PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i; DESCR_t tmp = tmpl_val;
     extern Term *rt_pl_cell_to_term(void *); Term *snap = rt_pl_cell_to_term(&tmp);
     if (acc->n >= acc->cap) { int nc = acc->cap ? acc->cap * 2 : 8; Term **ni = (Term **)rt_ws_alloc((size_t)nc * sizeof(Term *)); for (int i = 0; i < acc->n; i++) ni[i] = acc->items[i]; acc->items = ni; acc->cap = nc; }
     acc->items[acc->n++] = snap;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_findall_result(DESCR_t handle) {
     PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i;
     DESCR_t *elems = (DESCR_t *)rt_ws_alloc((size_t)(acc->n > 0 ? acc->n : 1) * sizeof(DESCR_t));
     for (int i = 0; i < acc->n; i++) elems[i] = pl_term_to_cell(acc->items[i]);
     return pl_list_from_arr(elems, acc->n);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t plc_iso_atom(const char *nm) { extern int prolog_atom_intern(const char *); DESCR_t c; int id = prolog_atom_intern(nm); c.v = (DTYPE_t)DT_A; c.slen = (uint32_t)id; c.i = id; return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t plc_iso_comp(const char *fn, int ar, DESCR_t *kids) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *h = (DESCR_t *)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
     for (int i = 0; i < ar; i++) h[i] = kids[i];
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fn)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)h; return c;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t plc_iso_fresh(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_iso_ball(DESCR_t formal) {
     extern void rt_pl_throw_set(void *); extern int rt_pl_throw_pending(void);
     if (rt_pl_throw_pending()) return;
@@ -1117,6 +1129,7 @@ static void plc_iso_ball(DESCR_t formal) {
     DESCR_t ball = plc_iso_comp("error", 2, kids);
     rt_pl_throw_set((void *)&ball);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_iso_throw_instantiation(void) { plc_iso_ball(plc_iso_atom("instantiation_error")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_iso_throw_pi(const char *errfn, const char *what, const char *nm, int ar) {
@@ -1160,11 +1173,13 @@ void rt_pl_iso_throw_existence(const char *type, DESCR_t culprit) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_stream_term(int idx) { DESCR_t k[1]; k[0].v = (DTYPE_t)DT_I; k[0].slen = 0; k[0].i = idx; return plc_iso_comp("$stream", 1, k); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_stream_alias_idx(const char *nm) {
     if (!nm) return -1;
     if (!strcmp(nm, "user_input")) return 0; if (!strcmp(nm, "user_output")) return 1; if (!strcmp(nm, "user_error")) return 2;
     extern FILE *fh_get(int); extern char *fh_name[]; for (int i = 0; i < 64; i++) { if (fh_get(i) && fh_name[i] && !strcmp(fh_name[i], nm)) return i; } return -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_resolve_stream_arg(DESCR_t a, const char *errfn, int want_output) {
     extern FILE *fh_get(int);
     DESCR_t v = rt_pl_deref_val(a);
@@ -1199,20 +1214,12 @@ static void plc_iso_evaluable(DESCR_t v) {
     if ((int)v.v == DT_PLREF) { rt_pl_iso_throw_pi("type_error", "evaluable", prolog_atom_name((int)(v.slen >> 16)), (int)(v.slen & 0xFFFFu)); return; }
     rt_pl_iso_throw_pi("type_error", "evaluable", "?", 0);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_tap_run = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_tap_failed = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_tap_planned = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_tap_no_plan = 1;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_tap_todo_upto = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char g_tap_todo_reason[512] = "";
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_tap_done_run = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tap_truthy(DESCR_t v) {
@@ -1297,7 +1304,6 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
     buf[len] = 0; *outp = buf; if (outlen) *outlen = len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
@@ -1345,10 +1351,6 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Slice-B companion (2026-07-19): the kid slot IS the join — an unbound kid seeds kids[i] as a SELF-PLVAR in place and the source var forwards to &kids[i], deleting the separate per-kid join alloc the
- * old shape paid (1+unbound_ar plj allocs → 1).  Equivalent by construction: same trail entry (F), F's word points at a PLJ heap cell either way, deref reaches unbound in one hop; &kids[i] is an
- * INTERIOR pointer, which HB_PLJ ratifies (pin-on-mark, never slid, conservative-scanned — plc keeps interior pointers).  This is gprolog write-mode Pl_Unify_Variable's exact shape: *S itself is the
- * fresh REF, no second cell. */
 static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar) {
     DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
     for (int i = 0; i < ar; i++) {
@@ -1403,11 +1405,6 @@ static int dop_unify(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-REGAIN-5 slice B (2026-07-19) — LIST HEAD-UNIFY LEAF, $unify_lst(Subject, Head, Tail).  Mirrors gprolog Pl_Get_List (wam_inst.c:334) exactly: bound-LST subject = READ mode (S=car; unify H,T against
- * the kids IN PLACE — zero allocation, the [X|Rest] clause-try hot path); REF subject = WRITE mode (build the '.'/2 cell and Bind_UV) — realized here as plw_mkc_kids + the ci-leaf bind shape, so the
- * result is BIT-IDENTICAL to the $mkc('.',H,T)+$unify(S,·) pair this replaces (same kid joins, same trail entries, same PLREF word); any other bound subject FAILS, which is what plw_unify_cells'
- * either-PLREF / slen-mismatch arms compute for those shapes today.  The case analysis is TOTAL, so no generic fallback is needed.  slen compare uses prolog_atom_intern(".") directly per the m4 ATOM_*
- * warning (GZ preamble never runs prolog_atom_init); every list builder in this file mints the same intern-based slen or lists could not unify with [H|T] patterns at all. */
 static int dop_unify_lst(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)nargs;
     extern int prolog_atom_intern(const char *);
@@ -1432,10 +1429,6 @@ static int dop_unify_lst(DESCR_t *args, int nargs, DESCR_t *out) {
     *out = FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* PL-SPEED-5 slice A (2026-07-20) — FIRST-ARG PRE-TRY GUARD LEAF, $ix_g(Subject, Kind|Arity<<8, Key).  PURE TEST: no binds, no allocation, no trail — the cmp-fast-path class ("pure computes skip both"),
- * so no floor push and no gc safepoint.  Returns ok(1) = PROCEED to the clause's head-unify, FAILDESCR = SKIP (γ routes to the next clause's entry; the lowerer guarantees nothing is bound since the
- * activation mark on every path that reaches a guard).  SKIP fires ONLY where the unify leaves provably fail (see the lower_prolog.c rung comment for the arm-by-arm derivation); every unknown shape —
- * unbound, DT_R, slen≠0 consts, cross-type const pairs (rt_descr_equal's VARVAL coercion), NULL strings — PROCEEDS, mirroring Pl_Switch_On_Term's else→var routing.  Kind: 1=int 2=atom 3=lst 4=stc. */
 static int dop_ix_g(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)nargs;
     extern int prolog_atom_intern(const char *);
@@ -1453,23 +1446,21 @@ static int dop_ix_g(DESCR_t *args, int nargs, DESCR_t *out) {
     if (c->v == DT_S && !c->slen && c->s) { if (kk == 2 && args[2].s) { *out = strcmp(c->s, args[2].s) ? FAILDESCR : ok; return 1; } if (kk == 3 || kk == 4) { *out = FAILDESCR; return 1; } *out = ok; return 1; }
     *out = ok; return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ix_g(DESCR_t *args, int nargs) { DESCR_t out = FAILDESCR; if (nargs == 3) dop_ix_g(args, 3, &out); return out; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_trail_mark(DESCR_t *args, int nargs, DESCR_t *out) { (void)args; (void)nargs; DESCR_t m; m.v = DT_I; m.slen = 0; m.i = (long long)pl_trail_mark(&g_pl_trail); plw_zh_mark_push((int)m.i); *out = m; return 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_trail_unwind(DESCR_t *args, int nargs, DESCR_t *out) { (void)nargs; pl_trail_unwind(&g_pl_trail, (int)args[0].i); plw_zh_kill_to((int)args[0].i); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *g_plw_unwind_floor = 0;
-int   g_plw_floor_bypass = 0;   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): 1 = Prolog zframe JIT execution window; dop_call/dop_call_nothrow skip their floor-set so plc_dead_cstack's !g_plw_unwind_floor guard fires. Set/cleared by scrip.c around rt_outer_call for zframe Prolog graphs only. */
-void  rt_plw_floor_bypass_on(void) { g_plw_floor_bypass = 1; }   /* W1-BUG2-FIX m4 twin (PL-ZFRAME-RESTORE s13): the compiled -no-pie binary CANNOT set g_plw_floor_bypass by direct store — the store copy-relocates a duplicate into the executable's .bss while dop_call (same TU as the definition, binds locally inside the .so) keeps reading the .so's own still-zero copy.  A PLT call always lands in the .so and writes the copy dop_call reads.  Emitted by scrip.c's m4 zframe-main wrapper for Prolog graphs; never returns to a clear because the emitted main exits via the zf wires. */
+int   g_plw_floor_bypass = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void  rt_plw_floor_bypass_on(void) { g_plw_floor_bypass = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    { extern int g_plw_floor_bypass; if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0); }   /* W1-BUG2-FIX twin (PL-ZFRAME-RESTORE s10): same bypass-flag guard as dop_call_nothrow — see its comment */
+    { extern int g_plw_floor_bypass; if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0); }
     if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); g_plw_unwind_floor = fl; return out; }
     int my = g_core_errjmp_n;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
@@ -1481,16 +1472,11 @@ static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NOTHROW DOP RAIL (PL-REGAIN-4, 2026-07-19) — the interposer profile put rt_pl_dop_unify at ~4.6M calls / 255 avg cycles on fib×64 (≈30-40% of wall), with trail_mark and unwind_nothrow behind it;
- * dop_call's per-goal setjmp + errjmp push/pop is pure ceremony for the four bodies that cannot reach a longjmp (unify: plj_alloc/trail_push/descr_equal all abort-not-throw; trail_mark/trail_unwind:
- * trail + zh/cw stacks, realloc-abort; unwind_nothrow: checks rt_pl_throw_pending as a FLAG).  This rail keeps the s102 gateway-floor discipline verbatim (save fl, set to this frame, restore on exit)
- * and the GC safepoint, drops only the jmp machinery.  is/cmp/arith/write and every other dop stay on dop_call — plc_iso_evaluable throws are real there.  If an impossible throw ever did escape a
- * nothrow body, the next outer dop_call/rt_call_arr catcher restores its own saved floor, so the floor chain self-heals — no dangling-frame window is added. */
 static DESCR_t dop_call_nothrow(dop_body_fn body, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0); extern int g_plw_floor_bypass;
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0);   /* W1-BUG2-FIX (PL-ZFRAME-RESTORE s10): skip the floor update when g_plw_floor_bypass is set (Prolog zframe JIT window). Bypass flag avoids the NULL-sentinel ambiguity (g_plw_unwind_floor starts NULL at process start, so NULL cannot distinguish "never set" from "intentionally bypassed"). Preserving NULL through the call chain allows plc_dead_cstack's top-of-function !g_plw_unwind_floor guard to short-circuit before fopen/fgets/sscanf. The s102 discipline is preserved for all non-bypass callers. SN4/Icon byte-identity: bypass is only set for Prolog zframe graphs in scrip.c. */
+    if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0);
     rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
     g_plw_unwind_floor = fl;
@@ -1520,10 +1506,7 @@ DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
       g_plw_unwind_floor = fl;
       return out; }
 }
-/* CONST HEAD-UNIFY LEAVES (PL-REGAIN-5, 2026-07-19) — the emit-time-const side of a $unify rides in a REGISTER (imm64 / RO string ptr) instead of a marshaled DESCR pair: the site copies ONE operand and
- * the leaf runs the hot arms inline — unbound→bind (cell content mirrors marshal_call_arg's operand exactly: {DT_I,0,imm} / {DT_S,0,s}), same-shape int compare, PLREF→fail (plw_unify_cells' either-PLREF
- * arm: a compound never unifies with a const) — with plw_unify_vals as the VERBATIM fallback for every other shape (DT_R vs int, slen≠0 ints, bound-atom equality via rt_descr_equal), so outcomes are
- * bit-identical by construction.  Nothrow rail discipline as rt_pl_dop_unify above (floor + gc safepoint, no setjmp — same throw-free audit). */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     char *fl = g_plw_unwind_floor; DESCR_t out;
@@ -1537,6 +1520,7 @@ DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
     g_plw_unwind_floor = fl;
     return out;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     char *fl = g_plw_unwind_floor; DESCR_t out;
@@ -1549,7 +1533,7 @@ DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
     g_plw_unwind_floor = fl;
     return out;
 }
-/* Slice-B list leaf rides the same nothrow rail: plj_alloc/trail/bind/intern are abort-not-throw (the dop_mkc + unify audit), plw_unify_cells' deepest reach is rt_descr_equal — audited nothrow with ci/cs. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_lst(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 3) return FAILDESCR;
@@ -1560,7 +1544,9 @@ DESCR_t rt_pl_dop_unify_lst(DESCR_t *args, int nargs) {
       g_plw_unwind_floor = fl;
       return out; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 0) return FAILDESCR;
@@ -1571,12 +1557,10 @@ DESCR_t rt_pl_dop_trail_mark(DESCR_t *args, int nargs) {
       g_plw_unwind_floor = fl;
       return m; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_trail_unwind(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call_nothrow(dop_trail_unwind, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *args, int nargs) { return nargs == 1 ? dop_call_nothrow(dop_unwind_nothrow, args, nargs) : FAILDESCR; }
-/* GUARDED ARITH FAST PATHS (PL-REGAIN-4, 2026-07-19) — fib runs 7 dop_call ceremonies per call for {is×3, sub×2, add, gt}: setjmp + errjmp + a strcmp op ladder, per goal.  When the guard proves the
- * throw unreachable (operands deref to numbers; overflow checked with __builtin_*_overflow and REROUTED to the classic rail so int-overflow keeps rt_num_arith's exact behavior), the wrapper computes
- * inline: no setjmp, no strcmp (the op is static per wrapper), no dop frames.  cmp mirrors pl_num_cmp's DOUBLE compare verbatim (ints past 2^53 stay lossy — board-identical, not "fixed").  is/2 keeps
- * floor + gc_point because it binds cells; pure computes skip both (no cell writes, no allocation; unify/trail_mark still safepoint every clause).  Any non-number falls through to dop_call verbatim. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 2) return FAILDESCR;
@@ -1590,24 +1574,29 @@ DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) {
           return out; }
       return dop_call(dop_is_v, args, nargs); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_add_overflow(a.i, b.i, &r)) return INTVAL(r); }
     return nargs == 2 ? dop_call(dop_ax_add, args, nargs) : FAILDESCR;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ax_sub(DESCR_t *args, int nargs) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_sub_overflow(a.i, b.i, &r)) return INTVAL(r); }
     return nargs == 2 ? dop_call(dop_ax_sub, args, nargs) : FAILDESCR;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_mul_overflow(a.i, b.i, &r)) return INTVAL(r); }
     return nargs == 2 ? dop_call(dop_ax_mul, args, nargs) : FAILDESCR;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ax_div(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_div, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_idiv(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_idiv, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_mod(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mod, args, nargs) : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow) {
     DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
     if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R)) {
@@ -1616,6 +1605,7 @@ static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow) {
         return t ? a : FAILDESCR; }
     return dop_call(slow, args, 2);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 0, dop_cmp_lt) : FAILDESCR; }
 DESCR_t rt_pl_dop_cmp_gt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 1, dop_cmp_gt) : FAILDESCR; }
 DESCR_t rt_pl_dop_cmp_le(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 2, dop_cmp_le) : FAILDESCR; }
@@ -1645,7 +1635,7 @@ static int pl_read_apply_opts(DESCR_t optlist, DESCR_t tval, DESCR_t *bv, char (
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {   /* canonical from-slurpy (List.rakumod:193 / BOOTSTRAP.nqp:935): the **@ SLURPY_LOL tail binds each argument as EXACTLY ONE element -- Iterables are NOT flattened, unlike from-slurpy-flat.  MEASURED COINCIDENCE (s2026-07-27): under the current ONE-LEVEL SOH encoding this verbatim join is BYTE-IDENTICAL to rt_make_flat_agg, because split-on-SOH-then-rejoin-with-SOH is the identity -- so **@ and *@ differ observably only for an Iterable argument, which needs an array-NESTING representation SCRIP does not have.  This function is that seam: when nesting lands, ONLY this changes. */
+DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {
     if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
     size_t total = 0;
     for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); total += strlen(cs) + 1; }
@@ -2695,11 +2685,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
         o[oi] = '\0'; *out = STRVAL(o); return 1;
     }
-    /* Pascal record-field char-array collision fix: a whole char-array is stored SOH-ordinal
-       ("0\x01<ord>\x01<ord>..."); a record stores its fields SOH-separated. Storing a char-array
-       into a record field collides. __pas_ca_pack re-encodes the char-array's internal SOH to a
-       collision-free byte (0x1e RS) so it occupies ONE record field; __pas_ca_unpack reverses it
-       on read to recover the interoperable SOH-ordinal form. Mirrors the \x05 nested-record dodge. */
     if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
@@ -2898,7 +2883,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int maxslot = 0;
         extern int rt_proc_named_rest(const char *name);
         int nrest = rt_proc_named_rest(pname); int nrx = nrest > 0 ? nrest - 1 : -1;
-        size_t hcap = 1; for (int i = 2 + npos; i + 1 < nargs; i += 2) { char kb0[128], vb0[256]; const char *k0 = to_cstring(args[i], kb0, sizeof kb0); const char *v0 = to_cstring(args[i + 1], vb0, sizeof vb0); hcap += (k0 ? strlen(k0) : 0) + (v0 ? strlen(v0) : 0) + 2; }   /* capacity is MEASURED from the real strings, never a fixed per-pair budget: to_cstring fills the scratch buffer ONLY for INT/REAL and returns the descriptor's own pointer for a STRING (see its VARVAL_fn tail), so the kb/vb2 scratch sizes below do NOT bound strlen(k)/strlen(v) — a fixed 512/pair segfaulted on a 2MB named value and silently corrupted the workspace arena below that.  Over-estimates by the params that later bind to a declared name, which is safe. */
+        size_t hcap = 1; for (int i = 2 + npos; i + 1 < nargs; i += 2) { char kb0[128], vb0[256]; const char *k0 = to_cstring(args[i], kb0, sizeof kb0); const char *v0 = to_cstring(args[i + 1], vb0, sizeof vb0); hcap += (k0 ? strlen(k0) : 0) + (v0 ? strlen(v0) : 0) + 2; }
         char *hbuf = rt_ws_alloc(hcap); size_t hp = 0; hbuf[0] = '\0';
         for (int i = 0; i < npos && (2 + i) < nargs; i++) { slots[i] = args[2 + i]; if (i + 1 > maxslot) maxslot = i + 1; }
         for (int i = 2 + npos; i + 1 < nargs; i += 2) {
@@ -4535,7 +4520,6 @@ DESCR_t rt_pl_between_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, it->mark); plw_zh_kill_to(it->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *s; int len; int b; int l; int mark; } plc_subatom_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_sub_atom_gen(DESCR_t *args, int nargs, int64_t *resume) {
@@ -4567,6 +4551,7 @@ DESCR_t rt_pl_sub_atom_gen(DESCR_t *args, int nargs, int64_t *resume) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_rd_skip(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n') p++; return p; }
 static const char *plc_rd_term(const char *p, DESCR_t *out, DESCR_t *binds, char (*bnames)[64], int *nb, int cap);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_rd_args(const char *p, DESCR_t *kids, int *nk, int cap, char close, DESCR_t *binds, char (*bnames)[64], int *nb, int bcap) {
     p = plc_rd_skip(p);
     if (*p == close) return p + 1;
@@ -4623,6 +4608,7 @@ static const char *plc_rd_term(const char *p, DESCR_t *out, DESCR_t *binds, char
     }
     return (const char *)0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *plc_rd_entry(const char *txt, DESCR_t *out, DESCR_t *binds, char (*bnames)[64], int *nb, int cap) { return plc_rd_term(txt, out, binds, bnames, nb, cap); }
 typedef struct { plc_slv_t *root; int mark; int cut; } plc_top_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4642,8 +4628,8 @@ DESCR_t rt_pl_call_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, tp->mark); plw_zh_kill_to(tp->mark);
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
@@ -4659,13 +4645,14 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     g_plw_unwind_floor = fl;
     return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     { static long _cac = -1; if (_cac < 0) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
     rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
-    if (!strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }   /* -NOFAIL: statement failure without a goto fires error 35 (manual ch.14 p.173) */
+    if (!strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
         extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
@@ -4738,7 +4725,6 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
     return rt_call_arr(fn, args, nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
@@ -4754,9 +4740,9 @@ DESCR_t rt_args_list_from(char **v, int n) {
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t g_main_args_descr;
 static int g_main_args_staged = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { extern DESCR_t g_call_args[]; g_main_args_descr = rt_args_list_from(v, n); g_main_args_staged = 1; if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { if (!g_main_args_staged) rt_main_args_stage((char **)0, 0); return g_main_args_descr; }
 extern int junction_is(DESCR_t v);
@@ -4772,8 +4758,8 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     while (*e == ' ') e++; if (*e != '\0') return 0;
     *out = (endd > endi) ? REALVAL(dv) : INTVAL((int64_t)iv); return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_str_coerce(DESCR_t d);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_str_coerce(DESCR_t d) {
     if (!IS_CSET_fn(d)) return d;
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
@@ -4781,8 +4767,8 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
     return STRVAL(b);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
@@ -4793,6 +4779,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     g_core_errjmp_n = my;
     return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
@@ -4946,7 +4933,6 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define _OPCOERCE(d) do { \
         if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
             const char *_s = VARVAL_fn(d); \
@@ -5146,7 +5132,6 @@ static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_
 static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2) return -1;
     DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
-    /* .cmth extends remdr to reals (sbl.min:260) -- either operand real yields a real result via fmod, measured against the live oracle: REMDR(7.5,2.0)=1.5, REMDR(7,2.0)=1., REMDR(-7.5,2.0)=-1.5. */
     if (IS_REAL_fn(a) || IS_REAL_fn(b)) {
         double rb = IS_REAL_fn(b) ? b.r : (double)b.i;
         if (rb == 0.0) { *out = FAILDESCR; return 1; }
@@ -5158,15 +5143,13 @@ static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t 
     if (bi == 0) { *out = FAILDESCR; return 1; }
     *out = INTVAL(ai % bi); return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern unsigned rt_dtax_gen;
 typedef struct { unsigned gen; unsigned char len; signed char kind; short nf; char nm[14]; void *ctor; const char *syn; } dtax_ent_t;
 static dtax_ent_t g_dtax[256];
 static dtax_ent_t g_dtax_bid[1025];
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_DTAX_OFF"); p = (e && *e) ? 1 : 0; } return p; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dtx4(dtax_ent_t *e, unsigned char l, const char *nm, void *h) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 4; e->nf = 0; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dtx5(dtax_ent_t *e, unsigned char l, const char *nm, void *h, short x) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 5; e->nf = x; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
@@ -5196,13 +5179,12 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_X)     t="EXPRESSION";
     else if (av.v==DT_N)     t="name";
     else if (av.v==DT_P)     t="PATTERN";
-    else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";   /* KW seat s161: SNOBOL4 has NO null datatype -- an unset variable IS the null string and the oracle answers STRING (manual p.24; measured: sbl DATATYPE(ZZ_NEVER_SET) = STRING, SCRIP said NULL). Dispatch on the builtin NAME is this function's standing idiom (array/list, function/procedure above); Icon's type() keeps "null", which is real Icon semantics. This closes kw_bare_shadow's ENTIRE residue -- the two DT- rows -- which was mis-routed as B1/by-name-dispatch in the s158 brief: the minimal witness is DATATYPE of any unset variable, no keyword and no dispatch involved. */
+    else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";
     else t="string";
     if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0;
         for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
     *out = STRVAL(t); return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_record_image_id(void *inst)
 {
@@ -5216,8 +5198,8 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     if (!sv || !*sv) { *out = FAILDESCR; return 1; }
     { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv); *out = d; return 1; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long g_bidprof[1024]; int g_bidprof_on = -1;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_bidprof[i]); }
 void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_bidprof_on) atexit(bidprof_dump); }
 int g_bidjmp_on = 1;
@@ -5258,6 +5240,7 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
       while (j < n) tmp[k++] = a[j++];
       for (t = 0; t < n; t++) a[t] = tmp[t]; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
@@ -5286,7 +5269,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
           else if (_dx->kind == 0) { _dx_hit = 1; _dx_skip_ctor = 1; _dx_skip_syn = 1; }
           else if (_dx->kind == 3) { _dx_hit = 1; _dx_skip_ctor = 1; } } } }
     if (!_dx_skip_ctor) { extern DatType *dat_find_type(const char *); extern DESCR_t dat_construct(DatType *, DESCR_t *, int); extern int dat_nfields_byref(void *);
-      DatType *_udt = dat_find_type(fn);                           /* F3-a (treebank/claws5 s103): a user-registered DATA type's constructor OVERRIDES any same-named default builtin (Icon list() was claiming SNOBOL4 DATA('list(head,tail)') and failing on non-numeric args); precedence to the explicit registration is language-neutral */
+      DatType *_udt = dat_find_type(fn);
       if (_udt && _dx) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 1; _dx->nf = (short)dat_nfields_byref((void *)_udt); memcpy(_dx->nm, fn, _dxl); _dx->ctor = (void *)_udt; _dx->syn = 0; }
       if (_udt && nargs <= _udt->nfields) {
           DESCR_t _fv[64]; int _nf = _udt->nfields > 64 ? 64 : _udt->nfields;
@@ -5472,7 +5455,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
-        { extern int g_icon_write_reassignable; if (!g_icon_write_reassignable) { /* ICN-WRITE-FAST (s208 clean-build): Icon builtins are IR_CALL_BUILTIN_ICON at emit time; the NV dict never holds a DT_E self-sentinel for them (NV_GET_fn returns SNUL on a miss, not DT_E), so _is_self_default is structurally always false and the block below short-circuits to rt_call_value(SNUL)->FAIL with no output. g_icon_write_reassignable was already scanned to detect the one case (write := x) that legitimately needs the NV lookup; skip the guard entirely when it is clear. */ goto L_write_body_5209; } }
+        { extern int g_icon_write_reassignable; if (!g_icon_write_reassignable) {  goto L_write_body_5209; } }
         { DESCR_t _wv = NV_GET_fn(fn);
           int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
           if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
@@ -5605,7 +5588,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
-    if (((_bid == BID_type) || (_bid == BID_DATATYPE)) && nargs == 1) return bn_type_datatype(fn, args, nargs, out); 
+    if (((_bid == BID_type) || (_bid == BID_DATATYPE)) && nargs == 1) return bn_type_datatype(fn, args, nargs, out);
     L_bidjmp_5336: ;
     if ((_bid == BID_image) && nargs == 0) {
         *out = STRVAL("&null"); return 1;
@@ -5673,7 +5656,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
               if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_ws_strdup(pname)); return 1; } } }
-        /* name not in proc_table -- check if it is a known builtin */
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
         }
@@ -5720,7 +5702,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (IS_INT_fn(av)) {
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
-        if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }   /* image() is Icon's, so it renders reals in Icon's convention ("10.0"), the same authority write()/string() already use above -- name-identified dispatch, so no opcode is needed here as it was for concat */
+        if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
         if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
@@ -5757,12 +5739,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             *out = STRVAL(outs); return 1;
         }
         if (IS_STR_fn(av) && av.s) {
-            /* A string value ALWAYS images as a quoted string — its content coinciding with a builtin
-             * name (pos/copy/type/...) does NOT make it a function (canonical Icon: image is by TYPE, and
-             * DT_S is unambiguously a string; genuine procedure/function values are DT_E, handled above).
-             * The prior proc_as_value upgrade corrupted image("pos") -> function pos (interfacegen bc_keywords,
-             * jtran self-host). Bare builtin-name references that the frontend represents as DT_S strings
-             * image as strings here too — that is a frontend representation gap, not image's to paper over. */
         }
         const char *s=VARVAL_fn(av); if (!s) s = "";
         int sl = (int)strlen(s);
@@ -5791,7 +5767,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     if ((_bid == BID_image) && nargs >= 2) {
         DESCR_t av = args[0];
-        if (0 && IS_STR_fn(av) && av.s) { }   /* string->function upgrade removed (see 1-arg image above): image("pos") is "pos", not function pos */
+        if (0 && IS_STR_fn(av) && av.s) { }
         DESCR_t one_out = FAILDESCR;
         if (try_call_builtin_by_name("image", args, 1, &one_out))
             { *out = one_out; return 1; }
@@ -5866,7 +5842,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_collect) && nargs <= 2) { extern long rt_gc_collect(void); rt_gc_collect(); *out = NULVCL; return 1; }
     L_bidjmp_5585: ;
     if ((_bid == BID_left) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
@@ -5895,7 +5871,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5613: ;
     if ((_bid == BID_right) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
@@ -5922,7 +5898,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_5639: ;
     if ((_bid == BID_center) && nargs >= 1) {
-        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";   /* ICN-PAD-CONV s241: real -> Icon convention; every other type unchanged */
+        char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
         int sl=(int)strlen(s);
         int n = 1;
         if (nargs >= 2) {
@@ -6018,13 +5994,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         if (gap < 1) gap = 1;
         int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 1;
         int slen = (int)strlen(s);
-        /* ICN-ENTAB-NXTTAB: faithful port of refs/icon-master/src/runtime/fstr.r entab().  A run of 2+
-         * spaces is tabbed to its end (target); critically, when the first candidate stop is exactly ONE
-         * column past the run's start, a second stop is checked (icn_nxttab again) -- a tab there would
-         * save zero characters, so it's used only if the SECOND stop still lands within the run, otherwise
-         * the whole run stays literal spaces.  Previously SCRIP tabbed unconditionally whenever any stop
-         * was reachable, inserting a tab that replaced a single space (witness: entab("abcdefg       x")
-         * wrongly became "abcdefg\t      x"; Icon leaves it unchanged since the run never reaches col 17). */
         for (int i = 0; i < slen; ) {
             char c = s[i];
             if (c == ' ') {
@@ -6227,9 +6196,9 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = r; return 1;
     }
     L_bidjmp_5894: ;
-    if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; fprintf(stderr, "Run-time error %lld\n", _ec); if (nargs >= 2) { DESCR_t _im = FAILDESCR; if (try_call_builtin_by_name("image", args + 1, 1, &_im) && !IS_FAIL_fn(_im)) { const char *_is = VARVAL_fn(_im); fprintf(stderr, "offending value: %s\n", _is ? _is : ""); } } exit(1); }   /* fmisc.r runerr(i,x): error termination — abnormal path, exits 1 (unlike stop's held rc-0) */
+    if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; fprintf(stderr, "Run-time error %lld\n", _ec); if (nargs >= 2) { DESCR_t _im = FAILDESCR; if (try_call_builtin_by_name("image", args + 1, 1, &_im) && !IS_FAIL_fn(_im)) { const char *_is = VARVAL_fn(_im); fprintf(stderr, "offending value: %s\n", _is ? _is : ""); } } exit(1); }
     L_bidjmp_5895: ;
-    if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(0); }   /* fmisc.r stop(): write args to &errout then exit (status kept 0 this session — rc-flip audited separately) */
+    if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(0); }
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
@@ -6601,7 +6570,6 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_6249: ;
     if ((_bid == BID_sort) && nargs >= 1 && args[0].v == DT_T && args[0].tbl) {
-        /* fsort.r table sort: i=1,2 -> list of [key,val] pairs; i=3,4 -> flat k,v,k,v; odd sorts by key, even by value. Default i=1. */
         TBBLK_t *tb = args[0].tbl;
         int i_mode = (nargs >= 2) ? (int)to_int(args[1]) : 1;
         if (i_mode < 1 || i_mode > 4) i_mode = 1;
@@ -6806,7 +6774,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = IS_FAIL_fn(v) ? FAILDESCR : v; return 1;
     }
     L_bidjmp_6468: ;
-    if ((_bid == BID_SNOx24NAME) && nargs == 1) return bn_sno_name(args, nargs, out); 
+    if ((_bid == BID_SNOx24NAME) && nargs == 1) return bn_sno_name(args, nargs, out);
     L_bidjmp_6469: ;
     if ((_bid == BID_ARRAY) && nargs >= 1) {
         extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
@@ -6857,7 +6825,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
         if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_ws_strdup_c(sv ? sv : "")); return 1; }
         return 0;
-    }   /* ⛔⛔ THIS ARM USED TO ANSWER `*out = FAILDESCR; return 1;` -- "I HANDLED IT, AND THE ANSWER IS FAILURE" -- FOR EVERY TARGET TYPE IT DOES NOT IMPLEMENT, WHICH IS EVERY AGGREGATE ONE.  `return 1` is the by-name chain's "claimed", so the claim shadowed core.c's _CONVERT_, the spelling that DOES implement ARRAY/TABLE/PATTERN/EXPRESSION, and BID_CONVERT admits nargs==2 -- which is every legal CONVERT call.  CONVERT(t,'ARRAY') and CONVERT(a,'TABLE') were therefore DEAD on the live path, failing silently.  `return 0` is "not mine", the chain's designed fallthrough to APPLY_fn and the registry, and it is deliberately placed AFTER the three arms this body does implement so a genuinely failed INTEGER/REAL/STRING conversion still answers FAIL here and never reaches _CONVERT_'s laxer coercion (to_int('abc') is 0 there, so falling those through would turn a correct failure into a wrong answer of 0).  FOUND BY THE PROTOTYPE ROW, NOT LOOKED FOR: crosscheck rung11 1113's `ta = CONVERT(t,'ARRAY')` then `DIFFER(PROTOTYPE(ta),'2,2') :f(e005)` passed VACUOUSLY -- the CONVERT failed, ta stayed null, PROTOTYPE(null) failed the statement, and the statement failure took the SAME :f branch the correct answer takes.  Raising ERROR 164 on the null object is what made the silence audible. */
+    }
     L_bidjmp_6521: ;
     if ((_bid == BID_DATA) && nargs == 1) {
         extern DatType *dat_register(const char *spec);
@@ -6870,7 +6838,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     if ((_bid == BID_SNOx24KWSET) && nargs == 2) {
         extern int rt_keyword_write_snobol4(const char *sval, DESCR_t v);
         char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
-        *out = rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR; return 1;   /* KW-5: a 208/209 converted to statement failure by non-zero &ERRLIMIT answers FAILDESCR, so the legacy by-name arm takes the same :F branch the armed box does. */
+        *out = rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR; return 1;
     }
     L_bidjmp_6534: ;
     if ((_bid == BID_SNOx24STMT) && nargs == 1) {
@@ -6910,8 +6878,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         void *pf = rt_proc_get_fn(nm);
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
         extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t); extern long rt_fn_frame_bytes_known(void *); extern long rt_fn_zstatic_known(void *);
-        DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));   /* PS-1b (s151): zstatic now real on the live SNO$MKPAT path -- registered at emit from emit_graph_zstatic (mode-3 direct, mode-4 printed startup), no longer the placeholder 0 */
-        if (nargs >= 2) { extern void rt_patv_freeze(void *, const char *, long); long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } if (_n > 0) rt_patv_freeze(pd.p, nm, _n); }   /* PB-1s (s108): args[1] = the site's pre[] count, lowered right after the $V stage-2 stores -- freeze THIS construction's values into the fresh DTP (manual p.85-86); nargs==1 producers keep the legacy per-site-cell behavior byte-identically */
+        DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
+        if (nargs >= 2) { extern void rt_patv_freeze(void *, const char *, long); long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } if (_n > 0) rt_patv_freeze(pd.p, nm, _n); }
         *out = pd; return 1;
     }
     L_bidjmp_6563: ;
@@ -7099,16 +7067,12 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
       if (syn) { if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 2; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = syn; }
         return try_call_builtin_by_name(syn, args, nargs, out); }
       if (_dx && !_dx_hit) { _dx->gen = rt_dtax_gen; _dx->len = _dxl; _dx->kind = 0; _dx->nf = 0; memcpy(_dx->nm, fn, _dxl); _dx->ctor = 0; _dx->syn = 0; } }
-    /* OPSYN operator dispatch (s10): operator-symbol names (non-identifier lead char) fall through to the
-     * core fn table, where OPSYN's register_fn_alias installs them; identifier names keep their existing
-     * routing untouched. */
     { extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
       char c0 = fn[0];
       if (c0 && !((c0 >= 'A' && c0 <= 'Z') || (c0 >= 'a' && c0 <= 'z') || c0 == '_')
           && core_call_registered_fn(fn, args, nargs, out)) return 1; }
     return 0;
 }
-
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_dat_field_of_any(const char *name) {
     extern int dat_type_count(void); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);

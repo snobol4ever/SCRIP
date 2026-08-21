@@ -8,30 +8,29 @@
 #include <stdlib.h>
 static int     g_halt_rc  = 0;
 static int     g_halt_set = 0;
+__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;
+__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;   /* HIDDEN so rtx_zdp.S can reach it PC-relative inside the .so — the same reason RTX_GATE_DEF marks its own cells .hidden; without it the R_X86_64_PC32 relocation is rejected for a shared object.  ⛔ NEW GLOBAL, GRANTED IN-CHAT BY LON s135 ("go for the global since it is easier and this is all temporary until we get to 100%"). THE ANCHOR DATUM: rsp observed at the FIRST anchor of the run. Lon's model s135: an anchor is a point where the graph's stack is TOTALLY EMPTY, so every anchor must observe the SAME rsp — STATEMENT_BEGIN and MATCH_BEGIN are the re-basing points. Written/read ONLY by rt_zdp_anchor below, ONLY under SCRIP_ZDP_TEARDOWN=1. NEVER consulted by codegen: it is a reporter, never an input to a decision, so no emitted byte depends on it. Deleted at 100% per the grant. */
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;   /* ⛔⭐⭐⭐ NEW GLOBAL — BANNER ASK PENDING (s136).  The α-side bank for LON'S RBP-EQUALITY CHECK ("have BB's that use RBP check at BETA for equality to saved RBP").  HIDDEN for the same PC-relative reason g_zdp_anchor_rsp is.  Exists ONLY under SCRIP_ZDP_TEARDOWN=1 (default OFF, byte-identical); NOT COMMITTED until Lon grants it in-chat, per the NO-NEW-GLOBALS FACT RULE. */
 void rt_zdp_probe_report(unsigned long rsp, long op, long node, long expected, long portflags, long measured)
-{   /* ⭐⭐⭐ LON'S EVERY-PORT PROBE (s136), THE COLD SINK — LOG, NOT TRAP (s134 staging law: "a trap-first instrument dies on program #1 and tells you about exactly one site; the log tells you about all of them").  The AGREEING path never reaches C: rtx_zdp.S compares in hand asm and returns having touched rax and rflags only. */
+{
     const char * port = (portflags & 1) ? "alpha" : "beta";
-    if (expected == -1L) { fprintf(stderr, "[ZDP-TOP] port=%s op=%ld node=%ld measured=%ld rsp=%lu\n", port, op, node, measured, rsp); return; }   /* TOP RECORD: the lattice refused a prediction.  CONSTANT across the census = PRECISION bug (refusing the spine for nothing); VARYING = the TOP was earned.  Rows 3/4 of Lon's mutual-validation table. */
-    if (measured != expected) { fprintf(stderr, "[ZDP-RSP] port=%s op=%ld node=%ld expected=%ld measured=%ld skew=%ld\n", port, op, node, expected, measured, measured - expected); return; }   /* SOUNDNESS: the transfer function mis-calculated, or the box leaked / over-freed. */
-    fprintf(stderr, "[ZDP-RBP] port=%s op=%ld node=%ld rbp_mismatch (rsp agreed at delta=%ld)\n", port, op, node, measured);   /* rsp agreed and we still got here => the only remaining caller is the rbp-equality arm: the activation's frame did not come back the way it went in. */
+    if (expected == -1L) { fprintf(stderr, "[ZDP-TOP] port=%s op=%ld node=%ld measured=%ld rsp=%lu\n", port, op, node, measured, rsp); return; }
+    if (measured != expected) { fprintf(stderr, "[ZDP-RSP] port=%s op=%ld node=%ld expected=%ld measured=%ld skew=%ld\n", port, op, node, expected, measured, measured - expected); return; }
+    fprintf(stderr, "[ZDP-RBP] port=%s op=%ld node=%ld rbp_mismatch (rsp agreed at delta=%ld)\n", port, op, node, measured);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_report(unsigned long rsp, long op, long node, unsigned long expected)
-{   /* ⭐ LON'S TEARDOWN EQUATION, RUNTIME HALF (s134 spec, s135 anchor model) — THE COLD PATH ONLY. The AGREEING path never reaches C at all: rtx_zdp.S compares in hand asm and returns, touching nothing but rax/rflags, so an anchor that is sound costs the measured program ZERO perturbation (Lon s135 "use asm not C" — a C call would force the whole SysV caller-saved clobber set, which includes the r10/r11 γ/ω WIRES and the r8/r9 RTCC slots, and RULES.md forbids scratching those even in RTX hand asm). This sink runs ONLY where the anchor already disagreed, i.e. at a site that is already a defect, and the asm caller saves the full caller-saved set around it so even the reporting path cannot corrupt the run. LOG MODE, NOT A TRAP (s134 build spec: "a trap-first instrument dies on program #1 and tells you about exactly one site; the log tells you about all of them"). PRE-REGISTERED PREDICTION (static half, 654 programs): IR_STATEMENT_BEGIN 3933 · IR_MATCH_BEGIN 5 · IR_STATEMENT_END 0. */
-    fprintf(stderr, "[ZDPANCHOR] op=%ld node=%ld expected=%lu actual=%lu delta=%ld\n", op, node, expected, rsp, (long)(expected - rsp));   /* delta>0 = the anchor was reached with the stack NOT empty: bytes carved and never released — a box whose ω path did not restore the frontier it found, which is zdp_out_omega's own named bug class. delta<0 = over-free. */
+{
+    fprintf(stderr, "[ZDPANCHOR] op=%ld node=%ld expected=%lu actual=%lu delta=%ld\n", op, node, expected, rsp, (long)(expected - rsp));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZDP_RBP_TAB_N 65536
-__attribute__((visibility("hidden"))) unsigned long g_zdp_rbp_tab[ZDP_RBP_TAB_N * 2];   /* ⛔ NEW GLOBAL, GRANTED IN-CHAT THIS SESSION (Lon: "store/save RBP on ALPHA, check RBP on BETA").  ZDP-RBP-TAB, NODE-KEYED: pairs {node, banked_rbp} at index (node & 65535)*2, so a beta is compared ONLY against ITS OWN node's alpha.  ⛔ THIS REPLACES THIS RUNG'S OWN FIRST DESIGN, A GLOBAL LIFO STACK, WHICH WAS WRONG AND WHOSE NUMBERS ARE VOID: a LIFO assumes alpha and beta pair 1:1, but a box runs alpha ONCE, exits through gamma, and its beta then re-fires MANY times on backtrack -- pushes and pops never balance, the stack drains, and the comparisons that survive are a beta against SOME OTHER box's banked alpha.  Measured under that design on beauty: 38 "MISMATCH" and 1437 "UNDERFLOW" -- the underflow is the 1-alpha-to-N-beta arity, NOT evidence of a beta reached without an alpha, and the mismatches are cross-box noise.  Node-keying removes both artifacts: no cross-box pairing can occur, and a beta whose node was never banked is now a REAL signal rather than a drained-stack artifact.  KNOWN LIMIT, NAMED NOT DISCOVERED: recursion and hash collision both alias one slot -- the innermost/last alpha wins -- so this instrument under-reports on recursive activations and cannot be read as a total census.  HIDDEN for the PC-relative reason g_zdp_anchor_rsp is.  Written/read ONLY by rt_zdp_rbp_bank/rt_zdp_rbp_check (hand asm, rtx_zdp.S) under SCRIP_ZDP_RBP_CANARY=1.  NEVER consulted by codegen. */
+__attribute__((visibility("hidden"))) unsigned long g_zdp_rbp_tab[ZDP_RBP_TAB_N * 2];
 unsigned long g_zdp_rbp_violations = 0UL;
 unsigned long g_zdp_rbp_nobank     = 0UL;
-void rt_bomb(const char *msg);   /* forward decl -- defined below; the mismatch arm below needs it ahead of its own definition */
+void rt_bomb(const char *msg);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_rbp_report(long node, unsigned long expected, unsigned long actual, long kind)
-{   /* ⭐ ZDP-RBP, THE COLD SINK — CHECK-AND-ABORT AT THE FIRST VIOLATION (Lon in-chat, this session).  ⛔ THE PORT MODEL WAS CORRECTED BY LON IN-CHAT AND THIS RUNG'S EARLIER NUMBERS ARE VOID: the activation frame's lifetime is α→ω, NOT α→β.  β is an ENTRY port -- control arrives there to RETRY and may go on to γ -- so a box standing at β is SUPPOSED to still hold its frame; it is the β→ω transition that tears down.  Checking rbp-equality at β therefore FAILED CORRECTLY-WORKING BOXES.  The three arms below are the corrected model: kind=0 β lost its frame · kind=1 ω did not restore the balance (the real teardown test, never instrumented before this edit because the x86_deflabel seam only reaches label DEFINES = α/β, while γ/ω are TRANSFERS) · kind=2 no bank.  0 and 1 abort; 2 logs, since it is the empirical test of "β before α is impossible" and one occurrence must not mask the census. */
+{
     if (kind == 2) { g_zdp_rbp_nobank++; fprintf(stderr, "[ZDP-RBP] node=%ld NO-BANK (this node's alpha never ran, or its slot was aliased by recursion/collision)\n", node); return; }
     g_zdp_rbp_violations++;
     { char b[256];
@@ -39,109 +38,39 @@ void rt_zdp_rbp_report(long node, unsigned long expected, unsigned long actual, 
       else           snprintf(b, sizeof b, "ZDP-RBP node=%ld BETA FRAME LOST: alpha banked enclosing rbp=0x%lx; at beta rbp=0x%lx whose saved parent is not that value -- the activation this box is standing in is not the one its alpha established", node, expected, actual);
       rt_bomb(b); }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐⭐ ZETA SM — THE SELF-MEASURING MONITOR (Lon in-chat, this session: "build a monitor harness around the BB
- * execution ... a state machine that as the reports come in through callbacks from alpha and beta in each box
- * you can trace the execution ... A system that measures itself").
- *
- * ⛔ WHY THE DATUM IS GLOBAL AND NOT FRAME-RESIDENT (Lon's correction, and it is decisive): an earlier cut of
- * this rung banked the frame identity at [rbp-8] and re-read it at beta.  That is circular -- if rbp is WRONG
- * at beta then the memory it addresses is precisely what cannot be trusted, so the check needs rbp to already
- * be right in order to discover that it is not.  Chicken and egg.  The shadow state therefore lives HERE, in
- * side storage keyed by NODE ID, touched only by this instrument and never addressed through rbp.
- *
- * ⛔ AND THE PORT MODEL IS LON'S, NOT THIS RUNG'S EARLIER GUESS: the activation's lifetime is alpha..omega.
- * BETA IS AN ENTRY PORT -- it may go on to gamma -- so at beta the box is SUPPOSED to still hold its frame;
- * it is the transition OUT to omega that tears down.  Every number this rung reported before that correction
- * is VOID (they were measured with an equality test at beta, which convicts correctly-working boxes).
- *
- * STATE PER LIVE ACTIVATION, established at alpha, keyed by node:
- *     E  = rbp observed at alpha   -- the ENCLOSING activation, what omega must give back
- *     F  = the frame this node establishes = (rsp at alpha) - 8, because the template's first act is
- *          `push rbp` (rsp -= 8) then `mov rbp,rsp`.  ⛔ F IS A PREDICTION, NOT A READING, and it is
- *          VALIDATED BY THE FALSE-POSITIVE GATE, never asserted: if the prediction is wrong the
- *          known-PASSING probes light up, which is the whole point of running them first.
- * CHECKS:  beta  -> an activation for this node must be LIVE (a beta with no alpha is the "impossible"
- *                   case Lon named; if it is truly impossible this counter reads zero) AND rbp == F.
- *          omega -> rbp == E (balance restored) and rsp >= rsp_at_alpha (frame actually released).
- * KNOWN LIMIT, NAMED NOT DISCOVERED: one slot per (node & 65535), so RECURSION and hash collision alias --
- * the innermost alpha wins and this instrument UNDER-reports on recursive activations.  It is not a census.
- *
- * ⭐⭐⭐ s142 -- γ LANDED + THE FOUR-STATE FSM (Lon's NEXT SEAT instructions, FINDING-2026-08-17-s141 verbatim):
- * `FRESH -alpha-> LIVE -gamma-> SUSPENDED -beta-> RESUMED -gamma-> SUSPENDED`, `(LIVE|RESUMED|SUSPENDED) -omega-> DEAD`.
- * γ rides the SAME x86_jmp() TRANSFER seam ω already does (x86_gamma() -> x86_jmp(X86P_GAMMA) -- confirmed at
- * the source, not assumed), so this is the "no label minting" case the finding predicted: one more x86_jmp
- * hook-arm consumer, zero new seams, zero template .cpp edits.  kind=4 is the new γ event.
- * WHY A FOUR-STATE FSM CATCHES WHAT THE THREE-PORT RBP-EQUALITY CHECKS COULD NOT: rbp/rsp equality can be
- * satisfied BY COINCIDENCE (two activations of unrelated nodes can legitimately share a frame pointer value
- * across a small program), but a PORT SEQUENCE cannot be satisfied by coincidence -- a beta arriving at a node
- * that is FRESH or DEAD is a fact about CONTROL FLOW, independent of what any register happens to hold.  This
- * is the "two new finding classes independent of register values" the finding names.
- *   LEGAL:   FRESH  --alpha--> LIVE                 (fresh entry, no live activation existed)
- *            LIVE   --gamma--> SUSPENDED             (success; frame left standing for a possible beta)
- *            LIVE   --omega--> DEAD                  (failure on first pass, frame torn down)
- *            SUSPENDED --beta--> RESUMED             (backtrack arrival; frame must still be intact)
- *            RESUMED --gamma--> SUSPENDED            (re-succeeds; still suspended for the next beta)
- *            RESUMED --omega--> DEAD                 (this resumption fails, frame torn down)
- *            SUSPENDED --omega--> DEAD               (ZW-1/BP-9 carve-only gamma-side release path can retire
- *                                                      a suspended box directly via the chain-pop synth without
- *                                                      an intervening beta -- legal, not a second finding class)
- *   ILLEGAL: beta   from FRESH or DEAD               ("beta before alpha", the case Lon named "impossible")
- *            gamma  from FRESH or DEAD               (success transfer from a box with no live activation)
- *            alpha  while LIVE/SUSPENDED/RESUMED      (re-entry without an intervening omega -- a LEAK about to
- *                                                      happen: the old activation's E/F is about to be clobbered
- *                                                      by a new alpha before anything tore it down)
- * LEAKED ACTIVATION (a separate, end-of-run finding, not a per-event violation): any node whose LAST recorded
- * event left it in LIVE/SUSPENDED/RESUMED when the graph finished -- suspended-and-never-resumed-nor-torn-down,
- * "the shape that would explain a wrong rbp later" (finding, verbatim).  Read via SCRIP_ZSM_LEAK_REPORT=1 at
- * process exit (rt_zdp_sm_leak_report, registered with atexit in rt_zdp_sm_init) rather than mid-run, because a
- * SUSPENDED box is by design not yet resumed -- reading it as a leak WHILE the program is still running would
- * convict every ordinary un-backtracked-into ARBNO the same way an equality check at beta once convicted
- * correctly-working boxes (s141's cut 2).  Only silence at PROCESS END is the actual signal.
- */
 #define ZSM_N 65536
-#define ZSM_TRACE 2048   /* s182: widened from 64 -- util_autobug.sh names this as THE knob when a bug window is too short, and beauty needs the whole parse descent in one window.  Cost is 5 arrays x 2048 x 8B = 80KB of static, armed-only. */
+#define ZSM_TRACE 2048
 enum { ZSM_FRESH = 0, ZSM_LIVE = 1, ZSM_SUSPENDED = 2, ZSM_RESUMED = 3, ZSM_DEAD = 4 };
 typedef struct { unsigned long node, E, F, rsp_a, live; int state; } zsm_ent;
 static zsm_ent      g_zsm[ZSM_N];
 static unsigned long g_zsm_tr_node[ZSM_TRACE], g_zsm_tr_rbp[ZSM_TRACE], g_zsm_tr_rsp[ZSM_TRACE];
-static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE], g_zsm_tr_stno[ZSM_TRACE];   /* ⭐ s189 (HQ Fable): stno per port -- mode-3 node ids are pointer hashes (bb_node_id: ptr%100000, unstable across runs), so the ring could name WHAT box fired but not WHERE in the program; kw_stcount (core.h, already maintained per statement) is the stable source coordinate that lets a ring tail be read against the listing without a monitor run.  Same-rung widening of an existing instrument's storage, the g_zsm_seen_nodes precedent. */
+static long          g_zsm_tr_kind[ZSM_TRACE], g_zsm_tr_depth[ZSM_TRACE], g_zsm_tr_stno[ZSM_TRACE];
 static unsigned long g_zsm_tr_n = 0UL;
 unsigned long g_zsm_violations = 0UL, g_zsm_beta_no_alpha = 0UL, g_zsm_events = 0UL;
-unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;   /* ⭐ s142 FSM counters, same visibility precedent as the pre-existing g_zsm_violations trio -- non-static so a future report site or test harness can read them without a new accessor. */
-static unsigned long g_zsm_rsp0 = 0UL;   /* ⭐ RSP0 — THE GRAPH-ENTRY DATUM (Lon in-chat: "physically measure RSP minus RSP-saved at graph entry so that you can debug your offset problems").  Stamped by kind=0 at each graph's first BB.  ⛔ THIS IS A MEASUREMENT, NOT A VERDICT: nothing is compared against a predicted value, so it can never go ⊤ the way the s136 lattice probe does (11720 ⊤ on beauty = the lattice declining to predict), and it never runs zdp_analyze, so it cannot inherit that pass's measured perturbation (FINDING s136: SCRIP_ZDP=1 alone moves 81 of 656 programs).  KNOWN LIMIT, Lon's own ruling s136 verbatim: "I know RSP changes into a function but just ignore all that" -- one cell, so a nested/recursive graph's origin overwrites its caller's and the caller's remaining ports read against the callee's datum; that noise is bounded to post-call ports and is READ AS NOISE. */
-static unsigned long g_zsm_seen_nodes[ZSM_N];   /* bitset would be tighter, but this instrument already keys g_zsm 1:1 by node&65535 -- riding the SAME array bound keeps the "one shape, one size" property the file's other tables already have, and this is a widening of an EXISTING instrument's storage, not a new global (the NO-NEW-GLOBALS fact rule's own precedent, g_zdp_rbp_tab, already treats same-rung widenings this way). */
+unsigned long g_zsm_fsm_illegal = 0UL, g_zsm_gamma_events = 0UL, g_zsm_leaked_at_exit = 0UL, g_zsm_alpha_while_live = 0UL;
+static unsigned long g_zsm_rsp0 = 0UL;
+static unsigned long g_zsm_seen_nodes[ZSM_N];
 static unsigned long g_zsm_seen_n = 0UL;
-static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* census mode: print EVERY port with its measured depth, agreements included -- s135's lesson that an instrument silent both when it agrees and when it never ran cannot be told from a dead one. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zsm_census(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_CENSUS"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int zsm_leak_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_LEAK_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
-static int zsm_overpop_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_OVERPOP"); v = (e && *e == '1') ? 1 : 0; } return v; }   /* ⭐ THE OTHER DIRECTION, ARMED-ONLY: the ω arm below has only ever tested `rsp < rsp_a` -- UNDER-release ("carved and never released").  OVER-release (rsp climbed ABOVE where α stood) was invisible BY CONSTRUCTION, and it is the direction that kills beauty: the shared RETURN floater pops the {γ,ω} pair its DEFINE α pushed, so a body that releases one slot too many leaves rsp past the pair and `jmp rcx` enters whatever sat above it.  ⛔ REPORT-ONLY AND OFF BY DEFAULT, for the reason the γ arm already records: a WHACK-OWNING box legally retires an enclosing construct frame between its own α and ω, so an over-release is NOT per se a violation -- convicting it would convict passing programs, and an instrument that convicts passing programs cannot testify about failing ones.  It touches no counter and no state; it is a print. */
+static int zsm_overpop_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_OVERPOP"); v = (e && *e == '1') ? 1 : 0; } return v; }
 void rt_bomb(const char *msg);
-static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?"; }   /* ⭐ s179 ZSM-ALL: 5..8 = the FRAMELESS spellings of 1..4 (SCRIP_ZSM_ALL=1, every box) -- the middle dot marks "no push rbp of its own; its invariant is rbp stable at E across all four ports". */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * zsm_kn(long k) { return k == 0 ? "ORIGIN" : k == 1 ? "α" : k == 2 ? "β" : k == 3 ? "ω" : k == 4 ? "γ" : k == 5 ? "α·" : k == 6 ? "β·" : k == 7 ? "ω·" : k == 8 ? "γ·" : "?"; }
 static const char * zsm_sn(int s) { return s == ZSM_FRESH ? "FRESH" : s == ZSM_LIVE ? "LIVE" : s == ZSM_SUSPENDED ? "SUSPENDED" : s == ZSM_RESUMED ? "RESUMED" : s == ZSM_DEAD ? "DEAD" : "?"; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zsm_dump(void)
-{   /* the trace ring: the last ZSM_TRACE ports in execution order, so a violation arrives WITH the path that produced it rather than as a bare coordinate. */
+{
     unsigned long n = g_zsm_tr_n < ZSM_TRACE ? g_zsm_tr_n : ZSM_TRACE, i, first = g_zsm_tr_n < ZSM_TRACE ? 0 : g_zsm_tr_n % ZSM_TRACE;
     fprintf(stderr, "[ZSM] --- last %lu ports (oldest first), event #%lu ---\n", n, g_zsm_events);
     for (i = 0; i < n; i++) { unsigned long j = (first + i) % ZSM_TRACE;
-        { long _k = g_zsm_tr_kind[j] & 0xFFL, _o = (g_zsm_tr_kind[j] >> 8) & 0xFFFFL;   /* ⛔ THE NUMBER, NOT THE NAME, ON PURPOSE: bb_op_name lives in contracts/IR.h, and the runtime MAY NOT KNOW IR (RULES: language identity stops at lower; no SM/BB knowledge at runtime).  Pulling that header in to pretty-print a debug line would buy legibility with an architecture violation.  util_autobug.sh does the op=N -> IR_* mapping instead, parsing the enum at read time -- the layering stays clean and the tool is where a human reads it anyway. */
+        { long _k = g_zsm_tr_kind[j] & 0xFFL, _o = (g_zsm_tr_kind[j] >> 8) & 0xFFFFL;
           fprintf(stderr, "[ZSM]   %-6s op=%-5ld node=%-8lu rbp=0x%lx rsp=0x%lx depth=%ld st=%ld\n", zsm_kn(_k), _o, g_zsm_tr_node[j], g_zsm_tr_rbp[j], g_zsm_tr_rsp[j], g_zsm_tr_depth[j], g_zsm_tr_stno[j]); } }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zsm_leak_report(void)
-{   /* ⭐ s142 -- registered via atexit (rt_zdp_sm_init), so this runs exactly once, at process end, over every
-     * node this run ever touched -- the LEAKED ACTIVATION finding, which must be read at end-of-run and never
-     * mid-run (a SUSPENDED box mid-run is by design not yet resumed; reading it as a leak while the program is
-     * still executing would convict every un-backtracked-into ARBNO, the s141 cut-2 mistake repeated).
-     * s143: also prints the alpha-while-live summary UNCONDITIONALLY (not gated on SCRIP_ZSM_LEAK_REPORT) --
-     * this atexit hook is now the one process-end reporter, registered whenever SCRIP_ZSM=1 regardless of the
-     * leak sub-flag, so the counted-not-fatal alpha signal (see the kind==1 arm's note) is never silently lost.
-     * ⭐⭐⭐ SCRIP_ZSM_RING=1 -- THE AUTOMATIC BUG FINDER'S SECOND HALF (Lon's design, s182, in-chat: "INSTRUMENT
-     * the BB at that LAST AGREEMENT BB to fire TRACE ON when the counter get reached and TRACE OFF when it
-     * arrives at the FIRST DIVERGENCE BB. This trace has the BUG in it and should be REASONABLY LIMITED in
-     * size."  THE BRACKET NEEDS NO COUNTER AND NO NEW STATE, because the IPC monitor ALREADY closes the window
-     * on both sides: it sync-steps both engines and kills the child the instant the controller answers 'S'
-     * (mon_send_bin's ack arm, core.c), i.e. AT THE FIRST DIVERGENCE.  So the process dies inside the bug's own
-     * statement, this atexit hook runs, and the ZSM ring -- the last ZSM_TRACE=64 four-port events in execution
-     * order -- IS the bounded trace Lon asked for, ending at the divergence.  Driver: util_autobug.sh. */
+{
     unsigned long i;
     if (getenv("SCRIP_ZSM_RING")) zsm_dump();
     if (zsm_leak_report_on()) {
@@ -156,35 +85,37 @@ static void zsm_leak_report(void)
     }
     if (g_zsm_alpha_while_live) fprintf(stderr, "[ZSM-ALPHA] total alpha-while-live events (see MATCH_END cross-node whack note): %lu\n", g_zsm_alpha_while_live);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_sm_init(void)
-{   /* ⭐ s142/s143 -- ONE atexit registration, guarded so a re-entrant call (harness re-init) cannot double-register.  Called from the same site that already owns process-lifetime setup (see the SCRIP_ZSM gate at the call site), never from the hot path.  Unconditional under SCRIP_ZSM=1 (s143: no longer gated on the leak-report sub-flag, since the alpha-while-live summary belongs to every ZSM run, not only leak-report runs). */
+{
     static int done = 0;
     if (done) return;
     done = 1;
     atexit(zsm_leak_report);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, long kind)
 {
-    long zop = (kind >> 8) & 0xFFFFL; kind &= 0xFFL;   /* ⭐⭐⭐ ZSM OP-TAG (s182, HQ Fable): the caller packs the producing box's IR KIND into the HIGH BITS of `kind`, so the trace ring can print WHAT each port belonged to instead of a bare node id.  Zero ABI change (kind is already a long and the rtx_zdp shim forwards rcx untouched), ZERO NEW STATE (the tag rides the EXISTING g_zsm_tr_kind cell, unpacked again at print), and unpacked HERE at the top so every FSM comparison below still sees the plain 0..8 port kind it always did.  Motivation, measured: a 64-port beauty window of bare node ids is unreadable, and Lon's IPC/ZSM method lives or dies on reading that window. */
+    long zop = (kind >> 8) & 0xFFFFL; kind &= 0xFFL;
     zsm_ent * e = &g_zsm[node & (ZSM_N - 1)];
     unsigned long t = g_zsm_tr_n % ZSM_TRACE;
-    long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;   /* ⭐ THE PHYSICAL MEASUREMENT: bytes carved below this graph's entry frontier and still standing at this port.  Reported raw; no expected value is consulted. */
+    long depth = g_zsm_rsp0 ? (long)(g_zsm_rsp0 - rsp) : 0L;
     g_zsm_tr_node[t] = node; g_zsm_tr_rbp[t] = rbp; g_zsm_tr_rsp[t] = rsp; g_zsm_tr_kind[t] = kind | (zop << 8); g_zsm_tr_depth[t] = depth; g_zsm_tr_stno[t] = (long)kw_stcount; g_zsm_tr_n++; g_zsm_events++;
-    if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));   /* s182: op tag on the LIVE census too, not just the ring -- a 22k-event beauty trace is only searchable if every line says what box it came from. */
-    if (kind == 0) { g_zsm_rsp0 = rsp; return; }   /* graph entry: establish the datum.  Each graph RE-BASES, so a nested graph legitimately overwrites it. */
-    long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;   /* ⭐ s179 ZSM-ALL: kinds 5..8 are the FRAMELESS α/β/ω/γ (SCRIP_ZSM_ALL=1, every box).  Normalized onto the same FSM by ONE identity: a frameless box's "own frame" IS the enclosing one, so F := rbp-at-α (see the kind==1 arm) -- after which all four existing checks read exactly as Lon's law 0b invariants (β/γ: rbp == rbp-at-α; ω: rbp == E; ω rsp >= rsp-at-α).  The trace ring and census above keep the raw 5..8 spelling so a frameless port is distinguishable in every dump.  A LOCAL, deliberately: this rung adds ZERO file-scope state (the NO-NEW-GLOBALS fact rule). */
+    if (zsm_census()) fprintf(stderr, "[ZSM-DEPTH] %-6s op=%-4ld node=%-8lu depth=%ld rsp=0x%lx rbp=0x%lx state=%s\n", zsm_kn(kind), zop, node, depth, rsp, rbp, zsm_sn(e->state));
+    if (kind == 0) { g_zsm_rsp0 = rsp; return; }
+    long fl = (kind >= 5L && kind <= 8L) ? 1L : 0L;
     if (fl) kind -= 4L;
-    if (e->node != node && zsm_leak_report_on()) {   /* ⭐ s142 -- first time THIS slot is claimed by this node, remember it for the exit-time leak sweep.  Guarded by the same killswitch as the report itself, so it costs nothing when leak reporting is off.  A slot re-claimed by a DIFFERENT node (hash collision) simply gets re-recorded under the new node id -- the KNOWN LIMIT this file already names for recursion/collision aliasing applies here identically, and is not a new limitation. */
+    if (e->node != node && zsm_leak_report_on()) {
         if (g_zsm_seen_n < ZSM_N) g_zsm_seen_nodes[g_zsm_seen_n++] = node;
     }
-    if (kind == 1 && (e->node == node) && (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED)) {   /* ⭐ s142/s143 -- ALPHA-WHILE-LIVE: COUNTED, NOT FATAL (downgraded from abort this session -- see the finding).  ⛔ MEASURED ROOT CAUSE ON BEAUTY, NOT A COMPILER DEFECT: IR_MATCH_BEGIN's frame is retired by a DIFFERENT node's code -- IR_MATCH_END's own alpha does the whole-frame whack (`mov rsp,rbp; pop rbp`, bb_match_end.cpp) BEFORE its own gamma, because in the ζ-STANDING design the frame is CONSTRUCT-scoped (one MATCH_BEGIN..MATCH_END bracket), not per-node.  MATCH_END is not in x86_zdp_rbp_frames()'s predicate, so its whack emits NO ZSM event, and this instrument has no way to attribute "MATCH_END's whack retired MATCH_BEGIN's frame" without a cross-node id thread that does not exist yet (a real design task, not a quick patch -- see FINDING-s142/s143).  A loop that re-executes the same MATCH_BEGIN statement therefore legitimately re-enters alpha while this instrument still shows SUSPENDED, because the RETIREMENT HAPPENED, just under a node id this instrument was not told to credit.  gdb-confirmed on beauty: two alpha events at IDENTICAL rbp (0x7fffffffe8f0 both times, a fixed loop-body stack slot, NOT a growing recursive depth), with the intervening gamma at a lower rbp exactly 64 bytes down -- the MATCH-RBP frame's own documented size -- consistent with "loop body re-entering the same construct", not with a leak. */
+    if (kind == 1 && (e->node == node) && (e->state == ZSM_LIVE || e->state == ZSM_SUSPENDED || e->state == ZSM_RESUMED)) {
         g_zsm_alpha_while_live++;
         if (getenv("SCRIP_ZSM_ALPHA_LOG")) fprintf(stderr, "[ZSM] α node=%lu WHILE state=%s (rbp=0x%lx) -- counted, not fatal; see MATCH_END cross-node whack note\n", node, zsm_sn(e->state), rbp);
     }
-    if (kind == 1) { e->node = node; e->E = rbp; e->F = fl ? rbp : rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }   /* s142: FRESH (or DEAD) --alpha--> LIVE.  The illegal-reentry arm above already ruled out LIVE/SUSPENDED/RESUMED reaching here.  s179: a FRAMELESS box (fl) predicts no push -- its F is the α-entry rbp itself, making the β/γ rbp==F checks the law-0b E-stability invariant. */
-    if (e->node != node || !e->live) {   /* β, γ or ω with no live activation for this node */
+    if (kind == 1) { e->node = node; e->E = rbp; e->F = fl ? rbp : rsp - 8UL; e->rsp_a = rsp; e->live = 1UL; e->state = ZSM_LIVE; return; }
+    if (e->node != node || !e->live) {
         if (kind == 2) { g_zsm_beta_no_alpha++; fprintf(stderr, "[ZSM] β node=%lu WITH NO LIVE α (rbp=0x%lx rsp=0x%lx) -- claimed impossible; counted, not fatal, so one occurrence cannot mask the census\n", node, rbp, rsp); }
-        if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {   /* s142: ILLEGAL: gamma (success transfer) from a box with no live activation -- FSM violation, not merely a counted oddity like beta-no-alpha, because a success exit is impossible without having entered.  s179: COUNTED, NOT FATAL for the FRAMELESS spellings -- the 16-bit node hash aliases under ZSM_ALL's full-population load, and a hash-collision γ must not kill an audit run (the framed kinds keep the bomb: their population is two node kinds and collision-improbable). */
+        if (kind == 4 && (e->node != node || e->state == ZSM_FRESH || e->state == ZSM_DEAD)) {
             g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
               { char b[256]; snprintf(b, sizeof b, "ZSM node=%lu FSM ILLEGAL: gamma with no live α (state=%s) -- success transfer from a box that was never entered", node, zsm_sn(e->node == node ? e->state : ZSM_FRESH)); rt_bomb(b); } }
@@ -192,7 +123,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         }
         return;
     }
-    if (kind == 2) {   /* β: SUSPENDED --beta--> RESUMED.  Reaching a live-but-non-SUSPENDED state (LIVE or RESUMED) via beta is the FSM violation; the existing rbp==F equality check remains the register-level test underneath it. g_zsm_beta_no_alpha (above) counts "no live α at ALL"; this branch is "live, but the WRONG state".  s179: the STATE bomb is framed-kinds-only (hash aliasing under ZSM_ALL, same reason as the γ-no-live arm); the RBP bomb below stays FATAL FOR BOTH -- "RBP correct at β, every box, equal to what α set" is law 0b verbatim, the one invariant this instrument exists to enforce. */
+    if (kind == 2) {
         if (e->state != ZSM_SUSPENDED) { g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
               { char b[256]; snprintf(b, sizeof b, "ZSM β node=%lu FSM ILLEGAL: beta while state=%s (need SUSPENDED) -- backtrack arrival at a box that never left via gamma", node, zsm_sn(e->state)); rt_bomb(b); } }
@@ -202,7 +133,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         e->state = ZSM_RESUMED;
         return;
     }
-    if (kind == 4) {   /* γ (s142, new port): (LIVE|RESUMED) --gamma--> SUSPENDED.  Success hands control forward while leaving the frame standing for a possible later beta -- ζ-ACTIVATION FRAME's own "self-pop at ω" law (PLAN.md THE THREE ZETAS table) says the frame is NOT released here, so gamma checks rbp==F (this departing box's OWN frame, still intact) exactly like beta does, never rbp==E. */
+    if (kind == 4) {
         g_zsm_gamma_events++;
         if (e->state != ZSM_LIVE && e->state != ZSM_RESUMED) { g_zsm_fsm_illegal++;
             if (!fl) { zsm_dump();
@@ -215,7 +146,7 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
         e->state = ZSM_SUSPENDED;
         return;
     }
-    if (kind == 3) {   /* ω: (LIVE|SUSPENDED|RESUMED) --omega--> DEAD.  SUSPENDED->DEAD is legal here (ZW-1/BP-9 carve-only release, see the FSM comment block above) -- omega has no state precondition beyond "not already DEAD", which e->live already enforces via the not-live branch above. */
+    if (kind == 3) {
         e->live = 0UL;
         e->state = ZSM_DEAD;
         if (rbp != e->E) { g_zsm_violations++;
@@ -229,10 +160,10 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
             else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] ω· node=%lu rsp still %ld low vs α -- counted (frameless arm)\n", node, (long)(e->rsp_a - rsp)); }
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_bomb(const char *msg)
 {
-    fflush(NULL);   /* s58 DESCENT-MAP: the bomb is a measurement instrument — everything the program printed before dying must reach the pipe, or the sweep's output-prefix classification reads an empty buffer as empty output */
+    fflush(NULL);
     fprintf(stderr, "libscrip_rt: BOMB — %s\n", msg ? msg : "(no message)");
     abort();
 }

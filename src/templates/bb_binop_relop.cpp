@@ -97,7 +97,7 @@ std::string bb_binop_relop() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_relop_val() {
-    if (PLATFORM_X86 && _.op_zres && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)   /* ⭐ ZK-2 (s226): op_sa/op_sb guards REMOVED from ZD arm -- ZOPQ(k,0/8) reads _.op_zread[k], staged by zd_plan from g_zd_read[]; op_sa/op_sb are flat-frame slots set by emit_binop_opnd_slot which returns -1 for ZD-armed operand nodes (no flat slot allocated on the cells arm).  Only op_zres is needed to select the ZD arm; op_num_real and BINOP_LT..NE are preserved. */
+    if (PLATFORM_X86 && _.op_zres && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
         return x86_alpha()
              + x86("comment", "IR_BINOP_TEST zd")
              + x86("mov", "eax", ZOPD(0, 0))
@@ -130,7 +130,7 @@ std::string bb_binop_relop_val() {
              + x86("mov", "rcx", ZOPQ(1, 8))
              + x86("mov", ZRES(8), "rcx")
              + x86_gamma()
-             + x86_beta_trampoline();   /* ⭐ ZK-2 ZD ARM SEMANTICS (s226): IR_BINOP_TEST is a {γ=pass, ω=fail} Icon generator -- γ yields the rhs value (ZOPQ(1) → ZRES), ω fails.  The prior ZD arm wrote {DT_I,0/1} boolean and fired x86_gamma() on BOTH paths -- the {0,1} encoding from IR_BINOP_RELOP_VAL bleeding into the wrong kind.  With both paths going to γ, the `until` loop (whose body runs on ω) could never terminate: the condition always succeeded from the loop's perspective.  Corrected shape: fast DT_I path uses x86_omega() on the failing jcc (invert from the non-ZD bb_binop_relop arm: that arm tests with the SAME jcc sense as a branch-to-fail, so we use it directly as x86_omega); overload fallback checks rt_jct_relop==0 → x86_omega("jz").  ZOPQ(0,0/8) = lhs (op_zread[0] = depth diff to operand[0]); ZOPQ(1,0/8) = rhs (op_zread[1] = depth diff to operand[1]).  SN4 watermark: IR_BINOP_TEST not emitted by SN4; byte-identical by construction.  ONE AUTHORITY: dispatch (emit.cpp:919) and this ZD arm are the two halves; zd_wl_kind + zd_nops are the planner halves.  NO BETA: the relop has no resume port -- each call to α either produces one result or fails, exactly like a SNOBOL4 comparison.  beta_trampoline emits the β stub pointing to ω per the standard non-resumable shape. */
+             + x86_beta_trampoline();
     if (PLATFORM_X86) {
         return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
                  ? x86_alpha()

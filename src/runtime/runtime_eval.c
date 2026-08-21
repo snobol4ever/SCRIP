@@ -35,15 +35,6 @@ static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ s116 MON-CAP -- THE EVAL TEMP IS A COMPILER MINT AND MUST SAY SO AT MINT TIME.  core.c's mon_name_is_internal (ONE AUTHORITY for both VALUE fire-points) recognises a compiler-minted name by
- * an identifier HEAD followed by '$' -- the shape the SNOBOL4 lowerer already mints for itself (PAT$n, PAT$n$A<i>, PATV$k, PATTMP$n, EXPR$n, IGT$n, SNO$*).  "ZZEVALZZ" carried NO marker, so every
- * EVAL-bearing program emitted VALUE events the oracle has no counterpart for and desynced the trace: measured on probe/eval/ev_min_arith.sno (top-level EVAL, no DEFINE), the oracle emits 3 events
- * and scrip emitted 5 -- two spurious `VALUE ZZEVALZZ` (the INT result, then the STRING(0) restore of the saved value) -- diverging at step 2 of 3.  s112's own note at core.c:293 prescribes exactly
- * this remedy: "The durable fix is a mint-time marker on compiler names; until then, keep it here."  THIS IS THAT FIX, AND IT IS NOT A SECOND RULE: no monitor-side predicate, no ZZEVALZZ special
- * case, nothing to keep in sync -- the name simply joins the convention the filter already reads, so the mint and the filter cannot drift the way a name-specific suppression would.
- * ⛔ THE MARKER IS SAFE FROM THE PARSER BECAUSE THIS NAME NEVER REACHES IT: eval_build_chain parses only the user's expression text "(%s)" and injects this name as an AST TT_VAR node
- * (var->v.sval), so '$' is never read as SPITBOL's indirect-reference operator.  ONE AUTHORITY: every NV_GET_fn/NV_SET_fn site reads this function, so the saved/restore pair cannot straddle two
- * spellings.  Killswitch SCRIP_EVAL_TMP_MARK=0 restores the legacy name for A/B. */
 static const char *eval_tmp_name(void)
     { static int m = -1; if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; } return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -77,21 +68,6 @@ static void eval_cache_put(const char *s, eval_chain_fn fn) {
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
     g_eval_cache_n++;
 }
-/* rt_chain_enter — the s59 DEFER shape for EVAL/CODE (Lon: "no CALL/RET — a JUMP and a JUMP BACK").  Resolve
- * happened in C (cache/compile/registry lookup); this shim WIRES outside-γ→rcx and outside-ω→rdx to one shared
- * landing and JUMPS.  R12-ERAD s67: the r12 anchor + `mov r12,rsp` wholesale reclaim are DELETED — the s65
- * shared epilogue already converted chain exits to ABSOLUTE unwind on BOTH edges (measured in the live blob:
- * γ and ω each `mov [rsp+K-24/-16],rax; lea rsp,[rsp+K]; jmp *rax`, interior failures funnel through the
- * blob-local epilogue first), so the landing always arrives at exactly the pre-jmp rsp and r12 rides through
- * as an ordinary callee-save.  The chain is a NEW ACTIVATION: it self-allocates its own frame (K_total baked
- * at emit time from its region) and is one-shot.  The trailing ret is the C builtin boundary, not the
- * transfer.  ⚠ EXACTLY FIVE PUSHES — the SysV 16-byte stack alignment is load-bearing through the jmp: rsp is
- * 8 mod 16 at entry, +40 bytes of pushes makes it 0 mod 16, and the blob's `sub rsp,K_total` (K_total
- * 16-aligned) carries that alignment into the activation.  A sixth push (the first cut saved ___) left every
- * C callee reached FROM the chain on a misaligned stack and SEGV'd in libc's SSE printf path — measured, gdb,
- * rsp=...be8.  ___ needs no save here: it is the align-save register the chains manage themselves
- * (x86_align_enter/leave).  PROC-CONV converted the last call-regime citizen (LBL__ pseudo-procs,
- * rt_goto_transfer arm 4) to this same transfer; the donated-frame shim rt_callregime_run is deleted. */
 __asm__(
 ".text\n"
 ".globl rt_chain_enter\n"
@@ -104,11 +80,6 @@ __asm__(
 "  movq %rdi, %rax\n"
 "  leaq 1f(%rip), %rcx\n"
 "  movq %rcx, %rdx\n"
-/* RTCC RC-4 INBOUND LOAD (RC-0(d) edge class 1): block→{rsi,rdi,r8,r9,r10,r11} before jmp into generated. */
-/* BLOCK-CANONICAL LAW: a C→generated crossing LOADS the cache.  Gated on g_rtcc_on; GOT-indirect (PIC-safe). */
-/* rax/rcx/rdx carry the live wires (fn ptr + return address) and MUST NOT be touched here.                   */
-/* rsi/rdi (arg-tier) are loaded because they carry no live wire at this site.                                 */
-/* Load order: r11=block ptr; rsi/rdi/r8/r9; r10 overwritten last (GOT scratch → r10 slot value).             */
 "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
 "  cmpb $0, (%r10)\n"
 "  je 2f\n"
@@ -129,32 +100,6 @@ __asm__(
 "  popq %rbx\n"
 "  ret\n"
 );
-/* ⛔⭐⭐ rt_chain_enter_v (s113) — THE VALUE-RETURNING TWIN, AND THE REASON IT HAS TO EXIST.
- * rt_chain_enter above implements Lon's s59 ruling verbatim ("no CALL/RET — a JUMP and a JUMP BACK"):
- * it wires γ→rcx, ω→rdx and `jmp`s, pushing NO return address.  That is correct for every citizen that
- * RUNS TO TERMINATION — rt_goto_transfer's CODE fragments and LBL__ pseudo-procs end at `:(END)` and exit
- * through the driver, so they never take the jump back and the missing way home is invisible.  EVAL is the
- * ONE citizen that must hand a value back, and it is the one that was broken.
- * ROOT CAUSE (s113, gdb-measured, not inferred): CARVE-KILL (ef9a7d2c/1ba33ea6) deleted xa_flat_prologue —
- * the producer half of the jmp-entry protocol.  The ONLY surviving site that stores the {γ,ω} wire header
- * is emit.cpp's flat_lcl_proc arm (~:2741/:2746).  A chain armed flat_jmp_entry=1 / flat_lcl_proc=0 (exactly
- * what emit_jmp_entry_for_chain produces) therefore gets NO prologue, NO wire header, GLUE-O suppressed by
- * its own flat_jmp_entry conjunct — and an epilogue that `ret`s.  Measured on `EVAL('1 + 2')`: flags
- * flat_jmp_entry=1 flat_frame_bytes=112 at emit_chain, yet the emitted chain is
- *   0x00 jmp α · 0x05 jmp ω · α: sub rsp,16 ×3 (its own FORTH spine) … add rsp,48 · mov eax,2 · RET
- * — no `sub rsp,112`, no `mov [rsp+kt-24],rcx`.  The `ret` pops rt_chain_enter's saved %r15 and jumps to it:
- * rip=_rtld_global, frame #1 = 0x41ad68.  That is the whole "omega_driver signature" of s103/s110/s112.
- * ⛔ THE CHAIN IS ALREADY A C-ABI CITIZEN — it ends in `ret` and returns DT in eax:rdx (eval_chain_fn is
- * literally DESCR_t(*)(void*,int)).  So the two halves of the protocol disagree, and the cheap correct move
- * is to give the ret-ending chain the return address it is already asking for, WITHOUT touching the stub the
- * terminating citizens use and WITHOUT moving one byte of generated code (MD5 radius 0 by construction).
- * ⚠ ALIGNMENT IS LOAD-BEARING AND IS WHY THIS IS `sub 8 + push` AND NOT A BARE 6TH PUSH.  The chain assumes
- * rsp ≡ 0 (mod 16) at its entry — its interior `call *%rax` sites are aligned off exactly that.  Five pushes
- * (40B) take the 8-mod-16 C entry to 0 mod 16; a 6th push alone would leave 8 mod 16 and SEGV in libc's SSE
- * printf path (measured at s59, rsp=...be8, recorded in rt_chain_enter's header — do not re-derive it).
- * `sub $8` + `push` moves 16 bytes: the landing sits at [rsp] for the chain's own `ret` AND entry stays
- * 0 mod 16.  The landing drops the 8-byte pad before unwinding the callee-saves.
- * rcx/rdx are still wired identically, so a chain that jumps back instead of returning is unaffected here. */
 __asm__(
 ".text\n"
 ".globl rt_chain_enter_v\n"
@@ -192,14 +137,8 @@ __asm__(
 );
 void rt_chain_enter_v(eval_chain_fn fn);
 void rt_chain_enter(eval_chain_fn fn);
+int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Deferred-expression thunks (`. *F(X)`) minted by a RUNTIME compile.  lower_snobol4 mints one EXPR$N proc per
- * deferred operand and files it in g_stage2; the driver does the register+emit walk for the main program, and
- * this is that same two-phase walk for the fragment path, over just the procs the fragment added [pc0, count).
- * Without it the dcap pump's rt_proc_call_open on EXPR$N finds no body and the conditional assignment is a
- * no-op.  dyn_scope=1 on every thunk, so the pump's open lands the dyn prologue and the NRETURN'd NAME rides
- * the rt_g_want_name the pump re-arms. */
-int g_rt_fragment_emit = 0;   /* D-18b (s161): TRUE while the RUNTIME fragment compiler is emitting -- bb_call_proc_staged's TINY arms consult it and REFUSE, because a fragment's callees (EXPR$/PAT$ thunks and cross-chain mains) carry no <name>_α staging label for the alpha$ cell to seal against (measured: alpha$EXPR$0F1 / alpha$PAT$0 MISS under SCRIP_SEAL_DIAG); refused sites fall to the slim/legacy call = the rt fn-pointer machinery main programs already use for every thunk call (m1 witness family green). */
 static void eval_thunks_emit_from(int pc0)
 {
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);
@@ -229,7 +168,7 @@ static void eval_thunks_emit_from(int pc0)
     int ga = g_gen_proc_active;
     g_rt_fragment_emit = 1;
     int b1c = 1; { const char *_be = getenv("SCRIP_B1C_PARITY"); if (_be && *_be == '0') b1c = 0; }
-    int b1cland = 1; { const char *_le = getenv("SCRIP_B1C_LAND"); if (_le && *_le == '0') b1cland = 0; }   /* B1c-R1b: DEFAULT ON since the s178 flip (Lon greenlight; =0 reverts verbatim) -- the flip's own witnesses are ptx_shift_alt_arms{,_2layer} (the ALT-of-EVAL-built-arms commit crash, beauty's Command shape, m3 SEGV -> oracle-identical under this arm; measured s178, receipts in FINDING s178-FW).  Original s173 text (still true for the m4 half): OPT-IN killswitch for the m4 CLASS-P floor fallback below -- was DEFAULT OFF.  Armed, it flips the m4 fragment thunk from the CLASS-C `ret` epilogue to the CLASS-P wire exit, which is HALF the cure: the other half (sealing alpha$<FN> to the statically assembled <FN>_α, seat6 s170 §5b with $-bearing names excluded) needs an m4-PREAMBLE emission and therefore carries a 527-file .s blast radius, so it is a separate rung.  With only this half armed the observable m4 answer is UNCHANGED (still Error 22 at the unsealed cell) -- verified, not assumed -- which is exactly why it can ship ahead of its partner. */   /* B1c (s168, HQ): fragment loop to DRIVER EMIT-CONTEXT PARITY — FINDING-2026-08-19-s168; DEFAULT ON since s169, killswitch SCRIP_B1C_PARITY=0. MEASURED s169 (b1c-flip seat) ON A PRISTINE BUILD AT f44be5f1, DRIVER AND .so FROM ONE COMMIT: 6-suite scorecard A/B, 1024 programs x 2 modes x 2 arms -- 9 movers, EVERY ONE crash->better, ZERO regressions (not one PASS left PASS in either mode); m3 PASS 956->962, m4 PASS 944->944 unchanged; mode-4 .s md5 blast radius 0 movers / 527 comparable, so the default arm's emitted code is byte-identical by measurement, not just by construction. `=0` restores the pre-flip behaviour verbatim (BASELINE-ARM law). Residue owned elsewhere: m4 still SEGVs at the seam (queue row b1c-m4-seam, FINDING s168 R1) and three retreat witnesses run clean but answer match where the oracle retreats to nomatch (queue row b1c-retreat, R2) -- both are crash->non-crash moves here, neither is a regression. */
+    int b1cland = 1; { const char *_le = getenv("SCRIP_B1C_LAND"); if (_le && *_le == '0') b1cland = 0; }
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
@@ -237,22 +176,22 @@ static void eval_thunks_emit_from(int pc0)
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;
-        if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }   /* B1c parity: driver m3 loop scrip.c:1664 */
+        if (b1c) { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
         if (b1c) { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = g_stage2.bbp.table[idx]; g_flat_frame_floor = 0;
             if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) {
                 for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
                     int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; }
-                if (g_flat_frame_floor <= 0 && b1cland) g_flat_frame_floor = zls_g_region(_pg); } }   /* B1c parity: SN4-FLAT-PROC floor, scrip.c:1671; cleared by emit_jmp_entry_clear */   /* ⭐ B1c-R1b (s173, seat1): THE ABOVE `main` LOOKUP CANNOT SUCCEED IN AN m4 PROCESS -- g_stage2 there holds ONLY this fragment's own procs (measured: proc_count 5 in m3 {main,LBL__PC,PC,EXPR$0F1,PAT$0} vs 2 in m4 {EXPR$0F1,PAT$0}), so the floor stays 0, emit.cpp:3308's `_wire_stub` reads 0, and this wire-ENTERED thunk is emitted with bb_glue_outer's CLASS-C epilogue (`mov eax,DT_S; ret`) instead of bb_glue_wire's (`jmp r10`/`jmp r11`).  It is then entered by a wire jmp from the defer site, so the `ret` pops a pattern-match frame slot that was never a return address and executes stack bytes.  The entry-shape test guarding this block IS the real CLASS-P discriminator (role-3 wire-adopt entry); the `main` row only ever supplied a NUMBER, and runtime_eval.c's own emit_chain comment below states fragment graphs are SELF-OWNED and never main-shared -- so flooring a fragment at its OWN region is both the honest value and a structural no-op on the carve (rg = max(rg, rg)).  Zero .s blast radius by construction: this runs only inside eval_thunks_emit_from, unreachable on the --compile path.  FINDING-2026-08-19-s173. */
+                if (g_flat_frame_floor <= 0 && b1cland) g_flat_frame_floor = zls_g_region(_pg); } }
         { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
           int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
-          if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }   /* B1c parity: PL-DC arming, scrip.c:1674 */
-        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");   /* B1c: ->entry is CORRECT here, bb_proc_entry RULED OUT by asm-diff (s165: emitting from proc_entry_node drops the thunk's entry prologue -- the 0x70 frame carve + rcx/rdx wire save -- and the body falls into slab zeros); fragment graphs are self-owned, never main-shared, so the s176 shared-graph rationale does not apply */
+          if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }
+        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
         if (pfn) rt_proc_set_fn(pname, pfn);
-        { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }   /* ⭐⭐⭐ D-18a (s161): THE MISSING LINE — the main driver seals alpha$<FN> for every proc it emits (scrip.c R-1 s94 loop); this fragment loop registered and set fns but never sealed, so alpha$EXPR$<thunk> stayed rt_ab_undef_fn_stub and every deferred call inside an EVAL-built pattern raised error 22 at match time (B1b witness; beauty's grammar is built of exactly these). Label pool is live here — emit_jmp_entry_clear below is the same boundary the driver seals across. */
-        if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }   /* B1c parity: scrip.c:1680 — teardown/unwind reads the frame geometry */
-        if (b1c && pfn) { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* B1c parity: PS-1b, scrip.c:1683 — DT_P carries real zstatic */
-        if (b1c && pfn) { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* B1c parity: PS-3, scrip.c:1684 — ζ suspension footprint for DT_P targets */
-        if (b1c && pfn) { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* B1c parity: PL-DC seal, scrip.c:1685 */
+        { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }
+        if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
+        if (b1c && pfn) { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
+        if (b1c && pfn) { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
+        if (b1c && pfn) { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
         emit_jmp_entry_clear();
     }
     g_rt_fragment_emit = 0;
@@ -277,14 +216,6 @@ static eval_chain_fn eval_build_chain(const char *s)
     var->v.sval = rt_ws_strdup(EVAL_TMP);
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
-/* ⭐ s115 MON-CAP -- THE EVAL CHAIN'S LABEL EVENT HAS NO SPITBOL COUNTERPART.  eval_build_chain stamps its SYNTHESIZED statement :stno 1, so the bb_statement monitor tap fires `LABEL
- * stno=INT=1` every time a chain executes -- an event the oracle never emits, because the oracle has no such statement.  EVERY EVAL-BEARING PROGRAM THEREFORE "DIVERGES" AT THE CHAIN'S FIRST
- * STATEMENT WHETHER OR NOT IT IS CORRECT: s114 measured ev_fn_literal reporting the identical step-5 divergence before AND after a real fix, so the monitor could not grade the fix that cured
- * it.  This is the exact disease the MON-RE GOTO-tap note at emit.cpp:1189 already records ("a LABEL at PURE WIRING nodes has no counterpart in SPITBOL's wire, so every program -- passing ones
- * included -- diverged within 3 steps and the monitor could not bracket ANY bug"), one node class over.  RULES.md: a monitor blind to the divergence CLASS must be extended before the hunt it
- * is blind to.  ONE AUTHORITY, NOT A SECOND RULE: the tap staging at emit.cpp:1202 already reads `op_stno > 0`, so a synthesized statement only has to stop CLAIMING to be source statement 1 --
- * no new suppression predicate, no monitor-side filter, nothing to keep in sync with the emitter.  0 is the honest value: this statement has no source counterpart.  Killswitch
- * SCRIP_MON_CHAIN_STNO=1 restores the old claim for A/B.  Beauty is EVAL-bearing, so this stands between the monitor and Milestone 1. */
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
       ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
     ast_push(st, ast_attr_expr(":subj", var));
@@ -303,7 +234,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     void *g = lower_snobol4(prog);
     if (!g) { ast_tree_free_dyn(prog); return NULL; }
     sno_expr_thunks_build(xm);
-    if (sno_pat_count() > pat0) sno_pat_thunks_build(pat0);   /* BLOCKER-C (s144): EVAL expr may mint PAT$N — build proc thunks so eval_thunks_emit_from below emits+registers them (else SNO$MKPAT miss) */
+    if (sno_pat_count() > pat0) sno_pat_thunks_build(pat0);
     extern int g_frame_active;
     extern IR_graph_t *g_emit_cfg;
     IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = (IR_graph_t *)g;
@@ -320,34 +251,15 @@ static eval_chain_fn eval_build_chain(const char *s)
     return fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* EVAL-CHAIN-RET (this session): CLASS C chains (EVAL/CODE JIT fragments) exit via bb_glue_outer_γ/ω which
- * does mov rsp,___; pop ___; ret.  The ret lands in eval_string_transient (the caller of THIS function)
- * after "call eval_chain_run_capture" — skipping this function's NV_GET_fn(EVAL_TMP) call entirely.
- * The chain's γ return value is eax=DT_S, rdx=garbage — unusable as a DESCR.
- * FIX: eval_string_transient reads ZZEVALZZ directly after calling eval_chain_run_capture.
- * THIS function now only exists to correctly set up ___ as the eval_chain_run_capture frame base
- * so the chain's "mov rsp,___; pop ___; ret" correctly unwinds to eval_string_transient.
- * __attribute__((noinline)) ensures a real call frame with its own ___. */
 __attribute__((noinline))
 static void eval_chain_enter_only(eval_chain_fn fn) {
     static int _rv = -1; if (_rv < 0) { const char * e = getenv("SCRIP_EVAL_RET"); _rv = (e && *e == '0') ? 0 : 1; }
     if (_rv) { rt_chain_enter_v(fn); return; }
     rt_chain_enter(fn);
-    /* chain ret lands in eval_string_transient; this line is never reached */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ B2c ROOT CAUSE (s172, queue row beauty-m3-zls): AN EVAL THAT RETURNS A PATTERN HANDS BACK A VALUE LIVING INSIDE THE CHAIN'S OWN JIT BLOB, so releasing that blob when the EVAL returns is a
- * USE-AFTER-FREE, not a memory economy.  The old line read `mark < EVAL_RETAIN_BUDGET`, and `mark` is the WHOLE pool frontier -- the program's own compiled code included -- so the predicate
- * answered "is this program's code smaller than 2MB?", never "how much has EVAL retained?".  MEASURED on beauty: its m3 blobs seal at 0x202000 = 2,105,344 bytes, 8,192 PAST the 2MB budget, so
- * EVERY EVAL in beauty-m3 took the release arm; the pattern built by semantic.inc's `shift = EVAL("p . thx . *Shift('" t "', thx)")` was dangling the instant it was assigned, and the first
- * Shift/Reduce match jumped to pool_top (0x7fffee202000: page-aligned, re-mprotect'ed RW by bb_pool_release, hence SIGSEGV on instruction FETCH, with rax == rip == the DTP's fn field).  m4
- * escaped only because its code lives in the ELF and not in the pool, so mark stayed near 0 and the same chains were retained -- the mode asymmetry was an ACCOUNTING artifact, not a dirty quad
- * (the `zls_g_region` frame the s170 census read is a stale return address in dirty stack that gdb prints as frame #1 -- a fingerprint of the dirty spine, never a caller).  DEFAULT IS NOW
- * RETAIN: the chain is cached and its blob kept for the life of the process, which is exactly what every program under 2MB already got.  Killswitch `SCRIP_EVAL_RETAIN=<bytes>` sets the budget
- * for A/B -- =2097152 restores the historic 2MB cliff verbatim, =0 releases every chain (the class in one command: witness corpus/probe/b2c/b2c_eval_pat_release.sno, 7 lines, PASS at default,
- * SIGSEGV at =0).  Pool exhaustion stays bounded and now fails HONESTLY: bb_alloc returns NULL at the 64MB reserve, eval_build_chain returns NULL, and the EVAL fails instead of jumping into
- * freed pages. */
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
@@ -356,7 +268,7 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
     eval_chain_enter_only(fn);
     g_core_errjmp_n = my; g_error = esv; return 1;
-}   /* ⭐⭐⭐ CN-EVAL-FAILS (this seat, queue row `cn-oracle-rulings`; Lon s168 "use SPITBOL as an Oracle") -- MANUAL v3.7 p.131, "EVAL fails if evaluation of its argument fails", MADE TRUE FOR THE RUN HALF. SCRIP already honoured p.131 for the COMPILE half: a fragment that will not parse returns a NULL chain and the EVAL takes :F (measured, EVAL('3 +') fails on both engines at HEAD). What it did NOT survive was an error raised while the fragment RAN -- core_runtime_error printed and exit(1)'d, killing the whole program where the oracle merely fails the statement and runs on. Measured on live x64 sbl: EVAL('&NEVERSET') -> :F &ERRTYPE 251, EVAL('UNDEFINEDFN(3)') -> :F &ERRTYPE 22, EVAL('1 / 0') -> :F &ERRTYPE 14, and 'reached-end' prints in every case. ⛔ WHY g_error IS BORROWED AND NOT A NEW FLAG: core_runtime_error's conversion arm is gated on g_error, the arm this boundary needs, and the FACT RULE forbids minting a global to say the same thing twice. It is SAVED AND RESTORED on both exits (esv) and on the catch path, so the borrow is invisible to any frame outside this one, and -1 is chosen deliberately -- the conversion arm decrements only `g_error > 0`, so an unlimited grant neither spends a credit nor perturbs a program that set the cell itself. The push/pop discipline (`my` snapshot, restore to `my` not a decrement) is by_name_dispatch.c:1483's, so a longjmp from a DEEPER frame that skipped its own pop cannot strand this one. ⛔ THE POOL AND THE CACHE ARE DELIBERATELY UNTOUCHED BY FAILURE: a chain that failed at RUN time is still a VALID compiled artifact -- it failed on program state, not on its own code -- so it caches and releases exactly as a successful one does, which keeps memory behaviour byte-identical to HEAD and keeps a failing EVAL in a loop from growing the pool. Releasing the blob on the failure path was the tempting alternative and is the s172 B2c use-after-free wearing a different hat. Killswitch SCRIP_EVAL_FAILS=0 restores the abort for A/B. */
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
@@ -394,24 +306,6 @@ DESCR_t eval_expr(const char *src)
     if (!tree) return FAILDESCR;
     return eval_node(tree);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* EVAL/CODE (manual Ch.9, directive lifted 2026-07-08).  Runtime label registry: fragment labels registered by
- * code(); resolution order in rt_goto_resolve is (1) `$X` indirect deref, (2) `<X` DIRECT GOTO, (3) END, (4) this
- * registry — so a fragment label OVERRIDES a same-named main label per the manual — (5) the main program's LBL__
- * pseudo-procs (exported by lower_sno_stage2 when the program uses CODE), (6) fault.  ARM 2 IS THE `:<expr>` FORM
- * (manual v3.7 p.178): the lowerer evaluates the bracketed operand into the hidden DGT$n whose name arrives here
- * behind the `<`, and that value MUST be a CODE object — a string, an integer and an unassigned name each raise
- * SPITBOL ERROR 024 ("goto operand in direct goto is not code"), all three measured on the live oracle.
- * ⛔ THE OLD ARM 5 IS DELETED (s192): it resolved a BARE label name through a variable holding a CODE value,
- * because the lexer used to fold `:<C>` onto the plain-name form — ONE token pair for TWO different constructs.
- * The fold made `:(C)` execute the code object where the oracle raises ERROR 038 (goto undefined label), and it
- * could carry neither `:< C >` nor any non-variable operand.  The `<` prefix restores two brackets, two roads.
- * A transfer RUNS the target nested on a fresh 64KB frame (GC-visible so DESCR temporaries in it stay rooted);
- * SNOBOL4 gotos never resume their source, so the target running to termination cascades clean returns back up
- * every crossing — the process exits through the driver as always.  Honest slice-1 caveats: one frame is
- * allocated per crossing and never freed, and each crossing nests one C-stack level, so a loop that ping-pongs
- * across the main/fragment boundary (label-to-label, not within one graph) grows both without bound — fine for
- * the manual's shapes (a handful of crossings), a real rung for a frame-recycling tail-transfer later. */
 typedef struct { char *key; eval_chain_fn fn; } lbl_ent_t;
 static lbl_ent_t *g_lbl_tab = NULL;
 static int        g_lbl_n = 0;
@@ -436,10 +330,10 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) return g_lbl_tab[i].fn;
     return NULL;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GOTO_FRAME_BYTES (64 * 1024)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_goto_resolve(const char *name)
-{   /* ⭐ THE RESOLVE HALF, SPLIT OUT (row beauty-return-pair-shift): identical lookup order to what rt_goto_transfer has always done, but it RETURNS the chain address instead of entering it.  NULL means "no transfer" -- today only the END sentinel and the empty name, exactly the two cases the old code answered with a bare `return`.  Splitting is behaviour-preserving BY CONSTRUCTION: rt_goto_transfer below is now literally resolve-then-enter, so every existing caller sees the same sequence of lookups, the same diagnostics and the same exit(1) on an undefined label.  It exists so a CALLER CAN TAIL-TRANSFER: rt_chain_enter runs the transferee as a NESTED one-shot activation with chain-scoped wires (rcx/rdx -> its own landing, five callee-save pushes below), which is right for an EVAL/CODE fragment that terminates and WRONG for a computed goto into a labelled statement that ends in `:(RETURN)` -- the manual's own return idiom (v3.7 p.130: RETURN is a reserved LABEL reached by a goto, not a statement).  Such a transferee reaches the shared RETURN floater at the NESTED depth, where the {γ,ω} pair its DEFINE α pushed is not, and the depth-exact `pop rcx` reads C save-set data. */
+{
     if (!name || !*name) return NULL;
     if (name[0] == '$') {
         DESCR_t iv = NV_GET_fn(name + 1);
@@ -464,7 +358,7 @@ void *rt_goto_resolve(const char *name)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_transfer(const char *name)
-{   /* UNCHANGED BEHAVIOUR, RESTATED: resolve, then enter nested.  Every pre-existing caller keeps this exact shape; the tail-transfer road is opt-in at the emission site (bb_goto_deferred, SCRIP_GOTO_TAIL), never here. */
+{
     void *fn = rt_goto_resolve(name);
     if (fn) rt_chain_enter((eval_chain_fn)fn);
 }
@@ -483,13 +377,6 @@ DESCR_t code(const char *src)
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
-    /* BLOCKER-C (s144): a runtime CODE fragment that contains a pattern match lowers through sno_lower_fragment_at,
-     * whose sno_pat_collect walk MINTS new PAT$N entries (continuing g_sno_npat past the main-program set) but —
-     * unlike lower_sno_stage2 — never turns them into emitted+registered proc_table blobs.  At match time the
-     * fragment body calls SNO$MKPAT("PAT$N") → rt_proc_get_fn → NULL → "compiled pattern blob not registered".
-     * Capture the pattern + proc watermarks BEFORE lowering; after every fragment body is lowered+emitted, build
-     * proc_table thunks for the newly-collected patterns (sno_pat_thunks_build) and emit+register them through the
-     * same eval_thunks_emit_from path the EVAL arm uses.  Mirrors main's sno_pat_thunks_build(0) + driver loop. */
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
     int pat0 = sno_pat_count();
@@ -517,7 +404,7 @@ DESCR_t code(const char *src)
         }
         k++;
     }
-    { int patn = sno_pat_count(); const char *ks = getenv("SCRIP_CODE_THUNKS");   /* ⭐ s179 (HQ Fable, PT-COMBO class-7 fn-road reds): the s144 BLOCKER-C patch copied only HALF the EVAL road -- it minted the fragment's new PAT$ bodies but NEVER its new EXPR$ bodies (an in-code `*F()` defer calls sno_expr_collect, which mints the NAME the defer site bakes, while the body-building phase sno_expr_thunks_build -- called by the main driver at lower_snobol4.c:2806 and by the EVAL road at :305 -- was absent here entirely), and its emit gate keyed BOTH calls on the pattern counter, so even a built body would not have been emitted.  Measured (gdb, witness ptw_min_code_fn): pc0 == g_stage2.proc_count at the emit walk -- zero procs filed -- then [GZ-10] 'EXPR$N' has no stackless slab -> silent nomatch (ptc7{f,b}_fn* family).  Cure = finish mirroring the EVAL road: build expr thunks from the captured mark, build pat thunks conditionally, emit UNCONDITIONALLY (a zero-iteration walk when nothing was minted).  SCRIP_CODE_THUNKS=0 restores the old shape exactly (no expr build, pattern-gated emit). */
+    { int patn = sno_pat_count(); const char *ks = getenv("SCRIP_CODE_THUNKS");
       if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }

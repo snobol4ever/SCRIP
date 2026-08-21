@@ -40,30 +40,24 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void stmt_init(void) {}
-/* RTX-FUNC-0 AB posthook: file-statics + one-shot callback for g_emit_chain_posthook */
 static IR_graph_t *g_ab_posthook_g = NULL; static int g_ab_posthook_gva = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int); if (g_ab_posthook_g) bb_ab_emit_nodes(g_ab_posthook_g, g_ab_posthook_gva); }
-/* ICN-FR-2: ζ-frame exit-wire thunks for the m3 main graph.  The ζ-frame epilogue does `jmp rcx` (γ) / `jmp rdx` (ω);
- * the main graph needs these to point at exit(0)/exit(1) respectively.  rt_outer_call does NOT preserve rcx/rdx across
- * its asm wrapper, so the driver uses a raw asm block to set them directly before calling the graph function. */
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
-/* Jump to fn with rcx=wire_γ rdx=wire_ω rdi=mf rsi=0 r12=RT_DCAP_TOP.
- * ICN-FR-2: jmp not call — ζ-frame kt is sized for jmp entry (no return-address push on the stack);
- * using call would shift rsp by 8 and corrupt [rsp+kt-24/-16/-8] wire reads.  The main graph exits
- * via icn_zf_exit_γ/ω→exit() and never returns here, so the missing ret is correct. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile(
         "push %%r12\n\t"
         "sub $8, %%rsp\n\t"
         "mov $0x70000000, %%r12\n\t"
-        "mov (%%r12), %%r12\n\t"        /* r12 = *RT_DCAP_TOP */
-        "xor %%esi, %%esi\n\t"         /* rsi = 0 */
-        "xor %%r14d, %%r14d\n\t"       /* ICN-FR-5: r14=0 → &pos=1 outside any scan (bb_keyword_icon reads r14+1; uninitialized r14 gave &pos=4296041) */
-        "jmp *%%rax\n\t"               /* ICN-FR-2: jmp (not call) — ζ-frame kt sized for jmp entry; exits via wire→exit() */
+        "mov (%%r12), %%r12\n\t"
+        "xor %%esi, %%esi\n\t"
+        "xor %%r14d, %%r14d\n\t"
+        "jmp *%%rax\n\t"
         :
         : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
-        : "memory", "rsi", "r8", "r9", "r10", "r11"           /* ICN-FR-5 CLOBBER-FIX: r14 removed — fn never returns (jmp→exit()), so GCC's clobber-driven r14 spill around the call site corrupted the stack used by rt_outer_call in the non-zframe path (image(int) SEGV). r14 is zeroed inside the asm body before the jmp; no caller-side save/restore needed. */
+        : "memory", "rsi", "r8", "r9", "r10", "r11"
     );
 }
 extern DESCR_t      eval_expr(const char *src);
@@ -82,9 +76,9 @@ extern int         Δ;
 #include "../contracts/zeta_choices.h"
 #include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }   /* R3 SPLICEMAP (s156): emit `.type <blob>_α, @function` + `.size <blob>_α, .-<blob>_α` around every emitted chain.  WHY: the blob labels are `.globl`'d but carry NO type and NO size, so their ELF symbols have st_size=0 and no address RANGE — cachegrind/callgrind therefore attribute every sample inside a blob to `???` instead of to the blob.  Measured s156 on treebank: 92.1% of ALL D1 write misses (168,928 of 183,501) land in `???`, so the α-diet campaign is aiming blind on its own primary metric; the s155 cursor already recorded the same blindness for claws5/json at 97-100%.  This is PURE ELF METADATA — not one instruction byte changes — but it is opt-in so THIS session's default `.s` stays byte-identical and the change is provably inert; the default flip is its own rung (with the `.s` regen it implies), exactly as SCRIP_ARBNO_LATCH and SCRIP_SEQ_FOLD landed. */
-static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1; /* ROLE-3 DELETE (Lon s114): the kind-1 DEFINE stub now ENTERS at its goto_deferred — the do-nothing wire-adopt box is removed from the IR */ const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }   /* ⭐ EXPR-THUNK EXITS (GOAL-SNOBOL4-100 bb_probes class B, s96): THE ONE AUTHORITY for what a role-3 WIRE-ADOPT-entered chain IS -- 0 = not role-3; 1 = the DEFINE stub blob (lower_snobol4.c:2048, role-3 -> IR_GOTO_DEFERRED transfer into a body that lives in main's chain: BARE per s62, registered AT its DEFINE site per s57); 2 = the self-contained EXPR$ thunk (lower_snobol4.c:2458, role-3 -> its own body -> IR_SUCCEED/IR_FAIL: owns its wire exits, has NO DEFINE site so it MUST be registered at startup).  MEASURED (f6d/t6m/fence_probe + `S BREAK(',') *DIFFER(X)`): the s62 _bare predicate keyed on the bare role-3 shape, so every EXPR$ thunk was emitted BARE in m4 -- its γ/ω aliased to main_ω -- and the s57 dyn_scope skip left it unregistered ([GZ-10] no stackless slab); m3 crashed on the same graphs through rt_proc_enter's stale rcx/rdx wire delivery (rt.c twin fix). */
-static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }   /* D-18a: body hoisted to bb_define.cpp bb_ab_sym_name (one authority, .so-linkable); wrapper keeps the driver call sites untouched. */
+static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
+static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
+static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
@@ -214,7 +208,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
-    if (r->op == IR_BINOP_RELOP_VAL) return 1;   /* RK-ZC-6: bool_compare_store uses BINOP_RELOP_VAL as assign RHS; template bb_binop_relop_val() already handles it; gate was blocking with SMX. */
+    if (r->op == IR_BINOP_RELOP_VAL) return 1;
     if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
                                || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival)))
         return 1;
@@ -376,7 +370,6 @@ extern IR_graph_t *resolve_bb_graph_at(int idx);
 extern int resolve_bb_pred_count(void);
 extern const char *resolve_bb_pred_name_at(int idx);
 extern int resolve_bb_pred_arity_at(int idx);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -397,7 +390,6 @@ static int apply_stack_limit(long bytes) {
     if (rl.rlim_cur != RLIM_INFINITY && (rlim_t)bytes <= rl.rlim_cur) return 0;
     rl.rlim_cur = (rlim_t)bytes; return setrlimit(RLIMIT_STACK, &rl);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bbj_str(FILE * fp, const char * s) {
     fputc('"', fp);
@@ -440,15 +432,15 @@ static void bbj_edge(FILE * fp, int * first, int gi, int i, const char * fp_name
     *first = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face) {   /* D-18a: body HOISTED VERBATIM to bb_define.cpp bb_ab_seal_entry_cells (the allocator's home) so the runtime fragment compiler seals its thunk cells through the SAME authority; this wrapper keeps the driver's 3 call sites untouched. */
+static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face) {
     extern void bb_ab_seal_entry_cells(const char *, void *, int);
     bb_ab_seal_entry_cells(pname, fnbase, alpha_face);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⛔⭐⭐⭐ MODULE-INIT RELOCATION (s125) — ONE AUTHORITY for the ordering question s123 measured and could not answer without a ruling.  SCRIP_MODULE_INIT=0 = pre-s125 verbatim (killswitch INVERTED s125 under Lon's in-chat grant, NOT deleted, per R-7): the block emits at its historical site under the name main_init, BEFORE the STATEMENT-ORDER FB-BACKFILL, so it reads proc_fb_buf PRE-patch and every LBL__ row that shares main bb_idx ships the stale 0.  DEFAULT (ON) = the block emits AFTER the backfill under the name module_init, so it reads the PATCHED values and the backfill stops being inert for the first time since s62.  THE ORDERING IS CIRCULAR IN THE OFF LAYOUT AND THAT IS WHY THE BACKFILL NEVER FIRED: the backfill needs g_last_flat_frame_bytes, which only main chain emission sets, and main emits AFTER this block — so no widening of the OFF site can ever see a patched value.  Fires on exactly 4 corpus programs (beauty 14 rows, porter 30, TDump_driver 6, Qize 2) and ZERO of the 72 benchmark+probe programs, so a benchmark-drawn witness set certifies it byte-identical and ships it blind — gate on those four, never the benchmarks. */
+static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ APPLY-SNODEF (row apply-snodef-m4): the STARTUP-HOIST-DELETE below is a ruling about REGISTRATION (Lon s114: a function becomes callable only when its DEFINE executes) and it is preserved verbatim -- but the deleted hoist was ALSO the only thing that ever handed the m4 image the address of <FN>_\u03b1, the record-contract entry every BY-NAME route needs.  rt_define_site registers fn = the natural statement label, so alpha$<FN> stays unsealed and rt_dyn_alpha_fn falls back to that generic entry thunk, whose protocol rt_proc_enter's wire jmp cannot speak (rip=_rtld_global).  This gate emits the SEAL ONLY -- a static code address published at image load, NOT a registration: rt_call_proc_descr/rt_call_named_proc both consult rt_proc_find FIRST and still fail until the DEFINE runs, so nothing becomes callable early.  \u26d4 THE \u03b1 FACE IS NOT ALWAYS EMITTED -- it exists only where the TINY shim is admitted (1010_func_recursion emits its DEFINEs inline in the shared chain and has no fact_\u03b1 at all), and the driver cannot ask the live label pool because a proc blob's pool is retired long before module_init emits at the bottom.  So the LINKER answers instead: `.weak <FN>_\u03b1` plus a @GOTPCREL load yields rsi=0 for a face that was never emitted (a plain lea would be an R_X86_64_PC32 against an undefined symbol, which a PIE link REFUSES -- measured), and rt_proc_seal_alpha's !fn guard turns that into a no-op, leaving the pre-fix fallback in charge exactly where it was already correct.  SCRIP_M4_ALPHA_SEAL=0 restores the pre-fix emission byte-identically. */
-static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {   /* body lifted VERBATIM from the historical scrip.c:989-1331 main_init site (s125); the only edit is the label name, which rides mi_name so the OFF arm stays byte-identical.  Emitted from exactly one of two call sites, chosen by sn4_module_init_bottom(). */
+static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
         emit_textf("%s:\n", mi_name);
         emit_textf("  sub rsp, 8\n");
@@ -666,16 +658,16 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
           } }
         for (int i = 0; i < n_procs; i++) {
             ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
-            if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) { if (sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) { emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]); emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i]), i, asm_sym_name(proc_names_buf[i])); } continue; }   /* ⭐ EXPR-THUNK EXITS (s96): the EXPR$ thunk (kind 2) is dyn_scope with NO DEFINE site, so it is registered HERE at startup like the non-dyn rows; every other dyn_scope row keeps the s57 site registration. */   /* ⭐⭐⭐ DEFINE-SITE s57 (Lon): the DEFINE registration lives AT the statement in the shared chain (bb_define_bind's rt_define_site call) — the startup hoist for dyn_scope procs is DELETED, not duplicated.  Non-dyn (LBL__ pseudo-procs, generators) keep the hoist: they have no statement site. */
-            if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl) continue; }   /* STARTUP-HOIST-DELETE (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE at node 20"): a LBL__ row that is some DEFINE's entry label is NOT registered at startup — the function's registration is rt_define_site at its statement, and its fn is the natural entry label (bb_define_bind's lea).  With the balias rename gone the startup lea's LBL__<entry> symbol no longer exists, so this skip is also what keeps the .s linkable.  Non-DEFINE LBL__ rows (computed-goto label registry) keep the startup hoist verbatim — a label has no statement site. */
-            { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }   /* ONE-REG (Lon s119 in-chat: "reduce blocks like .Lstartup_pname0 down to ONE RT call; use static data if needed"): the whole per-proc setter ladder collapses to ONE static 64B .rodata record + ONE rt_proc_register_rec call; the record layout is rt.h's rt_proc_reg_rec_t, pinned there by _Static_asserts.  rt_proc_register_rec replays the exact old call sequence, so behavior is identical by construction.  SCRIP_ONE_REG=0 restores the pre-s119 ladder byte-for-byte. */
+            if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) { if (sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) { emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]); emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i]), i, asm_sym_name(proc_names_buf[i])); } continue; }
+            if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl) continue; }
+            { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }
             if (_onereg) {
-                extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));   /* same predicate as the old dcfn arm (PL-DC s108/s112) */
-                int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w) twin */
+                extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
+                int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
-                int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);   /* the old per-k rt_proc_set_pname loop's guard */
+                int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
-                emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: register the name the table holds — oracle law, see pre-ONE-REG arm */
+                emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
                 if (pe->dyn_scope) {
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
                     emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
@@ -685,13 +677,13 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 if (_rkulex) {
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name);
                     emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }   /* NULL entry = stop, matching the old loop's continue-free k order: the old arm skipped unnamed ks by continue, but lower_sc gaps do not occur for raku lex rows; the rec loop stops at the first NULL, identical coverage */
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
                     emit_textf("  .quad 0\n");
                 }
                 if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, pe->result_name);
                 emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
                 emit_textf("  .quad .Lstartup_pname%d\n", i);
-                if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));   /* fn face: BARE-CHAIN s62 + s112 rename, same symbols as the old set_fn lea */
+                if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));
                 if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
                 if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
                 if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else emit_textf("  .quad 0\n");
@@ -702,7 +694,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  call rt_proc_register_rec@PLT\n");
             } else {
             emit_textf("  .section .rodata\n");
-            emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);   /* s62: the LBL__<N> row registers under its OWN name — an earlier s62 attempt stripped the prefix so ARG/LOCAL would find "jlab", which MEASURABLY diverged from the sbl oracle on 1017_arg_local (oracle returns the prototype name as written; the stripped-name lookup resolved to the upcased formal and flipped every assertion).  The oracle is the law: register the name the table holds. */
+            emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
             if (pe->dyn_scope) {
                 for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
                     emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
@@ -728,13 +720,13 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 }
             }
             emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-            if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));   /* BARE-CHAIN (Lon s62) + s112 rename: the body label's asm symbol IS the rt key, LBL__<entry> */
-            else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(proc_names_buf[i]));   /* s112 rename: the DEFINE wrapper face is FN__<FN> — proc_<FN>_\xce\xb1 removed */
+            if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));
+            else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(proc_names_buf[i]));
             emit_textf("  call rt_proc_set_fn@PLT\n");
             emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
             emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
             emit_textf("  call rt_proc_set_nparams@PLT\n");
-            { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;   /* NPSPLIT (s22w): m4 startup mirrors the direct m3 registration — 0 for unsplit frontends, runtime falls back */
+            { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
               emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
               emit_textf("  mov esi, %d\n", _nf);
               emit_textf("  call rt_proc_set_nformals@PLT\n"); }
@@ -753,7 +745,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
                 emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
             }
-            if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {   /* PS-1b (s151): mode-4 printed twin of the m3 rt_proc_set_zstatic — only for PAT$ procs (the SNO$MKPAT consumer set) and only when statically proven; unregistered stays the conservative 0 */
+            if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                 emit_textf("  mov esi, 1\n");
                 emit_textf("  call rt_proc_set_zstatic@PLT\n");
@@ -763,21 +755,21 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  mov esi, 1\n");
                 emit_textf("  call rt_proc_set_variadic@PLT\n");
             }
-            if (pe->rest_kind) {   /* the m4 twin of the in-process rt_proc_set_rest_kind — WITHOUT this the standalone binary binds the slurpy tail as a DT_DATA list and .elems/subscripts read garbage, the exact silent-wrong-answer shape of the s2026-07-26b pname replay gap: the startup replay is an ALLOWLIST, not a snapshot, so m3 passing proves nothing about m4.  Emitted only when the fact is set, so every peer language's .s stays byte-identical. */
+            if (pe->rest_kind) {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                 emit_textf("  mov esi, %d\n", pe->rest_kind);
                 emit_textf("  call rt_proc_set_rest_kind@PLT\n");
             }
-            if (pe->named_rest) {   /* the m4 twin of the in-process rt_proc_set_named_rest — same ALLOWLIST law as rest_kind directly above: without it the standalone binary leaves the *%h collector slot unbound and every named-arg key silently vanishes while m3 reads clean.  Emits pe->named_rest, never a literal, so a second collector slot cannot be downgraded (the s2026-07-27 hardcoded-mov-esi-1 lesson). */
+            if (pe->named_rest) {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                 emit_textf("  mov esi, %d\n", pe->named_rest);
                 emit_textf("  call rt_proc_set_named_rest@PLT\n");
             }
-            {   /* NCB-1d: record the body's regime for the C transfer fns — the mode-4 twin of the in-process rt_proc_set_jmpentry.  GENP slice-2: the generator flag now ALSO embeds (rt_proc_call_gen_h's per-instance-stack arm discriminates on p->jmp_entry && rt_proc_is_generator — without this twin the m4 runtime took the det one-shot arm and rt_genp_yield aborted with no current coexpression). */
+            {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                 emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
                 emit_textf("  call rt_proc_set_jmpentry@PLT\n");
-                { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {   /* PL-DC s108: the m4 twin of the m3 seal registration — s112: predicate now TRULY equals the arming predicate (!ispat && dc_ok), so the label exists iff this bakes; without the ispat conjunct the bake referenced proc_PAT$N_dcα stubs the pat-excluded arming never emitted (treebank m4 link regression) */
+                { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                     emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
                     emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
@@ -793,6 +785,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
         emit_textf("  ret\n");
     }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -809,7 +802,7 @@ int main(int argc, char **argv)
     int dump_transpile     = 0;
     int opt_bench          = 0;
     const char * target_name = NULL;
-    const char * output_path = NULL;   /* m4 -o flag (this session): output file for --compile; NULL = stdout */
+    const char * output_path = NULL;
     int argi = 1;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
         if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
@@ -821,22 +814,22 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
-        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : strcmp(z, "zh") == 0 ? 2 : -1; /* 0/1/2 = ZC_ZETA_ZLS/ZC_ZETA_ZLS2/ZC_ZETA_ZH (zeta_choices.h) */ if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2, zh)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
-        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : strcmp(z, "forth") == 0 ? 6 : strcmp(z, "heap") == 0 ? 7 : -1; /* ZC_PORT_* (zeta_choices.h): inline = old arena, cstack = ζ on the C stack, forth = cstack superset (per-BB fixed rsp cells + ARBNO linked-frame-chain) = the compiled default; heap = RUNG ZHEAP target (rbx bump frontier), added s206 — it was reachable only as SCRIP_ZETA_PORT=7 while being the #1 rung's target port; owned(5) stays env-only; Z4-5 (GOAL-ZETA-FOUR): forth/cstack/heap are ALIASES routed through the four-config selector — rt_zeta_storage_set derives this axis, so the selector is the single authority and a later flag of EITHER spelling wins WHOLESALE (no mixed axis states); plain/instrumented/alloc/inline keep the direct set until the Z4-9 cut */ if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack, forth, heap)\n", z); return 2; } if (pm == ZC_PORT_FORTH) rt_zeta_storage_set(ZC_STORAGE_CELL_STACK); else if (pm == ZC_PORT_CSTACK) rt_zeta_storage_set(ZC_STORAGE_FRAME_RSP); else if (pm == ZC_PORT_HEAP) rt_zeta_storage_set(ZC_STORAGE_CELL_HEAP); else rt_zeta_port_set_mode(pm); argi++; }
-        else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { const char *z = argv[argi] + 15; if (strcmp(z, "frame-r12") == 0) { fprintf(stderr, "scrip: --zeta-storage=frame-r12 RETIRED s23k ZW-0 (r12 = COND-ASSIGN stack, Lon directive; island zeta-frame technique withdrawn)\n"); return 2; } int sm = strcmp(z, "frame-rsp") == 0 ? 1 : strcmp(z, "cell-stack") == 0 ? 2 : strcmp(z, "cell-heap") == 0 ? 3 : -1; /* ZC_STORAGE (GOAL-ZETA-FOUR Z4-4 slice 2): the four-config selector; the setter derives the legacy port tuple (cell-stack->forth, cell-heap->heap, frame-rsp->cstack; frame-r12 none until Z4-7) so zero downstream seams flip this rung */ if (sm < 0) { fprintf(stderr, "scrip: bad --zeta-storage=%s (valid: frame-r12, frame-rsp, cell-stack, cell-heap)\n", z); return 2; } rt_zeta_storage_set(sm); argi++; }
+        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : strcmp(z, "zh") == 0 ? 2 : -1;  if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2, zh)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
+        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : strcmp(z, "forth") == 0 ? 6 : strcmp(z, "heap") == 0 ? 7 : -1;  if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack, forth, heap)\n", z); return 2; } if (pm == ZC_PORT_FORTH) rt_zeta_storage_set(ZC_STORAGE_CELL_STACK); else if (pm == ZC_PORT_CSTACK) rt_zeta_storage_set(ZC_STORAGE_FRAME_RSP); else if (pm == ZC_PORT_HEAP) rt_zeta_storage_set(ZC_STORAGE_CELL_HEAP); else rt_zeta_port_set_mode(pm); argi++; }
+        else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { const char *z = argv[argi] + 15; if (strcmp(z, "frame-r12") == 0) { fprintf(stderr, "scrip: --zeta-storage=frame-r12 RETIRED s23k ZW-0 (r12 = COND-ASSIGN stack, Lon directive; island zeta-frame technique withdrawn)\n"); return 2; } int sm = strcmp(z, "frame-rsp") == 0 ? 1 : strcmp(z, "cell-stack") == 0 ? 2 : strcmp(z, "cell-heap") == 0 ? 3 : -1;  if (sm < 0) { fprintf(stderr, "scrip: bad --zeta-storage=%s (valid: frame-r12, frame-rsp, cell-stack, cell-heap)\n", z); return 2; } rt_zeta_storage_set(sm); argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else break;
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimo", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
-        if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }   /* m4 -o <file> (this session): redirect --compile asm output to file; both -o FILE and -oFILE accepted; string arg, not a memory size */
+        if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
         if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
         v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
         if (sw == 's') { if (apply_stack_limit(v) != 0) { fprintf(stderr, "scrip: -s%ld: could not raise stack limit\n", v); return 2; } }
         else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
         argi++;
     }
-    for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }   /* m4 -o POSITION-INDEPENDENT (OPS-1): accept -o FILE / -oFILE after the source file too (bb_probe_matrix.sh call shape); path recorded, slots compacted out so the extension sniff and per-file loops never see them; sweep stops at -- so program argv is untouched */
+    for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
     if (mode_compile_x86 && mode_run) {
         fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
@@ -1214,7 +1207,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1234,7 +1227,7 @@ int main(int argc, char **argv)
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);   /* m4 -o (06g fix): _out at path scope so the emit_chain body writers below take it too -- the 06f form captured only the emit_textf sink, the body spilled to stdout (measured: 27-line file, 343-line spill) */
+            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             g_frame_active = 1;
@@ -1251,10 +1244,6 @@ int main(int argc, char **argv)
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            /* PL-FR-4 NAME PRE-PASS: for Prolog files, register all graph names in ZLS BEFORE any graph is compiled,
-             * so that zls_g_resume_by_name(callee_name) resolves correctly even when the callee is compiled AFTER
-             * the caller in the emission order.  Icon/SN4 do this inline (line 913); Prolog needs a pre-pass because
-             * multi-clause predicates mutually reference each other via call_proc_staged. */
             if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1270,20 +1259,20 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; if (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs + LBL__ body procs both need CLASS P wire exit; LBL__ bodies share main's bb_idx so _pg->entry is GOTO not SAVE_RESTORE -- _is_lbl closes that gap (twin of the m3 fix) */
+                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; if (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }   /* PL-DC s108: arm the direct-call stub for this graph iff the SAME table predicate the site arm reads passes (pat blobs excluded structurally); s112: RECORD the structural exclusion so the startup bake mirrors it — the bake predicate must equal the arming predicate or it references stubs that were never emitted (treebank m4 link regression) */
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: name the graph in the zls registry BEFORE emit_chain so zls_g_resume_by_name(callee_name) works at later call sites in bb_call_proc_staged.  Mirrors dump_ir path. Harmless for non-generators (resume_off stays -1). PL-FR-4: added is_prolog so Prolog generator callee names resolve for pl_zf_resume cursor_off lookup. */
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);   /* ⭐ EXPR-THUNK EXITS (s96): BARE = the DEFINE stub blob ONLY (kind 1); a self-contained EXPR$ thunk (kind 2) keeps its own wire γ/ω exits -- see proc_role3_kind */ if (!_islbl && !_bare) {   /* STUB-BLOB-DELETE (Lon s114 in-chat: "you can not register these FUNCTIONS at the beginning of the program, it must happen at the DEFINE"): the kind-1 DEFINE stub blob no longer emits pre-main AT ALL — its FN__ face, the n0/n1 relay pair, and the spliced role-4 shim are replaced by the DEFINE statement's own emission (bb_define_bind registration + inline role-5 shim, both targeting the natural entry label).  Kind-2 EXPR$/PAT$ thunks keep emitting here (no DEFINE site exists for them).  m4 only; the m3 loop below is untouched (owed-m3 class per s58/s62). */ emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }   /* SN4-FLAT-PROC (s176): bb_proc_entry, NOT ->entry -- a shared-graph proc (LBL__/DEFINE entry) must bind its α at proc_entry_node; binding at main's entry made the stub's transfer re-run the whole program inside the call (the m4 recursion SEGV) */   /* ⭐⭐⭐ STATEMENT-ORDER (Lon s62 in-chat: "You process each STATEMENT, ONE at a TIME, and in ORDER of the source."): the standalone LBL__ emission is DELETED — it walked the reachable-from-entry-label slice of main's ONE shared graph and laid it down pre-main, which is exactly the out-of-order hoist Lon condemned.  Those statements now emit inside main's own chain at their source position (emit.cpp statement-order seeding), where the entry statement's α is renamed LBL__<FN> (BODY-ALIAS via bbg->balias below; s112 spelling — the asm symbol IS the rt key).  The proc_table row STAYS (registration, rt_goto_transfer arm-4 lookup, scc probes all read it); only its separate emission dies.  BARE-CHAIN (s62): role-3 DEFINE stubs keep emitting, without the proc_* wrapper family. */
+                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes; }   /* STATEMENT-ORDER (s62): LBL__ rows no longer emit standalone — no fresh measurement exists, and main's geometry governs the shared statements; 0 skips the set_frame_bytes bake */
+                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes; }
                 { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_zstatic; }
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
-                proc_names_buf[n_procs++] = pname ? strdup(pname) : NULL;   /* s62 SAFETY: strdup so the name pointer survives any arena reset between the proc loop and the post-main backfill at line 1309 */
+                proc_names_buf[n_procs++] = pname ? strdup(pname) : NULL;
                 free(pn);
             }
             int n_cls_emit = 0;
@@ -1295,10 +1284,10 @@ int main(int argc, char **argv)
             emit_textf("  sub rsp, 8\n");
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- see the twin note at the other main emitter.  Tests s22q BLOCK PREDICTION that ~76 m4 failures are ONE corruption class of unarmed readers writing through envp, by moving envp out of reach WITHOUT converting a reader.  Multiple-of-16 preserves the alpha ARRIVAL PARITY contract.  DEFAULT OFF, MUST STAY OFF: a program passing under this pad is CUSHIONED, not correct. */
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede main_init/core_lib_init (first possible allocation) */
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
+            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
@@ -1307,22 +1296,20 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) {
                 if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n");
             if (bbg->nparams >= 1)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            /* ZW-3 R12-FREE-1 REVERSAL (O-5, OMEGA s27 session): r12 is the LIVE CAS/dcap top register (s23l ruling); seed from [RT_DCAP_TOP] before graph entry so every match-family op_zw arm can read/write r12 directly.  Mirror of the flat_α path already at line 1438.  Mode-3 path uses rt_outer_call (rt.c thunk) which already does push r12 / mov r12,[0x70000000] / call / pop r12. */
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");   /* 0x70000000 == RT_DCAP_TOP (rtx_init.c _Static_assert) */
-            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");   /* W1 m4 twins (PL-ZFRAME-RESTORE s13): m3's driver runs BOTH before entry (scrip.c :1635/:1638 area) — the compiled binary got neither.  warmup = W1-Bug1 (s9): dl_iterate_phdr's movaps SEGVs when the lazy rt_gcheap_init fires from a misaligned JIT frame (core bt: rt_plj_alloc→rt_gcheap_init→gc_static_segs_init→dl_iterate_phdr, rsp≡8); running it once here, from main's aligned C context, retires the lazy path.  bypass_on = W1-Bug2: must be a PLT call INTO the .so (a direct [rip+sym] store copy-relocates a dead duplicate into the exe's .bss while dop_call binds locally to the .so's copy).  Placed BEFORE xor esi (rsi caller-saved); r12 seed above survives (callee-saved).  Gated is_prolog: SN4 mains never zframe; Icon zframe mains stay byte-identical.  No clears: the emitted main exits via the zf wires. */
-            /* ONE-SHOT BRIDGE (Lon s22p): jmp not call; main_γ / main_ω are defined AFTER the body. */
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA SITE-A TWIN: main_α bridge never established R9=RT_GVA_VA */
+            emit_textf("  mov r12, qword ptr [0x70000000]\n");
+            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");
+            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             emit_textf("  xor esi, esi\n");
-            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main needs γ/ω wires in rcx/rdx on entry — the prologue saves them at [rsp+kt-24/-16] for the epilogue's direct read.  Emit two tiny exit-wire thunks (γ=exit(0), ω=exit(1)) and load their RIP-relative addresses before the jmp.  The thunks sit between main: and main_α — unreachable by fall-through (the jmp skips them), reachable only via the wire-return jmp rcx/rdx from main_γ/ω.  R-ZK-A DEFENCE: icn_cells_graph exclusion prevents double-dispatch when both CELLS and ZFRAME are armed (defence-in-depth; lower_icon.c's stamp loop is the primary enforcement site). */
-                emit_textf("  xor r14d, r14d\n");               /* ICN-FR-5: r14=0 → &pos=1 outside any scan (twin of icn_zf_main_call m3 fix) */
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) {
+                emit_textf("  xor r14d, r14d\n");
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
@@ -1330,7 +1317,7 @@ int main(int argc, char **argv)
                 emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
             } else
             emit_textf("  jmp main_\xce\xb1\n");
-            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "main_init");   /* OFF arm — historical position, pre-backfill proc_fb_buf, historical label name */
+            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "main_init");
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1344,7 +1331,7 @@ int main(int argc, char **argv)
                 { int _bd = 0; for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (_c && _c->op == IR_DEFINE && !ir_define_sr_citizen(_c) && _c->n_operands == 0) _bd++; }
                   if (_bd > 0 && bbg->n_dentry == 0) { bbg->dentry_node = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)calloc((size_t)_bd, sizeof(char *));
                       if (bbg->dentry_node && bbg->dentry_entry && bbg->dentry_name) for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!_c || _c->op != IR_DEFINE || ir_define_sr_citizen(_c) || _c->n_operands != 0 || !IR_LIT(_c).sval) continue;
-                          if (bbg->n_dentry >= _bd) break;   /* bounds guard, the balias precedent verbatim */
+                          if (bbg->n_dentry >= _bd) break;
                           for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
                               IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
                               IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd || _gd->op != IR_GOTO_DEFERRED || !IR_LIT(_gd).sval) break;
@@ -1352,26 +1339,22 @@ int main(int argc, char **argv)
                               IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
                                   _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
                               if (!_tn) break;
-                              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; } } } }   /* FN-FACE-DELETE + NATURAL-LABEL (Lon s114 in-chat: "Change the label LBL__ROMAN to be n25_statement_begin_α as it was before"; "DELETE this label FN__ROMAN"): per-BIND stamp pairing the DEFINE statement's bind box with its body-entry STATEMENT NODE — bind matched to its dyn row by fname, the stub's IR_GOTO_DEFERRED names the entry, the LBL__ row's proc_entry_node relay-chased to the statement_begin (the balias chase, one authority's shape).  dentry_name is filled AT LABEL-ALLOC TIME in codegen_flat_chain_body with the node's NATURAL port-label name (n<uid>_statement_begin_α) — unknowable earlier because uids are minted at alloc.  The bind dispatch deposits it into g_emit.lbl_t0; bb_define_bind's rt_define_site fn lea and the inline role-5 shim's body jmp both target it.  m4 only: the m3 twin keeps the balias/LBL__ world verbatim (BINARY bakes the registry _fn). */
+                              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; } } } }
                 { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
                   if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
                       if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
-                          if (bbg->n_balias >= _na) break;   /* bounds guard: _na counted the same predicate, but duplicates or race could produce more — never write past the allocation */
+                          if (bbg->n_balias >= _na) break;
                           IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
-                          { int _dl = 0; for (int _dq = 0; _dq < bbg->n_dentry; _dq++) if (bbg->dentry_entry[_dq] == _bn) { _dl = 1; break; } if (_dl) continue; }   /* NATURAL-LABEL (Lon s114): a DEFINE-linked entry statement keeps its natural n<uid>_statement_begin_α — no LBL__ rename; non-DEFINE LBL__ rows (computed-goto label registry) keep the balias verbatim */
-                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }   /* BODY-ALIAS (Lon s62): chase each LBL__ entry through the transparent relays to its statement_begin — the SAME chase codegen's HQ-s26 entry bind uses — and stamp the alias pair on main's graph; the emitter renames that statement's α to <FN>_body at its source position.  Consumers already speak this name: role-4 shim fold target, bb_goto_deferred fold arm, and the LBL__ set_fn lea. */
-                { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
+                          { int _dl = 0; for (int _dq = 0; _dq < bbg->n_dentry; _dq++) if (bbg->dentry_entry[_dq] == _bn) { _dl = 1; break; } if (_dl) continue; }
+                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-                /* LADDER AB (AB-1): emit IR_DEFINE activation blocks as dead-code .text after the main chain.
-                 * These are jump-target-only until AB-3 flips call sites.  Blocks carry fn_cell$.data + α frame stub. */
                 { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
-                /* STATEMENT-ORDER FB-BACKFILL (s62): LBL__ rows share main's frame — ARG/LOCAL read frame_bytes at runtime to index formals/locals.  At record time (line 926) we wrote 0 because the LBL__ standalone chain no longer emits and g_last_flat_frame_bytes was stale from the prior proc; now main has emitted, g_last_flat_frame_bytes holds its true value, and every LBL__ row that shares main's bb_idx gets that value so the registration call is emitted correctly.  Use proc_table directly (proc_names_buf may be corrupted by emission-time arena activity on large programs). */
-                { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }   /* ⛔⭐⭐⭐ MODULE-INIT ORDERING BARRIER (measured s123, NOT a candidate for relocation): this loop WRITES proc_fb_buf, and the main_init/module_init block ABOVE (scrip.c:989-1331) READS proc_fb_buf at three sites (the .long proc record and the two `mov esi,<fb>` stores).  main_init is emitted BEFORE this patch runs, so it emits the PRE-PATCH values BY CONSTRUCTION.  Moving that block to the bottom — the s122 module_init design — therefore silently changes what it emits wherever this loop fires.  MEASURED over 292 programs: fires on 4 — beauty.sno(14) porter.sno(30) TDump_driver.sno(6) Qize.sno(2) — and ZERO on all 72 benchmark+probe programs, which is exactly why a witness set drawn from the benchmarks would have called the move byte-identical and shipped it.  beauty.sno is Milestone 1's own program.  Any module_init relocation must FIRST decide whether the post-patch values are the correct ones (this loop looks like a late fixup for LBL__ procs sharing main's bb_idx, so "after" may well be the RIGHT answer) and prove it against those four, not against the benchmarks. */
-                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "module_init");   /* ON arm — AFTER the FB-backfill above, so the LBL__ rows carry main frame_bytes instead of the stale 0 */
+                { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
+                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "module_init");
             }
-            /* ⛔ UAF FIX (s125, unconditional, byte-inert): these frees stood at the historical :1332-1333, ABOVE the FB-backfill that indexes proc_fb_buf and proc_pidx_buf — a use-after-free on both, gdb-confirmed s123 (nulling the freed pointers under a probe turned beauty rc=0 into rc=139 at the backfill).  Moving the free BELOW every reader fixes it in the direction that keeps the bug visible; moving the backfill below the free would have silenced the UAF and buried the inertness. */
-            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }   /* s62 SAFETY: free strdup'd names */
+            for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             g_gva_active = 0;
             g_frame_active = 0;
@@ -1407,7 +1390,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid;
             g_flat_node_id = 0;
             g_m4_dense_nid = 1;
-            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);   /* m4 -o (06g fix): path-scope _out, twin of the first path */
+            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
             rt_proc_reset();
@@ -1427,7 +1410,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1439,7 +1422,7 @@ int main(int argc, char **argv)
                   if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
               }
               g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
-            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; } /* PAS-GVA: activate arena BEFORE proc emission so proc-context globals resolve op_gva_k (M3 already orders it this way); without this, proc bodies emit NV_GET/SET_fn hash calls for true program globals */
+            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -1460,50 +1443,44 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs carve a fresh MAIN-layout frame -- floor their region at main's (see emit_jmp_entry_arm_region); cleared by emit_jmp_entry_clear */
+                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — proc_entry_node path. PL-FR-4: added is_prolog. */
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl && scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); emit_chain(s2->proc_table[_pi].proc_entry_node, _out, _pfx); if (!_islbl && scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
                 pidx_buf[n_procs++] = _pi;
             }
-            int n_gva = gva_count();   /* hoisted above the moved main block (s116 main-first reorder): pure registry count reads */
+            int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
             emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }   /* DIAGNOSTIC ONLY, NOT A FIX (s22r) -- s22q measured m4 headroom from graph-entry rsp to the envp array at 344 BYTES against m3 20,048, and predicted ~76 of m4 failures are ONE corruption class of unarmed FR/FRQ/FRQB readers writing through live process state.  This env-gated pad tests that BLOCK PREDICTION by moving the envp array out of reach WITHOUT converting a single reader: if the m4 watermark jumps, the one-authority claim is confirmed AND quantified, giving the reader conversion a measured payoff estimate.  Multiple-of-16 so the alpha ARRIVAL PARITY contract (s22q, two signatories) is preserved.  DEFAULT OFF and it MUST STAY OFF -- s22q: "DO NOT RE-CARVE, the fix is not a bigger backing store"; a passing program under this pad is CUSHIONED, not correct, exactly as m3's 20KB of driver frames cushion it today. */
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode()); /* ZETA SUBSYSTEM bake (Lon 2026-07-09): only when --zeta overrode ZC_ZETA — no flag, no bake, byte-identical; MUST precede main_init/core_lib_init (first possible allocation) */
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get()); /* ZC_STORAGE bake (GOAL-ZETA-FOUR Z4-4 slice 2): four-config twin of the port bake below — the setter re-derives the legacy tuple at runtime, so a storage-committed .s self-selects everything; placed FIRST so env-only selection resolves before the port predicate reads; no override, no bake, byte-identical */
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode()); /* ZETA PORT bake (Lon 2026-07-10): the .s is port-mode-COMMITTED (rsp vs arena arithmetic), so the runtime side must self-select the emit-time mode; only when --zeta-port/env overrode ZC_PORT — no override, no bake, byte-identical */
+            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
+            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
+            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
+            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
             if (n_procs > 0) emit_textf("  call main_init\n");
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) { /* R12-ERAD: blob self-allocates its FORTH frame; wrapper carves nothing — ICNBENCH-ARGS-RSP (2026-07-18, closes the FENCE): stage argv for the prologue's rt_main_args_fetch bind ([rsp]=argv, [rsp+8]=argc from the push rdi/push rsi preamble) */
+            if (rt_zc_frame_live() == ZC_FRAME_RSP) {
                 if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n"); /* ZS-1: main zeta frame on the stack */
+            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n");
             if (sbbg->nparams >= 1)
                 emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
                        "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
             }
-            /* ZW-3 R12-FREE-1 REVERSAL (s23l): re-add the r12 seed before flat graph entry. */
-            /* ONE-SHOT BRIDGE (Lon s22p): main jmps into the graph; flat_γ / flat_ω are the two port
-             * landings defined AFTER the body by bb_glue_outer_gamma/omega (codegen_flat_chain_body).
-             * GAS resolves the forward refs.  NO call, NO ret, NO eax -- those belong to a C calling
-             * convention that no longer exists.  The graph's ports jump to the landings, which call
-             * rt_finalize and exit().  xor esi,esi = match start pos = 0. */
             emit_textf("  mov r12, qword ptr [0x70000000]\n");
             emit_textf("  xor esi, esi\n");
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }   /* RC-5-GVA: main is the first C→generated crossing; load all claimed GPRs (incl. R9=RT_GVA_VA) from the block before any generated code runs. Gate: g_rtcc_on==0 → no-op (killswitch: byte-identical). */
-            emit_textf("  jmp flat_\xce\xb1\n"); /* ONE-SHOT: jmp not call; no ret after the graph */
+            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
+            emit_textf("  jmp flat_\xce\xb1\n");
             if (n_procs > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int i = 0; i < n_procs; i++) {
@@ -1523,7 +1500,7 @@ int main(int argc, char **argv)
                     emit_textf("  lea rsi, [rip + .Lpnames%d]\n", i);
                     emit_textf("  mov edx, %d\n", pe->nparams);
                     emit_textf("  call rt_proc_register@PLT\n");
-                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);   /* NPSPLIT (s22w) */
+                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
                     emit_textf("  mov esi, %d\n", pe->nformals);
                     emit_textf("  call rt_proc_set_nformals@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
@@ -1547,7 +1524,7 @@ int main(int argc, char **argv)
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
-            if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); } /* PAS-GVA: Pascal collected pre-proc-emission above; re-reset here would be harmless (deterministic walk) but wasted — non-Pascal keeps the original single-graph collection byte-identical */
+            if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); }
             if (n_gva > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1566,10 +1543,9 @@ int main(int argc, char **argv)
             }
             g_gva_active = (n_gva > 0) ? 1 : 0;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
+            { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; }
             emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, _out, "flat") ? 0 : 1;
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-            /* LADDER AB (AB-1): emit activation blocks as dead-code after main chain */
             { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(sbbg, g_gva_active); }
             g_gva_active = 0;
             g_proc_direct_active = 0;
@@ -1632,7 +1608,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1647,7 +1623,6 @@ int main(int argc, char **argv)
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
-            /* PL-FR-4 NAME PRE-PASS (mode 3): register all Prolog graph names in ZLS before any graph is compiled. */
             if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1669,21 +1644,21 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; if (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs carve a fresh MAIN-layout frame -- floor their region at main's; LBL__ body procs share main's bb_idx so _pg->entry is GOTO not SAVE_RESTORE -- the _is_lbl arm closes that gap; LBL__ bodies are CLASS P (wire exit via rt_flat_ret_snap, not CLASS C outer whack) because their callers always push a pcall record via rt_proc_call_open */
+                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; if (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }   /* PL-DC s108: m3 twin of the m4 arming (pat blobs excluded structurally) */
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — m3 proc loop. PL-FR-4: added is_prolog. */
-                int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;   /* s91 M3-UNIFY (the s62-owed rung, Fable): LBL__ pseudo-procs are NOT emitted standalone in m3 either -- their bodies live inline in main's STATEMENT-ORDER chain (mirror of the m4 loop above); registered from main's label pool after main emits */
+                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }
+                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }   /* s91: LBL__ rows take MAIN's geometry after main emits (m4 FB-BACKFILL twin) */
+                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
-                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);   /* R-1 s94: alpha$<FN> <- &<FN>_alpha (DEFINE stub shim face) */
-                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 in-process twin of the m4 printed rt_proc_set_zstatic — makes SNO$MKPAT-minted DT_P carry real zstatic in --run */
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
-                { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }   /* PL-DC s108: seal registration — the fixed slot the m3 sites call through */
+                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
+                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
+                { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
@@ -1698,28 +1673,23 @@ int main(int argc, char **argv)
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
-            /* RTX-FUNC-0 AB-EMIT-ORDER (m3): arm the posthook so activation blocks emit inside emit_chain's
-             * JIT session.  bb_ab_emit_nodes appends INC_act_α into the same bb_emit_buf and the bind-fix
-             * C-store writes bb_emit_buf+lbl.offset into fn_cell BEFORE emitter_end() seals the buffer and
-             * BEFORE the SNOBOL4 program runs.  The hook is one-shot (emit_chain clears it on fire) so the
-             * proc-chain emit_chain calls above never trigger it. */
+            { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
             { extern void (*g_emit_chain_posthook)(void); extern void bb_ab_emit_nodes(IR_graph_t*, int); extern int g_gva_active;
               g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;
               g_emit_chain_posthook = bb_ab_posthook; }
-            { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;   /* s91 M3-UNIFY: BODY-ALIAS build, twin of the m4 block (Lon s62) -- each LBL__ entry chased through the transparent relays to its statement_begin, stamped <name>_body on main's graph so the emitter names that statement's alpha */
+            { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
               if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
                   if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
                       if (bbg->n_balias >= _na) break;
                       IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
                       char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
-            if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;   /* s91 M3-UNIFY: register every LBL__ row at its inline body label (main's label pool is live until the next bb_emit_begin); frame_bytes = main's (LBL__ rows share main's frame, ARG/LOCAL index off it) */
+            if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;
               for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
-                char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);   /* s112 rename: the body label's asm symbol IS the rt key spelling, LBL__<entry> */
+                char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
                 if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
                 rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb);
-                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }   /* R-1 s94: body$<ENTRY> <- &<ENTRY>_body (the shim's transfer target) */
+                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {
@@ -1728,16 +1698,16 @@ int main(int argc, char **argv)
             }
             ir_delete_all(s2);
             void *mf = NULL;
-            if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1: main zeta frame on the driver's own stack (was rt_frame() arena memo); R12-ERAD: under RSP the blob self-allocates, rdi unused */
+            if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); }
             if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
-            if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP: staged channel read by the emitted prologue's rt_main_args_fetch under RSP (harmless when non-RSP took the mf store above) */
-            { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20): arm the per-box sampler over the sealed ranges; no-op unless SCRIP_BBPROF=1 */
-            { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP (PL-ZFRAME-RESTORE s9): gc_static_segs_init must run from a C frame with guaranteed-aligned RSP before any JIT blob calls rt_plj_alloc; dl_iterate_phdr's movaps SEGVs when called from inside JIT code whose zframe prologue is absent (derive/divide10/log10/ops8/times10 were all killed by this). */
-            if (bbg->zframe_graph && !bbg->icn_cells_graph) {   /* ICN-FR-2: ζ-frame main — supply γ/ω exit wires in rcx/rdx before entering the graph.  R-ZK-A DEFENCE: cells-arm graphs (icn_cells_graph=1) use rt_outer_call — they establish their own ___ pin via GLUE-O enter and restore via `mov rsp,___; pop ___`; passing rcx/rdx wires they never read would corrupt the FORTH spine depth at entry. */
-                if (!bbg->icn_zframe_gen) { extern int g_plw_floor_bypass; g_plw_floor_bypass = 1; }   /* W1-BUG2-FIX zframe arm (PL-ZFRAME-RESTORE s10): Prolog zframe graphs have no C-stack-resident cells — set bypass flag so dop_call/dop_call_nothrow skip their floor-set, keeping g_plw_unwind_floor=0; plc_dead_cstack's top-of-function !g_plw_unwind_floor guard then short-circuits before fopen/fgets/sscanf. icn_zframe_gen=0 is the discriminant: Icon generators (=1) NEED the floor; Prolog always 0. jmp entry: no restore needed. */
+            if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+            { extern void bbprof_start(void); bbprof_start(); }
+            { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) {
+                if (!bbg->icn_zframe_gen) { extern int g_plw_floor_bypass; g_plw_floor_bypass = 1; }
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
             } else
-            { extern void rt_outer_call(bb_box_fn, void *, long); extern int g_plw_floor_bypass; int _bypass = is_prolog && bbg->zframe_graph; if (_bypass) g_plw_floor_bypass = 1; /* W1-BUG2-FIX rt_outer_call arm (PL-ZFRAME-RESTORE s10): zframe Prolog graphs guarantee all trail entries are PLJ-heap-resident; bypass flag stops dop_call/dop_call_nothrow from setting the floor so plc_dead_cstack short-circuits at its top-of-function NULL guard. Conditioned on zframe_graph: SCRIP_PL_ZFRAME=0 may trail C-stack cells and must not bypass. Cleared after rt_outer_call returns. SN4/Icon: _bypass only true for Prolog zframe graphs. */ { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }   /* RC-5-GVA: main entry is the first C→generated crossing; load all claimed GPRs (incl. R9=RT_GVA_VA) from the block before any generated code runs. Gate: g_rtcc_on==0 → no-op (killswitch). */ { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }   /* ICN-FR-5 RESTORE (s238): Icon enters through the delta-zeroing twin so r14=0 and &pos reads 1 outside any scan.  The original ICN-FR-5 pair (icn_zf_main_call / mode-4 preamble) is gated on zframe_graph && !icn_cells_graph, which Z-1's icn_cells_graph=1-by-default stamp made permanently false -- this arm is where every Icon graph now lands.  Non-Icon keeps the identical rt_outer_call call, byte-identical by construction. */ if (_bypass) g_plw_floor_bypass = 0; } /* R12-EXTERN (Lon s173): mode-3's OUTSIDE seeds the environment register — push r12 / mov r12,[RT_DCAP_TOP] / call / pop r12 (rt.c thunk); twin of the mode-4 wrapper seed, and closes the old in-blob seed's caller-r12 ABI clobber */
+            { extern void rt_outer_call(bb_box_fn, void *, long); extern int g_plw_floor_bypass; int _bypass = is_prolog && bbg->zframe_graph; if (_bypass) g_plw_floor_bypass = 1;  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }    if (_bypass) g_plw_floor_bypass = 0; }
             goto run_done;
         }
         {
@@ -1780,7 +1750,7 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1798,41 +1768,41 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }   /* NPSPLIT (s22w): 0 for unsplit frontends -> runtime falls back to nparams */
+                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
                   g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }   /* SN4-FLAT-PROC (s176): DEFINE stubs carve a fresh MAIN-layout frame -- floor their region at main's (see emit_jmp_entry_arm_region); cleared by emit_jmp_entry_clear */
+                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; if (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }   /* ICN-FR-4: zls name registration twin — m3 second proc loop (proc_entry_node path) */
+                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
                 bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, "proc_flat");
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
-                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);   /* R-1 s94: alpha$<FN> <- &<FN>_alpha (DEFINE stub shim face) */
-                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }   /* PS-1b (s151): m3 twin (second proc loop — block/EVAL-thunk phase) */
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }   /* PS-3 (s152): emit-side Î¶-size registry feed -- suspension footprint terms for DT_P targets, both modes, before main emission */
+                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
+                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
+                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
             }
             g_frame_active = 0;
             IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
             if (sbbg && sbbg->entry) {
                 g_frame_active = 1;
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
-                { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; } /* ICNBENCH-ARGS-RSP: main graph only */
+                { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; }
                 bb_box_fn fn = emit_chain(sbbg->entry, NULL, "pat_flat");
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
                 g_frame_active = 0;
                 ir_delete_all(s2);
                 if (fn) {
                     void *mf = NULL;
-                    if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); } /* ZS-1; R12-ERAD: under RSP the blob self-allocates, rdi unused */
-                    if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } /* ICNBENCH-ARGS-RSP */
-                    { extern void bbprof_start(void); bbprof_start(); }   /* RUNG BBPROF (Lon 2026-07-20) */
-                    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }   /* W1-GC-WARMUP twin */
-                    { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } /* R12-EXTERN (Lon s173): twin of the primary mode-3 entry above.  ICN-FR-5 RESTORE (s238): same delta-zeroing selection as the primary entry -- r14=0 so &pos reads 1 outside any scan; non-Icon unchanged. */
+                    if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); }
+                    if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+                    { extern void bbprof_start(void); bbprof_start(); }
+                    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
+                    { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
             }
@@ -1851,7 +1821,7 @@ int main(int argc, char **argv)
         abort();
     }
 run_done:
-    { extern void bbprof_report(void); bbprof_report(); }   /* RUNG BBPROF: stop timer + per-box sample table; no-op if never armed */
+    { extern void bbprof_report(void); bbprof_report(); }
     if (opt_bench) {
         clock_gettime(CLOCK_MONOTONIC, &_t3);
         double parse_ms = (_t1.tv_sec - _t0.tv_sec)*1e3 + (_t1.tv_nsec - _t0.tv_nsec)/1e6;

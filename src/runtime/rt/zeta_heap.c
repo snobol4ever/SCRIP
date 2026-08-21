@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <pthread.h>
 #include "rt_slab.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define ZH_HDR 16L
 #define ZH_LIVE 1
 #define ZH_DEAD 2
@@ -29,13 +28,6 @@ static void zh_init(void)
 {
     long mb = 32; const char *e = getenv("SCRIP_ZH_MB"); if (e && atol(e) > 0) mb = atol(e);
     g_zh_cap = mb * 1024L * 1024L;
-    /* TR-2: slab-pool backing. TR-4 s67: the external root registration this block once carried is deleted; the historical compensation note:
-     * uncollectable memory was still SCANNED for pointers; malloc'd memory was
-     * NOT. ZH blocks hold DESCR pointers into GC-managed objects, so the region must be
-     * registered as a root or those objects become unreachable and get collected out from
-     * under a live suspended activation. Root registration restored exactly the reachability the
-     * old allocator gave for free. (Gone at TR-4.)
-     * LIVE/DEAD/POISON header protocol below is untouched, per the rung's brief. */
     g_zh_base = (char *)rt_slab_region((size_t)g_zh_cap);
     if (!g_zh_base) { fprintf(stderr, "[ZH] FATAL: slab alloc failed (%ld MB)\n", mb); abort(); }
     g_zh_cur = g_zh_base;
@@ -113,7 +105,6 @@ void *rt_zh_deref(unsigned h)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zh_pin(unsigned h)   { pthread_mutex_lock(&g_zh_mu); char *b = (h && h < g_zh_tab_next) ? g_zh_tab[h] : 0; if (!b) { fprintf(stderr, "[ZH] FATAL: pin of dead handle %u\n", h); abort(); } ((zh_hdr_t *)b)->pin++; pthread_mutex_unlock(&g_zh_mu); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zh_unpin(unsigned h) { pthread_mutex_lock(&g_zh_mu); char *b = (h && h < g_zh_tab_next) ? g_zh_tab[h] : 0; if (b && ((zh_hdr_t *)b)->pin) ((zh_hdr_t *)b)->pin--; pthread_mutex_unlock(&g_zh_mu); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zh_mark_dead(unsigned h)
@@ -144,15 +135,11 @@ long rt_zh_live_count(void)
     while (src && src < g_zh_cur) { zh_hdr_t *hd = (zh_hdr_t *)src; if (hd->state == ZH_LIVE) n++; src += (long)hd->total; }
     return n;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* REG-4 slice A (s77): the HEAP-ZETA bump frontier behind the pinned cells.  Own slab sub-region, SEPARATE from the handled zh_hdr_t blocks above so rt_zh_live_count's walk stays intact.  The emitted
- * α (ZC_PORT_HEAP, x86_asm.h port hook) reads [RT_WS_TOP], guards against [RT_WS_LIMIT], and commits inline; THIS function is the ja slow path — refill a fresh block, satisfy the pending request from
- * its head, publish the new frontier/limit.  Zero-filled REG-0 page ⇒ first guard trips ⇒ lazy init needs no constructor.  Old-block tail residue is LEAKED BY DESIGN v0 (C3: LIVE/DEAD lifecycle owns
- * reclamation when the region promotes).  Single-threaded by the emitted-code contract; rbx promotion (REG-4b) changes the register story, not this refill. */
 #include "pin_va.h"
 #include "zeta_choices.h"
 #include "gc_heap.h"
 #define ZH_BUMP_BLK (1u << 20)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_zh_bump_slow(long bytes)
 {
     long need = (bytes + 15) & ~15L; size_t blk = (size_t)(need + 16 > (long)ZH_BUMP_BLK ? (size_t)(need + 16) : (size_t)ZH_BUMP_BLK);

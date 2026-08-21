@@ -32,10 +32,6 @@ std::string bb_disjunction() {
              ? x86_alpha() + x86_bomb("IR_DISJUNCTION nary: value/state slot not granted (zls)")
              : x86("comment", "IR_DISJUNCTION_NARY")
              + x86_alpha()
-             /* MOVE_LABEL-ERAD (mirror bb_scan_alternate minus the cursor save — pure value alternation has no
-              * subject δ to preserve).  Self-state: alt_i at FR(op_off+16); value DESCR at FRQ(op_off)/(+8),
-              * filled by the σ-glue's alt_i-dispatched copy from the succeeding arm's OWN result slot
-              * (op_parts channel, option B: no cross-box writes, consumers read THIS box's fixed slot). */
              + x86("mov", FRQ(_.op_off), 0L)
              + x86("mov", FRQ(_.op_off + 8), 0L)
              + x86("mov", FR(_.op_off + 16), 0)
