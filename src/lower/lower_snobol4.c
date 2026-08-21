@@ -703,8 +703,13 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return nl;
     }
     case TT_VLIST: {
-        const tree_t * first = (t->n > 0) ? t->c[0] : NULL;
-        return sx_lower(cx, first, γ, ω, res);
+        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }   /* ⭐⭐⭐ ALTERNATIVE EVALUATION (manual v3.7 p.99 "Alternative Evaluation" + Appendix note 3): `( e1, e2, ..., en )` evaluates its elements LEFT TO RIGHT UNTIL ONE SUCCEEDS, returns that element's value, evaluates no further element, and signals FAILURE only when every element fails.  The pre-flip arm lowered the node as e1 ALONE and dropped e2..en on the floor, so the construct was correct exactly when e1 succeeded and failed the whole statement the moment e1 failed -- silent, because a failed statement prints nothing.  ⛔ SHIPS **DEFAULT OFF** (opt-in SCRIP_VLIST_ALT=1) AND THAT IS HALF A CURE, DELIBERATELY, THE B1c-R1b PRECEDENT IN runtime_eval.c: THE LOWERING IS CORRECT AND THE IR PROVES IT (element i omega = element i+1 alpha, last omega = the caller's), BUT THE ZETA-SPINE RETREAT CONTRACT STILL READS EVERY omega AS "LEAVE THE STATEMENT" -- the beta chain unwinds the ENCLOSING expression's live cells before jumping to the next element, so a VLIST nested in a concatenation loses its left operand (measured: `w = 'A[' (IDENT(x) 0, 7) ']'` gives `7]`, oracle `A[7]`; a BARE `z = (IDENT(x) 0, 7)` is already correct at 7). Arming it needs the release planner to know this arc lands INSIDE the statement -- the s192 zd_plan family -- which is its own rung. With the default arm the emitted code is byte-identical to the pre-flip tree BY CONSTRUCTION (the same one-line return), so this can ship ahead of its partner. */
+        if (!g_vlist_alt || t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
+        static int g_vlist_n = 0; char nmb[24]; snprintf(nmb, sizeof nmb, "VLIST$%d", g_vlist_n++); char * tmpn = (char *) lp_strdup(nmb); sno_reg_var(tmpn);   /* the join cell, minted per SITE exactly as the PATTMP$/PATV$/PAT$<n>$V<i> sites below mint theirs; it is live only across the ASSIGN->VAR pair that follows it, so a re-entrant call inside an element completes its own pair before this one writes. */
+        IR_t * jn = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(jn).sval = tmpn;
+        IR_t * head = NULL; IR_t * nxt = ω;
+        for (int i = t->n - 1; i >= 0; i--) { IR_t * asn = lc_build(cx->g, IR_ASSIGN, jn, ω); IR_LIT(asn).sval = tmpn; IR_t * vr = NULL; head = sx_lower(cx, t->c[i], asn, nxt, &vr); ir_operand_push(asn, vr); nxt = head; }   /* built RIGHT TO LEFT so element i's OMEGA is element i+1's ALPHA: the failure edge IS the "try the next one" wire, and the last element's omega is the caller's, which is what makes "all fail => the list fails" fall out of the wiring rather than a test. */
+        if (res) *res = jn; return head;
     }
     default: {
         char buf[64]; snprintf(buf, sizeof buf, "tree kind %d", (int) t->t);

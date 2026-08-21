@@ -15,6 +15,14 @@
 # input is 4-10ms, of which scrip's own COMPILE is ~7ms, so a 1x m3 number times the compiler and
 # not the pattern engine.  --reps N mounts the standard tape (match re-run N+1 times on one loaded
 # subject) to lift the match into a measurable window; --reps 0 keeps the raw 1x program.
+# ⛔ ORACLE AUTHORITY: `-bf`, NEVER `-b` (RULES.md, s189 row `scorecard-oracle-case`).  `-f` is the oracle's LANGUAGE
+# SWITCH (manual v3.7 p.162/p.266 note 10) -- SPITBOL CASE-FOLDS NAMES BY DEFAULT and RULES.md declares SCRIP CASE-SENSITIVE,
+# so under plain `-b` the identity gate grades SCRIP against an answer it is FORBIDDEN to produce.  This is not academic for
+# this script: folding MANUFACTURES phantom duplicate labels, and `treebank.sno`'s five Init_list/init_list-style pairs made
+# the oracle report `ERROR 217 x5` -- which s168 recorded as "the workhorse trio is a DUO, the allocating half does not run".
+# It runs.  Converted s193 (seat3, row `treebank-allocating`), and the conversion is MEASURED INERT for the two rows that
+# predate it: `treebank-match` and `treebank-match-fence` are BYTE-IDENTICAL under -b and -bf on VBGinTASA.dat, so the s168
+# baseline numbers are not invalidated by this change.
 # ⛔ ASYMMETRY, STATED NOT HIDDEN: m3 and sbl both COMPILE-THEN-RUN inside the timed window; the m4
 # arm times a PREBUILT binary.  --compile-cost prints scrip's compile-only wall so the reader can
 # bound it.  RT_OPT is whatever out/libscrip_rt.so was built with — LABEL REPORTED NUMBERS WITH IT.
@@ -27,7 +35,7 @@ SBL="${SBL:-$S4A/x64/bin/sbl}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/prog
 W="${W:-$(mktemp -d)}"; N="${SAMPLES:-7}"; REPS="${REPS:-2000}"; CCOST=0
 PROGS="${PROGS:-treebank-match treebank-match-fence}"
 while [ $# -gt 0 ]; do case $1 in --progs) PROGS="$2"; shift 2;; --reps) REPS="$2"; shift 2;; --samples) N="$2"; shift 2;; --compile-cost) CCOST=1; shift;; *) echo "unknown arg $1"; exit 2;; esac; done
-input_of() { case $1 in treebank|treebank-match|treebank-match-fence) echo "$D/VBGinTASA.dat";; claws5-match) echo "$D/CLAWS5inTASA.dat";; json-match) echo "$D/twitter.json";; *) echo "$D/$1.input";; esac; }
+input_of() { case $1 in treebank|treebank-alloc|treebank-match|treebank-match-fence) echo "$D/VBGinTASA.dat";; claws5-match) echo "$D/CLAWS5inTASA.dat";; json-match) echo "$D/twitter.json";; *) echo "$D/$1.input";; esac; }
 mktape() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys
 src_path, out_path, reps = sys.argv[1], sys.argv[2], int(sys.argv[3])
@@ -57,13 +65,13 @@ for p in $PROGS; do
   if [ "$REPS" != 0 ]; then mktape "$SRC" "$W/$p-rep.sno" "$REPS" || { echo "$p: TAPE FAIL"; continue; }; RUN="$W/$p-rep.sno"; fi
   "$SCRIP" --compile -o "$W/$p.s" "$RUN" < /dev/null > /dev/null 2>&1
   gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.m4" 2>/dev/null || { echo "$p: M4 BUILD FAIL"; continue; }
-  so="$(timeout 600 "$SBL" -b "$RUN" < "$IN" 2>/dev/null)"
+  so="$(timeout 600 "$SBL" -bf "$RUN" < "$IN" 2>/dev/null)"
   o3="$(timeout 600 "$SCRIP" "$RUN" < "$IN" 2>/dev/null)"
   o4="$(timeout 600 "$W/$p.m4" < "$IN" 2>/dev/null)"
   [ "$so" = "$o3" ] && [ "$so" = "$o4" ] || { echo "$p: IDENTITY FAIL sbl=[$so] m3=[$o3] m4=[$o4]"; continue; }
   s=(); m3=(); m4=()
   for i in $(seq 1 "$N"); do
-    t0=$(date +%s%N); timeout 600 "$SBL" -b "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
+    t0=$(date +%s%N); timeout 600 "$SBL" -bf "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
     t0=$(date +%s%N); timeout 600 "$SCRIP" "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); m3+=( $(( (t1-t0)/1000000 )) )
     t0=$(date +%s%N); timeout 600 "$W/$p.m4" < "$IN" > /dev/null 2>&1;      t1=$(date +%s%N); m4+=( $(( (t1-t0)/1000000 )) )
   done
