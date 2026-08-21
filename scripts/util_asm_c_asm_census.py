@@ -30,15 +30,27 @@ GROUND_TRUTH = [("rt_call_arr","rt_call_arr_impl"),("rt_call_arr_impl","try_call
                 ("try_call_builtin_by_name","rt_call_named_proc"),("rt_call_named_proc","rt_proc_enter")]
 DEF  = re.compile(r'^(?:static\s+|inline\s+|extern\s+)*[A-Za-z_][A-Za-z_0-9]*[ \*]+\**([A-Za-z_][A-Za-z_0-9]*)\s*\(')
 CALL = re.compile(r'\b([A-Za-z_][A-Za-z_0-9]*)\s*\(')
+# NO LEADING WHITESPACE: a forward declaration in this tree sits at COLUMN 0; a body statement is indented.  The first
+# cut allowed leading space and therefore ate `    return rt_proc_enter(...);` -- caught by the selftest, which is what
+# the selftest is for.
+PROTO = re.compile(r'^(?:extern\s+)?[A-Za-z_][A-Za-z_0-9 \*]*\**[A-Za-z_][A-Za-z_0-9]*\s*\([^;{]*\)\s*;\s*$')
 def build(root):
+    """⛔ BODIES ARE BRACE-BOUNDED, NOT 'UNTIL THE NEXT DEFINITION'.  The naive form absorbed everything after a
+    function -- including the forward declaration `DESCR_t rt_proc_enter(void *fn);` and the __asm__ string blocks --
+    and manufactured an edge rt_proc_call_epilogue_ret -> rt_proc_enter that DOES NOT EXIST (its real body calls only
+    rt_proc_call_epilogue_omega/gamma).  That single fake edge sat on 18 of 26 reported roads.  This codebase writes
+    `}` at column 0 with zero blank lines, so the closing brace is a reliable terminator."""
     bodies = collections.defaultdict(list)
     for path in sorted(glob.glob(os.path.join(root,'src/runtime/**/*.c'), recursive=True)):
         cur = None
         for line in open(path, encoding='utf-8', errors='ignore'):
+            if cur is not None:
+                if line.startswith('}'): cur = None; continue
+                if not PROTO.match(line) and not line.lstrip().startswith('"'): bodies[cur].append(line)
+                continue
             m = DEF.match(line)
-            if m and line.rstrip().endswith(('{',')')) and ';' not in line and m.group(1) not in BOGUS:
-                cur = m.group(1)
-            if cur: bodies[cur].append(line)
+            if m and ';' not in line and m.group(1) not in BOGUS and line.rstrip().endswith(('{',')')):
+                cur = m.group(1); bodies[cur]  # touch so a body-less definition still registers
     g = {f: {c for ln in b for c in CALL.findall(ln)} - BOGUS for f,b in bodies.items()}
     known = set(g) | ASM_ENTRIES
     return {f: (cs & known) for f,cs in g.items()}

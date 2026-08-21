@@ -22,7 +22,7 @@ echo "$OUT"
 [ "$rc" = 3 ] && { echo "⛔ GATE REFUSES: census selftest failed (see above) — fix the analysis before trusting any verdict."; exit 1; }
 [ "$rc" = 0 ] || { echo "⛔ GATE ERROR: census exited $rc"; exit 1; }
 N="$(printf '%s\n' "$OUT" | sed -n 's/^COUNT=//p' | tail -1)"
-CEIL="${ASM_C_ASM_RATCHET:-26}"
+CEIL="${ASM_C_ASM_RATCHET:-12}"
 case "$N" in ''|*[!0-9]*) echo "⛔ GATE ERROR: census printed no COUNT"; exit 1;; esac
 echo "------------------------------------------------------------"
 if [ "$N" -gt "$CEIL" ]; then
