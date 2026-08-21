@@ -983,6 +983,7 @@ void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
         g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
         return NULL;
     }
+    rt_bomb("c_rt_defer_get_pat_fn: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_defer_get_pat_fn in rtx_match.S is the sole plain-name spelling (the asm bails here for star-vars ONLY)");
     DESCR_t val = NV_GET_fn(varname ? varname : "");
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);

@@ -98,7 +98,6 @@ RTX_GATE_DEF(plunify)
  *   rdi = args, esi = nargs.  Returns DESCR_t in rax:rdx.
  */
 RTX_FUNC(rt_pl_dop_unify)
-    RTX_GATE(plunify, c_rt_pl_dop_unify)
     cmp     esi, 2
     jne     .Lpu_fail_bare                          /* refuse BEFORE any side effect              */
     sub     rsp, 24                                 /* RSP-ONLY: entry%16==8, -24 => aligned calls; slots [rsp+FR_ARGS],[rsp+FR_FLOOR]; exit adds 24 */

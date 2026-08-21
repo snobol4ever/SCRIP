@@ -1005,7 +1005,6 @@ RTX_ENDF(rt_dcap_step)
  * NO SPEED NUMBER CLAIMED.  The 3-arm rail refuses this machine (s224).
  *===================================================================================================================*/
 RTX_FUNC(rt_defer_get_pat_fn)
-    RTX_GATE(match, c_rt_defer_get_pat_fn)
     /* ARM BAIL: varname[0]=='*' -> static statics unreachable from .S */
     test    rdi, rdi                                     /* varname == NULL?                */
     jz      .Ldfpf_nv                                   /* NULL -> NV_GET with ""          */

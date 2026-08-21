@@ -1497,15 +1497,11 @@ static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n
 static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
-    if (nargs != 2) return FAILDESCR;
-    { char *fl = g_plw_unwind_floor; DESCR_t out;
-      g_plw_unwind_floor = (char *)__builtin_frame_address(0);
-      rt_gc_point_arr(args, 2, (const char **)0);
-      out = plw_unify_vals(args[0], args[1]) ? rt_pl_deref_val(args[0]) : FAILDESCR;
-      g_plw_unwind_floor = fl;
-      return out; }
+    (void)args; (void)nargs;
+    { extern void rt_bomb(const char *); rt_bomb("c_rt_pl_dop_unify: DELETED (s196 Lon one-to-maintain) — rt_pl_dop_unify in rtx_plunify.S is the sole spelling (zero bails, gate removed)"); }
+    return FAILDESCR;
 }
+
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);

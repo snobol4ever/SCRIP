@@ -64,7 +64,6 @@ RTX_ENDF(rt_size_d)
  * made AFTER the red-zone slot is no longer needed as scratch -- we hand list_bang_at a real stack
  * slot instead, since it writes through the pointer while its own frame is live. */
 RTX_FUNC(rt_list_bang_at)
-    RTX_GATE(icnagg, c_rt_list_bang_at)
     sub     rsp, 24                     /* 16 for out + 8 to realign (entry rsp == 8 mod 16) */
     mov     rcx, rsp                    /* &out */
     call    list_bang_at@PLT            /* (obj lo=rdi, obj hi=rsi, idx=rdx, out=rcx) */

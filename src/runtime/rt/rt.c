@@ -1914,8 +1914,8 @@ extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t idx)
 {
-    DESCR_t out;
-    if (list_bang_at(obj, idx, &out)) return out;
+    (void)obj; (void)idx;
+    rt_bomb("c_rt_list_bang_at: DELETED (s196 Lon one-to-maintain) — rt_list_bang_at in rtx_icnagg.S is the sole spelling (zero bails, gate removed)");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
