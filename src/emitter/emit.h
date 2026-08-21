@@ -616,6 +616,7 @@ static inline int emit_patpin_probe(void) { static int v = -1; if (v < 0) { cons
 static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || (emit_patpin_probe() && g_emit.flat_pat); }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
+static inline int emit_pl_gamma_retain(void) { static int r = -1; if (r < 0) { const char * e = getenv("SCRIP_PL_GAMMA_RETAIN"); r = (e && *e == '1') ? 1 : 0; } return r; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_pin() ? "rsp" : "rsp"; }
 static inline int          emit_rec_fb_num(void) { return emit_rec_pin() ? 5 : 4; }
 static inline int emit_rec_rsp_arm(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; } return on && g_emit.flat_pat && !emit_jmp_pin_legacy(); }

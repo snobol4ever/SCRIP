@@ -234,6 +234,8 @@ extern "C" void rt_lcl_proc_args_install(void *, int, int);
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 extern "C" void rt_arg_stage(int idx, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_PL_ZANCHOR_POISON"); on = (e && *e == '1') ? 1 : 0; } return on; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -244,7 +246,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (emit_jmp_pin_legacy() ? x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp")
+         + (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string());
     if (g_emit.flat_lex) {
@@ -337,7 +339,7 @@ static std::string xa_flat_chain_epilogue_str(void) {
          + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_gamma_retain_on(void) { static int _r = -1; if (_r < 0) { const char * e = getenv("SCRIP_PL_GAMMA_RETAIN"); _r = (e && *e == '1') ? 1 : 0; } return _r; }
+static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
