@@ -1618,10 +1618,21 @@ __asm__(
 "  movq 48(%r10), %r9\n"
 "  movq 56(%r10), %r10\n"
 "4:\n"
+#ifdef SCRIP_WIRE_STACK_RT
+/* ⭐ WIRE-STACK rung 2 (Lon s194 in-chat: "PUSH <fail_location> PUSH <succeed_location> at the CALLEE").  THE C ENTRY ROAD IS THE ONE WITH NO TEMPLATE PASS SITE (FINDING s194c §6), so rung 1 converted the exits and left this entry still speaking registers.  ⛔ WHY THE PAIR AND NOT THE REGISTERS: rtccb[32] banks r10/r11 (x86_asm.h:12 "R10=7, R11=8"; :427/:428/:440/:441) and it is a FLAT GLOBAL with NO nesting -- an inner activation entered through C overwrites the outer activation's banked wires, which is the measured M1 SIGSEGV (r11 = rip = rtccb).  A pushed pair rides this activation's own frame and cannot be clobbered by a nested one.  FAIL pushed FIRST so it lands DEEPER: [rsp+0]=γ SUCCEED, [rsp+8]=ω FAIL -- the same order SCRIP_SLIM_PAIR and bb_glue_pass_wires_blob use, one convention.  ⛔ BUILD-TIME, NOT RUNTIME, AND DELIBERATELY SO: a runtime arm here needs a flag VARIABLE in libscrip_rt and RULES forbids a new global without Lon's in-chat grant, so the default build is byte-identical by construction rather than by measurement. */
+"  leaq 3f(%rip), %r11\n"
+"  pushq %r11\n"
+"  leaq 2f(%rip), %r10\n"
+"  pushq %r10\n"
+#else
 "  leaq 2f(%rip), %r10\n"
 "  leaq 3f(%rip), %r11\n"
+#endif
 "  jmp *%rax\n"
 "2:\n"
+#ifdef SCRIP_WIRE_STACK_RT
+"  addq $16, %rsp\n"   /* WIRE-STACK landing: drop the pair this entry pushed, BEFORE the callee-saves come back — the same 16 on both arms so γ and ω stay depth-symmetric at the epilogue join. */
+#endif
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
@@ -1631,6 +1642,9 @@ __asm__(
 "  movq %rdx, %rsi\n"
 "  jmp rt_proc_call_epilogue_γ\n"
 "3:\n"
+#ifdef SCRIP_WIRE_STACK_RT
+"  addq $16, %rsp\n"
+#endif
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"
