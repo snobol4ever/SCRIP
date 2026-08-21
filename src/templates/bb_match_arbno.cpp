@@ -7,6 +7,7 @@ extern "C" {
 }
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
 extern "C" int sn4_defer_resume(void);   /* s123: ONE AUTHORITY in emit.cpp -- the beta route and this template's af edge are one mechanism, one killswitch */
+extern "C" int sn4_arbno_seal_omega(void);   /* s189: ONE AUTHORITY in emit.cpp -- the :1436 FENCE-rooted body re-aim and this template's φ retract are one mechanism, one killswitch */
 extern "C" int sn4_arbno_tailbeta(void);   /* s145: ONE AUTHORITY in emit.cpp -- the span-scan carrier admission and this template's af aim are one mechanism, one killswitch */
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -110,7 +111,11 @@ static std::string bb_match_arbno_frameless() {
          + x86("def", PAIR(3))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
-         + x86("jne", PAIR(1))
+         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", PAIR(1)))
+         /* ⭐ ARBNO-SEAL-OMEGA (s189): a FENCE-rooted body has NO reachable retract -- emit.cpp:1436 re-aims its resume to na_f, so PAIR(1) IS this
+          * af and `jne PAIR(1)` self-loops on an unchanged δ (measured: the body β survives with 0 jump refs).  Omitting the edge falls through to
+          * the exhaust already below -- the contract emit.cpp:1192 states in words, and the one bb_match_arbno_frame() already keeps via
+          * op_arbno_body_actframe.  SCRIP_ARBNO_SEAL_OMEGA=0 restores the self-loop byte-identically. */
          + x86("add", "rsp", 16L)
          + x86_omega();
 }
