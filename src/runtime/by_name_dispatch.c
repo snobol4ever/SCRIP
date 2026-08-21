@@ -863,7 +863,7 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 static const char *rk_real_str(double r, char *buf, int bufsz) {
     if (isfinite(r) && r == floor(r) && fabs(r) < 1e15) { snprintf(buf, (size_t)bufsz, "%lld", (long long)r); return buf; }
@@ -875,7 +875,7 @@ static const char *icn_pad_str(DESCR_t d, char *buf, int bufsz) {
     if (IS_REAL_fn(d)) return icon_real_str(d.r, buf, bufsz);
     return VARVAL_fn(d);
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
@@ -5146,7 +5146,15 @@ static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_
 static __attribute__((noinline)) int bn_remdr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2) return -1;
     DESCR_t a = args[0], b = args[1]; _SNOCOERCE(a); _SNOCOERCE(b);
-    long long ai = IS_REAL_fn(a) ? (long long)a.r : a.i, bi = IS_REAL_fn(b) ? (long long)b.r : b.i;
+    /* .cmth extends remdr to reals (sbl.min:260) -- either operand real yields a real result via fmod, measured against the live oracle: REMDR(7.5,2.0)=1.5, REMDR(7,2.0)=1., REMDR(-7.5,2.0)=-1.5. */
+    if (IS_REAL_fn(a) || IS_REAL_fn(b)) {
+        double rb = IS_REAL_fn(b) ? b.r : (double)b.i;
+        if (rb == 0.0) { *out = FAILDESCR; return 1; }
+        double rr = fmod(IS_REAL_fn(a) ? a.r : (double)a.i, rb);
+        if (isinf(rr)) { core_runtime_error(312, "remdr caused real overflow"); *out = FAILDESCR; return 1; }
+        *out = REALVAL(rr); return 1;
+    }
+    long long ai = a.i, bi = b.i;
     if (bi == 0) { *out = FAILDESCR; return 1; }
     *out = INTVAL(ai % bi); return 1;
 }

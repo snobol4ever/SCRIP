@@ -196,7 +196,7 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
     return INTVAL(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int operand_is_real_str(DESCR_t v) {
+int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
     const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
     char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);

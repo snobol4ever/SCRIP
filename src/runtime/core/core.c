@@ -283,7 +283,7 @@ void mon_emit_label_bin(int64_t stno) {
     for (int k = 0; k < 8; k++) buf[k] = (unsigned char)(((uint64_t)stno >> (k*8)) & 0xff);
     mon_send_bin(MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, buf, 8);
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐ s112 MON-CAP — IS THIS NAME A COMPILER-MINTED INTERNAL?  ONE AUTHORITY for both VALUE fire-points (mon_emit_value_bin and comm_var's binary arm); they are separate code paths and this seat
  * measured the cost of fixing only one — the filter went into mon_emit_value_bin, the rebuild was clean, and beauty.sno's divergence did not move ONE STEP, because the events came out of the other path.
  * Every name the SNOBOL4 lowerer mints for itself carries an embedded '$' after an identifier head: PAT$n, PAT$n$A<i>, PAT$n$V<i>, PATV$k, PATTMP$n, EXPR$n, IGT$n, SNO$*.  The oracle has no such
@@ -903,9 +903,74 @@ static DESCR_t _DUPL_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _REMDR_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
+    extern int operand_is_real_str(DESCR_t v);
+    /* .cmth extends remdr to reals in the SAME sentence as the 8 math fns (sbl.min:260); the real/int decision is arithmetic.c's, reused not respelled.  REMDR-by-zero stays a FAIL here:      */
+    /* the oracle raises 167/312 instead, a SEPARATE measured divergence with its own blast radius over every program relying on the failure signal, and NOT part of this family.             */
+    if (IS_REAL_fn(a[0]) || IS_REAL_fn(a[1]) || operand_is_real_str(a[0]) || operand_is_real_str(a[1])) {
+        double ry = to_real(a[1]);
+        if (ry == 0.0) return FAILDESCR;
+        double rr = fmod(to_real(a[0]), ry);
+        if (isinf(rr)) { core_runtime_error(312, "remdr caused real overflow"); return FAILDESCR; }
+        return REALVAL(rr);
+    }
     int64_t x = to_int(a[0]), y = to_int(a[1]);
     if (y == 0) return FAILDESCR;
     return INTVAL(x % y);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SPITBOL extended math (.cmth, sbl.min:1658): ATAN CHOP COS EXP LN SIN SQRT TAN.  Each takes ONE arg, coerces INT/REAL/STRING via to_real, returns REAL ALWAYS -- CHOP(7) is 7. and         */
+/* DATATYPE(SQRT(4)) is REAL, both measured against the live oracle.  Domain/overflow arms carry SPITBOL's own numbered errors (sbl.min:13223-15753): hard errors, not statement failures.   */
+#define MATH_ARG(ECODE, EMSG)                                              \
+    if (n < 1) return FAILDESCR;                                           \
+    if (!is_numeric_like(a[0])) { core_runtime_error((ECODE), (EMSG)); return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _ATAN_(DESCR_t *a, int n) {
+    MATH_ARG(301, "atan argument not numeric");
+    return REALVAL(atan(to_real(a[0])));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _CHOP_(DESCR_t *a, int n) {
+    MATH_ARG(302, "chop argument not numeric");
+    return REALVAL(trunc(to_real(a[0])));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _COS_(DESCR_t *a, int n) {
+    MATH_ARG(303, "cos argument not numeric");
+    return REALVAL(cos(to_real(a[0])));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _EXP_(DESCR_t *a, int n) {
+    MATH_ARG(304, "exp argument not numeric");
+    double _r = exp(to_real(a[0]));
+    if (isinf(_r)) { core_runtime_error(305, "exp produced real overflow"); return FAILDESCR; }
+    return REALVAL(_r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _LN_(DESCR_t *a, int n) {
+    MATH_ARG(306, "ln argument not numeric");
+    double _x = to_real(a[0]);
+    if (_x < 0.0)  { core_runtime_error(315, "ln argument negative"); return FAILDESCR; }
+    if (_x == 0.0) { core_runtime_error(307, "ln produced real overflow"); return FAILDESCR; }
+    return REALVAL(log(_x));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _SIN_(DESCR_t *a, int n) {
+    MATH_ARG(308, "sin argument not numeric");
+    return REALVAL(sin(to_real(a[0])));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _SQRT_(DESCR_t *a, int n) {
+    MATH_ARG(313, "sqrt argument not numeric");
+    double _x = to_real(a[0]);
+    if (_x < 0.0) { core_runtime_error(314, "sqrt argument negative"); return FAILDESCR; }
+    return REALVAL(sqrt(_x));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _TAN_(DESCR_t *a, int n) {
+    MATH_ARG(309, "tan argument not numeric");
+    double _r = tan(to_real(a[0]));
+    if (isinf(_r)) { core_runtime_error(310, "tan produced real overflow or argument is out of range"); return FAILDESCR; }
+    return REALVAL(_r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _REPLACE_(DESCR_t *a, int n) {
@@ -1739,6 +1804,14 @@ void core_lib_init(void) {
     register_fn("DUPL",        _DUPL_,     2, 2);
     register_fn("REPLACE",  _REPLACE_,  3, 3);
     register_fn("REMDR",    _REMDR_,    2, 2);
+    register_fn("ATAN",     _ATAN_,     1, 1);
+    register_fn("CHOP",     _CHOP_,     1, 1);
+    register_fn("COS",      _COS_,      1, 1);
+    register_fn("EXP",      _EXP_,      1, 1);
+    register_fn("LN",       _LN_,       1, 1);
+    register_fn("SIN",      _SIN_,      1, 1);
+    register_fn("SQRT",     _SQRT_,     1, 1);
+    register_fn("TAN",      _TAN_,      1, 1);
     register_fn("TRIM",        _TRIM_,     1, 1);
     register_fn("SUBSTR",      _SUBSTR_,   2, 3);
     register_fn("REVERSE",  _REVERSE_,  1, 1);

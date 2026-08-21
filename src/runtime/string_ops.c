@@ -104,12 +104,9 @@ const char *real_str(double r, char *buf, int bufsz) {
     double ar = fabs(r);
     if (ar == 0.0) { snprintf(buf, bufsz, "%s", "0."); return buf; }
 
-    /* shortest round-trippable scientific form: d[.ddd]e+XX */
+    /* SPITBOL renders a FIXED significant-digit count (cfp$s, sbl.min:1230 "number of significant digits to produce"), NOT the shortest round-trippable form; measured 15 against the live oracle. */
     char sci[64];
-    for (int prec = 0; prec <= 17; prec++) {
-        snprintf(sci, sizeof sci, "%.*e", prec, ar);
-        if (strtod(sci, (char **)0) == ar) break;
-    }
+    snprintf(sci, sizeof sci, "%.14e", ar);
 
     /* pull out significant digits (no point) and decimal exponent E (value = d.ddd x 10^E) */
     char digits[40]; int nd = 0; int E = 0;
