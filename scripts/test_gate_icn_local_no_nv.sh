@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
-# scripts/test_gate_icn_local_no_nv.sh — LVA-1 lock: Icon LOCALS stay ζ-frame slotted ([r12+off]),
+# scripts/test_gate_icn_local_no_nv.sh — LVA-1 lock: Icon LOCALS stay ζ-SPINE cells (rsp-relative),
 # never the NV_* name-table hash. Only true GLOBALS (from 'global' decls) may use NV (mode-3) or the
-# [rbx+k*16] GVA array (mode-4). This gate pins the already-correct split so a future change cannot
+# GVA array on r9 (mode-4). This gate pins the already-correct split so a future change cannot
 # silently regress Icon locals onto the hash.
+#
+# ⛔ HEADER PROSE CORRECTED (s247, seat1, rung N-0) — IT NAMED TWO RETIRED REGISTERS WHILE THE CODE BELOW
+# ALREADY GREPPED THE LIVE ONES.  Locals are NOT at `[r12+off]`: r12 was freed of frame duty by the s65
+# R12-ERAD rung and is today SNOBOL4's live DCAP/CAS top, while Icon locals ride ζ-SPINE cells addressed
+# rsp-relative (LOCK 2 greps `rsp +`).  Globals are NOT at `[rbx+k*16]`: the GVA arena base is r9 (RC-5,
+# bcac52c4; `GVARQ(k,w)` = `[r9 + k*16+w]`), and rbx is the heap bump-frontier (LOCK 3 greps `r9`).
+# A gate whose prose and greps disagree teaches the wrong register to every seat who reads it before
+# reading the code — and both retired spellings were still being quoted in goal-file prose at s246.
 #
 # Three checks (mode-4 .s):
 #   LOCK 1 — a locals-only program (NO 'global' decl) emits ZERO `call NV_GET`/`call NV_SET`.
-#   LOCK 2 — that same program DOES use the ζ-frame `[r12+...]` (locals are really slotted there).
-#   LOCK 3 — a program WITH a 'global' decl DOES use the GVA array `[rbx+...]` and `gva_register`
+#   LOCK 2 — that same program DOES address locals rsp-relative (ζ-SPINE cells are really used).
+#   LOCK 3 — a program WITH a 'global' decl DOES use the GVA array on `r9` and `gva_register`
 #            (the split is real: globals go to GVA, not that "nothing" uses storage).
 #
 # Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude

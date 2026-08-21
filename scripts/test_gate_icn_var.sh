@@ -13,6 +13,39 @@
 #       scoped to the var-family templates (bb_assign_local, bb_var_frame).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-06
+#
+# ⛔ THE BUCKET AND TWO PROBES WERE MEASURING A DEAD ERA (s247, seat1, rung N-0).  RED at every pristine HEAD
+# since s241 for reasons that are entirely instrument rot:
+#   (i)  THE BUCKET SELECTOR MATCHED NOTHING.  It admitted a program when `--dump-bb` carried `IR_ASSIGN`;
+#        the dump is JSON and spells the kind WITHOUT the `IR_` prefix (`"kind":"ASSIGN"`), so N=0 across all
+#        295 corpus programs and the floors (62/12/22) were UNREACHABLE BY CONSTRUCTION.  A gate that cannot
+#        go green however good the compiler gets is as uninformative as one that cannot go red — this one had
+#        been filed as "pre-existing RED" for six sessions.  Both spellings are accepted now.
+#   (ii) `augop_concat` and `neg_unassigned` carried policy X34 = "m3/m4 must LOUDLY REFUSE".  Both are now
+#        implemented natively and produce the oracle answer in all three modes with no refusal.  X34 exists so
+#        an unsupported construct fails loud rather than answering wrongly; answering CORRECTLY satisfies that
+#        safety property strictly better, so both were promoted to STRICT — the strongest policy, not a
+#        relaxation.
+#   (iii) THE BUCKET COUNTED XFAIL PROGRAMS AS FAILURES.  `test_icon_all_rungs.sh` skips a program with a
+#        matching `.xfail` marker (30 exist) and reports XFAIL separately; this bucket had no such skip, so
+#        every known-unimplemented program arrived in the "unexpected FAIL" count and the HARD rule ("m3/m4
+#        must have ZERO unexpected FAILs") could never hold.  The skip is now the SAME test the suite runner
+#        uses — one law, two readers — so an unexpected FAIL is once again unexpected.
+#   (iv) THE BUCKET GRADED WITH A DIFFERENT INPUT CONTRACT THAN THE SUITE.  `test_icon_all_rungs.sh` feeds a
+#        program its `.stdin` file when one exists and runs it with cwd = the corpus directory so relative
+#        data-file reads resolve; this gate fed /dev/null from the SCRIP root, so every program that reads
+#        input or opens a data file failed HERE and passed THERE.  That is the whole reason its "unexpected
+#        FAIL" count read 28 against a suite watermark of 16.  run3 now applies both laws.
+#   (v)  `m2` IS A FOSSIL: modes 1 and 2 were DELETED, and both the A2 and A3 columns invoke the SAME
+#        `--run` command.  The column is retained because the floors are keyed to it — and it does earn a
+#        keep, as a same-binary repeat that would expose a nondeterministic program — but it is NOT an
+#        independent mode and must never be read as one.
+#   (vi) A PROGRAM WITH NO `.expected` CANNOT BE GRADED, AND THE BUCKET GRADED IT ANYWAY — comparing its
+#        output against the empty string and counting the mismatch as a failure.  Two corpus programs carry
+#        no oracle (`rung37_every_do_hello` is the one that reaches these buckets); the suite's denominator
+#        is 293, not 295, for exactly this reason.  Skipped now, as the suite does.
+# ⛔ THE FLOORS ARE FROM THE ERA WHEN THE BUCKET LAST WORKED and have not been re-derived; if they fail
+# against a live bucket, that is a measurement to report, not a number to edit into a pass.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,9 +62,11 @@ BAD=0
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {
     local f="$1" TO="${2:-8}"
-    A2=$(timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null </dev/null)
+    local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN=/dev/null
+    local D; D="$(dirname "$f")"
+    A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
     local e3; e3=$(mktemp)
-    A3=$(timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" </dev/null); RC3=$?
+    A3=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" <"$IN"); RC3=$?
     SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"
     A4=""; SMX4=0
     local s4 b4 e4; s4=$(mktemp --suffix=.s); b4=$(mktemp); rm -f "$b4"; e4=$(mktemp)
@@ -39,7 +74,7 @@ run3() {
     grep -q '\[SMX\]' "$e4" && SMX4=1
     if [ "$SMX4" = 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$b4" 2>/dev/null; then
-            A4=$(timeout "$TO" "$b4" 2>/dev/null </dev/null)
+            A4=$(cd "$D" && timeout "$TO" "$b4" 2>/dev/null <"$IN")
         fi
     fi
     rm -f "$s4" "$b4" "$e4"
@@ -180,7 +215,7 @@ procedure main()
 end
 EOF
 
-probe augop_concat X34 "helloworld" << 'EOF'
+probe augop_concat STRICT "helloworld" << 'EOF'
 procedure main()
   s := "hello";
   s ||:= "world";
@@ -213,7 +248,7 @@ end
 EOF
 
 # NEGATIVE: unassigned var must REFUSE (not crash)
-probe neg_unassigned X34 "" << 'EOF'
+probe neg_unassigned STRICT "" << 'EOF'
 procedure main()
   write(undef_var);
 end
@@ -235,7 +270,9 @@ echo "--- (c) corpus IR_ASSIGN bucket (ratchet floors m2>=$VAR_M2_MIN m3>=$VAR_M
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
 while IFS= read -r f; do
     dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
-    case "$dump" in *IR_ASSIGN*) ;; *) continue ;; esac
+    [ -f "${f%%.icn}.expected" ] || continue   # no oracle, no verdict (s247, N-0)
+    [ -f "${f%%.icn}.xfail" ] && continue   # XFAIL law: the same marker test test_icon_all_rungs.sh uses (s247, N-0)
+    case "$dump" in *IR_ASSIGN*|*'"kind":"ASSIGN"'*) ;; *) continue ;; esac
     CN=$((CN+1))
     exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
     run3 "$f" 30

@@ -22,6 +22,28 @@
 # CONCURRENCY); the landing session lowers ICN_C_BASELINE in the same commit as its conversion.
 #
 # BASELINE HISTORY:
+#   ⭐ 0 (s247, seat1, SCRIP 0b1b7d4f pristine, 23 Icon benchmarks, RT_OPT=-O0) — THE DIRECTIVE IS MET.
+#      C_data 37872 -> 0, A_ceremony -> 0, D_scratch -> 0, DRIFT -> 0: EVERY program in the benchmark set
+#      now emits ZERO rbp references of any kind.  Verified by hand against the raw asm rather than trusting
+#      an all-zero board (the "non-empty is not alive" reflex, inverted): queens.icn emits 6,707 lines with
+#      0 `rbp` mentions and 2,700 `[rsp` references.  Lon's s204 directive — "ALL operands in EVERY BB
+#      accessed via RSP, NOT RBP" — is achieved on the benchmark surface, and the 37,872 ceiling had become
+#      37,872 units of silent headroom (the same defect this session found in icn_no_stack, ceiling 127 vs
+#      measured 0).  Lowered to 0 per this gate's own TIGHTEN instruction.
+#   ⛔⛔ THIS CEILING NOW COLLIDES WITH RUNG N-2 BY DESIGN, AND THAT IS DELIBERATE.  GOAL-ICON-100's N-2
+#      gives Icon GENERATORS an RBP ζ-ACTIVATION frame (the SN4 R-4(b) blob shape: `push rbp; mov rbp,rsp;
+#      carve`, pair at [rbp+8]/[rbp+16], registry slots at [rbp-N]) because Lon's LATER s242 ruling says a BB
+#      owns an RBP frame exactly where compile-time depth is unknowable — "Icon's only dynamic-growth sites
+#      are generator procedures and co-expressions".  The moment N-2 lands, C_data goes above 0 and THIS GATE
+#      FAILS.  That is the correct behaviour: the two rulings (s204 "rbp only for housekeeping", s242 "frames
+#      for genuinely dynamic depth") are not in conflict — s242 names WHERE the exception lives — but
+#      encoding that exception here is a GATE RELAXATION of a zero-assert Lon personally directed, so it is
+#      HIS CALL, not a side effect of the rung that needs it (precedent: the s230 gate-relaxation flag).
+#      ⛔ N-2 MUST NOT LAND WITHOUT THAT RULING.  The proposed shape, for when it is asked: a FIFTH class
+#      beside A/C/D/DRIFT — ζ-ACTIVATION refs inside graphs whose depth is genuinely dynamic (generator /
+#      co-expression), counted and reported SEPARATELY, with C_data staying a zero-assert everywhere else.
+#      Leaving the ceiling at 37,872 instead would let N-2 add frames with the instrument saying nothing at
+#      all, which is the failure this whole rung exists to end.
 #   37872 (s206, tree dda156eb, 20 Icon benchmarks, RT_OPT=-O0, SCRIP_NOFC default=1).
 #         ⚠ THE INHERITED s204 FIGURE OF 39,193 DOES NOT REPRODUCE AT THIS HEAD -- re-measured
 #         37,872, a gap of 1,321 (3.4%).  s204's tree predates NOFC-DEFAULT-ON (259b9cdb) and
@@ -34,7 +56,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
-ICN_C_BASELINE="${ICN_C_BASELINE:-37872}"
+ICN_C_BASELINE="${ICN_C_BASELINE:-0}"
 PY="$HERE/util_icn_rbp_census.py"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$BENCH" ] || { echo "SKIP no Icon benchmark corpus at $BENCH"; exit 0; }

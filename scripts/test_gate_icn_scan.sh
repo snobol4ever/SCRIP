@@ -18,6 +18,48 @@
 #       scan-family templates (the global --strict RED is the documented Prolog-lane bb_* WIP).
 # Exit 0 iff (a) + (b) + (c floors) + (d) all hold.
 # Authors: LCherryholmes . Jeffrey Cooper M.D. . Claude Opus 4.8   DATE: 2026-06-04
+#
+# ⛔ SIX PROBES AND THE CORPUS BUCKET WERE MEASURING A DEAD ERA (s247, seat1, rung N-0).  This gate had
+# been RED at every pristine HEAD since s241, which recorded the fact honestly and moved on — and every
+# reason for the red turned out to be instrument rot, not compiler defect:
+#   (i)  THE BUCKET SELECTOR NAMED A RETIRED OPCODE.  It admitted a program when `--dump-bb` output carried
+#        `GEN_SCAN`.  `IR_GEN_SCAN` NO LONGER EXISTS IN `src/contracts/` AT ALL (it survives only as a stale
+#        row in `src/tools/emit_per_kind_audit.c`); the live scan boxes dump as `"kind":"SCAN"`,
+#        `"SCAN_ENTER"`, `"SCAN_TAB"`, `"SCAN_UPTO"`, `"SCAN_MATCH"`, `"SCAN_MOVE"`, `"SCAN_FIND"`.
+#        So N=0 for the whole corpus and the m2/m3/m4 floors (31/11/11) were UNREACHABLE BY CONSTRUCTION.
+#        A gate that cannot go green no matter how good the compiler gets teaches seats to ignore it — the
+#        fail-closed twin of the vacuous-green rot found the same session in icn_no_stack/icn_one_reg_frame.
+#        The selector now accepts BOTH spellings.
+#   (ii) FOUR PROBES PINNED DEFECTS THE COMPILER HAS SINCE FIXED.  `upto_oneshot` pinned "3" for
+#        `"hello" ? every write(upto('l'))` and `find_oneshot` pinned "2" for `"banana" ? every write(find("an"))`
+#        — the ONE-SHOT answers, flagged in-gate as the "ORACLE GENERATIVITY" marker.  Canonically both are
+#        {*} GENERATORS (`refs/icon-master/src/runtime/fstranl.r:237 function{*} upto`), and SCRIP now emits
+#        the correct `3 4` / `2 4`.  The pins were promoted to the true expectations under STRICT.
+#        `any_dynamic_arg` and `eq_match_var` carried policy X34 = "m3/m4 must LOUDLY REFUSE": both are now
+#        implemented natively and produce the oracle answer in all three modes with no refusal.  X34 exists
+#        so an unsupported construct fails loud instead of answering wrongly; an implementation that answers
+#        CORRECTLY satisfies that safety property strictly better, so those probes were promoted to STRICT —
+#        the strongest policy in the table, not a relaxation.
+#   (iii) THE BUCKET COUNTED XFAIL PROGRAMS AS FAILURES.  `test_icon_all_rungs.sh` skips a program with a
+#        matching `.xfail` marker (30 exist) and reports XFAIL separately; this bucket had no such skip, so
+#        every known-unimplemented program arrived in the "unexpected FAIL" count and the HARD rule ("m3/m4
+#        must have ZERO unexpected FAILs") could never hold.  The skip is now the SAME test the suite runner
+#        uses — one law, two readers — so an unexpected FAIL is once again unexpected.
+#   (iv) THE BUCKET GRADED WITH A DIFFERENT INPUT CONTRACT THAN THE SUITE.  `test_icon_all_rungs.sh` feeds a
+#        program its `.stdin` file when one exists and runs it with cwd = the corpus directory so relative
+#        data-file reads resolve; this gate fed /dev/null from the SCRIP root, so every program that reads
+#        input or opens a data file failed HERE and passed THERE.  That is the whole reason its "unexpected
+#        FAIL" count read 28 against a suite watermark of 16.  run3 now applies both laws.
+#   (v)  `m2` IS A FOSSIL: modes 1 and 2 were DELETED, and both the A2 and A3 columns invoke the SAME
+#        `--run` command.  The column is retained because the floors are keyed to it — and it does earn a
+#        keep, as a same-binary repeat that would expose a nondeterministic program — but it is NOT an
+#        independent mode and must never be read as one.
+#   (vi) A PROGRAM WITH NO `.expected` CANNOT BE GRADED, AND THE BUCKET GRADED IT ANYWAY — comparing its
+#        output against the empty string and counting the mismatch as a failure.  Two corpus programs carry
+#        no oracle (`rung37_every_do_hello` is the one that reaches these buckets); the suite's denominator
+#        is 293, not 295, for exactly this reason.  Skipped now, as the suite does.
+# ⛔ THE FLOORS BELOW ARE FROM THE ERA WHEN THE BUCKET LAST WORKED and have not been re-derived; if they now
+# fail against a live bucket, that is a measurement to report, not a number to edit into a pass.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,18 +67,29 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
-SCAN_M2_MIN="${SCAN_M2_MIN:-31}"
-SCAN_M3_MIN="${SCAN_M3_MIN:-11}"
-SCAN_M4_MIN="${SCAN_M4_MIN:-11}"
+# ⛔ FLOORS RE-DERIVED s247 (seat1, N-0) — 31/11/11 -> 26/26/24, AND THE ARITHMETIC IS THE JUSTIFICATION.
+# The old floors were calibrated against a bucket that walked `find $CORPUS -name '*.icn'` RECURSIVELY —
+# 1,348 files across jcon-ref/, jcon-compiler/, ipl/, parser/, repro/, of which 1,048 CARRY NO `.expected`.
+# Those were graded against the EMPTY STRING, so a library file that prints nothing scored a PASS.  Of the
+# 53 programs the GEN_SCAN filter admitted, 22 had no oracle: skipping them removed 18 PASSES and 4 FAILS
+# (18+4 = 22, exactly).  ⭐ THE HONEST PASS COUNT DID NOT MOVE — 44 - 18 = 26 — so NO REAL PROGRAM
+# REGRESSED, which is the check that distinguishes re-deriving a floor from lowering a bar to buy a green.
+# m3 11 -> 26 and m4 11 -> 24 are large TIGHTENINGS; m2 31 -> 26 is a smaller number against an honest
+# population.  Measured at SCRIP 0b1b7d4f, pristine, RT_OPT=-O0.
+SCAN_M2_MIN="${SCAN_M2_MIN:-26}"
+SCAN_M3_MIN="${SCAN_M3_MIN:-26}"
+SCAN_M4_MIN="${SCAN_M4_MIN:-24}"
 BAD=0
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 0; }
 
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {
     local f="$1" TO="${2:-8}"
-    A2=$(timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null </dev/null)
+    local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN=/dev/null
+    local D; D="$(dirname "$f")"
+    A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
     local e3; e3=$(mktemp)
-    A3=$(timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" </dev/null); RC3=$?
+    A3=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" <"$IN"); RC3=$?
     SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"
     A4=""; SMX4=0
     local s4 b4 e4; s4=$(mktemp --suffix=.s); b4=$(mktemp); rm -f "$b4"; e4=$(mktemp)
@@ -44,7 +97,7 @@ run3() {
     grep -q '\[SMX\]' "$e4" && SMX4=1
     if [ "$SMX4" = 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$b4" 2>/dev/null; then
-            A4=$(timeout "$TO" "$b4" 2>/dev/null </dev/null)
+            A4=$(cd "$D" && timeout "$TO" "$b4" 2>/dev/null <"$IN")
         fi
     fi
     rm -f "$s4" "$b4" "$e4"
@@ -129,7 +182,7 @@ procedure main()
   "" ? write(any('h'));
 end
 EOF
-probe any_dynamic_arg X34 "2" << 'EOF'
+probe any_dynamic_arg STRICT "2" << 'EOF'
 procedure main()
   c := 'h';
   "hello" ? write(any(c));
@@ -180,12 +233,12 @@ procedure main()
   "hello" ? write(move(2));
 end
 EOF
-probe upto_oneshot PIN "3" << 'EOF'
+probe upto_oneshot STRICT "$(printf '3\n4')" << 'EOF'
 procedure main()
   "hello" ? every write(upto('l'));
 end
 EOF
-probe find_oneshot PIN "2" << 'EOF'
+probe find_oneshot STRICT "$(printf '2\n4')" << 'EOF'
 procedure main()
   "banana" ? every write(find("an"));
 end
@@ -205,7 +258,7 @@ procedure main()
   "hello" ? write(="x");
 end
 EOF
-probe eq_match_var X34 "he" << 'EOF'
+probe eq_match_var STRICT "he" << 'EOF'
 procedure main()
   s := "he";
   "hello" ? write(=s);
@@ -231,7 +284,9 @@ echo "--- (c) corpus IR_GEN_SCAN bucket (ratchet floors m2>=$SCAN_M2_MIN m3>=$SC
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
 while IFS= read -r f; do
     dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
-    case "$dump" in *GEN_SCAN*) ;; *) continue ;; esac
+    [ -f "${f%%.icn}.expected" ] || continue   # no oracle, no verdict (s247, N-0)
+    [ -f "${f%%.icn}.xfail" ] && continue   # XFAIL law: the same marker test test_icon_all_rungs.sh uses (s247, N-0)
+    case "$dump" in *GEN_SCAN*|*'"kind":"SCAN'*) ;; *) continue ;; esac
     CN=$((CN+1))
     exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
     run3 "$f" 30

@@ -7,6 +7,15 @@
 #   3. CENSUS: census shows 0 armed nodes for the global-only witness program (globals all refused).
 #
 # Completion criterion (ZK-5): these three checks green on the global witness.
+#
+# ⛔ CHECK 1 WAS A TAUTOLOGY; DRIVER VARIABLE REPAIRED (s247, seat1, rung N-0).  The gate compared a baseline
+# run against a "SCRIP_ICN_CELLS=1" run and called the equality a correctness result.  Z-1 (s230, db728001)
+# made SCRIP_ICN_CELLS A NO-OP unless SCRIP_ICN_LEGACY=1 is set too, so BOTH SIDES WERE THE SAME
+# CONFIGURATION and the comparison could not fail for any reason in this gate's subject.  CHECK 1 is now the
+# real anchor: the default arm (which IS the cells arm) against the pinned .expected, and a missing .expected
+# is a hard failure rather than a silent pass through the else-branch.  ⛔ The pre-Z-1 A/B cannot be restored:
+# SCRIP_ICN_LEGACY=1 CORE-DUMPS on this witness (measured s247), so the transition killswitch no longer
+# reproduces a working configuration — recorded in GOAL-ICON-100 as evidence for the N-5 fold.
 # Authors: LCherryholmes · Claude Sonnet 4.6
 
 set -euo pipefail
@@ -19,26 +28,20 @@ FAIL=0
 [ -x "$SCRIP" ] || { echo "GATE SKIP: scrip not built at $SCRIP"; exit 0; }
 [ -f "$WITNESS" ] || { echo "GATE FAIL: witness not found at $WITNESS"; exit 1; }
 
-# CHECK 1 — correctness: baseline output
-base_out=$(timeout 8s "$SCRIP" --run "$WITNESS" 2>/dev/null) || { echo "GATE FAIL: baseline run failed"; FAIL=1; }
-cells_out=$(SCRIP_ICN_CELLS=1 timeout 8s "$SCRIP" --run "$WITNESS" 2>/dev/null) || { echo "GATE FAIL: CELLS=1 run failed"; FAIL=1; }
-if [ "$base_out" != "$cells_out" ]; then
-    echo "GATE FAIL: CELLS=1 output differs from baseline"
-    echo "  baseline: $base_out"
-    echo "  cells=1:  $cells_out"
+# CHECK 1 — correctness: the DEFAULT arm (= the cells arm since Z-1) against the pinned oracle
+[ -f "$EXPECTED" ] || { echo "GATE FAIL: .expected not found at $EXPECTED — the gate has no oracle to check against"; FAIL=1; }
+base_out=$(timeout 8s "$SCRIP" --run "$WITNESS" 2>/dev/null) || { echo "GATE FAIL: default-arm run failed"; FAIL=1; }
+if [ -f "$EXPECTED" ] && [ "$base_out" != "$(cat "$EXPECTED")" ]; then
+    echo "GATE FAIL: default-arm output does not match .expected"
+    echo "  got:      $base_out"
+    echo "  expected: $(cat "$EXPECTED")"
     FAIL=1
-else
-    echo "CHECK 1 PASS: CELLS=1 output matches baseline"
-fi
-if [ -f "$EXPECTED" ] && [ "$cells_out" != "$(cat "$EXPECTED")" ]; then
-    echo "GATE FAIL: output does not match .expected"
-    FAIL=1
-else
-    echo "CHECK 1b PASS: output matches .expected"
+elif [ -f "$EXPECTED" ]; then
+    echo "CHECK 1 PASS: default-arm output matches .expected"
 fi
 
 # CHECK 2 — ZK-5 assertion: census run must not abort (global-cells=0 invariant)
-census_stderr=$(SCRIP_ICN_CELLS=1 SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$WITNESS" 2>&1 >/dev/null) || { echo "GATE FAIL: CELLS=1 CENSUS=1 run crashed/aborted"; FAIL=1; }
+census_stderr=$(SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$WITNESS" 2>&1 >/dev/null) || { echo "GATE FAIL: CENSUS=1 run crashed/aborted"; FAIL=1; }
 if grep -q "ZK-5-FAIL" <<< "$census_stderr"; then
     echo "GATE FAIL: ZK-5 global-cells=0 assertion FIRED -- a global was armed on the cells spine"
     echo "$census_stderr" | grep "ZK-5-FAIL"

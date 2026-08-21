@@ -8,6 +8,16 @@
 # WITNESS: global_heavy.icn (three globals, one local binop) -- if any global leaks
 # onto the spine the counter > 0 and grep finds it.
 # COMPLETION: exit 0 = ZK-5 GVA assertion green.
+#
+# ⛔ DRIVER VARIABLE REPAIRED (s247, seat1, rung N-0).  Every check drove the witness with
+# SCRIP_ICN_CELLS=1.  Z-1 (s230, db728001) made that variable A NO-OP: lower_icon.c reads SCRIP_ICN_CELLS
+# ONLY when SCRIP_ICN_LEGACY=1 is also set, and otherwise stamps icn_cells_graph=1 unconditionally.  The
+# gate was therefore driving the DEFAULT arm while believing it had selected the cells arm — true, but by
+# accident, and it would have gone on printing PASS if the cells arm had been switched off entirely.  The
+# checks now name the default arm, which IS the cells arm.  ⛔ Do not "restore" the variable: the arm it
+# selected no longer exists as a separate configuration, and SCRIP_ICN_LEGACY=1 core-dumps on this very
+# witness (measured s247) — the Z-1 killswitch does not restore a working configuration any more, which is
+# recorded in GOAL-ICON-100 as evidence for the N-5 fold.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -e
 SCRIP=${SCRIP:-./scrip}
@@ -16,7 +26,7 @@ PASS=0; FAIL=0
 check() {
     local label="$1" prog="$2"
     local out rc
-    out=$(SCRIP_ICN_CELLS=1 SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$prog" </dev/null 2>&1); rc=$?; true
+    out=$(SCRIP_ZD_CENSUS=1 timeout 8s "$SCRIP" --run "$prog" </dev/null 2>&1); rc=$?; true
     # must produce correct output (rc=0) and no globals_on_stack > 0
     local bad
     bad=$(printf '%s\n' "$out" | grep 'globals_on_stack=' | grep -v 'globals_on_stack=0' || true)
