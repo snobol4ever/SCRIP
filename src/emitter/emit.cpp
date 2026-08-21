@@ -500,7 +500,8 @@ extern cap_t    * bb_cap_new_call           (bb_box_fn child_fn, void *child_sta
 extern cap_t    * bb_cap_new                (bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 void (*g_cap_fixup_cb)(void *cap_ptr, const char *child_α_label) = NULL;
 const char *child_cache_get_lbl(bb_box_fn fn);
-#define FLAT_BUF_MAX  (4 * 1024 * 1024)
+static long flat_buf_max_v() { static long v = -1; if (v < 0) { const char * e = getenv("SCRIP_FLAT_BUF_MB"); long mb = e && *e ? atol(e) : 4; if (mb < 4) mb = 4; if (mb > 256) mb = 256; v = mb * 1024L * 1024L; } return v; }
+#define FLAT_BUF_MAX  (flat_buf_max_v())
 int g_flat_node_id   = 0;
 int g_last_flat_frame_bytes = 0;
 int g_last_flat_zstatic = 0;

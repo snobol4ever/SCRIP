@@ -184,6 +184,18 @@ def read_semantic_record(f, timeout_s):
         ev = read_record(f['rd'], timeout_s)
         if ev is None:
             return None
+        if ev.kind in (MWK_CALL, MWK_RETURN) and SKIP_CALL_RETURN:
+            try:
+                os.write(f['gw'], b'G')
+            except OSError:
+                return None
+            continue
+        if ev.kind == MWK_VALUE and SKIP_VALUE_NAMES and (lambda _n: (_n.decode('utf-8','replace') if isinstance(_n, (bytes, bytearray)) else _n) in SKIP_VALUE_NAMES)(f['names'].get(ev.name_id, '')):
+            try:
+                os.write(f['gw'], b'G')
+            except OSError:
+                return None
+            continue
         if ev.kind != MWK_NAME_DEF:
             return ev
         # Streaming intern: register binding, ack, loop for next record.
@@ -275,6 +287,21 @@ SKIP_MAX_PER_STEP = 4  # at most this many extra reads per side per comparison s
 # Long-term fix: extend scrip's monitor bridge to emit LABEL for label-only
 # statements, matching the oracle's statement-counting model exactly.
 SKIP_BARE_LABEL_STNO = os.environ.get('MONITOR_SKIP_BARE_LABEL_STNO', '').strip() in ('1', 'true', 'yes', 'on')
+
+# MONITOR_SKIP_CALL_RETURN=1 — opt-in bracketing aid (s196): drop CALL/RETURN events
+# from BOTH streams before comparison.  Exists because scrip's SCC staged call road
+# carries no CALL/RETURN taps yet (row scc-road-call-taps): a semantically-identical
+# run diverges on the missing event shape at every staged call, which blocks VALUE/
+# LABEL bracketing of the shipped road.  A dropped event is ACKed like NAME_DEF so
+# the sync-step cadence is preserved.  Never on by default: with taps present the
+# CALL/RETURN stream is load-bearing coverage.
+SKIP_CALL_RETURN = os.environ.get('MONITOR_SKIP_CALL_RETURN', '').strip() in ('1', 'true', 'yes', 'on')
+
+# MONITOR_SKIP_VALUE_NAMES=a,b,c — opt-in bracketing aid (s196): drop VALUE events for the
+# named variables from BOTH streams (ack'd like NAME_DEF so cadence holds).  Exists to peel
+# a known one-sided tap gap (e.g. scrip's NRETURN-name conditional commit not yet emitting
+# VALUE) so the bracket can advance to the next semantic divergence.
+SKIP_VALUE_NAMES = set(p.strip() for p in os.environ.get('MONITOR_SKIP_VALUE_NAMES', '').split(',') if p.strip())
 
 
 def _is_bare_label_stno(stno_map, stno):

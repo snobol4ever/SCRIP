@@ -518,7 +518,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
     rt_k_level--;
     kw_fnclevel = (int64_t)rt_k_level - 1;
-    if (is_fail) return FAILDESCR;
+    if (is_fail) { rt_g_want_name = wn; return FAILDESCR; }
     return rt_nret_fix(result, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -728,7 +728,7 @@ int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_nret_fix(DESCR_t r, int wn) { extern int rt_cap_name_strict(void); if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
-DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; extern int rt_cap_name_strict(void); int wn = rt_g_want_name; DESCR_t o = rt_nret_fix(r, wn); rt_g_want_name = (rt_cap_name_strict() && wn && rt_g_ret_by_name && o.v == DT_N) ? wn : 0; return o; }
+DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; DESCR_t o = rt_nret_fix(r, wn); rt_g_want_name = wn; return o; }
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
 void   *rt_proc_open_fn(void);
@@ -818,7 +818,7 @@ __asm__(
 "  jmp rt_ret_faildescr\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_ret_faildescr(void) { rt_g_want_name = 0; rt_g_ret_by_name = 0; return FAILDESCR; }
+DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_ret_faildescr(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -832,6 +832,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return FAILDESCR;
     }
     if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+    int _wn_gen = rt_g_want_name;
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
@@ -841,6 +842,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         DESCR_t fret = ((DESCR_t (*)(void *, long))fn2)(fb, 0);
         return rt_proc_call_epilogue_ret(fret);
     }
+    rt_g_want_name = _wn_gen;
     return rt_proc_enter(rt_dyn_alpha_fn(name, (void *)p->fn));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
