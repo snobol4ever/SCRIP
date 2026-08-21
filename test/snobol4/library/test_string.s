@@ -5900,6 +5900,86 @@ main_ω:
                         call             exit@PLT
 module_init:
                         sub              rsp, 8
+                        .section         .rodata
+.Lseala10:              .string          "pad_left"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            pad_left_α
+                        lea              rdi, [rip + .Lseala10]
+                        mov              rsi, qword ptr [rip + pad_left_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala11:              .string          "pad_right"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            pad_right_α
+                        lea              rdi, [rip + .Lseala11]
+                        mov              rsi, qword ptr [rip + pad_right_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala12:              .string          "ltrim"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            ltrim_α
+                        lea              rdi, [rip + .Lseala12]
+                        mov              rsi, qword ptr [rip + ltrim_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala13:              .string          "rtrim"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            rtrim_α
+                        lea              rdi, [rip + .Lseala13]
+                        mov              rsi, qword ptr [rip + rtrim_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala14:              .string          "trimws"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            trimws_α
+                        lea              rdi, [rip + .Lseala14]
+                        mov              rsi, qword ptr [rip + trimws_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala15:              .string          "repeat"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            repeat_α
+                        lea              rdi, [rip + .Lseala15]
+                        mov              rsi, qword ptr [rip + repeat_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala16:              .string          "contains"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            contains_α
+                        lea              rdi, [rip + .Lseala16]
+                        mov              rsi, qword ptr [rip + contains_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala17:              .string          "startswith"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            startswith_α
+                        lea              rdi, [rip + .Lseala17]
+                        mov              rsi, qword ptr [rip + startswith_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala18:              .string          "endswith"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            endswith_α
+                        lea              rdi, [rip + .Lseala18]
+                        mov              rsi, qword ptr [rip + endswith_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala19:              .string          "index"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            index_α
+                        lea              rdi, [rip + .Lseala19]
+                        mov              rsi, qword ptr [rip + index_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
                         add              rsp, 8
                         ret
                         .section         .rodata

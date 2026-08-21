@@ -5351,6 +5351,38 @@ main_ω:
 module_init:
                         sub              rsp, 8
                         .section         .rodata
+.Lseala4:               .string          "Push"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            Push_α
+                        lea              rdi, [rip + .Lseala4]
+                        mov              rsi, qword ptr [rip + Push_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala5:               .string          "Pop"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            Pop_α
+                        lea              rdi, [rip + .Lseala5]
+                        mov              rsi, qword ptr [rip + Pop_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala6:               .string          "Unary"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            Unary_α
+                        lea              rdi, [rip + .Lseala6]
+                        mov              rsi, qword ptr [rip + Unary_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala7:               .string          "Binary"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            Binary_α
+                        lea              rdi, [rip + .Lseala7]
+                        mov              rsi, qword ptr [rip + Binary_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
 .Lstartup_pname8:       .string          "PAT$0"
                         .align           8
 .Lstartup_prec8:

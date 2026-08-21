@@ -3259,6 +3259,54 @@ module_init:
                         .intel_syntax    noprefix
                         lea              rdi, [rip + .Lclassspec0]
                         call             record_register@PLT
+                        .section         .rodata
+.Lseala6:               .string          "stack_init"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_init_α
+                        lea              rdi, [rip + .Lseala6]
+                        mov              rsi, qword ptr [rip + stack_init_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala7:               .string          "stack_push"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_push_α
+                        lea              rdi, [rip + .Lseala7]
+                        mov              rsi, qword ptr [rip + stack_push_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala8:               .string          "stack_pop"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_pop_α
+                        lea              rdi, [rip + .Lseala8]
+                        mov              rsi, qword ptr [rip + stack_pop_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala9:               .string          "stack_peek"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_peek_α
+                        lea              rdi, [rip + .Lseala9]
+                        mov              rsi, qword ptr [rip + stack_peek_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala10:              .string          "stack_top"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_top_α
+                        lea              rdi, [rip + .Lseala10]
+                        mov              rsi, qword ptr [rip + stack_top_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala11:              .string          "stack_depth"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            stack_depth_α
+                        lea              rdi, [rip + .Lseala11]
+                        mov              rsi, qword ptr [rip + stack_depth_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
                         add              rsp, 8
                         ret
                         .section         .rodata

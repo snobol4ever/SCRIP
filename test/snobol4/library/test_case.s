@@ -3078,6 +3078,38 @@ main_ω:
 module_init:
                         sub              rsp, 8
                         .section         .rodata
+.Lseala4:               .string          "lwr"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            lwr_α
+                        lea              rdi, [rip + .Lseala4]
+                        mov              rsi, qword ptr [rip + lwr_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala5:               .string          "upr"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            upr_α
+                        lea              rdi, [rip + .Lseala5]
+                        mov              rsi, qword ptr [rip + upr_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala6:               .string          "cap"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            cap_α
+                        lea              rdi, [rip + .Lseala6]
+                        mov              rsi, qword ptr [rip + cap_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala7:               .string          "icase"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            icase_α
+                        lea              rdi, [rip + .Lseala7]
+                        mov              rsi, qword ptr [rip + icase_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
 .Lstartup_pname8:       .string          "PAT$0"
                         .align           8
 .Lstartup_prec8:

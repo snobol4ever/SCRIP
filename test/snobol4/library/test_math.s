@@ -2609,6 +2609,54 @@ main_ω:
                         call             exit@PLT
 module_init:
                         sub              rsp, 8
+                        .section         .rodata
+.Lseala6:               .string          "max"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            max_α
+                        lea              rdi, [rip + .Lseala6]
+                        mov              rsi, qword ptr [rip + max_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala7:               .string          "min"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            min_α
+                        lea              rdi, [rip + .Lseala7]
+                        mov              rsi, qword ptr [rip + min_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala8:               .string          "abs"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            abs_α
+                        lea              rdi, [rip + .Lseala8]
+                        mov              rsi, qword ptr [rip + abs_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala9:               .string          "sign"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            sign_α
+                        lea              rdi, [rip + .Lseala9]
+                        mov              rsi, qword ptr [rip + sign_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala10:              .string          "gcd"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            gcd_α
+                        lea              rdi, [rip + .Lseala10]
+                        mov              rsi, qword ptr [rip + gcd_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
+                        .section         .rodata
+.Lseala11:              .string          "lcm"
+                        .section         .text
+                        .intel_syntax    noprefix
+                        .weak            lcm_α
+                        lea              rdi, [rip + .Lseala11]
+                        mov              rsi, qword ptr [rip + lcm_α@GOTPCREL]
+                        call             rt_proc_seal_alpha@PLT
                         add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits
