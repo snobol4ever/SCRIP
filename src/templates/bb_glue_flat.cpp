@@ -36,7 +36,7 @@ std::string bb_glue_outer_ω() {
          + IF( _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_wire_stack_on(void) { const char * e = getenv("SCRIP_WIRE_STACK"); return (e && *e == '1') ? 1 : 0; }
+int bb_wire_stack_on(void) { const char * e = getenv("SCRIP_WIRE_STACK"); return (e && *e == '0') ? 0 : 1; }
 std::string bb_glue_wire_land(void) { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {

@@ -1416,7 +1416,7 @@ __asm__(
 "  movq 48(%r10), %r9\n"
 "  movq 56(%r10), %r10\n"
 "4:\n"
-#ifdef SCRIP_WIRE_STACK_RT
+#ifndef SCRIP_WIRE_STACK_RT_OFF
 "  leaq 3f(%rip), %r11\n"
 "  pushq %r11\n"
 "  leaq 2f(%rip), %r10\n"
@@ -1427,7 +1427,7 @@ __asm__(
 #endif
 "  jmp *%rax\n"
 "2:\n"
-#ifdef SCRIP_WIRE_STACK_RT
+#ifndef SCRIP_WIRE_STACK_RT_OFF
 "  addq $16, %rsp\n"
 #endif
 "  popq %r15\n"
@@ -1439,7 +1439,7 @@ __asm__(
 "  movq %rdx, %rsi\n"
 "  jmp rt_proc_call_epilogue_γ\n"
 "3:\n"
-#ifdef SCRIP_WIRE_STACK_RT
+#ifndef SCRIP_WIRE_STACK_RT_OFF
 "  addq $16, %rsp\n"
 #endif
 "  popq %r15\n"
