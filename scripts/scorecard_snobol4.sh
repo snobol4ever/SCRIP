@@ -4,6 +4,7 @@
 #   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR] [--force]   # measure (long)
 #   bash scripts/scorecard_snobol4.sh report [DIR]                                       # aggregate a results dir
 #   bash scripts/scorecard_snobol4.sh one <suite> <program> [N]                           # re-run ONE program N times, the way the board runs it
+#   bash scripts/scorecard_snobol4.sh oracle <suite> <program> [outfile]                  # the ORACLE's own answer + a liveness status (for minting .ref)
 #
 # EVERY SNOBOL4 test source found in corpus/ + SCRIP/test is a member of exactly ONE suite below.  Every
 # program is run in BOTH real modes (m3 = --run BINARY in-process, m4 = --compile -> gcc -no-pie -> run) and
@@ -105,6 +106,30 @@ sbl_flags() { echo "-bf -d512m -i64m"; }
 # Admitting those would turn 134 correctly-UNSCR gimpel library modules into rows graded against empty output -- manufacturing 134
 # vacuous passes, which is the very defect the pin/live mutual-silence row exists to kill.  ONE DIRECTION IS A FIX, BOTH IS A LIE.
 sbl_died() { grep -qE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -qE '^in statement +[0-9]+$' "$1"; }
+# ⛔ ONE AUTHORITY FOR THE ORACLE INVOCATION (s191, row `ref-the-ungraded-suites`).  Minting a `.ref` means recording what the
+# oracle answers, and a .ref minted under a DIFFERENT cwd, lib path, stdin or flag set than the board grades with is a pin that
+# can never match -- seat5's s191 conviction, twice in one session, was exactly this: "a census is a harness; copy run_one,
+# never re-derive it".  So run_one and every probe verb now call ONE function, and the cwd/SETL4PATH/-bf/timeout facts are
+# spelled once.  ⛔ NOTE the cwd rule it carries: the oracle runs in the PROGRAM's dir (so a relative -include resolves), except
+# for a CORPUS-rooted lib where it runs at the corpus root.
+sc_oracle_run() {  # $1 = program  $2 = RESOLVED lib path  $3 = stdin file  $4 = output file -> echoes the oracle rc
+  local prog="$1" lib="$2" in="$3" out="$4" d ocwd rc
+  d="$(dirname "$prog")"; ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
+  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $(sbl_flags) "$prog" < "$in" > "$out" 2>/dev/null); rc=$?
+  echo "$rc"
+}
+# The WEIGHTS table has a RAGGED tail (find-args are variable-length, with lib/rto/norm as the last three), so parsing a row is a
+# fact worth spelling once.  ⛔ cmd_run's own loop is a THIRD spelling and is deliberately NOT converted here: it iterates every
+# row and rewriting it would put the headline instrument at risk for a hygiene win inside someone else's row.  Flagged, not hidden.
+sc_suite_fields() {  # $1 = suite name -> "root<TAB>fargs<TAB>lib<TAB>rto<TAB>norm"; rc 1 if no such suite
+  local want="$1" name w root rest nf norm rto lib fargs
+  while read -r name w root rest; do
+    [ "$name" = "$want" ] || continue
+    set -- $rest; nf=$#; norm=${!nf}; rto=${@:$((nf-1)):1}; lib=${@:$((nf-2)):1}; fargs="${*:1:$((nf-3))}"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$root" "$fargs" "$lib" "$rto" "$norm"; return 0
+  done <<< "$SUITES"
+  return 1
+}
 # ---------------------------------------------------------------- PROVENANCE + CONTENTION (row `scorecard-provenance`, s190)
 # ⛔ THIS BOARD IS TIMING-GRADED AND COULD BE SILENTLY CORRUPTED BY A CO-TENANT WITH NOTHING IN ITS OUTPUT SAYING SO.  grade()
 # turns rc 124 into TIMEOUT and nine of twelve suites run on a 20s budget, so a program near budget flips TIMEOUT<->PASS under
@@ -153,9 +178,7 @@ run_one() {  # suite lib prog norm run_to
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
   [ -f "$d/$n.ref" ] && { cp "$d/$n.ref" "$W/pin"; have_pin=1; }
-  local sblflags="$(sbl_flags)"
-  local ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
-  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $sblflags "$prog" < "$in" > "$W/live" 2>/dev/null); rc=$?
+  rc="$(sc_oracle_run "$prog" "$lib" "$in" "$W/live")"
   local ordead=""
   if [ $rc -eq 0 ]; then if sbl_died "$W/live"; then ordead=" fatal-report"; else have_live=1; fi; fi
   if [ $have_pin -eq 0 ] && [ $have_live -eq 0 ]; then
@@ -189,7 +212,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath sbl_flags sbl_died; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
@@ -367,9 +390,9 @@ cmd_one() {  # <suite> <program-basename-or-path> [N]
   local want="${1:-}" prog="${2:-}" reps="${3:-1}" i L
   [ -n "$want" ] && [ -n "$prog" ] || { echo "usage: $0 one <suite> <program> [N]   suites: $(echo "$SUITES" | ${AWK:-awk} 'NF{printf "%s ", $1}')" >&2; exit 2; }
   echo "$SUITES" | ${AWK:-awk} 'NF{print $1}' | grep -qx -- "$want" || { echo "⛔ REFUSED: no such suite `$want`. Known: $(echo "$SUITES" | ${AWK:-awk} 'NF{printf "%s ", $1}')" >&2; exit 2; }
-  echo "$SUITES" | while read -r name w root fargs_lib_rest; do
-    [ "$name" = "$want" ] || continue
-    set -- $fargs_lib_rest; local nf=$#; local norm=${!nf}; local rto=${@:$((nf-1)):1}; local lib=${@:$((nf-2)):1}; local fargs="${*:1:$((nf-3))}"
+  local name="$want" root fargs lib rto norm
+  IFS=$'\t' read -r root fargs lib rto norm < <(sc_suite_fields "$want")
+  {
     local full="$prog"
     if [ ! -f "$full" ]; then case "$root" in
       SELF)      full="$DEMO/beauty/beauty.sno";;
@@ -380,6 +403,34 @@ cmd_one() {  # <suite> <program-basename-or-path> [N]
     [ -n "$full" ] && [ -f "$full" ] || { echo "⛔ not found in suite $want: $prog" >&2; exit 2; }
     echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  (rep, load1, runnable, then the board TSV line)"
     for i in $(seq 1 "$reps"); do L="$(sc_load)"; printf '%s\t%s\t%s\t' "$i" "${L%% *}" "${L##* }"; run_one "$name" "$lib" "$full" "$norm" "$rto"; done
-  done
+  }
 }
-case "${1:-report}" in run) shift; cmd_run "$@";; report) shift; cmd_report "$@";; one) shift; cmd_one "$@";; *) echo "usage: $0 run|report|one"; exit 2;; esac
+# ---------------------------------------------------------------- the oracle's own answer (row `ref-the-ungraded-suites`, s191)
+# ⛔ THIS EXISTS SO A .ref CAN BE MINTED THROUGH THE SAME DOOR THE BOARD GRADES THROUGH.  run_one runs the oracle and then THROWS
+# THE OUTPUT AWAY (it only ever compares), so any tool that wants to RECORD the oracle answer had to re-derive the invocation --
+# and a .ref minted under a different cwd, lib path, stdin or flag set than the board grades with is a pin that can never match.
+# ⛔ AND rc IS NOT THE VERDICT: seat2 proved at s191 that sbl EXITS 0 WHILE PRINTING A FATAL ERROR DUMP, so `DEAD_REPORT` is a
+# distinct status from `LIVE` and a caller that mints on rc alone pins an error report as ground truth.  EMPTY is also its own
+# status and is NOT mintable: a 0-byte .ref grades "produced nothing" as correct, which is how 134 vacuous passes were nearly
+# manufactured at s191.  The three non-LIVE statuses are exactly the brief's classes (ii) and (iii).
+cmd_oracle() {  # <suite> <program> [outfile] -> "STATUS<TAB>rc<TAB>bytes<TAB>outfile"
+  set -f
+  local want="${1:-}" prog="${2:-}" out="${3:-}" root fargs lib rto norm full in rc st bytes
+  [ -n "$want" ] && [ -n "$prog" ] || { echo "usage: $0 oracle <suite> <program> [outfile]" >&2; exit 2; }
+  IFS=$'\t' read -r root fargs lib rto norm < <(sc_suite_fields "$want") || { echo "⛔ REFUSED: no such suite $want" >&2; exit 2; }
+  [ -n "${root:-}" ] || { echo "⛔ REFUSED: no such suite $want" >&2; exit 2; }
+  full="$prog"; [ -f "$full" ] || { echo "⛔ not found: $prog" >&2; exit 2; }
+  [ -n "$out" ] || out="$(mktemp)"
+  in="$(stdin_for "$full")"; [ "$want" = beauty_self ] && in="$full"
+  lib="$(sc_libpath "$lib" "$(dirname "$full")")"
+  rc="$(sc_oracle_run "$full" "$lib" "$in" "$out")"
+  bytes="$(wc -c < "$out" 2>/dev/null || echo 0)"
+  if [ "$rc" -eq 124 ]; then st=TIMEOUT
+  elif [ "$rc" -ge 128 ]; then st="SIG$((rc-128))"
+  elif [ "$rc" -ne 0 ]; then st="RC$rc"
+  elif sbl_died "$out"; then st=DEAD_REPORT
+  elif [ "$bytes" -eq 0 ]; then st=EMPTY
+  else st=LIVE; fi
+  printf '%s\t%s\t%s\t%s\n' "$st" "$rc" "$bytes" "$out"
+}
+case "${1:-report}" in run) shift; cmd_run "$@";; report) shift; cmd_report "$@";; one) shift; cmd_one "$@";; oracle) shift; cmd_oracle "$@";; *) echo "usage: $0 run|report|one|oracle"; exit 2;; esac
