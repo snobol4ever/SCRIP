@@ -179,7 +179,7 @@ static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
-    if (x86_zc_frame() == ZC_FRAME_RSP && fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && !g_monitor_bin && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
+    if (x86_zc_frame() == ZC_FRAME_RSP && fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && (!g_monitor_bin || getenv("SCRIP_MON_SCC")) && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
         np = rt_proc_nparams(fname);
         if (np >= 0 && np <= 60 && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;

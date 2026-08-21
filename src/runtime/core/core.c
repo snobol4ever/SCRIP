@@ -2189,6 +2189,13 @@ static void _var_init(void) {
     _var_init_done = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void mon_tap_cell_store(void *cellp, DESCR_t val) {
+    if (monitor_fd < 0 || !cellp) return;
+    for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next)
+        if ((void *)e->cell == cellp || (void *)&e->val == cellp) { if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace); comm_var(e->name, val); return; }
+    if (getenv("SCRIP_TAP_DBG")) { DESCR_t *c = (DESCR_t *)cellp; fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0, (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?"); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _var_hash(const char *name) {
     unsigned h = 5381;
     while (*name) h = h * 33 ^ (unsigned char)*name++;
