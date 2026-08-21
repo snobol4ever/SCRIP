@@ -1668,10 +1668,12 @@ static int sno_pat_right_sealed(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_patsalt_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATSALT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_patname_salt_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATNAME_SALT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_pat_collect(const tree_t * pat) {
     for (int i = 0; i < g_sno_npat; i++) if ((!sno_patsalt_on() || g_sno_pats[i].salt == g_sno_expr_salt) && sno_expr_eq(g_sno_pats[i].pat, pat)) return g_sno_pats[i].name;
     if (g_sno_npat >= SNO_PAT_MAX) sno_fatal("too many stored patterns in one program", NULL);
-    char buf[32]; snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
+    char buf[32]; if (sno_patname_salt_on() && g_sno_expr_salt) snprintf(buf, sizeof buf, "PAT$%dF%d", g_sno_npat, g_sno_expr_salt); else snprintf(buf, sizeof buf, "PAT$%d", g_sno_npat);
     g_sno_pats[g_sno_npat].name = lp_strdup(buf);
     g_sno_pats[g_sno_npat].pat = pat;
     g_sno_pats[g_sno_npat].salt = g_sno_expr_salt;
