@@ -43,7 +43,7 @@ crosscheck     10 crosscheck                                          -name *.sn
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 -
 csnobol4_suite  5 programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
-gimpel          5 programs/gimpel                                     -name *.sno                SELFDIR:programs/include   20 -
+gimpel          5 programs/gimpel                                     -name *_driver.sno         SELFDIR:programs/include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
@@ -87,6 +87,23 @@ sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
 # SIGSEGV workaround (CLAUDE.md) when the SIGSEGV is the ERROR-217 report path that folding's PHANTOM duplicate
 # labels walk into -- a genuine duplicate label SIGSEGVs under `-bf` too (measured s189).
 sbl_flags() { echo "-bf -d512m -i64m"; }
+# ---------------------------------------------------------------- oracle LIVENESS -- `rc -eq 0` IS NOT A LIVENESS SIGNAL (s191, row `gimpel-suite-harness`)
+# ⛔ `sbl` EXITS 0 AFTER A FATAL ERROR, so testing rc alone ADMITS A DEAD ORACLE and the board then grades SCRIP against SPITBOL's
+# error dump instead of against program output.  SMALLEST REPRO, and its one-ingredient passing sibling: `INPUT(.INPUT,5,,"nosuch.in")`
+# between two OUTPUT statements prints the first, dies with the report, NEVER REACHES THE SECOND -- and exits 0; move the filename to
+# the third argument and the identical program runs clean.  The cause is a DIALECT split the manual names outright (v3.7 p.12, p.224):
+# Catspaw SPITBOL takes the filename as INPUT's THIRD argument, SNOBOL4+ puts it FOURTH, so a SNOBOL4+ program hands Catspaw an empty
+# file spec -- ERROR 116.  MEASURED s191 in corpus/programs/gimpel: 8 library modules and 20 drivers exit 0 while printing the fatal
+# report (ERROR 042/116/156/160/199/248), and the 10 of those drivers carrying NO pin had that dump as their ONLY ground truth -- every
+# one a false red BY CONSTRUCTION.  The report is recognised by its two invariant parts TOGETHER, never either alone: the
+# `FILE(N) : ERROR nnn -- text` line AND the `in statement N` locator of the termination block (`stmts executed` is NOT invariant -- a
+# compile-time death omits it; RSEASON.sno is the witness).  FALSE-POSITIVE FLOOR MEASURED, NOT ASSUMED: zero of the corpus's .ref pins
+# contain EITHER pattern, and the guard is negative-tested against each half alone.
+# ⛔ THE OPPOSITE DIRECTION IS NOT GUARDED AND MUST NOT BE.  It is tempting to also call a 0-byte rc!=0 run "live and empty", but
+# rc!=0 with no output is a GENUINE failure here: `END` alone exits 0, while an empty file and a program with no END statement exit 1.
+# Admitting those would turn 134 correctly-UNSCR gimpel library modules into rows graded against empty output -- manufacturing 134
+# vacuous passes, which is the very defect the pin/live mutual-silence row exists to kill.  ONE DIRECTION IS A FIX, BOTH IS A LIE.
+sbl_died() { grep -qE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -qE '^in statement +[0-9]+$' "$1"; }
 # ---------------------------------------------------------------- one program, one line
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
@@ -100,9 +117,10 @@ run_one() {  # suite lib prog norm run_to
   local sblflags="$(sbl_flags)"
   local ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
   (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $sblflags "$prog" < "$in" > "$W/live" 2>/dev/null); rc=$?
-  [ $rc -eq 0 ] && have_live=1
+  local ordead=""
+  if [ $rc -eq 0 ]; then if sbl_died "$W/live"; then ordead=" fatal-report"; else have_live=1; fi; fi
   if [ $have_pin -eq 0 ] && [ $have_live -eq 0 ]; then
-    echo -e "$suite\t${prog#$CORPUS/}\tORACLE_FAIL\tORACLE_FAIL\t0\t0\tsbl rc=$rc"; rm -rf "$W"; return; fi
+    echo -e "$suite\t${prog#$CORPUS/}\tORACLE_FAIL\tORACLE_FAIL\t0\t0\tsbl rc=$rc$ordead"; rm -rf "$W"; return; fi
   grade() {  # $1 = output file, $2 = rc  -> status
     local o="$1" r="$2"
     [ $r -eq 124 ] && { echo TIMEOUT; return; }
@@ -128,11 +146,11 @@ run_one() {  # suite lib prog norm run_to
   fi
   t4=$((SECONDS-t0))
   [ $have_pin = 1 ] && [ $have_live = 1 ] && ! cmp -s "$W/pin" "$W/live" && note="pin!=live"
-  [ $have_live = 0 ] && note="pin-only"
+  [ $have_live = 0 ] && note="pin-only$ordead"
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath sbl_flags; export CORPUS SBL SCRIP SC DEMO
+export -f run_one stdin_for sc_libpath sbl_flags sbl_died; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
@@ -195,5 +213,23 @@ cmd_report() {
         printf "%-15s %3d %5d %5d %5d %6.1f %6.1f %6.1f %6d %s\n", s, W[s], nn, p3, p4, r3, r4, sc, U[s]+0, top }
       printf "%-15s %3d %5s %5s %5s %6s %6s %6.1f\n", "META SCORE", tw, "", "", "", "", "", (tw?ts/tw:0) }' "$out/results.tsv"
   echo "(SCORE = mean of m3%,m4% per suite; META = weight-averaged; UNSCR = oracle failed & no pin; classes are m3/m4 status pairs)"
+  # ⛔ UNSCR IS NAMED, NEVER MERELY COUNTED (s191, row `gimpel-suite-harness`).  An UNSCR row leaves the denominator ENTIRELY, so a
+  # suite's score is computed over a smaller set than its row count suggests and the difference is invisible in a single integer.
+  # CONVICTION: `UNSCR 136` on gimpel read as a property of SCRIP and was in fact 135 LIBRARY MODULES -- a DEFINE and a label, no END,
+  # no output, not programs at all -- plus ONE real row.  Nobody could have known that from the count; naming them is what made it
+  # visible in one line.  A row named here is a claim that the ORACLE could not run it and nothing pinned it, so it is also the list
+  # to audit when a suite's N looks wrong.  The note column says WHY, including the case where sbl exited 0 and printed a fatal report.
+  local nu; nu="$(awk -F'\t' '$3=="ORACLE_FAIL"' "$out/results.tsv" | wc -l)"
+  if [ "$nu" -gt 0 ]; then
+    echo "UNSCR ROWS — oracle could not run it AND no pin; excluded from every number above; all $nu named:"
+    awk -F'\t' '$3=="ORACLE_FAIL"{printf "  %-15s %-60s %s\n",$1,$2,$7}' "$out/results.tsv" | sort
+  fi
+  # A row whose oracle died but which HAS a pin does not become UNSCR -- it is still scored, against the pin alone.  That is correct,
+  # and it is also a weaker footing than a two-source row, so the count is reported rather than left for someone to derive.
+  local np; np="$(awk -F'\t' '$7 ~ /^pin-only/' "$out/results.tsv" | wc -l)"
+  local nd; nd="$(awk -F'\t' '$7 ~ /^pin-only fatal-report/' "$out/results.tsv" | wc -l)"
+  # ⛔ `if`, NOT `[ ... ] && echo`: this is cmd_report's LAST statement, so a bare test would make the whole script exit 1 on any
+  # board that happens to have zero pin-only rows -- a green board reporting failure.  Caught by running it, not by reading it.
+  if [ "$np" -gt 0 ]; then echo "PIN-ONLY ROWS — scored against the pin because the live oracle did not deliver: $np (of which oracle exited 0 on a FATAL REPORT: $nd)"; fi
 }
 case "${1:-report}" in run) shift; cmd_run "$@";; report) shift; cmd_report "$@";; *) echo "usage: $0 run|report"; exit 2;; esac

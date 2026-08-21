@@ -28,6 +28,12 @@ SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/programs/snobol4/demo"; NRM='/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d'
 [ -x "$SBL" ] || { echo "FATAL: no oracle at $SBL -- a board without it prints a plausible all-FAIL table (PLAN.md 1b)"; exit 1; }
+# ⛔ THIS TABLE IS A SECOND COPY OF scorecard_snobol4.sh's SUITES TABLE AND NOTHING KEEPS THEM IN STEP (named s191, row `gimpel-suite-harness`).
+# The two are edited independently and have already drifted once: s191 changed the gimpel row there to `-name *_driver.sno` -- the 145 files in
+# that tree matching `*.sno` but not `*_driver.sno` are LIBRARY MODULES, a DEFINE and a label with no END and no output, so they are not programs
+# and cannot be scored -- and this copy had to be changed by hand to match.  A sweep enumerating rows the scorecard does not score reports movers
+# on programs no board grades, which is worse than useless: it looks like evidence.  ⭐ THE STRUCTURAL FIX IS ONE AUTHORITY, NOT TWO CAREFUL
+# EDITORS -- routed as row `suite-table-one-authority`.  Until it lands, ANY edit to either table must be made to BOTH, in the same commit.
 SUITES=$(cat <<'EOF'
 beauty_self    SELF                                                -                          demo/beauty
 beauty_suite   programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
@@ -39,7 +45,7 @@ crosscheck     crosscheck                                          -name *.sno -
 feature_test   SCRIPTEST                                           -name *.sno                CORPUS
 probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
 csnobol4_suite programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR
-gimpel         programs/gimpel                                     -name *.sno                SELFDIR:programs/include
+gimpel         programs/gimpel                                     -name *_driver.sno         SELFDIR:programs/include
 misc           MISC                                                -name *.sno                SELFDIR
 EOF
 )
