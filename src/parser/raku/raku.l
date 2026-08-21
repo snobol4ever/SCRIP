@@ -14,7 +14,6 @@ static int rebody_depth   = 0;
 void raku_lex_error(const char *msg) {
     fprintf(stderr, "raku lex error line %d: %s\n", raku_yylineno, msg);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 int raku_get_lineno(void) { return raku_yylineno; }
 %}
 %option noyywrap noinput nounput
@@ -208,7 +207,6 @@ WS       [ \t\r]
         return LIT_INTERP_STR;
     return LIT_STR;
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_DQ>"\\n"  { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>"\\t"  { raku_strbuf[raku_strpos++] = '\t'; }
 <STR_DQ>"\\\\" { raku_strbuf[raku_strpos++] = '\\'; }
@@ -222,7 +220,6 @@ WS       [ \t\r]
     BEGIN(INITIAL);
     return LIT_STR;
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_SQ>"\\'"  { raku_strbuf[raku_strpos++] = '\''; }
 <STR_SQ>"\\\\" { raku_strbuf[raku_strpos++] = '\\'; }
 <STR_SQ>\n     { raku_strbuf[raku_strpos++] = '\n'; }
@@ -233,7 +230,6 @@ WS       [ \t\r]
     raku_subst_pat = strdup(raku_strbuf);
     raku_strpos=0; BEGIN(STR_SUBST_REPL);
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_SUBST_PAT>"\\/"  { raku_strbuf[raku_strpos++]='/'; }
 <STR_SUBST_PAT>.       { raku_strbuf[raku_strpos++]=yytext[0]; }
 <STR_SUBST_REPL>"/"[g]? {
@@ -248,7 +244,6 @@ WS       [ \t\r]
     raku_yylval.sval = tok;
     BEGIN(INITIAL); return LIT_SUBST;
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_SUBST_REPL>"\\/"  { raku_strbuf[raku_strpos++]='/'; }
 <STR_SUBST_REPL>.       { raku_strbuf[raku_strpos++]=yytext[0]; }
 "m:g/"          { if (raku_after_smatch) { raku_after_smatch=0; raku_strpos=0; BEGIN(STR_RE); raku_match_global=1; } else { yyless(3); return IDENT; } }
@@ -260,7 +255,6 @@ WS       [ \t\r]
     if (raku_match_global) { raku_match_global=0; return LIT_MATCH_GLOBAL; }
     return LIT_REGEX;
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_RE>"\\/"  { raku_strbuf[raku_strpos++] = '/'; }
 <STR_RE>\n     { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_RE>.      { raku_strbuf[raku_strpos++] = yytext[0]; }
@@ -275,7 +269,6 @@ WS       [ \t\r]
     }
     if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = '}';
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <STR_REBODY>"\\".  { if (raku_strpos < 65533) { raku_strbuf[raku_strpos++] = yytext[0]; raku_strbuf[raku_strpos++] = yytext[1]; } }
 <STR_REBODY>\n     { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = '\n'; }
 <STR_REBODY>.      { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = yytext[0]; }
@@ -284,5 +277,4 @@ WS       [ \t\r]
     snprintf(buf, sizeof buf, "unexpected char '%c'", yytext[0]);
     raku_lex_error(buf);
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 %%

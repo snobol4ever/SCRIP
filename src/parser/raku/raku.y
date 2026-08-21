@@ -7,9 +7,7 @@ typedef struct ExprList {
     int      count;
     int      cap;
 } ExprList;
-/*--------------------------------------------------------------------------------------------------------------------*/
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %{
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
@@ -23,13 +21,11 @@ extern int  raku_get_lineno(void);
 void raku_yyerror(const char *msg) {
     fprintf(stderr, "raku parse error line %d: %s\n", raku_get_lineno(), msg);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static ExprList *exprlist_new(void) {
     ExprList *l = calloc(1, sizeof *l);
     if (!l) { fprintf(stderr, "raku: OOM\n"); exit(1); }
     return l;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static ExprList *exprlist_append(ExprList *l, tree_t *e) {
     if (l->count >= l->cap) {
         l->cap = l->cap ? l->cap * 2 : 8;
@@ -39,24 +35,19 @@ static ExprList *exprlist_append(ExprList *l, tree_t *e) {
     l->items[l->count++] = e;
     return l;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void exprlist_free(ExprList *l) { if (l) { free(l->items); free(l); } }
 static const char *strip_sigil(const char *s) {
     if (s && (s[0]=='$'||s[0]=='@'||s[0]=='%')) return s+1;
     return s;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int rk_tw_priv(const char *s) { return (s && s[0]=='!') ? 1 : 0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_tw_bare(const char *s) { return (s && (s[0]=='.'||s[0]=='!')) ? s+1 : s; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *leaf_sval(tree_e k, const char *s) {
     tree_t *e = ast_node_new(k); e->v.sval = intern(s); return e;
-}/*--------------------------------------------------------------------------------------------------------------------*/
+}
 static tree_t *var_node(const char *name) {
     return leaf_sval(TT_VAR, strip_sigil(name));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *testop_rt(const char *s) {
     if (!s) return "__rk_test_ok";
     if (!strcmp(s, "plan")) return "__rk_test_plan";
@@ -73,14 +64,12 @@ static const char *testop_rt(const char *s) {
     if (!strcmp(s, "flunk")) return "__rk_test_flunk";
     return "__rk_test_ok";
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_call(const char *name) {
     tree_t *e = leaf_sval(TT_FNC, name);
     tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name);
     expr_add_child(e, n);
     return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
     tree_t *e = make_call(flav);
     if (l && l->t == TT_FNC && l->v.sval && strcmp(l->v.sval, flav) == 0) {
@@ -91,7 +80,6 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
     expr_add_child(e, r);
     return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_multi_mangle(const char *base, ExprList *params) {
     static char buf[512]; int np = params ? params->count : 0;
     int pos = snprintf(buf, sizeof buf, "%s$%d", base, np);
@@ -103,16 +91,13 @@ static const char *rk_multi_mangle(const char *base, ExprList *params) {
         pos += snprintf(buf + pos, sizeof buf - pos, "$%s", safe); }
     return intern(buf);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_typed_param(const char *type, const char *name) {
     tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, type)); return p;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_typed_def_param(const char *type, const char *def, const char *name) {
     char buf[160]; snprintf(buf, sizeof buf, "%s%s", type, def);
     return rk_typed_param(intern(buf), name);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *make_seq(ExprList *stmts) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     if (stmts) {
@@ -121,7 +106,6 @@ static tree_t *make_seq(ExprList *stmts) {
     }
     return seq;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *seq1(tree_t *stmt) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     if (stmt) expr_add_child(seq, stmt);
@@ -135,7 +119,7 @@ static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *
 static tree_t *rk_incdec(const char *var, int add) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_ASSIGN, var_node(var), expr_binary(add ? TT_ADD : TT_SUB, var_node(var), one));
-}/*--------------------------------------------------------------------------------------------------------------------*/
+}
 static tree_t *rk_post_incdec(const char *var, int add) {
     static int __post_uid = 0; char tmp[32]; snprintf(tmp, sizeof tmp, "__post_%d", __post_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
@@ -159,7 +143,6 @@ static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     if (targets) exprlist_free(targets);
     return seq;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
     tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, cond);
     tree_t *dcall = make_call("__rk_defined"); expr_add_child(dcall, leaf_sval(TT_VAR, "_"));
@@ -167,25 +150,21 @@ static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, topic); expr_add_child(seq, gate);
     return seq;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_given_mod(tree_t *stmt, tree_t *topicval) {
     tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, topicval);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, topic); expr_add_child(seq, stmt);
     return seq;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
     if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return expr_binary(TT_TO, lo, d); }
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_rhs(tree_t *rhs) {
     if (!rhs || rhs->t != TT_TO || rhs->n < 2) return rhs;
     tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]);
     return call;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_index(const char *arr, tree_t *idx) {
     if (idx && idx->t == TT_TO && idx->n >= 2) {
         tree_t *call = make_call("__rk_arr_slice"); expr_add_child(call, var_node(arr)); expr_add_child(call, idx->c[0]); expr_add_child(call, idx->c[1]);
@@ -193,31 +172,26 @@ static tree_t *rk_arr_index(const char *arr, tree_t *idx) {
     }
     tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, idx); return c;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_pick(const char *arr, tree_t *i0, ExprList *rest) {
     tree_t *call = make_call("__rk_arr_pick"); expr_add_child(call, var_node(arr)); expr_add_child(call, i0);
     if (rest) { for (int i = 0; i < rest->count; i++) expr_add_child(call, rest->items[i]); exprlist_free(rest); }
     return call;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_end_index(const char *arr, tree_t *off, tree_e op) {
     tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, var_node(arr)); ast_push(el, leaf_sval(TT_QLIT, "elems"));
     tree_t *c = ast_node_new(TT_ARR_GET); ast_push(c, var_node(arr)); ast_push(c, expr_binary(op, el, off)); return c;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_dec(tree_t *hi) {
     if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return d; }
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_SUB, hi, one);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_all(const char *arr) {
     tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, var_node(arr)); ast_push(el, leaf_sval(TT_QLIT, "elems"));
     tree_t *lo = ast_node_new(TT_ILIT); lo->v.ival = 0;
     tree_t *call = make_call("__rk_arr_slice"); expr_add_child(call, var_node(arr)); expr_add_child(call, lo); expr_add_child(call, rk_dec(el));
     return call;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_tree_clone(tree_t *e) {
     if (!e) return NULL;
     tree_t *c = ast_node_new(e->t); c->v = e->v;
@@ -225,28 +199,22 @@ static tree_t *rk_tree_clone(tree_t *e) {
     for (int i = 0; i < e->n; i++) expr_add_child(c, rk_tree_clone(e->c[i]));
     return c;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_slurpy_param(const char *name) {
     tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, intern("*@"))); return p;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_slurpy_lol_param(const char *name) {
     tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, intern("**@"))); return p;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_slurpy_named_param(const char *name) {
     tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, intern("*%"))); return p;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_param_default(tree_t *p, tree_t *dflt) {
     return expr_binary(TT_ASSIGN, p, dflt);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_scalar_rhs(tree_t *rhs) {
     if (!rhs || rhs->t != TT_XREP || rhs->n < 2) return rhs;
     tree_t *c = make_call("__rk_rep"); expr_add_child(c, rhs->c[0]); expr_add_child(c, rhs->c[1]); return c;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_named_call(const char *fname, ExprList *pos, ExprList *named) {
     tree_t *c = make_call("__rk_named_call");
     expr_add_child(c, leaf_sval(TT_QLIT, fname));
@@ -256,7 +224,6 @@ static tree_t *rk_named_call(const char *fname, ExprList *pos, ExprList *named) 
     if (named) { for (int i = 0; i < named->count; i++) expr_add_child(c, named->items[i]); exprlist_free(named); }
     return c;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_defaults_prologue(ExprList *params, tree_t *body) {
     if (!params) return body;
     ExprList *pro = NULL;
@@ -274,24 +241,20 @@ static tree_t *rk_defaults_prologue(ExprList *params, tree_t *body) {
     for (int i = 0; body && i < body->n; i++) exprlist_append(pro, body->c[i]);
     return make_seq(pro);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_chain_cmp(tree_e k) {
     return k == TT_LT || k == TT_GT || k == TT_LE || k == TT_GE || k == TT_EQ || k == TT_NE || k == TT_LEQ || k == TT_LNE;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_chain_last_operand(tree_t *left) {
     if (!left) return NULL;
     if (rk_is_chain_cmp(left->t) && left->n == 2) return expr_right(left);
     if (left->t == TT_SEQ && left->n == 2) return rk_chain_last_operand(expr_right(left));
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
     tree_t *last = rk_chain_last_operand(left);
     if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
     return expr_binary(op, left, right);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_interp_str(const char *s) {
     int len = s ? (int)strlen(s) : 0;
     tree_t *result = NULL;
@@ -316,7 +279,6 @@ static tree_t *lower_interp_str(const char *s) {
         result=result?expr_binary(TT_CAT,result,lit):lit; }
     return result ? result : leaf_sval(TT_QLIT,"");
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 tree_t *raku_prog_result = NULL;
 static void add_proc(tree_t *e) {
     if (!e) return;
@@ -327,7 +289,6 @@ static void add_proc(tree_t *e) {
     expr_add_child(st, ast_attr_expr(":subj", e));
     expr_add_child(raku_prog_result, st);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define RAKU_METH_MAX 256
 typedef struct { char key[128]; char procname[128]; } RakuMethEntry;
 static RakuMethEntry raku_meth_table[RAKU_METH_MAX];
@@ -338,7 +299,6 @@ static void raku_meth_register(const char *classname, const char *methname, cons
     snprintf(e->key,      sizeof e->key,      "%s::%s", classname, methname);
     snprintf(e->procname, sizeof e->procname,  "%s",     procname);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *raku_meth_lookup(const char *classname, const char *methname) {
     char key[128];
     snprintf(key, sizeof key, "%s::%s", classname, methname);
@@ -347,7 +307,6 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
             return raku_meth_table[i].procname;
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %}
 %union {
     long      ival;
@@ -356,7 +315,6 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
     tree_t  *node;
     ExprList *list;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %token <ival> LIT_INT
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST

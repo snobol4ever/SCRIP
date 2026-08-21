@@ -1,6 +1,5 @@
 %code top {
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %code requires {
 #include "scrip_cc.h"
 struct LexCtx;
@@ -15,7 +14,6 @@ typedef struct LoopFrame {
     int      cont_used;
     struct LoopFrame *outer;
 } LoopFrame;
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct ScParseState {
     struct LexCtx *ctx;
     CODE_t        *code;
@@ -25,9 +23,7 @@ typedef struct ScParseState {
     LoopFrame    *loop_top;
     struct SwitchHead *cur_switch;
 } ScParseState;
-/*--------------------------------------------------------------------------------------------------------------------*/
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %code {
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,36 +82,30 @@ struct IfHead {
     STMT_t *before_body;
     int     lineno;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct WhileHead {
     tree_t *cond;
     STMT_t *before_body;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct DoHead {
     STMT_t *before_body;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct ForHead {
     tree_t *init;
     tree_t *cond;
     tree_t *step;
     STMT_t *before_body;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct FuncHead {
     char   *name;
     char   *argstr;
     char   *prev_func;
     STMT_t *before_body;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct CaseEntry {
     char   *case_label;
     tree_t *value;
     STMT_t *before_body;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 struct SwitchHead {
     tree_t *disc;
     char   *tmp_name;
@@ -130,7 +120,6 @@ struct SwitchHead {
     struct SwitchHead *prev_switch;
     int     lineno;
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static char    *sc_label_new          (ScParseState *st, const char *prefix);
 static struct IfHead    *sc_if_head_new    (ScParseState *st, tree_t *cond);
 static void     sc_finalize_while_pst  (ScParseState *st, struct WhileHead *h, tree_t *cond);
@@ -152,7 +141,6 @@ static void     sc_switch_default_label(ScParseState *st);
 static void     sc_finalize_switch_pst (ScParseState *st, struct SwitchHead *h);
 static void     sc_emit_struct         (ScParseState *st, char *name, char *fields);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %define api.prefix {sc_}
 %define api.pure full
 %parse-param { ScParseState *st }
@@ -170,7 +158,6 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
     struct SwitchHead *switchhead;
     STMT_t           *stmt_ptr;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %token <str> T_IDENT
 %token <str> T_KEYWORD
 %token <str> T_INT
@@ -553,7 +540,6 @@ void sc_error(ScParseState *st, const char *msg) {
             msg);
     st->nerrors++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_stmt(ScParseState *st, tree_t *top) {
     if (!top) return;
     STMT_t *s = stmt_new();
@@ -562,25 +548,21 @@ static void sc_append_stmt(ScParseState *st, tree_t *top) {
     s->subject = top;
     sc_append_chain(st, s, s);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_int_literal(const char *txt) {
     tree_t *e = expr_new(TT_ILIT);
     e->ival = strtol(txt, NULL, 10);
     return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_real_literal(const char *txt) {
     tree_t *e = expr_new(TT_FLIT);
     e->dval = strtod(txt, NULL);
     return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_str_literal(const char *txt) {
     tree_t *e = expr_new(TT_QLIT);
     e->sval = strdup(txt);
     return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static char *sc_label_new(ScParseState *st, const char *prefix) {
     static int global_label_seq = 0;
     char buf[64];
@@ -588,7 +570,6 @@ static char *sc_label_new(ScParseState *st, const char *prefix) {
     snprintf(buf, sizeof buf, "%s_%04d", prefix, ++global_label_seq);
     return strdup(buf);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
     struct IfHead *h = calloc(1, sizeof *h);
     h->cond        = cond;
@@ -596,7 +577,6 @@ static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
     h->lineno      = st->ctx ? st->ctx->line : 0;
     return h;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, STMT_t *before_body) {
     (void)st;
     struct ForHead *h = calloc(1, sizeof *h);
@@ -606,7 +586,6 @@ static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_
     h->before_body = before_body;
     return h;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr) {
     struct FuncHead *h  = calloc(1, sizeof *h);
     h->name             = strdup(name);
@@ -616,7 +595,6 @@ static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char 
     st->cur_func_name   = h->name;
     return h;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
 {
     tree_t *body  = sc_collect_body(st, h->before_body);
@@ -633,7 +611,6 @@ static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
     free(h->name); free(h->argstr); free(h);
     sc_append_stmt(st, def);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_label_node(ScParseState *st, const char *name) {
     STMT_t *s = stmt_new();
     s->lineno = st->ctx ? st->ctx->line : 0;
@@ -641,7 +618,6 @@ static void sc_append_label_node(ScParseState *st, const char *name) {
     s->label  = strdup(name);
     sc_append_chain(st, s, s);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_chain(ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail) {
     if (!chain_head) return;
     if (!chain_tail) chain_tail = chain_head;
@@ -649,7 +625,6 @@ static void sc_append_chain(ScParseState *st, STMT_t *chain_head, STMT_t *chain_
     else                 st->code->tail->next = chain_head;
     st->code->tail = chain_tail;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_collect_body(ScParseState *st, STMT_t *snapshot)
 {
     tree_t *block = ast_node_new(TT_PROGRAM);
@@ -666,7 +641,6 @@ static tree_t *sc_collect_body(ScParseState *st, STMT_t *snapshot)
     }
     return block;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h)
 {
     tree_t *then_block = sc_collect_body(st, h->before_body);
@@ -676,7 +650,6 @@ static void sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h)
     sc_append_stmt(st, if_node);
     free(h);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *before_else)
 {
     tree_t *else_block = sc_collect_body(st, before_else);
@@ -688,7 +661,6 @@ static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *
     sc_append_stmt(st, if_node);
     free(h);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t *cond)
 {
     tree_t    *body   = sc_collect_body(st, h->before_body);
@@ -699,7 +671,6 @@ static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t 
     free(h);
     sc_append_stmt(st, w);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t *cond)
 {
     tree_t    *body   = sc_collect_body(st, h->before_body);
@@ -710,7 +681,6 @@ static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t 
     free(h);
     sc_append_stmt(st, dw);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_for_pst(ScParseState *st, struct ForHead *h)
 {
     tree_t    *body   = sc_collect_body(st, h->before_body);
@@ -723,7 +693,6 @@ static void sc_finalize_for_pst(ScParseState *st, struct ForHead *h)
     sc_append_stmt(st, f);
     free(h);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_loop_push(ScParseState *st, char *cont_label, char *end_label, int is_loop) {
     LoopFrame *f = calloc(1, sizeof *f);
     f->cont_label = cont_label;
@@ -732,7 +701,6 @@ static void sc_loop_push(ScParseState *st, char *cont_label, char *end_label, in
     f->outer      = st->loop_top;
     st->loop_top  = f;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_loop_pop(ScParseState *st) {
     LoopFrame *f = st->loop_top;
     if (!f) return;
@@ -741,7 +709,6 @@ static void sc_loop_pop(ScParseState *st) {
     free(f->end_label);
     free(f);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static LoopFrame *sc_loop_find_innermost(ScParseState *st, int want_loop) {
     for (LoopFrame *f = st->loop_top; f; f = f->outer) {
         if (want_loop && !f->is_loop) continue;
@@ -749,7 +716,6 @@ static LoopFrame *sc_loop_find_innermost(ScParseState *st, int want_loop) {
     }
     return NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_break(ScParseState *st, char *user_label) {
     if (!st->loop_top) {
         sc_error(st, user_label ? "break: no enclosing loop or switch" : "break outside of loop or switch");
@@ -762,7 +728,6 @@ static void sc_append_break(ScParseState *st, char *user_label) {
     }
     sc_append_stmt(st, brk);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_continue(ScParseState *st, char *user_label) {
     if (!st->loop_top) {
         sc_error(st, user_label ? "continue: no enclosing loop" : "continue outside of loop");
@@ -775,7 +740,6 @@ static void sc_append_continue(ScParseState *st, char *user_label) {
     }
     sc_append_stmt(st, nxt);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_switch_cases_grow(struct SwitchHead *h) {
     if (h->cases_count >= h->cases_cap) {
         int newcap = h->cases_cap ? h->cases_cap * 2 : 4;
@@ -783,7 +747,6 @@ static void sc_switch_cases_grow(struct SwitchHead *h) {
         h->cases_cap = newcap;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
     struct SwitchHead *h = calloc(1, sizeof *h);
     h->disc          = disc;
@@ -799,11 +762,9 @@ static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
     st->cur_switch = h;
     return h;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_switch_emit_implicit_break(ScParseState *st, struct SwitchHead *h) {
     (void)st; (void)h;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_switch_case_label(ScParseState *st, tree_t *value) {
     struct SwitchHead *h = st->cur_switch;
     if (!h) { sc_error(st, "case label outside of switch"); (void)value; return; }
@@ -813,7 +774,6 @@ static void sc_switch_case_label(ScParseState *st, tree_t *value) {
     h->cases[h->cases_count].before_body = st->code->tail;
     h->cases_count++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_switch_default_label(ScParseState *st) {
     struct SwitchHead *h = st->cur_switch;
     if (!h) { sc_error(st, "default label outside of switch"); return; }
@@ -825,7 +785,6 @@ static void sc_switch_default_label(ScParseState *st) {
     h->cases[h->cases_count].before_body = st->code->tail;
     h->cases_count++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
 {
     int nc = h->cases_count;
@@ -853,7 +812,6 @@ static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
     free(h);
     sc_append_stmt(st, node);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sc_emit_struct(ScParseState *st, char *name, char *fields) {
     int slen = strlen(name) + 1 + strlen(fields) + 2;
     char *spec = malloc(slen);
@@ -865,7 +823,6 @@ static void sc_emit_struct(ScParseState *st, char *name, char *fields) {
     expr_add_child(data_call, qarg);
     sc_append_stmt(st, data_call);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *snocone_parse_program(const char *src, const char *filename) {
     LexCtx          ctx = {0};
     ctx.p           = src ? src : "";

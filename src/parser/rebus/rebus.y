@@ -14,24 +14,20 @@ static SAL *sal_new(void) {
     s->cap = 4; s->a = malloc(4 * sizeof(char *));
     return s;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void sal_push(SAL *s, char *v) {
     if (s->n >= s->cap) { s->cap *= 2; s->a = realloc(s->a, s->cap * sizeof(char *)); }
     s->a[s->n++] = v;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { tree_t **a; int n, cap; } TAL;
 static TAL *tal_new(void) {
     TAL *t = calloc(1, sizeof *t);
     t->cap = 4; t->a = malloc(4 * sizeof(tree_t *));
     return t;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static void tal_push(TAL *t, tree_t *v) {
     if (t->n >= t->cap) { t->cap *= 2; t->a = realloc(t->a, t->cap * sizeof(tree_t *)); }
     t->a[t->n++] = v;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 extern int  yylex(void);
 extern void yyerror(const char *);
 extern int  rebus_yylineno;
@@ -47,7 +43,6 @@ extern int  rebus_yylineno;
     void       *sal;
     void       *tal;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %token <sval>  T_IDENT T_STR T_KEYWORD
 %token <ival>  T_INT
 %token <dval>  T_REAL

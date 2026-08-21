@@ -14,11 +14,8 @@ int   n_inc = 0;
 int   sno_nerrors = 0;
 static int  sno_err_quiet = 0;
 static char sno_err_capture[1024];
-/*--------------------------------------------------------------------------------------------------------------------*/
 void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0'; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 void sno_error_quiet_end(void) { sno_err_quiet = 0; }
-/*--------------------------------------------------------------------------------------------------------------------*/
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
 static int   g_stmt_lineno = 1;
@@ -33,7 +30,6 @@ static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
     return t;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %}
 %option reentrant noyywrap never-interactive stack
 %option extra-type="void *"
@@ -70,7 +66,6 @@ G       ({WS}|{CONT})*
         }
     }
 }
- /*--------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+\"[^\"\n]+\"[^\n]*\n  {
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;

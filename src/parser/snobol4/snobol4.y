@@ -2,7 +2,6 @@
 #include "scrip_cc.h"
 #include "snobol4.h"
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %code {
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +32,6 @@ static inline tree_t *tal_fnc_close(void) {
     for (int j=0;j<n;j++) expr_add_child(e,tal_child(j));
     tal_close(); return e;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t  *parse_expr(Lex*);
 static tree_e pat_prim_kind(const char *s) {
     if (!s) return TT_VAR;
@@ -46,9 +44,7 @@ static tree_e pat_prim_kind(const char *s) {
     for (int i = 0; m[i].n; i++) if (strcmp(s, m[i].n) == 0) return m[i].k;
     return TT_VAR;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %define api.prefix {snobol4_}
 %define api.pure full
 %parse-param { void *yyparse_param }
@@ -225,7 +221,6 @@ int snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param) {
         fprintf(stderr,"[TOK %d sval=%s ival=%ld]\n",t.kind,t.sval?t.sval:"",t.ival);
     return t.kind;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_err_lineno,"parse error: %s",msg);}
 static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,int has_eq,tree_t *repl,tree_t *gu,tree_t *gs,tree_t *gf){
     PP *pp=(PP*)param;
@@ -245,16 +240,13 @@ static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,i
         ast_push(pp->ast_prog, anode);
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_expr(Lex *lx){
     CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=lx;snobol4_parse(&p);
     return prog->head?prog->head->subject:NULL;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *parse_program_tokens(Lex *stream){
     CODE_t *prog=calloc(1,sizeof*prog);PP p={prog,NULL,NULL};g_lx=stream;snobol4_parse(&p);return prog;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
     CODE_t *prog=calloc(1,sizeof*prog);
     tree_t *ast=calloc(1,sizeof*ast); ast->t=TT_PROGRAM;
@@ -262,12 +254,10 @@ CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
     *ast_out=ast;
     return prog;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *parse_program(LineArray *lines){(void)lines;return calloc(1,sizeof(CODE_t));}
 tree_t *parse_expr_from_str(const char *src){
     if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);return parse_expr(&lx);
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 tree_t *parse_expr_pat_from_str(const char *src) {
     if (!src || !*src) return NULL;
     int slen = (int)strlen(src);
@@ -297,7 +287,6 @@ tree_t *parse_expr_pat_from_str(const char *src) {
     free(prog);
     return res;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 CODE_t *sno_parse_string(const char *src) {
     if (!src) return calloc(1, sizeof(CODE_t));
     int slen = (int)strlen(src);
@@ -315,7 +304,6 @@ CODE_t *sno_parse_string(const char *src) {
     free(buf);
     return prog;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
     if (!src) { if (code_out) *code_out = calloc(1, sizeof(CODE_t)); return NULL; }
     int slen = (int)strlen(src);

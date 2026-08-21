@@ -16,13 +16,11 @@ void rebus_error(int lineno, const char *fmt, ...) {
     fputc('\n', stderr);
     rebus_nerrors++;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static char *upcase(const char *s) {
     char *p = strdup(s);
     for (int i = 0; p[i]; i++) p[i] = (char)toupper((unsigned char)p[i]);
     return p;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *word; int tok; } KW;
 static KW kwtab[] = {
     {"CASE",T_CASE},{"DEFAULT",T_DEFAULT},{"DO",T_DO},{"ELSE",T_ELSE},
@@ -33,13 +31,11 @@ static KW kwtab[] = {
     {"RETURN",T_RETURN},{"STOP",T_STOP},{"THEN",T_THEN},{"TO",T_TO},
     {"UNLESS",T_UNLESS},{"UNTIL",T_UNTIL},{"WHILE",T_WHILE},{NULL,0}
 };
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int lookup_kw(const char *u) {
     for (int i=0; kwtab[i].word; i++)
         if (strcmp(kwtab[i].word,u)==0) return kwtab[i].tok;
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 #define RBUF_MAX (4<<20)
 static char  *rbuf = NULL;
 static size_t rlen = 0;
@@ -56,7 +52,6 @@ static void load_file(FILE *fp) {
     }
     rbuf[rlen]='\0';
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int next_is_continuation(void) {
     int target = yylineno;
     size_t p = 0;
@@ -81,7 +76,6 @@ static int next_is_continuation(void) {
     }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 static int last_tok=0;
 static int needs_semi(int tok) {
     switch(tok) {
@@ -93,7 +87,6 @@ static int needs_semi(int tok) {
         default: return 0;
     }
 }
-/*--------------------------------------------------------------------------------------------------------------------*/
 %}
 %option noyywrap never-interactive yylineno prefix="rebus_yy"
 ALPHA   [A-Za-z_\x80-\xff]
