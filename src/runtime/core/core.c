@@ -566,7 +566,7 @@ char lcase[27]    = "abcdefghijklmnopqrstuvwxyz";
 char digits[11]   = "0123456789";
 char alphabet[257];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_numeric_like(DESCR_t d) {
+int is_numeric_like(DESCR_t d) {
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = d.s ? d.s : "";

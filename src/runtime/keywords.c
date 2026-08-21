@@ -179,7 +179,7 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_read(const char *kw, DESCR_t *out) { return kwb_read_ent(kwb_find(kw), out); }   /* KW-3: the name-keyed entry is now a THIN WRAPPER over the entry-keyed reader, so the by-index fast path (rt_kw_read_idx) and the by-name path cannot answer differently -- they execute the same body. Splitting here rather than duplicating the STR/INT arms is the s68/s70 spelled-twice law applied to KW-3's own seam. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kwb_error(int code, const char *msg) {
+int kwb_error(int code, const char *msg) {
     extern void core_runtime_error(int code, const char *msg);
     KWB_ENT_t *el = kwb_find("ERRLIMIT");
     if (el && el->cell && *el->cell > 0) { *el->cell -= 1; KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg; return 0; }

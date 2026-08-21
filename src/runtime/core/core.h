@@ -39,6 +39,7 @@ DESCR_t VARVAL_d_fn(DESCR_t d);
 DESCR_t INTVAL_fn(DESCR_t d);
 DESCR_t PATVAL_fn(DESCR_t d);
 DESCR_t VARVUP_fn(DESCR_t d);
+int is_numeric_like(DESCR_t d);
 int64_t to_int(DESCR_t v);
 double to_real(DESCR_t v);
 char *STRCONCAT_fn(const char *a, const char *b);
