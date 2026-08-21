@@ -88,7 +88,8 @@ sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
 # exception this replaces is exactly why the fact stayed invisible for every other suite, and it was read as a
 # SIGSEGV workaround (CLAUDE.md) when the SIGSEGV is the ERROR-217 report path that folding's PHANTOM duplicate
 # labels walk into -- a genuine duplicate label SIGSEGVs under `-bf` too (measured s189).
-sbl_flags() { echo "-bf -d512m -i64m"; }
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
+sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from the ONE authority (lib_oracle_flags.sh); ONLY the sizing is local
 # ---------------------------------------------------------------- oracle LIVENESS -- `rc -eq 0` IS NOT A LIVENESS SIGNAL (s191, row `gimpel-suite-harness`)
 # ⛔ `sbl` EXITS 0 AFTER A FATAL ERROR, so testing rc alone ADMITS A DEAD ORACLE and the board then grades SCRIP against SPITBOL's
 # error dump instead of against program output.  SMALLEST REPRO, and its one-ingredient passing sibling: `INPUT(.INPUT,5,,"nosuch.in")`

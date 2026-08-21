@@ -19,6 +19,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
+
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
@@ -31,6 +33,12 @@ if [ "$APPEND" != 1 ]; then
 {
   echo "# TIME-based SNOBOL4 benchmarks -- MEASURED run-to-run noise floor"
   echo "# baked $(date -u +%Y-%m-%dT%H:%M:%SZ) by scripts/$(basename "$0")  reps=$REPS"
+echo "#   MACHINE LOAD AT BAKE: nproc=$(nproc) loadavg=$(cut -d' ' -f1-3 /proc/loadavg)"
+echo "#   ⛔ THE FLOOR IS A PROPERTY OF MACHINE LOAD, NOT ONLY OF THE ENGINE (s200).  The 2026-08-20 bake ran"
+echo "#   while EIGHT fleet seats shared this box and its min_detectable reached 47.9% -- a floor that wide"
+echo "#   cannot see a 1.4x regression.  A solo re-bake of the SAME binaries moved sbl +20.9% and m3 +13.0%,"
+echo "#   i.e. the shift was LOAD, not the engine and not the oracle flag: -b vs -bf measured back-to-back on a"
+echo "#   quiet box is -0.3% (+/-2.6%), ZERO.  ⛔ NEVER compare a floor baked under load with one baked solo."
   echo "# SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP  (arena sized past the window so no"
   echo "#   collection fires inside it -- a GC row measures an ~835ms stall, not dispersion)"
   echo "# ⛔ THE ALLOCATING ROWS' DISPERSION WAS THE GC STALL LOTTERY, NOT THP (BM-3 correction):"
@@ -56,7 +64,7 @@ for sno in "$B"/*.sno; do
     : > "$W/r.txt"
     for _ in $(seq 1 "$REPS"); do
       case "$eng" in
-        sbl) o=$(timeout "$T" "$SBL" -b "$sno" 2>/dev/null </dev/null) ;;
+        sbl) o=$(timeout "$T" "$SBL" $(sbl_lang_flags) "$sno" 2>/dev/null </dev/null) ;;
         m3)  o=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout "$T" "$SCRIP" --run "$sno" 2>/dev/null </dev/null) ;;
         m4)  [ "$m4ok" = 1 ] || { o=""; }; [ "$m4ok" = 1 ] && o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout "$T" "./$s.prog" 2>/dev/null </dev/null) ;;
       esac

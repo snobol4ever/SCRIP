@@ -47,7 +47,8 @@ HEAP="${HEAP:-1024}"
 # -s16m: the json deserializer's recursive descent overflows the oracle's DEFAULT stack (ERROR 246)
 # once its match runs inside ZBODY's frame.  Harmless to every other row; sizing a stack is not a
 # throughput knob.  Larger values are refused by this container ("Stack memory unavailable").
-SBLFLAGS="${SBLFLAGS:--s16m}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
+SBLFLAGS="${SBLFLAGS:--s16m}"   # SIZING ONLY -- the language arm comes from sbl_lang_flags and may not be overridden here
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
@@ -67,7 +68,7 @@ run1() {
   in="$(dirname "$sno")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
-         out=$(timeout "$T" "$SBL" -b $SBLFLAGS "$sno" 2>/dev/null <"$in"); : > "$W/gc.err" ;;
+         out=$(timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$sno" 2>/dev/null <"$in"); : > "$W/gc.err" ;;
     m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
