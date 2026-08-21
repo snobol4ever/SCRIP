@@ -670,6 +670,7 @@ void rt_dcap_lazy_init(void) {
         g_dcap_top = g_dcap_base;
     }
 }
+int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐⭐⭐ s193 CAPTURE-TARGET FAILURE EDGE, runtime half (SCRIP_CAP_FAIL_RETREAT, DEFAULT ON) -- the emitter twin is cap_fail_retreat() in emit.cpp and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  THE DEFECT: c_rt_cap_open resolves a `*target` ITSELF (the asm fast path delegates every '*' to it) and returns 0 == "fully handled" whether the target ASSIGNED or FAILED -- the box then takes `je L(1)` straight to its success continuation, which is why the transfer's ω landing was dead code on this witness and why no existing killswitch moved it.  ARMED, a FAILING target returns -1, a value the box tests for BEFORE the transfer test.  ⛔ -1 AND NOT 1: the box's `test rax,rax; je L(1)` treats every non-zero rax as A TRANSFER ADDRESS to `jmp rax`, so a naive non-zero failure code jumps to address 1 (the hazard the s191 FINDING named at the MATCH_END site, and it is the same overloaded channel here).  A sentinel cannot collide with fbytes, which is a positive frame size. */
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* ⭐ SN4-CAP-NAME-STRICT (s170, row b1c-retreat) runtime half — the emitter-side twin lives in lower_snobol4.c and both read the SAME env name, so a flip moves them together (the s121 both-halves-land-together law).  DEFAULT ON (s178 flip, Lon greenlight; =0 reverts): a deferred capture target that resolves to a VALUE rather than a NAME reports failure to the terminus instead of silently assigning through it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -834,7 +835,8 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     rt_g_want_name = 1;
     DESCR_t nm = rt_call_proc_descr(varname + 1, 0);
     rt_g_want_name = 0;
-    if (!IS_FAIL_fn(nm)) { if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm, matched); }
+    if (IS_FAIL_fn(nm)) return rt_cap_fail_retreat() ? -1 : 0;   /* ⭐⭐⭐ s193: the failing deferred capture target. Pre-cure this fell into the shared `return 0` = "fully handled", indistinguishable from a target that assigned, and the element matched anyway (oracle retreats). -1 is the sentinel the box tests before its transfer test; =0 restores the old fall-through exactly. */
+    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm, matched);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -144,6 +144,7 @@ std::string bb_match_capture() {
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())   /* ⭐⭐⭐ s193 THE FAILURE EDGE, and it MUST precede the transfer test: rt_cap_open resolves a `*target` itself and answers -1 when that target FAILED, but the next instruction treats every non-zero rax as a TRANSFER ADDRESS to jmp -- so the sentinel is read first or it becomes a jump to address -1.  0 still means fully-handled and a positive fbytes still means a transfer is owed; both fall through untouched. */
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
            + bb_glue_pass_wires(2, 3)
@@ -158,10 +159,12 @@ std::string bb_match_capture() {
            + x86("mov",  "rdi", "rax")
            + x86("mov",  "rsi", "rdx")
            + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + (cap_fail_retreat() ? (x86_anchor_leave() + x86_jmp(X86P_OMEGA)) : std::string())   /* ⭐⭐⭐ s193 THE FAILURE EDGE THE IMM CAPTURE ROAD NEVER HAD: this is the ω landing (the target proc FAILED), and without this line it FALLS THROUGH into L(1) -- the label the γ arm jumps to -- so a failing deferred target matched exactly like a succeeding one.  anchor_leave FIRST because x86_anchor_enter above is an alignment pair and the concede path must balance it exactly once; then CONCEDE on the box's own ω wire, which is where x86_beta_trampoline already routes β, so no new edge is invented.  Disarmed emits the empty string = the fall-through VERBATIM. */
            + x86("def",  L(1))
            + x86_anchor_leave()
            + x86_gamma()
-           + x86_beta_trampoline() )
+           + x86_beta_trampoline()
+           + (cap_fail_retreat() ? (x86("def", L(4)) + x86_anchor_leave() + x86_omega()) : std::string()) )   /* ⭐⭐⭐ s193 the -1 landing: leave the alignment anchor EXACTLY ONCE (x86_anchor_enter above is a pair and this path never reached L(1)'s leave) and CONCEDE on the box's own ω wire -- the same wire x86_beta_trampoline routes β through, so no new edge is invented.  ⛔ CONCEDE, NOT ABORT, ORACLE-RULED: `(SPAN('ABC') $ *chk('NO') | 'ABC')` prints one CHK and then MATCHES on live sbl -bf, so a FAILING target retreats and the next alternative runs -- unlike a NOT-A-NAME target, which aborts the statement through IR_MATCH_END's ω (s170 SN4-CAP-NAME-STRICT).  Two different verdicts on one road; do not merge them.  Disarmed emits the empty string. */
          : (int)_.op_phase == 2 && _.op_frame_need
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see IR_MATCH_CAPTURE_SAVE's bomb for the full rationale.")
@@ -176,6 +179,7 @@ std::string bb_match_capture() {
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())   /* ⭐⭐⭐ s193 THE FAILURE EDGE, and it MUST precede the transfer test: rt_cap_open resolves a `*target` itself and answers -1 when that target FAILED, but the next instruction treats every non-zero rax as a TRANSFER ADDRESS to jmp -- so the sentinel is read first or it becomes a jump to address -1.  0 still means fully-handled and a positive fbytes still means a transfer is owed; both fall through untouched. */
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
            + bb_glue_pass_wires(2, 3)
@@ -190,10 +194,12 @@ std::string bb_match_capture() {
            + x86("mov",  "rdi", "rax")
            + x86("mov",  "rsi", "rdx")
            + x86("call", "rt_cap_finish", (uint64_t)(uintptr_t)(void *)(void (*)(DESCR_t))rt_cap_finish)
+           + (cap_fail_retreat() ? (x86_anchor_leave() + x86_jmp(X86P_OMEGA)) : std::string())   /* ⭐⭐⭐ s193 THE FAILURE EDGE THE IMM CAPTURE ROAD NEVER HAD: this is the ω landing (the target proc FAILED), and without this line it FALLS THROUGH into L(1) -- the label the γ arm jumps to -- so a failing deferred target matched exactly like a succeeding one.  anchor_leave FIRST because x86_anchor_enter above is an alignment pair and the concede path must balance it exactly once; then CONCEDE on the box's own ω wire, which is where x86_beta_trampoline already routes β, so no new edge is invented.  Disarmed emits the empty string = the fall-through VERBATIM. */
            + x86("def",  L(1))
            + x86_anchor_leave()
            + x86_gamma()
-           + x86_beta_trampoline() )
+           + x86_beta_trampoline()
+           + (cap_fail_retreat() ? (x86("def", L(4)) + x86_anchor_leave() + x86_omega()) : std::string()) )   /* ⭐⭐⭐ s193 the -1 landing: leave the alignment anchor EXACTLY ONCE (x86_anchor_enter above is a pair and this path never reached L(1)'s leave) and CONCEDE on the box's own ω wire -- the same wire x86_beta_trampoline routes β through, so no new edge is invented.  ⛔ CONCEDE, NOT ABORT, ORACLE-RULED: `(SPAN('ABC') $ *chk('NO') | 'ABC')` prints one CHK and then MATCHES on live sbl -bf, so a FAILING target retreats and the next alternative runs -- unlike a NOT-A-NAME target, which aborts the statement through IR_MATCH_END's ω (s170 SN4-CAP-NAME-STRICT).  Two different verdicts on one road; do not merge them.  Disarmed emits the empty string. */
          : ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")
            + x86_beta_trampoline() );   /* R-0 (s93): dead code after the bomb, but β is DEFINED, same discipline as the SAVE/COND fallbacks */
