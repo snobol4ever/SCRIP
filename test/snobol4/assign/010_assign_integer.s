@@ -60,13 +60,9 @@ n6_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx17_0]
                         mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
                         call             NV_SET_fn@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64];     jmp   n7_statement_end_α
+                        mov              r9,  qword ptr [rip + rtccb+48];     jmp   n7_statement_end_α
 .Lx17_0:                .quad            .Lx17_0_s
 .Lx17_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
