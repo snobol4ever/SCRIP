@@ -68,6 +68,8 @@ std::string bb_glue_wire_exit(int is_gamma);   /* WIRE-EXIT (s22v): snap the ope
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();
 std::string bb_glue_pass_wires(int gid, int wid);   /* PASS-THROUGH (s22v): the bare wire contract -- lea rcx,<L(gid)>; lea rdx,<L(wid)>; jmp rax.  One-shot = this + the pcall record; pass-through = this alone. */
+int bb_wire_stack_on(void);   /* ⭐ WIRE-STACK (Lon s194): 1 iff the γ/ω pair rides the STACK instead of r10/r11.  SCRIP_WIRE_STACK=1 arms it; default OFF. */
+std::string bb_glue_wire_land(void);   /* ⭐ WIRE-STACK: emitted at EVERY γ/ω continuation label of a pass site — drops the 16-byte pair the site pushed.  Empty string when the arm is off, so the off-arm is byte-identical BY CONSTRUCTION. */
 std::string bb_glue_pass_wires_blob(int gid, int wid);   /* ⭐ LADDER WREG blob-entry glue: lea r10,<L(gid)>; lea r11,<L(wid)>; jmp rax.  Falls back to bb_glue_pass_wires verbatim when the switch is off. */
 std::string bb_disjunction();
 std::string bb_cut();

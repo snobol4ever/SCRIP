@@ -163,6 +163,7 @@ std::string bb_match_defer() {
              + x86("mov",  FRQ(_.op_off + 8), "r11"))
          + bb_glue_pass_wires_blob(4, 5)   /* PASS-THROUGH GLUE (s22v): the canonical consumer -- blob entry with this box's L(4)/L(5) as the ride-through γ/ω wires; byte-identical to the hand-rolled trio it replaces */   /* ⭐ LADDER WREG (s15): THE blob-entry site.  rax here is rt_defer_get_pat_fn's PAT$ blob pointer, so this call site is blob-only BY CONSTRUCTION -- which is why the wire spelling can convert here without touching the DEFINE'd-proc/one-shot kinds that share bb_glue_pass_wires.  Under WREG the wires ride r10/r11 and the blob needs ZERO receiving code -- UNCONDITIONALLY: the SCRIP_WREG killswitch was DELETED with the PAT$ frame arm (DEL-T1 D-1, 855a12a5); revert = git revert, never an env flag (fact fix 2026-08-12). */
          + x86("def",  L(4))
+         + bb_glue_wire_land()
          + IF(_.op_seal != 1 && x86_fb_pinned(),
                x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
              + x86("mov",  "r10", FRQ(_.op_off))
@@ -179,6 +180,7 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
+         + bb_glue_wire_land()
          + IF(_.op_seal != 1 && x86_fb_pinned(),
                x86("comment", "s44 WIRE-RESTORE (exhaust): without this, x86_omega() below reads r11 == this node's own dead L(5) -- the s43a closed loop")
              + x86("mov",  "r10", FRQ(_.op_off))

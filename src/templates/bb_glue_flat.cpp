@@ -118,8 +118,13 @@ std::string bb_glue_outer_ω() {
  * exit(0) -- a SILENT SUCCESS -- on the γ arm of a path that means the transfer machinery fell through.  Level-0 arrival dies loudly inside rt_flat_ret_snap (error 18, "return from level zero"),
  * strictly better than the silent exit.  ONE AUTHORITY: bb_define.cpp's role-1/2 floaters consume this same function for their tails, so the wire-exit sequence exists exactly once. */
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bb_wire_stack_on(void) { const char * e = getenv("SCRIP_WIRE_STACK"); return (e && *e == '1') ? 1 : 0; }   /* ⭐ WIRE-STACK (Lon 2026-08-20 s194, in-chat: "Has usage of R10 and R11 been eradicated yet.  We were going to do PUSH <fail_location> PUSH <succeed_location> at the CALLEE"): the pair rides the STACK instead of rΓ=r10/rΩ=r11.  ⛔ NO NEW GLOBAL — getenv is read per emission (compile-time, not hot), the rt.c:2000 spelling; a `static int` cache here would be file-scope mutable state and RULES forbids it without an in-chat grant.  DEFAULT OFF: this is a CONTRACT change across 6 pass sites and their 12 landings, so it arms only under measurement.  MOTIVE, MEASURED (FINDING s194b): registers are depth-immune but NOT C-boundary-safe -- beauty's M1 SIGSEGV is a blob consuming r11 as its ω wire when r11 held `rtccb`, the RTCC bank's own address, left there by the C by-name road.  A pushed pair cannot be inherited from a C frame, so the class stops existing rather than being defended against. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_wire_land(void) { return bb_wire_stack_on() ? x86("add", "rsp", 16L) : std::string(); }   /* WIRE-STACK landing: the γ/ω continuation labels at every pass site drop the pair the site pushed.  Both landings drop the SAME 16 so the two arms stay depth-symmetric — an asymmetric drop would make the ω road's depth differ from the γ road's at the join, which is the shape zdp_seam_tier reasons about. */
+/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
     if (!PLATFORM_X86) return std::string();
+    if (bb_wire_stack_on()) return x86_jmp_mem("rsp", is_gamma ? 0 : 8);   /* WIRE-STACK consume: [rsp+0]=γ SUCCEED, [rsp+8]=ω FAIL.  The pair is NOT popped here — the landing drops it (bb_glue_wire_land), so both exits are one instruction and neither needs a scratch register at a point where rax:rdx already carry the result DESCR.  x86_jmp_mem is an EXISTING encoder (x86_asm.h:864); no new instruction is hand-encoded. */
     /* ⛔⭐⭐⭐ GLOBALS-GONE s55 (Lon in-chat): rt_flat_ret_snap ERADICATED with the g_pcall record.  The wire pair
      * rides rΓ=r10 · rΩ=r11 (LADDER WREG, set at the site / role-3 adopt) — this glue IS the floater spelling now,
      * one authority both places.  ⛔ KNOWN INCOMPLETE until the RBP-era coming-out lands: rsp is NOT restored to
@@ -154,6 +159,10 @@ std::string bb_glue_pass_wires(int gid, int wid) {
 /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     if (!PLATFORM_X86) return std::string();
+    if (bb_wire_stack_on())
+        return x86_lea_id("rcx", wid) + x86("push", "rcx")   /* WIRE-STACK pass: PUSH <fail_location> FIRST so it lands DEEPER, then PUSH <succeed_location> — giving the callee [rsp+0]=γ SUCCEED · [rsp+8]=ω FAIL, the same order SCRIP_SLIM_PAIR already uses at bb_call_proc_staged (one convention, not a second spelling).  rcx is the staging scratch because the site is one instruction from `jmp rax` and rcx is dead across that transfer in the blob contract — the rcx/rdx WIRE contract is the OTHER glue (bb_glue_pass_wires) and is untouched by this rung. */
+             + x86_lea_id("rcx", gid) + x86("push", "rcx")
+             + x86_jmp_reg("rax");
     return x86_lea_id("r10", gid)
          + x86_lea_id("r11", wid)
          + x86_jmp_reg("rax");

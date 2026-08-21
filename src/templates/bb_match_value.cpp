@@ -40,12 +40,14 @@ std::string bb_match_value() {
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
          + bb_glue_pass_wires_blob(4, 5)   /* ⭐ MV-BLOB-GLUE (s105): rt_match_value_get_pat_fn returns dtp_fn_of(pval->p) -- THE SAME PAT$ blob pointer rt_defer_get_pat_fn returns, as its own header comment says ("the VALUE-operand sibling of rt_defer_get_pat_fn").  A PAT$ blob reads γ/ω from r10/r11 (WREG, bb_match_defer.cpp:91) and its ω is a bare `jmp r11`; the FLAT glue seats rcx/rdx and leaves r10/r11 as they were, so a call-as-pattern (`S F()` -- oracle-legal, manual p.104: a program-defined function "may appear in a statement anywhere its value is needed -- in the subject, pattern, or replacement fields") entered the blob with wires=0 and died on `jmp 0` at the blob ω.  Witnesses probe/mv/mv_call_as_pattern*; beauty_suite case_driver test 7 (`'Hello' icase('hello')`) and semantic_driver test 4 (`'' nPush()`).  s22x GLUE-SYM converted this site to the flat spelling as "the backlog's unlisted 6th member" on the strength of the shared name; the two glues are NOT interchangeable -- flat = zero-frame transfer inside the same graph, blob = jmp-entry into a separately-compiled proc. */
          + x86("def",  L(4))
+         + bb_glue_wire_land()
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
              + x86("mov",  "rax", "[rcx]")
              + x86("mov",  FR(_.op_scan_head_off), "eax"))
          + x86_gamma()
          + x86("def",  L(5))
+         + bb_glue_wire_land()
          + x86_omega()
          /* --- scalar: literal match at the cursor; value is concrete so no owed-call loop --- */
          + x86("def",  "L0")

@@ -425,6 +425,7 @@ static std::string bcps_det_arm() {
                         + [&]{ static int _spz = -1; if (_spz < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _spz = (!e || *e != (char)48) ? 1 : 0; } return _spz ? x86("note", "s110 floater pair (ZD twin): push omega then gamma so the fnrbp2 RETURN/FRETURN floaters find {gamma,omega} AT TOS; floater consumes 16 so L(6)/L(7) arrive at today's depth; witness probe/mon/mon_define_call_min; SCRIP_SLIM_PAIR=0 restores prior bytes") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
                         + bb_glue_pass_wires_blob(6, 7)   /* ⭐ FUNCTION LINKAGE s55 (Lon in-chat): "R10 and R11 for success and fail return address ... just like any BB BLOB interface" — site-set wires, adopt hop DELETED (role-3 emits nothing) */
                         + x86("def", L(6))
+                        + bb_glue_wire_land()
                         + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16))
                         + x86("note", gva_name((scc_res_gk_z < 0 ? 0 : scc_res_gk_z))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk_z < 0 ? 0 : scc_res_gk_z), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk_z < 0 ? 0 : scc_res_gk_z) * 16 + 8))
                         + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
@@ -434,6 +435,7 @@ static std::string bcps_det_arm() {
                         + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_gz)
                         + x86("jmp", L(2))
                         + x86("def", L(7))
+                        + bb_glue_wire_land()
                         + FOR(0, scc_nsave_z, [&](int j) { int k = scc_nsave_z - 1 - j;
                               return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16), "rax")
                                    + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk_z[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk_z[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk_z[k] * 16 + 8), "rax"); })
@@ -554,6 +556,7 @@ static std::string bcps_det_arm() {
             + x86("je", L(5))
             + bb_glue_pass_wires_blob(6, 7)   /* FUNCTION LINKAGE s55: open_slim's return IS the target (rax channel; rt_proc_open_fn crossing DELETED — read an eradicated record); site-set r10/r11 wires */
             + x86("def", L(6))
+            + bb_glue_wire_land()
             + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
             + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
             + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
@@ -563,6 +566,7 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
             + x86("jmp", L(2))
             + x86("def", L(7))
+            + bb_glue_wire_land()
             + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
                   return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
                        + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
@@ -688,6 +692,7 @@ static std::string bcps_det_arm() {
                     + [&]{ static int _sp = -1; if (_sp < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp = (!e || *e != (char)48) ? 1 : 0; } return _sp ? x86("note", "s110 floater pair: fnrbp2 RETURN/FRETURN floaters pop {gamma,omega} AT TOS (bb_define role-1/2 s64 arm); this non-TINY site pushed NOTHING, so :(RETURN) popped enclosing-frame bytes and jumped junk (rip=_rtld_global, the omega_driver signature; witness probe/mon/mon_define_call_min).  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the floater consumes 16 so L(6)/L(7) arrive at today's post-carve depth unchanged.  Wires below stay seated for blob-exit spellings.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(7)) + x86("push", "rcx") + x86("lea", "rcx", L(6)) + x86("push", "rcx") : std::string(""); }()
                     + bb_glue_pass_wires_blob(6, 7)
                     + x86("def", L(6))
+                    + bb_glue_wire_land()
                     + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rdi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 0) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16))
                     + x86("note", gva_name((scc_res_gk < 0 ? 0 : scc_res_gk))) + x86("mov", "rsi", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ((scc_res_gk < 0 ? 0 : scc_res_gk), 8) : ABSQ(RT_GVA_VA + (unsigned long)(scc_res_gk < 0 ? 0 : scc_res_gk) * 16 + 8))
                     + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
@@ -697,6 +702,7 @@ static std::string bcps_det_arm() {
                     + x86("call", "rt_proc_call_epilogue_slim_γ", (uint64_t)scc_fp_g)
                     + x86("jmp", L(2))
                     + x86("def", L(7))
+                    + bb_glue_wire_land()
                     + FOR(0, scc_nsave, [&](int j) { int k = scc_nsave - 1 - j;
                           return x86_rsp_load64("rax", 16 * k) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 0) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16), "rax")
                                + x86_rsp_load64("rax", 16 * k + 8) + x86("note", gva_name(scc_gk[k])) + x86("mov", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(scc_gk[k], 8) : ABSQ(RT_GVA_VA + (unsigned long)scc_gk[k] * 16 + 8), "rax"); })
