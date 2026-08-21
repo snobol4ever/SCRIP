@@ -492,14 +492,6 @@ main_ω:
                         call             exit@PLT
 module_init:
                         sub              rsp, 8
-                        .section         .rodata
-.Lseala1:               .string          "ispos"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        .weak            ispos_α
-                        lea              rdi, [rip + .Lseala1]
-                        mov              rsi, qword ptr [rip + ispos_α@GOTPCREL]
-                        call             rt_proc_seal_alpha@PLT
                         add              rsp, 8
                         ret
                         .section         .note.GNU-stack,"",@progbits

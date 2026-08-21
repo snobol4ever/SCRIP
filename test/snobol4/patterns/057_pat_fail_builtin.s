@@ -120,7 +120,8 @@ n7_match_lit_α:         mov              eax, r14d
                         cmp              eax, 98;                             jne   n6_match_begin_β
                         movzx            eax, byte ptr [r13+rcx+2]
                         cmp              eax, 99;                             jne   n6_match_begin_β
-                        add              r14d, 3;                             jmp   n7_match_lit_β
+                        add              r14d, 3
+                        add              rsp, 16;                             jmp   n7_match_lit_β
 n7_match_lit_β:         sub              r14d, 3;                             jmp   n6_match_begin_β
 #=======================================================================================================================
 # YES     OUTPUT = 'should not reach'
