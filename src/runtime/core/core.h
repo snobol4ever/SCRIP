@@ -102,6 +102,7 @@ typedef struct _TBBLK_t {
 } TBBLK_t;
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
+DESCR_t agg_prototype(DESCR_t v);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
 TBPAIR_t  *table_find_pair(TBBLK_t *tbl, const char *key);
 DESCR_t    table_get(TBBLK_t *tbl, const char *key);

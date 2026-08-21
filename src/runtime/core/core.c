@@ -1096,10 +1096,10 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _TABLE_(DESCR_t *a, int n) {
-    int init = (n >= 1) ? (int)to_int(a[0]) : 10;
-    int inc  = (n >= 2) ? (int)to_int(a[1]) : 10;
+    int init = (n >= 1) ? (int)to_int(a[0]) : 0;
+    int inc  = (n >= 2) ? (int)to_int(a[1]) : 0;
     return TABLE_VAL(table_new_args(init, inc));
-}
+}   /* ⛔ THE 10s WERE A THIRD COPY OF THE TABLE DEFAULTS AND THEY WERE THE STALE COPY: this face passed 10 for an absent header count while the oracle's default is 11, so a table born here would have prototyped 10.  Passing 0 says "not supplied" and lets table_new own the answer, which is the same discipline the PROTOTYPE faces now follow.  Live only above nargs 3 today (BID_TABLE claims 0..3), and that is exactly why it must not be allowed to drift unobserved. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
@@ -1152,11 +1152,10 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             for (int i = a->lo; i <= a->hi; i++) {
                 DESCR_t kd = array_get2(a, i, a->lo2);
                 DESCR_t vd = array_get2(a, i, a->lo2 + 1);
-                const char *key = VARVAL_fn(kd);
-                if (!key) continue;
-                table_set_descr(tbl, key, kd, vd);
+                char kb[64];
+                table_set_descr(tbl, tbl_key_str(kd, kb, sizeof kb), kd, vd);
             }
-            return TABLE_VAL(tbl);
+            return TABLE_VAL(tbl);   /* ⛔ THE KEY ENCODING IS SPELLED ONCE, IN tbl_key_str, AND THIS ARM WAS THE SECOND SPELLING.  It stored under VARVAL_fn(kd) -- the PLAIN string -- while every table read and write in the runtime (rt_subscript_var, subscript_set, the pattern paths) keys through tbl_key_str, which TYPE-TAGS the key: INTEGER 7 hashes as "\001i7", not "7".  So an integer key survived CONVERT(a,'TABLE') into a bucket no subscript could ever find, and crosscheck rung11 1113/006 `DIFFER(ata<7>, 45)` was measuring it -- vacuously, because the CONVERT above it had already failed and taken the same :f branch.  Dropping the `if (!key) continue` with it is not a widening: tbl_key_str answers for every datatype including the null string ("\001n"), so the guard could only ever have discarded a key the table is required to hold. */
         }
         return FAILDESCR;
     }
@@ -1658,33 +1657,7 @@ static DESCR_t _PAT_FENCE_(DESCR_t *a, int n)   { return n>=1 ? pat_fence_p(a[0]
 static DESCR_t _PAT_ALT_(DESCR_t *a, int n)     { return n>=2 ? pat_alt(a[0], a[1])  : (n>=1 ? a[0] : FAILDESCR); }
 static DESCR_t _PAT_CONCAT_(DESCR_t *a, int n)  { return n>=2 ? pat_cat(a[0], a[1])  : (n>=1 ? a[0] : FAILDESCR); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) {
-    if (n < 1) return FAILDESCR;
-    DESCR_t v = a[0];
-    if (IS_ARR(v) && v.arr) {
-        ARBLK_t *arr = v.arr;
-        char buf[128];
-        if (arr->ndim > 1) {
-            int cols = arr->hi2 - arr->lo2 + 1;
-            if (arr->proto_bare)
-                snprintf(buf, sizeof(buf), "%d,%d",
-                         arr->hi - arr->lo + 1, cols);
-            else
-                snprintf(buf, sizeof(buf), "%d:%d,%d:%d",
-                         arr->lo, arr->hi, arr->lo2, arr->hi2);
-        } else {
-            if (arr->proto_bare)
-                snprintf(buf, sizeof(buf), "%d", arr->hi);
-            else
-                snprintf(buf, sizeof(buf), "%d:%d", arr->lo, arr->hi);
-        }
-        return STRVAL(rt_ws_strdup_c(buf));
-    }
-    if (IS_TBL(v)) {
-        return STRVAL("");
-    }
-    return FAILDESCR;
-}
+static DESCR_t _PROTOTYPE_(DESCR_t *a, int n) { return agg_prototype(n >= 1 ? a[0] : NULVCL); }   /* ⛔ THIS IS A FACE, NOT AN IMPLEMENTATION -- see agg_prototype (aggregates.c) for the one authority and the oracle receipts.  The body that stood here was the SECOND spelling of PROTOTYPE and the one every non-1-argument call reached, and it was wrong three ways at once: it stringified answers the oracle gives as INTEGERs, it answered the null string for a TABLE where the oracle answers the hash-header count, and it failed the statement for an invalid object where the oracle raises ERROR 164.  It is kept as a face rather than deleted because the registry it is registered in is a REACHABLE entry point -- APPLY and OPSYN's register_fn_alias both resolve through it, and a runtime OPSYN('P','PROTOTYPE') alias was measurably answering '1:3' where the direct call answered 3.  n >= 1 is argument PRESENCE, not an argument COUNT: a call written with no argument passes the null string, which is an invalid object and takes the 164 like any other. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ITEM_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;

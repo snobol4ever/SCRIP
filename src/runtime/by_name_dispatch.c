@@ -6820,7 +6820,7 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
     }
     L_bidjmp_6479: ;
     if ((_bid == BID_TABLE) && nargs <= 3) {
-        TBBLK_t *tb = table_new();
+        TBBLK_t *tb = table_new_args(nargs >= 1 ? (int)to_int(args[0]) : 0, nargs >= 2 ? (int)to_int(args[1]) : 0);
         DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb;
         *out = d; return 1;
     }
@@ -6832,16 +6832,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         *out = rt_deref(cur); return 1;
     }
     L_bidjmp_6490: ;
-    if ((_bid == BID_PROTOTYPE) && nargs == 1) {
-        if (args[0].v == DT_A && args[0].arr) {
-            ARBLK_t *a = (ARBLK_t *)args[0].arr;
-            if (a->proto) { int alldig = a->proto[0] != 0; for (const char *p = a->proto; *p; p++) if (*p < '0' || *p > '9') { alldig = 0; break; }
-                if (alldig) { *out = INTVAL(atoll(a->proto)); return 1; } *out = STRVAL(rt_ws_strdup_c(a->proto)); return 1; }
-            if (a->lo == 1) { *out = INTVAL(a->hi); return 1; }
-            char pb[64]; snprintf(pb, sizeof pb, "%d:%d", a->lo, a->hi);
-            *out = STRVAL(rt_ws_strdup_c(pb)); return 1;
-        }
-        *out = FAILDESCR; return 1;
+    if (_bid == BID_PROTOTYPE) {
+        *out = agg_prototype(nargs >= 1 ? args[0] : NULVCL); return 1;
     }
     L_bidjmp_6499: ;
     if ((_bid == BID_CONVERT) && nargs == 2) {
@@ -6864,8 +6856,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
             *out = FAILDESCR; return 1;
         }
         if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_ws_strdup_c(sv ? sv : "")); return 1; }
-        *out = FAILDESCR; return 1;
-    }
+        return 0;
+    }   /* ⛔⛔ THIS ARM USED TO ANSWER `*out = FAILDESCR; return 1;` -- "I HANDLED IT, AND THE ANSWER IS FAILURE" -- FOR EVERY TARGET TYPE IT DOES NOT IMPLEMENT, WHICH IS EVERY AGGREGATE ONE.  `return 1` is the by-name chain's "claimed", so the claim shadowed core.c's _CONVERT_, the spelling that DOES implement ARRAY/TABLE/PATTERN/EXPRESSION, and BID_CONVERT admits nargs==2 -- which is every legal CONVERT call.  CONVERT(t,'ARRAY') and CONVERT(a,'TABLE') were therefore DEAD on the live path, failing silently.  `return 0` is "not mine", the chain's designed fallthrough to APPLY_fn and the registry, and it is deliberately placed AFTER the three arms this body does implement so a genuinely failed INTEGER/REAL/STRING conversion still answers FAIL here and never reaches _CONVERT_'s laxer coercion (to_int('abc') is 0 there, so falling those through would turn a correct failure into a wrong answer of 0).  FOUND BY THE PROTOTYPE ROW, NOT LOOKED FOR: crosscheck rung11 1113's `ta = CONVERT(t,'ARRAY')` then `DIFFER(PROTOTYPE(ta),'2,2') :f(e005)` passed VACUOUSLY -- the CONVERT failed, ta stayed null, PROTOTYPE(null) failed the statement, and the statement failure took the SAME :f branch the correct answer takes.  Raising ERROR 164 on the null object is what made the silence audible. */
     L_bidjmp_6521: ;
     if ((_bid == BID_DATA) && nargs == 1) {
         extern DatType *dat_register(const char *spec);

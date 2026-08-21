@@ -86,18 +86,38 @@ TBBLK_t *table_new(void) {
     memset(t->buckets, 0, sizeof(t->buckets));
     t->id   = g_agg_table_ser++;
     t->size = 0;
-    t->init = 10;
+    t->init = 11;
     t->inc  = 10;
     t->is_set = 0;
     return t;
-}
+}   /* ⭐ THE CREATING FIRST ARGUMENT IS THE TABLE'S PROTOTYPE AND ITS DEFAULT IS 11, NOT 10 (manual v3.7 TABLE(i,x,arg): "The integer i is the number of hash headers used internally.  If it is omitted, 11 is used by default"; p.198 says it again, and sbl -bf answers PROTOTYPE(TABLE()) => INTEGER 11).  `init` was ALREADY the one record of that argument -- nothing sizes on it, TABLE_BUCKETS is a fixed 256 and the field is only ever read back -- so agg_prototype reads it instead of minting a second field to hold one fact twice.  The old 10 was CSNOBOL4's default reaching through c_VARVAL_fn's TABLE(%d,%d) image; the only .ref that pinned it is csnobol4-suite/diag1.ref, which has not compiled since long before this rung (tree kind 9, outside the landed GZ#5 subset). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new_args(int init, int inc) {
     TBBLK_t *t = table_new();
-    t->init = (init > 0) ? init : 10;
-    t->inc  = (inc  > 0) ? inc  : 10;
+    if (init > 0) t->init = init;
+    if (inc  > 0) t->inc  = inc;
     return t;
-}
+}   /* ⛔ THE DEFAULTS ARE SPELLED ONCE, IN table_new, AND THIS BODY ONLY OVERRIDES WHAT THE CALL ACTUALLY SUPPLIED.  The old `(init > 0) ? init : 10` re-typed the default a second time, and a fact spelled twice drifts the moment either copy moves -- which is exactly what happened, because SPITBOL's header default is 11 and this copy said 10.  An omitted or null argument arrives here as 0 (to_int of the null string is 0), which is precisely the not-supplied case, so TABLE(,,'x') keeps the 11 the oracle gives it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t agg_prototype(DESCR_t v) {
+    if (IS_TBL(v) && v.tbl) return INTVAL(v.tbl->init);
+    if (!(IS_ARR(v) && v.arr)) { core_runtime_error(164, "prototype argument is not valid object"); return FAILDESCR; }
+    ARBLK_t *a = v.arr;
+    char pb[64];
+    const char *p = a->proto;
+    if (!p) {
+        if (a->ndim > 1) snprintf(pb, sizeof pb, "%d,%d", a->hi - a->lo + 1, a->hi2 - a->lo2 + 1);
+        else if (a->lo == 1) snprintf(pb, sizeof pb, "%d", a->hi);
+        else snprintf(pb, sizeof pb, "%d:%d", a->lo, a->hi);
+        p = pb;
+    }
+    int alldig = (p[0] != 0);
+    for (const char *q = p; *q; q++) if (*q < '0' || *q > '9') { alldig = 0; break; }
+    if (!alldig) return STRVAL(rt_ws_strdup_c(p));
+    long long iv = 0;
+    for (const char *q = p; *q; q++) iv = iv * 10 + (*q - '0');
+    return INTVAL(iv);
+}   /* ⭐⭐⭐ THE ONE PROTOTYPE AUTHORITY (queue row prototype-spelled-twice).  PROTOTYPE WAS IMPLEMENTED TWICE AND THE TWO DISAGREED: by_name_dispatch.c's BID_PROTOTYPE arm took nargs==1 and was SPITBOL-correct, while core.c's _PROTOTYPE_ took every OTHER arity and always returned a STRING -- so PROTOTYPE(ARRAY(3)) answered INTEGER 3 and PROTOTYPE(ARRAY(3),1) answered STRING '1:3', a different VALUE and a different DATATYPE for a call the manual (Ch.8, and stage2.h nformals) says must be identical, because EXCESS ARGUMENTS ARE EVALUATED THEN IGNORED.  Both spellings are now FACES over this body: no arity can reach a different answer and neither face can drift.  ⛔ THE ARITY TEST IS GONE, NOT WIDENED -- a count-conditioned admission is what produced the split, so the faces normalise a missing argument to the null string and hand the VALUE here; this body never learns how many arguments were written.  THE THREE ANSWERS ARE ORACLE-MEASURED ON sbl -bf, NOT INFERRED: an ARRAY answers its creating prototype, all-digits => INTEGER and otherwise STRING (ARRAY(3)/ARRAY('3') => INTEGER 3; ARRAY('1:3')/'2,3'/'0:5'/'-2:2' => STRING; byte-identical to the arm this replaces); a TABLE answers its hash-header count as an INTEGER (TABLE() => 11, TABLE(5) => 5, TABLE(5,7) => 5 -- arg 2 is the value-block size, not the header count -- and COPY and CONVERT carry it, measured 5 and 3); anything else is ERROR 164 'prototype argument is not valid object', which SPITBOL raises for a STRING, an INTEGER, a REAL, a DATA object and the null string alike, where SCRIP used to fail the statement in silence.  The 164 goes through core_runtime_error, which is how EVERY other builtin error code in this runtime is raised (22, 35, 42, 251, 341, 342 all call it) -- it reports and TERMINATES.  ⛔ IT DOES NOT HONOUR &ERRLIMIT, AND THAT IS A PROPERTY OF THE RAISER, NOT OF THIS SITE: the Ch.16 error-to-statement-failure conversion lives in keywords.c's kwb_error, which is static there and today serves only the keyword-assignment codes 208/209/210/287.  Measured, not assumed -- `&ERRLIMIT = 5` then PROTOTYPE('abc') still terminates.  Routing the builtin codes through the ERRLIMIT-aware raiser is ONE general question for ONE rung; half-doing it inside PROTOTYPE would make this builtin the only one in the runtime that converts, which is a worse inconsistency than the one it cures.  ⛔ THE PROTO-ABSENT FALLBACK IS NOT DEAD CODE AND IS NOT THE OLD lo==1 SHORTCUT REWORDED: arrays built by SORT do carry a proto ('N,2', pattern_match.c), but an array built by any path that records none still has to answer, and the ndim>1 arm is what makes such an array report 'N,2' rather than the bare integer N a lone lo==1 test would hand it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
     switch (kd.v) {
