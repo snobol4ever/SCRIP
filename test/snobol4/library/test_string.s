@@ -3282,33 +3282,11 @@ n191_var_α:             sub              rsp, 16
                         mov              rax, qword ptr [r9 + 224]            # t
                         mov              rdx, qword ptr [r9 + 232]
                         mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n192_assign_α
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n192_coerce_string_α
 n191_var_β:             add              rsp, 16
                         add              rsp, 16;                             jmp   FRETURN
 #-----------------------------------------------------------------------------------------------------------------------
-n192_assign_α:          mov              rsi, qword ptr [rsp + 0]             # var
-                        mov              rdx, qword ptr [rsp + 8]
-                        mov              rdi, qword ptr [rip + .Lx685_0]
-                        mov              qword ptr [rip + rtccb+40], r8
-                        mov              qword ptr [rip + rtccb+56], r10
-                        mov              qword ptr [rip + rtccb+64], r11
-                        call             NV_SET_fn@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
-                        mov              r10, qword ptr [rip + rtccb+56]
-                        mov              r11, qword ptr [rip + rtccb+64];     jmp   n193_var_α
-n192_assign_β:                                                                jmp   n191_var_β
-.Lx685_0:               .quad            .Lx685_0_s
-.Lx685_0_s:             .string          "PATV$0"
-#-----------------------------------------------------------------------------------------------------------------------
-n193_var_α:             sub              rsp, 16
-                        mov              rax, qword ptr [r9 + 224]            # t
-                        mov              rdx, qword ptr [r9 + 232]
-                        mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n194_coerce_string_α
-n193_var_β:             add              rsp, 16;                             jmp   n192_assign_β
-#-----------------------------------------------------------------------------------------------------------------------
-n194_coerce_string_α:   sub              rsp, 16
+n192_coerce_string_α:   sub              rsp, 16
                         lea              rdi, [rsp + 16]                      # var
                         lea              rsi, [rsp + 0]                       # result
                         mov              rdx, 4522053
@@ -3319,8 +3297,30 @@ n194_coerce_string_α:   sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
+                        mov              r11, qword ptr [rip + rtccb+64];     jmp   n193_var_α
+n192_coerce_string_β:   add              rsp, 16;                             jmp   n191_var_β
+#-----------------------------------------------------------------------------------------------------------------------
+n193_var_α:             sub              rsp, 16
+                        mov              rax, qword ptr [r9 + 224]            # t
+                        mov              rdx, qword ptr [r9 + 232]
+                        mov              qword ptr [rsp + 0], rax             # result
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n194_assign_α
+n193_var_β:             add              rsp, 16;                             jmp   n192_coerce_string_β
+#-----------------------------------------------------------------------------------------------------------------------
+n194_assign_α:          mov              rsi, qword ptr [rsp + 0]             # var
+                        mov              rdx, qword ptr [rsp + 8]
+                        mov              rdi, qword ptr [rip + .Lx688_0]
+                        mov              qword ptr [rip + rtccb+40], r8
+                        mov              qword ptr [rip + rtccb+56], r10
+                        mov              qword ptr [rip + rtccb+64], r11
+                        call             NV_SET_fn@PLT
+                        mov              r8,  qword ptr [rip + rtccb+40]
+                        mov              r9,  qword ptr [rip + rtccb+48]
+                        mov              r10, qword ptr [rip + rtccb+56]
                         mov              r11, qword ptr [rip + rtccb+64];     jmp   n195_match_begin_α
-n194_coerce_string_β:   add              rsp, 16;                             jmp   n193_var_β
+n194_assign_β:                                                                jmp   n193_var_β
+.Lx688_0:               .quad            .Lx688_0_s
+.Lx688_0_s:             .string          "PATV$0"
 #-----------------------------------------------------------------------------------------------------------------------
 n195_match_begin_α:     mov              rdi, qword ptr [rsp + 48]            # var
                         mov              rsi, qword ptr [rsp + 56]
@@ -3371,12 +3371,12 @@ n195_match_begin_af:    mov              rcx, qword ptr [rip + rtccb@GOTPCREL] #
                         call             rt_match_ctx_restore@PLT
                         mov              r10, qword ptr [rip + rtccb+56]
                         mov              rsp, rbp
-                        pop              rbp;                                 jmp   n194_coerce_string_β
+                        pop              rbp;                                 jmp   n194_assign_β
 #-----------------------------------------------------------------------------------------------------------------------
 n196_match_break_α:     sub              rsp, 16
                         mov              edi, r14d
-                        mov              rsi, qword ptr [rsp + 88]            # coerce_string
-                        mov              edx, dword ptr [rsp + 84]
+                        mov              rsi, qword ptr [rsp + 104]           # coerce_string
+                        mov              edx, dword ptr [rsp + 100]
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
