@@ -114,79 +114,81 @@ enum yysymbol_kind_t
   YYSYMBOL_T_GOTO_F = 12,                  /* T_GOTO_F  */
   YYSYMBOL_T_GOTO_LPAREN = 13,             /* T_GOTO_LPAREN  */
   YYSYMBOL_T_GOTO_RPAREN = 14,             /* T_GOTO_RPAREN  */
-  YYSYMBOL_T_STMT_END = 15,                /* T_STMT_END  */
-  YYSYMBOL_T_2EQUAL = 16,                  /* T_2EQUAL  */
-  YYSYMBOL_T_2QUEST = 17,                  /* T_2QUEST  */
-  YYSYMBOL_T_2PIPE = 18,                   /* T_2PIPE  */
-  YYSYMBOL_T_2PLUS = 19,                   /* T_2PLUS  */
-  YYSYMBOL_T_2MINUS = 20,                  /* T_2MINUS  */
-  YYSYMBOL_T_2STAR = 21,                   /* T_2STAR  */
-  YYSYMBOL_T_2SLASH = 22,                  /* T_2SLASH  */
-  YYSYMBOL_T_2CARET = 23,                  /* T_2CARET  */
-  YYSYMBOL_T_2DOLLAR = 24,                 /* T_2DOLLAR  */
-  YYSYMBOL_T_2DOT = 25,                    /* T_2DOT  */
-  YYSYMBOL_T_2AMP = 26,                    /* T_2AMP  */
-  YYSYMBOL_T_2AT = 27,                     /* T_2AT  */
-  YYSYMBOL_T_2POUND = 28,                  /* T_2POUND  */
-  YYSYMBOL_T_2PERCENT = 29,                /* T_2PERCENT  */
-  YYSYMBOL_T_2TILDE = 30,                  /* T_2TILDE  */
-  YYSYMBOL_T_1AT = 31,                     /* T_1AT  */
-  YYSYMBOL_T_1TILDE = 32,                  /* T_1TILDE  */
-  YYSYMBOL_T_1QUEST = 33,                  /* T_1QUEST  */
-  YYSYMBOL_T_1AMP = 34,                    /* T_1AMP  */
-  YYSYMBOL_T_1PLUS = 35,                   /* T_1PLUS  */
-  YYSYMBOL_T_1MINUS = 36,                  /* T_1MINUS  */
-  YYSYMBOL_T_1STAR = 37,                   /* T_1STAR  */
-  YYSYMBOL_T_1DOLLAR = 38,                 /* T_1DOLLAR  */
-  YYSYMBOL_T_1DOT = 39,                    /* T_1DOT  */
-  YYSYMBOL_T_1BANG = 40,                   /* T_1BANG  */
-  YYSYMBOL_T_1PERCENT = 41,                /* T_1PERCENT  */
-  YYSYMBOL_T_1SLASH = 42,                  /* T_1SLASH  */
-  YYSYMBOL_T_1POUND = 43,                  /* T_1POUND  */
-  YYSYMBOL_T_1EQUAL = 44,                  /* T_1EQUAL  */
-  YYSYMBOL_T_1PIPE = 45,                   /* T_1PIPE  */
-  YYSYMBOL_T_CONCAT = 46,                  /* T_CONCAT  */
-  YYSYMBOL_T_COMMA = 47,                   /* T_COMMA  */
-  YYSYMBOL_T_LPAREN = 48,                  /* T_LPAREN  */
-  YYSYMBOL_T_RPAREN = 49,                  /* T_RPAREN  */
-  YYSYMBOL_T_LBRACK = 50,                  /* T_LBRACK  */
-  YYSYMBOL_T_RBRACK = 51,                  /* T_RBRACK  */
-  YYSYMBOL_T_LANGLE = 52,                  /* T_LANGLE  */
-  YYSYMBOL_T_RANGLE = 53,                  /* T_RANGLE  */
-  YYSYMBOL_YYACCEPT = 54,                  /* $accept  */
-  YYSYMBOL_top = 55,                       /* top  */
-  YYSYMBOL_program = 56,                   /* program  */
-  YYSYMBOL_stmt = 57,                      /* stmt  */
-  YYSYMBOL_unlabeled_stmt = 58,            /* unlabeled_stmt  */
-  YYSYMBOL_opt_subject = 59,               /* opt_subject  */
-  YYSYMBOL_opt_pattern = 60,               /* opt_pattern  */
-  YYSYMBOL_opt_repl = 61,                  /* opt_repl  */
-  YYSYMBOL_goto_label_expr = 62,           /* goto_label_expr  */
-  YYSYMBOL_expr0 = 63,                     /* expr0  */
-  YYSYMBOL_expr2 = 64,                     /* expr2  */
-  YYSYMBOL_expr3 = 65,                     /* expr3  */
-  YYSYMBOL_expr4 = 66,                     /* expr4  */
-  YYSYMBOL_expr5 = 67,                     /* expr5  */
-  YYSYMBOL_expr6 = 68,                     /* expr6  */
-  YYSYMBOL_expr7 = 69,                     /* expr7  */
-  YYSYMBOL_expr8 = 70,                     /* expr8  */
-  YYSYMBOL_expr9 = 71,                     /* expr9  */
-  YYSYMBOL_expr10 = 72,                    /* expr10  */
-  YYSYMBOL_expr11 = 73,                    /* expr11  */
-  YYSYMBOL_expr12 = 74,                    /* expr12  */
-  YYSYMBOL_expr13 = 75,                    /* expr13  */
-  YYSYMBOL_expr14 = 76,                    /* expr14  */
-  YYSYMBOL_expr15 = 77,                    /* expr15  */
-  YYSYMBOL_78_1 = 78,                      /* $@1  */
-  YYSYMBOL_79_2 = 79,                      /* $@2  */
-  YYSYMBOL_idx_args = 80,                  /* idx_args  */
-  YYSYMBOL_expr17 = 81,                    /* expr17  */
-  YYSYMBOL_82_3 = 82,                      /* $@3  */
-  YYSYMBOL_83_4 = 83,                      /* $@4  */
-  YYSYMBOL_vlist_args = 84,                /* vlist_args  */
-  YYSYMBOL_fnc_args = 85,                  /* fnc_args  */
-  YYSYMBOL_goto_atom = 86,                 /* goto_atom  */
-  YYSYMBOL_goto_expr = 87                  /* goto_expr  */
+  YYSYMBOL_T_GOTO_LANGLE = 15,             /* T_GOTO_LANGLE  */
+  YYSYMBOL_T_GOTO_RANGLE = 16,             /* T_GOTO_RANGLE  */
+  YYSYMBOL_T_STMT_END = 17,                /* T_STMT_END  */
+  YYSYMBOL_T_2EQUAL = 18,                  /* T_2EQUAL  */
+  YYSYMBOL_T_2QUEST = 19,                  /* T_2QUEST  */
+  YYSYMBOL_T_2PIPE = 20,                   /* T_2PIPE  */
+  YYSYMBOL_T_2PLUS = 21,                   /* T_2PLUS  */
+  YYSYMBOL_T_2MINUS = 22,                  /* T_2MINUS  */
+  YYSYMBOL_T_2STAR = 23,                   /* T_2STAR  */
+  YYSYMBOL_T_2SLASH = 24,                  /* T_2SLASH  */
+  YYSYMBOL_T_2CARET = 25,                  /* T_2CARET  */
+  YYSYMBOL_T_2DOLLAR = 26,                 /* T_2DOLLAR  */
+  YYSYMBOL_T_2DOT = 27,                    /* T_2DOT  */
+  YYSYMBOL_T_2AMP = 28,                    /* T_2AMP  */
+  YYSYMBOL_T_2AT = 29,                     /* T_2AT  */
+  YYSYMBOL_T_2POUND = 30,                  /* T_2POUND  */
+  YYSYMBOL_T_2PERCENT = 31,                /* T_2PERCENT  */
+  YYSYMBOL_T_2TILDE = 32,                  /* T_2TILDE  */
+  YYSYMBOL_T_1AT = 33,                     /* T_1AT  */
+  YYSYMBOL_T_1TILDE = 34,                  /* T_1TILDE  */
+  YYSYMBOL_T_1QUEST = 35,                  /* T_1QUEST  */
+  YYSYMBOL_T_1AMP = 36,                    /* T_1AMP  */
+  YYSYMBOL_T_1PLUS = 37,                   /* T_1PLUS  */
+  YYSYMBOL_T_1MINUS = 38,                  /* T_1MINUS  */
+  YYSYMBOL_T_1STAR = 39,                   /* T_1STAR  */
+  YYSYMBOL_T_1DOLLAR = 40,                 /* T_1DOLLAR  */
+  YYSYMBOL_T_1DOT = 41,                    /* T_1DOT  */
+  YYSYMBOL_T_1BANG = 42,                   /* T_1BANG  */
+  YYSYMBOL_T_1PERCENT = 43,                /* T_1PERCENT  */
+  YYSYMBOL_T_1SLASH = 44,                  /* T_1SLASH  */
+  YYSYMBOL_T_1POUND = 45,                  /* T_1POUND  */
+  YYSYMBOL_T_1EQUAL = 46,                  /* T_1EQUAL  */
+  YYSYMBOL_T_1PIPE = 47,                   /* T_1PIPE  */
+  YYSYMBOL_T_CONCAT = 48,                  /* T_CONCAT  */
+  YYSYMBOL_T_COMMA = 49,                   /* T_COMMA  */
+  YYSYMBOL_T_LPAREN = 50,                  /* T_LPAREN  */
+  YYSYMBOL_T_RPAREN = 51,                  /* T_RPAREN  */
+  YYSYMBOL_T_LBRACK = 52,                  /* T_LBRACK  */
+  YYSYMBOL_T_RBRACK = 53,                  /* T_RBRACK  */
+  YYSYMBOL_T_LANGLE = 54,                  /* T_LANGLE  */
+  YYSYMBOL_T_RANGLE = 55,                  /* T_RANGLE  */
+  YYSYMBOL_YYACCEPT = 56,                  /* $accept  */
+  YYSYMBOL_top = 57,                       /* top  */
+  YYSYMBOL_program = 58,                   /* program  */
+  YYSYMBOL_stmt = 59,                      /* stmt  */
+  YYSYMBOL_unlabeled_stmt = 60,            /* unlabeled_stmt  */
+  YYSYMBOL_opt_subject = 61,               /* opt_subject  */
+  YYSYMBOL_opt_pattern = 62,               /* opt_pattern  */
+  YYSYMBOL_opt_repl = 63,                  /* opt_repl  */
+  YYSYMBOL_goto_label_expr = 64,           /* goto_label_expr  */
+  YYSYMBOL_expr0 = 65,                     /* expr0  */
+  YYSYMBOL_expr2 = 66,                     /* expr2  */
+  YYSYMBOL_expr3 = 67,                     /* expr3  */
+  YYSYMBOL_expr4 = 68,                     /* expr4  */
+  YYSYMBOL_expr5 = 69,                     /* expr5  */
+  YYSYMBOL_expr6 = 70,                     /* expr6  */
+  YYSYMBOL_expr7 = 71,                     /* expr7  */
+  YYSYMBOL_expr8 = 72,                     /* expr8  */
+  YYSYMBOL_expr9 = 73,                     /* expr9  */
+  YYSYMBOL_expr10 = 74,                    /* expr10  */
+  YYSYMBOL_expr11 = 75,                    /* expr11  */
+  YYSYMBOL_expr12 = 76,                    /* expr12  */
+  YYSYMBOL_expr13 = 77,                    /* expr13  */
+  YYSYMBOL_expr14 = 78,                    /* expr14  */
+  YYSYMBOL_expr15 = 79,                    /* expr15  */
+  YYSYMBOL_80_1 = 80,                      /* $@1  */
+  YYSYMBOL_81_2 = 81,                      /* $@2  */
+  YYSYMBOL_idx_args = 82,                  /* idx_args  */
+  YYSYMBOL_expr17 = 83,                    /* expr17  */
+  YYSYMBOL_84_3 = 84,                      /* $@3  */
+  YYSYMBOL_85_4 = 85,                      /* $@4  */
+  YYSYMBOL_vlist_args = 86,                /* vlist_args  */
+  YYSYMBOL_fnc_args = 87,                  /* fnc_args  */
+  YYSYMBOL_goto_atom = 88,                 /* goto_atom  */
+  YYSYMBOL_goto_expr = 89                  /* goto_expr  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -239,7 +241,7 @@ static tree_e pat_prim_kind(const char *s) {
 }
 /*--------------------------------------------------------------------------------------------------------------------*/
 
-#line 243 "src/parser/snobol4/snobol4.tab.c"
+#line 245 "src/parser/snobol4/snobol4.tab.c"
 
 #ifdef short
 # undef short
@@ -562,19 +564,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  67
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   277
+#define YYLAST   285
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  54
+#define YYNTOKENS  56
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  34
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  122
+#define YYNRULES  123
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  222
+#define YYNSTATES  225
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   308
+#define YYMAXUTOK   310
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -618,7 +620,8 @@ static const yytype_int8 yytranslate[] =
       15,    16,    17,    18,    19,    20,    21,    22,    23,    24,
       25,    26,    27,    28,    29,    30,    31,    32,    33,    34,
       35,    36,    37,    38,    39,    40,    41,    42,    43,    44,
-      45,    46,    47,    48,    49,    50,    51,    52,    53
+      45,    46,    47,    48,    49,    50,    51,    52,    53,    54,
+      55
 };
 
 #if SNOBOL4_DEBUG
@@ -629,15 +632,15 @@ static const yytype_uint8 yyrline[] =
       82,    83,    84,    85,    86,    87,    88,    89,    90,    93,
       94,    95,    96,    97,    98,    99,   100,   101,   102,   103,
      104,   106,   107,   108,   110,   111,   113,   114,   115,   118,
-     119,   120,   121,   122,   123,   125,   126,   127,   129,   130,
-     132,   133,   135,   136,   138,   139,   141,   142,   143,   145,
-     146,   148,   149,   151,   152,   154,   155,   157,   158,   160,
-     161,   162,   164,   165,   167,   168,   169,   170,   171,   172,
+     119,   120,   121,   122,   123,   124,   126,   127,   128,   130,
+     131,   133,   134,   136,   137,   139,   140,   142,   143,   144,
+     146,   147,   149,   150,   152,   153,   155,   156,   158,   159,
+     161,   162,   163,   165,   166,   168,   169,   170,   171,   172,
      173,   174,   175,   176,   177,   178,   179,   180,   181,   182,
-     184,   184,   185,   185,   186,   188,   189,   190,   191,   193,
-     194,   194,   195,   196,   196,   197,   198,   199,   200,   201,
-     202,   204,   205,   207,   208,   209,   210,   212,   213,   214,
-     215,   217,   218
+     183,   185,   185,   186,   186,   187,   189,   190,   191,   192,
+     194,   195,   195,   196,   197,   197,   198,   199,   200,   201,
+     202,   203,   205,   206,   208,   209,   210,   211,   213,   214,
+     215,   216,   218,   219
 };
 #endif
 
@@ -656,18 +659,19 @@ static const char *const yytname[] =
   "\"end of file\"", "error", "\"invalid token\"", "T_IDENT",
   "T_FUNCTION", "T_KEYWORD", "T_END", "T_INT", "T_REAL", "T_STR",
   "T_LABEL", "T_GOTO_S", "T_GOTO_F", "T_GOTO_LPAREN", "T_GOTO_RPAREN",
-  "T_STMT_END", "T_2EQUAL", "T_2QUEST", "T_2PIPE", "T_2PLUS", "T_2MINUS",
-  "T_2STAR", "T_2SLASH", "T_2CARET", "T_2DOLLAR", "T_2DOT", "T_2AMP",
-  "T_2AT", "T_2POUND", "T_2PERCENT", "T_2TILDE", "T_1AT", "T_1TILDE",
-  "T_1QUEST", "T_1AMP", "T_1PLUS", "T_1MINUS", "T_1STAR", "T_1DOLLAR",
-  "T_1DOT", "T_1BANG", "T_1PERCENT", "T_1SLASH", "T_1POUND", "T_1EQUAL",
-  "T_1PIPE", "T_CONCAT", "T_COMMA", "T_LPAREN", "T_RPAREN", "T_LBRACK",
-  "T_RBRACK", "T_LANGLE", "T_RANGLE", "$accept", "top", "program", "stmt",
-  "unlabeled_stmt", "opt_subject", "opt_pattern", "opt_repl",
-  "goto_label_expr", "expr0", "expr2", "expr3", "expr4", "expr5", "expr6",
-  "expr7", "expr8", "expr9", "expr10", "expr11", "expr12", "expr13",
-  "expr14", "expr15", "$@1", "$@2", "idx_args", "expr17", "$@3", "$@4",
-  "vlist_args", "fnc_args", "goto_atom", "goto_expr", YY_NULLPTR
+  "T_GOTO_LANGLE", "T_GOTO_RANGLE", "T_STMT_END", "T_2EQUAL", "T_2QUEST",
+  "T_2PIPE", "T_2PLUS", "T_2MINUS", "T_2STAR", "T_2SLASH", "T_2CARET",
+  "T_2DOLLAR", "T_2DOT", "T_2AMP", "T_2AT", "T_2POUND", "T_2PERCENT",
+  "T_2TILDE", "T_1AT", "T_1TILDE", "T_1QUEST", "T_1AMP", "T_1PLUS",
+  "T_1MINUS", "T_1STAR", "T_1DOLLAR", "T_1DOT", "T_1BANG", "T_1PERCENT",
+  "T_1SLASH", "T_1POUND", "T_1EQUAL", "T_1PIPE", "T_CONCAT", "T_COMMA",
+  "T_LPAREN", "T_RPAREN", "T_LBRACK", "T_RBRACK", "T_LANGLE", "T_RANGLE",
+  "$accept", "top", "program", "stmt", "unlabeled_stmt", "opt_subject",
+  "opt_pattern", "opt_repl", "goto_label_expr", "expr0", "expr2", "expr3",
+  "expr4", "expr5", "expr6", "expr7", "expr8", "expr9", "expr10", "expr11",
+  "expr12", "expr13", "expr14", "expr15", "$@1", "$@2", "idx_args",
+  "expr17", "$@3", "$@4", "vlist_args", "fnc_args", "goto_atom",
+  "goto_expr", YY_NULLPTR
 };
 
 static const char *
@@ -677,7 +681,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-89)
+#define YYPACT_NINF (-87)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -691,29 +695,29 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-      93,   -89,   -33,   -89,   -89,   -89,   -89,   -89,   204,   204,
-     204,   204,   204,   204,   204,   204,   204,   204,   204,   204,
-     204,   204,   204,   204,   157,    20,   139,   -89,   -89,    26,
-      11,    34,    41,    61,   166,    40,    73,    90,    86,   -89,
-     131,   -89,     1,   -25,   -89,   -89,    26,    22,   -89,   -89,
-     -89,   -89,   -89,   -89,   -89,   -89,   -89,   -89,   -89,   -89,
-     -89,   -89,   -89,   -89,     2,     6,    91,   -89,   -89,   204,
-      43,   204,   204,   204,   204,   204,   204,   204,   204,   204,
-     204,   204,   204,   204,   204,   204,   204,   -89,   -89,   204,
-      63,   204,   -89,   -89,   204,   204,   -89,   110,   110,    15,
-     -89,   136,    26,    34,    34,    41,    61,   166,    40,    40,
-      73,    90,    86,   -89,   -89,   -89,   -89,   -89,   142,   204,
-     204,   -89,    70,   110,   110,   -89,   201,    26,   204,   -89,
-     -89,    45,    -7,   203,   205,   206,    21,   -89,    79,   -89,
-      16,    -9,   204,   -89,    54,    66,   -89,    94,   -89,   120,
-     110,   -89,   110,   -89,   -89,   -89,   -89,   207,   208,    37,
-     110,   110,   -89,   209,   204,   -89,   -89,   -89,   110,   -89,
-     110,   -89,   110,   110,   -89,   210,   204,   -89,   211,   212,
-     -89,   -89,   -89,   -89,   -89,   -89,   -89,   -13,    98,    68,
-     -89,   -89,   213,   214,   138,    97,   -89,   -89,   -89,   -89,
-     216,    37,   110,   -89,   110,   -89,   -89,   -89,   110,   -89,
-     110,   -89,   -89,   -89,   217,   218,   219,   236,   -89,   -89,
-     -89,   -89
+     126,   -87,   -42,   -87,   -87,   -87,   -87,   -87,   211,   211,
+     211,   211,   211,   211,   211,   211,   211,   211,   211,   211,
+     211,   211,   211,   211,   192,    27,   144,   -87,   -87,    -1,
+       5,    24,    16,    99,    51,   107,    93,   116,   125,   -87,
+      88,   -87,     3,    42,   -87,   -87,    -1,    13,   -87,   -87,
+     -87,   -87,   -87,   -87,   -87,   -87,   -87,   -87,   -87,   -87,
+     -87,   -87,   -87,   -87,    52,    12,   142,   -87,   -87,   211,
+      69,   211,   211,   211,   211,   211,   211,   211,   211,   211,
+     211,   211,   211,   211,   211,   211,   211,   -87,   -87,   211,
+      80,   211,   -87,   -87,   211,   211,   -87,    96,    96,    19,
+     211,   -87,   140,    -1,    24,    24,    16,    99,    51,   107,
+     107,    93,   116,   125,   -87,   -87,   -87,   -87,   -87,   130,
+     211,   211,   -87,    67,    96,    96,   -87,   158,    -1,   211,
+     -87,   -87,    17,    32,   178,   179,   188,    33,   187,   -87,
+      87,   -87,   -44,   -36,   211,   -87,    40,    45,   -87,    95,
+     -87,    89,    96,   -87,    96,   -87,   -87,   -87,   -87,   190,
+     191,    44,   -87,    96,    96,   -87,   189,   211,   -87,   -87,
+     -87,    96,   -87,    96,   -87,    96,    96,   -87,   193,   211,
+     -87,   194,   195,   -87,   -87,   -87,   -87,   -87,   -87,   -87,
+     -11,    43,    50,   -87,   -87,   196,   204,    62,    58,   -87,
+     -87,   -87,   -87,   208,    44,    96,   -87,    96,   -87,   -87,
+     -87,    96,   -87,    96,   -87,   -87,   -87,   206,   207,   223,
+     224,   -87,   -87,   -87,   -87
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -721,47 +725,47 @@ static const yytype_int16 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-      33,   105,     0,   107,   106,   109,   110,   108,    33,     0,
+      33,   106,     0,   108,   107,   110,   111,   109,    33,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,    33,     5,    18,    38,
-       0,    49,    51,    53,    55,    58,    60,    62,    64,    66,
-      68,    71,    73,    89,    94,   103,    38,     0,    74,    75,
-      76,    77,    78,    79,    80,    81,    82,    83,    84,    85,
-      86,    87,    88,   102,     0,    47,    73,     1,     4,    37,
+       0,    50,    52,    54,    56,    59,    61,    63,    65,    67,
+      69,    72,    74,    90,    95,   104,    38,     0,    75,    76,
+      77,    78,    79,    80,    81,    82,    83,    84,    85,    86,
+      87,    88,    89,   103,     0,    48,    74,     1,     4,    37,
        0,    35,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,    90,    92,   116,
-       0,    35,   100,    99,     0,     0,    36,     0,     0,     0,
-      19,     0,    38,    34,    48,    50,    52,    54,    56,    57,
-      59,    61,    63,    65,    67,    69,    70,    72,    31,    98,
-      98,   115,     0,     0,     0,     6,     0,    38,     0,    45,
-      46,     0,     0,     0,     0,     0,     0,    20,     0,    97,
-       0,     0,   114,   104,     0,     0,     7,     0,   112,     0,
-       0,    21,     0,    22,    39,    41,    40,     0,     0,     0,
-       0,     0,    25,     0,    96,    91,    93,   113,     0,     8,
-       0,     9,     0,     0,    12,     0,     0,   101,     0,     0,
-      42,    44,   118,   119,   120,   117,   121,     0,     0,     0,
-      26,    95,     0,     0,     0,     0,    13,   111,    23,    24,
-       0,     0,     0,    27,     0,    28,    10,    11,     0,    14,
-       0,    15,    43,   122,     0,     0,     0,     0,    29,    30,
-      16,    17
+       0,     0,     0,     0,     0,     0,     0,    91,    93,   117,
+       0,    35,   101,   100,     0,     0,    36,     0,     0,     0,
+       0,    19,     0,    38,    34,    49,    51,    53,    55,    57,
+      58,    60,    62,    64,    66,    68,    70,    71,    73,    31,
+      99,    99,   116,     0,     0,     0,     6,     0,    38,     0,
+      46,    47,     0,     0,     0,     0,     0,     0,     0,    20,
+       0,    98,     0,     0,   115,   105,     0,     0,     7,     0,
+     113,     0,     0,    21,     0,    22,    39,    41,    40,     0,
+       0,     0,    45,     0,     0,    25,     0,    97,    92,    94,
+     114,     0,     8,     0,     9,     0,     0,    12,     0,     0,
+     102,     0,     0,    42,    44,   119,   120,   121,   118,   122,
+       0,     0,     0,    26,    96,     0,     0,     0,     0,    13,
+     112,    23,    24,     0,     0,     0,    27,     0,    28,    10,
+      11,     0,    14,     0,    15,    43,   123,     0,     0,     0,
+       0,    29,    30,    16,    17
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-     -89,   -89,   -89,   192,   -89,   215,   140,   -41,   -88,   -24,
-       3,   -65,   180,   181,   179,   127,   178,   195,   177,   133,
-     -89,    74,   250,   -89,   -89,   -89,   155,   -89,   -89,   -89,
-     -89,   -89,    76,   -89
+     -87,   -87,   -87,   181,   -87,   200,   118,   -45,   -86,   -24,
+       2,   -65,   210,   186,   209,    65,   184,   185,   183,    64,
+     -87,    39,   259,   -87,   -87,   -87,   145,   -87,   -87,   -87,
+     -87,   -87,    61,   -87
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_uint8 yydefgoto[] =
 {
-       0,    25,    26,    27,    28,    29,   102,    70,   101,   139,
+       0,    25,    26,    27,    28,    29,   103,    70,   102,   141,
       65,    31,    32,    33,    34,    35,    36,    37,    38,    39,
-      40,    41,    66,    43,   119,   120,   140,    44,   128,    89,
-     149,   122,   186,   187
+      40,    41,    66,    43,   120,   121,   142,    44,   129,    89,
+     151,   123,   189,   190
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -769,113 +773,115 @@ static const yytype_uint8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      64,   200,   126,    30,   152,    90,   103,   104,   153,   131,
-     132,    47,   -32,   -32,   -32,    45,   -32,   -32,   133,   134,
-      67,   135,    94,    95,   157,    87,   103,    88,    71,    30,
-     158,    85,    72,   201,   159,   144,   145,    72,   164,    91,
-     182,   183,    69,   184,   166,    96,   185,    86,    72,    92,
-     163,    93,    73,   136,    97,    98,    99,   150,   100,   175,
-     151,   138,   178,   164,   179,   121,   168,   165,    78,   169,
-     129,   130,   188,   189,   123,   124,    99,   170,   125,   204,
-     192,   171,   193,   205,   194,   195,   147,    74,    75,   118,
-     160,   161,    99,    -3,   162,    79,     1,     2,     3,     4,
-       5,     6,     7,     8,   148,   172,   173,    99,   210,   174,
-     202,    80,   211,   203,   214,    81,   215,   142,   167,   143,
-     216,    85,   217,    99,     9,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    22,    23,    -2,
-     191,    24,     1,     2,     3,     4,     5,     6,     7,     8,
-     208,   137,   197,   209,    82,    83,    84,   115,   116,   117,
-       1,     2,     3,     4,     5,     6,     7,   176,    72,   177,
-       9,    10,    11,    12,    13,    14,    15,    16,    17,    18,
-      19,    20,    21,    22,    23,    76,    77,    24,     9,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    22,    23,   108,   109,    24,    63,     1,     2,     3,
-       4,     5,     6,     7,   113,   114,   146,   154,    68,   155,
-     156,   180,   181,    46,   190,   196,   198,   199,   206,   207,
-     212,   127,   218,   219,   220,     9,    10,    11,    12,    13,
+      64,    90,    30,   203,   127,   167,   104,   105,    45,   168,
+      47,   132,   133,   167,   -32,   -32,   -32,    69,   -32,   169,
+     -32,   -32,   134,   135,    71,   136,   104,    67,    30,   152,
+      94,    95,    91,    72,   153,    85,   159,   204,   146,   147,
+      72,    72,   160,   154,    73,    96,   161,   185,   186,   155,
+     187,    86,   171,   188,   166,   205,   173,   172,   140,   137,
+     206,   207,   174,   178,    74,   122,   181,   208,   182,   213,
+     130,   131,    76,    77,   211,   214,   138,   191,   192,   212,
+      97,    98,    99,   149,   100,   195,   101,   196,   119,   197,
+     198,   124,   125,    99,    87,   100,    88,   126,   163,   164,
+      99,    92,   100,    93,   165,   150,   175,   176,    99,    99,
+     100,   100,   177,    82,    83,    84,   144,    79,   145,   217,
+     170,   218,   116,   117,   118,   219,    -3,   220,    75,     1,
+       2,     3,     4,     5,     6,     7,     8,    78,   179,    80,
+     180,   109,   110,   194,    -2,   114,   115,     1,     2,     3,
+       4,     5,     6,     7,     8,   200,    81,   139,    72,     9,
+      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
+      20,    21,    22,    23,    85,   148,    24,     9,    10,    11,
+      12,    13,    14,    15,    16,    17,    18,    19,    20,    21,
+      22,    23,   156,   157,    24,     1,     2,     3,     4,     5,
+       6,     7,   158,   162,   183,   184,   193,    68,    46,   128,
+     199,   201,   202,   209,     1,     2,     3,     4,     5,     6,
+       7,   210,   215,   221,   222,     9,    10,    11,    12,    13,
       14,    15,    16,    17,    18,    19,    20,    21,    22,    23,
-      42,   221,    24,   105,   107,   106,   110,   112,    42,    48,
-      49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
-      59,    60,    61,    62,   111,   141,    42,   213
+     223,   224,    24,    63,     9,    10,    11,    12,    13,    14,
+      15,    16,    17,    18,    19,    20,    21,    22,    23,    42,
+     107,    24,   111,   113,   112,   216,   143,    42,    48,    49,
+      50,    51,    52,    53,    54,    55,    56,    57,    58,    59,
+      60,    61,    62,   106,   108,    42
 };
 
 static const yytype_uint8 yycheck[] =
 {
-      24,    14,    90,     0,    11,    46,    71,    72,    15,    97,
-      98,     8,    11,    12,    13,    48,    15,    16,     3,     4,
-       0,     6,    16,    17,     3,    50,    91,    52,    17,    26,
-       9,    30,    26,    46,    13,   123,   124,    26,    47,    17,
-       3,     4,    16,     6,    53,    69,     9,    46,    26,    47,
-     138,    49,    18,    38,    11,    12,    13,    12,    15,   147,
-      15,   102,   150,    47,   152,    89,    12,    51,    28,    15,
-      94,    95,   160,   161,    11,    12,    13,    11,    15,    11,
-     168,    15,   170,    15,   172,   173,   127,    46,    27,    86,
-      11,    12,    13,     0,    15,    22,     3,     4,     5,     6,
-       7,     8,     9,    10,   128,    11,    12,    13,    11,    15,
-      12,    21,    15,    15,   202,    29,   204,    47,   142,    49,
-     208,    30,   210,    13,    31,    32,    33,    34,    35,    36,
-      37,    38,    39,    40,    41,    42,    43,    44,    45,     0,
-     164,    48,     3,     4,     5,     6,     7,     8,     9,    10,
-      12,    15,   176,    15,    23,    24,    25,    83,    84,    85,
-       3,     4,     5,     6,     7,     8,     9,    47,    26,    49,
-      31,    32,    33,    34,    35,    36,    37,    38,    39,    40,
-      41,    42,    43,    44,    45,    19,    20,    48,    31,    32,
-      33,    34,    35,    36,    37,    38,    39,    40,    41,    42,
-      43,    44,    45,    76,    77,    48,    49,     3,     4,     5,
-       6,     7,     8,     9,    81,    82,    15,    14,    26,    14,
-      14,    14,    14,     8,    15,    15,    15,    15,    15,    15,
-      14,    91,    15,    15,    15,    31,    32,    33,    34,    35,
+      24,    46,     0,    14,    90,    49,    71,    72,    50,    53,
+       8,    97,    98,    49,    11,    12,    13,    18,    15,    55,
+      17,    18,     3,     4,    19,     6,    91,     0,    26,    12,
+      18,    19,    19,    28,    17,    32,     3,    48,   124,   125,
+      28,    28,     9,    11,    20,    69,    13,     3,     4,    17,
+       6,    48,    12,     9,   140,    12,    11,    17,   103,    40,
+      17,    11,    17,   149,    48,    89,   152,    17,   154,    11,
+      94,    95,    21,    22,    12,    17,   100,   163,   164,    17,
+      11,    12,    13,   128,    15,   171,    17,   173,    86,   175,
+     176,    11,    12,    13,    52,    15,    54,    17,    11,    12,
+      13,    49,    15,    51,    17,   129,    11,    12,    13,    13,
+      15,    15,    17,    25,    26,    27,    49,    24,    51,   205,
+     144,   207,    83,    84,    85,   211,     0,   213,    29,     3,
+       4,     5,     6,     7,     8,     9,    10,    30,    49,    23,
+      51,    76,    77,   167,     0,    81,    82,     3,     4,     5,
+       6,     7,     8,     9,    10,   179,    31,    17,    28,    33,
+      34,    35,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    47,    32,    17,    50,    33,    34,    35,
       36,    37,    38,    39,    40,    41,    42,    43,    44,    45,
-       0,    15,    48,    73,    75,    74,    78,    80,     8,     9,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    22,    23,    79,   120,    26,   201
+      46,    47,    14,    14,    50,     3,     4,     5,     6,     7,
+       8,     9,    14,    16,    14,    14,    17,    26,     8,    91,
+      17,    17,    17,    17,     3,     4,     5,     6,     7,     8,
+       9,    17,    14,    17,    17,    33,    34,    35,    36,    37,
+      38,    39,    40,    41,    42,    43,    44,    45,    46,    47,
+      17,    17,    50,    51,    33,    34,    35,    36,    37,    38,
+      39,    40,    41,    42,    43,    44,    45,    46,    47,     0,
+      74,    50,    78,    80,    79,   204,   121,     8,     9,    10,
+      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
+      21,    22,    23,    73,    75,    26
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     3,     4,     5,     6,     7,     8,     9,    10,    31,
-      32,    33,    34,    35,    36,    37,    38,    39,    40,    41,
-      42,    43,    44,    45,    48,    55,    56,    57,    58,    59,
-      64,    65,    66,    67,    68,    69,    70,    71,    72,    73,
-      74,    75,    76,    77,    81,    48,    59,    64,    76,    76,
-      76,    76,    76,    76,    76,    76,    76,    76,    76,    76,
-      76,    76,    76,    49,    63,    64,    76,     0,    57,    16,
-      61,    17,    26,    18,    46,    27,    19,    20,    28,    22,
-      21,    29,    23,    24,    25,    30,    46,    50,    52,    83,
-      61,    17,    47,    49,    16,    17,    63,    11,    12,    13,
-      15,    62,    60,    65,    65,    66,    67,    68,    69,    69,
-      70,    71,    72,    73,    73,    75,    75,    75,    64,    78,
-      79,    63,    85,    11,    12,    15,    62,    60,    82,    63,
-      63,    62,    62,     3,     4,     6,    38,    15,    61,    63,
-      80,    80,    47,    49,    62,    62,    15,    61,    63,    84,
-      12,    15,    11,    15,    14,    14,    14,     3,     9,    13,
-      11,    12,    15,    62,    47,    51,    53,    63,    12,    15,
-      11,    15,    11,    12,    15,    62,    47,    49,    62,    62,
-      14,    14,     3,     4,     6,     9,    86,    87,    62,    62,
-      15,    63,    62,    62,    62,    62,    15,    63,    15,    15,
-      14,    46,    12,    15,    11,    15,    15,    15,    12,    15,
-      11,    15,    14,    86,    62,    62,    62,    62,    15,    15,
-      15,    15
+       0,     3,     4,     5,     6,     7,     8,     9,    10,    33,
+      34,    35,    36,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    47,    50,    57,    58,    59,    60,    61,
+      66,    67,    68,    69,    70,    71,    72,    73,    74,    75,
+      76,    77,    78,    79,    83,    50,    61,    66,    78,    78,
+      78,    78,    78,    78,    78,    78,    78,    78,    78,    78,
+      78,    78,    78,    51,    65,    66,    78,     0,    59,    18,
+      63,    19,    28,    20,    48,    29,    21,    22,    30,    24,
+      23,    31,    25,    26,    27,    32,    48,    52,    54,    85,
+      63,    19,    49,    51,    18,    19,    65,    11,    12,    13,
+      15,    17,    64,    62,    67,    67,    68,    69,    70,    71,
+      71,    72,    73,    74,    75,    75,    77,    77,    77,    66,
+      80,    81,    65,    87,    11,    12,    17,    64,    62,    84,
+      65,    65,    64,    64,     3,     4,     6,    40,    65,    17,
+      63,    65,    82,    82,    49,    51,    64,    64,    17,    63,
+      65,    86,    12,    17,    11,    17,    14,    14,    14,     3,
+       9,    13,    16,    11,    12,    17,    64,    49,    53,    55,
+      65,    12,    17,    11,    17,    11,    12,    17,    64,    49,
+      51,    64,    64,    14,    14,     3,     4,     6,     9,    88,
+      89,    64,    64,    17,    65,    64,    64,    64,    64,    17,
+      65,    17,    17,    14,    48,    12,    17,    11,    17,    17,
+      17,    12,    17,    11,    17,    14,    88,    64,    64,    64,
+      64,    17,    17,    17,    17
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    54,    55,    55,    56,    56,    57,    57,    57,    57,
-      57,    57,    57,    57,    57,    57,    57,    57,    57,    58,
-      58,    58,    58,    58,    58,    58,    58,    58,    58,    58,
-      58,    59,    59,    59,    60,    60,    61,    61,    61,    62,
-      62,    62,    62,    62,    62,    63,    63,    63,    64,    64,
-      65,    65,    66,    66,    67,    67,    68,    68,    68,    69,
-      69,    70,    70,    71,    71,    72,    72,    73,    73,    74,
-      74,    74,    75,    75,    76,    76,    76,    76,    76,    76,
-      76,    76,    76,    76,    76,    76,    76,    76,    76,    76,
-      78,    77,    79,    77,    77,    80,    80,    80,    80,    81,
-      82,    81,    81,    83,    81,    81,    81,    81,    81,    81,
-      81,    84,    84,    85,    85,    85,    85,    86,    86,    86,
-      86,    87,    87
+       0,    56,    57,    57,    58,    58,    59,    59,    59,    59,
+      59,    59,    59,    59,    59,    59,    59,    59,    59,    60,
+      60,    60,    60,    60,    60,    60,    60,    60,    60,    60,
+      60,    61,    61,    61,    62,    62,    63,    63,    63,    64,
+      64,    64,    64,    64,    64,    64,    65,    65,    65,    66,
+      66,    67,    67,    68,    68,    69,    69,    70,    70,    70,
+      71,    71,    72,    72,    73,    73,    74,    74,    75,    75,
+      76,    76,    76,    77,    77,    78,    78,    78,    78,    78,
+      78,    78,    78,    78,    78,    78,    78,    78,    78,    78,
+      78,    80,    79,    81,    79,    79,    82,    82,    82,    82,
+      83,    84,    83,    83,    85,    83,    83,    83,    83,    83,
+      83,    83,    86,    86,    87,    87,    87,    87,    88,    88,
+      88,    88,    89,    89
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -885,15 +891,15 @@ static const yytype_int8 yyr2[] =
        8,     8,     6,     7,     8,     8,    10,    10,     1,     3,
        4,     5,     5,     7,     7,     5,     6,     7,     7,     9,
        9,     3,     1,     0,     1,     0,     2,     1,     0,     3,
-       3,     3,     4,     6,     4,     3,     3,     1,     3,     1,
-       3,     1,     3,     1,     3,     1,     3,     3,     1,     3,
-       1,     3,     1,     3,     1,     3,     1,     3,     1,     3,
-       3,     1,     3,     1,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     1,
-       0,     5,     0,     5,     1,     3,     2,     1,     0,     3,
-       0,     6,     2,     0,     5,     1,     1,     1,     1,     1,
-       1,     3,     1,     3,     2,     1,     0,     1,     1,     1,
-       1,     1,     3
+       3,     3,     4,     6,     4,     3,     3,     3,     1,     3,
+       1,     3,     1,     3,     1,     3,     1,     3,     3,     1,
+       3,     1,     3,     1,     3,     1,     3,     1,     3,     1,
+       3,     3,     1,     3,     1,     2,     2,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+       1,     0,     5,     0,     5,     1,     3,     2,     1,     0,
+       3,     0,     6,     2,     0,     5,     1,     1,     1,     1,
+       1,     1,     3,     1,     3,     2,     1,     0,     1,     1,
+       1,     1,     1,     3
 };
 
 
@@ -1367,701 +1373,707 @@ yyreduce:
   case 2: /* top: program  */
 #line 73 "src/parser/snobol4/snobol4.y"
                                                                                                     { }
-#line 1371 "src/parser/snobol4/snobol4.tab.c"
+#line 1377 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 3: /* top: %empty  */
 #line 74 "src/parser/snobol4/snobol4.y"
                                                                                         { }
-#line 1377 "src/parser/snobol4/snobol4.tab.c"
+#line 1383 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 6: /* stmt: T_LABEL opt_subject opt_repl T_STMT_END  */
 #line 78 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,(yyvsp[-3].tok),(yyvsp[-2].expr),NULL,((yyvsp[-1].expr)!=NULL),(yyvsp[-1].expr),NULL,NULL,NULL); }
-#line 1383 "src/parser/snobol4/snobol4.tab.c"
+#line 1389 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 7: /* stmt: T_LABEL opt_subject opt_repl goto_label_expr T_STMT_END  */
 #line 79 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,(yyvsp[-4].tok),(yyvsp[-3].expr),NULL,((yyvsp[-2].expr)!=NULL),(yyvsp[-2].expr),(yyvsp[-1].expr),NULL,NULL); }
-#line 1389 "src/parser/snobol4/snobol4.tab.c"
+#line 1395 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 8: /* stmt: T_LABEL opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END  */
 #line 80 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,(yyvsp[-5].tok),(yyvsp[-4].expr),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,(yyvsp[-1].expr),NULL); }
-#line 1395 "src/parser/snobol4/snobol4.tab.c"
+#line 1401 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 9: /* stmt: T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END  */
 #line 81 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,(yyvsp[-5].tok),(yyvsp[-4].expr),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,NULL,(yyvsp[-1].expr)); }
-#line 1401 "src/parser/snobol4/snobol4.tab.c"
+#line 1407 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 10: /* stmt: T_LABEL opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END  */
 #line 82 "src/parser/snobol4/snobol4.y"
                                                                                                          { sno4_stmt_commit_go(yyparse_param,(yyvsp[-7].tok),(yyvsp[-6].expr),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-3].expr),(yyvsp[-1].expr)); }
-#line 1407 "src/parser/snobol4/snobol4.tab.c"
+#line 1413 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 11: /* stmt: T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END  */
 #line 83 "src/parser/snobol4/snobol4.y"
                                                                                                          { sno4_stmt_commit_go(yyparse_param,(yyvsp[-7].tok),(yyvsp[-6].expr),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-1].expr),(yyvsp[-3].expr)); }
-#line 1413 "src/parser/snobol4/snobol4.tab.c"
+#line 1419 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 12: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_STMT_END  */
 #line 84 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,(yyvsp[-5].tok),expr_binary(TT_SCAN,(yyvsp[-4].expr),(yyvsp[-2].expr)),NULL,((yyvsp[-1].expr)!=NULL),(yyvsp[-1].expr),NULL,NULL,NULL); }
-#line 1419 "src/parser/snobol4/snobol4.tab.c"
+#line 1425 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 13: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END  */
 #line 85 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,(yyvsp[-6].tok),expr_binary(TT_SCAN,(yyvsp[-5].expr),(yyvsp[-3].expr)),NULL,((yyvsp[-2].expr)!=NULL),(yyvsp[-2].expr),(yyvsp[-1].expr),NULL,NULL); }
-#line 1425 "src/parser/snobol4/snobol4.tab.c"
+#line 1431 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 14: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END  */
 #line 86 "src/parser/snobol4/snobol4.y"
                                                                                              { sno4_stmt_commit_go(yyparse_param,(yyvsp[-7].tok),expr_binary(TT_SCAN,(yyvsp[-6].expr),(yyvsp[-4].expr)),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,(yyvsp[-1].expr),NULL); }
-#line 1431 "src/parser/snobol4/snobol4.tab.c"
+#line 1437 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 15: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END  */
 #line 87 "src/parser/snobol4/snobol4.y"
                                                                                              { sno4_stmt_commit_go(yyparse_param,(yyvsp[-7].tok),expr_binary(TT_SCAN,(yyvsp[-6].expr),(yyvsp[-4].expr)),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,NULL,(yyvsp[-1].expr)); }
-#line 1437 "src/parser/snobol4/snobol4.tab.c"
+#line 1443 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 16: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END  */
 #line 88 "src/parser/snobol4/snobol4.y"
                                                                                                                       { sno4_stmt_commit_go(yyparse_param,(yyvsp[-9].tok),expr_binary(TT_SCAN,(yyvsp[-8].expr),(yyvsp[-6].expr)),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-3].expr),(yyvsp[-1].expr)); }
-#line 1443 "src/parser/snobol4/snobol4.tab.c"
+#line 1449 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 17: /* stmt: T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END  */
 #line 89 "src/parser/snobol4/snobol4.y"
                                                                                                                       { sno4_stmt_commit_go(yyparse_param,(yyvsp[-9].tok),expr_binary(TT_SCAN,(yyvsp[-8].expr),(yyvsp[-6].expr)),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-1].expr),(yyvsp[-3].expr)); }
-#line 1449 "src/parser/snobol4/snobol4.tab.c"
+#line 1455 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 19: /* unlabeled_stmt: opt_subject opt_repl T_STMT_END  */
 #line 93 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-2].expr),NULL,((yyvsp[-1].expr)!=NULL),(yyvsp[-1].expr),NULL,NULL,NULL); }
-#line 1455 "src/parser/snobol4/snobol4.tab.c"
+#line 1461 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 20: /* unlabeled_stmt: opt_subject opt_repl goto_label_expr T_STMT_END  */
 #line 94 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-3].expr),NULL,((yyvsp[-2].expr)!=NULL),(yyvsp[-2].expr),(yyvsp[-1].expr),NULL,NULL); }
-#line 1461 "src/parser/snobol4/snobol4.tab.c"
+#line 1467 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 21: /* unlabeled_stmt: opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END  */
 #line 95 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-4].expr),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,(yyvsp[-1].expr),NULL); }
-#line 1467 "src/parser/snobol4/snobol4.tab.c"
+#line 1473 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 22: /* unlabeled_stmt: opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END  */
 #line 96 "src/parser/snobol4/snobol4.y"
                                                                                            { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-4].expr),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,NULL,(yyvsp[-1].expr)); }
-#line 1473 "src/parser/snobol4/snobol4.tab.c"
+#line 1479 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 23: /* unlabeled_stmt: opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END  */
 #line 97 "src/parser/snobol4/snobol4.y"
                                                                                                  { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-6].expr),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-3].expr),(yyvsp[-1].expr)); }
-#line 1479 "src/parser/snobol4/snobol4.tab.c"
+#line 1485 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 24: /* unlabeled_stmt: opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END  */
 #line 98 "src/parser/snobol4/snobol4.y"
                                                                                                  { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),(yyvsp[-6].expr),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-1].expr),(yyvsp[-3].expr)); }
-#line 1485 "src/parser/snobol4/snobol4.tab.c"
+#line 1491 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 25: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl T_STMT_END  */
 #line 99 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-4].expr),(yyvsp[-2].expr)),NULL,((yyvsp[-1].expr)!=NULL),(yyvsp[-1].expr),NULL,NULL,NULL); }
-#line 1491 "src/parser/snobol4/snobol4.tab.c"
+#line 1497 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 26: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END  */
 #line 100 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-5].expr),(yyvsp[-3].expr)),NULL,((yyvsp[-2].expr)!=NULL),(yyvsp[-2].expr),(yyvsp[-1].expr),NULL,NULL); }
-#line 1497 "src/parser/snobol4/snobol4.tab.c"
+#line 1503 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 27: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END  */
 #line 101 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-6].expr),(yyvsp[-4].expr)),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,(yyvsp[-1].expr),NULL); }
-#line 1503 "src/parser/snobol4/snobol4.tab.c"
+#line 1509 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 28: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END  */
 #line 102 "src/parser/snobol4/snobol4.y"
                                                                                          { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-6].expr),(yyvsp[-4].expr)),NULL,((yyvsp[-3].expr)!=NULL),(yyvsp[-3].expr),NULL,NULL,(yyvsp[-1].expr)); }
-#line 1509 "src/parser/snobol4/snobol4.tab.c"
+#line 1515 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 29: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END  */
 #line 103 "src/parser/snobol4/snobol4.y"
                                                                                                               { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-8].expr),(yyvsp[-6].expr)),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-3].expr),(yyvsp[-1].expr)); }
-#line 1515 "src/parser/snobol4/snobol4.tab.c"
+#line 1521 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 30: /* unlabeled_stmt: expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END  */
 #line 104 "src/parser/snobol4/snobol4.y"
                                                                                                               { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,(yyvsp[-8].expr),(yyvsp[-6].expr)),NULL,((yyvsp[-5].expr)!=NULL),(yyvsp[-5].expr),NULL,(yyvsp[-1].expr),(yyvsp[-3].expr)); }
-#line 1521 "src/parser/snobol4/snobol4.tab.c"
+#line 1527 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 31: /* opt_subject: expr14 T_CONCAT expr2  */
 #line 106 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=expr_binary(TT_SCAN,(yyvsp[-2].expr),(yyvsp[0].expr)); }
-#line 1527 "src/parser/snobol4/snobol4.tab.c"
+#line 1533 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 32: /* opt_subject: expr14  */
 #line 107 "src/parser/snobol4/snobol4.y"
                                                                                                     { (yyval.expr)=(yyvsp[0].expr); }
-#line 1533 "src/parser/snobol4/snobol4.tab.c"
+#line 1539 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 33: /* opt_subject: %empty  */
 #line 108 "src/parser/snobol4/snobol4.y"
                                                                                        { (yyval.expr)=NULL; }
-#line 1539 "src/parser/snobol4/snobol4.tab.c"
+#line 1545 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 34: /* opt_pattern: expr3  */
 #line 110 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
-#line 1545 "src/parser/snobol4/snobol4.tab.c"
+#line 1551 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 35: /* opt_pattern: %empty  */
 #line 111 "src/parser/snobol4/snobol4.y"
                                                                                        { (yyval.expr)=NULL; }
-#line 1551 "src/parser/snobol4/snobol4.tab.c"
+#line 1557 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 36: /* opt_repl: T_2EQUAL expr0  */
 #line 113 "src/parser/snobol4/snobol4.y"
                                                                                               { (yyval.expr)=(yyvsp[0].expr); }
-#line 1557 "src/parser/snobol4/snobol4.tab.c"
+#line 1563 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 37: /* opt_repl: T_2EQUAL  */
 #line 114 "src/parser/snobol4/snobol4.y"
                                                                                                { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup("");(yyval.expr)=e; }
-#line 1563 "src/parser/snobol4/snobol4.tab.c"
+#line 1569 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 38: /* opt_repl: %empty  */
 #line 115 "src/parser/snobol4/snobol4.y"
                                                                                        { (yyval.expr)=NULL; }
-#line 1569 "src/parser/snobol4/snobol4.tab.c"
+#line 1575 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 39: /* goto_label_expr: T_GOTO_LPAREN T_IDENT T_GOTO_RPAREN  */
 #line 118 "src/parser/snobol4/snobol4.y"
                                                                                              { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
-#line 1575 "src/parser/snobol4/snobol4.tab.c"
+#line 1581 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 40: /* goto_label_expr: T_GOTO_LPAREN T_END T_GOTO_RPAREN  */
 #line 119 "src/parser/snobol4/snobol4.y"
                                                                                              { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
-#line 1581 "src/parser/snobol4/snobol4.tab.c"
+#line 1587 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 41: /* goto_label_expr: T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN  */
 #line 120 "src/parser/snobol4/snobol4.y"
                                                                                              { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
-#line 1587 "src/parser/snobol4/snobol4.tab.c"
+#line 1593 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 42: /* goto_label_expr: T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN  */
 #line 121 "src/parser/snobol4/snobol4.y"
                                                                                              { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",(yyvsp[-1].tok).sval);e->v.sval=strdup(buf);(yyval.expr)=e; }
-#line 1593 "src/parser/snobol4/snobol4.tab.c"
+#line 1599 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 43: /* goto_label_expr: T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN  */
 #line 122 "src/parser/snobol4/snobol4.y"
                                                                                             { (yyval.expr)=(yyvsp[-2].expr); }
-#line 1599 "src/parser/snobol4/snobol4.tab.c"
+#line 1605 "src/parser/snobol4/snobol4.tab.c"
     break;
 
   case 44: /* goto_label_expr: T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN  */
 #line 123 "src/parser/snobol4/snobol4.y"
                                                                                              { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup((yyvsp[-1].tok).sval);(yyval.expr)=e; }
-#line 1605 "src/parser/snobol4/snobol4.tab.c"
-    break;
-
-  case 45: /* expr0: expr2 T_2EQUAL expr0  */
-#line 125 "src/parser/snobol4/snobol4.y"
-                                                                                              { (yyval.expr)=expr_binary(TT_ASSIGN,          (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1611 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 46: /* expr0: expr2 T_2QUEST expr0  */
-#line 126 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=expr_binary(TT_SCAN,            (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 45: /* goto_label_expr: T_GOTO_LANGLE expr0 T_GOTO_RANGLE  */
+#line 124 "src/parser/snobol4/snobol4.y"
+                                                                                             { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,(yyvsp[-1].expr));(yyval.expr)=e; }
 #line 1617 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 47: /* expr0: expr2  */
-#line 127 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
+  case 46: /* expr0: expr2 T_2EQUAL expr0  */
+#line 126 "src/parser/snobol4/snobol4.y"
+                                                                                              { (yyval.expr)=expr_binary(TT_ASSIGN,          (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1623 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 48: /* expr2: expr2 T_2AMP expr3  */
-#line 129 "src/parser/snobol4/snobol4.y"
-                                                                                             { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
+  case 47: /* expr0: expr2 T_2QUEST expr0  */
+#line 127 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=expr_binary(TT_SCAN,            (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1629 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 49: /* expr2: expr3  */
-#line 130 "src/parser/snobol4/snobol4.y"
+  case 48: /* expr0: expr2  */
+#line 128 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1635 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 50: /* expr3: expr3 T_2PIPE expr4  */
-#line 132 "src/parser/snobol4/snobol4.y"
-                                                                                            { tree_t*a=ast_node_new(TT_ALT);expr_add_child(a,(yyvsp[-2].expr));expr_add_child(a,(yyvsp[0].expr));(yyval.expr)=a; }
+  case 49: /* expr2: expr2 T_2AMP expr3  */
+#line 130 "src/parser/snobol4/snobol4.y"
+                                                                                             { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
 #line 1641 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 51: /* expr3: expr4  */
-#line 133 "src/parser/snobol4/snobol4.y"
+  case 50: /* expr2: expr3  */
+#line 131 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1647 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 52: /* expr4: expr4 T_CONCAT expr5  */
-#line 135 "src/parser/snobol4/snobol4.y"
-                                                                                                            { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,(yyvsp[-2].expr));expr_add_child(s,(yyvsp[0].expr));(yyval.expr)=s; }
+  case 51: /* expr3: expr3 T_2PIPE expr4  */
+#line 133 "src/parser/snobol4/snobol4.y"
+                                                                                            { tree_t*a=ast_node_new(TT_ALT);expr_add_child(a,(yyvsp[-2].expr));expr_add_child(a,(yyvsp[0].expr));(yyval.expr)=a; }
 #line 1653 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 53: /* expr4: expr5  */
-#line 136 "src/parser/snobol4/snobol4.y"
+  case 52: /* expr3: expr4  */
+#line 134 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1659 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 54: /* expr5: expr5 T_2AT expr6  */
-#line 138 "src/parser/snobol4/snobol4.y"
-                                                                                              { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("@"); (yyval.expr)=_e; }
+  case 53: /* expr4: expr4 T_CONCAT expr5  */
+#line 136 "src/parser/snobol4/snobol4.y"
+                                                                                                            { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,(yyvsp[-2].expr));expr_add_child(s,(yyvsp[0].expr));(yyval.expr)=s; }
 #line 1665 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 55: /* expr5: expr6  */
-#line 139 "src/parser/snobol4/snobol4.y"
+  case 54: /* expr4: expr5  */
+#line 137 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1671 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 56: /* expr6: expr6 T_2PLUS expr7  */
-#line 141 "src/parser/snobol4/snobol4.y"
-                                                                                               { (yyval.expr)=expr_binary(TT_ADD,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 55: /* expr5: expr5 T_2AT expr6  */
+#line 139 "src/parser/snobol4/snobol4.y"
+                                                                                              { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("@"); (yyval.expr)=_e; }
 #line 1677 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 57: /* expr6: expr6 T_2MINUS expr7  */
-#line 142 "src/parser/snobol4/snobol4.y"
-                                                                                             { (yyval.expr)=expr_binary(TT_SUB,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 56: /* expr5: expr6  */
+#line 140 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
 #line 1683 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 58: /* expr6: expr7  */
-#line 143 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
+  case 57: /* expr6: expr6 T_2PLUS expr7  */
+#line 142 "src/parser/snobol4/snobol4.y"
+                                                                                               { (yyval.expr)=expr_binary(TT_ADD,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1689 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 59: /* expr7: expr7 T_2POUND expr8  */
-#line 145 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=expr_binary(TT_MUL,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 58: /* expr6: expr6 T_2MINUS expr7  */
+#line 143 "src/parser/snobol4/snobol4.y"
+                                                                                             { (yyval.expr)=expr_binary(TT_SUB,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1695 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 60: /* expr7: expr8  */
-#line 146 "src/parser/snobol4/snobol4.y"
+  case 59: /* expr6: expr7  */
+#line 144 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1701 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 61: /* expr8: expr8 T_2SLASH expr9  */
-#line 148 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_binary(TT_DIV,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 60: /* expr7: expr7 T_2POUND expr8  */
+#line 146 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=expr_binary(TT_MUL,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1707 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 62: /* expr8: expr9  */
-#line 149 "src/parser/snobol4/snobol4.y"
+  case 61: /* expr7: expr8  */
+#line 147 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1713 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 63: /* expr9: expr9 T_2STAR expr10  */
-#line 151 "src/parser/snobol4/snobol4.y"
-                                                                                         { (yyval.expr)=expr_binary(TT_MUL,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 62: /* expr8: expr8 T_2SLASH expr9  */
+#line 149 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_binary(TT_DIV,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1719 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 64: /* expr9: expr10  */
-#line 152 "src/parser/snobol4/snobol4.y"
+  case 63: /* expr8: expr9  */
+#line 150 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1725 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 65: /* expr10: expr10 T_2PERCENT expr11  */
-#line 154 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=expr_binary(TT_DIV,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 64: /* expr9: expr9 T_2STAR expr10  */
+#line 152 "src/parser/snobol4/snobol4.y"
+                                                                                         { (yyval.expr)=expr_binary(TT_MUL,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1731 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 66: /* expr10: expr11  */
-#line 155 "src/parser/snobol4/snobol4.y"
+  case 65: /* expr9: expr10  */
+#line 153 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1737 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 67: /* expr11: expr12 T_2CARET expr11  */
-#line 157 "src/parser/snobol4/snobol4.y"
-                                                                                          { (yyval.expr)=expr_binary(TT_POW,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 66: /* expr10: expr10 T_2PERCENT expr11  */
+#line 155 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=expr_binary(TT_DIV,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1743 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 68: /* expr11: expr12  */
-#line 158 "src/parser/snobol4/snobol4.y"
+  case 67: /* expr10: expr11  */
+#line 156 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1749 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 69: /* expr12: expr12 T_2DOLLAR expr13  */
-#line 160 "src/parser/snobol4/snobol4.y"
-                                                                                         { (yyval.expr)=expr_binary(TT_CAPT_IMMED_ASGN,(yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 68: /* expr11: expr12 T_2CARET expr11  */
+#line 158 "src/parser/snobol4/snobol4.y"
+                                                                                          { (yyval.expr)=expr_binary(TT_POW,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1755 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 70: /* expr12: expr12 T_2DOT expr13  */
-#line 161 "src/parser/snobol4/snobol4.y"
-                                                                                           { (yyval.expr)=expr_binary(TT_CAPT_COND_ASGN, (yyvsp[-2].expr),(yyvsp[0].expr)); }
+  case 69: /* expr11: expr12  */
+#line 159 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
 #line 1761 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 71: /* expr12: expr13  */
-#line 162 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
+  case 70: /* expr12: expr12 T_2DOLLAR expr13  */
+#line 161 "src/parser/snobol4/snobol4.y"
+                                                                                         { (yyval.expr)=expr_binary(TT_CAPT_IMMED_ASGN,(yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1767 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 72: /* expr13: expr14 T_2TILDE expr13  */
-#line 164 "src/parser/snobol4/snobol4.y"
-                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("~"); (yyval.expr)=_e; }
+  case 71: /* expr12: expr12 T_2DOT expr13  */
+#line 162 "src/parser/snobol4/snobol4.y"
+                                                                                           { (yyval.expr)=expr_binary(TT_CAPT_COND_ASGN, (yyvsp[-2].expr),(yyvsp[0].expr)); }
 #line 1773 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 73: /* expr13: expr14  */
-#line 165 "src/parser/snobol4/snobol4.y"
+  case 72: /* expr12: expr13  */
+#line 163 "src/parser/snobol4/snobol4.y"
                                                                                                    { (yyval.expr)=(yyvsp[0].expr); }
 #line 1779 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 74: /* expr14: T_1AT expr14  */
-#line 167 "src/parser/snobol4/snobol4.y"
-                                                                                           { (yyval.expr)=expr_unary(TT_CAPT_CURSOR,     (yyvsp[0].expr)); }
+  case 73: /* expr13: expr14 T_2TILDE expr13  */
+#line 165 "src/parser/snobol4/snobol4.y"
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("~"); (yyval.expr)=_e; }
 #line 1785 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 75: /* expr14: T_1TILDE expr14  */
-#line 168 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_NOT,             (yyvsp[0].expr)); }
+  case 74: /* expr13: expr14  */
+#line 166 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
 #line 1791 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 76: /* expr14: T_1QUEST expr14  */
-#line 169 "src/parser/snobol4/snobol4.y"
-                                                                                        { (yyval.expr)=expr_unary(TT_INTERROGATE,     (yyvsp[0].expr)); }
+  case 75: /* expr14: T_1AT expr14  */
+#line 168 "src/parser/snobol4/snobol4.y"
+                                                                                           { (yyval.expr)=expr_unary(TT_CAPT_CURSOR,     (yyvsp[0].expr)); }
 #line 1797 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 77: /* expr14: T_1AMP expr14  */
-#line 170 "src/parser/snobol4/snobol4.y"
-                                                                                          { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
+  case 76: /* expr14: T_1TILDE expr14  */
+#line 169 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_NOT,             (yyvsp[0].expr)); }
 #line 1803 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 78: /* expr14: T_1PLUS expr14  */
-#line 171 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_PLS,             (yyvsp[0].expr)); }
+  case 77: /* expr14: T_1QUEST expr14  */
+#line 170 "src/parser/snobol4/snobol4.y"
+                                                                                        { (yyval.expr)=expr_unary(TT_INTERROGATE,     (yyvsp[0].expr)); }
 #line 1809 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 79: /* expr14: T_1MINUS expr14  */
-#line 172 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_MNS,             (yyvsp[0].expr)); }
+  case 78: /* expr14: T_1AMP expr14  */
+#line 171 "src/parser/snobol4/snobol4.y"
+                                                                                          { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("&"); (yyval.expr)=_e; }
 #line 1815 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 80: /* expr14: T_1STAR expr14  */
-#line 173 "src/parser/snobol4/snobol4.y"
-                                                                                            { (yyval.expr)=expr_unary(TT_DEFER,           (yyvsp[0].expr)); }
+  case 79: /* expr14: T_1PLUS expr14  */
+#line 172 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_PLS,             (yyvsp[0].expr)); }
 #line 1821 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 81: /* expr14: T_1DOLLAR expr14  */
-#line 174 "src/parser/snobol4/snobol4.y"
-                                                                                           { (yyval.expr)=expr_unary(TT_INDIRECT,        (yyvsp[0].expr)); }
+  case 80: /* expr14: T_1MINUS expr14  */
+#line 173 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_MNS,             (yyvsp[0].expr)); }
 #line 1827 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 82: /* expr14: T_1DOT expr14  */
-#line 175 "src/parser/snobol4/snobol4.y"
-                                                                                             { (yyval.expr)=expr_unary(TT_NAME,            (yyvsp[0].expr)); }
+  case 81: /* expr14: T_1STAR expr14  */
+#line 174 "src/parser/snobol4/snobol4.y"
+                                                                                            { (yyval.expr)=expr_unary(TT_DEFER,           (yyvsp[0].expr)); }
 #line 1833 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 83: /* expr14: T_1BANG expr14  */
-#line 176 "src/parser/snobol4/snobol4.y"
-                                                                                         { (yyval.expr)=expr_unary(TT_POW,             (yyvsp[0].expr)); }
+  case 82: /* expr14: T_1DOLLAR expr14  */
+#line 175 "src/parser/snobol4/snobol4.y"
+                                                                                           { (yyval.expr)=expr_unary(TT_INDIRECT,        (yyvsp[0].expr)); }
 #line 1839 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 84: /* expr14: T_1PERCENT expr14  */
-#line 177 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
+  case 83: /* expr14: T_1DOT expr14  */
+#line 176 "src/parser/snobol4/snobol4.y"
+                                                                                             { (yyval.expr)=expr_unary(TT_NAME,            (yyvsp[0].expr)); }
 #line 1845 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 85: /* expr14: T_1SLASH expr14  */
-#line 178 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
+  case 84: /* expr14: T_1BANG expr14  */
+#line 177 "src/parser/snobol4/snobol4.y"
+                                                                                         { (yyval.expr)=expr_unary(TT_POW,             (yyvsp[0].expr)); }
 #line 1851 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 86: /* expr14: T_1POUND expr14  */
-#line 179 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_MUL,             (yyvsp[0].expr)); }
+  case 85: /* expr14: T_1PERCENT expr14  */
+#line 178 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
 #line 1857 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 87: /* expr14: T_1EQUAL expr14  */
-#line 180 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_ASSIGN,          (yyvsp[0].expr)); }
+  case 86: /* expr14: T_1SLASH expr14  */
+#line 179 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
 #line 1863 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 88: /* expr14: T_1PIPE expr14  */
-#line 181 "src/parser/snobol4/snobol4.y"
-                                                                                        { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("|"); (yyval.expr)=_e; }
+  case 87: /* expr14: T_1POUND expr14  */
+#line 180 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_MUL,             (yyvsp[0].expr)); }
 #line 1869 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 89: /* expr14: expr15  */
-#line 182 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
+  case 88: /* expr14: T_1EQUAL expr14  */
+#line 181 "src/parser/snobol4/snobol4.y"
+                                                                                                { (yyval.expr)=expr_unary(TT_ASSIGN,          (yyvsp[0].expr)); }
 #line 1875 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 90: /* $@1: %empty  */
-#line 184 "src/parser/snobol4/snobol4.y"
-                             { tal_open(); tal_push((yyvsp[-1].expr)); }
+  case 89: /* expr14: T_1PIPE expr14  */
+#line 182 "src/parser/snobol4/snobol4.y"
+                                                                                        { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("|"); (yyval.expr)=_e; }
 #line 1881 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 91: /* expr15: expr15 T_LBRACK $@1 idx_args T_RBRACK  */
-#line 184 "src/parser/snobol4/snobol4.y"
-                                                                              { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); (yyval.expr)=_i; }
+  case 90: /* expr14: expr15  */
+#line 183 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
 #line 1887 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 92: /* $@2: %empty  */
+  case 91: /* $@1: %empty  */
 #line 185 "src/parser/snobol4/snobol4.y"
                              { tal_open(); tal_push((yyvsp[-1].expr)); }
 #line 1893 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 93: /* expr15: expr15 T_LANGLE $@2 idx_args T_RANGLE  */
+  case 92: /* expr15: expr15 T_LBRACK $@1 idx_args T_RBRACK  */
 #line 185 "src/parser/snobol4/snobol4.y"
                                                                               { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); (yyval.expr)=_i; }
 #line 1899 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 94: /* expr15: expr17  */
+  case 93: /* $@2: %empty  */
 #line 186 "src/parser/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
+                             { tal_open(); tal_push((yyvsp[-1].expr)); }
 #line 1905 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 95: /* idx_args: idx_args T_COMMA expr0  */
-#line 188 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tal_push((yyvsp[0].expr)); }
+  case 94: /* expr15: expr15 T_LANGLE $@2 idx_args T_RANGLE  */
+#line 186 "src/parser/snobol4/snobol4.y"
+                                                                              { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); (yyval.expr)=_i; }
 #line 1911 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 96: /* idx_args: idx_args T_COMMA  */
-#line 189 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tal_push(ast_node_new(TT_NUL)); }
+  case 95: /* expr15: expr17  */
+#line 187 "src/parser/snobol4/snobol4.y"
+                                                                                                   { (yyval.expr)=(yyvsp[0].expr); }
 #line 1917 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 97: /* idx_args: expr0  */
-#line 190 "src/parser/snobol4/snobol4.y"
-                                                                                                   { tal_push((yyvsp[0].expr)); }
+  case 96: /* idx_args: idx_args T_COMMA expr0  */
+#line 189 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tal_push((yyvsp[0].expr)); }
 #line 1923 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 99: /* expr17: T_LPAREN expr0 T_RPAREN  */
-#line 193 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=(yyvsp[-1].expr); }
+  case 97: /* idx_args: idx_args T_COMMA  */
+#line 190 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tal_push(ast_node_new(TT_NUL)); }
 #line 1929 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 100: /* $@3: %empty  */
-#line 194 "src/parser/snobol4/snobol4.y"
-                                    { tal_open(); tal_push((yyvsp[-1].expr)); }
+  case 98: /* idx_args: expr0  */
+#line 191 "src/parser/snobol4/snobol4.y"
+                                                                                                   { tal_push((yyvsp[0].expr)); }
 #line 1935 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 101: /* expr17: T_LPAREN expr0 T_COMMA $@3 vlist_args T_RPAREN  */
+  case 100: /* expr17: T_LPAREN expr0 T_RPAREN  */
 #line 194 "src/parser/snobol4/snobol4.y"
-                                                                                      { int _n=tal_count(); tree_t*_a=ast_node_new(TT_VLIST); for(int _j=0;_j<_n;_j++) expr_add_child(_a,tal_child(_j)); tal_close(); (yyval.expr)=_a; }
+                                                                                                { (yyval.expr)=(yyvsp[-1].expr); }
 #line 1941 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 102: /* expr17: T_LPAREN T_RPAREN  */
+  case 101: /* $@3: %empty  */
 #line 195 "src/parser/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=ast_node_new(TT_NUL); }
+                                    { tal_open(); tal_push((yyvsp[-1].expr)); }
 #line 1947 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 103: /* $@4: %empty  */
-#line 196 "src/parser/snobol4/snobol4.y"
-                                 { tree_e _k=pat_prim_kind((yyvsp[-1].tok).sval); tal_open(); tal_fnc_open(_k,(char*)(yyvsp[-1].tok).sval); }
+  case 102: /* expr17: T_LPAREN expr0 T_COMMA $@3 vlist_args T_RPAREN  */
+#line 195 "src/parser/snobol4/snobol4.y"
+                                                                                      { int _n=tal_count(); tree_t*_a=ast_node_new(TT_VLIST); for(int _j=0;_j<_n;_j++) expr_add_child(_a,tal_child(_j)); tal_close(); (yyval.expr)=_a; }
 #line 1953 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 104: /* expr17: T_FUNCTION T_LPAREN $@4 fnc_args T_RPAREN  */
+  case 103: /* expr17: T_LPAREN T_RPAREN  */
 #line 196 "src/parser/snobol4/snobol4.y"
-                                                                                                                                      { (yyval.expr)=tal_fnc_close(); }
+                                                                                                { (yyval.expr)=ast_node_new(TT_NUL); }
 #line 1959 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 105: /* expr17: T_IDENT  */
+  case 104: /* $@4: %empty  */
 #line 197 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_VAR);e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
+                                 { tree_e _k=pat_prim_kind((yyvsp[-1].tok).sval); tal_open(); tal_fnc_open(_k,(char*)(yyvsp[-1].tok).sval); }
 #line 1965 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 106: /* expr17: T_END  */
-#line 198 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_VAR);    e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
+  case 105: /* expr17: T_FUNCTION T_LPAREN $@4 fnc_args T_RPAREN  */
+#line 197 "src/parser/snobol4/snobol4.y"
+                                                                                                                                      { (yyval.expr)=tal_fnc_close(); }
 #line 1971 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 107: /* expr17: T_KEYWORD  */
-#line 199 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_KEYWORD);e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
+  case 106: /* expr17: T_IDENT  */
+#line 198 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_VAR);e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
 #line 1977 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 108: /* expr17: T_STR  */
-#line 200 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_QLIT);   e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
+  case 107: /* expr17: T_END  */
+#line 199 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_VAR);    e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
 #line 1983 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 109: /* expr17: T_INT  */
-#line 201 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_ILIT);   e->v.ival=(yyvsp[0].tok).ival;(yyval.expr)=e; }
+  case 108: /* expr17: T_KEYWORD  */
+#line 200 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_KEYWORD);e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
 #line 1989 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 110: /* expr17: T_REAL  */
-#line 202 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*e=ast_node_new(TT_FLIT);   e->v.dval=(yyvsp[0].tok).dval;(yyval.expr)=e; }
+  case 109: /* expr17: T_STR  */
+#line 201 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_QLIT);   e->v.sval=(char*)(yyvsp[0].tok).sval;(yyval.expr)=e; }
 #line 1995 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 111: /* vlist_args: vlist_args T_COMMA expr0  */
-#line 204 "src/parser/snobol4/snobol4.y"
-                                                                                                 { tal_push((yyvsp[0].expr)); }
+  case 110: /* expr17: T_INT  */
+#line 202 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_ILIT);   e->v.ival=(yyvsp[0].tok).ival;(yyval.expr)=e; }
 #line 2001 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 112: /* vlist_args: expr0  */
-#line 205 "src/parser/snobol4/snobol4.y"
-                                                                                                   { tal_push((yyvsp[0].expr)); }
+  case 111: /* expr17: T_REAL  */
+#line 203 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*e=ast_node_new(TT_FLIT);   e->v.dval=(yyvsp[0].tok).dval;(yyval.expr)=e; }
 #line 2007 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 113: /* fnc_args: fnc_args T_COMMA expr0  */
-#line 207 "src/parser/snobol4/snobol4.y"
+  case 112: /* vlist_args: vlist_args T_COMMA expr0  */
+#line 205 "src/parser/snobol4/snobol4.y"
                                                                                                  { tal_push((yyvsp[0].expr)); }
 #line 2013 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 114: /* fnc_args: fnc_args T_COMMA  */
-#line 208 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tal_push(ast_node_new(TT_NUL)); }
+  case 113: /* vlist_args: expr0  */
+#line 206 "src/parser/snobol4/snobol4.y"
+                                                                                                   { tal_push((yyvsp[0].expr)); }
 #line 2019 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 115: /* fnc_args: expr0  */
-#line 209 "src/parser/snobol4/snobol4.y"
-                                                                                                   { tal_push((yyvsp[0].expr)); }
+  case 114: /* fnc_args: fnc_args T_COMMA expr0  */
+#line 208 "src/parser/snobol4/snobol4.y"
+                                                                                                 { tal_push((yyvsp[0].expr)); }
 #line 2025 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 117: /* goto_atom: T_STR  */
-#line 212 "src/parser/snobol4/snobol4.y"
-                      { tree_t*e=ast_node_new(TT_QLIT); e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
+  case 115: /* fnc_args: fnc_args T_COMMA  */
+#line 209 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tal_push(ast_node_new(TT_NUL)); }
 #line 2031 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 118: /* goto_atom: T_IDENT  */
-#line 213 "src/parser/snobol4/snobol4.y"
-                       { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
+  case 116: /* fnc_args: expr0  */
+#line 210 "src/parser/snobol4/snobol4.y"
+                                                                                                   { tal_push((yyvsp[0].expr)); }
 #line 2037 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 119: /* goto_atom: T_FUNCTION  */
-#line 214 "src/parser/snobol4/snobol4.y"
-                       { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
+  case 118: /* goto_atom: T_STR  */
+#line 213 "src/parser/snobol4/snobol4.y"
+                      { tree_t*e=ast_node_new(TT_QLIT); e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
 #line 2043 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 120: /* goto_atom: T_END  */
-#line 215 "src/parser/snobol4/snobol4.y"
+  case 119: /* goto_atom: T_IDENT  */
+#line 214 "src/parser/snobol4/snobol4.y"
                        { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
 #line 2049 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 121: /* goto_expr: goto_atom  */
-#line 217 "src/parser/snobol4/snobol4.y"
-                                                                                                  { (yyval.expr)=(yyvsp[0].expr); }
+  case 120: /* goto_atom: T_FUNCTION  */
+#line 215 "src/parser/snobol4/snobol4.y"
+                       { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
 #line 2055 "src/parser/snobol4/snobol4.tab.c"
     break;
 
-  case 122: /* goto_expr: goto_expr T_CONCAT goto_atom  */
-#line 218 "src/parser/snobol4/snobol4.y"
-                                                                                                  { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,(yyvsp[-2].expr));expr_add_child(s,(yyvsp[0].expr));(yyval.expr)=s; }
+  case 121: /* goto_atom: T_END  */
+#line 216 "src/parser/snobol4/snobol4.y"
+                       { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)(yyvsp[0].tok).sval; (yyval.expr)=e; }
 #line 2061 "src/parser/snobol4/snobol4.tab.c"
     break;
 
+  case 122: /* goto_expr: goto_atom  */
+#line 218 "src/parser/snobol4/snobol4.y"
+                                                                                                  { (yyval.expr)=(yyvsp[0].expr); }
+#line 2067 "src/parser/snobol4/snobol4.tab.c"
+    break;
 
-#line 2065 "src/parser/snobol4/snobol4.tab.c"
+  case 123: /* goto_expr: goto_expr T_CONCAT goto_atom  */
+#line 219 "src/parser/snobol4/snobol4.y"
+                                                                                                  { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,(yyvsp[-2].expr));expr_add_child(s,(yyvsp[0].expr));(yyval.expr)=s; }
+#line 2073 "src/parser/snobol4/snobol4.tab.c"
+    break;
+
+
+#line 2077 "src/parser/snobol4/snobol4.tab.c"
 
       default: break;
     }
@@ -2254,7 +2266,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 220 "src/parser/snobol4/snobol4.y"
+#line 221 "src/parser/snobol4/snobol4.y"
 
 int snobol4_lex(YYSTYPE *yylval_param, void *yyparse_param) {
     (void)yyparse_param; Token t=lex_next(g_lx); yylval_param->tok=t; if (t.lineno) g_err_lineno=t.lineno;

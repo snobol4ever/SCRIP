@@ -54,7 +54,7 @@ static tree_e pat_prim_kind(const char *s) {
 %parse-param { void *yyparse_param }
 %union { tree_t *expr; Token tok; }
 %token <tok> T_IDENT T_FUNCTION T_KEYWORD T_END T_INT T_REAL T_STR
-%token <tok> T_LABEL T_GOTO_S T_GOTO_F T_GOTO_LPAREN T_GOTO_RPAREN T_STMT_END
+%token <tok> T_LABEL T_GOTO_S T_GOTO_F T_GOTO_LPAREN T_GOTO_RPAREN T_GOTO_LANGLE T_GOTO_RANGLE T_STMT_END
 %token T_2EQUAL T_2QUEST T_2PIPE T_2PLUS T_2MINUS
 %token T_2STAR T_2SLASH T_2CARET
 %token T_2DOLLAR T_2DOT
@@ -121,6 +121,7 @@ goto_label_expr
            | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=strdup(buf);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN    { $$=$4; }
            | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($3.sval);$$=e; }
+           | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
 expr0      : expr2 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
            | expr2 T_2QUEST      expr0                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }

@@ -735,7 +735,22 @@ static const tree_t * sgoto_expr(const tree_t * s, tree_e kind) {
         const tree_t * g0 = a->c[0];
         if (g0->t == TT_QLIT) return NULL;
         if (g0->t == TT_INDIRECT && g0->n > 0 && g0->c[0] && g0->c[0]->t == TT_VAR) return NULL;
+        if (g0->t == TT_GOTO_DIRECT) return NULL;
         return g0;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- direct goto `:<expr>` (manual v3.7 p.178, "The direct Goto").  The parser wraps the bracketed expression in
+ *--- TT_GOTO_DIRECT, which sgoto/sgoto_expr both decline, so this is the ONE reader of the form: it returns the
+ *--- operand tree, whose VALUE must be a CODE object at transfer time (oracle: anything else is SPITBOL ERROR 024,
+ *--- "goto operand in direct goto is not code"), never a label name. ---*/
+static const tree_t * sgoto_direct(const tree_t * s, tree_e kind) {
+    for (int i = 0; i < s->n; i++) {
+        const tree_t * a = s->c[i];
+        if (!a || a->t != kind || a->n == 0 || !a->c[0]) continue;
+        if (a->c[0]->t == TT_GOTO_DIRECT) return (a->c[0]->n > 0) ? a->c[0]->c[0] : NULL;
+        return NULL;
     }
     return NULL;
 }
@@ -763,6 +778,34 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
     ir_operand_push(asn, vr);
     return ec;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- direct goto `:<expr>` (manual v3.7 p.178).  Same shape as the computed indirect goto one function up, and for
+ *--- the same reason: the operand evaluates at TRANSFER time, so it is lowered into a hidden DGT$n global that the
+ *--- IR_GOTO_DEFERRED reads back.  The `<` name prefix is the discriminator rt_goto_resolve dispatches on -- the
+ *--- exact parallel of the `$` prefix the indirect road already uses -- and it is what keeps the two forms apart:
+ *--- `:(C)` must stay a LABEL lookup (oracle: ERROR 038 when no such label exists) even when C holds a CODE value. ---*/
+static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
+    static int g_dgt_n = 0;
+    char nmb[24]; snprintf(nmb, sizeof nmb, "DGT$%d", g_dgt_n++);
+    char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = '<'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
+    IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
+    IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd); IR_LIT(asn).sval = tmpn;
+    IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
+    ir_operand_push(asn, vr);
+    return ec;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*--- ONE reader of one goto branch: a written label name, a direct `:<expr>` operand, or a computed `$(expr)` name --
+ *--- exactly one of the three can be present, and NULL means the branch was not written at all (the caller then falls
+ *--- back to the unconditional branch, and after that to the next statement).  The three forms are built in the same
+ *--- order the S/F/U cascade used before the direct form existed, so an unrelated program's node sequence is unmoved. ---*/
+static IR_t * sno_goto_branch(IR_graph_t * g, scx_t * cx, const char * nm, const tree_t * dc, const tree_t * ex, IR_t * exitnd) {
+    if (nm) return sno_goto_target(g, nm, exitnd);
+    if (dc) return sno_goto_direct_target(g, cx, dc, exitnd);
+    if (ex) return sno_goto_computed_target(g, cx, ex, exitnd);
+    return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_qlit_fold(const tree_t * t) {
@@ -2212,8 +2255,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * exU = goU ? NULL : sgoto_expr(s, TT_GOTO_U);
         const tree_t * exS = goS ? NULL : sgoto_expr(s, TT_GOTO_S);
         const tree_t * exF = goF ? NULL : sgoto_expr(s, TT_GOTO_F);
-        IR_t * sT = goS ? sno_goto_target(g, goS, exitnd) : exS ? sno_goto_computed_target(g, &cx, exS, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
-        IR_t * fT = goF ? sno_goto_target(g, goF, exitnd) : exF ? sno_goto_computed_target(g, &cx, exF, exitnd) : goU ? sno_goto_target(g, goU, exitnd) : exU ? sno_goto_computed_target(g, &cx, exU, exitnd) : next;
+        const tree_t * dcU = sgoto_direct(s, TT_GOTO_U);
+        const tree_t * dcS = sgoto_direct(s, TT_GOTO_S);
+        const tree_t * dcF = sgoto_direct(s, TT_GOTO_F);
+        IR_t * sT = sno_goto_branch(g, &cx, goS, dcS, exS, exitnd); if (!sT) sT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); if (!sT) sT = next;
+        IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd); if (!fT) fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); if (!fT) fT = next;
         if (fT == next && !goF && !exF && !goU && !exU && sfind(s, ":nofail")) { IR_t *nf = lc_build(g, IR_CALL, exitnd, exitnd); IR_LIT(nf).sval = (char *)"SNO$NOFAIL"; fT = nf; }   /* -NOFAIL: statement failure without a goto fires error 35 (manual ch.14 p.173) */
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* ZW-5 O-2: stb->ival = stno for per-depth stub label names */   /* ⭐⭐ ZW-5 SLICE 2 (OMEGA O-1): the statement bracket box is minted HERE because these two lines are the ONE derivation point every statement form threads its continuations through -- sT/fT are already resolved (goto field, computed goto, or fallthrough `next`), so one edit reaches every form without touching a single statement arm below.  THE BOX IS A TRAILER, NOT A BRACKET -- measured, not inferred: x86_asm.h:544 x86_alpha() DEFINES the alpha label while x86_asm.h:547 x86_gamma() IS A JMP, so the emitted body `def alpha / jmp gamma / def beta; jmp omega` has exactly ONE entry and control can never return into it; the box is entered once, at alpha, by the statement's SUCCESS wire and falls through to the jmp that carries op_zgpop via the ONE X86H_JMP gamma hook arm (s22k one-authority -- no second whack spelling is created here). */
@@ -2459,7 +2505,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * fb = anchor[i] ? anchor[i]->γ.node : NULL;
             if (!fb) continue;
             IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);   /* STMT-BETA (this session, Lon ruling 2026-08-06): omega = fT makes the emitter's DRIVE_PAIR wire statement_begin_beta -> fT; beta is the named failure landing for the statement scope (always-live per flat_beta_used_scan IR_STATEMENT_BEGIN addition in emit.cpp) */
-            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* MON-NULL-STMT: null stmt (no subj/LABEL/goto/eq) gets stno=0 → emitter tap skipped (op_stno>0 guard) — matches SPITBOL/CSNOBOL4 which emit no LABEL for blank-line pass-throughs.  B-13 FIX (BOARD, this session): the predicate previously checked subj/goto/eq but NOT ":lbl" -- a bare-label-only statement (label present, nothing else, e.g. "EMIT_x" on its own source line) was misclassified as a null pass-through and silently lost its STNO stamp, so scrip's monitor bridge never emitted a LABEL event for it, while SPITBOL's bridge counts a label line as its own null statement (manual Ch.4 p.28) and does emit one.  This was the exact desync MONITOR_SKIP_BARE_LABEL_STNO=1 (SCRIP 5ec6e607) worked around controller-side; that workaround stays in place for the moment but the native emission gap it papers over is now closed at the source. */
+            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto_direct(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto_direct(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sgoto_direct(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }   /* MON-NULL-STMT: null stmt (no subj/LABEL/goto/eq) gets stno=0 → emitter tap skipped (op_stno>0 guard) — matches SPITBOL/CSNOBOL4 which emit no LABEL for blank-line pass-throughs.  B-13 FIX (BOARD, this session): the predicate previously checked subj/goto/eq but NOT ":lbl" -- a bare-label-only statement (label present, nothing else, e.g. "EMIT_x" on its own source line) was misclassified as a null pass-through and silently lost its STNO stamp, so scrip's monitor bridge never emitted a LABEL event for it, while SPITBOL's bridge counts a label line as its own null statement (manual Ch.4 p.28) and does emit one.  This was the exact desync MONITOR_SKIP_BARE_LABEL_STNO=1 (SCRIP 5ec6e607) worked around controller-side; that workaround stays in place for the moment but the native emission gap it papers over is now closed at the source. */
             lc_γ_to(anchor[i], sbeg);
             if (match_land[i]) lc_γ_tag_β(match_land[i]);
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }   /* fA REDIRECT+TAG (this session, measured): fA.γ -> OWN sbeg, single hop, β-tagged.  NOT the fB tag-only shape: bc_chase (optimizer/branch_chain.c:30) propagates tags LAST-HOP-WINS, so a chain fA(β)→fJ(α)→fT arrives at the emitter as sz=α — tag clobbered, arm dead (measured via SCRIP_OPT_TRACE on w_fa: ".ω 0x…(op=28) -> 0x…(op=125) sz=α").  Single-hop sidesteps the clobber AND lands on the OWN statement's begin, so the β label selection (emit.cpp:1888 meaning (a)) picks THIS statement's β — which forwards to fT — instead of the chased-through TARGET statement's β, which would skip the target's body outright.  fT stays reachable via sbeg.ω (minted with fail_tgt[i] above); fJ keeps its match-arm element-retry references.  ⛔ fB (match_land) is left tag-only and is, by the same bc_chase measurement, a DEAD ARM at this HEAD — recorded in the session FINDING; lighting it takes the same redirect treatment and its own gates. */   /* fA joins the beta-tag: same tag-only discipline as fB (gamma stays = fJ; chain to fT intact for the used-scan). */   /* R1 STMT-BETA-LAND: tag-only -- fB.γ stays = fJ (chain to fT intact for used-scan and all downstream consumers); β tag makes the emitter's chase propagate oib=1 and route to betas[sbeg_k].  lc_γ_to_β would set fB.γ = sbeg, severing the fJ→fT chain and causing the emitter to miss every statement after the scan (the 175 root cause: node 10@ was the GOTO chain to n11@→n12@→n13@ which held the second STATEMENT_BEGIN; redirecting its γ dropped n12@/n13@ from used[]).  MATCH_BEGIN.ω → fB (β-tagged GOTO → fJ → fT) -- the emitter chases, sees the β tag, routes to sbeg.β, AND the used-scan follows γ to fJ and beyond, keeping the full graph reachable. */

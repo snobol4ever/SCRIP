@@ -27,6 +27,7 @@ int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static char  strbuf[65536];
 static int   strpos;
 static int   gt_depth;
+static int   gt_angle;
 int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
 static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
@@ -162,10 +163,10 @@ G       ({WS}|{CONT})*
 <BODY_START>\n          { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START>";"         { BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START>.           { yyless(0); BEGIN(BODY); }
-<BODY>\n               { lineno++; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>";"              { BEGIN(INITIAL); return T_STMT_END; }
-<BODY>{W}";"           { BEGIN(INITIAL); return T_STMT_END; }
-<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; BEGIN(GT); }
+<BODY>\n               { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; BEGIN(GT); }
 <BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
@@ -188,10 +189,10 @@ G       ({WS}|{CONT})*
 <BODY>{W}"~"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2TILDE;           }
 <BODY>"("{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LPAREN; }
 <BODY>"["{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LBRACK; }
-<BODY>"<"{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LANGLE; }
+<BODY>"<"{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle) gt_angle++; return T_LANGLE; }
 <BODY>{G}")"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RPAREN; }
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
-<BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RANGLE; }
+<BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
 <BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_FUNCTION; }
 <BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
@@ -265,7 +266,7 @@ G       ({WS}|{CONT})*
 <GT>[Ff]/"<"            { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
-<GT>"<"                 { gt_depth++; return T_GOTO_LPAREN; }
+<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 <GT>">"                 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
 <GT>"$"                 { return T_1DOLLAR; }
 <GT>[A-Za-z][A-Za-z0-9_.]* {
@@ -281,8 +282,8 @@ G       ({WS}|{CONT})*
     return T_STR;
 }
  /*--------------------------------------------------------------------------------------------------------------------*/
-<GT>";"                 { BEGIN(INITIAL); return T_STMT_END; }
-<GT>\n                  { lineno++; BEGIN(INITIAL); return T_STMT_END; }
+<GT>";"                 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<GT>\n                  { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <GT>.                   { }
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }

@@ -396,16 +396,22 @@ DESCR_t eval_expr(const char *src)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* EVAL/CODE (manual Ch.9, directive lifted 2026-07-08).  Runtime label registry: fragment labels registered by
- * code(); resolution order in rt_goto_transfer is (1) `$X` indirect deref, (2) END, (3) this registry — so a
- * fragment label OVERRIDES a same-named main label per the manual, (4) the main program's LBL__ pseudo-procs
- * (exported by lower_sno_stage2 when the program uses CODE), (5) a variable holding a CODE value (the lexer
- * folds direct-goto `:<C>` onto the plain-name form, so `C` here may be the variable), (6) fault.  A transfer
- * RUNS the target nested on a fresh 64KB frame (GC-visible so DESCR temporaries in it stay rooted); SNOBOL4
- * gotos never resume their source, so the target running to termination cascades clean returns back up every
- * crossing — the process exits through the driver as always.  Honest slice-1 caveats: one frame is allocated
- * per crossing and never freed, and each crossing nests one C-stack level, so a loop that ping-pongs across
- * the main/fragment boundary (label-to-label, not within one graph) grows both without bound — fine for the
- * manual's shapes (a handful of crossings), a real rung for a frame-recycling tail-transfer later. */
+ * code(); resolution order in rt_goto_resolve is (1) `$X` indirect deref, (2) `<X` DIRECT GOTO, (3) END, (4) this
+ * registry — so a fragment label OVERRIDES a same-named main label per the manual — (5) the main program's LBL__
+ * pseudo-procs (exported by lower_sno_stage2 when the program uses CODE), (6) fault.  ARM 2 IS THE `:<expr>` FORM
+ * (manual v3.7 p.178): the lowerer evaluates the bracketed operand into the hidden DGT$n whose name arrives here
+ * behind the `<`, and that value MUST be a CODE object — a string, an integer and an unassigned name each raise
+ * SPITBOL ERROR 024 ("goto operand in direct goto is not code"), all three measured on the live oracle.
+ * ⛔ THE OLD ARM 5 IS DELETED (s192): it resolved a BARE label name through a variable holding a CODE value,
+ * because the lexer used to fold `:<C>` onto the plain-name form — ONE token pair for TWO different constructs.
+ * The fold made `:(C)` execute the code object where the oracle raises ERROR 038 (goto undefined label), and it
+ * could carry neither `:< C >` nor any non-variable operand.  The `<` prefix restores two brackets, two roads.
+ * A transfer RUNS the target nested on a fresh 64KB frame (GC-visible so DESCR temporaries in it stay rooted);
+ * SNOBOL4 gotos never resume their source, so the target running to termination cascades clean returns back up
+ * every crossing — the process exits through the driver as always.  Honest slice-1 caveats: one frame is
+ * allocated per crossing and never freed, and each crossing nests one C-stack level, so a loop that ping-pongs
+ * across the main/fragment boundary (label-to-label, not within one graph) grows both without bound — fine for
+ * the manual's shapes (a handful of crossings), a real rung for a frame-recycling tail-transfer later. */
 typedef struct { char *key; eval_chain_fn fn; } lbl_ent_t;
 static lbl_ent_t *g_lbl_tab = NULL;
 static int        g_lbl_n = 0;
@@ -441,6 +447,11 @@ void *rt_goto_resolve(const char *name)
         if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
         return rt_goto_resolve(inm);
     }
+    if (name[0] == '<') {
+        DESCR_t cv = NV_GET_fn(name + 1);
+        if (cv.v != DT_C || cv.slen != 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
+        return cv.ptr;
+    }
     if (!strcmp(name, "END")) return NULL;
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
     {
@@ -448,10 +459,6 @@ void *rt_goto_resolve(const char *name)
         char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
         eval_chain_fn fn = (eval_chain_fn)rt_proc_get_fn(lname);
         if (fn) return (void *)fn;
-    }
-    {
-        DESCR_t d = NV_GET_fn(name);
-        if (d.v == DT_C && d.slen == 3) return d.ptr;
     }
     fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1);
 }

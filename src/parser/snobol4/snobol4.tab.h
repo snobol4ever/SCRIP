@@ -81,45 +81,47 @@ extern int snobol4_debug;
     T_GOTO_F = 267,                /* T_GOTO_F  */
     T_GOTO_LPAREN = 268,           /* T_GOTO_LPAREN  */
     T_GOTO_RPAREN = 269,           /* T_GOTO_RPAREN  */
-    T_STMT_END = 270,              /* T_STMT_END  */
-    T_2EQUAL = 271,                /* T_2EQUAL  */
-    T_2QUEST = 272,                /* T_2QUEST  */
-    T_2PIPE = 273,                 /* T_2PIPE  */
-    T_2PLUS = 274,                 /* T_2PLUS  */
-    T_2MINUS = 275,                /* T_2MINUS  */
-    T_2STAR = 276,                 /* T_2STAR  */
-    T_2SLASH = 277,                /* T_2SLASH  */
-    T_2CARET = 278,                /* T_2CARET  */
-    T_2DOLLAR = 279,               /* T_2DOLLAR  */
-    T_2DOT = 280,                  /* T_2DOT  */
-    T_2AMP = 281,                  /* T_2AMP  */
-    T_2AT = 282,                   /* T_2AT  */
-    T_2POUND = 283,                /* T_2POUND  */
-    T_2PERCENT = 284,              /* T_2PERCENT  */
-    T_2TILDE = 285,                /* T_2TILDE  */
-    T_1AT = 286,                   /* T_1AT  */
-    T_1TILDE = 287,                /* T_1TILDE  */
-    T_1QUEST = 288,                /* T_1QUEST  */
-    T_1AMP = 289,                  /* T_1AMP  */
-    T_1PLUS = 290,                 /* T_1PLUS  */
-    T_1MINUS = 291,                /* T_1MINUS  */
-    T_1STAR = 292,                 /* T_1STAR  */
-    T_1DOLLAR = 293,               /* T_1DOLLAR  */
-    T_1DOT = 294,                  /* T_1DOT  */
-    T_1BANG = 295,                 /* T_1BANG  */
-    T_1PERCENT = 296,              /* T_1PERCENT  */
-    T_1SLASH = 297,                /* T_1SLASH  */
-    T_1POUND = 298,                /* T_1POUND  */
-    T_1EQUAL = 299,                /* T_1EQUAL  */
-    T_1PIPE = 300,                 /* T_1PIPE  */
-    T_CONCAT = 301,                /* T_CONCAT  */
-    T_COMMA = 302,                 /* T_COMMA  */
-    T_LPAREN = 303,                /* T_LPAREN  */
-    T_RPAREN = 304,                /* T_RPAREN  */
-    T_LBRACK = 305,                /* T_LBRACK  */
-    T_RBRACK = 306,                /* T_RBRACK  */
-    T_LANGLE = 307,                /* T_LANGLE  */
-    T_RANGLE = 308                 /* T_RANGLE  */
+    T_GOTO_LANGLE = 270,           /* T_GOTO_LANGLE  */
+    T_GOTO_RANGLE = 271,           /* T_GOTO_RANGLE  */
+    T_STMT_END = 272,              /* T_STMT_END  */
+    T_2EQUAL = 273,                /* T_2EQUAL  */
+    T_2QUEST = 274,                /* T_2QUEST  */
+    T_2PIPE = 275,                 /* T_2PIPE  */
+    T_2PLUS = 276,                 /* T_2PLUS  */
+    T_2MINUS = 277,                /* T_2MINUS  */
+    T_2STAR = 278,                 /* T_2STAR  */
+    T_2SLASH = 279,                /* T_2SLASH  */
+    T_2CARET = 280,                /* T_2CARET  */
+    T_2DOLLAR = 281,               /* T_2DOLLAR  */
+    T_2DOT = 282,                  /* T_2DOT  */
+    T_2AMP = 283,                  /* T_2AMP  */
+    T_2AT = 284,                   /* T_2AT  */
+    T_2POUND = 285,                /* T_2POUND  */
+    T_2PERCENT = 286,              /* T_2PERCENT  */
+    T_2TILDE = 287,                /* T_2TILDE  */
+    T_1AT = 288,                   /* T_1AT  */
+    T_1TILDE = 289,                /* T_1TILDE  */
+    T_1QUEST = 290,                /* T_1QUEST  */
+    T_1AMP = 291,                  /* T_1AMP  */
+    T_1PLUS = 292,                 /* T_1PLUS  */
+    T_1MINUS = 293,                /* T_1MINUS  */
+    T_1STAR = 294,                 /* T_1STAR  */
+    T_1DOLLAR = 295,               /* T_1DOLLAR  */
+    T_1DOT = 296,                  /* T_1DOT  */
+    T_1BANG = 297,                 /* T_1BANG  */
+    T_1PERCENT = 298,              /* T_1PERCENT  */
+    T_1SLASH = 299,                /* T_1SLASH  */
+    T_1POUND = 300,                /* T_1POUND  */
+    T_1EQUAL = 301,                /* T_1EQUAL  */
+    T_1PIPE = 302,                 /* T_1PIPE  */
+    T_CONCAT = 303,                /* T_CONCAT  */
+    T_COMMA = 304,                 /* T_COMMA  */
+    T_LPAREN = 305,                /* T_LPAREN  */
+    T_RPAREN = 306,                /* T_RPAREN  */
+    T_LBRACK = 307,                /* T_LBRACK  */
+    T_RBRACK = 308,                /* T_RBRACK  */
+    T_LANGLE = 309,                /* T_LANGLE  */
+    T_RANGLE = 310                 /* T_RANGLE  */
   };
   typedef enum snobol4_tokentype snobol4_token_kind_t;
 #endif
@@ -131,7 +133,7 @@ union SNOBOL4_STYPE
 #line 55 "src/parser/snobol4/snobol4.y"
  tree_t *expr; Token tok; 
 
-#line 135 "src/parser/snobol4/snobol4.tab.h"
+#line 137 "src/parser/snobol4/snobol4.tab.h"
 
 };
 typedef union SNOBOL4_STYPE SNOBOL4_STYPE;
