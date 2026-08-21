@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # scorecard_snobol4.sh — THE SNOBOL4 SCORECARD + META SCORE (Lon directive 2026-08-15 s91, Fable seat).
 #
-#   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR]   # measure (long)
+#   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR] [--force]   # measure (long)
 #   bash scripts/scorecard_snobol4.sh report [DIR]                                       # aggregate a results dir
+#   bash scripts/scorecard_snobol4.sh one <suite> <program> [N]                           # re-run ONE program N times, the way the board runs it
 #
 # EVERY SNOBOL4 test source found in corpus/ + SCRIP/test is a member of exactly ONE suite below.  Every
 # program is run in BOTH real modes (m3 = --run BINARY in-process, m4 = --compile -> gcc -no-pie -> run) and
@@ -104,6 +105,44 @@ sbl_flags() { echo "-bf -d512m -i64m"; }
 # Admitting those would turn 134 correctly-UNSCR gimpel library modules into rows graded against empty output -- manufacturing 134
 # vacuous passes, which is the very defect the pin/live mutual-silence row exists to kill.  ONE DIRECTION IS A FIX, BOTH IS A LIE.
 sbl_died() { grep -qE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -qE '^in statement +[0-9]+$' "$1"; }
+# ---------------------------------------------------------------- PROVENANCE + CONTENTION (row `scorecard-provenance`, s190)
+# ⛔ THIS BOARD IS TIMING-GRADED AND COULD BE SILENTLY CORRUPTED BY A CO-TENANT WITH NOTHING IN ITS OUTPUT SAYING SO.  grade()
+# turns rc 124 into TIMEOUT and nine of twelve suites run on a 20s budget, so a program near budget flips TIMEOUT<->PASS under
+# CPU load WITH NO TREE CHANGE, and every META and every fail-set-by-name in GOAL-SNOBOL4-100.md rests on that number.  MEASURED,
+# NOT HYPOTHETICAL (seat5, s189): two seats ran a full 12-suite board at --jobs 12 on the same 16-core box SIMULTANEOUSLY and
+# neither knew until an unrelated ps; csnobol4-suite/nqueens.sno gave TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 across
+# five runs of the SAME script on the SAME binary.  This is the HQ-27 class -- a stale build is indistinguishable from a current
+# one by inspecting its output -- and it takes the same cure: MAKE THE PROVENANCE TRAVEL WITH THE NUMBER.
+# ⛔ THE REGISTRY IS BOX-SCOPED, NOT TREE-SCOPED, AND THAT IS THE WHOLE POINT.  The colliding seats hold SEPARATE CHECKOUTS
+# (/home/claude1/SCRIP, /home/claude2/SCRIP, ...) and therefore SEPARATE test-results/ dirs, so a lock file under $SC/test-results/
+# is never seen by the seat it exists to announce -- VACUOUS for the only failure it was asked to catch.  MEASURED on this box:
+# all eight seats run as ONE uid, share /tmp, /home and /proc, and see each other's processes -- so a /tmp registry is both shared
+# and liveness-checkable (`[ -d /proc/$pid ]` is a real test here, not a guess).  S4E_BOARDS overrides the location.
+# ⛔ TWO DETECTORS, DELIBERATELY, BECAUSE THEY CATCH DIFFERENT THINGS.  The REGISTRY names a cooperating board exactly (which pid,
+# which tree, which out dir, since when) and can REFUSE to start; the LOAD SAMPLER catches EVERY contender including ones that
+# will never register -- another runner, a make -j, a browser -- and is the only half that works against a non-participant.
+# ⛔ CAPPING --jobs BY nproc DOES NOT HELP AND IS NOT DONE HERE: two seats each at a perfectly legal --jobs 12 still collide.
+# The cure is not a smaller number, it is a number that says what it was measured under.
+BOARDS="${S4E_BOARDS:-/tmp/s4e-boards.d}"
+sc_load() {  # -> "<1-min average> <instantaneous runnable>"; field 4's numerator is far more responsive than the average on a 20s budget
+  local l; l="$(cat /proc/loadavg 2>/dev/null)"; [ -n "$l" ] || l="0 0 0 0/0 0"; set -- $l; echo "$1 ${4%%/*}"
+}
+sc_peers() {  # -> one line per OTHER LIVE registered board: pid|root|out|jobs|start_iso   (stale entries are reaped, not reported)
+  local f pid; [ -d "$BOARDS" ] || return 0
+  for f in $(ls "$BOARDS" 2>/dev/null); do case "$f" in *.board) ;; *) continue;; esac
+    pid="${f%.board}"; [ "$pid" = "$$" ] && continue
+    [ -d "/proc/$pid" ] || { rm -f "$BOARDS/$f" 2>/dev/null; continue; }
+    cat "$BOARDS/$f" 2>/dev/null; done
+}
+sc_board_register() { mkdir -p "$BOARDS" 2>/dev/null; printf '%s|%s|%s|%s|%s\n' "$$" "$S4E" "$1" "$2" "$(date +%Y-%m-%dT%H:%M:%S)" > "$BOARDS/$$.board"; }
+sc_board_release() { rm -f "$BOARDS/$$.board" 2>/dev/null; }
+sc_prov() { printf '%s\t%s\n' "$2" "$3" >> "$1"; }   # $1=file $2=key $3=value -- report reads these back and COMPUTES the verdict; nothing about contention is ever typed
+sc_sampler() {  # $1 = out dir  $2 = owner pid -- appends `epoch load1 runnable npeers peerpids` every S4E_SAMPLE seconds; DIES WITH ITS OWNER (a container restart kills the board, and an orphaned sampler would loop forever writing into a dead board`s dir)
+  local o="$1" own="$2" L n np pp
+  while [ -d "/proc/$own" ]; do L="$(sc_load)"; n="${L##* }"; L="${L%% *}"
+    pp="$(sc_peers | cut -d'|' -f1 | tr '\n' ',')"; pp="${pp%,}"; np=0; [ -n "$pp" ] && np="$(printf '%s\n' "$pp" | tr ',' '\n' | grep -c .)"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" "$L" "$n" "$np" "$pp" >> "$o/load.tsv"; sleep "${S4E_SAMPLE:-5}"; done
+}
 # ---------------------------------------------------------------- one program, one line
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
@@ -154,8 +193,8 @@ export -f run_one stdin_for sc_libpath sbl_flags sbl_died; export CORPUS SBL SCR
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
-  local only="" jobs=1 out=""
-  while [ $# -gt 0 ]; do case "$1" in --suites) only="$2"; shift 2;; --jobs) jobs="$2"; shift 2;; --out) out="$2"; shift 2;; *) shift;; esac; done
+  local only="" jobs=1 out="" force=""
+  while [ $# -gt 0 ]; do case "$1" in --suites) only="$2"; shift 2;; --jobs) jobs="$2"; shift 2;; --out) out="$2"; shift 2;; --force) force=1; shift;; *) shift;; esac; done
   # ⛔ AN UNKNOWN --suites NAME IS REFUSED, NOT IGNORED (s189).  The filter below is `grep -q ",$name,"` over the TABLE, so a name that is not in the table simply matches
   # nothing: `--suites lon` and `--suites crosschek` both used to run ZERO programs, truncate results.tsv, and then report a META over an empty or partial denominator that
   # LOOKS like a whole board -- the exact failure the s182 warning at the top of this file describes, reached by a typo instead of by two runs sharing one --out.
@@ -171,6 +210,28 @@ cmd_run() {
   [ -z "$out" ] && out="$SC/test-results/scorecard-$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$out"; : > "$out/results.tsv"; echo "$out"
   [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 1; }
+  # ---- provenance + contention (row `scorecard-provenance`, s190).  REGISTER FIRST, THEN LOOK: the other order is a TOCTOU in
+  # which two boards starting together each see an empty registry and both run -- the exact silent collision this cures.  Two
+  # boards racing here therefore both refuse, which is FAIL-CLOSED BY CHOICE: a loud double refusal is recoverable in one command,
+  # a quiet double run corrupts the headline instrument and says nothing.
+  local prov="$out/provenance.tsv" samp="" peers="" npeers=0 st l0
+  sc_board_register "$out" "$jobs"; peers="$(sc_peers)"; npeers="$(printf '%s' "$peers" | grep -c .)"
+  if [ "$npeers" -gt 0 ] && [ -z "$force" ]; then
+    echo "⛔ REFUSED: $npeers other SNOBOL4 board(s) already running on this box -- this board is TIMING-GRADED and would be measuring under contention:" >&2
+    printf '%s\n' "$peers" | while IFS='|' read -r p r o j t; do echo "   holder pid=$p  root=$r  jobs=$j  since=$t  out=$o" >&2; done
+    echo "   Wait for it, or re-run with --force (the report is then marked CONTENDED-BY-CONSTRUCTION and the number is born marked)." >&2
+    sc_board_release; exit 3
+  fi
+  st="$(date +%s)"; l0="$(sc_load)"; : > "$prov"; : > "$out/load.tsv"
+  sc_prov "$prov" host "$(hostname 2>/dev/null)"; sc_prov "$prov" pid "$$"; sc_prov "$prov" root "$S4E"; sc_prov "$prov" out "$out"
+  sc_prov "$prov" suites "${only:-ALL}"; sc_prov "$prov" jobs "$jobs"; sc_prov "$prov" nproc "$(nproc 2>/dev/null || echo 0)"
+  sc_prov "$prov" scrip_head "$(cd "$SC" && git rev-parse --short HEAD 2>/dev/null)"; sc_prov "$prov" corpus_head "$(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null)"
+  sc_prov "$prov" scrip_bin_md5 "$(md5sum "$SCRIP" 2>/dev/null | cut -c1-12)"; sc_prov "$prov" scrip_bin_mtime "$(date -r "$SCRIP" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
+  sc_prov "$prov" rt_so_md5 "$(md5sum "$SC/out/libscrip_rt.so" 2>/dev/null | cut -c1-12)"; sc_prov "$prov" rt_so_mtime "$(date -r "$SC/out/libscrip_rt.so" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
+  sc_prov "$prov" start_epoch "$st"; sc_prov "$prov" start_iso "$(date +%Y-%m-%dT%H:%M:%S)"; sc_prov "$prov" load_start "${l0%% *}"
+  sc_prov "$prov" forced "${force:-0}"; sc_prov "$prov" peers_at_start "$(printf '%s' "$peers" | tr '\n' ';')"
+  sc_sampler "$out" "$$" & samp=$!
+  trap 'kill '"$samp"' 2>/dev/null; sc_board_release' EXIT INT TERM
   echo "$SUITES" | while read -r name w root fargs_lib_rest; do
     [ -z "$name" ] && continue
     [ -n "$only" ] && ! echo ",$only," | grep -q ",$name," && continue
@@ -188,6 +249,15 @@ cmd_run() {
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
     xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
   done
+  kill "$samp" 2>/dev/null; trap - EXIT INT TERM; sc_board_release
+  local en agg; en="$(date +%s)"
+  sc_prov "$prov" end_epoch "$en"; sc_prov "$prov" end_iso "$(date +%Y-%m-%dT%H:%M:%S)"; sc_prov "$prov" duration_s "$((en-st))"
+  sc_prov "$prov" load_end "$(sc_load | cut -d' ' -f1)"
+  agg="$(${AWK:-awk} -F'\t' 'BEGIN{mx=0;sum=0;n=0;rmx=0;pmx=0} {if($2+0>mx)mx=$2+0; sum+=$2; n++; if($3+0>rmx)rmx=$3+0; if($4+0>pmx)pmx=$4+0; if($5!=""){k=split($5,pp,","); for(i=1;i<=k;i++) if(pp[i]!="") SEEN[pp[i]]=1}}
+      END{ l=""; for(x in SEEN) l=l (l==""?"":",") x; printf "%.2f\t%.2f\t%d\t%d\t%d\t%s", mx, (n?sum/n:0), rmx, pmx, n, (l==""?"-":l) }' "$out/load.tsv" 2>/dev/null)"
+  set -- $agg
+  sc_prov "$prov" load_peak "${1:-0}"; sc_prov "$prov" load_mean "${2:-0}"; sc_prov "$prov" runnable_peak "${3:-0}"
+  sc_prov "$prov" peers_max "${4:-0}"; sc_prov "$prov" samples "${5:-0}"; sc_prov "$prov" peers_seen "${6:--}"
   echo "DONE $(date +%H:%M:%S)"
   cmd_report "$out"
 }
@@ -198,6 +268,38 @@ cmd_report() {
   echo "SNOBOL4 SCORECARD — $(basename "$out")  (SCRIP $(cd "$SC" && git rev-parse --short HEAD 2>/dev/null), corpus $(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null))  rows=$(wc -l < "$out/results.tsv")"
   # ⛔ A WITHDRAWN SUITE'S ROWS ARE DROPPED SILENTLY BY THE awk BELOW (it builds W[] and ORD[] from $SUITES, so an unknown suite is never iterated and never reaches tw/ts).
   # That is the CORRECT scoring -- a results.tsv measured before s189 still holds `lon` rows and they must not enter META -- but silence is how a plausible wrong number ships.
+  # ---- PROVENANCE HEADER (row `scorecard-provenance`, s190).  ⛔ THE VERDICT IS COMPUTED FROM THE RECORDED FACTS, NEVER TYPED,
+  # and its ABSENCE is reported as loudly as its presence: a board measured before s190 (or by any runner that does not record
+  # provenance) cannot be told apart from a clean one by looking at it, which is the whole defect.  The threshold is not a guess
+  # about "busy": the board's OWN expected load is ~jobs (sbl, scrip and gcc are single-threaded, one at a time per slot), so
+  # everything above jobs is FOREIGN by construction and `excess` is the honest quantity to PRINT.  ⛔ BUT EXCESS IS NOT THE
+  # ALARM, OVERSUBSCRIPTION IS, AND THE DIFFERENCE IS CALIBRATION, NOT PEDANTRY.  MEASURED on this box: the desktop baseline
+  # alone (chrome and friends) holds ~4-5 runnable at idle, so "peak exceeds my jobs" fires on EVERY board ever run here and a
+  # banner that always fires is a banner every seat learns to skip -- strictly worse than no banner.  What actually invalidates
+  # a timing is the jobs of this board NOT EACH HOLDING A CORE, i.e. peak > nproc; seat5\'s measured collision (two boards at
+  # --jobs 12 on 16 cores, peak ~24) trips that, a 6-job board beside an idle desktop does not.  Foreign load below that line is
+  # reported as NOISY with its number so a later board can be compared against it, and never as "not comparable".
+  if [ -f "$out/provenance.tsv" ]; then
+    ${AWK:-awk} -F'\t' '{V[$1]=$2} END{
+      j=V["jobs"]+0; np=V["nproc"]+0; pk=V["load_peak"]+0; rk=V["runnable_peak"]+0; pm=V["peers_max"]+0; f=V["forced"]+0; d=V["duration_s"]+0;
+      hi=(pk>rk?pk:rk); ex=hi-j; sp=ENVIRON["S4E_SAMPLE"]; if(sp=="") sp="5";
+      if(V["end_epoch"]=="") tail="⛔ RUN IN PROGRESS or KILLED -- no end recorded"; else tail=sprintf("end=%s  wall=%dm%02ds", V["end_iso"], d/60, d%60);
+      pl=""; if(pm>0 && V["peers_seen"]!="-" && V["peers_seen"]!="") pl=sprintf("(pids %s)", V["peers_seen"]);
+      printf "PROVENANCE  root=%s pid=%s  jobs=%d/%d cores  suites=%s  start=%s  %s\n", V["root"], V["pid"], j, np, V["suites"], V["start_iso"], tail;
+      printf "            scrip %s (bin md5 %s, built %s) · corpus %s · rt.so md5 %s\n", V["scrip_head"], V["scrip_bin_md5"], V["scrip_bin_mtime"], V["corpus_head"], V["rt_so_md5"];
+      printf "            load 1-min: start %s · mean %s · PEAK %s   runnable PEAK %d   samples %s@%ss   concurrent boards seen: %d %s\n", V["load_start"], V["load_mean"], V["load_peak"], rk, V["samples"], sp, pm, pl;
+      why="";
+      if(f) why=why" started under --force while another board held the registry;";
+      if(pm>0) why=why sprintf(" %d foreign board(s) registered DURING this run %s;", pm, pl);
+      if(V["peers_at_start"]!="" && V["peers_at_start"]!="-") why=why" a board was already running when this one started;";
+      if(np>0 && hi>np) why=why sprintf(" box OVERSUBSCRIBED -- peak %.2f runnable on %d cores, so the %d jobs of this board did NOT each hold a core;", hi, np, j);
+      if(why!="") printf "⛔ CONTENDED — the timings of this board are NOT comparable to a quiet board:%s Nine of twelve suites grade on a 20s budget and rc 124 becomes TIMEOUT, so TIMEOUT and SIG rows here may be load artefacts rather than tree state.\n", why;
+      else if(ex>2) printf "· NOISY (not contended) — about %.1f runnable beyond the %d jobs of this board, but peak %.2f still fits in %d cores, so every job held one. Timings are comparable; the estimate is printed so a later board can be compared against it.\n", ex, j, hi, np;
+      else printf "⭐ CLEAN — nothing beyond the %d jobs of this board was runnable at any sample; these timings are comparable to a quiet board.\n", j;
+    }' "$out/provenance.tsv"
+  else
+    echo "⛔ NO PROVENANCE FOR THIS BOARD (measured before s190, or by a runner that does not record it): jobs, wall time, load and concurrent-board state are UNKNOWN, so a TIMEOUT row here CANNOT be distinguished from a load artefact. Re-measure before quoting these numbers."
+  fi
   local orph; orph="$(cut -f1 "$out/results.tsv" | sort -u | grep -vxF -f <(echo "$SUITES" | awk 'NF{print $1}') | tr '\n' ' ')"
   [ -n "$orph" ] && echo "⛔ IGNORED (rows measured, suite not in the table -- excluded from every number below, including META): $orph"
   printf '%-15s %3s %5s %5s %6s %6s %6s %6s %6s  %s\n' SUITE W N M3ok M4ok m3% m4% SCORE UNSCR "top failure classes"
@@ -232,4 +334,31 @@ cmd_report() {
   # board that happens to have zero pin-only rows -- a green board reporting failure.  Caught by running it, not by reading it.
   if [ "$np" -gt 0 ]; then echo "PIN-ONLY ROWS — scored against the pin because the live oracle did not deliver: $np (of which oracle exited 0 on a FATAL REPORT: $nd)"; fi
 }
-case "${1:-report}" in run) shift; cmd_run "$@";; report) shift; cmd_report "$@";; *) echo "usage: $0 run|report"; exit 2;; esac
+# ---------------------------------------------------------------- one program, N times (row `scorecard-provenance`, s190)
+# ⛔ THIS EXISTS BECAUSE THE CONTENTION EXPERIMENT NEEDS ONE PROGRAM, NOT NINETY.  seat5 convicted this instrument by running
+# csnobol4-suite/nqueens.sno FIVE TIMES on the SAME binary and getting TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 --
+# and until s190 the only way to re-run one program THE WAY THE BOARD RUNS IT was to run its whole suite, which perturbs the
+# very load being measured.  It calls run_one -- the same authority, the same lib path, the same oracle flags, the same grade()
+# -- and adds nothing but the repeat count and the load stamp, so a row measured here is comparable to a row on the board.
+# It registers NO lock and refuses nothing: a single program is a probe, not a board, and must stay usable while one is running.
+cmd_one() {  # <suite> <program-basename-or-path> [N]
+  set -f
+  local want="${1:-}" prog="${2:-}" reps="${3:-1}" i L
+  [ -n "$want" ] && [ -n "$prog" ] || { echo "usage: $0 one <suite> <program> [N]   suites: $(echo "$SUITES" | ${AWK:-awk} 'NF{printf "%s ", $1}')" >&2; exit 2; }
+  echo "$SUITES" | ${AWK:-awk} 'NF{print $1}' | grep -qx -- "$want" || { echo "⛔ REFUSED: no such suite `$want`. Known: $(echo "$SUITES" | ${AWK:-awk} 'NF{printf "%s ", $1}')" >&2; exit 2; }
+  echo "$SUITES" | while read -r name w root fargs_lib_rest; do
+    [ "$name" = "$want" ] || continue
+    set -- $fargs_lib_rest; local nf=$#; local norm=${!nf}; local rto=${@:$((nf-1)):1}; local lib=${@:$((nf-2)):1}; local fargs="${*:1:$((nf-3))}"
+    local full="$prog"
+    if [ ! -f "$full" ]; then case "$root" in
+      SELF)      full="$DEMO/beauty/beauty.sno";;
+      SCRIPTEST) full="$(find "$SC/test" $fargs 2>/dev/null | grep -m1 "/$prog\(\.sno\)\?$")";;
+      MISC)      local m; for m in $MISC_DIRS; do full="$(find "$CORPUS/$m" $fargs 2>/dev/null | grep -m1 "/$prog\(\.sno\)\?$")"; [ -n "$full" ] && break; done;;
+      *)         full="$(find "$CORPUS/$root" $fargs 2>/dev/null | grep -m1 "/$prog\(\.sno\)\?$")";;
+    esac; fi
+    [ -n "$full" ] && [ -f "$full" ] || { echo "⛔ not found in suite $want: $prog" >&2; exit 2; }
+    echo "# suite=$name lib=$lib rto=$rto norm=$norm prog=${full#$CORPUS/}  reps=$reps  (rep, load1, runnable, then the board TSV line)"
+    for i in $(seq 1 "$reps"); do L="$(sc_load)"; printf '%s\t%s\t%s\t' "$i" "${L%% *}" "${L##* }"; run_one "$name" "$lib" "$full" "$norm" "$rto"; done
+  done
+}
+case "${1:-report}" in run) shift; cmd_run "$@";; report) shift; cmd_report "$@";; one) shift; cmd_one "$@";; *) echo "usage: $0 run|report|one"; exit 2;; esac
