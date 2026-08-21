@@ -355,9 +355,9 @@ static std::string bb_define_activate() {
          *   FRETURN          (r9 == 2) → ω wire in r11 */
       + x86("cmp", AB_TC_REG_D, (long)AB_TC_FRETURN)
       + x86("je",  L(6))
-      + x86("jmp", "r10")            /* RETURN / NRETURN → γ */
+      + bb_glue_wire_γ()             /* RETURN / NRETURN → γ.  ⭐ WIRE-STACK (s194): was an open-coded `jmp r10` — a SECOND SPELLING of the wire-exit contract that bb_glue_wire_exit already owns, and it silently kept the register road alive while the pass side moved to the pushed pair, so a blob entered with a pushed pair exited through a stale register.  Routed through the ONE authority; the off arm still emits `jmp r10` byte-identically. */
       + x86("def", L(6))
-      + x86("jmp", "r11")            /* FRETURN → ω */
+      + bb_glue_wire_ω()             /* FRETURN → ω (same conversion, same authority) */
       + x86_deflabel(X86P_GAMMA)     /* AB-3a FINDING-FIX (pre-existing, measured this session): x86_gamma() above REFERENCES <FN>_act_γ but nothing DEFINED it — every DEFINE-bearing program failed to LINK in m4 at HEAD (undefined reference, ld exit 1; pristine denominator identical), invisible to the matrix (no matrix probe carries a DEFINE) and to the AB gates as run.  Dead structural landing like ω below; AB-3b's site wires are the real continuations. */
       + x86_deflabel(X86P_OMEGA)     /* ω port label define only — never reached; dispatch above is exhaustive */
                 /* RO fname string slot 0 — used by both monitor taps */
