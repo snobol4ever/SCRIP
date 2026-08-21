@@ -2266,7 +2266,7 @@ static int resume_carrier_ok(const IR_t * nd, int sealed_defer) { extern int zdp
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_frame_scope(void) {
     extern int g_flat_frame_floor;
-    return (emit_match_rbp() && g_emit.flat_jmp_entry && g_emit.flat_pat && !g_emit.flat_bare_chain && !(g_flat_frame_floor > 0)) ? 1 : 0;
+    return (emit_match_rbp() && g_emit.flat_jmp_entry && g_emit.flat_pat && (bb_wire_stack_on() || !g_emit.flat_bare_chain) && !(g_flat_frame_floor > 0)) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int blob_wire_clobber_scan(void) {
@@ -2296,7 +2296,7 @@ static int blob_choice_rbp_scan(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int blob_frame_bytes(void) {
     if (!blob_frame_scope() || !g_emit_cfg) return 0;
-    int count = 0; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) return 0;
+    int count = 0; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) { if (!bb_wire_stack_on()) return 0; count = 0; }
     int _pend = 0; if (sn4_blob_casmark()) for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _m = g_emit_cfg->all[_i]; if (_m && _m->op == IR_MATCH_ASSIGN_COND) { _pend = 1; break; } }
     if (count == 0 && !_pend && !blob_wire_clobber_scan() && !blob_choice_rbp_scan()) return bb_wire_stack_on() ? blob_head_bytes() : 0;
     return blob_head_bytes() + 16 * count + (blob_choice_rbp_scan() ? 32 : 0);
@@ -3039,7 +3039,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nmov edi, 1\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0xBF, 0x01, 0x00); ef_b1(0x00); ef_b1(0x00); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, x86("mov", "r10", RDQ("rbp", -8)) + x86("mov", "r11", RDQ("rbp", -16)) + IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86_jmp_reg("r11")); }
+    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, x86("mov", "r10", RDQ("rbp", -8)) + x86("mov", "r11", RDQ("rbp", -16)) + IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + IF(bb_wire_stack_on(), x86("comment", "WIRE-STACK ARM (s195) RETIRE-RELEASES: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 16L)) + x86_jmp_reg("r11")); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {

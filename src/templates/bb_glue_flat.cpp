@@ -37,7 +37,7 @@ std::string bb_glue_outer_ω() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_wire_stack_on(void) { const char * e = getenv("SCRIP_WIRE_STACK"); return (e && *e == '1') ? 1 : 0; }
-std::string bb_glue_wire_land(void) { return bb_wire_stack_on() ? x86("add", "rsp", 16L) : std::string(); }
+std::string bb_glue_wire_land(void) { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
     if (!PLATFORM_X86) return std::string();
