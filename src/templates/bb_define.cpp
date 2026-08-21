@@ -22,6 +22,7 @@ void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
 const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
+int bb_tiny_shim_ok(const char *, int);   /* s59 ONE-AUTHORITY: shim emits iff the shared site predicate (bb_call_proc_staged.cpp) says so — a jmp <fn>_alpha can never dangle.  HOISTED to the file-scope extern block (s194) so the DEFINE BIND site can ask the same question the shim answers; a block-scope redeclaration would have carried C++ linkage. */
 }
 #include "x86_asm.h"
 #define AB_TC_REG   "r8"
@@ -73,6 +74,12 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "body$%s",  pname); }
     int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }   /* SCRIP_SEAL_DIAG=1: print the fill/miss ledger -- the instrument that convicted the unsealed alpha$EXPR$ cells (D-18) */
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {   /* M4-ALPHA-SEAL: the SAME alpha$<FN> store as bb_ab_seal_entry_cells above, reached with the address ALREADY RESOLVED instead of via the emitter label pool.  m3 seals from the driver after emit_chain (pool live, offset known); a LINKED image has no pool and no driver, so its DEFINE site calls this with the assembler-resolved <FN>_α and the two media reach one cell by one route.  Without it rt_dyn_alpha_fn finds an unsealed cell in every m4 binary and falls back to p->fn -- the generic entry thunk its own comment names as the wrong protocol (rip=5 class). */
+    if (!pname || !alpha) return;
+    char cell[300]; snprintf(cell, sizeof cell, "alpha$%s", pname);
+    *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_activate() {
@@ -395,6 +402,15 @@ static std::string bb_define_bind() {
          + x86_scan_sync_out()
          + x86("call", "rt_define_site", _site_fp)
          + x86_scan_sync_in_rr();
+    { static int _m4seal = -1; if (_m4seal < 0) { const char * _e = getenv("SCRIP_M4_ALPHA_SEAL"); _m4seal = (_e && *_e == '0') ? 0 : 1; }   /* ⭐⭐⭐ M4-ALPHA-SEAL (s194, row semantic-driver-m4-segv): the alpha$<FN> cell is filled ONLY by m3_seal_entry_cells, which lives in the DRIVER and resolves the address through the LIVE EMITTER LABEL POOL — both compiler-process-only.  A linked m4 binary therefore never inherits the seal (measured: zero alpha$ references in any emitted .s), so rt_dyn_alpha_fn reads rt_ab_undef_fn_stub, rejects it, and returns the p->fn fallback — the generic entry thunk its OWN comment names as the wrong protocol, "rip=5 crash class".  Every by-name call to a DEFINE'd proc in m4 lands wild; the witness is the SPITBOL manual's own p.136 NRETURN idiom `LEN(2) . *PUSH()`, where sbl and m3 agree and m4 SIGSEGVs.  This is the m4 twin the ALLOWLIST never carried.  SCRIP_M4_ALPHA_SEAL=0 restores the pre-s194 emission byte-identically. */
+      if (_m4seal && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {   /* ASK THE ALLOCATOR, NOT THE MEDIUM (bb_define:406/:474 precedent): a non-NULL cell is the BINARY image, where the driver already seals and re-sealing would be noise — NULL is the TEXT image, the only one that needs this.  bb_tiny_shim_ok is the ONE AUTHORITY on whether the role-4/5 shim lays down <FN>_α ("a site may jmp <fn>_alpha iff this returns 1"); guessing instead would name an undefined symbol at link, the s112 treebank class verbatim. */
+        uint64_t _seal_fp; { void (*fp)(const char *, void *) = bb_ab_seal_alpha; _seal_fp = (uint64_t)(uintptr_t)(void *)fp; }
+        reg = reg + x86("comment", "M4-ALPHA-SEAL: alpha$<FN> <- &<FN>_α, the m4 twin of the driver seal")
+            + x86_ro_load_q("rdi", 0)
+            + x86("lea", "rsi", std::string("[rip + __]"), (uint64_t)0, (std::string(fname) + "_\xce\xb1").c_str())
+            + x86_scan_sync_out()
+            + x86("call", "bb_ab_seal_alpha", _seal_fp)
+            + x86_scan_sync_in_rr(); } }
     std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "");
     if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     /* RTX-FUNC-0 BIND-NEUTRALIZE (BINARY): the lea's [rip + __] 5-arg form routes to x86_load_ro which in
@@ -486,7 +502,6 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
 #include <string>
 #include <cstdint>
 #include "emit.h"
-extern "C" int bb_tiny_shim_ok(const char *, int);   /* s59 ONE-AUTHORITY: shim emits iff the shared site predicate (bb_call_proc_staged.cpp) says so — a jmp <fn>_alpha can never dangle */
 static int fnrbp(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_RBP"); v = e ? atoi(e) : 2; if (v == 1) v = 2; if (v < 0 || v > 2) v = 2; } return v; }   /* ⭐⭐⭐ S-2 (RBP-EARN s78, Lon in-chat: "remove RBP's used by FUNCTION linkage"): DEFAULT FLIPPED 1 -> 2 and the RBP-FUNCTION arm RETIRED -- `=1` now ALIASES to 2 so an inherited env or script cannot resurrect a deleted regime.  THE GATE s63/s64 SET WAS "when the =2 board == the =1 board, flip and delete", and S-1 (FLOATER-CUT, this session) is what closed it: the =2 arm was 11 programs short ONLY because every DEFINE-bearing statement leaked its goto-out depth and the RBP arm's `mov rsp,rbp` was silently absorbing it -- measured 136 -> 146 PASS on the 165-program two-arm sweep once the statement released its own K.  RBP's remaining job is the MATCH INTERIOR alone (ARBNO zeta-FRAMEs + the mrbp match frame); FUNCTION linkage now rides the RSP depth-invariance law exactly as the s64 writer/reader pair always claimed it could.  `=0` (the s58 BOMB descent instrument) is UNTOUCHED and still reachable. */
 static int fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }   /* SIG s66: MUST agree with bcps_fnsig (bb_call_proc_staged.cpp) — same env read, same default, two coherent worlds never mixed */   /* s63/s64 FUNCTION-linkage arms: 0 = s58 BOMB floaters (descent instrument) · 1 = RBP bracket (s63, proven) · 2 = RSP-ONLY (s64, Lon's challenge): the shim pushes the 16B {γ,ω} pair at TOS and the floaters find it by DEPTH-INVARIANCE — no anchor register; sound iff every statement boundary in the body is depth-neutral, so under =2 a leaking statement shape pops junk as a code address and dies LOUD at the jmp: the failure list IS the leak census, program-granular.  One predicate gates writer + readers, drift-proof. */
 extern "C" {
