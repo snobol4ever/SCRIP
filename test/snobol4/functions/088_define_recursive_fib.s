@@ -248,14 +248,14 @@ n12_lit_integer_β:      add              rsp, 16
 .Lx71_0:                .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n13_binop_α:            sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # var
-                        cmp              eax, 3;                              jne   .Lx72_2
+                        mov              ecx, dword ptr [rsp + 32]            # var
                         mov              rax, qword ptr [rsp + 40]
-                        mov              rdx, 1
-                        sub              rax, rdx
+                        cmp              ecx, 3;                              jne   .Lx72_2
+                        sub              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx72_7
-.Lx72_2:                mov              edx, eax
+.Lx72_2:                mov              eax, ecx
+                        mov              edx, ecx
                         and              edx, 1;                              jz    .Lx72_0
                         mov              rsi, qword ptr [rsp + 40]            # var
                         mov              rdi, 1
@@ -327,14 +327,14 @@ n16_lit_integer_β:      add              rsp, 16;                             j
 .Lx76_0:                .quad            2
 #-----------------------------------------------------------------------------------------------------------------------
 n17_binop_α:            sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # var
-                        cmp              eax, 3;                              jne   .Lx77_2
+                        mov              ecx, dword ptr [rsp + 32]            # var
                         mov              rax, qword ptr [rsp + 40]
-                        mov              rdx, 2
-                        sub              rax, rdx
+                        cmp              ecx, 3;                              jne   .Lx77_2
+                        sub              rax, 2
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx77_7
-.Lx77_2:                mov              edx, eax
+.Lx77_2:                mov              eax, ecx
+                        mov              edx, ecx
                         and              edx, 1;                              jz    .Lx77_0
                         mov              rsi, qword ptr [rsp + 40]            # var
                         mov              rdi, 2

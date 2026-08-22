@@ -2359,14 +2359,14 @@ n164_lit_integer_β:     add              rsp, 16;                             j
 .Lx433_0:               .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n165_binop_α:           sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # deref
-                        cmp              eax, 3;                              jne   .Lx434_2
+                        mov              ecx, dword ptr [rsp + 32]            # deref
                         mov              rax, qword ptr [rsp + 40]
-                        mov              rdx, 1
-                        add              rax, rdx
+                        cmp              ecx, 3;                              jne   .Lx434_2
+                        add              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx434_7
-.Lx434_2:               mov              edx, eax
+.Lx434_2:               mov              eax, ecx
+                        mov              edx, ecx
                         and              edx, 1;                              jz    .Lx434_0
                         mov              rsi, qword ptr [rsp + 40]            # deref
                         mov              rdi, 1
@@ -2801,14 +2801,14 @@ n206_lit_integer_β:     add              rsp, 16;                             j
 .Lx490_0:               .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n207_binop_α:           sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # deref
-                        cmp              eax, 3;                              jne   .Lx491_2
+                        mov              ecx, dword ptr [rsp + 32]            # deref
                         mov              rax, qword ptr [rsp + 40]
-                        mov              rdx, 1
-                        sub              rax, rdx
+                        cmp              ecx, 3;                              jne   .Lx491_2
+                        sub              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx491_7
-.Lx491_2:               mov              edx, eax
+.Lx491_2:               mov              eax, ecx
+                        mov              edx, ecx
                         and              edx, 1;                              jz    .Lx491_0
                         mov              rsi, qword ptr [rsp + 40]            # deref
                         mov              rdi, 1

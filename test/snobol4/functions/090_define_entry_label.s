@@ -166,14 +166,14 @@ n5_lit_integer_β:       add              rsp, 16
 .Lx27_0:                .quad            1
 #-----------------------------------------------------------------------------------------------------------------------
 n6_binop_α:             sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # var
-                        cmp              eax, 3;                              jne   .Lx28_2
+                        mov              ecx, dword ptr [rsp + 32]            # var
                         mov              rax, qword ptr [rsp + 40]
-                        mov              rdx, 1
-                        add              rax, rdx
+                        cmp              ecx, 3;                              jne   .Lx28_2
+                        add              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx28_7
-.Lx28_2:                mov              edx, eax
+.Lx28_2:                mov              eax, ecx
+                        mov              edx, ecx
                         and              edx, 1;                              jz    .Lx28_0
                         mov              rsi, qword ptr [rsp + 40]            # var
                         mov              rdi, 1
