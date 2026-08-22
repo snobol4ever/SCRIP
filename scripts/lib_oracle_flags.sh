@@ -46,3 +46,20 @@ sbl_lang_flags() { echo "-bf"; }
 # neither is ever discovered as a repo by tooling that walks S4E_HOME); a caller that cannot find it must
 # say so loudly, never silently substitute x64/bin/sbl.
 sbl_clean_bin() { echo "/home/resources/spitbol-clean/sbl"; }
+
+# ⭐ A LIVE EDGE, PRESERVED NOT FIXED (row oracle-two-face-adoption): the clean binary above is a from-
+# source build of official upstream with exactly the two ALLOW-LISTED patches described in the block
+# above -- it carries NO LOAD/UNLOAD ABI rework, so its external-fn loader is stock upstream and its
+# parity with x64/bin/sbl on a LOAD()-calling program is UNVERIFIED (classified UNKNOWN/deferred, not
+# needed for the 15 top-level benchmark kernels -- none of which call LOAD).  Fixing that subsystem is
+# out of scope here.  What IS in scope: a benchmark timing a LOAD()-calling program against this binary
+# must REFUSE LOUDLY, never silently print a number of unknown validity -- same "CALLERS MUST REFUSE,
+# NOT FALL BACK" law as the two functions above, applied to program CONTENT instead of binary ABSENCE.
+# Usage: sbl_clean_refuse_if_load "$path/to/prog.sno" || exit 3   (grep, not a parse -- LOAD as a bare
+# word covers the real corpus shape; a string literal merely containing the four letters is not a
+# realistic false-positive in named SNOBOL4 source and a parser is not worth building for this edge).
+sbl_clean_refuse_if_load() {
+  grep -qE '(^|[^A-Za-z0-9_])LOAD\s*\(' "$1" 2>/dev/null || return 0
+  echo "⛔ REFUSING: $1 calls LOAD() -- the clean benchmark oracle's LOAD/external-fn support is stock upstream and UNVERIFIED against x64/bin/sbl (see sbl_clean_bin() above). Benchmarking this program against it would silently report a number of unknown validity, not a loud refusal. This is a preserved gap, not a bug for this row to fix. Time it against x64/bin/sbl directly (correctness oracle, sbl_lang_flags) if you must measure a LOAD()-calling program." >&2
+  return 1
+}

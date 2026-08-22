@@ -18,6 +18,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255) -- x64/bin/sbl carries a monitor-IPC bridge, ~2.2-3.5x slower
+case " ${ENGINES:-sbl m3 m4} " in *" sbl "*) [ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — the sbl rows of the noise floor would be fiction, not a benign gap. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255). Or run with ENGINES=\"m3 m4\" to skip sbl entirely." >&2; exit 3; };; esac
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 REPS="${REPS:-3}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
 NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-1024}"
@@ -44,6 +45,7 @@ for sno in "$B"/*.sno; do
   s=$(basename "${sno%.sno}")
   n="${FIXN[$s]:-}"; [ -n "$n" ] || { echo "  SKIP $s (no fixed_n entry)"; continue; }
   echo "$n" > "$W/$s.stdin"
+  case " $ENGINES " in *" sbl "*) sbl_clean_refuse_if_load "$sno" || exit 3;; esac
   m4ok=0
   if [ -x "$SCRIP" ]; then
     "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null

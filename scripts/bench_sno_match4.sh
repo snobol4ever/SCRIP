@@ -10,6 +10,7 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"   # BENCHMARK oracle (s255)
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction, not a benign gap (row oracle-two-face-adoption). Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
 input_of() { case $1 in claws5-match) echo $D/CLAWS5inTASA.dat;; treebank-match) echo $D/VBGinTASA.dat;; json-match) echo $D/twitter.json;; calculator-1-match|calculator-2-match) echo $D/calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys

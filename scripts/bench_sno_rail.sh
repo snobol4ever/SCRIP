@@ -15,6 +15,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255). A private fallback would time a DIFFERENT LANGUAGE or the wrong binary. Fix the checkout; do not work around this." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"   # BENCHMARK oracle (s255) -- never x64/bin/sbl, it is instrumented ~2.2-3.5x slower
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — us/iter numbers below would be fiction, not a benign gap. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
 D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"; SODIR="${SODIR:-/tmp}"
 MIN_MS="${MIN_MS:-800}"; NMAX="${NMAX:-16384}"; R="${R:-5}"
 SO_A="${SO_A:-/tmp/rt_o0.so}"; SO_B="${SO_B:-}"   # SO_B empty = single-config mode
