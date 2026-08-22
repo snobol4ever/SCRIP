@@ -32,10 +32,12 @@ main_α_body:
 #=======================================================================================================================
 #         DEFINE('upcase(s)')                                         :(upcase_end)
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_define_α
-n0_statement_begin_β:                                                         jmp   n10_statement_begin_α
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_define_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   n10_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_define_α:            mov              rdi, qword ptr [rip + .Lx26_0]
+n1_define_α:            mov              r11, 2
+                        mov              rdi, qword ptr [rip + .Lx26_0]
                         mov              rsi, qword ptr [rip + .Lx26_1]
                         mov              edx, 1
                         mov              ecx, 1
@@ -51,7 +53,7 @@ n1_define_α:            mov              rdi, qword ptr [rip + .Lx26_0]
                         call             bb_ab_seal_alpha@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48];     jmp   n2_statement_end_α
-n1_define_β:                                                                  jmp   n0_statement_begin_β
+n1_define_β:            mov              r11, 2;                              jmp   n0_statement_begin_β
 .Lx26_0:                .quad            .Lx26_0_s
 .Lx26_0_s:              .string          "upcase"
 .Lx26_1:                .quad            .Lx26_1_s
@@ -142,20 +144,24 @@ upcase_ω:               mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
 .Lx27_245:
 #-----------------------------------------------------------------------------------------------------------------------
-n2_statement_end_α:                                                           jmp   n10_statement_begin_α
+n2_statement_end_α:     mov              r11, 3
+                        mov              r10, 1;                              jmp   n10_statement_begin_α
 #=======================================================================================================================
 # upcase  upcase = REPLACE(s, &LCASE, &UCASE)                       :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_statement_begin_α:                                                         jmp   n4_var_α
-n3_statement_begin_β:                                                         jmp   RETURN
+n3_statement_begin_α:   mov              r11, 4
+                        mov              r10, 2;                              jmp   n4_var_α
+n3_statement_begin_β:   mov              r11, 4;                              jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:               sub              rsp, 16
+                        mov              r11, 5
                         mov              rax, qword ptr [r9 + 16]             # s
                         mov              rdx, qword ptr [r9 + 24]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n5_keyword_snobol4_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_keyword_snobol4_α:   sub              rsp, 16
+                        mov              r11, 6
                         mov              rdi, qword ptr [rip + .Lx33_0]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_kw_read_idx@PLT
@@ -166,6 +172,7 @@ n5_keyword_snobol4_α:   sub              rsp, 16
 .Lx33_0:                .quad            22
 #-----------------------------------------------------------------------------------------------------------------------
 n6_keyword_snobol4_α:   sub              rsp, 16
+                        mov              r11, 7
                         mov              rdi, qword ptr [rip + .Lx34_0]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_kw_read_idx@PLT
@@ -176,6 +183,7 @@ n6_keyword_snobol4_α:   sub              rsp, 16
 .Lx34_0:                .quad            21
 #-----------------------------------------------------------------------------------------------------------------------
 n7_call_α:              sub              rsp, 16
+                        mov              r11, 8
                         sub              rsp, 48
                         mov              r8, qword ptr [rsp + 96]
                         mov              qword ptr [rsp + 0], r8
@@ -206,29 +214,37 @@ n7_call_α:              sub              rsp, 16
                         add              rsp, 48;                             jmp   n3_statement_begin_β
 .Lx35_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n8_assign_α
-n7_call_β:              add              rsp, 16
+n7_call_β:              mov              r11, 8
+                        add              rsp, 16
                         add              rsp, 48;                             jmp   n3_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n8_assign_α:            mov              rax, qword ptr [rsp + 0]             # call
+n8_assign_α:            mov              r11, 9
+                        mov              rax, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 0], rax              # upcase
                         mov              qword ptr [r9 + 8], rdx;             jmp   n9_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n9_statement_end_α:     add              rsp, 64;                             jmp   RETURN
+n9_statement_end_α:     mov              r11, 10
+                        mov              r10, 2
+                        add              rsp, 64;                             jmp   RETURN
 #=======================================================================================================================
 # upcase_end  <stmt 3, line 5: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-n10_statement_begin_α:                                                        jmp   n11_statement_end_α
-n10_statement_begin_β:                                                        jmp   n12_statement_begin_α
+n10_statement_begin_α:  mov              r11, 11
+                        mov              r10, 3;                              jmp   n11_statement_end_α
+n10_statement_begin_β:  mov              r11, 11;                             jmp   n12_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n11_statement_end_α:                                                          jmp   n12_statement_begin_α
+n11_statement_end_α:    mov              r11, 12
+                        mov              r10, 3;                              jmp   n12_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = upcase('hello')
 #-----------------------------------------------------------------------------------------------------------------------
-n12_statement_begin_α:                                                        jmp   n13_lit_string_α
-n12_statement_begin_β:                                                        jmp   n17_statement_begin_α
+n12_statement_begin_α:  mov              r11, 13
+                        mov              r10, 4;                              jmp   n13_lit_string_α
+n12_statement_begin_β:  mov              r11, 13;                             jmp   n17_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_string_α:       sub              rsp, 16
+                        mov              r11, 14
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx46_0]
@@ -237,6 +253,7 @@ n13_lit_string_α:       sub              rsp, 16
 .Lx46_0_s:              .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
 n14_call_α:             sub              rsp, 16
+                        mov              r11, 15
                         lea              rcx, [rip + .Lsig48z]
                         lea              rax, [rip + upcase_α];               jmp   rax
 .Lsig48z:               .quad            1
@@ -263,11 +280,12 @@ n14_call_α:             sub              rsp, 16
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n12_statement_begin_β
 .Lx48_240:                                                                    jmp   n15_assign_α
-n14_call_β:                                                                   jmp   n12_statement_begin_β
+n14_call_β:             mov              r11, 15;                             jmp   n12_statement_begin_β
 .Lx48_0:                .quad            .Lx48_0_s
 .Lx48_0_s:              .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
-n15_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
+n15_assign_α:           mov              r11, 16
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -277,14 +295,18 @@ n15_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx49_0:                .quad            .Lx49_0_s
 .Lx49_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n16_statement_end_α:    add              rsp, 32;                             jmp   n17_statement_begin_α
+n16_statement_end_α:    mov              r11, 17
+                        mov              r10, 4
+                        add              rsp, 32;                             jmp   n17_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = upcase('world')
 #-----------------------------------------------------------------------------------------------------------------------
-n17_statement_begin_α:                                                        jmp   n18_lit_string_α
-n17_statement_begin_β:                                                        jmp   main_γ
+n17_statement_begin_α:  mov              r11, 18
+                        mov              r10, 5;                              jmp   n18_lit_string_α
+n17_statement_begin_β:  mov              r11, 18;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n18_lit_string_α:       sub              rsp, 16
+                        mov              r11, 19
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx54_0]
@@ -293,6 +315,7 @@ n18_lit_string_α:       sub              rsp, 16
 .Lx54_0_s:              .string          "world"
 #-----------------------------------------------------------------------------------------------------------------------
 n19_call_α:             sub              rsp, 16
+                        mov              r11, 20
                         lea              rcx, [rip + .Lsig56z]
                         lea              rax, [rip + upcase_α];               jmp   rax
 .Lsig56z:               .quad            1
@@ -319,11 +342,12 @@ n19_call_α:             sub              rsp, 16
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n17_statement_begin_β
 .Lx56_240:                                                                    jmp   n20_assign_α
-n19_call_β:                                                                   jmp   n17_statement_begin_β
+n19_call_β:             mov              r11, 20;                             jmp   n17_statement_begin_β
 .Lx56_0:                .quad            .Lx56_0_s
 .Lx56_0_s:              .string          "upcase"
 #-----------------------------------------------------------------------------------------------------------------------
-n20_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
+n20_assign_α:           mov              r11, 21
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx57_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -333,9 +357,12 @@ n20_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx57_0:                .quad            .Lx57_0_s
 .Lx57_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n21_statement_end_α:    add              rsp, 32;                             jmp   main_γ
+n21_statement_end_α:    mov              r11, 22
+                        mov              r10, 5
+                        add              rsp, 32;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 pop              rcx
+RETURN:                 mov              r11, 23
+                        pop              rcx
                         add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

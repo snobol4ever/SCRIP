@@ -16,10 +16,12 @@ main_α_body:
 #=======================================================================================================================
 #         OUTPUT = SIZE(&ALPHABET)
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_keyword_snobol4_α
-n0_statement_begin_β:                                                         jmp   main_γ
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_keyword_snobol4_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_keyword_snobol4_α:   sub              rsp, 16
+                        mov              r11, 2
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_kw_read_idx@PLT
@@ -30,6 +32,7 @@ n1_keyword_snobol4_α:   sub              rsp, 16
 .Lx7_0:                 .quad            25
 #-----------------------------------------------------------------------------------------------------------------------
 n2_call_α:              sub              rsp, 16
+                        mov              r11, 3
                         sub              rsp, 16
                         mov              r8, qword ptr [rsp + 32]
                         mov              qword ptr [rsp + 0], r8
@@ -52,10 +55,12 @@ n2_call_α:              sub              rsp, 16
                         add              rsp, 16;                             jmp   n0_statement_begin_β
 .Lx8_240:               mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n3_assign_α
-n2_call_β:              add              rsp, 16
+n2_call_β:              mov              r11, 3
+                        add              rsp, 16
                         add              rsp, 16;                             jmp   n0_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
-n3_assign_α:            mov              rsi, qword ptr [rsp + 0]             # call
+n3_assign_α:            mov              r11, 4
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx10_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -65,7 +70,9 @@ n3_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
 .Lx10_0:                .quad            .Lx10_0_s
 .Lx10_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n4_statement_end_α:     add              rsp, 32;                             jmp   main_γ
+n4_statement_end_α:     mov              r11, 5
+                        mov              r10, 1
+                        add              rsp, 32;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω

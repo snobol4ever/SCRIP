@@ -16,10 +16,12 @@ main_α_body:
 #=======================================================================================================================
 #         OUTPUT = 'before'
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_lit_string_α
-n0_statement_begin_β:                                                         jmp   n4_statement_begin_α
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_lit_string_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   n4_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
+                        mov              r11, 2
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 6
                         mov              rax, qword ptr [rip + .Lx14_0]
@@ -27,7 +29,8 @@ n1_lit_string_α:        sub              rsp, 16
 .Lx14_0:                .quad            .Lx14_0_s
 .Lx14_0_s:              .string          "before"
 #-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
+n2_assign_α:            mov              r11, 3
+                        mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx15_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -37,21 +40,27 @@ n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
 .Lx15_0:                .quad            .Lx15_0_s
 .Lx15_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n3_statement_end_α:     add              rsp, 16;                             jmp   n4_statement_begin_α
+n3_statement_end_α:     mov              r11, 4
+                        mov              r10, 1
+                        add              rsp, 16;                             jmp   n4_statement_begin_α
 #=======================================================================================================================
 #         :(DONE)
 #-----------------------------------------------------------------------------------------------------------------------
-n4_statement_begin_α:                                                         jmp   n5_statement_end_α
-n4_statement_begin_β:                                                         jmp   n10_statement_begin_α
+n4_statement_begin_α:   mov              r11, 5
+                        mov              r10, 2;                              jmp   n5_statement_end_α
+n4_statement_begin_β:   mov              r11, 5;                              jmp   n10_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n5_statement_end_α:                                                           jmp   n10_statement_begin_α
+n5_statement_end_α:     mov              r11, 6
+                        mov              r10, 2;                              jmp   n10_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = 'skipped'
 #-----------------------------------------------------------------------------------------------------------------------
-n6_statement_begin_α:                                                         jmp   n7_lit_string_α
-n6_statement_begin_β:                                                         jmp   n10_statement_begin_α
+n6_statement_begin_α:   mov              r11, 7
+                        mov              r10, 3;                              jmp   n7_lit_string_α
+n6_statement_begin_β:   mov              r11, 7;                              jmp   n10_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n7_lit_string_α:        sub              rsp, 16
+                        mov              r11, 8
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 7
                         mov              rax, qword ptr [rip + .Lx24_0]
@@ -59,7 +68,8 @@ n7_lit_string_α:        sub              rsp, 16
 .Lx24_0:                .quad            .Lx24_0_s
 .Lx24_0_s:              .string          "skipped"
 #-----------------------------------------------------------------------------------------------------------------------
-n8_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
+n8_assign_α:            mov              r11, 9
+                        mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx25_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -69,14 +79,18 @@ n8_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
 .Lx25_0:                .quad            .Lx25_0_s
 .Lx25_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n9_statement_end_α:     add              rsp, 16;                             jmp   n10_statement_begin_α
+n9_statement_end_α:     mov              r11, 10
+                        mov              r10, 3
+                        add              rsp, 16;                             jmp   n10_statement_begin_α
 #=======================================================================================================================
 # DONE  <stmt 4, line 6: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-n10_statement_begin_α:                                                        jmp   n11_statement_end_α
-n10_statement_begin_β:                                                        jmp   main_γ
+n10_statement_begin_α:  mov              r11, 11
+                        mov              r10, 4;                              jmp   n11_statement_end_α
+n10_statement_begin_β:  mov              r11, 11;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-n11_statement_end_α:                                                          jmp   main_γ
+n11_statement_end_α:    mov              r11, 12
+                        mov              r10, 4;                              jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω

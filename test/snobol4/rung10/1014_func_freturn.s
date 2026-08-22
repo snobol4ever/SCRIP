@@ -28,17 +28,21 @@ __gva_names:
 main_α:
 main_α_body:
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_statement_end_α
-n0_statement_begin_β:                                                         jmp   n2_statement_begin_α
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 0;                              jmp   n1_statement_end_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   n2_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_statement_end_α:                                                           jmp   n2_statement_begin_α
+n1_statement_end_α:     mov              r11, 2
+                        mov              r10, 1;                              jmp   n2_statement_begin_α
 #=======================================================================================================================
 #         DEFINE('always_fail()')                        :(af_end)
 #-----------------------------------------------------------------------------------------------------------------------
-n2_statement_begin_α:                                                         jmp   n3_define_α
-n2_statement_begin_β:                                                         jmp   n7_statement_begin_α
+n2_statement_begin_α:   mov              r11, 3
+                        mov              r10, 2;                              jmp   n3_define_α
+n2_statement_begin_β:   mov              r11, 3;                              jmp   n7_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n3_define_α:            mov              rdi, qword ptr [rip + .Lx30_0]
+n3_define_α:            mov              r11, 4
+                        mov              rdi, qword ptr [rip + .Lx30_0]
                         mov              rsi, qword ptr [rip + .Lx30_1]
                         mov              edx, 0
                         mov              ecx, 0
@@ -54,7 +58,7 @@ n3_define_α:            mov              rdi, qword ptr [rip + .Lx30_0]
                         call             bb_ab_seal_alpha@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48];     jmp   n4_statement_end_α
-n3_define_β:                                                                  jmp   n2_statement_begin_β
+n3_define_β:            mov              r11, 4;                              jmp   n2_statement_begin_β
 .Lx30_0:                .quad            .Lx30_0_s
 .Lx30_0_s:              .string          "always_fail"
 .Lx30_1:                .quad            .Lx30_1_s
@@ -102,28 +106,35 @@ always_fail_ω:          mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
 .Lx31_245:
 #-----------------------------------------------------------------------------------------------------------------------
-n4_statement_end_α:                                                           jmp   n7_statement_begin_α
+n4_statement_end_α:     mov              r11, 5
+                        mov              r10, 2;                              jmp   n7_statement_begin_α
 #=======================================================================================================================
 # always_fail                                            :(FRETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-n5_statement_begin_α:                                                         jmp   n6_statement_end_α
-n5_statement_begin_β:                                                         jmp   FRETURN
+n5_statement_begin_α:   mov              r11, 6
+                        mov              r10, 3;                              jmp   n6_statement_end_α
+n5_statement_begin_β:   mov              r11, 6;                              jmp   FRETURN
 #-----------------------------------------------------------------------------------------------------------------------
-n6_statement_end_α:                                                           jmp   FRETURN
+n6_statement_end_α:     mov              r11, 7
+                        mov              r10, 3;                              jmp   FRETURN
 #=======================================================================================================================
 # af_end  <stmt 4, line 7: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-n7_statement_begin_α:                                                         jmp   n8_statement_end_α
-n7_statement_begin_β:                                                         jmp   n9_statement_begin_α
+n7_statement_begin_α:   mov              r11, 8
+                        mov              r10, 4;                              jmp   n8_statement_end_α
+n7_statement_begin_β:   mov              r11, 8;                              jmp   n9_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_statement_end_α:                                                           jmp   n9_statement_begin_α
+n8_statement_end_α:     mov              r11, 9
+                        mov              r10, 4;                              jmp   n9_statement_begin_α
 #=======================================================================================================================
 #         always_fail()                                  :f(e001)
 #-----------------------------------------------------------------------------------------------------------------------
-n9_statement_begin_α:                                                         jmp   n10_call_α
-n9_statement_begin_β:                                                         jmp   n16_statement_begin_α
+n9_statement_begin_α:   mov              r11, 10
+                        mov              r10, 5;                              jmp   n10_call_α
+n9_statement_begin_β:   mov              r11, 10;                             jmp   n16_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n10_call_α:             sub              rsp, 16
+                        mov              r11, 11
                         lea              rcx, [rip + .Lsig45z]
                         lea              rax, [rip + always_fail_α];          jmp   rax
 .Lsig45z:               .quad            0
@@ -148,18 +159,22 @@ n10_call_α:             sub              rsp, 16
                         cmp              al, 104;                             jne   .Lx45_240
                         add              rsp, 16;                             jmp   n9_statement_begin_β
 .Lx45_240:                                                                    jmp   n11_statement_end_α
-n10_call_β:                                                                   jmp   n9_statement_begin_β
+n10_call_β:             mov              r11, 11;                             jmp   n9_statement_begin_β
 .Lx45_0:                .quad            .Lx45_0_s
 .Lx45_0_s:              .string          "always_fail"
 #-----------------------------------------------------------------------------------------------------------------------
-n11_statement_end_α:    add              rsp, 16;                             jmp   n12_statement_begin_α
+n11_statement_end_α:    mov              r11, 12
+                        mov              r10, 5
+                        add              rsp, 16;                             jmp   n12_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = 'FAIL 1014/001: freturn should cause statement failure' :(END)
 #-----------------------------------------------------------------------------------------------------------------------
-n12_statement_begin_α:                                                        jmp   n13_lit_string_α
-n12_statement_begin_β:                                                        jmp   main_γ
+n12_statement_begin_α:  mov              r11, 13
+                        mov              r10, 6;                              jmp   n13_lit_string_α
+n12_statement_begin_β:  mov              r11, 13;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_string_α:       sub              rsp, 16
+                        mov              r11, 14
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 53
                         mov              rax, qword ptr [rip + .Lx50_0]
@@ -167,7 +182,8 @@ n13_lit_string_α:       sub              rsp, 16
 .Lx50_0:                .quad            .Lx50_0_s
 .Lx50_0_s:              .string          "FAIL 1014/001: freturn should cause statement failure"
 #-----------------------------------------------------------------------------------------------------------------------
-n14_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
+n14_assign_α:           mov              r11, 15
+                        mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx51_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -177,21 +193,27 @@ n14_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx51_0:                .quad            .Lx51_0_s
 .Lx51_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n15_statement_end_α:    add              rsp, 16;                             jmp   main_γ
+n15_statement_end_α:    mov              r11, 16
+                        mov              r10, 6
+                        add              rsp, 16;                             jmp   main_γ
 #=======================================================================================================================
 # e001  <stmt 7, line 12: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-n16_statement_begin_α:                                                        jmp   n17_statement_end_α
-n16_statement_begin_β:                                                        jmp   n18_statement_begin_α
+n16_statement_begin_α:  mov              r11, 17
+                        mov              r10, 7;                              jmp   n17_statement_end_α
+n16_statement_begin_β:  mov              r11, 17;                             jmp   n18_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n17_statement_end_α:                                                          jmp   n18_statement_begin_α
+n17_statement_end_α:    mov              r11, 18
+                        mov              r10, 7;                              jmp   n18_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = 'PASS 1014_func_freturn (1/1)'
 #-----------------------------------------------------------------------------------------------------------------------
-n18_statement_begin_α:                                                        jmp   n19_lit_string_α
-n18_statement_begin_β:                                                        jmp   main_γ
+n18_statement_begin_α:  mov              r11, 19
+                        mov              r10, 8;                              jmp   n19_lit_string_α
+n18_statement_begin_β:  mov              r11, 19;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_string_α:       sub              rsp, 16
+                        mov              r11, 20
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 28
                         mov              rax, qword ptr [rip + .Lx60_0]
@@ -199,7 +221,8 @@ n19_lit_string_α:       sub              rsp, 16
 .Lx60_0:                .quad            .Lx60_0_s
 .Lx60_0_s:              .string          "PASS 1014_func_freturn (1/1)"
 #-----------------------------------------------------------------------------------------------------------------------
-n20_assign_α:           mov              rsi, qword ptr [rsp + 0]             # lit_string
+n20_assign_α:           mov              r11, 21
+                        mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx61_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -209,9 +232,12 @@ n20_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx61_0:                .quad            .Lx61_0_s
 .Lx61_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n21_statement_end_α:    add              rsp, 16;                             jmp   main_γ
+n21_statement_end_α:    mov              r11, 22
+                        mov              r10, 8
+                        add              rsp, 16;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-FRETURN:                add              rsp, 8
+FRETURN:                mov              r11, 23
+                        add              rsp, 8
                         pop              rcx;                                 jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:

@@ -16,10 +16,12 @@ main_α_body:
 #=======================================================================================================================
 #         OUTPUT = REPLACE('hello', 'aeiou', 'AEIOU')
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_lit_string_α
-n0_statement_begin_β:                                                         jmp   main_γ
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_lit_string_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
+                        mov              r11, 2
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx9_0]
@@ -28,25 +30,30 @@ n1_lit_string_α:        sub              rsp, 16
 .Lx9_0_s:               .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
 n2_lit_string_α:        sub              rsp, 16
+                        mov              r11, 3
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx10_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n3_lit_string_α
-n2_lit_string_β:        add              rsp, 16
+n2_lit_string_β:        mov              r11, 3
+                        add              rsp, 16
                         add              rsp, 16;                             jmp   n0_statement_begin_β
 .Lx10_0:                .quad            .Lx10_0_s
 .Lx10_0_s:              .string          "aeiou"
 #-----------------------------------------------------------------------------------------------------------------------
 n3_lit_string_α:        sub              rsp, 16
+                        mov              r11, 4
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx11_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n4_call_α
-n3_lit_string_β:        add              rsp, 16;                             jmp   n2_lit_string_β
+n3_lit_string_β:        mov              r11, 4
+                        add              rsp, 16;                             jmp   n2_lit_string_β
 .Lx11_0:                .quad            .Lx11_0_s
 .Lx11_0_s:              .string          "AEIOU"
 #-----------------------------------------------------------------------------------------------------------------------
 n4_call_α:              sub              rsp, 16
+                        mov              r11, 5
                         sub              rsp, 48
                         mov              r8, qword ptr [rsp + 96]
                         mov              qword ptr [rsp + 0], r8
@@ -76,9 +83,11 @@ n4_call_α:              sub              rsp, 16
                         add              rsp, 16;                             jmp   n3_lit_string_β
 .Lx12_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n5_assign_α
-n4_call_β:              add              rsp, 16;                             jmp   n3_lit_string_β
+n4_call_β:              mov              r11, 5
+                        add              rsp, 16;                             jmp   n3_lit_string_β
 #-----------------------------------------------------------------------------------------------------------------------
-n5_assign_α:            mov              rsi, qword ptr [rsp + 0]             # call
+n5_assign_α:            mov              r11, 6
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx14_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -88,7 +97,9 @@ n5_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
 .Lx14_0:                .quad            .Lx14_0_s
 .Lx14_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n6_statement_end_α:     add              rsp, 64;                             jmp   main_γ
+n6_statement_end_α:     mov              r11, 7
+                        mov              r10, 1
+                        add              rsp, 64;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω

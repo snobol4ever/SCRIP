@@ -16,10 +16,12 @@ main_α_body:
 #=======================================================================================================================
 #         OUTPUT = "hello world"
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_lit_string_α
-n0_statement_begin_β:                                                         jmp   main_γ
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_lit_string_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n1_lit_string_α:        sub              rsp, 16
+                        mov              r11, 2
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 11
                         mov              rax, qword ptr [rip + .Lx6_0]
@@ -27,7 +29,8 @@ n1_lit_string_α:        sub              rsp, 16
 .Lx6_0:                 .quad            .Lx6_0_s
 .Lx6_0_s:               .string          "hello world"
 #-----------------------------------------------------------------------------------------------------------------------
-n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             # lit_string
+n2_assign_α:            mov              r11, 3
+                        mov              rsi, qword ptr [rsp + 0]             # lit_string
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx7_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -37,7 +40,9 @@ n2_assign_α:            mov              rsi, qword ptr [rsp + 0]             #
 .Lx7_0:                 .quad            .Lx7_0_s
 .Lx7_0_s:               .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n3_statement_end_α:     add              rsp, 16;                             jmp   main_γ
+n3_statement_end_α:     mov              r11, 4
+                        mov              r10, 1
+                        add              rsp, 16;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
                                                                               jmp   main_ω

@@ -34,10 +34,12 @@ main_α_body:
 #=======================================================================================================================
 #         DEFINE('add(a,b)')                                          :(add_end)
 #-----------------------------------------------------------------------------------------------------------------------
-n0_statement_begin_α:                                                         jmp   n1_define_α
-n0_statement_begin_β:                                                         jmp   n9_statement_begin_α
+n0_statement_begin_α:   mov              r11, 1
+                        mov              r10, 1;                              jmp   n1_define_α
+n0_statement_begin_β:   mov              r11, 1;                              jmp   n9_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n1_define_α:            mov              rdi, qword ptr [rip + .Lx27_0]
+n1_define_α:            mov              r11, 2
+                        mov              rdi, qword ptr [rip + .Lx27_0]
                         mov              rsi, qword ptr [rip + .Lx27_1]
                         mov              edx, 2
                         mov              ecx, 2
@@ -53,7 +55,7 @@ n1_define_α:            mov              rdi, qword ptr [rip + .Lx27_0]
                         call             bb_ab_seal_alpha@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48];     jmp   n2_statement_end_α
-n1_define_β:                                                                  jmp   n0_statement_begin_β
+n1_define_β:            mov              r11, 2;                              jmp   n0_statement_begin_β
 .Lx27_0:                .quad            .Lx27_0_s
 .Lx27_0_s:              .string          "add"
 .Lx27_1:                .quad            .Lx27_1_s
@@ -187,28 +189,34 @@ add_ω:                  mov              rcx, qword ptr [rsp + 32]
                         xor              edx, edx;                            jmp   rcx
 .Lx28_245:
 #-----------------------------------------------------------------------------------------------------------------------
-n2_statement_end_α:                                                           jmp   n9_statement_begin_α
+n2_statement_end_α:     mov              r11, 3
+                        mov              r10, 1;                              jmp   n9_statement_begin_α
 #=======================================================================================================================
 # add     add = a + b                                                :(RETURN)
 #-----------------------------------------------------------------------------------------------------------------------
-n3_statement_begin_α:                                                         jmp   n4_var_α
-n3_statement_begin_β:                                                         jmp   RETURN
+n3_statement_begin_α:   mov              r11, 4
+                        mov              r10, 2;                              jmp   n4_var_α
+n3_statement_begin_β:   mov              r11, 4;                              jmp   RETURN
 #-----------------------------------------------------------------------------------------------------------------------
 n4_var_α:               sub              rsp, 16
+                        mov              r11, 5
                         mov              rax, qword ptr [r9 + 16]             # a
                         mov              rdx, qword ptr [r9 + 24]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n5_var_α
 #-----------------------------------------------------------------------------------------------------------------------
 n5_var_α:               sub              rsp, 16
+                        mov              r11, 6
                         mov              rax, qword ptr [r9 + 32]             # b
                         mov              rdx, qword ptr [r9 + 40]
                         mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n6_binop_α
-n5_var_β:               add              rsp, 16
+n5_var_β:               mov              r11, 6
+                        add              rsp, 16
                         add              rsp, 16;                             jmp   n3_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n6_binop_α:             sub              rsp, 16
+                        mov              r11, 7
                         mov              eax, dword ptr [rsp + 32]            # var
                         mov              ecx, dword ptr [rsp + 16]
                         mov              edx, eax
@@ -246,40 +254,50 @@ n6_binop_α:             sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48];     jmp   n7_assign_α
 #-----------------------------------------------------------------------------------------------------------------------
-n7_assign_α:            mov              rax, qword ptr [rsp + 0]             # binop
+n7_assign_α:            mov              r11, 8
+                        mov              rax, qword ptr [rsp + 0]             # binop
                         mov              rdx, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 0], rax              # add
                         mov              qword ptr [r9 + 8], rdx;             jmp   n8_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
-n8_statement_end_α:     add              rsp, 48;                             jmp   RETURN
+n8_statement_end_α:     mov              r11, 9
+                        mov              r10, 2
+                        add              rsp, 48;                             jmp   RETURN
 #=======================================================================================================================
 # add_end  <stmt 3, line 5: source not in main file (INCLUDE)>
 #-----------------------------------------------------------------------------------------------------------------------
-n9_statement_begin_α:                                                         jmp   n10_statement_end_α
-n9_statement_begin_β:                                                         jmp   n11_statement_begin_α
+n9_statement_begin_α:   mov              r11, 10
+                        mov              r10, 3;                              jmp   n10_statement_end_α
+n9_statement_begin_β:   mov              r11, 10;                             jmp   n11_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
-n10_statement_end_α:                                                          jmp   n11_statement_begin_α
+n10_statement_end_α:    mov              r11, 11
+                        mov              r10, 3;                              jmp   n11_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = add(3, 4)
 #-----------------------------------------------------------------------------------------------------------------------
-n11_statement_begin_α:                                                        jmp   n12_lit_integer_α
-n11_statement_begin_β:                                                        jmp   n17_statement_begin_α
+n11_statement_begin_α:  mov              r11, 12
+                        mov              r10, 4;                              jmp   n12_lit_integer_α
+n11_statement_begin_β:  mov              r11, 12;                             jmp   n17_statement_begin_α
 #-----------------------------------------------------------------------------------------------------------------------
 n12_lit_integer_α:      sub              rsp, 16
+                        mov              r11, 13
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              rax, qword ptr [rip + .Lx45_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n13_lit_integer_α
 .Lx45_0:                .quad            3
 #-----------------------------------------------------------------------------------------------------------------------
 n13_lit_integer_α:      sub              rsp, 16
+                        mov              r11, 14
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              rax, qword ptr [rip + .Lx46_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n14_call_α
-n13_lit_integer_β:      add              rsp, 16
+n13_lit_integer_β:      mov              r11, 14
+                        add              rsp, 16
                         add              rsp, 16;                             jmp   n11_statement_begin_β
 .Lx46_0:                .quad            4
 #-----------------------------------------------------------------------------------------------------------------------
 n14_call_α:             sub              rsp, 16
+                        mov              r11, 15
                         lea              rcx, [rip + .Lsig48z]
                         lea              rax, [rip + add_α];                  jmp   rax
 .Lsig48z:               .quad            2
@@ -306,11 +324,12 @@ n14_call_α:             sub              rsp, 16
                         cmp              al, 104;                             jne   .Lx48_240
                         add              rsp, 16;                             jmp   n13_lit_integer_β
 .Lx48_240:                                                                    jmp   n15_assign_α
-n14_call_β:                                                                   jmp   n13_lit_integer_β
+n14_call_β:             mov              r11, 15;                             jmp   n13_lit_integer_β
 .Lx48_0:                .quad            .Lx48_0_s
 .Lx48_0_s:              .string          "add"
 #-----------------------------------------------------------------------------------------------------------------------
-n15_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
+n15_assign_α:           mov              r11, 16
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx49_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -320,28 +339,35 @@ n15_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx49_0:                .quad            .Lx49_0_s
 .Lx49_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n16_statement_end_α:    add              rsp, 48;                             jmp   n17_statement_begin_α
+n16_statement_end_α:    mov              r11, 17
+                        mov              r10, 4
+                        add              rsp, 48;                             jmp   n17_statement_begin_α
 #=======================================================================================================================
 #         OUTPUT = add(10, 32)
 #-----------------------------------------------------------------------------------------------------------------------
-n17_statement_begin_α:                                                        jmp   n18_lit_integer_α
-n17_statement_begin_β:                                                        jmp   main_γ
+n17_statement_begin_α:  mov              r11, 18
+                        mov              r10, 5;                              jmp   n18_lit_integer_α
+n17_statement_begin_β:  mov              r11, 18;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
 n18_lit_integer_α:      sub              rsp, 16
+                        mov              r11, 19
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              rax, qword ptr [rip + .Lx54_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n19_lit_integer_α
 .Lx54_0:                .quad            10
 #-----------------------------------------------------------------------------------------------------------------------
 n19_lit_integer_α:      sub              rsp, 16
+                        mov              r11, 20
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              rax, qword ptr [rip + .Lx55_0]
                         mov              qword ptr [rsp + 8], rax;            jmp   n20_call_α
-n19_lit_integer_β:      add              rsp, 16
+n19_lit_integer_β:      mov              r11, 20
+                        add              rsp, 16
                         add              rsp, 16;                             jmp   n17_statement_begin_β
 .Lx55_0:                .quad            32
 #-----------------------------------------------------------------------------------------------------------------------
 n20_call_α:             sub              rsp, 16
+                        mov              r11, 21
                         lea              rcx, [rip + .Lsig57z]
                         lea              rax, [rip + add_α];                  jmp   rax
 .Lsig57z:               .quad            2
@@ -368,11 +394,12 @@ n20_call_α:             sub              rsp, 16
                         cmp              al, 104;                             jne   .Lx57_240
                         add              rsp, 16;                             jmp   n19_lit_integer_β
 .Lx57_240:                                                                    jmp   n21_assign_α
-n20_call_β:                                                                   jmp   n19_lit_integer_β
+n20_call_β:             mov              r11, 21;                             jmp   n19_lit_integer_β
 .Lx57_0:                .quad            .Lx57_0_s
 .Lx57_0_s:              .string          "add"
 #-----------------------------------------------------------------------------------------------------------------------
-n21_assign_α:           mov              rsi, qword ptr [rsp + 0]             # call
+n21_assign_α:           mov              r11, 22
+                        mov              rsi, qword ptr [rsp + 0]             # call
                         mov              rdx, qword ptr [rsp + 8]
                         mov              rdi, qword ptr [rip + .Lx58_0]
                         mov              qword ptr [rip + rtccb+40], r8
@@ -382,9 +409,12 @@ n21_assign_α:           mov              rsi, qword ptr [rsp + 0]             #
 .Lx58_0:                .quad            .Lx58_0_s
 .Lx58_0_s:              .string          "OUTPUT"
 #-----------------------------------------------------------------------------------------------------------------------
-n22_statement_end_α:    add              rsp, 48;                             jmp   main_γ
+n22_statement_end_α:    mov              r11, 23
+                        mov              r10, 5
+                        add              rsp, 48;                             jmp   main_γ
 #-----------------------------------------------------------------------------------------------------------------------
-RETURN:                 pop              rcx
+RETURN:                 mov              r11, 24
+                        pop              rcx
                         add              rsp, 8;                              jmp   rcx
 #-----------------------------------------------------------------------------------------------------------------------
 main_β:
