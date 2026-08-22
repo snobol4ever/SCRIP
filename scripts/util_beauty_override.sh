@@ -14,11 +14,14 @@
 # It copies the beauty directory to a scratch dir (so the .inc files resolve), rewrites the named grammar
 # assignment INCLUDING its `+` continuation lines, runs SCRIP and the oracle on the same input, and prints both.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 NAME="${1:?usage: util_beauty_override.sh <GrammarName> \"<replacement>\" [stdin-file]}"
 REPL="${2:?replacement text required}"
 BDIR="$S4E/corpus/programs/snobol4/demo/beauty"
 IN="${3:-}"
+SBL="$S4A/x64/bin/sbl"
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT ($SBL). D-17b: seats do not clone x64 -- point S4E_ASSETS at a root that has it." >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 cp "$BDIR"/* "$W"/ 2>/dev/null
 if [ -z "$IN" ]; then printf '\n' > "$W/ovr.in"; IN="$W/ovr.in"; fi
@@ -38,7 +41,7 @@ if not hit: sys.stderr.write("⛔ grammar name %r not found in beauty.sno — no
 open(os.path.join(w,'ovr.sno'),'w').write('\n'.join(out))
 PY
 [ $? -eq 0 ] || exit 3
-( cd "$W" && timeout 60 "$S4E/x64/bin/sbl" -bf ovr.sno < "$IN" > oracle.out 2>/dev/null )   # ⛔ -bf: beauty needs it
+( cd "$W" && timeout 60 "$SBL" -bf ovr.sno < "$IN" > oracle.out 2>/dev/null )   # ⛔ -bf: beauty needs it
 ( cd "$W" && timeout 60 "$S4E/SCRIP/scrip" ovr.sno < "$IN" > scrip.out 2>/dev/null ); rc=$?
 case $rc in 139) v="SEGV";; 124) v="HANG";; 0) if cmp -s "$W/scrip.out" "$W/oracle.out"; then v="AGREE"; else v="DIFF"; fi;; *) v="rc$rc";; esac
 printf "%-10s = %-46s -> %-6s rc=%-4s scrip=%-18s oracle=%s\n" "$NAME" "$REPL" "$v" "$rc" \

@@ -36,10 +36,11 @@
 # ORACLE ITSELF answers with EMPTY OUTPUT, so any verdict built on that input is meaningless.  HQ's first cut of
 # the class-B inputs had exactly this defect and was caught before dispatch.  Every ladder input ends with END.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$S4E/SCRIP/scrip"
-SBL="$S4E/x64/bin/sbl"
+SBL="$S4A/x64/bin/sbl"
 BDIR="$S4E/corpus/programs/snobol4/demo/beauty"
 SRC="$BDIR/beauty.sno"
 MODES=both; RUNGS=""; BISECT=0
@@ -47,7 +48,7 @@ while [ $# -gt 0 ]; do case "$1" in
     --modes) MODES="$2"; shift 2;; --rungs) RUNGS="$2"; shift 2;; --bisect) BISECT=1; shift;;
     *) echo "usage: board_beauty_m1.sh [--modes m3|m4|both] [--rungs \"1 2 5\"] [--bisect]"; exit 2;; esac; done
 [ -x "$SCRIP" ] || { echo "no scrip binary at $SCRIP — run make"; exit 2; }
-[ -x "$SBL" ]   || { echo "⛔ ORACLE ABSENT ($SBL). Every verdict below would be a plausible FALSE all-FAIL table (CLAUDE.md). Clone x64 first."; exit 2; }
+[ -x "$SBL" ]   || { echo "⛔ ORACLE ABSENT ($SBL). Every verdict below would be a plausible FALSE all-FAIL table (CLAUDE.md). D-17b: seats do not clone x64 -- point S4E_ASSETS at a root that has it."; exit 2; }
 TOT=$(wc -l < "$SRC")
 [ -n "$RUNGS" ] || RUNGS="1 2 5 10 20 40 80 160 320 $TOT"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
