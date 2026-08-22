@@ -49,10 +49,10 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
     int64_t len_    = to_int(n);
     size_t blen     = (s.v == DT_S && s.slen != 0xFFFFFFFFu) ? (s.slen ? (size_t)s.slen : (STRVAL_fn?strlen(STRVAL_fn):0)) : (STRVAL_fn?strlen(STRVAL_fn):0);
     size_t ncpts    = utf8_strlen_n(STRVAL_fn, blen);
-    if (start < 1) return FAILDESCR;
-    if ((size_t)start > ncpts + 1) return STRVAL(rt_str_dup(""));
-    if (len_ < 0) len_ = 0;
-    if ((size_t)(start - 1 + len_) > ncpts) len_ = (int64_t)(ncpts - (size_t)start + 1);
+    if (start < 1 || (size_t)start > ncpts + 1) return FAILDESCR;
+    int64_t avail = (int64_t)ncpts - start + 1;
+    if (len_ < 0 || len_ > avail) return FAILDESCR;
+    if (len_ == 0) len_ = avail;
     size_t boff  = utf8_char_offset(STRVAL_fn, blen, (size_t)start);
     size_t bspan = utf8_char_bytes(STRVAL_fn, blen, boff, (size_t)len_);
     char *r = rt_str_alloc((long)bspan);

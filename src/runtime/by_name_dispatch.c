@@ -551,6 +551,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "substr") && nmargs >= 1) {
         long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));
         long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0;
+        long avail = (long)utf8_strlen(s) - from; if (avail < 0) avail = 0; if (ln > avail) ln = avail;
+        if (ln == 0) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
     }
     if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_ws_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
@@ -5095,7 +5097,7 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_substr(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 2 && nargs != 3) return -1;
-    *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(1000000000)); return 1;
+    *out = SUBSTR_fn(args[0], args[1], (nargs == 3) ? args[2] : INTVAL(0)); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_reverse(DESCR_t *args, int nargs, DESCR_t *out) {
