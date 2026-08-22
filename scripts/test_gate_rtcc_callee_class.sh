@@ -38,11 +38,24 @@ hdr  = os.path.join(root, 'src/templates/x86_asm.h')
 
 # ---- 1. parse the claim table out of x86_rtcc_clob() -------------------------------------------
 src = open(hdr, encoding='utf-8').read()
+
+# The set of registers RTCC actually protects is NOT hardcoded here -- it is RE-DERIVED from
+# x86_asm.h's own `#define RTCC_C_R<n>` lines every run, so a future claim/eradicate of a register
+# (r10/r11 were retired 2026-08-22, rung-E6-x86-asm-h -- RTCC_C_ALL narrowed to r8|r9, the #defines
+# and every r10/r11 branch in the wb/rl helpers deleted outright) can never leave this gate checking
+# a register RTCC no longer tracks.  A gate whose "protected set" is a second, independent hardcoded
+# list is exactly the silent-drift shape this mechanism exists to prevent (s16's "content, not hash"
+# law, generalised: the SOURCE is the fact, this gate is a re-derivation, never a second copy of it).
+reg_nums = sorted(set(re.findall(r'#define\s+RTCC_C_R(\d+)\s+\d+u', src)), key=int)
+if not reg_nums:
+    print("FAIL: found zero `#define RTCC_C_R<n>` lines in x86_asm.h — protected-register set unknown, gate is blind"); sys.exit(1)
+BIT = {'RTCC_C_R' + n: 'r' + n for n in reg_nums}
+REG_RE = r'r(?:' + '|'.join(reg_nums) + r')'
+
 m = re.search(r'static inline unsigned x86_rtcc_clob\(.*?\n\}', src, re.S)
 if not m:
     print("FAIL: x86_rtcc_clob() not found in x86_asm.h"); sys.exit(1)
 body = m.group(0)
-BIT = {'RTCC_C_R8':'r8', 'RTCC_C_R9':'r9', 'RTCC_C_R10':'r10', 'RTCC_C_R11':'r11'}
 claim = {}
 for name, expr in re.findall(r'\{\s*"((?:[^"\\]|\\.)*)"\s*,\s*([^}]+?)\}', body):
     sym = name.encode().decode('unicode_escape')          # \u03b3 -> γ
@@ -72,7 +85,7 @@ WRITE = re.compile(r'^\s*(?:mov|movq|movabs|lea|xor|add|sub|and|or|shl|shr|sar|i
                    r'|movzx|movsx|movsxd|xchg|set[a-z]{1,3}|cmov[a-z]{1,3})\s+([a-z0-9]+)\s*(?:,|$)', re.I)
 XFER  = re.compile(r'^\s*(?:jmp|call|j[a-z]{1,3})\s+(\S+)', re.I)
 def canon(r):
-    g = re.fullmatch(r'(r(?:8|9|10|11))[dwb]?', r.lower()); return g.group(1) if g else None
+    g = re.fullmatch(r'(' + REG_RE + r')[dwb]?', r.lower()); return g.group(1) if g else None
 
 fails, checked = [], 0
 for sym, mask in sorted(claim.items()):

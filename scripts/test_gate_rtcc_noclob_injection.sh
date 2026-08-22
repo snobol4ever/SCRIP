@@ -5,7 +5,9 @@
 # what makes that authority trustworthy -- it re-derives the claim from the actual assembly and fails
 # the moment a claim stops matching the source.  This script proves the verifier itself has teeth: it
 # builds a throwaway scratch tree, shaped exactly like the real one, and shows
-#   (1) POSITIVE -- a symbol truthfully classified (mask covers every r8/r9/r10/r11 write) PASSES.
+#   (1) POSITIVE -- a symbol truthfully classified (mask covers every RTCC-protected-register write,
+#       currently r8/r9 -- test_gate_rtcc_callee_class.sh re-derives the protected set from x86_asm.h's
+#       own #define RTCC_C_R<n> lines, so this scratch header carries them too) PASSES.
 #   (2) NEGATIVE -- a deliberately clobbering stub, FALSELY claimed as non-clobbering (mask 0), is
 #       CAUGHT and FAILS.  This is the "negative-tested by injection" leg of the rung's DoD: an
 #       undeclared or falsely-declared callee must keep -- or in this case regain -- its veneer, and
@@ -30,13 +32,15 @@ RTX_FUNC(rt_test_false_leaf)
 RTX_ENDF(rt_test_false_leaf)
 ASM
 cat > "$TMP/src/templates/x86_asm.h" <<'HDR'
+#define RTCC_C_R8   1u
+#define RTCC_C_R9   2u
 static inline unsigned x86_rtcc_clob(const char * sym) {
     static const struct { const char * n; unsigned m; } LEAF[] = {
         { "rt_test_true_leaf", 0 },
         { "rt_test_false_leaf", 0 },
     };
     for (size_t i = 0; i < sizeof(LEAF) / sizeof(LEAF[0]); i++) if (strcmp(sym, LEAF[i].n) == 0) return LEAF[i].m;
-    return 15u;
+    return RTCC_C_R8 | RTCC_C_R9;
 }
 HDR
 out="$(ROOT="$TMP" bash "$HERE/test_gate_rtcc_callee_class.sh" 2>&1)"; rc=$?
