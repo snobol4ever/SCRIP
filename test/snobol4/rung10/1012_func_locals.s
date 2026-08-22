@@ -102,8 +102,6 @@ lfunc_α:                sub              rsp, 144
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
-                        mov              qword ptr [rsp + 64], r10
-                        mov              qword ptr [rsp + 72], r11
                         mov              qword ptr [rsp + 80], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 144]
@@ -217,9 +215,7 @@ lfunc_γ:                mov              rdi, qword ptr [r9 + 0]              #
                         mov              qword ptr [r9 + 48], rax
                         mov              rax, qword ptr [rsp + 136]
                         mov              qword ptr [r9 + 56], rax
-.Lx149_112:             mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx149_112:             mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 144
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -275,9 +271,7 @@ lfunc_ω:                mov              rcx, qword ptr [rsp + 80]
                         mov              qword ptr [r9 + 48], rax
                         mov              rax, qword ptr [rsp + 136]
                         mov              qword ptr [r9 + 56], rax
-.Lx149_182:             mov              r10, qword ptr [rsp + 64]
-                        mov              r11, qword ptr [rsp + 72]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx149_182:             mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 144
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx
@@ -1028,8 +1022,6 @@ checklocal_α:           sub              rsp, 64
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 112], 0
                         mov              qword ptr [r9 + 120], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
@@ -1075,9 +1067,7 @@ checklocal_γ:           mov              rdi, qword ptr [r9 + 112]            #
                         mov              qword ptr [r9 + 128], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 136], rax
-.Lx315_110:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx315_110:             mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -1099,9 +1089,7 @@ checklocal_ω:           mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 128], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 136], rax
-.Lx315_180:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx315_180:             mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 64
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx

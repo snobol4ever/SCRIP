@@ -64,8 +64,6 @@ n3_define_β:                                                                  j
                                                                               jmp   .Lx80_245
 #-----------------------------------------------------------------------------------------------------------------------
 myfunc_α:               sub              rsp, 48
-                        mov              qword ptr [rsp + 0], r10
-                        mov              qword ptr [rsp + 8], r11
                         mov              qword ptr [rsp + 16], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
@@ -107,9 +105,7 @@ myfunc_γ:               mov              rdi, qword ptr [r9 + 0]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 40]
                         mov              qword ptr [r9 + 8], rax
-.Lx80_110:              mov              r10, qword ptr [rsp + 0]
-                        mov              r11, qword ptr [rsp + 8]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx80_110:              mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 48
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -127,9 +123,7 @@ myfunc_ω:               mov              rcx, qword ptr [rsp + 16]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 40]
                         mov              qword ptr [r9 + 8], rax
-.Lx80_180:              mov              r10, qword ptr [rsp + 0]
-                        mov              r11, qword ptr [rsp + 8]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx80_180:              mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 48
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx

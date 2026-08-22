@@ -70,8 +70,6 @@ ref_a_α:                sub              rsp, 48
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
@@ -89,8 +87,6 @@ ref_a_γ:                mov              rdi, qword ptr [r9 + 0]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 48
                         mov              rax, rdi
@@ -102,8 +98,6 @@ ref_a_ω:                mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 48
                         mov              eax, 104

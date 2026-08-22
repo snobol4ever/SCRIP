@@ -142,8 +142,6 @@ stack_init_α:           sub              rsp, 48
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
@@ -161,8 +159,6 @@ stack_init_γ:           mov              rdi, qword ptr [r9 + 0]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 48
                         mov              rax, rdi
@@ -174,8 +170,6 @@ stack_init_ω:           mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 0], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 48
                         mov              eax, 104
@@ -246,8 +240,6 @@ stack_push_α:           sub              rsp, 64
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
@@ -293,9 +285,7 @@ stack_push_γ:           mov              rdi, qword ptr [r9 + 16]             #
                         mov              qword ptr [r9 + 32], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 40], rax
-.Lx315_110:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx315_110:             mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -317,9 +307,7 @@ stack_push_ω:           mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 32], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 40], rax
-.Lx315_180:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx315_180:             mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 64
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx
@@ -457,8 +445,6 @@ stack_pop_α:            sub              rsp, 64
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
@@ -504,9 +490,7 @@ stack_pop_γ:            mov              rdi, qword ptr [r9 + 48]             #
                         mov              qword ptr [r9 + 64], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 72], rax
-.Lx342_110:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx342_110:             mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -528,9 +512,7 @@ stack_pop_ω:            mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 64], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 72], rax
-.Lx342_180:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx342_180:             mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 64
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx
@@ -921,8 +903,6 @@ stack_peek_α:           sub              rsp, 48
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 80], 0
                         mov              qword ptr [r9 + 88], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
@@ -940,8 +920,6 @@ stack_peek_γ:           mov              rdi, qword ptr [r9 + 80]
                         mov              qword ptr [r9 + 80], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 88], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 48
                         mov              rax, rdi
@@ -953,8 +931,6 @@ stack_peek_ω:           mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 80], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 88], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 48
                         mov              eax, 104
@@ -1088,8 +1064,6 @@ stack_top_α:            sub              rsp, 48
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 96], 0
                         mov              qword ptr [r9 + 104], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
@@ -1107,8 +1081,6 @@ stack_top_γ:            mov              rdi, qword ptr [r9 + 96]
                         mov              qword ptr [r9 + 96], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 104], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 48
                         mov              rax, rdi
@@ -1120,8 +1092,6 @@ stack_top_ω:            mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 96], rax
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 104], rax
-                        mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
                         mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 48
                         mov              eax, 104
@@ -1245,8 +1215,6 @@ stack_depth_α:          sub              rsp, 64
                         mov              qword ptr [rsp + 8], rax
                         mov              qword ptr [r9 + 112], 0
                         mov              qword ptr [r9 + 120], 0
-                        mov              qword ptr [rsp + 16], r10
-                        mov              qword ptr [rsp + 24], r11
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 64]
@@ -1292,9 +1260,7 @@ stack_depth_γ:          mov              rdi, qword ptr [r9 + 112]            #
                         mov              qword ptr [r9 + 128], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 136], rax
-.Lx461_110:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 8]
+.Lx461_110:             mov              rcx, qword ptr [rcx + 8]
                         add              rsp, 64
                         mov              rax, rdi
                         mov              rdx, rsi;                            jmp   rcx
@@ -1316,9 +1282,7 @@ stack_depth_ω:          mov              rcx, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 128], rax
                         mov              rax, qword ptr [rsp + 56]
                         mov              qword ptr [r9 + 136], rax
-.Lx461_180:             mov              r10, qword ptr [rsp + 16]
-                        mov              r11, qword ptr [rsp + 24]
-                        mov              rcx, qword ptr [rcx + 16]
+.Lx461_180:             mov              rcx, qword ptr [rcx + 16]
                         add              rsp, 64
                         mov              eax, 104
                         xor              edx, edx;                            jmp   rcx
