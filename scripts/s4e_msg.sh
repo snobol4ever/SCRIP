@@ -98,9 +98,37 @@ case "$cmd" in
          # SUCCESS and safe-to-/clear are the SAME fact -- both are handoff_status.sh rc=0 -- so there is one thing
          # to say. Detail is not lost, it moves behind `banner -v`, which nobody has to read.
          b='════════════════════════════════════════════════════════════════════════════════'
+         # ⛔ LEVEL OF SUCCESS (Lon 2026-08-22: "Why are you not giving any feedback whatsoever as to the level of
+         # success?"). Pushed-and-clean is NOT the same as accomplished -- a seat that did nothing also pushes clean.
+         # So the banner counts what actually LANDED in the last 12h: commits across this seat's repos, FINDINGs added,
+         # and whether the row closed. All measured from git, none of it typed. NOTHING LANDED is called out loudly.
+         # ⛔ ATTRIBUTABLE ONLY. A bare `log --since` counts commits this clone merely PULLED -- it credited a seat
+         # that did nothing with 4 commits. This project's commit messages carry the seat id and the row topic, so
+         # the level is measured by ATTRIBUTION: commits naming this seat or its row, and FINDING files naming either.
+         rowst="none"; row1=""
+         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+           [ "$(head -1 "$c")" = "$ME" ] || continue
+           if grep -q '^DONE$' "$c"; then [ "$rowst" = "none" ] && { rowst="CLOSED"; row1="$(basename "$c" .claim)"; }
+           else rowst="OPEN"; row1="$(basename "$c" .claim)"; break; fi; done
+         cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
+           n=$(git -C "$r" log --since='12 hours ago' -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
+         fnd=$(git -C "$S4E/.github" log --since='12 hours ago' --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
+         if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
+         else lvl="row ${rowst} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed /12h"; fi
+         # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
+         # NARROWER question -- does anything of value live ONLY in this session. A clone merely BEHIND origin (clean
+         # tree, nothing unpushed) loses nothing on /clear; it just pulls next time. Measured directly per repo, since
+         # calling that FAILURE would have flagged both fireable seats red for something neither seat did.
+         onlyhere=0
+         for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
+           d=$(git -C "$r" status --porcelain 2>/dev/null | wc -l)
+           br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
+           u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
+           onlyhere=$((onlyhere + d + ${u:-0})); done
          if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
-         elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear"
-         else                        line="⛔ FAILURE — $ME — NOT pushed, do NOT /clear —$(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
+         elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
+         elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
+         else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
          printf '\n%s\n  %s\n%s\n\n' "$b" "$line" "$b"
          if [ "${2:-}" = "-v" ] || [ "${3:-}" = "-v" ]; then
            printf '  its row        : %s\n' "${held:-none open}"
@@ -109,7 +137,7 @@ case "$cmd" in
            printf '  queue          : %s free row(s); topmost free is %s (rank %s)\n' "$freerows" "${nrow:-none}" "${nrank:--}"
            [ -n "$diverged" ] && printf '  repair         : for r in%s; do git -C %s/$r fetch -q origin && git -C %s/$r reset --hard -q origin/main; done\n' "$diverged" "$S4E" "$S4E"
            printf '  re-prompt      : Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n\n'; fi
-         [ "$hrc" -eq 0 ] && exit 0 || exit 1;;
+         { [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; } && [ -z "$diverged" ] && exit 0 || exit 1;;
   fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
          # (that walks every repo, 9x over) -- it inspects each seat root's clones directly, which is the same
