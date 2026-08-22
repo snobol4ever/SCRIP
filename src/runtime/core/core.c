@@ -1277,14 +1277,17 @@ static DESCR_t _CLEAR_(DESCR_t *a, int n) {
 }
 static char _setexit_label[256];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
+    DESCR_t prev = (core_setexit_on() && _setexit_label[0]) ? STRVAL(rt_ws_strdup_c(_setexit_label)) : NULVCL;
     if (n < 1 || a[0].v == DT_FAIL) {
         _setexit_label[0] = '\0';
-        return NULVCL;
+        return prev;
     }
     const char *lbl = VARVAL_fn(a[0]);
     if (lbl) strncpy(_setexit_label, lbl, sizeof(_setexit_label)-1);
-    return NULVCL;
+    return prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
@@ -2017,6 +2020,15 @@ void core_runtime_error(int code, const char *msg) {
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
           longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+      } }
+    { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern void rt_goto_transfer(const char *name);
+      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
+          char lbl[sizeof _setexit_label]; strncpy(lbl, _setexit_label, sizeof lbl - 1); lbl[sizeof lbl - 1] = '\0';
+          _setexit_label[0] = '\0';
+          if (kw_errlimit > 0) kw_errlimit--;
+          rt_kw_publish_error(code, msg);
+          rt_goto_transfer(lbl);
+          exit(0);
       } }
     fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
             code, g_core_err_stmt, msg ? msg : "");

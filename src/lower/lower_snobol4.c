@@ -43,12 +43,15 @@ static void sno_scan_stmtkw(const tree_t * t) {
 }
 static int g_sno_uses_code = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_setexit_on(void) { const char * e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_code_use(const tree_t * t) {
     if (!t || g_sno_uses_code) return;
     if (t->t == TT_FNC) {
         const char * fn = t->v.sval;
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
         if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; return; }
+        if (fn && sno_setexit_on() && !strcmp(fn, "SETEXIT")) { g_sno_uses_code = 1; return; }
     }
     if ((t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0]) {
         const tree_t * g0 = t->c[0];
