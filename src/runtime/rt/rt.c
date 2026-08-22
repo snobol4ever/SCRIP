@@ -1734,6 +1734,8 @@ void *rt_frame_prep(void *fb, long fbytes)
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_byname_alpha_on(void) { static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_BYNAME_ALPHA"); live = (e && e[0] == '0') ? 0 : 1; } return live; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
@@ -1741,7 +1743,9 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
-    { const char *_ba = getenv("SCRIP_BYNAME_ALPHA"); void *afn = ((!_ba || _ba[0] != '0') && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0; if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0; for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }
+    { void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
+      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
+                 for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
     return rt_proc_enter((void *)p->fn);
 }

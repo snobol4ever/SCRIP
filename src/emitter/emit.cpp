@@ -1363,13 +1363,32 @@ static int    g_ab_fn_cell_n = 0;
 static char   g_ab_fn_names[AB_FNCELL_MAX][64];
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned ab_fn_hash(const char * s) { unsigned h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ab_hash_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_AB_HASH"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+__attribute__((noreturn)) static void ab_slot_full(const char * fname) {
+    fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: old arm aliased slot 0 SILENTLY, the corruption this abort replaces)\n", AB_FNCELL_MAX, fname);
+    abort();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_ab_slot_for(const char * fname) {
-    for (int i = 0; i < g_ab_fn_cell_n; i++) if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
-    if (g_ab_fn_cell_n >= AB_FNCELL_MAX) { fprintf(stderr, "FATAL bb_ab_slot_for: cell table full (%d) at '%s' -- raise AB_FNCELL_MAX (R-1 s94: the old arm aliased slot 0 SILENTLY, the corruption class this abort replaces)\n", AB_FNCELL_MAX, fname); abort(); }
-    int idx = g_ab_fn_cell_n++;
-    snprintf(g_ab_fn_names[idx], sizeof g_ab_fn_names[idx], "%s", fname);
-    g_ab_fn_cells[idx] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
-    return idx;
+    int hashed = ab_hash_on();
+    unsigned h = hashed ? (ab_fn_hash(fname) & (AB_FNCELL_MAX - 1)) : 0;
+    int cap = hashed ? AB_FNCELL_MAX : (g_ab_fn_cell_n + 1);
+    for (int step = 0; step < cap; step++) {
+        int i = hashed ? (int)((h + (unsigned)step) & (AB_FNCELL_MAX - 1)) : step;
+        int empty = hashed ? (g_ab_fn_names[i][0] == '\0') : (step == g_ab_fn_cell_n);
+        if (empty) {
+            if (g_ab_fn_cell_n >= AB_FNCELL_MAX) ab_slot_full(fname);
+            g_ab_fn_cell_n++;
+            snprintf(g_ab_fn_names[i], sizeof g_ab_fn_names[i], "%s", fname);
+            g_ab_fn_cells[i] = (void *)(uintptr_t)rt_ab_undef_fn_stub;
+            return i;
+        }
+        if (!strncmp(g_ab_fn_names[i], fname, sizeof g_ab_fn_names[0] - 1)) return i;
+    }
+    ab_slot_full(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)] : (void *)0; }
