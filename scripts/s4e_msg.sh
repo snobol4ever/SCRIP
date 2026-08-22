@@ -16,6 +16,18 @@ PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
 if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude[1-9]) ME="seat${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
 cmd="${1:-check}"
+# ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
+# ruling unread in its inbox while asking Lon the same question in chat). The inbox is HQ's ONLY channel to a
+# running seat -- Lon does not relay -- so it cannot depend on the seat remembering to `check`. Every subcommand
+# except check/clear now surfaces pending mail first. A seat cannot run `next`, `done`, `board` or `banner`
+# without being told it has unread HQ mail.
+case "$cmd" in check|clear) ;; *)
+  _n=0; for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] && _n=$((_n+1)); done
+  if [ "$_n" -gt 0 ]; then
+    printf '\n⛔⛔⛔ %s HAS %s UNREAD HQ MESSAGE(S) — READ THEM BEFORE ANYTHING ELSE ⛔⛔⛔\n' "$ME" "$_n"
+    for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] || continue; printf '    %s\n' "$(head -1 "$_f")"; done
+    printf '    bash SCRIP/scripts/s4e_msg.sh check      <- do this now\n\n'; fi ;;
+esac
 case "$cmd" in
   send)  to="${2:?to}"; topic="${3:?topic}"; shift 3; mkdir -p "$PO/$to/inbox"
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
