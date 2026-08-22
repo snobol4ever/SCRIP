@@ -591,6 +591,15 @@ both — treat the s249 numbers as provenance, not as the current baseline.** Ro
 attribution for the earlier 0.28×→0.48× table_access move (`getenv` cache sentinel, s249 §7F) is
 unaffected by this re-clocking; it is a real, separately-verified codegen fix, not a clock artifact.
 
+⛔ **This table's clock is now clean; the oracle's WORKLOAD is a separate, still-open question.**
+HQ (2026-08-22, same day) measured `sbl -bf` under callgrind on `beauty` and found `emit_pm`/
+`pm_check_enabled` — pattern-match trace instrumentation gated on unset `SPL_PM_TRACE` — costing
+23.47% of SPITBOL's total instructions doing nothing (`FINDING-2026-08-22-hq-scrip-spends-under-one-percent-of-its-instructions-running-the-program.md`).
+Every `sbl` number above is measured against that binary as shipped; whether the dead instrumentation
+distorts these 15 rows unevenly (more pattern-match-heavy rows would be hit harder) is untested here
+— out of this row's scope, which was the clock, not the workload. Read `sbl`-relative ratios above as
+clock-clean, not yet workload-clean.
+
 `arith_loop` 5.37× → 7.07× came from three codegen cuts — null-concat copy propagation, an inlined
 integer compare, and a four-way literal fold on `IR_BINOP` — taking it from 165 to 112 instructions
 per iteration. `table_access` is deliberately unmoved: its cost is that `aggregates.c` stringifies
