@@ -85,8 +85,8 @@ myfunc_α:               sub              rsp, 48
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
 .Lx80_41:               lea              rcx, [rip + myfunc_γ]
-                        lea              r11, [rip + myfunc_ω]
-                        push             r11
+                        lea              rax, [rip + myfunc_ω]
+                        push             rax
                         push             rcx
                         lea              rax, [rip + n37_statement_begin_α];  jmp   rax
 myfunc_γ:               mov              rdi, qword ptr [r9 + 0]
@@ -95,11 +95,13 @@ myfunc_γ:               mov              rdi, qword ptr [r9 + 0]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         cmp              rdx, 0;                              jbe   .Lx80_80
-                        mov              r11, qword ptr [rcx + 24]
-                        add              r11, r8
-                        mov              rax, qword ptr [r11 + 0]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 0]
                         mov              qword ptr [r9 + 0], rax
-                        mov              rax, qword ptr [r11 + 8]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 8]
                         mov              qword ptr [r9 + 8], rax;             jmp   .Lx80_110
 .Lx80_80:               mov              rax, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 0], rax
@@ -113,11 +115,13 @@ myfunc_ω:               mov              rcx, qword ptr [rsp + 16]
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         cmp              rdx, 0;                              jbe   .Lx80_150
-                        mov              r11, qword ptr [rcx + 24]
-                        add              r11, r8
-                        mov              rax, qword ptr [r11 + 0]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 0]
                         mov              qword ptr [r9 + 0], rax
-                        mov              rax, qword ptr [r11 + 8]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 8]
                         mov              qword ptr [r9 + 8], rax;             jmp   .Lx80_180
 .Lx80_150:              mov              rax, qword ptr [rsp + 32]
                         mov              qword ptr [r9 + 0], rax

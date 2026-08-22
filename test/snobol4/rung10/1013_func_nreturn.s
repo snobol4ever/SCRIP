@@ -74,8 +74,8 @@ ref_a_α:                sub              rsp, 48
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
                         lea              rcx, [rip + ref_a_γ]
-                        lea              r11, [rip + ref_a_ω]
-                        push             r11
+                        lea              rax, [rip + ref_a_ω]
+                        push             rax
                         push             rcx
                         lea              rax, [rip + n5_statement_begin_α];   jmp   rax
 ref_a_γ:                mov              rdi, qword ptr [r9 + 0]

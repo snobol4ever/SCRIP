@@ -89,8 +89,8 @@ MATCHIT_α:              sub              rsp, 64
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
 .Lx34_41:               lea              rcx, [rip + MATCHIT_γ]
-                        lea              r11, [rip + MATCHIT_ω]
-                        push             r11
+                        lea              rax, [rip + MATCHIT_ω]
+                        push             rax
                         push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 MATCHIT_γ:              mov              rdi, qword ptr [r9 + 0]              # MATCHIT
@@ -103,11 +103,13 @@ MATCHIT_γ:              mov              rdi, qword ptr [r9 + 0]              #
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
                         cmp              rdx, 0;                              jbe   .Lx34_80
-                        mov              r11, qword ptr [rcx + 24]
-                        add              r11, r8
-                        mov              rax, qword ptr [r11 + 0]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 0]
                         mov              qword ptr [r9 + 16], rax             # S
-                        mov              rax, qword ptr [r11 + 8]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 8]
                         mov              qword ptr [r9 + 24], rax;            jmp   .Lx34_110
 .Lx34_80:               mov              rax, qword ptr [rsp + 48]
                         mov              qword ptr [r9 + 16], rax
@@ -125,11 +127,13 @@ MATCHIT_ω:              mov              rcx, qword ptr [rsp + 32]
                         mov              rax, qword ptr [rsp + 8]
                         mov              qword ptr [r9 + 8], rax
                         cmp              rdx, 0;                              jbe   .Lx34_150
-                        mov              r11, qword ptr [rcx + 24]
-                        add              r11, r8
-                        mov              rax, qword ptr [r11 + 0]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 0]
                         mov              qword ptr [r9 + 16], rax             # S
-                        mov              rax, qword ptr [r11 + 8]
+                        mov              rax, qword ptr [rcx + 24]
+                        add              rax, r8
+                        mov              rax, qword ptr [rax + 8]
                         mov              qword ptr [r9 + 24], rax;            jmp   .Lx34_180
 .Lx34_150:              mov              rax, qword ptr [rsp + 48]
                         mov              qword ptr [r9 + 16], rax
