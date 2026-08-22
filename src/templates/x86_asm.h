@@ -324,8 +324,14 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 #define RTCC_C_R9   2u
 #define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTCC_NOCLOB"); return !(e && *e == '0'); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline unsigned x86_rtcc_clob(const char * sym) {
     if (!sym) return RTCC_C_ALL;
+    static const struct { const char * n; unsigned m; } LEAF[] = {
+        { "rt_cmp_d", 0 },
+    };
+    if (x86_rtcc_noclob_on()) for (size_t i = 0; i < sizeof(LEAF) / sizeof(LEAF[0]); i++) if (strcmp(sym, LEAF[i].n) == 0) return LEAF[i].m;
     static const struct { const char * n; unsigned m; } T[] = {
         { "rt_dcap_end_ok_close",       0 }, { "rt_faildescr",              0 },
         { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
@@ -333,7 +339,6 @@ static inline unsigned x86_rtcc_clob(const char * sym) {
         { "rt_gen_spine_pass_\u03b3",   0 }, { "rt_gen_spine_pass_\u03c9",  0 },
         { "rt_cap_match_begin", 0 }, { "rt_cap_pop",      0 },
         { "rt_cap_top",         0 }, { "rt_match_ctx_restore", 0 },
-        { "rt_cmp_d", RTCC_C_R8 | RTCC_C_R9 },
     };
     for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return T[i].m;
     return RTCC_C_ALL;

@@ -61,10 +61,10 @@ RTX_FUNC(rt_cmp_d)
     jne     .Lcd_notint
     mov     rdx, qword ptr [rdi + 8]    /* a->i                                */
     cmp     rdx, qword ptr [rsi + 8]    /* signed compare against b->i         */
-    setg    r9b
+    setg    r11b
     setl    r10b
-    sub     r9b, r10b                   /* 1 / -1 / 0, branchless              */
-    movsx   eax, r9b
+    sub     r11b, r10b                  /* 1 / -1 / 0, branchless              */
+    movsx   eax, r11b
     ret
 .Lcd_notint:
     /* ---- STRING ARM (s229 tag renumber): DT_S and DT_SNUL are the only tags
@@ -88,33 +88,38 @@ RTX_FUNC(rt_cmp_d)
     jnz     .Lcd_b
     lea     rdx, [rip + .Lcd_empty]
 .Lcd_b:
-    xor     r8d, r8d
+    xor     r10d, r10d
     cmp     cl, DT_S
     jne     .Lcd_b_fix
-    mov     r8, qword ptr [rsi + 8]
+    mov     r10, qword ptr [rsi + 8]
 .Lcd_b_fix:
-    test    r8, r8
+    test    r10, r10
     jnz     .Lcd_strloop
-    lea     r8, [rip + .Lcd_empty]
+    lea     r10, [rip + .Lcd_empty]
     /* Inline unsigned byte compare rather than a libc strcmp call. This arm is
      * COLD in every measured benchmark (the hot shape is DT_I/DT_I), so the
      * libc-boundary realignment ceremony would buy nothing and cost a call.
-     * strcmp compares as UNSIGNED char, hence movzx and the seta/setb pair.  */
+     * strcmp compares as UNSIGNED char, hence movzx and the seta/setb pair.
+     * ptr_b rides r10, not r8 -- r10's only other use in this function (the
+     * DT_NOTSTR_MASK combine above) is dead by here, and keeping r8/r9 untouched
+     * for the whole function is what licenses the RTCC veneer omission at every
+     * call site (rtcc-veneer-strip-pure-asm; mask re-derived by
+     * scripts/test_gate_rtcc_callee_class.sh, table in x86_asm.h).            */
 .Lcd_strloop:
     movzx   eax, byte ptr [rdx]
-    movzx   ecx, byte ptr [r8]
+    movzx   ecx, byte ptr [r10]
     cmp     al, cl
     jne     .Lcd_strdiff
     test    al, al
     je      .Lcd_streq
     inc     rdx
-    inc     r8
+    inc     r10
     jmp     .Lcd_strloop
 .Lcd_strdiff:
-    seta    r9b                         /* flags still those of cmp al, cl     */
-    setb    r10b
-    sub     r9b, r10b
-    movsx   eax, r9b
+    seta    r11b                        /* flags still those of cmp al, cl     */
+    setb    r10b                        /* r10's ptr_b role is dead by here    */
+    sub     r11b, r10b
+    movsx   eax, r11b
     ret
 .Lcd_streq:
     xor     eax, eax
@@ -139,11 +144,11 @@ RTX_FUNC(rt_cmp_d)
     movsd   xmm1, qword ptr [rsi + 8]
 .Lcd_cmp:
     comisd  xmm0, xmm1
-    seta    r9b                         /* x > y  (false when unordered)       */
+    seta    r11b                        /* x > y  (false when unordered)       */
     comisd  xmm1, xmm0
     seta    r10b                        /* y > x, i.e. x < y (false unordered) */
-    sub     r9b, r10b                   /* NaN => 0 - 0 = 0, matching the C    */
-    movsx   eax, r9b
+    sub     r11b, r10b                  /* NaN => 0 - 0 = 0, matching the C    */
+    movsx   eax, r11b
     ret
 RTX_ENDF(rt_cmp_d)
 
