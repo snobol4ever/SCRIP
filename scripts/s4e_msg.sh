@@ -11,6 +11,16 @@
 #   s4e_msg.sh banner [topic]             ⛔ MANDATORY LAST ACT OF EVERY SESSION: prints the COMPUTED
 #                                         SUCCESS/FAILURE banner + whether re-firing advances anything
 set -u
+# ⛔ DOTGLOB (seat8, 2026-08-22): every "$S4E"/*/ or "$root"/*/ directory scan below silently skipped
+# .github -- bash's bare `*` glob does not match dot-directories by default. That blinds FOUR checks to
+# .github specifically: pre-rewrite-clone divergence (banner), this-session commit attribution (banner's
+# NOTHING-LANDED headline), unpushed/dirty "safe to /clear" detection (banner), and the fleet health
+# dashboard (`fleet`) -- for every seat, always, silently. Measured: a session with a real, pushed .github
+# commit + FINDING and a clean handoff_status.sh still printed "NOTHING LANDED" because cmts only walked
+# non-dot dirs. `.claude` also becomes visible under dotglob but is not a git repo, so every site's existing
+# `[ -d "$r/.git" ] || continue` guard filters it out for free. No other glob in this file is dot-sensitive
+# (claims/msg globs are suffix-anchored, e.g. *.claim/*.msg -- nothing here is ever named with a leading dot).
+shopt -s dotglob
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
@@ -129,7 +139,12 @@ case "$cmd" in
            else rowst="OPEN"; row1="$(basename "$c" .claim)"; break; fi; done
          cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
            n=$(git -C "$r" log --since='12 hours ago' -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
-         fnd=$(git -C "$S4E/.github" log --since='12 hours ago' --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
+         # seat8 2026-08-22: every FINDING-*.md ever written (202/202 checked) names the seat the OLD,
+         # unpadded way ("seat8"), because s255's zero-padding change touched $ME fleet-wide but no seat's
+         # file-naming habit. Matching $ME alone ("seat08") against the corpus finds ZERO files, always,
+         # for every single-digit seat -- so a same-session FINDING silently fails attribution here too.
+         mealt="${ME/#seat0/seat}"
+         fnd=$(git -C "$S4E/.github" log --since='12 hours ago' --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
          else lvl="row ${rowst} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed /12h"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
