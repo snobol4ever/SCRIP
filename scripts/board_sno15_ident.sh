@@ -24,7 +24,8 @@ classify_rc() {  # $1 = exit code from `timeout N cmd`
   else echo "RC=$rc"; fi
 }
 SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
-SBL=${SBL:-$S4A/x64/bin/sbl}
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL=${SBL:-$S4A/x64/bin/sbl}   # CORRECTNESS oracle -- identity board, no timing, x64/bin/sbl stays authoritative
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 TMO=${TMO:-300}
@@ -43,7 +44,7 @@ for nm in claws5 claws5-match claws5-match-fence \
   [ -f "$src" ] || { printf '%-26s %-10s %-10s %s\n' "$nm" - - "NO SOURCE"; nfail=$((nfail+1)); continue; }
   # ---- oracle: temp-prepend the control card, never touch the corpus file ----
   printf -- '-CASE 0\n\t&TRIM = 0\n' > "$W/$nm.sbl.sno"; cat "$src" >> "$W/$nm.sbl.sno"
-  if ! timeout $TMO "$SBL" -b -d512m -i64m $xf "$W/$nm.sbl.sno" < "$inp" > "$W/$nm.sbl" 2>/dev/null; then
+  if ! timeout $TMO "$SBL" $(sbl_lang_flags) -d512m -i64m $xf "$W/$nm.sbl.sno" < "$inp" > "$W/$nm.sbl" 2>/dev/null; then
     printf '%-26s %-10s %-10s %s\n' "$nm" - - "SBL FAILED"; nfail=$((nfail+1)); continue; fi
   # ---- mode 3 (in-process native) ----
   timeout $TMO "$SC/scrip" --run "$src" < "$inp" > "$W/$nm.m3" 2>/dev/null; rc3=$?

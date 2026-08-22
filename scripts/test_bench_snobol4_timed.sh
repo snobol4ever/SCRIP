@@ -38,7 +38,6 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): timed family PROMOTED -- one copy, legacy retired, harness.inc is the driver
 T="${TIMEOUT:-60}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"
 # ⛔ GC-FREE WINDOW IS A MEASUREMENT PRECONDITION, NOT A TUNING KNOB (BM-3).  SCRIP's collector is
@@ -56,6 +55,7 @@ HEAP="${HEAP:-1024}"
 # once its match runs inside ZBODY's frame.  Harmless to every other row; sizing a stack is not a
 # throughput knob.  Larger values are refused by this container ("Stack memory unavailable").
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
+SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255): x64/bin/sbl carries a monitor-IPC bridge that costs ~2.2-3.5x instructions -- timing must never use it
 SBLFLAGS="${SBLFLAGS:--s16m}"   # SIZING ONLY -- the language arm comes from sbl_lang_flags and may not be overridden here
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"

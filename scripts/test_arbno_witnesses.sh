@@ -8,7 +8,8 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"
+. "$ROOT/scripts/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- witness set vs live oracle, not timing
 TAG="${1:-run}"
 W=/tmp/arbw.$TAG; mkdir -p "$W"
 FILES="$CORPUS/probe/arb1.sno $CORPUS/crosscheck/patterns/181_pat_arbno_defer_tail_stressors.sno"
@@ -18,7 +19,7 @@ printf '%-46s %-8s %-8s\n' witness m3 m4
 for f in $FILES; do
     b=$(basename "$f" .sno)
     [ -f "$f" ] || { printf '%-46s MISSING\n' "$b"; continue; }
-    "$SBL" -b "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
+    "$SBL" $(sbl_lang_flags) "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
     timeout 15 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.m3" 2>/dev/null; m3rc=$?
     if [ $m3rc -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.m3"; then m3="PASS"; else m3="rc=$m3rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m3" || m3="$m3,DIFF"; fi
     s=$(timeout 15 "$ROOT/scrip" --compile "$f" < /dev/null 2>/dev/null)

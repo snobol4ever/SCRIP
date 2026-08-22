@@ -9,7 +9,8 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"; CSNO="${CSNO:-$(command -v snobol4)}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$(sbl_clean_bin)}"; CSNO="${CSNO:-$(command -v snobol4)}"   # BENCHMARK oracle (s255)
 T="${TIMEOUT:-120}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
@@ -34,7 +35,7 @@ for sno in "$B"/*.sno; do
     sc_res=$(res_of "$W/$s.sc"); sc_ms=$(selfms_of "$W/$s.sc")
   fi
   sb_res="-"; sb_ms="-"; sb_wall="-"
-  if [ $have_sbl -eq 1 ]; then run_wall "$W/$s.sb" "$SBL" -b "$sno"; sb_wall=$WALL
+  if [ $have_sbl -eq 1 ]; then run_wall "$W/$s.sb" "$SBL" $(sbl_lang_flags) "$sno"; sb_wall=$WALL
     sb_res=$(res_of "$W/$s.sb"); sb_ms=$(selfms_of "$W/$s.sb"); fi
   cs_res="-"; cs_ms="-"; cs_wall="-"
   if [ $have_csno -eq 1 ]; then run_wall "$W/$s.cs" "$CSNO" "$sno"; cs_wall=$WALL

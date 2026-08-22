@@ -5,7 +5,10 @@
 #
 # Backends: x86 (nasm), JVM (jasmin+java), NET (ilasm+mono), WASM (wabt)
 # Each backend skipped gracefully if tools not present.
-# Oracle: SPITBOL x64 (/home/claude/x64/bin/sbl -b)
+# Oracle: SPITBOL x64 via $SPITBOL below -- NOTE (s255 audit): this variable is currently unused by
+# any section in this file; the per-backend runners it delegates to (run_crosscheck_*_rung.sh) own
+# their own oracle resolution. Left correctly S4A-fallback-formed in case a section starts using it,
+# but do not assume sourcing this file gets you oracle grading -- check the delegate script.
 #
 # Sections:
 #   1. x86  — compile .sno -> .s -> nasm -> run, diff vs .ref

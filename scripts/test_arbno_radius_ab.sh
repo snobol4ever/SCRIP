@@ -8,7 +8,8 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"
+. "$ROOT/scripts/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- A/B correctness sweep, not timing
 LIST="${1:?usage: $0 <listfile> [tag]}"
 TAG="${2:-ab}"
 W=/tmp/radab.$TAG; mkdir -p "$W"
@@ -16,7 +17,7 @@ same=0; moved=0; : > "$W/movers.txt"
 while read -r p; do
     [ -n "$p" ] || continue
     f="$CORPUS/$p"; b=$(echo "$p" | tr '/' '_')
-    "$SBL" -b "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
+    "$SBL" $(sbl_lang_flags) "$f" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
     SCRIP_ARBNO_RBP=1 timeout 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.on" 2>/dev/null; onrc=$?
     SCRIP_ARBNO_RBP=0 timeout 20 "$ROOT/scrip" --run "$f" < /dev/null > "$W/$b.off" 2>/dev/null; offrc=$?
     von=FAIL; voff=FAIL

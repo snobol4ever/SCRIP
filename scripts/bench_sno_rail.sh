@@ -13,7 +13,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"; CORPUS="${CORPUS:-$S4E/corpus}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255). A private fallback would time a DIFFERENT LANGUAGE or the wrong binary. Fix the checkout; do not work around this." >&2; exit 3; }
+SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"   # BENCHMARK oracle (s255) -- never x64/bin/sbl, it is instrumented ~2.2-3.5x slower
 D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"; SODIR="${SODIR:-/tmp}"
 MIN_MS="${MIN_MS:-800}"; NMAX="${NMAX:-16384}"; R="${R:-5}"
 SO_A="${SO_A:-/tmp/rt_o0.so}"; SO_B="${SO_B:-}"   # SO_B empty = single-config mode
@@ -43,7 +44,7 @@ tail = [ind + "reps           =  DUPL('x', %d)" % n,
 open(out, 'w').write('\n'.join(L[:mi] + tail) + '\n')
 PY
 }
-runsbl() { timeout 300 "$SBL" -b "$1" < "$IN" 2>/dev/null; }
+runsbl() { timeout 300 "$SBL" $(sbl_lang_flags) "$1" < "$IN" 2>/dev/null; }
 runscr() { timeout 300 "$1" < "$IN" 2>/dev/null; }
 msof()   { sed -n 's/^compute_ms=//p' | head -1; }
 build()  { "$SCRIP" --compile "$1" > "$W/b.s" 2>/dev/null && gcc -no-pie "$W/b.s" -L"$SODIR" -Wl,-rpath,"$SODIR" -lscrip_rt -lm -o "$2" 2>/dev/null; }

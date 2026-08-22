@@ -32,8 +32,9 @@ fi
 [ -e "$X64/bin/bootsbl" ] || ln -sf "$X64/bin/sbl" "$X64/bin/bootsbl"
 
 # Smoke test — SPITBOL exits 1 in sandbox (segfault-on-exit) but output is correct
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 printf "        OUTPUT = 'spitbol-ok'\nEND\n" > /tmp/_build_spitbol_smoke.sno
-out=$("$X64/bin/sbl" -b /tmp/_build_spitbol_smoke.sno 2>/dev/null || true)
+out=$("$X64/bin/sbl" $(sbl_lang_flags) /tmp/_build_spitbol_smoke.sno 2>/dev/null || true)
 rm -f /tmp/_build_spitbol_smoke.sno
 [ "$out" = "spitbol-ok" ] || { echo "FAIL smoke test (got: $out)"; exit 1; }
 echo "OK  spitbol smoke test passed"

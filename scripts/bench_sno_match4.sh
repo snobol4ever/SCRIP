@@ -8,7 +8,8 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"   # BENCHMARK oracle (s255)
 input_of() { case $1 in claws5-match) echo $D/CLAWS5inTASA.dat;; treebank-match) echo $D/VBGinTASA.dat;; json-match) echo $D/twitter.json;; calculator-1-match|calculator-2-match) echo $D/calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys
@@ -53,10 +54,10 @@ PROGS="${PROGS:-claws5-match treebank-match json-match calculator-1-match calcul
 for p in $PROGS; do mkrep "$D/$p.sno" "$W/$p-rep.sno" "$REPS"; done
 for p in $PROGS; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
 for p in $PROGS; do IN=$(input_of $p)
-  so=$(timeout 300 "$SBL" -b "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 300 "$W/$p.prog" < "$IN" 2>/dev/null)
+  so=$(timeout 300 "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 300 "$W/$p.prog" < "$IN" 2>/dev/null)
   [ "$so" = "$mo" ] || { echo "$p IDENTITY FAIL sbl=[$so] m4=[$mo]"; exit 1; }
   s=(); m=()
-  for i in 1 2 3 4 5 6 7; do t0=$(date +%s%N); "$SBL" -b "$W/$p-rep.sno" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
+  for i in 1 2 3 4 5 6 7; do t0=$(date +%s%N); "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
     t0=$(date +%s%N); "$W/$p.prog" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); m+=( $(( (t1-t0)/1000000 )) ); done
   sm=$(printf '%s\n' "${s[@]}" | sort -n | sed -n 4p); mm=$(printf '%s\n' "${m[@]}" | sort -n | sed -n 4p)
   echo "$p: scrip_m4=${mm}ms sbl=${sm}ms ratio=$(python3 -c "print(f'{$mm/$sm:.2f}')") identity=OK"

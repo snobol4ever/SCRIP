@@ -12,7 +12,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
-SBL=${SBL:-$S4A/x64/bin/sbl}
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL=${SBL:-$(sbl_clean_bin)}   # BENCHMARK oracle (s255) -- x64/bin/sbl is instrumented, ~2.2-3.5x slower
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 R=${R:-3}; TMO=${TMO:-600}; ONLY=${ONLY:-}
@@ -27,7 +28,7 @@ run() {
   local src="$D/$nm.sno"
   printf -- '-CASE 0\n\t&TRIM = 0\n' > "$W/o.sno"; cat "$src" >> "$W/o.sno"
   : > "$W/in"; for _ in $(seq 1 "$xn"); do cat "$base" >> "$W/in"; done
-  timeout $TMO "$SBL" -b -d512m -i64m $xf "$W/o.sno" < "$W/in" > "$W/ref" 2>/dev/null || { printf '%-18s %4s SBL-FAIL\n' "$nm" "$xn"; return; }
+  timeout $TMO "$SBL" $(sbl_lang_flags) -d512m -i64m $xf "$W/o.sno" < "$W/in" > "$W/ref" 2>/dev/null || { printf '%-18s %4s SBL-FAIL\n' "$nm" "$xn"; return; }
   local ok3=0 ok4=0
   timeout $TMO "$SC/scrip" --run "$src" < "$W/in" > "$W/a3" 2>/dev/null && cmp -s "$W/ref" "$W/a3" && ok3=1
   if timeout $TMO "$SC/scrip" --compile "$src" > "$W/a.s" 2>/dev/null \
@@ -35,7 +36,7 @@ run() {
     timeout $TMO "$W/a.prog" < "$W/in" > "$W/a4" 2>/dev/null && cmp -s "$W/ref" "$W/a4" && ok4=1; fi
   local sb=() t3=() t4=()
   for i in $(seq 1 $R); do
-    sb+=( "$(ms timeout $TMO "$SBL" -b -d512m -i64m $xf "$W/o.sno" < "$W/in")" )
+    sb+=( "$(ms timeout $TMO "$SBL" $(sbl_lang_flags) -d512m -i64m $xf "$W/o.sno" < "$W/in")" )
     [ $ok3 = 1 ] && t3+=( "$(ms timeout $TMO "$SC/scrip" --run "$src" < "$W/in")" )
     [ $ok4 = 1 ] && t4+=( "$(ms timeout $TMO "$W/a.prog" < "$W/in")" )
   done

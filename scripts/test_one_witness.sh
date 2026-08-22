@@ -6,11 +6,12 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SBL="${SBL:-$S4A/x64/bin/sbl}"
+. "$ROOT/scripts/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- single-witness check, not timing
 F="$1"; TAG="${2:-run}"
 b=$(basename "$F" .sno)
 W=/tmp/onew.$TAG; mkdir -p "$W"
-"$SBL" -b "$F" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
+"$SBL" $(sbl_lang_flags) "$F" < /dev/null > "$W/$b.ora" 2>/dev/null; orc=$?
 timeout 15 "$ROOT/scrip" --run "$F" < /dev/null > "$W/$b.m3" 2>/dev/null; m3rc=$?
 if [ $m3rc -eq $orc ] && cmp -s "$W/$b.ora" "$W/$b.m3"; then m3="PASS"; else m3="rc=$m3rc/$orc"; cmp -s "$W/$b.ora" "$W/$b.m3" || m3="$m3,DIFF"; fi
 s=$(timeout 15 "$ROOT/scrip" --compile "$F" < /dev/null 2>/dev/null)

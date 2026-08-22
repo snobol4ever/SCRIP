@@ -5,7 +5,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 ROOT=$S4E/SCRIP
 B=$S4E/corpus/benchmarks/snobol4
-SBL=$S4A/x64/bin/sbl
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL=$(sbl_clean_bin)   # BENCHMARK oracle (s255) -- x64/bin/sbl is instrumented, ~2.2-3.5x slower
 CSN=$S4A/csnobol4/snobol4
 RT=$ROOT/out
 OUT=${OUT:-/tmp/cmp3.tsv}
@@ -28,8 +29,8 @@ for s in $ORDER; do
   else
     SCW=- ; SCR=BUILDERR; SCS=- ; : >/tmp/_c3.$s.scrip
   fi
-  # --- SPITBOL (sbl -b): exits 1 on benign sandbox segfault-on-exit; output still valid ---
-  run "$SBL" -b "$B/$s.sno"; SBW=$WALL; SBR=$RC; SBS=$(selfms "$CO"); sans "$CO" >/tmp/_c3.$s.sbl
+  # --- SPITBOL (sbl -bf, s189 authority): plain -b manufactures phantom duplicate labels under folding ---
+  run "$SBL" $(sbl_lang_flags) "$B/$s.sno"; SBW=$WALL; SBR=$RC; SBS=$(selfms "$CO"); sans "$CO" >/tmp/_c3.$s.sbl
   # --- CSNOBOL4 ---
   run "$CSN" "$B/$s.sno"; CNW=$WALL; CNR=$RC; CNS=$(selfms "$CO"); sans "$CO" >/tmp/_c3.$s.csn
   # --- agreement (sans ms line); SCRIP is reference ---

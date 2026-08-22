@@ -39,7 +39,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
 
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"
+SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255) -- x64/bin/sbl carries a monitor-IPC bridge, ~2.2-3.5x slower
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"  # BM-ONE (s153): promoted, see test_bench_snobol4_timed.sh
 REPS="${REPS:-5}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
 APPEND="${APPEND:-0}"; NOHUGE="${NOHUGE:-1}"

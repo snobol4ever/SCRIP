@@ -26,7 +26,8 @@
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: sibling root
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
-CC="$S4E/corpus/crosscheck"; SBL="$S4A/x64/bin/sbl"; CSN="${CSNOBOL4:-/usr/local/bin/snobol4}"; SCRIP="$S4E/SCRIP/scrip"
+. "$S4E/SCRIP/scripts/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+CC="$S4E/corpus/crosscheck"; SBL="${SBL:-$S4A/x64/bin/sbl}"; CSN="${CSNOBOL4:-/usr/local/bin/snobol4}"; SCRIP="$S4E/SCRIP/scrip"
 out="${1:-/tmp/crosscheck_two_oracle_census.tsv}"
 for r in "$SBL" "$CSN" "$SCRIP"; do [ -x "$r" ] || { echo "MISSING: $r"; echo "⛔ without both oracles this prints a plausible all-FAIL table — refusing"; exit 2; }; done
 [ -d "$CC" ] || { echo "MISSING: $CC"; exit 2; }
@@ -35,7 +36,7 @@ cd "$S4E/corpus" || exit 2
 while IFS= read -r f; do
     rel="${f#./}"; ref="${f%.sno}.ref"; inp="${f%.sno}.input"; [ -f "$inp" ] || inp=/dev/null
     m=$(timeout 10s "$SCRIP" "$rel" < "$inp" 2>/dev/null)
-    s=$(timeout 10s "$SBL" -bf  "$rel" < "$inp" 2>/dev/null)
+    s=$(timeout 10s "$SBL" $(sbl_lang_flags) "$rel" < "$inp" 2>/dev/null)
     c=$(timeout 10s "$CSN" -b   "$rel" < "$inp" 2>/dev/null)
     tag=""; [ "$m" = "$s" ] && tag="${tag}S" || tag="${tag}."
     [ "$m" = "$c" ] && tag="${tag}C" || tag="${tag}."

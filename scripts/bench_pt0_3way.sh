@@ -31,7 +31,8 @@ set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
-SBL="${SBL:-$S4A/x64/bin/sbl}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"   # BENCHMARK oracle (s255)
 W="${W:-$(mktemp -d)}"; N="${SAMPLES:-7}"; REPS="${REPS:-2000}"; CCOST=0
 PROGS="${PROGS:-treebank-match treebank-match-fence}"
 while [ $# -gt 0 ]; do case $1 in --progs) PROGS="$2"; shift 2;; --reps) REPS="$2"; shift 2;; --samples) N="$2"; shift 2;; --compile-cost) CCOST=1; shift;; *) echo "unknown arg $1"; exit 2;; esac; done
@@ -54,7 +55,7 @@ open(out_path,'w').write('\n'.join(lines[:mi]+tail)+'\n')
 PYEOF
 }
 med() { printf '%s\n' "$@" | sort -n | sed -n "$(( (N+1)/2 ))p"; }
-[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction. Clone snobol4ever/x64."; exit 3; }
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)."; exit 3; }
 RTO=$(grep -o '\-O[0-9]' "$HERE/../Makefile" 2>/dev/null | head -1)
 echo "# PT-0 3-way baseline · reps=$REPS · samples=$N · median-of-$N · RT_OPT=${RTO:-unknown} · $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 for p in $PROGS; do
@@ -65,13 +66,13 @@ for p in $PROGS; do
   if [ "$REPS" != 0 ]; then mktape "$SRC" "$W/$p-rep.sno" "$REPS" || { echo "$p: TAPE FAIL"; continue; }; RUN="$W/$p-rep.sno"; fi
   "$SCRIP" --compile -o "$W/$p.s" "$RUN" < /dev/null > /dev/null 2>&1
   gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.m4" 2>/dev/null || { echo "$p: M4 BUILD FAIL"; continue; }
-  so="$(timeout 600 "$SBL" -bf "$RUN" < "$IN" 2>/dev/null)"
+  so="$(timeout 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" 2>/dev/null)"
   o3="$(timeout 600 "$SCRIP" "$RUN" < "$IN" 2>/dev/null)"
   o4="$(timeout 600 "$W/$p.m4" < "$IN" 2>/dev/null)"
   [ "$so" = "$o3" ] && [ "$so" = "$o4" ] || { echo "$p: IDENTITY FAIL sbl=[$so] m3=[$o3] m4=[$o4]"; continue; }
   s=(); m3=(); m4=()
   for i in $(seq 1 "$N"); do
-    t0=$(date +%s%N); timeout 600 "$SBL" -bf "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
+    t0=$(date +%s%N); timeout 600 "$SBL" $(sbl_lang_flags) "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); s+=( $(( (t1-t0)/1000000 )) )
     t0=$(date +%s%N); timeout 600 "$SCRIP" "$RUN" < "$IN" > /dev/null 2>&1; t1=$(date +%s%N); m3+=( $(( (t1-t0)/1000000 )) )
     t0=$(date +%s%N); timeout 600 "$W/$p.m4" < "$IN" > /dev/null 2>&1;      t1=$(date +%s%N); m4+=( $(( (t1-t0)/1000000 )) )
   done

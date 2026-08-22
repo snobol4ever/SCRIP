@@ -13,7 +13,8 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   
 cd "$(dirname "$0")/.."
 ROOT=$PWD
 OUT=${1:-/tmp/demo_sweep.txt}; : > "$OUT"
-: "${SWEEP_ORACLE:=$S4A/x64/bin/sbl}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
+: "${SWEEP_ORACLE:=$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- generates/verifies .ref, not timing
 : "${DEMO_DIRS:=$S4E/corpus/programs/snobol4/demo $S4E/corpus/programs/snobol4/beauty_suite}"
 : "${DEMO_TIMEOUT:=60}"
 for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
@@ -24,7 +25,7 @@ for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
   # ⛔ NOT -P: this sbl build rejects it ("Illegal option -P"), which silently makes the oracle emit
   # NOTHING and grades every no-.ref program DIFF against an empty string.  Caught by the hello.sno
   # control row.  The demo header comments quote -P 34000 from a DIFFERENT spitbol build; do not restore it.
-  if [ -f "$b.ref" ]; then ORA=$(cat "$b.ref"); else ORA=$(cd "$d" && timeout $DEMO_TIMEOUT "$SWEEP_ORACLE" -b "$src" < "$IN" 2>/dev/null); fi
+  if [ -f "$b.ref" ]; then ORA=$(cat "$b.ref"); else ORA=$(cd "$d" && timeout $DEMO_TIMEOUT "$SWEEP_ORACLE" $(sbl_lang_flags) "$src" < "$IN" 2>/dev/null); fi
   if ! SNO_LIB="$d" timeout $DEMO_TIMEOUT "$ROOT/scrip" --compile "$src" </dev/null > $S 2>/dev/null; then st=COMPILE_FAIL
   elif ! gcc -no-pie $S -L "$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o $X 2>/dev/null; then st=ASM_FAIL
   else
