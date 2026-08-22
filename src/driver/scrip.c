@@ -1583,6 +1583,8 @@ int main(int argc, char **argv)
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
+            extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(); extern int x86_diag_regs_on_c(void);
+            if (x86_diag_regs_on_c()) { g_m4_dense_nid = 1; g_bb_alpha_seq_reset(); }
             int main_bb_idx = -1;
             rt_proc_reset();
             g_frame_active = 1;

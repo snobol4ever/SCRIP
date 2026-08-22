@@ -1866,6 +1866,9 @@ std::string bb_glue_wire_exit(int is_gamma);
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_diag_regs_suppress(void);
+inline int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_port_hook(int site, int port) {
     std::string s;
     if (site == X86H_JMP) s += x86_port_canary();
@@ -1951,6 +1954,8 @@ inline std::string x86_port_hook(int site, int port) {
            + x86("mov", "rcx", FRQ(_.op_own_mark))
            + x86_sub("rcx", (long)_.op_own_ci)
            + x86_own_floor_store();
+    if (x86_diag_regs_on() && (site == X86H_DEF || site == X86H_DEF_PAIR) && (port == X86P_ALPHA || port == X86P_BETA) && !emit_diag_regs_suppress())
+        s += x86("mov", "r11", (long)_.nid);
     if (x86_selfload_mode() == ZC_SELFLOAD_ALLOC && _.op_selfload) {
         if (site == X86H_DEF && port == X86P_ALPHA && _.op_selfload == 1)
             s += x86_align_enter()
