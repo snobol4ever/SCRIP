@@ -24,7 +24,7 @@ shopt -s dotglob
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
-if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";; /home/claude[1-9]) ME="seat0${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
+if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude_C) ME=hq_C;; /home/claude_P) ME=hq_P;; /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";; /home/claude[1-9]) ME="seat0${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
 cmd="${1:-check}"
 # ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
 # ruling unread in its inbox while asking Lon the same question in chat). The inbox is HQ's ONLY channel to a
