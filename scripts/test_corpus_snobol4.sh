@@ -93,11 +93,37 @@ for sno in "$BEAUTY"/*_driver.sno; do
 done
 
 # ── Demo programs ─────────────────────────────────────────────────────────────
+# Coverage audit (demo-corpus-coverage-audit, 2026-08-22): wordcount's ref/input were
+# missing (silent no-op, neither PASS nor FAIL) -- regenerated via x64/bin/sbl -bf.
 run_test "demo_wordcount" "$DEMO/wordcount.sno" "$DEMO/wordcount.ref" "$DEMO/wordcount.input" ""
 run_test "demo_treebank"  "$DEMO/treebank.sno"  "$DEMO/treebank.ref"  "$DEMO/treebank.input"  ""
 run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/claws5.input"    ""
 TIMEOUT=30 \
 run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
+# 15 rows below newly gated by the same audit -- each independently oracle-verified
+# (x64/bin/sbl -bf) and scrip-verified before wiring in; see FINDING-2026-08-22-*-demo-corpus-coverage-audit.md
+run_test "demo_arithmetic"          "$DEMO/arithmetic.sno"          "$DEMO/arithmetic.ref"          "" ""
+run_test "demo_counter"             "$DEMO/counter.sno"             "$DEMO/counter.ref"             "" ""
+run_test "demo_hello"               "$DEMO/hello.sno"               "$DEMO/hello.ref"               "" ""
+run_test "demo_pattern_test"        "$DEMO/pattern_test.sno"        "$DEMO/pattern_test.ref"        "" ""
+run_test "demo_claws5_match"        "$DEMO/claws5-match.sno"        "$DEMO/claws5-match.ref"        "$DEMO/claws5.input"     ""
+run_test "demo_claws5_match_fence"  "$DEMO/claws5-match-fence.sno"  "$DEMO/claws5-match-fence.ref"  "$DEMO/claws5.input"     ""
+run_test "demo_treebank_match"      "$DEMO/treebank-match.sno"      "$DEMO/treebank-match.ref"      "$DEMO/treebank.input"   ""
+run_test "demo_treebank_match_fence" "$DEMO/treebank-match-fence.sno" "$DEMO/treebank-match-fence.ref" "$DEMO/treebank.input" ""
+run_test "demo_treebank_alloc"      "$DEMO/treebank-alloc.sno"      "$DEMO/treebank-alloc.ref"      "$DEMO/treebank.input"   ""
+run_test "demo_porter"              "$DEMO/porter.sno"              "$DEMO/porter.ref"              "$DEMO/porter.input"     ""
+# calculator-1/-2 (full evaluators) print a trailing nondeterministic "match_ms=" timing
+# line -- same class as demo_roman's "^ms:" filter above, just a different literal marker.
+run_test "demo_calculator_1"        "$DEMO/calculator-1.sno"        "$DEMO/calculator-1.ref"        "$DEMO/calculator.input" "^match_ms="
+run_test "demo_calculator_1_match"       "$DEMO/calculator-1-match.sno"       "$DEMO/calculator-1-match.ref"       "$DEMO/calculator.input" ""
+run_test "demo_calculator_1_match_fence" "$DEMO/calculator-1-match-fence.sno" "$DEMO/calculator-1-match-fence.ref" "$DEMO/calculator.input" ""
+run_test "demo_calculator_2_match"       "$DEMO/calculator-2-match.sno"       "$DEMO/calculator-2-match.ref"       "$DEMO/calculator.input" ""
+run_test "demo_calculator_2_match_fence" "$DEMO/calculator-2-match-fence.sno" "$DEMO/calculator-2-match-fence.ref" "$DEMO/calculator.input" ""
+# NOT gated -- each has a one-line reason, full repro in the FINDING above:
+#   demo/json.sno, demo/json-match.sno   -- HANGS (m3 AND m4) on well-formed input; needs >30s (currently: forever)
+#   demo/json-match-fence.sno            -- wrong verdict ("Pattern match failed" on valid JSON), not a timing issue
+#   demo/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
+#   demo/expression.sno                  -- -INCLUDEs 15 files (global.sno, ShiftReduce.sno, Gen.sno, ...) absent from this checkout; won't parse
 
 T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS4+FAIL4+SKIP4))
