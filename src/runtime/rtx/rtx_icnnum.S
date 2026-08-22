@@ -92,13 +92,13 @@ RTX_GATE_DEF(icnnum)
 RTX_FUNC(rt_coerce_num2_d)
     RTX_GATE(icnnum, c_rt_coerce_num2_d)
     mov eax, dword ptr [rdi]
-    cmp eax, DT_I
+    cmp al, DT_I
     je .Lself_i
-    cmp eax, DT_R
+    cmp al, DT_R
     je .Lself_r
-    cmp eax, DT_SNUL
+    cmp al, DT_SNUL
     je .Lself_snul
-    cmp eax, DT_S
+    cmp al, DT_S
     jne .Lbail
     SCAN_SIMPLE_INT(rdi, rax, eax, r11, r9d, r10b, r10d, r8, r8d, S)
     mov r8, rax
@@ -119,9 +119,9 @@ RTX_FUNC(rt_coerce_num2_d)
     movq xmm1, r8
     movq xmm2, r9
     mov eax, dword ptr [rsi]
-    cmp eax, DT_R
+    cmp al, DT_R
     je .Lother_real
-    cmp eax, DT_S
+    cmp al, DT_S
     jne .Lother_int
     SCAN_SIMPLE_INT(rsi, rax, eax, r11, r9d, r10b, r10d, r8, r8d, O)
 .Lother_int:

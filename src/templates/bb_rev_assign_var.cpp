@@ -24,7 +24,7 @@ std::string bb_rev_assign_var() {
          + x86("mov",     "rdx", FRQ(_.op_sa))
          + x86("mov",     "rcx", FRQ(_.op_sa + 8))
          + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
-         + x86("cmp",     "eax", (long)DT_FAIL)
+         + x86("cmp",     "al", (long)DT_FAIL)
          + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")

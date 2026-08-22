@@ -169,9 +169,9 @@ RTX_FUNC(rt_subscript_var)
 
     /* Cheap rejects first, BEFORE any frame, so the common bail costs four
      * compares and a tail jump with the arguments never touched. */
-    cmp     edx, DT_I                   /* DT_I  -> RTX-24's DT_DATA list arm   */
+    cmp     dl, DT_I                   /* DT_I  -> RTX-24's DT_DATA list arm   */
     je      .Lsub_tag_ok
-    cmp     edx, DT_S                   /* DT_S  -> RTX-26's DT_T table arm     */
+    cmp     dl, DT_S                   /* DT_S  -> RTX-26's DT_T table arm     */
     jne     c_rt_subscript_var
 .Lsub_tag_ok:
     /* RTX-28: the DT_A array arm branches off HERE, ahead of the DT_N gate,
@@ -181,13 +181,13 @@ RTX_FUNC(rt_subscript_var)
      * 200,001 entries / 200,001 bailed / 0 commits before it existed. It is
      * RTX-24's lesson inverted: that arm had to stop rejecting varrefs, this one
      * had to stop requiring them. */
-    cmp     edi, DT_A
+    cmp     dil, DT_A
     jne     .Lsub_not_array
-    cmp     edx, DT_I                   /* array arm takes DT_I subscripts only  */
+    cmp     dl, DT_I                   /* array arm takes DT_I subscripts only  */
     jne     c_rt_subscript_var
     jmp     .Lsub_array
 .Lsub_not_array:
-    cmp     edi, DT_N                   /* base must be the VARREF shape        */
+    cmp     dil, DT_N                   /* base must be the VARREF shape        */
     jne     c_rt_subscript_var
     mov     rax, rdi
     shr     rax, 32                     /* rax = base.slen                      */
@@ -211,11 +211,11 @@ RTX_FUNC(rt_subscript_var)
     je      .Lsub_table
     /* Past here the SUBSCRIPT is DT_I, so the deref'd BASE selects the arm:
      * DT_S -> RTX-27's substring-trap arm, DT_DATA -> RTX-24's list arm. */
-    cmp     eax, DT_S
+    cmp     al, DT_S
     je      .Lsub_string
-    cmp     eax, DT_T                   /* RTX-29: DT_T with a DT_I key           */
+    cmp     al, DT_T                   /* RTX-29: DT_T with a DT_I key           */
     je      .Lsub_table_int
-    cmp     eax, DT_DATA                /* only the list/record family here      */
+    cmp     al, DT_DATA                /* only the list/record family here      */
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = base.u (DATINST_t *)            */
     test    rsi, rsi
@@ -336,7 +336,7 @@ RTX_FUNC(rt_subscript_var)
  *    2,000,001 of 2,000,001 arrivals measured base.v=9 slen=1.
  */
 .Lsub_table:
-    cmp     eax, DT_T
+    cmp     al, DT_T
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = tb (TBBLK_t *)                  */
     test    rsi, rsi

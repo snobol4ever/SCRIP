@@ -83,7 +83,7 @@ static std::string arith_opnd_a(IR_graph_t * sg, IR_t * a, int gk_lb = -1) {
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(a).sval) : -1;
         if (k >= 0)
             s += x86("note", gva_name(k)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 0) : ABSQ(RT_GVA_VA + k * 16))
-               + x86("cmp", "edx", (long)DT_I)
+               + x86("cmp", "dl", (long)DT_I)
                + x86("jne", L(gk_lb))
                + x86("note", gva_name(k)) + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 8) : ABSQ(RT_GVA_VA + k * 16 + 8))
                + x86("jmp", L(gk_lb + 1))
@@ -118,7 +118,7 @@ static std::string arith_opnd_b(IR_graph_t * sg, IR_t * b, int gk_lb = -1) {
         int k = (gk_lb >= 0 && g_gva_active) ? gva_index_of(IR_LIT(b).sval) : -1;
         if (k >= 0)
             s += x86("note", gva_name(k)) + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 0) : ABSQ(RT_GVA_VA + k * 16))
-               + x86("cmp", "edx", (long)DT_I)
+               + x86("cmp", "dl", (long)DT_I)
                + x86("jne", L(gk_lb))
                + x86("note", gva_name(k)) + x86("mov", "rcx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, 8) : ABSQ(RT_GVA_VA + k * 16 + 8))
                + x86("jmp", L(gk_lb + 1))
@@ -308,7 +308,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("call", "rt_call_arr", fptr);
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
-        s += x86("cmp", "eax", (long)DT_FAIL);
+        s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
@@ -353,7 +353,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     if (scansync) s += x86_scan_sync_in_rr_force();
-    s += x86("cmp", "eax", (long)DT_FAIL);
+    s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
     s += x86("rtcc_rl");
     s += x86_gamma();
@@ -397,7 +397,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     s += x86("call_bare", "rt_call_arr_gen", fptr);
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
-    s += x86("cmp", "eax", (long)DT_FAIL);
+    s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
     s += x86("rtcc_rl");
     s += x86_gamma();

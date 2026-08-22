@@ -34,7 +34,7 @@ std::string bb_rev_swap() {
                                       : x86("mov", "r9", (long)0))
              + x86("call", "rt_rev_swap_fwd", (uint64_t)(uintptr_t)(void *)rt_rev_swap_fwd)
              + IF(g_scan_regs_live != 0, x86("note", "scan_δ") + x86("mov", "r14", FRQ(_.op_off + 48)))
-             + x86("cmp", "eax", (long)DT_FAIL)
+             + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")

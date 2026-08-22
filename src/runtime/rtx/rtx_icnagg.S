@@ -34,9 +34,9 @@ RTX_GATE_DEF(icnagg)
  * / frame_size / gen_type walk, which is RTX-8b's subject, not a leaf. */
 RTX_FUNC(rt_size_d)
     RTX_GATE(icnagg, c_rt_size_d)
-    cmp     edi, DT_SNUL
+    cmp     dil, DT_SNUL
     je      .Lsz_zero
-    cmp     edi, DT_S
+    cmp     dil, DT_S
     jne     c_rt_size_d
     mov     rax, rdi
     shr     rax, 32                     /* rax = slen */
@@ -121,7 +121,7 @@ RTX_ENDF(rt_list_bang_at)
  * and this routine is a true leaf on the ported arm -- no call, no stack, no red zone. */
 RTX_FUNC(dat_field_get)
     RTX_GATE(icnagg, c_dat_field_get)
-    cmp     esi, DT_DATA                /* C: inst.v < DT_DATA -> NULL cell, signed compare on int v */
+    cmp     sil, DT_DATA                /* C: inst.v < DT_DATA -> NULL cell, signed compare on int v */
     jl      c_dat_field_get
     test    rdx, rdx                    /* C: !inst.u */
     je      c_dat_field_get

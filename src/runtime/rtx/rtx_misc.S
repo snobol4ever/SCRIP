@@ -48,11 +48,11 @@ RTX_ENDF(rt_faildescr)
  */
 RTX_FUNC(rt_is_truthy)
     xor     eax, eax                    /* default result 0                    */
-    cmp     edi, DT_FAIL
+    cmp     dil, DT_FAIL
     je      .Lit_ret                    /* FAIL   -> 0                         */
-    cmp     edi, DT_I
+    cmp     dil, DT_I
     je      .Lit_int
-    cmp     edi, DT_R
+    cmp     dil, DT_R
     je      .Lit_real
     test    edi, edi                    /* DT_SNUL == 0                        */
     je      .Lit_ret                    /* SNUL   -> 0                         */

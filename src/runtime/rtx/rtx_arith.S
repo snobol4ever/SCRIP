@@ -55,9 +55,9 @@ RTX_FUNC(rt_cmp_d)
     mov     eax, dword ptr [rdi]        /* a->v                                */
     mov     ecx, dword ptr [rsi]        /* b->v                                */
     /* ---- HOT ARM: both DT_I. Measured shape of LT/GT/LE/GE on counters. ---- */
-    cmp     eax, DT_I
+    cmp     al, DT_I
     jne     .Lcd_notint
-    cmp     ecx, DT_I
+    cmp     cl, DT_I
     jne     .Lcd_notint
     mov     rdx, qword ptr [rdi + 8]    /* a->i                                */
     cmp     rdx, qword ptr [rsi + 8]    /* signed compare against b->i         */
@@ -80,7 +80,7 @@ RTX_FUNC(rt_cmp_d)
     /* ptr_a = (a->v == DT_S && a->s) ? a->s : ""   -- DT_SNUL always yields ""
      * even when the union happens to hold a non-null pointer.                 */
     xor     edx, edx
-    cmp     eax, DT_S
+    cmp     al, DT_S
     jne     .Lcd_a_fix
     mov     rdx, qword ptr [rdi + 8]
 .Lcd_a_fix:
@@ -89,7 +89,7 @@ RTX_FUNC(rt_cmp_d)
     lea     rdx, [rip + .Lcd_empty]
 .Lcd_b:
     xor     r8d, r8d
-    cmp     ecx, DT_S
+    cmp     cl, DT_S
     jne     .Lcd_b_fix
     mov     r8, qword ptr [rsi + 8]
 .Lcd_b_fix:
@@ -124,14 +124,14 @@ RTX_FUNC(rt_cmp_d)
      * arm reinterprets the union's 64 bits as a signed integer for EVERY tag
      * that is not DT_R -- including pointer-bearing tags. That is the existing
      * C semantics and this port reproduces it rather than improving it.      */
-    cmp     eax, DT_R
+    cmp     al, DT_R
     je      .Lcd_a_real
     cvtsi2sd xmm0, qword ptr [rdi + 8]
     jmp     .Lcd_bval
 .Lcd_a_real:
     movsd   xmm0, qword ptr [rdi + 8]
 .Lcd_bval:
-    cmp     ecx, DT_R
+    cmp     cl, DT_R
     je      .Lcd_b_real
     cvtsi2sd xmm1, qword ptr [rsi + 8]
     jmp     .Lcd_cmp
@@ -180,17 +180,17 @@ RTX_ENDF(rt_cmp_d)
  */
 RTX_FUNC(rt_add)
     RTX_GATE(arith, c_rt_add)
-    cmp     edi, DT_I
+    cmp     dil, DT_I
     jne     .Ladd_notii
-    cmp     edx, DT_I
+    cmp     dl, DT_I
     jne     .Ladd_notii
     lea     rdx, [rsi + rcx]            /* a.i + b.i, one instruction          */
     mov     eax, DT_I
     ret
 .Ladd_notii:
-    cmp     edi, DT_R
+    cmp     dil, DT_R
     jne     .Ladd_slow
-    cmp     edx, DT_R
+    cmp     dl, DT_R
     jne     .Ladd_slow
     movq    xmm0, rsi
     movq    xmm1, rcx
@@ -205,18 +205,18 @@ RTX_ENDF(rt_add)
 /*---------------------------------------------------------------------------*/
 RTX_FUNC(rt_sub)
     RTX_GATE(arith, c_rt_sub)
-    cmp     edi, DT_I
+    cmp     dil, DT_I
     jne     .Lsub_notii
-    cmp     edx, DT_I
+    cmp     dl, DT_I
     jne     .Lsub_notii
     mov     rdx, rsi
     sub     rdx, rcx                    /* a.i - b.i                           */
     mov     eax, DT_I
     ret
 .Lsub_notii:
-    cmp     edi, DT_R
+    cmp     dil, DT_R
     jne     .Lsub_slow
-    cmp     edx, DT_R
+    cmp     dl, DT_R
     jne     .Lsub_slow
     movq    xmm0, rsi
     movq    xmm1, rcx
@@ -231,18 +231,18 @@ RTX_ENDF(rt_sub)
 /*---------------------------------------------------------------------------*/
 RTX_FUNC(rt_mul)
     RTX_GATE(arith, c_rt_mul)
-    cmp     edi, DT_I
+    cmp     dil, DT_I
     jne     .Lmul_notii
-    cmp     edx, DT_I
+    cmp     dl, DT_I
     jne     .Lmul_notii
     mov     rdx, rsi
     imul    rdx, rcx                    /* a.i * b.i, low 64 bits, wraps       */
     mov     eax, DT_I
     ret
 .Lmul_notii:
-    cmp     edi, DT_R
+    cmp     dil, DT_R
     jne     .Lmul_slow
-    cmp     edx, DT_R
+    cmp     dl, DT_R
     jne     .Lmul_slow
     movq    xmm0, rsi
     movq    xmm1, rcx

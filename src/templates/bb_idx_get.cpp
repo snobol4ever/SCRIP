@@ -41,11 +41,11 @@ std::string bb_idx_get() {
                + x86("mov",  FRQ(_.op_sa + 8), "rdx"))
             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0])
             + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *) NV_GET_fn)
-            + x86("cmp",  "eax", (long)DT_A)
+            + x86("cmp",  "al", (long)DT_A)
             + x86("jne",  L(0))
             + IF(_.bb_lk == (int)IR_VAR,
                  x86("mov", "r8", FRQ(_.op_sa))
-               + x86("cmp", "r8d", (long)DT_I)
+               + x86("cmp", "r8b", (long)DT_I)
                + x86("jne", L(0))
                + x86("mov", "rcx", FRQ(_.op_sa + 8)))
             + IF(!(_.bb_lk == (int)IR_VAR),
@@ -77,7 +77,7 @@ std::string bb_idx_get() {
                  x86("movabs", "rdx", (uint64_t)DT_I)
                + x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li))
             + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
-            + x86("cmp", "eax", (long)DT_FAIL)
+            + x86("cmp", "al", (long)DT_FAIL)
             + x86_omega("je")
             + x86("mov", FRQ(_.op_off),     "rax")
             + x86("mov", FRQ(_.op_off + 8), "rdx")

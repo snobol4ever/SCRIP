@@ -216,7 +216,7 @@ RTX_FUNC(rt_defer_open)
     add     rsp, 8
     pop     r11
     RTX_CALL_UNALIGN
-    cmp     eax, DT_X
+    cmp     al, DT_X
     je      .Ldo_dtx                    /* unevaluated expression: owed call     */
     mov     qword ptr [r11], rax        /* s->val = val (v|slen then value)      */
     mov     qword ptr [r11 + 8], rdx
@@ -273,11 +273,11 @@ RTX_FUNC(rt_defer_close)
     cmp     dword ptr [r11 + 16], 0     /* s.failed                             */
     jne     .Ldc_pop_fail
     mov     ecx, dword ptr [r11]        /* val.v                                */
-    cmp     ecx, DT_FAIL
+    cmp     cl, DT_FAIL
     je      .Ldc_pop_fail
-    cmp     ecx, DT_S
+    cmp     cl, DT_S
     je      .Ldc_str
-    cmp     ecx, DT_SNUL
+    cmp     cl, DT_SNUL
     jne     c_rt_defer_close            /* DT_I/DT_R/DT_P/DT_X/other -> C        */
 .Ldc_str:
     mov     ecx, dword ptr [r11 + 4]    /* val.slen                             */
@@ -499,7 +499,7 @@ RTX_ENDF(rt_patstk_lazy_init)
 #define RTX_DCAP_TOP_VA 0x70000000
 RTX_FUNC(rt_match_enter)
     RTX_GATE(match, c_rt_match_enter)
-    cmp     edi, DT_S                                    /* edi aliases the tag word; v == DT_S?              */
+    cmp     dil, DT_S                                    /* edi aliases the tag word; v == DT_S?              */
     jne     c_rt_match_enter                             /* DELEGATE: INT/REAL/every other tag                */
     test    rsi, rsi                                     /* sv.s == NULL?                                     */
     jz      c_rt_match_enter                             /* DELEGATE: VARVAL_fn allocates on that arm          */
@@ -765,7 +765,7 @@ RTX_FUNC(rt_match_replace)
     jz      c_rt_match_replace
     cmp     byte ptr [rdi], 0                        /* name[0] == 0: C would build the string and discard it         */
     je      c_rt_match_replace
-    cmp     esi, DT_S                                /* sv.v: esi aliases the tag word of the descriptor pair         */
+    cmp     sil, DT_S                                /* sv.v: esi aliases the tag word of the descriptor pair         */
     jne     c_rt_match_replace
     test    rdx, rdx                                 /* sv.s == NULL -> VARVAL_fn's rt_ws_strdup_c arm                */
     jz      c_rt_match_replace
@@ -783,9 +783,9 @@ RTX_FUNC(rt_match_replace)
     test    r9, r9
     jz      .Lmr_repl_done                           /* replp == NULL -> C forces rs = "" via the !replp disjunct       */
     mov     eax, dword ptr [r9 + 0]                  /* rv.v                                                           */
-    cmp     eax, DT_SNUL
+    cmp     al, DT_SNUL
     je      .Lmr_repl_done                           /* IS_NULL_fn(rv) true                                            */
-    cmp     eax, DT_S
+    cmp     al, DT_S
     jne     c_rt_match_replace                       /* DT_I/DT_R -> descr_to_str; other tags -> strdup arms            */
     mov     r10, qword ptr [r9 + 8]                  /* rv.s                                                           */
     test    r10, r10
@@ -941,7 +941,7 @@ RTX_FUNC(rt_dcap_step)
     mov     r8d, dword ptr [rip + g_dcf_top]             /* int => dword ptr; zero-extends into r8                   */
     test    r8d, r8d
     jle     .Lrtx_dcs_ret0                               /* ARM A: pump with nothing pushed -> 0, no pump call       */
-    cmp     edi, DT_FAIL                                 /* edi aliases nm.v (s162 ABI probe). SYMBOLIC since s229   */
+    cmp     dil, DT_FAIL                                 /* edi aliases nm.v (s162 ABI probe). SYMBOLIC since s229   */
     je      c_rt_dcap_step                               /* ARM B: cold, delegate                                    */
     test    edi, DT_NOTSTR_MASK                          /* string family (DT_SNUL|DT_S) in ONE 32-bit mask test      */
     jz      c_rt_dcap_step                               /* ARM C: cold, delegate (also keeps NV_SET_fn untouched)   */

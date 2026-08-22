@@ -72,12 +72,12 @@ RTX_FUNC(rt_assign_var)
     jne     .Lav_c                      /* pending: C does the shield dance    */
 
     /* (2) sxt break — same DT_S guard the C uses. */
-    cmp     edx, DT_S
+    cmp     dl, DT_S
     je      .Lav_sxt
 .Lav_sxt_done:
 
     /* (3) var must be a name descriptor; dispatch on slen. */
-    cmp     edi, DT_N
+    cmp     dil, DT_N
     jne     .Lav_c
     mov     r11, rdi
     shr     r11, 32                     /* r11d = var.slen                     */

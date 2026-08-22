@@ -27,7 +27,7 @@ std::string bb_var_global() {
              + x86_alpha()
              + x86("mov",    "rdi", ROQ(0))
              + x86("call",   "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn)
-             + x86("cmp",    "eax", (long)DT_FAIL)
+             + x86("cmp",    "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN()) + x86("mov",    vg_res(0), "rax")
              + x86("note", ZRESN()) + x86("mov",    vg_res(8), "rdx")

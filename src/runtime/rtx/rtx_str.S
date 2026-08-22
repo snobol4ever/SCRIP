@@ -127,9 +127,9 @@ RTX_GATE_DEF(str)
  */
 RTX_FUNC(str_concat_d)
     RTX_GATE(str, c_str_concat_d)
-    cmp     edi, DT_S                   /* a.v == DT_S (tag aliases edi)        */
+    cmp     dil, DT_S                   /* a.v == DT_S (tag aliases edi)        */
     jne     .Lsc_null                   /* not two plain strings -> null arm    */
-    cmp     edx, DT_S                   /* b.v == DT_S                          */
+    cmp     dl, DT_S                   /* b.v == DT_S                          */
     jne     .Lsc_null
     test    rsi, rsi                    /* a.s non-null (else VARVAL_fn strdups)*/
     je      .Lsc_slow
@@ -245,11 +245,11 @@ RTX_FUNC(str_concat_d)
     jne     .Lsc_slow                   /* collection pending => C's gc point   */
     test    edi, edi                    /* a.v == DT_SNUL (0)?                  */
     jne     .Lsc_nb
-    cmp     edx, DT_P                   /* a is SNUL, so guard b alone          */
+    cmp     dl, DT_P                   /* a is SNUL, so guard b alone          */
     je      .Lsc_slow
-    cmp     edx, DT_X
+    cmp     dl, DT_X
     je      .Lsc_slow
-    cmp     edx, DT_FAIL
+    cmp     dl, DT_FAIL
     je      .Lsc_slow
     mov     rax, rdx                    /* return b -- read rdx BEFORE overwrite*/
     mov     rdx, rcx
@@ -260,14 +260,14 @@ RTX_FUNC(str_concat_d)
     mov     r8, rdi
     shr     r8, 32                      /* r8 = a.slen; ZF set when slen == 0   */
     jne     .Lsc_nb_ok
-    cmp     edi, DT_S                   /* DT_S with slen==0 => IS_NULL_fn(a)   */
+    cmp     dil, DT_S                   /* DT_S with slen==0 => IS_NULL_fn(a)   */
     je      .Lsc_slow                   /*   ambiguous here; let C decide       */
 .Lsc_nb_ok:
-    cmp     edi, DT_P                   /* b is SNUL, so guard a alone          */
+    cmp     dil, DT_P                   /* b is SNUL, so guard a alone          */
     je      .Lsc_slow
-    cmp     edi, DT_X
+    cmp     dil, DT_X
     je      .Lsc_slow
-    cmp     edi, DT_FAIL
+    cmp     dil, DT_FAIL
     je      .Lsc_slow
     mov     rax, rdi                    /* return a                             */
     mov     rdx, rsi
@@ -311,7 +311,7 @@ RTX_ENDF(str_concat_d)
  */
 RTX_FUNC(VARVAL_fn)
     RTX_GATE(str, c_VARVAL_fn)
-    cmp     edi, DT_S
+    cmp     dil, DT_S
     jne     c_VARVAL_fn                 /* every other tag allocates -> C      */
     test    rsi, rsi
     jz      c_VARVAL_fn                 /* DT_S with NULL .s strdups "" -> C   */

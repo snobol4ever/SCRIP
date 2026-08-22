@@ -36,7 +36,7 @@ std::string bb_binop_gvar_arith_slot() {
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("rtcc_wb")
              + x86("call_bare", "rt_num_arith", (uint64_t)(uintptr_t)(void *) rt_num_arith)
-             + x86("cmp", "eax", (long)DT_FAIL)
+             + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")

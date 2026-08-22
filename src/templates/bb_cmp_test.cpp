@@ -40,7 +40,7 @@ std::string bb_cmp_test() {
                  + x86("note", ZOPN(1)) + x86("mov", "ecx", ZOPD(1, 0))
                  + x86("mov", "edx", "eax")
                  + x86("and", "edx", "ecx")
-                 + x86("cmp", "edx", (long)DT_I)
+                 + x86("cmp", "dl", (long)DT_I)
                  + x86("jne", L(0))
                  + x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8))
                  + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 8))

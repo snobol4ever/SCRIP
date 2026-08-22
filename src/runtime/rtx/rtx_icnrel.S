@@ -94,9 +94,9 @@ RTX_FUNC(rt_jct_relop)
  *     a = VARVAL_fn(lhs); b = VARVAL_fn(rhs); c = strcmp(a,b); switch (op) {...}
  * VARVAL_fn on DT_S with a non-NULL .s returns .s unchanged and allocates nothing (core.c:1840),
  * so for DT_S/DT_S this whole tail is exactly strcmp on the two stored pointers. */
-    cmp     edi, DT_S
+    cmp     dil, DT_S
     jne     .Lbail
-    cmp     edx, DT_S
+    cmp     dl, DT_S
     jne     .Lbail
 /* CSET EXCLUSION (added with the s229 tag fix that ARMED this previously-dead arm): a cset is spelled
  * DT_S with slen 0xFFFFFFFF, and comparing its raw .s bypasses the sorted-character conversion order
@@ -183,7 +183,7 @@ RTX_FUNC(rt_jct_relop)
     je      .Leqv_equal
 /* Tags match, values differ. Settled ONLY for DT_I; every other tag may still compare equal by
  * content further down the C chain (string bytes, cset membership), so bail. */
-    cmp     edi, DT_I
+    cmp     dil, DT_I
     jne     .Lbail
     xor     eax, eax
     cmp     r8d, OP_NEQV
@@ -193,7 +193,7 @@ RTX_FUNC(rt_jct_relop)
 /* Bit-identical descriptors. Guard the cset spelling out of the fast path: for DT_S with
  * slen 0xFFFFFFFF the C reaches cset_resolve, and although an identical pointer would also compare
  * equal there, this port does not model cset_resolve's failure mode, so it refuses the case. */
-    cmp     edi, DT_S
+    cmp     dil, DT_S
     jne     .Leqv_settled
     mov     rax, rdi
     shr     rax, 32
@@ -244,7 +244,7 @@ RTX_ENDF(rt_jct_relop)
  * this symbol or for the icnrel family after this edit. */
 RTX_FUNC(rt_str_coerce)
     RTX_GATE(icnrel, c_rt_str_coerce)
-    cmp     edi, DT_S
+    cmp     dil, DT_S
     jne     .Lsc_ident                  /* not DT_S => cannot be a cset => identity */
     mov     rax, rdi
     shr     rax, 32                     /* rax = slen */

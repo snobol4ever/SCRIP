@@ -16,7 +16,7 @@ std::string bb_random() {
          + x86("mov",     "rdi", FRQ(_.op_a_slot))
          + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
          + x86("call",    "rt_random_var", (uint64_t)(uintptr_t)(void *)rt_random_var)
-         + x86("cmp",     "eax", (long)DT_FAIL)
+         + x86("cmp",     "al", (long)DT_FAIL)
          + x86_omega("je")
          + x86("mov",     FRQ(_.op_off),     "rax")
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
