@@ -370,7 +370,7 @@ n28_call_α:             sub              rsp, 16
                         mov              rdx, qword ptr [rsp + 8]
 .Lx75_29:               mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 104;                            jne   .Lx75_240
+                        cmp              al, 104;                             jne   .Lx75_240
                         add              rsp, 16;                             jmp   n27_lit_string_β
 .Lx75_240:                                                                    jmp   n29_statement_end_α
 n28_call_β:                                                                   jmp   n27_lit_string_β

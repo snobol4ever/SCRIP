@@ -263,7 +263,7 @@ n25_lit_integer_β:      add              rsp, 16
 n26_binop_α:            sub              rsp, 16
                         mov              ecx, dword ptr [rsp + 32]            # var
                         mov              rax, qword ptr [rsp + 40]
-                        cmp              ecx, 3;                              jne   .Lx74_2
+                        cmp              cl, 3;                               jne   .Lx74_2
                         add              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx74_7
@@ -272,7 +272,7 @@ n26_binop_α:            sub              rsp, 16
                         and              edx, 1;                              jz    .Lx74_0
                         mov              rsi, qword ptr [rsp + 40]            # var
                         mov              rdi, 1
-                        cmp              eax, 5;                              je    .Lx74_3
+                        cmp              al, 5;                               je    .Lx74_3
                         cvtsi2sd         xmm0, rsi;                           jmp   .Lx74_4
 .Lx74_3:                movq             xmm0, rsi
 .Lx74_4:                cvtsi2sd         xmm1, rdi
@@ -287,7 +287,7 @@ n26_binop_α:            sub              rsp, 16
                         mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_add@PLT
-                        cmp              eax, 104;                            jne   .Lx74_240
+                        cmp              al, 104;                             jne   .Lx74_240
                         add              rsp, 16;                             jmp   n25_lit_integer_β
 .Lx74_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx

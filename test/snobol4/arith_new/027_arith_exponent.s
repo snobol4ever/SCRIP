@@ -40,7 +40,7 @@ n3_binop_α:             sub              rsp, 16
                         mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_pow@PLT
-                        cmp              eax, 104;                            jne   .Lx10_240
+                        cmp              al, 104;                             jne   .Lx10_240
                         add              rsp, 16;                             jmp   n2_lit_integer_β
 .Lx10_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx

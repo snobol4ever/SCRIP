@@ -181,7 +181,7 @@ n25_call_α:             sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 16
-                        cmp              eax, 104;                            jne   .Lx47_240
+                        cmp              al, 104;                             jne   .Lx47_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n23_statement_begin_β
 .Lx47_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -207,7 +207,7 @@ n29_var_α:              sub              rsp, 16
                         call             NV_GET_fn@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        cmp              eax, 104;                            jne   .Lx54_240
+                        cmp              al, 104;                             jne   .Lx54_240
                         add              rsp, 16;                             jmp   n28_statement_begin_β
 .Lx54_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n30_assign_α

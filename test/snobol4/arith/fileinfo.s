@@ -54,7 +54,7 @@ n4_keyword_assign_snobol4_α:
                         call             rt_kw_write_idx@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        cmp              eax, 104;                            jne   .Lx36_240
+                        cmp              al, 104;                             jne   .Lx36_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n2_statement_begin_β
 .Lx36_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -80,7 +80,7 @@ n8_var_α:               sub              rsp, 16
                         call             NV_GET_fn@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        cmp              eax, 104;                            jne   .Lx42_240
+                        cmp              al, 104;                             jne   .Lx42_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n6_statement_begin_β
 .Lx42_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -108,7 +108,7 @@ n9_call_α:              sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 16
-                        cmp              eax, 104;                            jne   .Lx43_240
+                        cmp              al, 104;                             jne   .Lx43_240
                         add              rsp, 16;                             jmp   n8_var_β
 .Lx43_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx;            jmp   n10_binop_α
@@ -119,7 +119,7 @@ n10_binop_α:            sub              rsp, 16
                         mov              ecx, dword ptr [rsp + 16]            # call
                         mov              edx, eax
                         and              edx, ecx
-                        cmp              edx, 3;                              jne   .Lx45_2
+                        cmp              dl, 3;                               jne   .Lx45_2
                         mov              rax, qword ptr [rsp + 56]            # var
                         mov              rdx, qword ptr [rsp + 24]            # call
                         add              rax, rdx
@@ -128,10 +128,10 @@ n10_binop_α:            sub              rsp, 16
 .Lx45_2:                and              edx, 1;                              jz    .Lx45_0
                         mov              rsi, qword ptr [rsp + 56]            # var
                         mov              rdi, qword ptr [rsp + 24]            # call
-                        cmp              eax, 5;                              je    .Lx45_3
+                        cmp              al, 5;                               je    .Lx45_3
                         cvtsi2sd         xmm0, rsi;                           jmp   .Lx45_4
 .Lx45_3:                movq             xmm0, rsi
-.Lx45_4:                cmp              ecx, 5;                              je    .Lx45_5
+.Lx45_4:                cmp              cl, 5;                               je    .Lx45_5
                         cvtsi2sd         xmm1, rdi;                           jmp   .Lx45_6
 .Lx45_5:                movq             xmm1, rdi
 .Lx45_6:                addsd            xmm0, xmm1
@@ -145,7 +145,7 @@ n10_binop_α:            sub              rsp, 16
                         mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_add@PLT
-                        cmp              eax, 104;                            jne   .Lx45_240
+                        cmp              al, 104;                             jne   .Lx45_240
                         add              rsp, 32;                             jmp   n8_var_β
 .Lx45_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
@@ -181,7 +181,7 @@ n15_lit_integer_β:      add              rsp, 16
 n16_binop_α:            sub              rsp, 16
                         mov              ecx, dword ptr [rsp + 32]            # var
                         mov              rax, qword ptr [rsp + 40]
-                        cmp              ecx, 3;                              jne   .Lx53_2
+                        cmp              cl, 3;                               jne   .Lx53_2
                         add              rax, 1
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx53_7
@@ -190,7 +190,7 @@ n16_binop_α:            sub              rsp, 16
                         and              edx, 1;                              jz    .Lx53_0
                         mov              rsi, qword ptr [rsp + 40]            # var
                         mov              rdi, 1
-                        cmp              eax, 5;                              je    .Lx53_3
+                        cmp              al, 5;                               je    .Lx53_3
                         cvtsi2sd         xmm0, rsi;                           jmp   .Lx53_4
 .Lx53_3:                movq             xmm0, rsi
 .Lx53_4:                cvtsi2sd         xmm1, rdi
@@ -205,7 +205,7 @@ n16_binop_α:            sub              rsp, 16
                         mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_add@PLT
-                        cmp              eax, 104;                            jne   .Lx53_240
+                        cmp              al, 104;                             jne   .Lx53_240
                         add              rsp, 16;                             jmp   n15_lit_integer_β
 .Lx53_240:              mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx

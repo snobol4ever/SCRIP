@@ -50,7 +50,7 @@ n4_call_α:              sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 16
-                        cmp              eax, 104;                            jne   .Lx43_240
+                        cmp              al, 104;                             jne   .Lx43_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n2_statement_begin_β
 .Lx43_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -121,7 +121,7 @@ n14_call_α:             sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 16
-                        cmp              eax, 104;                            jne   .Lx60_240
+                        cmp              al, 104;                             jne   .Lx60_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n12_statement_begin_β
 .Lx60_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -194,7 +194,7 @@ n24_call_α:             sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 16
-                        cmp              eax, 104;                            jne   .Lx77_240
+                        cmp              al, 104;                             jne   .Lx77_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n22_statement_begin_β
 .Lx77_240:              mov              qword ptr [rsp + 0], rax             # result

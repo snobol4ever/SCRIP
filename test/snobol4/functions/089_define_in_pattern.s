@@ -197,7 +197,7 @@ n7_call_α:              sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         add              rsp, 48
-                        cmp              eax, 104;                            jne   .Lx35_240
+                        cmp              al, 104;                             jne   .Lx35_240
                         add              rsp, 16
                         add              rsp, 48;                             jmp   n3_statement_begin_β
 .Lx35_240:              mov              qword ptr [rsp + 0], rax             # result
@@ -255,7 +255,7 @@ n14_call_α:             sub              rsp, 16
                         mov              rdx, qword ptr [rsp + 8]
 .Lx48_29:               mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 104;                            jne   .Lx48_240
+                        cmp              al, 104;                             jne   .Lx48_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n12_statement_begin_β
 .Lx48_240:                                                                    jmp   n15_assign_α
@@ -311,7 +311,7 @@ n19_call_α:             sub              rsp, 16
                         mov              rdx, qword ptr [rsp + 8]
 .Lx56_29:               mov              qword ptr [rsp + 0], rax             # result
                         mov              qword ptr [rsp + 8], rdx
-                        cmp              eax, 104;                            jne   .Lx56_240
+                        cmp              al, 104;                             jne   .Lx56_240
                         add              rsp, 16
                         add              rsp, 16;                             jmp   n17_statement_begin_β
 .Lx56_240:                                                                    jmp   n20_assign_α

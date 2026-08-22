@@ -138,7 +138,7 @@ n11_match_assign_save_β:
 n12_match_defer_α:      sub              rsp, 16
                         mov              rax, qword ptr [r9 + 0]              # PAT
                         mov              rdx, qword ptr [r9 + 8]
-                        cmp              eax, 8;                              jne   .Lx45_9
+                        cmp              al, 8;                               jne   .Lx45_9
                         mov              rax, qword ptr [rdx + 0]
                         test             rax, rax;                            jne   .Lx45_10
                         mov              rdi, rdx
@@ -147,7 +147,7 @@ n12_match_defer_α:      sub              rsp, 16
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              rdx, qword ptr [r9 + 8];             jmp   .Lx45_10
-.Lx45_9:                cmp              eax, 88;                             jne   .Lx45_21
+.Lx45_9:                cmp              al, 88;                              jne   .Lx45_21
                         mov              rdi, rdx
                         mov              qword ptr [rip + rtccb+40], r8
                         call             rt_defer_xpat_dtp@PLT
