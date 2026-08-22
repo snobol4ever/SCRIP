@@ -38,4 +38,38 @@ static inline int ir_index_of(const ir_index_t * ix, IR_t * p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void ir_index_free(ir_index_t * ix) { free(ix->key); free(ix->val); ix->key = (IR_t **)0; ix->val = (int *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* O(1) INCREMENTAL POINTER SET.  The map above needs the whole membership up front; a traversal that discovers nodes as it walks does not have that, so this is the grow-as-you-go twin.  It replaces
+   the same linear-scan-for-membership shape found in the emitter's RPO walk, where a scan over every already-seen node ran per pushed edge -- the O(N^2) that survived the optimizer fix (FINDING
+   s251 §7).  NULL is tracked in its own flag rather than as a key, so has(NULL) answers exactly what a linear scan of the old array would have answered instead of colliding with the empty marker.
+   Heap-backed and function-local: it REPLACES a file-scope static array, so it lowers the global count rather than raising it.  An allocation failure leaves the set unchanged, which can only make
+   has() answer 0 -- a re-visit, never a wrong emit. */
+typedef struct { const IR_t ** slot; size_t cap; size_t cnt; int has_null; } ir_pset_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline size_t ir_pset_probe(const IR_t ** slot, size_t cap, const IR_t * p) {
+    uint64_t h = (uint64_t)(uintptr_t)p; h ^= h >> 33; h *= 0xff51afd7ed558ccdULL; h ^= h >> 29;
+    size_t i = (size_t)h & (cap - 1u); while (slot[i] && slot[i] != p) i = (i + 1u) & (cap - 1u); return i;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline void ir_pset_init(ir_pset_t * s) { s->slot = (const IR_t **)0; s->cap = 0; s->cnt = 0; s->has_null = 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int ir_pset_has(const ir_pset_t * s, const IR_t * p) {
+    if (!p) return s->has_null;
+    return s->cap != 0 && s->slot[ir_pset_probe(s->slot, s->cap, p)] == p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline void ir_pset_add(ir_pset_t * s, const IR_t * p) {
+    if (!p) { s->has_null = 1; return; }
+    if (s->cnt * 2u >= s->cap) {
+        size_t nc = s->cap ? s->cap * 2u : 1024u;
+        const IR_t ** ns = (const IR_t **)calloc(nc, sizeof(const IR_t *));
+        if (!ns) return;
+        for (size_t i = 0; i < s->cap; i++) if (s->slot[i]) ns[ir_pset_probe(ns, nc, s->slot[i])] = s->slot[i];
+        free(s->slot); s->slot = ns; s->cap = nc;
+    }
+    size_t i = ir_pset_probe(s->slot, s->cap, p);
+    if (!s->slot[i]) { s->slot[i] = p; s->cnt++; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline void ir_pset_free(ir_pset_t * s) { free(s->slot); s->slot = (const IR_t **)0; s->cap = 0; s->cnt = 0; s->has_null = 0; }
 #endif

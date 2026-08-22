@@ -1,6 +1,7 @@
 #ifdef __cplusplus
 #include "emit.h"
 #include "zeta_choices.h"
+#include "ir_index.h"
 #include "templates/x86_asm.h"
 #include "templates/bb_templates.h"
 #endif
@@ -2537,9 +2538,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
     static IR_t *postv[CH_MAX]; int pn = 0;
-    static const IR_t *seen[CH_MAX]; int sn = 0;
-#define RPO_VISITED(p) ({ int _v = 0; for (int _vi = 0; _vi < sn; _vi++) if (seen[_vi] == (p)) { _v = 1; break; } _v; })
-#define RPO_MARK(p)    do { if (sn < CH_MAX) seen[sn++] = (const IR_t *)(p); } while (0)
+    ir_pset_t seenset; ir_pset_init(&seenset);
+#define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
+#define RPO_MARK(p)    ir_pset_add(&seenset, (const IR_t *)(p))
 #define RPO_TAG_EMIT   ((IR_t *)1)
 #define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !emit_floater_member(p) && !(_stmt_seed && (p)->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)
 #define RPO_PUSH_SUCCS(c) \
@@ -2590,6 +2591,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #undef RPO_TAG_EMIT
 #undef RPO_MARK
 #undef RPO_VISITED
+    ir_pset_free(&seenset);
     if (qt >= Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix); abort(); }
     unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_arm = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
