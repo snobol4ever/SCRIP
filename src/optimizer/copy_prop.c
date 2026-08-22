@@ -1,4 +1,5 @@
 #include "copy_prop.h"
+#include "ir_index.h"
 #include "gen.h"
 #include "ir_query.h"
 #include <stdlib.h>
@@ -22,7 +23,6 @@ static IR_t * cp_source(IR_t * c) {
     return (IR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int cp_index_of(IR_graph_t * g, IR_t * p) { for (int i = 0; i < g->n; i++) if (g->all[i] == p) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cp_run(IR_graph_t * g) {
     if (!g || g->n <= 0) return 0;
@@ -35,11 +35,13 @@ int cp_run(IR_graph_t * g) {
     if (!total) return 0;
     char * ref = (char *)calloc((size_t)g->n, 1);
     if (!ref) return total;
+    ir_index_t ix; ir_index_build(&ix, g);
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        for (int k = 0; k < nd->n_operands; k++) { int j = cp_index_of(g, nd->operands[k]); if (j >= 0) ref[j] = 1; }
+        for (int k = 0; k < nd->n_operands; k++) { int j = ir_index_of(&ix, nd->operands[k]); if (j >= 0) ref[j] = 1; }
     }
+    ir_index_free(&ix);
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && cp_source(nd) != (IR_t *)0 && !ref[i]) { nd->op = IR_SUCCEED; nd->n_operands = 0; total++; } }
     free(ref);
     return total;
