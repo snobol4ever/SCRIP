@@ -88,28 +88,29 @@ case "$cmd" in
          freerows=0
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
-         # ⛔ "AFTER /clear" IS A CLOSED ENUM OF FIVE VALUES. Lon NEVER continues a session -- finished or not, he
-         # /clears and re-prompts (his words, 2026-08-22). So the useful question is never "should I continue"; it is
-         # WHAT THE FRESH SESSION WILL DO, and whether he must fix something before re-prompting. Two independent
-         # attributes: the VERDICT above says whether this session's work landed; this says what the next one does.
-         #   ✅ RESUMES <row>      row still open; the fresh session carries it on
-         #   ✅ PICKS A NEW ROW    this row is COMPLETE and closed; fresh session takes fresh work
-         #   ✅ RETRIES THE PUSH   work never reached origin; fresh session pushes it
-         #   ⛔ WILL STALL         parked on an unanswered HQ question -- answer it, else the next session stops identically
-         #   ⛔ NOTHING TO DO      no open row and no free rows; HQ must unblock rows before re-prompting is worth it
-         if   [ -z "$held" ] && [ "$freerows" -eq 0 ]; then cont="⛔ NOTHING TO DO"
-              todo="Re-prompting is pointless right now — no open row, and the queue has NO free rows."
-              todo2="HQ must add or unblock rows first. Every row with a claim file, DONE or not, is hidden from the picker."
-         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then cont="⛔ WILL STALL"
-              todo="Parked on row $held awaiting an HQ answer ($qwait question(s))."
-              todo2="A fresh session stops in the same place. Answer it first, then re-prompt."
-         elif [ "$hrc" -ne 0 ]; then cont="✅ RETRIES THE PUSH"
-              todo="This session's work never reached origin${held:+; the fresh session resumes row $held}."
-              todo2="If it asks you for a push credential, that is what it is stuck on."
-         elif [ -n "$held" ]; then cont="✅ RESUMES $held"
-              todo="The fresh session carries on with that same row."; todo2=""
-         else cont="✅ PICKS A NEW ROW"
-              todo="This row is COMPLETE and closed — the fresh session takes fresh work ($freerows rows free)."; todo2=""; fi
+         # ⛔ THE REAL DECISION LON MAKES (corrected by him, 2026-08-22: "I do not always /clear and re-prompt.
+         # I would not do so if the task needs more time and the limit ran out"). He has TWO moves, not one:
+         # /clear and start fresh, or keep prompting THIS session. Clearing is safe only when nothing of value
+         # lives ONLY in this session -- which is exactly what handoff_status.sh measures. So:
+         #   ⛔ DO NOT /clear    unpushed or uncommitted work exists only here; land it first, THEN clear
+         #   ✅ SAFE TO /clear   everything is committed, pushed and routed; a fresh session loses nothing
+         # and the second line says what that fresh session would then do:
+         #   RESUMES <row> · PICKS A NEW ROW (n free) · ⛔ WILL STALL (unanswered HQ question) ·
+         #   ⛔ NOTHING TO PICK UP (no open row, no free rows -- HQ must unblock rows first)
+         freerows=0
+         while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
+           [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
+         if [ "$hrc" -ne 0 ]; then
+           cont="⛔ DO NOT /clear"
+           todo="Work exists ONLY in this session — it is not on origin. Clearing LOSES it."
+           todo2="Keep prompting THIS session until it commits and pushes; then clear."
+         else
+           cont="✅ SAFE TO /clear"
+           if   [ -n "$held" ] && [ "$qwait" -gt 0 ]; then todo="But a fresh session ⛔ WILL STALL — row $held is parked on an unanswered HQ question ($qwait)."; todo2="Answer it first, or the next session stops in the same place."
+           elif [ -n "$held" ]; then todo="A fresh session RESUMES row $held."; todo2=""
+           elif [ "$freerows" -eq 0 ]; then todo="But there is ⛔ NOTHING TO PICK UP — no open row and no free queue rows."; todo2="HQ must unblock rows first. Any claim file, DONE or not, hides its row from the picker."
+           else todo="This row is COMPLETE and closed. A fresh session PICKS A NEW ROW ($freerows free)."; todo2=""; fi
+         fi
          b='════════════════════════════════════════════════════════════════════════════════'
          printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
          printf '  did the work land? : %s\n' "$landed"
@@ -124,7 +125,7 @@ case "$cmd" in
            else cwarn="plenty of room"; fi
            printf '  context (self-rep) : %s%%  — %s\n' "$ctx" "$cwarn"; fi
          printf '%s\n' "$b"
-         printf '  ➜  AFTER /clear    : %s\n' "$cont"
+         printf '  ➜  YOUR MOVE       : %s\n' "$cont"
          printf '                       %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
          printf '                       /clear, then paste this:\n'
          printf '                       Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
