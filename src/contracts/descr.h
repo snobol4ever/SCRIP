@@ -50,7 +50,9 @@ struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
 typedef struct DESCR_t {
-    DTYPE_t  v;
+    uint8_t  v;
+    uint8_t  mod_op;
+    uint16_t src_node;
     uint32_t slen;
     union {
         char              *s;
@@ -63,6 +65,10 @@ typedef struct DESCR_t {
         void              *ptr;
     };
 } DESCR_t;
+DESCR_SASSERT(sizeof(DESCR_t) == 16, "DESCR_t is a SysV register-pair (rax:rdx) INTEGER-class return; 17+ bytes flips it to MEMORY class across 4,009 lines of asm");
+#define DESCR_SRC_NODE_UNSTAMPED 0u
+#define DESCR_SRC_NODE_OVERFLOW  0xFFFFu
+#define DESCR_MOD_OP_UNSTAMPED   0u
 typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
