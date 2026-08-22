@@ -111,41 +111,25 @@ n7_lit_string_α:        sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 7
                         mov              rax, qword ptr [rip + .Lx66_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n8_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n8_differ_α
 n7_lit_string_β:        mov              r11, 8
                         add              rsp, 32;                             jmp   n5_lit_string_β
 .Lx66_0:                .quad            .Lx66_0_s
 .Lx66_0_s:              .string          "a00b111"
 #-----------------------------------------------------------------------------------------------------------------------
-n8_call_α:              sub              rsp, 16
+n8_differ_α:            sub              rsp, 16
                         mov              r11, 9
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd68:             .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd68]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # call
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]            # lit_string
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx67_240
+                        test             eax, eax;                            je    .Lx68_240
                         add              rsp, 16;                             jmp   n7_lit_string_β
-.Lx67_240:              mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n9_statement_end_α
-n8_call_β:              mov              r11, 9
-                        add              rsp, 16;                             jmp   n7_lit_string_β
+.Lx68_240:                                                                    jmp   n9_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n9_statement_end_α:     mov              r11, 10
                         mov              r10, 2
@@ -349,41 +333,25 @@ n28_lit_string_α:       sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 3
                         mov              rax, qword ptr [rip + .Lx98_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n29_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n29_differ_α
 n28_lit_string_β:       mov              r11, 29
                         add              rsp, 32;                             jmp   n26_var_β
 .Lx98_0:                .quad            .Lx98_0_s
 .Lx98_0_s:              .string          "aab"
 #-----------------------------------------------------------------------------------------------------------------------
-n29_call_α:             sub              rsp, 16
+n29_differ_α:           sub              rsp, 16
                         mov              r11, 30
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd100:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd100]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # call
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]            # lit_string
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx99_240
+                        test             eax, eax;                            je    .Lx100_240
                         add              rsp, 16;                             jmp   n28_lit_string_β
-.Lx99_240:              mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n30_statement_end_α
-n29_call_β:             mov              r11, 30
-                        add              rsp, 16;                             jmp   n28_lit_string_β
+.Lx100_240:                                                                   jmp   n30_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n30_statement_end_α:    mov              r11, 31
                         mov              r10, 6
@@ -505,41 +473,25 @@ n42_lit_string_α:       sub              rsp, 16
                         mov              qword ptr [rsp + 0], 2               # result
                         mov              dword ptr [rsp + 4], 5
                         mov              rax, qword ptr [rip + .Lx120_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n43_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n43_differ_α
 n42_lit_string_β:       mov              r11, 43
                         add              rsp, 32;                             jmp   n40_lit_string_β
 .Lx120_0:               .quad            .Lx120_0_s
 .Lx120_0_s:             .string          "hello"
 #-----------------------------------------------------------------------------------------------------------------------
-n43_call_α:             sub              rsp, 16
+n43_differ_α:           sub              rsp, 16
                         mov              r11, 44
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd122:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd122]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # call
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]            # lit_string
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx121_240
+                        test             eax, eax;                            je    .Lx122_240
                         add              rsp, 16;                             jmp   n42_lit_string_β
-.Lx121_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n44_statement_end_α
-n43_call_β:             mov              r11, 44
-                        add              rsp, 16;                             jmp   n42_lit_string_β
+.Lx122_240:                                                                   jmp   n44_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n44_statement_end_α:    mov              r11, 45
                         mov              r10, 9

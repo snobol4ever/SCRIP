@@ -38,40 +38,23 @@ n4_lit_real_α:          sub              rsp, 16
                         mov              r11, 5
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx82_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n5_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n5_differ_α
 .Lx82_0:                .quad            4617315517961601024
 #-----------------------------------------------------------------------------------------------------------------------
-n5_call_α:              sub              rsp, 16
+n5_differ_α:            sub              rsp, 16
                         mov              r11, 6
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd84:             .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd84]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # lit_real
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx83_240
+                        test             eax, eax;                            je    .Lx84_240
                         add              rsp, 16
                         add              rsp, 32;                             jmp   n2_statement_begin_β
-.Lx83_240:              mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n6_statement_end_α
-n5_call_β:              mov              r11, 6
-                        add              rsp, 16
-                        add              rsp, 32;                             jmp   n2_statement_begin_β
+.Lx84_240:                                                                    jmp   n6_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n6_statement_end_α:     mov              r11, 7
                         mov              r10, 2
@@ -133,40 +116,23 @@ n15_lit_real_α:         sub              rsp, 16
                         mov              r11, 16
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx100_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n16_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n16_differ_α
 .Lx100_0:               .quad            4611686018427387904
 #-----------------------------------------------------------------------------------------------------------------------
-n16_call_α:             sub              rsp, 16
+n16_differ_α:           sub              rsp, 16
                         mov              r11, 17
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd102:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd102]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # lit_real
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx101_240
+                        test             eax, eax;                            je    .Lx102_240
                         add              rsp, 16
                         add              rsp, 32;                             jmp   n13_statement_begin_β
-.Lx101_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n17_statement_end_α
-n16_call_β:             mov              r11, 17
-                        add              rsp, 16
-                        add              rsp, 32;                             jmp   n13_statement_begin_β
+.Lx102_240:                                                                   jmp   n17_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n17_statement_end_α:    mov              r11, 18
                         mov              r10, 5
@@ -228,40 +194,23 @@ n26_lit_real_α:         sub              rsp, 16
                         mov              r11, 27
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx118_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n27_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n27_differ_α
 .Lx118_0:               .quad            4618441417868443648
 #-----------------------------------------------------------------------------------------------------------------------
-n27_call_α:             sub              rsp, 16
+n27_differ_α:           sub              rsp, 16
                         mov              r11, 28
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd120:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd120]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # lit_real
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx119_240
+                        test             eax, eax;                            je    .Lx120_240
                         add              rsp, 16
                         add              rsp, 32;                             jmp   n24_statement_begin_β
-.Lx119_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n28_statement_end_α
-n27_call_β:             mov              r11, 28
-                        add              rsp, 16
-                        add              rsp, 32;                             jmp   n24_statement_begin_β
+.Lx120_240:                                                                   jmp   n28_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n28_statement_end_α:    mov              r11, 29
                         mov              r10, 8
@@ -323,40 +272,23 @@ n37_lit_real_α:         sub              rsp, 16
                         mov              r11, 38
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx136_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n38_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n38_differ_α
 .Lx136_0:               .quad            4609434218613702656
 #-----------------------------------------------------------------------------------------------------------------------
-n38_call_α:             sub              rsp, 16
+n38_differ_α:           sub              rsp, 16
                         mov              r11, 39
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd138:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd138]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # lit_real
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx137_240
+                        test             eax, eax;                            je    .Lx138_240
                         add              rsp, 16
                         add              rsp, 32;                             jmp   n35_statement_begin_β
-.Lx137_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n39_statement_end_α
-n38_call_β:             mov              r11, 39
-                        add              rsp, 16
-                        add              rsp, 32;                             jmp   n35_statement_begin_β
+.Lx138_240:                                                                   jmp   n39_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n39_statement_end_α:    mov              r11, 40
                         mov              r10, 11
@@ -445,38 +377,22 @@ n50_lit_real_α:         sub              rsp, 16
                         mov              r11, 51
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx156_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n51_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n51_differ_α
 .Lx156_0:               .quad            4628293042053316608
 #-----------------------------------------------------------------------------------------------------------------------
-n51_call_α:             sub              rsp, 16
+n51_differ_α:           sub              rsp, 16
                         mov              r11, 52
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd158:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd158]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # binop
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]            # lit_real
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx157_240
+                        test             eax, eax;                            je    .Lx158_240
                         add              rsp, 32;                             jmp   n49_binop_β
-.Lx157_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n52_statement_end_α
-n51_call_β:             mov              r11, 52
-                        add              rsp, 32;                             jmp   n49_binop_β
+.Lx158_240:                                                                   jmp   n52_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n52_statement_end_α:    mov              r11, 53
                         mov              r10, 14
@@ -552,38 +468,22 @@ n62_lit_real_α:         sub              rsp, 16
                         mov              r11, 63
                         mov              qword ptr [rsp + 0], 5               # result
                         mov              rax, qword ptr [rip + .Lx175_0]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n63_call_α
+                        mov              qword ptr [rsp + 8], rax;            jmp   n63_differ_α
 .Lx175_0:               .quad            13830554455654793216
 #-----------------------------------------------------------------------------------------------------------------------
-n63_call_α:             sub              rsp, 16
+n63_differ_α:           sub              rsp, 16
                         mov              r11, 64
-                        sub              rsp, 32
-                        mov              r8, qword ptr [rsp + 64]
-                        mov              qword ptr [rsp + 0], r8
-                        mov              r8, qword ptr [rsp + 72]
-                        mov              qword ptr [rsp + 8], r8
-                        mov              r8, qword ptr [rsp + 48]
-                        mov              qword ptr [rsp + 16], r8
-                        mov              r8, qword ptr [rsp + 56]
-                        mov              qword ptr [rsp + 24], r8
-                        .section         .rodata
-.Lrkfnzd177:            .string          "DIFFER"
-                        .section         .text
-                        .intel_syntax    noprefix
-                        lea              rdi, [rip + .Lrkfnzd177]
-                        lea              rsi, [rsp + 0]
-                        mov              edx, 2
+                        mov              rdi, qword ptr [rsp + 32]            # unop
+                        mov              rsi, qword ptr [rsp + 40]
+                        mov              rdx, qword ptr [rsp + 16]            # lit_real
+                        mov              rcx, qword ptr [rsp + 24]
                         mov              qword ptr [rip + rtccb+40], r8
-                        call             rt_call_arr@PLT
+                        call             descr_identical@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
-                        add              rsp, 32
-                        cmp              al, 104;                             jne   .Lx176_240
+                        test             eax, eax;                            je    .Lx177_240
                         add              rsp, 32;                             jmp   n61_unop_β
-.Lx176_240:             mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx;            jmp   n64_statement_end_α
-n63_call_β:             mov              r11, 64
-                        add              rsp, 32;                             jmp   n61_unop_β
+.Lx177_240:                                                                   jmp   n64_statement_end_α
 #-----------------------------------------------------------------------------------------------------------------------
 n64_statement_end_α:    mov              r11, 65
                         mov              r10, 17
