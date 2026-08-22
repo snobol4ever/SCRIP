@@ -127,7 +127,7 @@ RTX_FUNC(rt_pl_dop_unify)
     call    rt_pl_deref_val                         /* exported `T`: plain call, returns rax:rdx     */
     jmp     .Lpu_restore
 .Lpu_fail:
-    mov     eax, DT_FAIL                            /* FAILDESCR: v=99, slen=0, payload=0            */
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)   /* FAILDESCR, stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
 .Lpu_restore:
     mov     rcx, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]
@@ -145,7 +145,7 @@ RTX_FUNC(rt_pl_dop_unify)
     jmp     .Lpu_gc_done
 /* The nargs guard's return: no frame was built, no global was touched. */
 .Lpu_fail_bare:
-    mov     eax, DT_FAIL
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_dop_unify)

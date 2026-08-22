@@ -45,11 +45,11 @@ RTX_FUNC(rt_size_d)
     cmp     eax, -1                     /* slen == 0xFFFFFFFF => CSET, not a string */
     je      c_rt_size_d                 /* IS_CSET_fn is tested BEFORE DT_S in the C body */
     mov     rdx, rax                    /* value eightbyte = the length */
-    mov     eax, DT_I                   /* tag eightbyte = DT_I, slen 0 */
+    mov     eax, DT_I | (MOD_OP_RT_SIZE_D << 8)   /* tag eightbyte = DT_I, slen 0; stamped (row descr-stamp-asm-mints) */
     ret
 .Lsz_zero:
     xor     edx, edx
-    mov     eax, DT_I
+    mov     eax, DT_I | (MOD_OP_RT_SIZE_D << 8)   /* stamped (row descr-stamp-asm-mints) */
     ret
 RTX_ENDF(rt_size_d)
 
@@ -74,7 +74,7 @@ RTX_FUNC(rt_list_bang_at)
     add     rsp, 24
     ret
 .Lbang_fail:
-    mov     eax, DT_FAIL
+    mov     eax, DT_FAIL | (MOD_OP_RT_LIST_BANG_AT << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
     add     rsp, 24
     ret

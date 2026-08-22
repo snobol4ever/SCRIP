@@ -294,14 +294,14 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
     mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* vc->sv = FAILDESCR, stamped (row descr-stamp-asm-mints) */
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
 
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -403,13 +403,13 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
     mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* vc->sv = FAILDESCR, stamped (row descr-stamp-asm-mints) */
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -495,13 +495,13 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rcx + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
     mov     [rcx + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
-    mov     qword ptr [rcx + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rcx + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* vc->sv = FAILDESCR, stamped (row descr-stamp-asm-mints) */
     mov     qword ptr [rcx + VCELL_SV + 8], 0
     mov     qword ptr [rcx + VCELL_POS], 0
     mov     qword ptr [rcx + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rcx                    /* rdx = vc                              */
-    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -571,7 +571,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_LEN], 1        /* one character                */
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP                              */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /*-----------------------------------------------------------------------------
@@ -644,20 +644,20 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
     mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL   /* vc->sv = FAILDESCR          */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* vc->sv = FAILDESCR, stamped (row descr-stamp-asm-mints) */
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
 
     add     rsp, 88
     mov     rdx, rax                    /* rdx = vc                              */
-    mov     rax, DT_NAMETRAP_LO          /* NAMETRAP: (slen 2 << 32) | DT_N       */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /* The array arm's out-of-range exit. Distinct from .Lsub_fail below because it
  * fires BEFORE the frame exists and must not adjust rsp. */
 .Lsub_arr_fail:
-    mov     eax, DT_FAIL
+    mov     eax, DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
     ret
 
@@ -732,7 +732,7 @@ RTX_FUNC(rt_subscript_var)
 
 .Lsub_fail:
     add     rsp, 88
-    mov     eax, DT_FAIL
+    mov     eax, DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
     ret
 

@@ -74,7 +74,7 @@ RTX_ENDF(rt_gen_spine_pass_γ)
 /* rt_gen_spine_pass_ω(void) -- the failure return edge: level back down, synthesize FAILDESCR. */
 RTX_FUNC(rt_gen_spine_pass_ω)
     dec     dword ptr [rip + rt_k_level]
-    mov     eax, DT_FAIL
+    mov     eax, DT_FAIL | (MOD_OP_RT_GEN_SPINE_PASS_OMEGA << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
     ret
 RTX_ENDF(rt_gen_spine_pass_ω)

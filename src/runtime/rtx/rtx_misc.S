@@ -17,7 +17,7 @@ RTX_GATE_DEF(misc)
  *   Return pair: rax = (slen << 32) | v = 99, rdx = value = 0.
  */
 RTX_FUNC(rt_faildescr)
-    mov     eax, DT_FAIL                /* rax = (0 << 32) | 99  */
+    mov     eax, DT_FAIL | (MOD_OP_RT_FAILDESCR << 8)   /* stamped (row descr-stamp-asm-mints): mod_op names this mint, src_node stays 0 (no caller node here) */
     xor     edx, edx                    /* value = 0             */
     ret
 RTX_ENDF(rt_faildescr)

@@ -40,14 +40,25 @@
  * cld is a global invariant: any std user restores it before returning.
  *
  * ---------------------------------------------------------------------------
- * DESCR_t — VERIFIED EMPIRICALLY s162 (gcc -O1 probe, src/contracts/descr.h):
- *   16 bytes: v (int32) at 0, slen (uint32) at 4, value union at 8.
- *   Two INTEGER eightbytes, so SysV passes and returns it in a register PAIR:
- *     ARG n=1:  rdi = (slen << 32) | v      rsi = value
- *     RETURN :  rax = (slen << 32) | v      rdx = value
- *   edi/eax alias the type tag directly; shr by 32 gets slen.
+ * DESCR_t — 4-FIELD LAYOUT SINCE descr-stamp-fields (this HEAD; supersedes the s162 2-field probe
+ * below, kept for the history): v (uint8) at 0, mod_op (uint8) at 1, src_node (uint16) at 2, slen
+ * (uint32) at 4, value union at 8. Two INTEGER eightbytes still, so SysV still passes and returns it
+ * in a register PAIR -- the split narrowed v within the SAME low eightbyte, it did not add one:
+ *     ARG n=1:  rdi = (slen << 32) | src_node << 16 | mod_op << 8 | v      rsi = value
+ *     RETURN :  rax = (slen << 32) | src_node << 16 | mod_op << 8 | v      rdx = value
+ *   al/eax still alias the tag byte directly (v is the LOW BYTE now, not the low 32 bits -- a 32-bit
+ *   `cmp eax,DT_x` or a 32-bit zero-test against the whole low eightbyte reads mod_op/src_node/slen
+ *   too and is WRONG post-split; every live tag test in this family compares al/cl/dl/dil/sil, per
+ *   the 171-site conversion). shr by 32 still gets slen; mod_op is (eax >> 8) & 0xFF, src_node is
+ *   (eax >> 16) & 0xFFFF. See descr_tags.inc's MOD_OP_RT_* block (row descr-stamp-asm-mints) for the
+ *   sentinel values this family's hand-written mints fold into the SAME already-existing immediate.
  *   Phase-1 ports keep C signatures, so descriptor-in-registers is FREE and
  *   NO template changes are owed. Registerized signatures are RTX-CC (rung 11).
+ *
+ *   [SUPERSEDED, kept for provenance] the original s162 probe read this as a 2-field struct (v as a
+ *   FULL int32 at 0, slen as uint32 at 4) -- true before descr-stamp-fields split v out of its low
+ *   32 bits; a bare `(slen<<32)|v` immediate with v small still assembles to the identical bit
+ *   pattern either way, which is exactly why the stale reading went unnoticed here for a full row.
  * DTYPE tags (descr.h is authoritative -- never hardcode in .S without a comment citing descr.h line):
  *   SNUL 0x00  S 0x02  I 0x03  R 0x05  N 0x09  E 0x38  FAIL 0x68  DATA 0x70+8k
  * ⛔ THE OLD LIST (SNUL 0 S 1 I 6 E 11 FAIL 99 DATA 100) IS PRE-s229 AND WRONG -- any .S #define must cite descr.h line

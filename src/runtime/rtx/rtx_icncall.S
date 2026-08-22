@@ -51,7 +51,7 @@ RTX_GATE_DEF(icncall)
 /* rt_proc_value(name) -- mint the deferred procedure value. rdi = name; return pair rax:rdx where
  * rax = the {v, slen} eightbyte and rdx = the value union (the name pointer, unchanged). */
 RTX_FUNC(rt_proc_value)
-    mov     rax, (PROCVAL_SLEN << 32) | DT_E
+    mov     rax, (PROCVAL_SLEN << 32) | (MOD_OP_RT_PROC_VALUE << 8) | DT_E   /* stamped (row descr-stamp-asm-mints), zero extra cost: same imm width */
     mov     rdx, rdi
     ret
 RTX_ENDF(rt_proc_value)

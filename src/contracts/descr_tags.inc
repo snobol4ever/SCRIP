@@ -51,4 +51,33 @@
  * tag was not a recognisable immediate at all, it was a nibble inside a 64-bit literal, so no reviewer and no
  * pattern for "a bare tag constant" could see it. (slen 2 << 32) | DT_N. Use THIS, never the packed number. */
 #define DT_NAMETRAP_LO (((2) << 32) | DT_N)
+/* MOD_OP SENTINELS FOR src/runtime/rtx/*.S (row descr-stamp-asm-mints). mod_op names WHICH OPERATION
+ * minted a descriptor; the C-side compiler stamps mod_op = (IR_* opcode) + 1 at COMPILE TIME
+ * (bb_lit_scalar.cpp lit_tag_imm), because a codegen template knows which program statement it is
+ * emitting. The 14 rtx/*.S files are NOT per-program codegen -- they are ONE hand-written runtime
+ * shared by every compiled program, so there is no per-call IR node to read. What IS knowable at
+ * ASSEMBLY TIME is WHICH RUNTIME FUNCTION mints a given descriptor, and that identity never changes
+ * call to call, so it costs ZERO extra instructions to fold into the mint's existing immediate (every
+ * site below already builds its return with one mov/or against a small constant; ORing in a fixed
+ * byte does not widen the encoding). Values start at 130, one past IR_OP_COUNT (129, IR.h) real ops
+ * (mod_op range 1-129), so a stamp reader can tell "compiler-stamped IR op" from "hand-written
+ * runtime mint" on sight. src_node is NOT stamped by any of these (stays 0, DESCR_SRC_NODE_UNSTAMPED):
+ * there is no per-call source-program node to name here, and mod_op alone being nonzero already
+ * distinguishes a runtime-stamped descriptor from the true all-zero DESCR_MOD_OP_UNSTAMPED/
+ * DESCR_SRC_NODE_UNSTAMPED pair that means "nothing touched this." NOT wired into kind_names[]
+ * (out of this row's scope -- a debug printer indexing kind_names[mod_op-1] needs its own bounds
+ * check for ANY externally-derived index regardless; left as a named follow-up in the FINDING). */
+#define MOD_OP_RT_FAILDESCR            130   /* rtx_misc.S    rt_faildescr           */
+#define MOD_OP_RT_ADD                  131   /* rtx_arith.S   rt_add                 */
+#define MOD_OP_RT_SUB                  132   /* rtx_arith.S   rt_sub                 */
+#define MOD_OP_RT_MUL                  133   /* rtx_arith.S   rt_mul                 */
+#define MOD_OP_RT_SIZE_D               134   /* rtx_icnagg.S  rt_size_d              */
+#define MOD_OP_RT_LIST_BANG_AT         135   /* rtx_icnagg.S  rt_list_bang_at        */
+#define MOD_OP_RT_PROC_VALUE           136   /* rtx_icncall.S rt_proc_value          */
+#define MOD_OP_RT_GEN_SPINE_PASS_OMEGA 137   /* rtx_icngen.S  rt_gen_spine_pass_ω    */
+#define MOD_OP_RT_PL_DOP_UNIFY         138   /* rtx_plunify.S rt_pl_dop_unify        */
+#define MOD_OP_RT_SUBSCRIPT_VAR        139   /* rtx_icnsub.S  rt_subscript_var       */
+#define MOD_OP_RT_STR_CONCAT_D         140   /* rtx_str.S     str_concat_d           */
+#define MOD_OP_RT_COERCE_NUM2_D        141   /* rtx_icnnum.S  rt_coerce_num2_d       */
+#define MOD_OP_RT_MATCH_REPLACE        142   /* rtx_match.S   rt_match_replace       */
 #endif

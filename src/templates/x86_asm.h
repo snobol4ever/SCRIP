@@ -91,6 +91,28 @@ inline bool x86_is64(const char * r) {
     return true;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* x86_is8 (row descr-stamp-asm-mints, found chasing a mode-3-only SIGSEGV): x86_rnum() maps "al"
+ * to the SAME index as "eax" (0), by design, for callers like movzx where the surrounding opcode
+ * already fixes the operand width. x86_cmp_imm (and every other x86_alu_rr-based ALU-immediate/
+ * ALU-register encoder) had NO width detection at all, so a template requesting an 8-bit compare
+ * — e.g. bb_subscript.cpp's `x86("cmp","al",(long)DT_FAIL)`, part of the 171-site conversion this
+ * row's sibling row (descr-stamp-fields) landed to stop 32-bit tag-word compares from reading
+ * mod_op/src_node — silently fell through to the 32-bit CMP r/m32,imm opcode in the BINARY medium
+ * (mode-3's own hand-rolled encoder; mode-4's TEXT medium hands the identical "cmp al, N" string to
+ * the real `as`, which encodes it correctly, so mode-4 was never wrong). Dormant since mod_op/
+ * src_node were always zero before this row: a 32-bit compare against a value with zero upper
+ * bytes gives the identical verdict to an 8-bit one. This row's stamping is the first thing to set
+ * those bytes on a corpus-live path, which is what surfaced it (SIGSEGV via rt_deref's matching
+ * 32-bit-compare defect in rt_asm_helpers.S, fixed separately; this one silently let `a<4>` on a
+ * 3-element array read as in-bounds instead of failing). */
+inline bool x86_is8(const char * r) {
+    if (!r) return false;
+    static const char * const names8[] = { "al","cl","dl","bl","spl","bpl","sil","dil",
+                                            "r8b","r9b","r10b","r11b","r12b","r13b","r14b","r15b" };
+    for (size_t i = 0; i < sizeof(names8) / sizeof(names8[0]); ++i) if (!strcmp(r, names8[i])) return true;
+    return false;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_alu_rr(const char * mnem, uint8_t op, const char * rm, const char * reg) {
     int m = x86_rnum(rm), g = x86_rnum(reg);
     uint8_t rex = 0x40; if (x86_is64(rm) || x86_is64(reg)) rex |= 0x08; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
@@ -719,7 +741,8 @@ inline std::string x86_and(const char * reg, long imm) {
 inline std::string x86_cmp_imm(const char * reg, long imm) {
     int m = x86_rnum(reg);
     std::string code;
-    if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    if (x86_is8(reg)) { uint8_t rex = 0x40; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)0x80; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)imm; }
+    else if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else if (m == 0)               { code += (char)0x3D; code += u32le((uint32_t)imm); }
     else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cmp") + reg + ", " + std::to_string(imm) + "\n");

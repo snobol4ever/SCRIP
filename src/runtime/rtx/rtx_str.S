@@ -202,7 +202,7 @@ RTX_FUNC(str_concat_d)
 .Lsc_ret:
     mov     rax, r11
     shl     rax, 32
-    or      rax, DT_S                   /* rax = (len << 32) | DT_S             */
+    or      rax, DT_S | (MOD_OP_RT_STR_CONCAT_D << 8)   /* rax = (len<<32)|stamp|DT_S, stamped (row descr-stamp-asm-mints) */
     mov     rdx, r10                    /* rdx = buf                            */
     ret
 /*

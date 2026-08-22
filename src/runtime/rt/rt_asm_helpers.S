@@ -28,8 +28,13 @@ rt_deref:
     jne    .Lrd_asm
     jmp    rt_deref_slow@PLT
 .Lrd_asm:
-    movl   %edi, %eax
-    cmpl   $DT_N, %eax
+    cmpb   $DT_N, %dil   /* BYTE compare (row descr-stamp-asm-mints): %edi's upper 24 bits now carry a real
+                          * mod_op/src_node stamp on stamped descriptors, so the old `movl %edi,%eax; cmpl
+                          * $DT_N,%eax` 32-bit compare silently stopped matching a stamped NAMETRAP -- falling
+                          * through to .Lrd_retd (return input UNCHANGED) instead of dereferencing it, which
+                          * made VARVAL_fn's DT_N recursion loop on the very same NAMETRAP forever (SIGSEGV,
+                          * stack overflow). rax was only ever read from this via the immediately-following
+                          * `movq %rdi,%rax; shrq $32,%rax`, which overwrites it, so the movl was scratch-only. */
     jne    .Lrd_retd
     movq   %rdi, %rax
     shrq   $32, %rax
@@ -81,7 +86,10 @@ to_int:
     jne    .Lti_asm
     jmp    to_int_slow@PLT
 .Lti_asm:
-    cmpl   $DT_I, %edi
+    cmpb   $DT_I, %dil   /* BYTE compare (row descr-stamp-asm-mints): a 32-bit cmpl against %edi stops matching
+                          * once a stamped DT_I carries a nonzero mod_op/src_node -- not a crash here (falls to
+                          * the correct to_int_slow), but a silent, permanent loss of this fast path for every
+                          * stamped integer. */
     jne    .Lti_slow
     movq   %rsi, %rax
     ret

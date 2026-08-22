@@ -138,14 +138,14 @@ RTX_FUNC(rt_coerce_num2_d)
     jnz .Lstore_real
     test r10b, r10b
     jnz .Lint_to_real
-    mov dword ptr [rdx], DT_I
+    mov dword ptr [rdx], DT_I | (MOD_OP_RT_COERCE_NUM2_D << 8)   /* out-param mint, stamped (row descr-stamp-asm-mints) */
     mov dword ptr [rdx + 4], 0
     mov qword ptr [rdx + 8], r8
     ret
 .Lint_to_real:
     cvtsi2sd xmm0, r8
 .Lstore_real:
-    mov dword ptr [rdx], DT_R
+    mov dword ptr [rdx], DT_R | (MOD_OP_RT_COERCE_NUM2_D << 8)   /* out-param mint, stamped (row descr-stamp-asm-mints) */
     mov dword ptr [rdx + 4], 0
     movq qword ptr [rdx + 8], xmm0
     ret

@@ -185,7 +185,7 @@ RTX_FUNC(rt_add)
     cmp     dl, DT_I
     jne     .Ladd_notii
     lea     rdx, [rsi + rcx]            /* a.i + b.i, one instruction          */
-    mov     eax, DT_I
+    mov     eax, DT_I | (MOD_OP_RT_ADD << 8)   /* stamped (row descr-stamp-asm-mints), zero extra cost: same imm width */
     ret
 .Ladd_notii:
     cmp     dil, DT_R
@@ -196,7 +196,7 @@ RTX_FUNC(rt_add)
     movq    xmm1, rcx
     addsd   xmm0, xmm1
     movq    rdx, xmm0
-    mov     eax, DT_R
+    mov     eax, DT_R | (MOD_OP_RT_ADD << 8)   /* stamped (row descr-stamp-asm-mints) */
     ret
 .Ladd_slow:
     jmp     c_rt_add                    /* rdi/rsi/rdx/rcx untouched above     */
@@ -211,7 +211,7 @@ RTX_FUNC(rt_sub)
     jne     .Lsub_notii
     mov     rdx, rsi
     sub     rdx, rcx                    /* a.i - b.i                           */
-    mov     eax, DT_I
+    mov     eax, DT_I | (MOD_OP_RT_SUB << 8)   /* stamped (row descr-stamp-asm-mints), zero extra cost: same imm width */
     ret
 .Lsub_notii:
     cmp     dil, DT_R
@@ -222,7 +222,7 @@ RTX_FUNC(rt_sub)
     movq    xmm1, rcx
     subsd   xmm0, xmm1
     movq    rdx, xmm0
-    mov     eax, DT_R
+    mov     eax, DT_R | (MOD_OP_RT_SUB << 8)   /* stamped (row descr-stamp-asm-mints) */
     ret
 .Lsub_slow:
     jmp     c_rt_sub
@@ -237,7 +237,7 @@ RTX_FUNC(rt_mul)
     jne     .Lmul_notii
     mov     rdx, rsi
     imul    rdx, rcx                    /* a.i * b.i, low 64 bits, wraps       */
-    mov     eax, DT_I
+    mov     eax, DT_I | (MOD_OP_RT_MUL << 8)   /* stamped (row descr-stamp-asm-mints), zero extra cost: same imm width */
     ret
 .Lmul_notii:
     cmp     dil, DT_R
@@ -248,7 +248,7 @@ RTX_FUNC(rt_mul)
     movq    xmm1, rcx
     mulsd   xmm0, xmm1
     movq    rdx, xmm0
-    mov     eax, DT_R
+    mov     eax, DT_R | (MOD_OP_RT_MUL << 8)   /* stamped (row descr-stamp-asm-mints) */
     ret
 .Lmul_slow:
     jmp     c_rt_mul

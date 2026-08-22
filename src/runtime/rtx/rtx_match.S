@@ -876,7 +876,7 @@ RTX_FUNC(rt_match_replace)
 .Lmr_setnv:
     mov     rsi, r12
     shl     rsi, 32                                  /* d.slen = (uint32_t)nlen at +4; the shl IS that truncation        */
-    or      rsi, DT_S                                /* d.v at +0 -- one aligned qword, the descriptor's low half        */
+    or      rsi, DT_S | (MOD_OP_RT_MATCH_REPLACE << 8)  /* d.v at +0, stamped (row descr-stamp-asm-mints)                */
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn                                /* rt_match_replace is void; NV_SET_fn's DESCR_t return is dropped  */
     add     rsp, 80
