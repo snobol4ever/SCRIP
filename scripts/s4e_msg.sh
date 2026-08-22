@@ -88,11 +88,27 @@ case "$cmd" in
          freerows=0
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
-         if   [ -z "$held" ] && [ "$freerows" -eq 0 ]; then cont="⛔ NO"; todo="Do NOT re-fire this seat — it has no open row and the queue has NO free rows left."; todo2="HQ must add or unblock rows first. (Every row with a claim file, DONE or not, is hidden from the picker.)"
-         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then cont="⛔ NO"; todo="Do NOT re-fire yet — this seat is parked on row $held waiting for an HQ answer ($qwait question(s))."; todo2="Re-firing lands it in the same spot. Answer it, then re-fire."
-         elif [ "$hrc" -ne 0 ]; then cont="✅ YES"; todo="Re-fire this seat. Its work is NOT pushed yet; it resumes row $held and tries again."; todo2="If it asks you for a push credential, that is what it is stuck on."
-         elif [ -n "$held" ]; then cont="✅ YES"; todo="Re-fire this seat. It carries on with the SAME row, $held."; todo2=""
-         else cont="✅ YES"; todo="Re-fire this seat. Its row is DONE — it picks up a brand-new one ($freerows free)."; todo2=""; fi
+         # ⛔ CONTINUE? IS A CLOSED ENUM OF FIVE VALUES (Lon 2026-08-22 asked for exactly this). Two independent
+         # attributes: the VERDICT above says whether the work landed; CONTINUE says what a re-fire will do.
+         # A finished row is "YES - NEW ROW", never "NO" -- the ROW completed, the FLEET continues.
+         #   ✅ YES - SAME ROW        row still open; the seat resumes it
+         #   ✅ YES - NEW ROW         its row is COMPLETE and closed; the seat picks up fresh work
+         #   ✅ YES - RETRY PUSH      work is not on origin yet; the seat retries
+         #   ⛔ NO  - NEEDS HQ ANSWER parked on an unanswered HQ question; a re-fire stops in the same place
+         #   ⛔ NO  - QUEUE EMPTY     no open row and no free rows to pick up; HQ must unblock rows first
+         if   [ -z "$held" ] && [ "$freerows" -eq 0 ]; then cont="⛔ NO  — QUEUE EMPTY"
+              todo="Do NOT re-fire this seat — it has no open row and the queue has NO free rows."
+              todo2="HQ must add or unblock rows first. Every row with a claim file, DONE or not, is hidden from the picker."
+         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then cont="⛔ NO  — NEEDS HQ ANSWER"
+              todo="Do NOT re-fire yet — parked on row $held awaiting an HQ answer ($qwait question(s))."
+              todo2="A re-fire stops in the same place. Answer it, then re-fire."
+         elif [ "$hrc" -ne 0 ]; then cont="✅ YES — RETRY PUSH"
+              todo="Re-fire this seat. Its work is NOT on origin yet${held:+, and it resumes row $held}."
+              todo2="If it asks you for a push credential, that is what it is stuck on."
+         elif [ -n "$held" ]; then cont="✅ YES — SAME ROW"
+              todo="Re-fire this seat. It carries on with the SAME row, $held."; todo2=""
+         else cont="✅ YES — NEW ROW"
+              todo="Re-fire this seat. Its row is COMPLETE and closed — it picks up a brand-new one ($freerows free)."; todo2=""; fi
          b='════════════════════════════════════════════════════════════════════════════════'
          printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
          printf '  did the work land? : %s\n' "$landed"
