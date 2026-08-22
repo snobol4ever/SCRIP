@@ -67,46 +67,24 @@ case "$cmd" in
              echo "LOCKED $topic (rank $rank)"; echo "brief: $brief"; echo "first: $step"; exit 0; fi
          done < "$q"
          echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"; exit 1;;
-  banner) # ⛔ LON READS ONLY THIS. He drives the fleet with /clear + one fixed re-fire prompt, so the banner must answer,
-         # in plain imperative English, the single question he actually has: WHAT DO I DO NOW. Two laws shape it.
-         # (1) THE VERDICT IS EXACTLY ONE QUESTION -- did the work land and get pushed (handoff_status.sh rc, the ONLY
-         # sanctioned doneness source). Nothing else may flip it: an open question to HQ is HQ's backlog, NOT this seat's
-         # failure (Lon 2026-08-22). (2) IT IS COMPUTED, NEVER TYPED -- a seat cannot assert its own SUCCESS.
+  banner) # ⛔ FACTS ONLY -- NO PREDICTIONS (Lon 2026-08-22: "Why are you trying to predict the future. Quit saying
+         # in the banner what you will do. You do not know the future."). Every line below is a measured fact about
+         # state as it stands. What a later session does is not knowable here: HQ can re-rank the queue, and THE LOOP
+         # reads the inbox before the queue. Two laws still hold: the verdict is COMPUTED, never typed, and it turns
+         # on ONE question -- did the work land and get pushed (handoff_status.sh rc, the only sanctioned source).
+         # An open question to HQ is HQ's backlog, never this seat's failure.
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          held=""; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
            if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then held="$(basename "$c" .claim)"; break; fi; done
          qwait=0; for f in "$PO"/hq/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$ME"-q-*) qwait=$((qwait+1));; esac; done
-         pline="$(printf '%s\n' "$hout" | grep -aiE 'HANDOFF (COMPLETE|BLOCKED)|COMPLETE|BLOCKED:' | head -1)"; [ -n "$pline" ] || pline="$(printf '%s\n' "$hout" | tail -1)"
-         if [ "$hrc" -eq 0 ]; then verdict="✅  S U C C E S S"; landed="YES — everything is committed and pushed"
-         else                       verdict="⛔  F A I L U R E"; landed="NO  — $pline"; fi
-         if [ -n "$held" ]; then rowline="$held — STILL OPEN"; else rowline="none open — last row is finished and closed"; fi
-         # ⛔ THE ONE QUESTION LON HAS (his words, 2026-08-22): "I need to know whether to continue or not."
-         # So this resolves to a genuine YES/NO, not advice. NO is reserved for the two states where re-firing
-         # provably cannot advance: nothing left to pick up, or the seat is parked on an unanswered question and
-         # would stop in the same place. Everything else is YES, with the consequence spelled out.
-         freerows=0
+         inbx=0; for f in "$PO/$ME/inbox"/*.msg; do [ -f "$f" ] && inbx=$((inbx+1)); done
+         freerows=0; nrow=""; nrank=""
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
-           [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
-         # ⛔ THE REAL DECISION LON MAKES (corrected by him, 2026-08-22: "I do not always /clear and re-prompt.
-         # I would not do so if the task needs more time and the limit ran out"). He has TWO moves, not one:
-         # /clear and start fresh, or keep prompting THIS session. Clearing is safe only when nothing of value
-         # lives ONLY in this session -- which is exactly what handoff_status.sh measures. So:
-         #   ⛔ DO NOT /clear    unpushed or uncommitted work exists only here; land it first, THEN clear
-         #   ✅ SAFE TO /clear   everything is committed, pushed and routed; a fresh session loses nothing
-         # and the second line says what that fresh session would then do:
-         #   RESUMES <row> · PICKS A NEW ROW (n free) · ⛔ WILL STALL (unanswered HQ question) ·
-         #   ⛔ NOTHING TO PICK UP (no open row, no free rows -- HQ must unblock rows first)
-         freerows=0
-         while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
-           [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
-         # ⛔ PRE-REWRITE TREE DETECTION. The 2026-08-21 s197 git filter-repo rewrote every hash in SCRIP,
-         # corpus and .github. A clone made before it shares NO recent history with origin, and shows up as a
-         # huge bogus "unpushed" count -- seat3 reads 2007. RULES.md: such a clone must be RE-CLONED, never
-         # pulled/rebased. This outranks every other verdict: the seat cannot do valid work at all.
-         # ⛔ MUST FETCH FIRST. A pre-rewrite clone that never fetched carries a STALE origin/* ref, so it reads
-         # 0-ahead/0-behind and looks pristine -- the trap that made an earlier version of this check pass four
-         # broken seats. Fetch (read-only to the worktree), THEN ask whether local HEAD is an ancestor of origin.
+           [ -f "$PO/claims/$topic.claim" ] && continue; freerows=$((freerows+1))
+           [ -z "$nrow" ] && { nrow="$topic"; nrank="$rank"; }; done < "$PO/QUEUE.tsv" 2>/dev/null
+         # A clone predating the 2026-08-21 filter-repo rewrite shares no recent history with origin. Must FETCH
+         # first: an unfetched pre-rewrite clone has a stale origin/* ref and reads as pristine.
          diverged=""
          for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
            br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
@@ -115,50 +93,22 @@ case "$cmd" in
            if ! git -C "$r" merge-base --is-ancestor HEAD "origin/$br" 2>/dev/null; then
              bh=$(git -C "$r" rev-list --count "HEAD..origin/$br" 2>/dev/null || echo 0)
              [ "${bh:-0}" -gt 50 ] && diverged="$diverged $(basename "$r")"; fi; done
-         if [ -n "$diverged" ]; then
-           cont="⛔ STOP — TREE IS PRE-REWRITE"
-           todo="This seat's clone(s)$diverged predate the 2026-08-21 history rewrite. NOTHING it does is valid."
-           todo2="Fix before using this seat:  for r in$diverged; do git -C $S4E/\$r fetch -q origin && git -C $S4E/\$r reset --hard -q origin/main; done"
-         elif [ "$hrc" -ne 0 ]; then
-           cont="⛔ DO NOT /clear"
-           todo="Work exists ONLY in this session — it is not on origin. Clearing LOSES it."
-           todo2="Keep prompting THIS session until it commits and pushes; then clear."
-         else
-           cont="✅ SAFE TO /clear"
-           if   [ -n "$held" ] && [ "$qwait" -gt 0 ]; then todo="But a fresh session ⛔ WILL STALL — row $held is parked on an unanswered HQ question ($qwait)."; todo2="Answer it first, or the next session stops in the same place."
-           elif [ -n "$held" ]; then todo="A fresh session RESUMES row $held."; todo2=""
-           elif [ "$freerows" -eq 0 ]; then todo="But there is ⛔ NOTHING TO PICK UP — no open row and no free queue rows."; todo2="HQ must unblock rows first. Any claim file, DONE or not, hides its row from the picker."
-           else
-             # ⛔ NAME THE ROW, AND SAY WHAT CAN CHANGE IT. `next` takes the TOPMOST FREE row in QUEUE.tsv order --
-             # same scan as the picker, so this is exact AS OF NOW. It is a prediction, not a promise: HQ may
-             # re-rank the queue, and THE LOOP reads the INBOX FIRST, so an HQ task there outranks the queue pick.
-             nrow=""; nrank=""
-             while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
-               [ -f "$PO/claims/$topic.claim" ] && continue; nrow="$topic"; nrank="$rank"; break; done < "$PO/QUEUE.tsv" 2>/dev/null
-             inbx=0; for f in "$PO/$ME/inbox"/*.msg; do [ -f "$f" ] && inbx=$((inbx+1)); done
-             todo="This row is COMPLETE and closed. A fresh session would take the top free row: ${nrow:-none} (rank ${nrank:-–}), $freerows free."
-             if [ "$inbx" -gt 0 ]; then todo2="⛔ BUT its inbox has $inbx message(s), and THE LOOP reads inbox FIRST — an HQ task there wins over the queue."
-             else todo2="As of now. HQ re-ranking the queue, or sending it an inbox task, changes what it takes."; fi; fi
-         fi
+         pline="$(printf '%s\n' "$hout" | grep -aiE 'HANDOFF (COMPLETE|BLOCKED)|COMPLETE|BLOCKED:' | head -1)"; [ -n "$pline" ] || pline="$(printf '%s\n' "$hout" | tail -1)"
+         # ⛔ IT IS A BANNER, NOT A REPORT (Lon 2026-08-22: "You turned a banner into a TL;DR"). ONE line, glanced at.
+         # SUCCESS and safe-to-/clear are the SAME fact -- both are handoff_status.sh rc=0 -- so there is one thing
+         # to say. Detail is not lost, it moves behind `banner -v`, which nobody has to read.
          b='════════════════════════════════════════════════════════════════════════════════'
-         printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
-         printf '  did the work land? : %s\n' "$landed"
-         printf '  its row            : %s\n' "$rowline"
-         # ⛔ Lon /clears blind -- he has NO view of a session's context fullness (his words, 2026-08-22).
-         # This line is the ONE self-reported field on the banner and is labelled as such: no script can
-         # compute a model's context use. Pass it as arg 3: `s4e_msg.sh banner <topic> 62`.
-         ctx="${3:-}"
-         if [ -n "$ctx" ]; then
-           if   [ "$ctx" -ge 75 ] 2>/dev/null; then cwarn="⛔ NEARLY FULL — everything is routed and pushed; a /clear here loses nothing"
-           elif [ "$ctx" -ge 50 ] 2>/dev/null; then cwarn="over half gone — keep routing to files as you go"
-           else cwarn="plenty of room"; fi
-           printf '  context (self-rep) : %s%%  — %s\n' "$ctx" "$cwarn"; fi
-         printf '%s\n' "$b"
-         printf '  ➜  YOUR MOVE       : %s\n' "$cont"
-         printf '                       %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
-         printf '                       /clear, then paste this:\n'
-         printf '                       Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
-         printf '%s\n\n' "$b"
+         if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
+         elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear"
+         else                        line="⛔ FAILURE — $ME — NOT pushed, do NOT /clear —$(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
+         printf '\n%s\n  %s\n%s\n\n' "$b" "$line" "$b"
+         if [ "${2:-}" = "-v" ] || [ "${3:-}" = "-v" ]; then
+           printf '  its row        : %s\n' "${held:-none open}"
+           printf '  its inbox      : %s message(s)   [THE LOOP reads inbox before the queue]\n' "$inbx"
+           printf '  its questions  : %s waiting on HQ\n' "$qwait"
+           printf '  queue          : %s free row(s); topmost free is %s (rank %s)\n' "$freerows" "${nrow:-none}" "${nrank:--}"
+           [ -n "$diverged" ] && printf '  repair         : for r in%s; do git -C %s/$r fetch -q origin && git -C %s/$r reset --hard -q origin/main; done\n' "$diverged" "$S4E" "$S4E"
+           printf '  re-prompt      : Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n\n'; fi
          [ "$hrc" -eq 0 ] && exit 0 || exit 1;;
   fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
