@@ -18,7 +18,7 @@ static long lit_tag_imm(long base_tag) {
 }
 static inline const char * ls_rq(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
 static inline const char * ls_rd(int w) { return _.op_zres ? ZRESD(w) : FR(_.op_off + w); }
-static inline std::string ls_dual(int w) { return (_.op_zres && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? x86("mov", (w == 0) ? "rax" : "r11", ZRES(w)) + x86("mov", FRQ(_.op_off + w), (w == 0) ? "rax" : "r11") : std::string(); }
+static inline std::string ls_dual(int w) { return (_.op_zres && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? x86("mov", "rax", ZRES(w)) + x86("mov", FRQ(_.op_off + w), "rax") : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {
     return !PLATFORM_X86 ? std::string()
