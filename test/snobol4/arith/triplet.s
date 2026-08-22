@@ -504,11 +504,8 @@ n40_cmp_test_α:         sub              rsp, 16
 .Lx102_239:             mov              qword ptr [rsp + 0], 0               # result
                         mov              qword ptr [rsp + 8], 0;              jmp   n41_assign_α
 .Lx102_0:               lea              rdi, [rsp + 32]                      # coerce_numeric
-                        lea              rsi, [rsp + 16]
-                        mov              qword ptr [rip + rtccb+40], r8
+                        lea              rsi, [rsp + 16]                      # b
                         call             rt_cmp_d@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
                         test             eax, eax;                            je    .Lx102_240
                         add              rsp, 16;                             jmp   n39_coerce_numeric_β
 .Lx102_240:             mov              qword ptr [rsp + 0], 0               # result

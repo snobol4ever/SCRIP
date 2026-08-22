@@ -53,12 +53,9 @@ n3_cmp_test_α:          sub              rsp, 16
                         cmp              rax, rdx;                            jg    .Lx41_239
                         add              rsp, 16;                             jmp   n2_lit_string_β
 .Lx41_239:                                                                    jmp   n4_statement_end_α
-.Lx41_0:                lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        mov              qword ptr [rip + rtccb+40], r8
+.Lx41_0:                lea              rdi, [rsp + 32]                      # a
+                        lea              rsi, [rsp + 16]                      # b
                         call             rt_cmp_d@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
                         test             eax, eax;                            jg    .Lx41_240
                         add              rsp, 16;                             jmp   n2_lit_string_β
 .Lx41_240:                                                                    jmp   n4_statement_end_α
@@ -136,12 +133,9 @@ n12_cmp_test_α:         sub              rsp, 16
                         cmp              rax, rdx;                            jl    .Lx55_239
                         add              rsp, 16;                             jmp   n11_lit_string_β
 .Lx55_239:                                                                    jmp   n13_statement_end_α
-.Lx55_0:                lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        mov              qword ptr [rip + rtccb+40], r8
+.Lx55_0:                lea              rdi, [rsp + 32]                      # a
+                        lea              rsi, [rsp + 16]                      # b
                         call             rt_cmp_d@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
                         test             eax, eax;                            js    .Lx55_240
                         add              rsp, 16;                             jmp   n11_lit_string_β
 .Lx55_240:                                                                    jmp   n13_statement_end_α
@@ -219,12 +213,9 @@ n21_cmp_test_α:         sub              rsp, 16
                         cmp              rax, rdx;                            je    .Lx69_239
                         add              rsp, 16;                             jmp   n20_lit_string_β
 .Lx69_239:                                                                    jmp   n22_statement_end_α
-.Lx69_0:                lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        mov              qword ptr [rip + rtccb+40], r8
+.Lx69_0:                lea              rdi, [rsp + 32]                      # a
+                        lea              rsi, [rsp + 16]                      # b
                         call             rt_cmp_d@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
                         test             eax, eax;                            je    .Lx69_240
                         add              rsp, 16;                             jmp   n20_lit_string_β
 .Lx69_240:                                                                    jmp   n22_statement_end_α
@@ -302,12 +293,9 @@ n30_cmp_test_α:         sub              rsp, 16
                         cmp              rax, rdx;                            jne   .Lx83_239
                         add              rsp, 16;                             jmp   n29_lit_string_β
 .Lx83_239:                                                                    jmp   n31_statement_end_α
-.Lx83_0:                lea              rdi, [rsp + 32]
-                        lea              rsi, [rsp + 16]
-                        mov              qword ptr [rip + rtccb+40], r8
+.Lx83_0:                lea              rdi, [rsp + 32]                      # a
+                        lea              rsi, [rsp + 16]                      # b
                         call             rt_cmp_d@PLT
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48]
                         test             eax, eax;                            jne   .Lx83_240
                         add              rsp, 16;                             jmp   n29_lit_string_β
 .Lx83_240:                                                                    jmp   n31_statement_end_α
