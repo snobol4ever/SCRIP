@@ -81,10 +81,18 @@ case "$cmd" in
          if [ "$hrc" -eq 0 ]; then verdict="✅  S U C C E S S"; landed="YES — everything is committed and pushed"
          else                       verdict="⛔  F A I L U R E"; landed="NO  — $pline"; fi
          if [ -n "$held" ]; then rowline="$held — STILL OPEN"; else rowline="none open — last row is finished and closed"; fi
-         if   [ "$hrc" -ne 0 ]; then todo="RE-FIRE THIS SEAT. Its work is NOT pushed yet; it will try again on the same row."; todo2="If it asks you for a push credential, that is what it is stuck on."
-         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then todo="RE-FIRE THIS SEAT. It carries on with the SAME row, $held."; todo2="⚠  It is waiting on HQ for an answer, so it may stop again in the same place."
-         elif [ -n "$held" ]; then todo="RE-FIRE THIS SEAT. It carries on with the SAME row, $held."; todo2=""
-         else                     todo="RE-FIRE THIS SEAT. That row is DONE — it will pick up a brand-new row."; todo2=""; fi
+         # ⛔ THE ONE QUESTION LON HAS (his words, 2026-08-22): "I need to know whether to continue or not."
+         # So this resolves to a genuine YES/NO, not advice. NO is reserved for the two states where re-firing
+         # provably cannot advance: nothing left to pick up, or the seat is parked on an unanswered question and
+         # would stop in the same place. Everything else is YES, with the consequence spelled out.
+         freerows=0
+         while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
+           [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
+         if   [ -z "$held" ] && [ "$freerows" -eq 0 ]; then cont="⛔ NO"; todo="Do NOT re-fire this seat — it has no open row and the queue has NO free rows left."; todo2="HQ must add or unblock rows first. (Every row with a claim file, DONE or not, is hidden from the picker.)"
+         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then cont="⛔ NO"; todo="Do NOT re-fire yet — this seat is parked on row $held waiting for an HQ answer ($qwait question(s))."; todo2="Re-firing lands it in the same spot. Answer it, then re-fire."
+         elif [ "$hrc" -ne 0 ]; then cont="✅ YES"; todo="Re-fire this seat. Its work is NOT pushed yet; it resumes row $held and tries again."; todo2="If it asks you for a push credential, that is what it is stuck on."
+         elif [ -n "$held" ]; then cont="✅ YES"; todo="Re-fire this seat. It carries on with the SAME row, $held."; todo2=""
+         else cont="✅ YES"; todo="Re-fire this seat. Its row is DONE — it picks up a brand-new one ($freerows free)."; todo2=""; fi
          b='════════════════════════════════════════════════════════════════════════════════'
          printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
          printf '  did the work land? : %s\n' "$landed"
@@ -99,7 +107,8 @@ case "$cmd" in
            else cwarn="plenty of room"; fi
            printf '  context (self-rep) : %s%%  — %s\n' "$ctx" "$cwarn"; fi
          printf '%s\n' "$b"
-         printf '  ➜  YOU DO NEXT     : %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
+         printf '  ➜  CONTINUE?       : %s\n' "$cont"
+         printf '                       %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
          printf '                       /clear, then paste this:\n'
          printf '                       Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
          printf '%s\n\n' "$b"
