@@ -844,7 +844,7 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
         IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[k], NULL, ω, &ir);
         lc_γ_to(cur, ie);
         IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
-        sx_sub_container_only(sub);
+        if (k < nidx - 1) sx_sub_container_only(sub);
         lc_γ_to(ir, sub);
         ir_operand_push(sub, cur); ir_operand_push(sub, ir);
         cur = sub;

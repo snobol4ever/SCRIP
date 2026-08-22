@@ -1135,6 +1135,17 @@ DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     DESCR_t b = base;
     if (IS_VARREF_fn(b)) b = rt_deref(b);
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
+    if (b.v == DT_T) {
+        TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
+        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
+        TBPAIR_t *e = table_find_pair(tb, ks);
+        if (e && (e->val.v == DT_T || e->val.v == DT_A)) return e->val;
+        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
+        if (e) { vc->cellp = &e->val; vc->tbl = tb; vc->key = 0; }
+        else   { vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); }
+        vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+        return NAMETRAP(vc);
+    }
     return rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
