@@ -49,7 +49,12 @@ case "$cmd" in
          else t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
               if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
   done)  topic="${2:?topic}"; c="$PO/claims/$topic.claim"
+         # ⛔ THE BANNER FIRES ITSELF HERE (HQ 2026-08-22, after seat4 finished its row and gave NO banner until Lon
+         # asked for one). LAW 15 lived only as a step in the seat's CLAUDE.md -- and a step in a markdown file is a
+         # hope, not a mechanism, exactly like the inbox before `check` was forced. A seat that closes a row runs
+         # `done`, so `done` prints the banner. Same reason `board` does. Suppress with S4E_NO_BANNER=1.
          if [ -f "$c" ] && [ "$(head -1 "$c")" = "$ME" ]; then grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
+              [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
          else echo "not your claim"; exit 1; fi;;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          # ONE matcher for BOTH the presence test and the brief print, so they cannot disagree (that
@@ -177,6 +182,8 @@ case "$cmd" in
            tot=$((tot+1)); [ -f "$PO/claims/$topic.claim" ] || free=$((free+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
          printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
          printf '  Q = questions from that seat waiting on HQ. A seat with an open ROW resumes it when re-fired.\n\n';;
-  board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md";;
+  board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
+         # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
+         [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner;;
   *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet"; exit 2;;
 esac
