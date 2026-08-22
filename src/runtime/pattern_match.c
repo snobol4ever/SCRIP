@@ -859,6 +859,13 @@ int rt_cas_live_span(int i, void **base, size_t *bytes)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_defer_nv_read(const char *name)
+{
+    extern int rt_udc_on(void);
+    if (name && name[0] == '&' && rt_udc_on() && NV_CONST_ASSIGNED_fn(name)) return NV_KW_GET_fn(name);
+    return NV_GET_fn(name ? name : "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
@@ -868,7 +875,7 @@ long c_rt_defer_open(const char *varname, int ival_flag)
         for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; return 0; } if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb2 = rt_proc_call_open(r.s ? r.s : "", 0); if (!fb2) s->failed = 1; return fb2; } s->val = r; return 0; } }
         long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb;
     }
-    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    DESCR_t val = rt_defer_nv_read(varname);
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
         else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
@@ -936,7 +943,7 @@ int rt_defer_run_all(const char *varname, int cur_delta)
         for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; } else if (r.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(r.s ? r.s : "", 0)); } else s->val = r; return c_rt_defer_close(cur_delta); } }
         s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(varname + 1, 0)); return c_rt_defer_close(cur_delta);
     }
-    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    DESCR_t val = rt_defer_nv_read(varname);
     if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
@@ -1009,7 +1016,7 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
 {
     DTP_t *h = (DTP_t *)hv;
     if (h && h->snap && i >= 0 && i < h->nsnap) return h->snap[i];
-    { DESCR_t val = NV_GET_fn(fb ? fb : ""); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
+    { DESCR_t val = rt_defer_nv_read(fb); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_defer_xpat_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_XPAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
@@ -1057,7 +1064,7 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
         g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
         return NULL;
     }
-    DESCR_t val = NV_GET_fn(varname ? varname : "");
+    DESCR_t val = rt_defer_nv_read(varname);
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
         else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val);
