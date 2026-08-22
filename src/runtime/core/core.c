@@ -1036,16 +1036,21 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
     strftime(buf, 20, "%m/%d/%Y %H:%M:%S", tm);
     return STRVAL(buf);
 }
-static int64_t _g_start_ms = -1;
+static int64_t _g_start_ns = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _TIME_(DESCR_t *a, int n) {
-    (void)a; (void)n;
+/* NS-TIME (s249): TIME() is INTEGER NANOSECONDS of CLOCK_MONOTONIC elapsed since program start, in all three engines.
+   CLOCK_PROCESS_CPUTIME_ID -- what SPITBOL's zystm() and CSNOBOL4's mstime() used -- resolves no finer than ~471 ns on
+   this host and costs ~502 ns per read (a real syscall); CLOCK_MONOTONIC is 1 ns / ~20 ns through the vDSO.  A CPU-clock
+   "nanosecond" TIME() would be fake precision AND would perturb the loop it measures, so wall-monotonic is the arm. */
+int64_t rt_time_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
-    int64_t now_ms = (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-    if (_g_start_ms < 0) _g_start_ms = now_ms;
-    return REALVAL((double)(now_ms - _g_start_ms));
+    int64_t now_ns = (int64_t)ts.tv_sec * 1000000000LL + (int64_t)ts.tv_nsec;
+    if (_g_start_ns < 0) _g_start_ns = now_ns;
+    return now_ns - _g_start_ns;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _TIME_(DESCR_t *a, int n) { (void)a; (void)n; return INTVAL(rt_time_ns()); }
 static DESCR_t _INPUT_(DESCR_t *a, int n);
 static DESCR_t _OUTPUT_(DESCR_t *a, int n);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1697,7 +1702,7 @@ void core_lib_init(void) {
     alphabet[256] = '\0';
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
-      _g_start_ms = (int64_t)_ts.tv_sec * 1000 + _ts.tv_nsec / 1000000; }
+      _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
     if (mon_fifo && mon_fifo[0]) {
         monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);

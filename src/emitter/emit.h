@@ -445,6 +445,8 @@ typedef struct {
     int                          op_imm_b_ok;
     long                         op_imm_a;
     long                         op_imm_b;
+    int                          op_snul_a_ok;   /* operand's value is definitionally the null string -- see ir_value_is_null_string */
+    int                          op_snul_b_ok;
     int                          op_write_route;
     int                          op_call_route;
     int                          op_ab_nformals;

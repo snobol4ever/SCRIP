@@ -5038,9 +5038,11 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
     *out = INTVAL(len); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* NS-TIME (s249): ONE clock, shared with core.c's _TIME_ -- this used to be a SECOND, WORSE TIME(): clock()*1000/CLOCKS_PER_SEC,
+   i.e. CPU time truncated to whole milliseconds, and it is the arm that actually runs (core.c's registered _TIME_ never fired). */
 static __attribute__((noinline)) int bn_time(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)args; if (nargs > 1) return -1;
-    *out = INTVAL((long long)(clock() * 1000 / CLOCKS_PER_SEC)); return 1;
+    *out = INTVAL(rt_time_ns()); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *out) {
