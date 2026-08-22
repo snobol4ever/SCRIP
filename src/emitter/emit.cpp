@@ -384,7 +384,7 @@ void xa_dispatch(XA_op_t op)
 static struct { const char *s; int idx; } g_strtab[SMX_STRTAB_CAP];
 static int g_strtab_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void strtab_reset(void) { g_strtab_n = 0; }
+void strtab_reset(void) { for (int i = 0; i < g_strtab_n; i++) free((void *)g_strtab[i].s); g_strtab_n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int strtab_intern(const char *s)
 {
@@ -393,7 +393,7 @@ int strtab_intern(const char *s)
         if (g_strtab[i].s == s || strcmp(g_strtab[i].s, s) == 0) return g_strtab[i].idx;
     if (g_strtab_n >= SMX_STRTAB_CAP) { fprintf(stderr, "strtab overflow\n"); abort(); }
     int idx = g_strtab_n;
-    g_strtab[g_strtab_n].s = s; g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
+    g_strtab[g_strtab_n].s = strdup(s); g_strtab[g_strtab_n].idx = idx; g_strtab_n++;
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
