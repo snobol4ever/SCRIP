@@ -77,6 +77,10 @@ out/sm_codegen_x64_emit_test
 out/bb_flat_text_test
 out/sm_phase2_sim_test
 
+# bench-external-cpu-and-elapsed-clock: external timing wrapper, built on demand by
+# util_bench_snobol4_engines.sh (rebuilt from source; do not track the binary)
+tools/bench_rusage
+
 # EM-7c-sm-three-column: sm_macros.s is regenerated alongside each .s emit
 # (in CWD when --jit-emit --x64 runs).  Tracked copies live under corpus/.
 /sm_macros.s
