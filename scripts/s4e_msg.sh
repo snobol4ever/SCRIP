@@ -104,12 +104,17 @@ case "$cmd" in
          # corpus and .github. A clone made before it shares NO recent history with origin, and shows up as a
          # huge bogus "unpushed" count -- seat3 reads 2007. RULES.md: such a clone must be RE-CLONED, never
          # pulled/rebased. This outranks every other verdict: the seat cannot do valid work at all.
+         # ⛔ MUST FETCH FIRST. A pre-rewrite clone that never fetched carries a STALE origin/* ref, so it reads
+         # 0-ahead/0-behind and looks pristine -- the trap that made an earlier version of this check pass four
+         # broken seats. Fetch (read-only to the worktree), THEN ask whether local HEAD is an ancestor of origin.
          diverged=""
          for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
            br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
-           ah=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
-           bh=$(git -C "$r" rev-list --count "$br..origin/$br" 2>/dev/null || echo 0)
-           if [ "${ah:-0}" -gt 50 ] && [ "${bh:-0}" -gt 50 ]; then diverged="$diverged $(basename "$r")"; fi; done
+           git -C "$r" fetch -q origin 2>/dev/null || continue
+           git -C "$r" rev-parse --verify -q "origin/$br" >/dev/null 2>&1 || continue
+           if ! git -C "$r" merge-base --is-ancestor HEAD "origin/$br" 2>/dev/null; then
+             bh=$(git -C "$r" rev-list --count "HEAD..origin/$br" 2>/dev/null || echo 0)
+             [ "${bh:-0}" -gt 50 ] && diverged="$diverged $(basename "$r")"; fi; done
          if [ -n "$diverged" ]; then
            cont="⛔ STOP — TREE IS PRE-REWRITE"
            todo="This seat's clone(s)$diverged predate the 2026-08-21 history rewrite. NOTHING it does is valid."
@@ -123,7 +128,17 @@ case "$cmd" in
            if   [ -n "$held" ] && [ "$qwait" -gt 0 ]; then todo="But a fresh session ⛔ WILL STALL — row $held is parked on an unanswered HQ question ($qwait)."; todo2="Answer it first, or the next session stops in the same place."
            elif [ -n "$held" ]; then todo="A fresh session RESUMES row $held."; todo2=""
            elif [ "$freerows" -eq 0 ]; then todo="But there is ⛔ NOTHING TO PICK UP — no open row and no free queue rows."; todo2="HQ must unblock rows first. Any claim file, DONE or not, hides its row from the picker."
-           else todo="This row is COMPLETE and closed. A fresh session PICKS A NEW ROW ($freerows free)."; todo2=""; fi
+           else
+             # ⛔ NAME THE ROW, AND SAY WHAT CAN CHANGE IT. `next` takes the TOPMOST FREE row in QUEUE.tsv order --
+             # same scan as the picker, so this is exact AS OF NOW. It is a prediction, not a promise: HQ may
+             # re-rank the queue, and THE LOOP reads the INBOX FIRST, so an HQ task there outranks the queue pick.
+             nrow=""; nrank=""
+             while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
+               [ -f "$PO/claims/$topic.claim" ] && continue; nrow="$topic"; nrank="$rank"; break; done < "$PO/QUEUE.tsv" 2>/dev/null
+             inbx=0; for f in "$PO/$ME/inbox"/*.msg; do [ -f "$f" ] && inbx=$((inbx+1)); done
+             todo="This row is COMPLETE and closed. A fresh session would take the top free row: ${nrow:-none} (rank ${nrank:-–}), $freerows free."
+             if [ "$inbx" -gt 0 ]; then todo2="⛔ BUT its inbox has $inbx message(s), and THE LOOP reads inbox FIRST — an HQ task there wins over the queue."
+             else todo2="As of now. HQ re-ranking the queue, or sending it an inbox task, changes what it takes."; fi; fi
          fi
          b='════════════════════════════════════════════════════════════════════════════════'
          printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
