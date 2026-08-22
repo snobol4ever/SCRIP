@@ -152,17 +152,9 @@ std::string bb_match_defer() {
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("mov",  "r8d", (long)(_.op_scan ? 1 : 0))
-         + IF(_.op_seal != 1 && x86_fb_pinned(),
-               x86("comment", "s44 WIRE-SAVE: stash caller's true r10/r11 before the blob-entry glue overwrites them with this node's private L(4)/L(5)")
-             + x86("mov",  FRQ(_.op_off),     "r10")
-             + x86("mov",  FRQ(_.op_off + 8), "r11"))
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
          + bb_glue_wire_land()
-         + IF(_.op_seal != 1 && x86_fb_pinned(),
-               x86("comment", "s44 WIRE-RESTORE (success fallthrough): the rest of THIS box's own enclosing pattern reads r10/r11 as its live γ/ω under WREG -- restore before falling into it")
-             + x86("mov",  "r10", FRQ(_.op_off))
-             + x86("mov",  "r11", FRQ(_.op_off + 8)))
          + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
          + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
@@ -175,10 +167,6 @@ std::string bb_match_defer() {
          + x86_gamma()
          + x86("def",  L(5))
          + bb_glue_wire_land()
-         + IF(_.op_seal != 1 && x86_fb_pinned(),
-               x86("comment", "s44 WIRE-RESTORE (exhaust): without this, x86_omega() below reads r11 == this node's own dead L(5) -- the s43a closed loop")
-             + x86("mov",  "r10", FRQ(_.op_off))
-             + x86("mov",  "r11", FRQ(_.op_off + 8)))
          + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
          + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),

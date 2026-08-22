@@ -232,8 +232,6 @@ static std::string bb_define_activate() {
             }
             return std::string();
         })
-      + x86("mov", "r10", RDQ("rsi", AB_OFF_GW))
-      + x86("mov", "r11", RDQ("rsi", AB_OFF_WW))
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
       + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
       + x86("mov",    "rax", RDQ("rax", 0))
@@ -247,8 +245,6 @@ static std::string bb_define_activate() {
       + x86_align_leave()
       + x86("def", L(5))
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))
-      + x86("mov", "r10", RDQ("rsi", AB_OFF_GW))
-      + x86("mov", "r11", RDQ("rsi", AB_OFF_WW))
       + x86("mov", "rax", RDQ("rsi", AB_OFF_RES0))
       + x86("mov", "rdx", RDQ("rsi", AB_OFF_RES1))
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
@@ -388,7 +384,7 @@ static std::string bb_define_sr() {
     long role = (long)_.op_ival;
     int inl5 = (role == 5) ? 1 : 0; if (inl5) role = 4;
     if (role == 3) {
-        return x86("comment", "IR_DEFINE wire-adopt (s58: EMPTY — shim deleted, tiny sites carry the pushdown protocol; s55: sites set r10/r11 directly)")
+        return x86("comment", "IR_DEFINE wire-adopt (s58: EMPTY — shim deleted, tiny sites carry the pushdown protocol)")
              + x86_alpha()
              + x86_gamma();
     }
@@ -424,8 +420,7 @@ static std::string bb_define_sr() {
                             + x86_deflabel_id(lid + i)
                             + x86("mov", "rax", R8Q(16L * i)) + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
                             + x86("mov", "rax", R8Q(16L * i + 8)) + x86("mov", GQ(gk4[i], 8), "rax")
-                            + x86_deflabel_id(lid + 30 + i); })
-                 + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
+                            + x86_deflabel_id(lid + 30 + i); }); };
         if (fnsig()) {
             long F4 = T4 + 16L * nf4;
             auto SIGQ = [&](long d) { return std::string("[rcx + ") + std::to_string(d) + "]"; };
@@ -447,8 +442,7 @@ static std::string bb_define_sr() {
                                 + x86_deflabel_id(lid + i)
                                 + x86("mov", "rax", EXTQ(16L * i).c_str()) + x86("note", gva_name(gk4[i])) + x86("mov", GQ(gk4[i], 0), "rax")
                                 + x86("mov", "rax", EXTQ(16L * i + 8).c_str()) + x86("mov", GQ(gk4[i], 8), "rax")
-                                + x86_deflabel_id(lid + 30 + i); })
-                     + x86_rsp_load64("r10", 16 * xt4) + x86_rsp_load64("r11", 16 * xt4 + 8); };
+                                + x86_deflabel_id(lid + 30 + i); }); };
             return x86("comment", "IR_DEFINE role 4: SIG s66 per-DEFINE shim (alpha=swap-by-map, gamma/omega=restore-by-map, CONSTANT frame)")
                  + IF(inl5, x86_jmp_id(245))
                  + x86("commentrule", std::string(119, '-'))
@@ -459,7 +453,7 @@ static std::string bb_define_sr() {
                        return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
                             + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
                             + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
-                 + x86_rsp_store64(16 * xt4, "r10") + x86_rsp_store64(16 * xt4 + 8, "r11") + x86_rsp_store64(16 * xt4 + 16, "rcx")
+                 + x86_rsp_store64(16 * xt4 + 16, "rcx")
                  + x86("mov", "rdx", SIGQ(0))
                  + R8AT()
                  + FOR(0, nf4, [&](int i) {
@@ -516,7 +510,7 @@ static std::string bb_define_sr() {
                    return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
                         + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
                         + x86("mov", GQ(gk4[nf4 + k], 0), (long)DT_SNUL) + x86("mov", GQ(gk4[nf4 + k], 8), (long)0); })
-             + x86_rsp_store64(16 * xt4, "r10") + x86_rsp_store64(16 * xt4 + 8, "r11") + x86_rsp_store64(16 * xt4 + 16, "rcx")
+             + x86_rsp_store64(16 * xt4 + 16, "rcx")
              + FOR(0, nf4, [&](int i) {
                    return x86("cmp", "rcx", (long)i) + x86_jcc_id("jbe", 10 + i)
                         + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i)) + x86("note", gva_name(gk4[i])) + x86("mov", "rdx", GQ(gk4[i], 0)) + x86("mov", GQ(gk4[i], 0), "rax") + x86("mov", R8Q(16L * nf4 + 32 + 16L * i).c_str(), "rdx")

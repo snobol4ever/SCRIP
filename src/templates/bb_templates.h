@@ -66,7 +66,6 @@ std::string bb_glue_wire_exit(int is_gamma);
 std::string bb_glue_wire_γ();
 std::string bb_glue_wire_ω();
 std::string bb_glue_pass_wires(int gid, int wid);
-int bb_wire_stack_on(void);
 std::string bb_glue_wire_land(void);
 std::string bb_glue_pass_wires_blob(int gid, int wid);
 std::string bb_disjunction();

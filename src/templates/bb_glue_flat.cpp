@@ -36,13 +36,11 @@ std::string bb_glue_outer_ω() {
          + IF( _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_wire_stack_on(void) { const char * e = getenv("SCRIP_WIRE_STACK"); return (e && *e == '0') ? 0 : 1; }
 std::string bb_glue_wire_land(void) { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
     if (!PLATFORM_X86) return std::string();
-    if (bb_wire_stack_on()) return x86_jmp_mem("rsp", is_gamma ? 0 : 8);
-    return x86("jmp", is_gamma ? "r10" : "r11");
+    return x86_jmp_mem("rsp", is_gamma ? 0 : 8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_γ() { return bb_glue_wire_exit(1); }
@@ -57,11 +55,7 @@ std::string bb_glue_pass_wires(int gid, int wid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     if (!PLATFORM_X86) return std::string();
-    if (bb_wire_stack_on())
-        return x86_lea_id("rcx", wid) + x86("push", "rcx")
-             + x86_lea_id("rcx", gid) + x86("push", "rcx")
-             + x86_jmp_reg("rax");
-    return x86_lea_id("r10", gid)
-         + x86_lea_id("r11", wid)
+    return x86_lea_id("rcx", wid) + x86("push", "rcx")
+         + x86_lea_id("rcx", gid) + x86("push", "rcx")
          + x86_jmp_reg("rax");
 }
