@@ -100,7 +100,21 @@ case "$cmd" in
          freerows=0
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] || freerows=$((freerows+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
-         if [ "$hrc" -ne 0 ]; then
+         # ⛔ PRE-REWRITE TREE DETECTION. The 2026-08-21 s197 git filter-repo rewrote every hash in SCRIP,
+         # corpus and .github. A clone made before it shares NO recent history with origin, and shows up as a
+         # huge bogus "unpushed" count -- seat3 reads 2007. RULES.md: such a clone must be RE-CLONED, never
+         # pulled/rebased. This outranks every other verdict: the seat cannot do valid work at all.
+         diverged=""
+         for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
+           br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+           ah=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
+           bh=$(git -C "$r" rev-list --count "$br..origin/$br" 2>/dev/null || echo 0)
+           if [ "${ah:-0}" -gt 50 ] && [ "${bh:-0}" -gt 50 ]; then diverged="$diverged $(basename "$r")"; fi; done
+         if [ -n "$diverged" ]; then
+           cont="⛔ STOP — TREE IS PRE-REWRITE"
+           todo="This seat's clone(s)$diverged predate the 2026-08-21 history rewrite. NOTHING it does is valid."
+           todo2="Fix before using this seat:  for r in$diverged; do git -C $S4E/\$r fetch -q origin && git -C $S4E/\$r reset --hard -q origin/main; done"
+         elif [ "$hrc" -ne 0 ]; then
            cont="⛔ DO NOT /clear"
            todo="Work exists ONLY in this session — it is not on origin. Clearing LOSES it."
            todo2="Keep prompting THIS session until it commits and pushes; then clear."
