@@ -2997,8 +2997,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
+    if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
     if (g_emit.flat_jmp_entry) {
-        if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
         if (!bare) {
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_emit.flat_pat) {
