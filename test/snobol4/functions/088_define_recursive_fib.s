@@ -85,10 +85,10 @@ fib_α:                  sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx53_41:               lea              r10, [rip + fib_γ]
+.Lx53_41:               lea              rcx, [rip + fib_γ]
                         lea              r11, [rip + fib_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 fib_γ:                  mov              rdi, qword ptr [r9 + 0]              # fib
                         mov              rsi, qword ptr [r9 + 8]

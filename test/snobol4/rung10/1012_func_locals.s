@@ -156,10 +156,10 @@ lfunc_α:                sub              rsp, 144
                         mov              qword ptr [rsp + 136], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-.Lx149_43:              lea              r10, [rip + lfunc_γ]
+.Lx149_43:              lea              rcx, [rip + lfunc_γ]
                         lea              r11, [rip + lfunc_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n5_statement_begin_α];   jmp   rax
 lfunc_γ:                mov              rdi, qword ptr [r9 + 0]              # lfunc
                         mov              rsi, qword ptr [r9 + 8]
@@ -1042,10 +1042,10 @@ checklocal_α:           sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 128], 0
                         mov              qword ptr [r9 + 136], 0
-.Lx315_41:              lea              r10, [rip + checklocal_γ]
+.Lx315_41:              lea              rcx, [rip + checklocal_γ]
                         lea              r11, [rip + checklocal_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n108_statement_begin_α]; jmp   rax
 checklocal_γ:           mov              rdi, qword ptr [r9 + 112]            # checklocal
                         mov              rsi, qword ptr [r9 + 120]

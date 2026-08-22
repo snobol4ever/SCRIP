@@ -89,10 +89,10 @@ bump_α:                 sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx50_41:               lea              r10, [rip + bump_γ]
+.Lx50_41:               lea              rcx, [rip + bump_γ]
                         lea              r11, [rip + bump_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 bump_γ:                 mov              rdi, qword ptr [r9 + 0]              # bump
                         mov              rsi, qword ptr [r9 + 8]

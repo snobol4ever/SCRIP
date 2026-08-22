@@ -2184,10 +2184,10 @@ Push_α:                 sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx414_41:              lea              r10, [rip + Push_γ]
+.Lx414_41:              lea              rcx, [rip + Push_γ]
                         lea              r11, [rip + Push_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n156_statement_begin_α]; jmp   rax
 Push_γ:                 mov              rdi, qword ptr [r9 + 0]              # Push
                         mov              rsi, qword ptr [r9 + 8]
@@ -2584,10 +2584,10 @@ Pop_α:                  sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + Pop_γ]
+                        lea              rcx, [rip + Pop_γ]
                         lea              r11, [rip + Pop_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n188_statement_begin_α]; jmp   rax
 Pop_γ:                  mov              rdi, qword ptr [r9 + 32]
                         mov              rsi, qword ptr [r9 + 40]
@@ -2918,10 +2918,10 @@ Unary_α:                sub              rsp, 80
                         mov              qword ptr [rsp + 72], rax
                         mov              qword ptr [r9 + 80], 0
                         mov              qword ptr [r9 + 88], 0
-.Lx503_42:              lea              r10, [rip + Unary_γ]
+.Lx503_42:              lea              rcx, [rip + Unary_γ]
                         lea              r11, [rip + Unary_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n215_statement_begin_α]; jmp   rax
 Unary_γ:                mov              rdi, qword ptr [r9 + 48]             # Unary
                         mov              rsi, qword ptr [r9 + 56]
@@ -3356,10 +3356,10 @@ Binary_α:               sub              rsp, 96
                         mov              qword ptr [rsp + 88], rax
                         mov              qword ptr [r9 + 128], 0
                         mov              qword ptr [r9 + 136], 0
-.Lx551_43:              lea              r10, [rip + Binary_γ]
+.Lx551_43:              lea              rcx, [rip + Binary_γ]
                         lea              r11, [rip + Binary_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n243_statement_begin_α]; jmp   rax
 Binary_γ:               mov              rdi, qword ptr [r9 + 96]             # Binary
                         mov              rsi, qword ptr [r9 + 104]

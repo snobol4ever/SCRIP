@@ -117,10 +117,10 @@ roman_α:                sub              rsp, 128
                         mov              qword ptr [rsp + 120], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx285_41:              lea              r10, [rip + roman_γ]
+.Lx285_41:              lea              rcx, [rip + roman_γ]
                         lea              r11, [rip + roman_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 roman_γ:                mov              rdi, qword ptr [r9 + 0]              # roman
                         mov              rsi, qword ptr [r9 + 8]

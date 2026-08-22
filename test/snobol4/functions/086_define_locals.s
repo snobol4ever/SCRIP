@@ -112,10 +112,10 @@ swap_α:                 sub              rsp, 96
                         mov              qword ptr [rsp + 88], rax
                         mov              qword ptr [r9 + 32], 0
                         mov              qword ptr [r9 + 40], 0
-.Lx35_42:               lea              r10, [rip + swap_γ]
+.Lx35_42:               lea              rcx, [rip + swap_γ]
                         lea              r11, [rip + swap_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 swap_γ:                 mov              rdi, qword ptr [r9 + 0]              # swap
                         mov              rsi, qword ptr [r9 + 8]

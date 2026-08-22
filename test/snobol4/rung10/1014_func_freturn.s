@@ -71,10 +71,10 @@ always_fail_α:          sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + always_fail_γ]
+                        lea              rcx, [rip + always_fail_γ]
                         lea              r11, [rip + always_fail_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n5_statement_begin_α];   jmp   rax
 always_fail_γ:          mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]

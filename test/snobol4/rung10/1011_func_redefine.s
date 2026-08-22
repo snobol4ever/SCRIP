@@ -84,10 +84,10 @@ myfunc_α:               sub              rsp, 48
                         mov              qword ptr [rsp + 40], rax
                         mov              qword ptr [r9 + 0], 0
                         mov              qword ptr [r9 + 8], 0
-.Lx80_41:               lea              r10, [rip + myfunc_γ]
+.Lx80_41:               lea              rcx, [rip + myfunc_γ]
                         lea              r11, [rip + myfunc_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n37_statement_begin_α];  jmp   rax
 myfunc_γ:               mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]

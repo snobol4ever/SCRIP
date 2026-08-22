@@ -85,10 +85,10 @@ upcase_α:               sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx27_41:               lea              r10, [rip + upcase_γ]
+.Lx27_41:               lea              rcx, [rip + upcase_γ]
                         lea              r11, [rip + upcase_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 upcase_γ:               mov              rdi, qword ptr [r9 + 0]              # upcase
                         mov              rsi, qword ptr [r9 + 8]

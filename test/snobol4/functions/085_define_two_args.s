@@ -104,10 +104,10 @@ add_α:                  sub              rsp, 80
                         mov              qword ptr [rsp + 72], rax
                         mov              qword ptr [r9 + 32], 0
                         mov              qword ptr [r9 + 40], 0
-.Lx28_42:               lea              r10, [rip + add_γ]
+.Lx28_42:               lea              rcx, [rip + add_γ]
                         lea              r11, [rip + add_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 add_γ:                  mov              rdi, qword ptr [r9 + 0]              # add
                         mov              rsi, qword ptr [r9 + 8]

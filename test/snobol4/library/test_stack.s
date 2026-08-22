@@ -145,10 +145,10 @@ stack_init_α:           sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + stack_init_γ]
+                        lea              rcx, [rip + stack_init_γ]
                         lea              r11, [rip + stack_init_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n11_statement_begin_α];  jmp   rax
 stack_init_γ:           mov              rdi, qword ptr [r9 + 0]
                         mov              rsi, qword ptr [r9 + 8]
@@ -260,10 +260,10 @@ stack_push_α:           sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 32], 0
                         mov              qword ptr [r9 + 40], 0
-.Lx315_41:              lea              r10, [rip + stack_push_γ]
+.Lx315_41:              lea              rcx, [rip + stack_push_γ]
                         lea              r11, [rip + stack_push_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n20_statement_begin_α];  jmp   rax
 stack_push_γ:           mov              rdi, qword ptr [r9 + 16]             # stack_push
                         mov              rsi, qword ptr [r9 + 24]
@@ -465,10 +465,10 @@ stack_pop_α:            sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 64], 0
                         mov              qword ptr [r9 + 72], 0
-.Lx342_41:              lea              r10, [rip + stack_pop_γ]
+.Lx342_41:              lea              rcx, [rip + stack_pop_γ]
                         lea              r11, [rip + stack_pop_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n36_statement_begin_α];  jmp   rax
 stack_pop_γ:            mov              rdi, qword ptr [r9 + 48]             # stack_pop
                         mov              rsi, qword ptr [r9 + 56]
@@ -906,10 +906,10 @@ stack_peek_α:           sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + stack_peek_γ]
+                        lea              rcx, [rip + stack_peek_γ]
                         lea              r11, [rip + stack_peek_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n76_statement_begin_α];  jmp   rax
 stack_peek_γ:           mov              rdi, qword ptr [r9 + 80]
                         mov              rsi, qword ptr [r9 + 88]
@@ -1067,10 +1067,10 @@ stack_top_α:            sub              rsp, 48
                         mov              qword ptr [rsp + 32], rcx
                         mov              rdx, qword ptr [rcx + 0]
                         lea              r8, [rsp + 48]
-                        lea              r10, [rip + stack_top_γ]
+                        lea              rcx, [rip + stack_top_γ]
                         lea              r11, [rip + stack_top_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n90_statement_begin_α];  jmp   rax
 stack_top_γ:            mov              rdi, qword ptr [r9 + 96]
                         mov              rsi, qword ptr [r9 + 104]
@@ -1235,10 +1235,10 @@ stack_depth_α:          sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 128], 0
                         mov              qword ptr [r9 + 136], 0
-.Lx461_41:              lea              r10, [rip + stack_depth_γ]
+.Lx461_41:              lea              rcx, [rip + stack_depth_γ]
                         lea              r11, [rip + stack_depth_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n104_statement_begin_α]; jmp   rax
 stack_depth_γ:          mov              rdi, qword ptr [r9 + 112]            # stack_depth
                         mov              rsi, qword ptr [r9 + 120]

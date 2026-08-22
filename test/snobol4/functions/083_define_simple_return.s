@@ -85,10 +85,10 @@ double_α:               sub              rsp, 64
                         mov              qword ptr [rsp + 56], rax
                         mov              qword ptr [r9 + 16], 0
                         mov              qword ptr [r9 + 24], 0
-.Lx26_41:               lea              r10, [rip + double_γ]
+.Lx26_41:               lea              rcx, [rip + double_γ]
                         lea              r11, [rip + double_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n3_statement_begin_α];   jmp   rax
 double_γ:               mov              rdi, qword ptr [r9 + 0]              # double
                         mov              rsi, qword ptr [r9 + 8]

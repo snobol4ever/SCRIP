@@ -152,10 +152,10 @@ jlab_α:                 sub              rsp, 144
                         mov              qword ptr [rsp + 136], rax
                         mov              qword ptr [r9 + 48], 0
                         mov              qword ptr [r9 + 56], 0
-.Lx123_43:              lea              r10, [rip + jlab_γ]
+.Lx123_43:              lea              rcx, [rip + jlab_γ]
                         lea              r11, [rip + jlab_ω]
                         push             r11
-                        push             r10
+                        push             rcx
                         lea              rax, [rip + n2_statement_begin_α];   jmp   rax
 jlab_γ:                 mov              rdi, qword ptr [r9 + 0]              # jlab
                         mov              rsi, qword ptr [r9 + 8]
