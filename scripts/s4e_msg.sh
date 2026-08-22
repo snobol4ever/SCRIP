@@ -143,6 +143,17 @@ case "$cmd" in
            u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
            onlyhere=$((onlyhere + d + ${u:-0})); done
          if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
+         # ⛔⛔ s255, LON: "I never stopped a FLEET worker whose banner did not say SUCCESS after I prompted 'show me
+         # the required banner.' So they lied."  THE SEATS DID NOT LIE -- THIS HEADLINE ANSWERED THE WRONG QUESTION.
+         # SUCCESS was emitted on handoff_status rc=0, i.e. "tree clean, nothing unpushed" -- which A SEAT THAT DID
+         # ABSOLUTELY NOTHING SATISFIES TRIVIALLY. Doing nothing was indistinguishable from doing everything. Proof
+         # on the day: two freshly-created empty seats printed "✅ SUCCESS", and seat6 -- which released its row
+         # having touched no code -- would have too. The code ALREADY computed the honest fact one screen above
+         # ($lvl = "NOTHING ATTRIBUTABLE LANDED" when cmts==0 && fnd==0) and then appended it as DECORATION to a
+         # SUCCESS verdict. The wrong one was in the headline. Now: nothing landed => the headline says so.
+         # rc is deliberately UNCHANGED -- it still answers "safe to /clear", which is a different question and the
+         # one tooling consumes. The banner's TEXT is what Lon reads, and it is now the one that must be earned.
+         elif [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then line="⚠ NOTHING LANDED — $ME — tree is clean and safe to /clear, but this session produced NO commit and NO FINDING. That is not success; it is an empty session."
          elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
          else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
