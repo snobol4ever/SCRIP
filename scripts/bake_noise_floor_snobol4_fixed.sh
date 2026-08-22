@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# bake_noise_floor_snobol4_fixed.sh -- measure and record the run-to-run dispersion of the FIXED-WORK
+# mode added to harness.inc (row bench-harness-unmeasurable, 2026-08-22).  Sibling of
+# bake_noise_floor_snobol4_timed.sh, same NOISE-FLOOR.tsv, same statistics -- the only difference is
+# WHAT is fed as stdin: a file holding one line, a positive integer (the kernel's pinned total
+# iteration count), instead of /dev/null.  harness.inc treats that as the fixed-work switch: no
+# calibration, no wall-clock deadline, ZBODY runs exactly that many iterations and stops.  Engine rows
+# are suffixed "-fixed" so they sit BESIDE the existing time-based sbl/m3/m4 rows in the same file,
+# per kernel, rather than in a second file -- the point is a reader can compare the two modes' noise
+# floors on one line-adjacent group.  REPS defaults lower than the time-based bake (3 vs 5): fixed-work
+# mode has no self-calibration loop to add jitter, so fewer reps already characterize the floor -- see
+# the comparison table this script prints, which is the actual evidence, not an assumption.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"
+set -u
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200)." >&2; exit 3; }
+
+SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
+SBL="${SBL:-$S4A/x64/bin/sbl}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
+REPS="${REPS:-3}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
+NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-1024}"
+OUT="${OUT:-$B/NOISE-FLOOR.tsv}"
+WRAP="$ROOT/tools/bench_rusage"
+[ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "FAIL build $WRAP" >&2; exit 1; }
+NIVCSW_FLAG="${BENCH_NIVCSW_THRESHOLD:-20}"
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+
+# per-kernel pinned total (bench-harness-unmeasurable FINDING): representative of one native ~500ms
+# TIME-mode run at bake time, rounded; keeps fixed-mode native wall cost in the same ballpark as the
+# TIME-mode budget it replaces.  array_sum is skipped under callgrind (pre-existing valgrind SIGSEGV,
+# unrelated defect) but has no trouble running fixed-mode natively, so it stays in this native bake.
+declare -A FIXN=(
+  [arith_loop]=75000000 [array_sum]=8192 [eval_fixed]=1500000 [fibonacci]=16384
+  [func_call]=40000000 [indirect_dispatch]=2000000 [mixed_workload]=70000
+  [op_dispatch]=30000000 [pattern_bt]=1200000 [roman]=100000 [string_concat]=7000000
+  [string_manip]=1200000 [string_pattern]=2500000 [table_access]=4000 [var_access]=32000000
+)
+
+for sno in "$B"/*.sno; do
+  [ -e "$sno" ] || continue
+  grep -q "INCLUDE '.*harness.inc'" "$sno" || continue
+  s=$(basename "${sno%.sno}")
+  n="${FIXN[$s]:-}"; [ -n "$n" ] || { echo "  SKIP $s (no fixed_n entry)"; continue; }
+  echo "$n" > "$W/$s.stdin"
+  m4ok=0
+  if [ -x "$SCRIP" ]; then
+    "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
+    [ -s "$W/$s.s" ] && gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" \
+        -o "$W/$s.prog" 2>/dev/null && m4ok=1
+  fi
+  for eng in $ENGINES; do
+    if [ "$eng" = sbl ]; then thparm="n/a"; else thparm="nohuge=$NOHUGE"; fi
+    : > "$W/self.txt"; : > "$W/elapsed.txt"; : > "$W/cpu.txt"
+    used=0; contaminated=0; nivcsw_max=0
+    for _ in $(seq 1 "$REPS"); do
+      errfile="$W/r.err"
+      case "$eng" in
+        sbl) o=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m3)  o=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout "$T" "$SCRIP" --run "$sno" 2>"$errfile" <"$W/$s.stdin") ;;
+        m4)  if [ "$m4ok" = 1 ]; then o=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout "$T" "./$s.prog" 2>"$errfile" <"$W/$s.stdin")
+             else o=""; : > "$errfile"; fi ;;
+      esac
+      rusage_line=$(grep '^BENCH_RUSAGE:' "$errfile" | tail -1)
+      [ -n "$rusage_line" ] || continue
+      it=$(printf '%s\n' "$o" | sed -n 's/^iters: //p')
+      ms=$(printf '%s\n' "$o" | sed -n 's/^ms: //p')
+      nivcsw=$(echo "$rusage_line" | grep -oE 'nivcsw=[0-9]+' | cut -d= -f2); nivcsw="${nivcsw:-0}"
+      elapsed_ns=$(echo "$rusage_line" | grep -oE 'elapsed_ns=[0-9]+' | cut -d= -f2)
+      user_us=$(echo "$rusage_line" | grep -oE 'user_us=[0-9]+' | cut -d= -f2)
+      sys_us=$(echo "$rusage_line" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
+      [ "$nivcsw" -gt "$nivcsw_max" ] 2>/dev/null && nivcsw_max=$nivcsw
+      if [ "$nivcsw" -gt "$NIVCSW_FLAG" ] 2>/dev/null; then contaminated=$((contaminated+1)); continue; fi
+      if [ -z "$it" ] || [ -z "$ms" ]; then continue; fi
+      used=$((used+1))
+      awk -v i="$it" -v m="$ms" 'BEGIN{ if(m+0>0) printf "%.3f\n", i/m*1000 }' >> "$W/self.txt"
+      awk -v i="$it" -v ns="$elapsed_ns" 'BEGIN{ ems=ns/1000000; if(ems>0) printf "%.3f\n", i/ems*1000 }' >> "$W/elapsed.txt"
+      awk -v i="$it" -v u="$user_us" -v y="$sys_us" 'BEGIN{ cms=(u+y)/1000; if(cms>0) printf "%.3f\n", i/cms*1000 }' >> "$W/cpu.txt"
+    done
+    awk -v selff="$W/self.txt" -v elapf="$W/elapsed.txt" -v cpuf="$W/cpu.txt" \
+        -v b="$s" -v e="$eng-fixed" -v h="$thparm" -v rp="$REPS" -v used="$used" -v cont="$contaminated" -v nmax="$nivcsw_max" '
+      function readfile(file, arr,    n,line) { n=0; while ((getline line < file) > 0) { n++; arr[n]=line+0 }; close(file); return n }
+      function statsmm(file,    n,a,i,t,m,v,d,lo,hi,cv) {
+        n=readfile(file,a); if (n<2) return "NA\tNA\tNA\tNA"
+        t=0; for(i=1;i<=n;i++) t+=a[i]; m=t/n; v=0; for(i=1;i<=n;i++){d=a[i]-m; v+=d*d}; v=sqrt(v/n)
+        lo=a[1]; hi=a[1]; for(i=1;i<=n;i++){ if(a[i]<lo) lo=a[i]; if(a[i]>hi) hi=a[i] }
+        cv=100*v/m; return sprintf("%.0f\t%.1f\t%.2f\t%.1f", m, cv, (lo>0?hi/lo:0), 3*cv)
+      }
+      function stats(file,    n,a,i,t,m,v,d,cv) {
+        n=readfile(file,a); if (n<2) return "NA\tNA\tNA"
+        t=0; for(i=1;i<=n;i++) t+=a[i]; m=t/n; v=0; for(i=1;i<=n;i++){d=a[i]-m; v+=d*d}; v=sqrt(v/n)
+        cv=100*v/m; return sprintf("%.0f\t%.1f\t%.1f", m, cv, 3*cv)
+      }
+      BEGIN { printf "%s\t%s\t%s\t%d\t%s\t%d\t%d\t%d\t%s\t%s\n", b, e, h, rp, statsmm(selff), used, cont, nmax, stats(elapf), stats(cpuf) }
+    ' >> "$OUT"
+  done
+  echo "  floored $s (fixed_n=$n)"
+done
+echo
+column -t -s $'\t' "$OUT" 2>/dev/null || cat "$OUT"
