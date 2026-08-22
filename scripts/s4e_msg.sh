@@ -14,7 +14,7 @@ set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
-if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude[1-9]) ME="seat${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
+if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude[1-9]|/home/claude[1-9][0-9]) ME="seat${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
 cmd="${1:-check}"
 # ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
 # ruling unread in its inbox while asking Lon the same question in chat). The inbox is HQ's ONLY channel to a
@@ -161,7 +161,9 @@ case "$cmd" in
          # truth for the two things that matter: uncommitted work, and commits that never reached origin.
          printf '\n  SEAT   ROW (open claim)                        TREE                  Q  LAST BOARD LINE\n'
          printf '  ────── ────────────────────────────────────────  ────────────────────  ─  ───────────────────────────────\n'
-         for seat in hq seat1 seat2 seat3 seat4 seat5 seat6 seat7 seat8; do
+         # ⛔ SEAT LIST IS DISCOVERED, NEVER TYPED (s255): a hand-typed list silently omits any seat Lon adds,
+         # and a seat missing from the health screen is a seat nobody looks at. Numeric sort so 10 follows 9.
+         for seat in hq $(ls -d /home/claude[1-9] /home/claude[1-9][0-9] 2>/dev/null | sed "s|/home/claude|seat|" | sort -t t -k2 -n); do
            case "$seat" in hq) root=/home/claude;; *) root="/home/claude${seat#seat}";; esac
            [ -d "$root" ] || continue
            row="—"; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
