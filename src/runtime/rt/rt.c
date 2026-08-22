@@ -850,9 +850,12 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
 {
     static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
     if (!live || !name) return fallback;
-    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name);
-      void **cell = (void **)bb_ab_fn_cell_ptr(cn);
-      return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }
+    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264];
+      static int fastcat = -1; if (fastcat < 0) { const char *e = getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
+      if (fastcat) { memcpy(cn, "alpha$", 6); char *w = cn + 6, *lim = cn + sizeof cn - 1; const char *r = name; while (*r && w < lim) *w++ = *r++; *w = '\0'; }
+      else snprintf(cn, sizeof cn, "alpha$%s", name);
+      { void **cell = (void **)bb_ab_fn_cell_ptr(cn);
+        return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_seal_alpha(const char * name, void * fn) {
