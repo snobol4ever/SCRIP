@@ -67,32 +67,32 @@ case "$cmd" in
              echo "LOCKED $topic (rank $rank)"; echo "brief: $brief"; echo "first: $step"; exit 0; fi
          done < "$q"
          echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"; exit 1;;
-  banner) # ⛔ THE VERDICT IS COMPUTED, NEVER TYPED (Lon 2026-08-22): the seat ENDS every session with this, and Lon reads
-         # only this. It fuses the three facts that decide whether re-firing this seat advances anything: the PUSH truth
-         # ⛔ THE VERDICT IS EXACTLY ONE QUESTION: DID THE WORK LAND AND GET PUSHED (handoff_status.sh rc, the ONLY
-         # sanctioned doneness source). Nothing else may flip it -- an open question to HQ is HQ's backlog, NOT this
-         # seat's failure, and a seat that finished and pushed is a SUCCESS even with questions outstanding (Lon
-         # 2026-08-22, correcting the first cut). Claim state and pending questions inform CONTINUE only.
+  banner) # ⛔ LON READS ONLY THIS. He drives the fleet with /clear + one fixed re-fire prompt, so the banner must answer,
+         # in plain imperative English, the single question he actually has: WHAT DO I DO NOW. Two laws shape it.
+         # (1) THE VERDICT IS EXACTLY ONE QUESTION -- did the work land and get pushed (handoff_status.sh rc, the ONLY
+         # sanctioned doneness source). Nothing else may flip it: an open question to HQ is HQ's backlog, NOT this seat's
+         # failure (Lon 2026-08-22). (2) IT IS COMPUTED, NEVER TYPED -- a seat cannot assert its own SUCCESS.
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          held=""; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
            if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then held="$(basename "$c" .claim)"; break; fi; done
          qwait=0; for f in "$PO"/hq/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$ME"-q-*) qwait=$((qwait+1));; esac; done
-         topic="${2:-${held:-(none)}}"
-         if [ "$hrc" -eq 0 ]; then verdict="✅  S U C C E S S"; else verdict="⛔  F A I L U R E"; fi
-         if   [ "$hrc" -ne 0 ]; then nxt="WILL RE-BLOCK — work is NOT pushed. Read the push line above; a credential may be needed."
-         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then nxt="RESUMES $held — but this seat is waiting on HQ ($qwait question(s)), so it may re-block on the same spot."
-         elif [ -n "$held" ];    then nxt="RESUMES $held — row still open, re-fire this seat to continue it."
-         else                         nxt="PICKS A NEW ROW — this seat's row is closed and pushed."; fi
-         pline="$(printf '%s\n' "$hout" | grep -aiE 'HANDOFF (COMPLETE|BLOCKED)|BLOCKED:' | head -1)"; [ -n "$pline" ] || pline="$(printf '%s\n' "$hout" | tail -1)"
+         pline="$(printf '%s\n' "$hout" | grep -aiE 'HANDOFF (COMPLETE|BLOCKED)|COMPLETE|BLOCKED:' | head -1)"; [ -n "$pline" ] || pline="$(printf '%s\n' "$hout" | tail -1)"
+         if [ "$hrc" -eq 0 ]; then verdict="✅  S U C C E S S"; landed="YES — everything is committed and pushed"
+         else                       verdict="⛔  F A I L U R E"; landed="NO  — $pline"; fi
+         if [ -n "$held" ]; then rowline="$held — STILL OPEN"; else rowline="none open — last row is finished and closed"; fi
+         if   [ "$hrc" -ne 0 ]; then todo="RE-FIRE THIS SEAT. Its work is NOT pushed yet; it will try again on the same row."; todo2="If it asks you for a push credential, that is what it is stuck on."
+         elif [ -n "$held" ] && [ "$qwait" -gt 0 ]; then todo="RE-FIRE THIS SEAT. It carries on with the SAME row, $held."; todo2="⚠  It is waiting on HQ for an answer, so it may stop again in the same place."
+         elif [ -n "$held" ]; then todo="RE-FIRE THIS SEAT. It carries on with the SAME row, $held."; todo2=""
+         else                     todo="RE-FIRE THIS SEAT. That row is DONE — it will pick up a brand-new row."; todo2=""; fi
          b='════════════════════════════════════════════════════════════════════════════════'
-         printf '\n%s\n' "$b"; printf '  %s        seat=%s  row=%s\n' "$verdict" "$ME" "$topic"; printf '%s\n' "$b"
-         printf '  push   : %s  (handoff_status.sh rc=%s)\n' "$pline" "$hrc"
-         printf '  claim  : %s\n' "${held:-none held — row closed or never claimed}"
-         printf '  CONTINUE: %s\n' "$nxt"
+         printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
+         printf '  did the work land? : %s\n' "$landed"
+         printf '  its row            : %s\n' "$rowline"
          printf '%s\n' "$b"
-         printf '  Next prompt to paste after /clear:\n'
-         printf '    Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
+         printf '  ➜  YOU DO NEXT     : %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
+         printf '                       /clear, then paste this:\n'
+         printf '                       Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
          printf '%s\n\n' "$b"
          [ "$hrc" -eq 0 ] && exit 0 || exit 1;;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md";;
