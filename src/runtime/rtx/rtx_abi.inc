@@ -60,7 +60,10 @@
 /* ---- TAG LAYOUT: must stay byte-identical to src/contracts/descr.h (s229).
  * DT_SNUL is 0 ON PURPOSE (bulk memset mints null strings free). rtx_init.c carries a
  * _Static_assert per value; a drift here breaks the BUILD, not the runtime.
- * ⛔ STRING tests are 32-BIT ONLY (test eax, DT_NOTSTR_MASK) -- see descr.h.        ---- */
+ * ⛔ STRING tests are 8-BIT ONLY (test <r8-class>, DT_NOTSTR_MASK & 0xFF) -- CORRECTED s256:
+ * a 32-bit test reads the DESCR provenance stamp's mod_op/src_node bytes (bits 8-31, ARCH-
+ * SNOBOL4-RTX.md sec9) once SCRIP_DESCR_STAMP=1, and misclassifies a stamped string as not-a-
+ * string (HQ FINDING s256). The OLD 32-bit rule this comment stated was the bug. See descr.h. ---- */
 #include "descr_tags.inc"   /* s230: THE tag numbers live there and ONLY there -- syntax-neutral so the AT&T files can share them. */
 
 /* CET/IBT is enabled on this toolchain, so every externally reachable entry

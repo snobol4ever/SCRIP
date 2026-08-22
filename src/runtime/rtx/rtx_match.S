@@ -943,7 +943,7 @@ RTX_FUNC(rt_dcap_step)
     jle     .Lrtx_dcs_ret0                               /* ARM A: pump with nothing pushed -> 0, no pump call       */
     cmp     dil, DT_FAIL                                 /* edi aliases nm.v (s162 ABI probe). SYMBOLIC since s229   */
     je      c_rt_dcap_step                               /* ARM B: cold, delegate                                    */
-    test    edi, DT_NOTSTR_MASK                          /* string family (DT_SNUL|DT_S) in ONE 32-bit mask test      */
+    test    dil, (DT_NOTSTR_MASK & 0xFF)                  /* string family (DT_SNUL|DT_S), 8-BIT: edi bits 8-31 carry the DESCR stamp (s256) */
     jz      c_rt_dcap_step                               /* ARM C: cold, delegate (also keeps NV_SET_fn untouched)   */
 .Lrtx_dcs_mutate:                                        /* ---- NOTHING ABOVE THIS LABEL WRITES MEMORY ----          */
     dec     r8d                                          /* top-1; 32-bit op re-zeroes the upper half of r8          */

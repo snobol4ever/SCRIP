@@ -38,10 +38,10 @@ DESCR_SASSERT(!(DT_S & DT_NUMERIC_BIT) && !(DT_SNUL & DT_NUMERIC_BIT), "strings 
 DESCR_SASSERT(!(DT_I & DT_REAL_BIT) && (DT_R & DT_REAL_BIT), "REAL is bit2");
 DESCR_SASSERT(((DT_I & DT_R) != DT_I) && ((DT_I & DT_R) & DT_NUMERIC_BIT),
                "DT_I must NOT be a subset of DT_R (or BOTH INT dies) yet must share NUMERIC (or BOTH NUMERIC dies)");
-DESCR_SASSERT(((DT_SNUL | DT_S) & DT_NOTSTR_MASK) == 0, "SNUL|S must vanish under the string mask");
-DESCR_SASSERT((DT_I & DT_NOTSTR_MASK) && (DT_R & DT_NOTSTR_MASK), "numerics must NOT read as string");
-DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & DT_NOTSTR_MASK),
-               "DT_FAIL must read as neither numeric nor string");
+DESCR_SASSERT(((DT_SNUL | DT_S) & (DT_NOTSTR_MASK & 0xFF)) == 0, "SNUL|S must vanish under the 8-bit string mask -- every .S string-family test reads only the tag byte, never the 32-bit word (that word's bits 8-31 carry the DESCR provenance stamp, see ARCH-SNOBOL4-RTX.md sec9)");
+DESCR_SASSERT((DT_I & (DT_NOTSTR_MASK & 0xFF)) && (DT_R & (DT_NOTSTR_MASK & 0xFF)), "numerics must NOT read as string under the 8-bit mask");
+DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF)),
+               "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
 DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
                "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");

@@ -75,7 +75,7 @@ RTX_FUNC(rt_cmp_d)
      * datatypes under the new numbering.                                   ---- */
     mov     r10d, eax
     or      r10d, ecx
-    test    r10d, DT_NOTSTR_MASK
+    test    r10b, (DT_NOTSTR_MASK & 0xFF)                 /* 8-BIT: r10d bits 8-31 carry the DESCR stamp (s256)        */
     jnz     .Lcd_real
     /* ptr_a = (a->v == DT_S && a->s) ? a->s : ""   -- DT_SNUL always yields ""
      * even when the union happens to hold a non-null pointer.                 */
