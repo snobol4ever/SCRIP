@@ -7,6 +7,7 @@ extern "C" {
 int rt_cmp_d(const DESCR_t *a, const DESCR_t *b);
 }
 #include "x86_asm.h"
+#include <cstdlib>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE FAIL CONDITION, twice.  ct_fail_sign() reads the SIGN rt_cmp_d returned in eax after `test eax,eax`; ct_fail_int() reads the
    flags `cmp rax,rdx` set directly on two DT_I values.  Four of the six predicates share a mnemonic between the two -- only LT and
@@ -20,6 +21,18 @@ std::string bb_cmp_test() {
         /* ⭐ INTEGER COMPARE IS THREE INSTRUCTIONS, NOT A CALL (s249).  Both operands arrive from coerce_numeric, so DT_I ⊕ DT_I is the
            overwhelmingly common shape and `cmp rax, rdx` decides it outright; rt_cmp_d stays for everything else (real, string, mixed).
            Measured on arith_loop: the box was 13 in-line + 14 inside rt_cmp_d = 27 of 133 instructions per iteration for one `LT`. */
+        if (_.op_zres && getenv("SCRIP_OPT_CMPINT") && getenv("SCRIP_OPT_CMPINT")[0] == '0')
+            return x86("comment", "IR_CMP_TEST zd")
+                 + x86_alpha()
+                 + x86("note", ZOPN(0)) + x86("lea",  "rdi", ZOPQ(0, 0))
+                 + x86("note", ZOPN(1)) + x86("lea",  "rsi", ZOPQ(1, 0))
+                 + x86("call", "rt_cmp_d", (uint64_t)(uintptr_t)(void *)rt_cmp_d)
+                 + x86("test", "eax", "eax")
+                 + x86_omega(ct_fail_sign())
+                 + IF(_.op_res_live, x86("note", ZRESN()) + x86("mov", ZRES(0), (long)0)
+                                   + x86("note", ZRESN()) + x86("mov", ZRES(8), (long)0))
+                 + x86_gamma()
+                 + x86_beta_trampoline();
         if (_.op_zres)
             return x86("comment", "IR_CMP_TEST zd")
                  + x86_alpha()

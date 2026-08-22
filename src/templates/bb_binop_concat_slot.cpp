@@ -11,6 +11,7 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
+#include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_ival) && _.op_sa >= 0 && _.op_sb >= 0; }
@@ -22,7 +23,8 @@ static inline void *bcs_rt_addr() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ?
    oracle for INTEGER REAL STRING ARRAY TABLE PATTERN: all six unchanged).  So the box is a two-word copy, not a call through the PLT.
    Measured on arith_loop: 12 in-box + 19 in str_concat_d = 31 of 165 instructions per iteration, spent computing an identity.
    ⛔ CONCAT_FRACDIGIT is excluded -- it is a different operation and "" is not its identity. */
-static inline int bcs_null_side() { return (_.op_ival == BINOP_CONCAT_FRACDIGIT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
+static inline int bcs_null_side() { if (getenv("SCRIP_OPT_NULLCAT") && getenv("SCRIP_OPT_NULLCAT")[0] == '0') return -1;
+    return (_.op_ival == BINOP_CONCAT_FRACDIGIT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
     if (PLATFORM_X86 && _.op_zres && bcs_null_side() >= 0) {

@@ -2,6 +2,8 @@
 #include "gen.h"
 #include "ir_query.h"
 #include <stdlib.h>
+/* FACTORIAL TOGGLES (s249): compile-time only, so getenv is read fresh -- no static cache, hence no new file-scope state. Default ON. */
+#define OPT_ON(k) (!getenv(k) || getenv(k)[0] != '0')
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* THE NODE WHOSE VALUE THIS NODE MERELY COPIES.  This is Proebsting's copy propagation ("Simple Translation of Goal-Directed
    Evaluation", §5: the naive four-port translation "suffers from generating many simple copies … propagating copies and
@@ -14,7 +16,7 @@ static IR_t * cp_source(IR_t * c) {
     if (!c || c->n_operands < 1 || !c->operands[0]) return (IR_t *)0;
     if (c->op == IR_COERCE_STRING && c->operands[0]->op == IR_LIT_STRING) return c->operands[0];
     if (c->op == IR_COERCE_INTEGER && c->operands[0]->op == IR_LIT_INTEGER) { int neg_err = (int)((IR_LIT(c).ival >> 16) & 0xFFFF); if (IR_LIT(c->operands[0]).ival >= 0 || neg_err == 0) return c->operands[0]; }
-    if (c->op == IR_BINOP && c->n_operands == 2 && c->operands[1] && (long)IR_LIT(c).ival == BINOP_CONCAT) {
+    if (OPT_ON("SCRIP_OPT_NULLCAT") && c->op == IR_BINOP && c->n_operands == 2 && c->operands[1] && (long)IR_LIT(c).ival == BINOP_CONCAT) {
         if (ir_value_is_null_string(c->operands[0])) return c->operands[1];
         if (ir_value_is_null_string(c->operands[1])) return c->operands[0]; }
     return (IR_t *)0;

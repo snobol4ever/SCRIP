@@ -20,6 +20,7 @@ DESCR_t rt_cdiff(DESCR_t a, DESCR_t b);
 DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
+#include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void * rtop_addr(long long op) {
@@ -116,29 +117,45 @@ std::string bb_binop_arith() {
            flags, same meaning, set for every non-num_real binop at emit.cpp:1423-1425.  LIT⊕LIT is deliberately NOT specialised
            here: it is const_fold's, exactly as inl2_ok() decides for the frame arm, and falling back costs nothing when it fires.
            ⛔ The lit box still WRITES its spine slot -- the cold arms below still read it, and this arm must not outlive that. */
+        const int off  = getenv("SCRIP_OPT_BINIMM") && getenv("SCRIP_OPT_BINIMM")[0] == '0';
         const int both = _.op_imm_a_ok && _.op_imm_b_ok;
-        const int ia = both ? 0 : _.op_imm_a_ok, ib = both ? 0 : _.op_imm_b_ok;
+        const int ia = (both || off) ? 0 : _.op_imm_a_ok, ib = (both || off) ? 0 : _.op_imm_b_ok;
+        /* ⛔⛔ AND THE SCHEDULE MATTERS MORE THAN THE COUNT — s249 2^3 factorial, 8 replications.  Folding the literal WITHOUT also
+           hoisting the value load measured **+4.05 cyc/iteration on arith_loop despite -6 instructions**.  The three instructions the
+           fold deletes (mov ecx / mov edx,eax / and edx,ecx) were sitting in the tag load's shadow FOR FREE; removing them left
+           `mov eax,[spine]` feeding `cmp eax` with nothing between, exposing the full L1 load-to-use latency.  Code layout was ruled
+           out as the cause (same binary padded 0..56 bytes before the hot loop: 0.08 cyc span).  So when exactly ONE side is a
+           literal, the other side's TAG and VALUE loads are issued BACK TO BACK ahead of the compare — two independent loads that
+           overlap — and the immediate folds into the ALU op instead of costing a `mov`.  The unknown⊕unknown arm is untouched: it
+           already has three instructions in the load's shadow, which is exactly why it never paid this penalty. */
+        const int fold_imm = ib && !ia && ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB);
         return x86("comment", "IR_BINOP_ARITH zd fuse")
              + x86_alpha()
-             + IF(!ia, x86("note", ZOPN(0)) + x86("mov", "eax", ZOPD(0, 0)))
-             + IF(!ib, x86("note", ZOPN(1)) + x86("mov", "ecx", ZOPD(1, 0)))
-             + IF(!ia && !ib, x86("mov", "edx", "eax") + x86("and", "edx", "ecx") + x86("cmp", "edx", (long)DT_I))
-             + IF( ia && !ib, x86("cmp", "ecx", (long)DT_I))
-             + IF(!ia &&  ib, x86("cmp", "eax", (long)DT_I))
+             + IF(!ia && !ib, x86("note", ZOPN(0)) + x86("mov", "eax", ZOPD(0, 0))
+                            + x86("note", ZOPN(1)) + x86("mov", "ecx", ZOPD(1, 0))
+                            + x86("mov", "edx", "eax") + x86("and", "edx", "ecx") + x86("cmp", "edx", (long)DT_I))
+             + IF(!ia &&  ib, x86("note", ZOPN(0)) + x86("mov", "ecx", ZOPD(0, 0))
+                            + x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8))
+                            + x86("cmp", "ecx", (long)DT_I))
+             + IF( ia && !ib, x86("note", ZOPN(1)) + x86("mov", "eax", ZOPD(1, 0))
+                            + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 8))
+                            + x86("cmp", "eax", (long)DT_I))
              + x86("jne", L(2))
-             + IF(!ia, x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8)))
+             + IF(!ia && !ib, x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8))
+                            + x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 8)))
              + IF( ia, x86("mov", "rax", (long)_.op_imm_a))
-             + IF(!ib, x86("note", ZOPN(1)) + x86("mov", "rdx", ZOPQ(1, 8)))
-             + IF( ib, x86("mov", "rdx", (long)_.op_imm_b))
-             + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rdx"))
-             + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rdx"))
+             + IF( ib && !fold_imm, x86("mov", "rdx", (long)_.op_imm_b))
+             + IF( fold_imm && (long long)_.op_ival == BINOP_ADD, x86("add", "rax", (long)_.op_imm_b))
+             + IF( fold_imm && (long long)_.op_ival == BINOP_SUB, x86("sub", "rax", (long)_.op_imm_b))
+             + IF(!fold_imm && (long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rdx"))
+             + IF(!fold_imm && (long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rdx"))
              + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rdx"))
              + x86("note", ZRESN()) + x86("mov", ZRES(0), (long)DT_I)
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rax")
              + x86("jmp", L(7))
              + x86("def", L(2))
-             + IF( ia && !ib, x86("mov", "edx", "ecx"))
-             + IF(!ia &&  ib, x86("mov", "edx", "eax"))
+             + IF(!ia &&  ib, x86("mov", "eax", "ecx") + x86("mov", "edx", "ecx"))
+             + IF( ia && !ib, x86("mov", "ecx", "eax") + x86("mov", "edx", "eax"))
              + x86("and", "edx", (long)DT_NUMERIC_BIT)
              + x86("jz", L(0))
              + IF(!ia, x86("note", ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8)))
