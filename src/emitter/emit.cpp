@@ -976,7 +976,7 @@ static const char * sr3_gamma_label(const IR_t * g) { static int _off = -1; if (
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
     { static int _ba = -1; static const char * _bo; static const char * _bs; if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); }
-      int _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC);
+      int _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
       { static int _all = -1; if (_all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); _all = (e && *e == '1') ? 1 : 0; }
       (void)_ba; (void)_bo; (void)_bs; (void)_all; (void)_spine;
       { extern long zw_carve_k(const IR_t *); extern int zc_nofc(void); static int _kc = -1; if (_kc < 0) { const char * e = getenv("SCRIP_NOFC_CARVE"); _kc = (e && *e == '1') ? 1 : 0; } long _k = (zc_nofc() && !_kc) ? 0 : zw_carve_k(nd);
@@ -1064,6 +1064,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_COERCE_NUMERIC:       { bb_prepare(nd); bb_emit_x86(bb_coerce_numeric()); } return 0;
     case IR_COERCE_REAL:          { bb_prepare(nd); bb_emit_x86(bb_coerce_real()); }    return 0;
     case IR_CMP_TEST:             { bb_prepare(nd); bb_emit_x86(bb_cmp_test()); }      return 0;
+    case IR_IDENT:                { bb_prepare(nd); bb_emit_x86(bb_ident()); }         return 0;
+    case IR_DIFFER:               { bb_prepare(nd); bb_emit_x86(bb_differ()); }        return 0;
     case IR_ASSIGN: {
         extern int is_global(const char *);
         const char * _an = IR_LIT(nd).sval;
@@ -1550,7 +1552,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = sa; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_COERCE_NUMERIC: case IR_CMP_TEST: {
+    case IR_COERCE_NUMERIC: case IR_CMP_TEST: case IR_IDENT: case IR_DIFFER: {
         IR_t * a0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
         IR_t * a1 = nd->n_operands > 1 ? nd->operands[1] : (nd->op == IR_COERCE_NUMERIC ? a0 : (IR_t *)0);
         int sa = a0 ? emit_binop_opnd_slot(a0) : -1; int sb = a1 ? emit_binop_opnd_slot(a1) : -1;
@@ -2018,6 +2020,7 @@ static int flat_unwind_beta(const IR_t *nd) {
     switch (nd->op) {
     case IR_VAR: case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_BINOP: case IR_UNOP: case IR_ASSIGN: case IR_ASSIGN_VAR:
     case IR_CMP_TEST: case IR_COERCE_NUMERIC: case IR_COERCE_STRING: case IR_COERCE_INTEGER: case IR_COERCE_REAL:
+    case IR_IDENT: case IR_DIFFER:
     case IR_DEREF: case IR_SUBSCRIPT: case IR_FIELD_VAR: return 1;
     case IR_MATCH_ALTERNATE: return 1;
     case IR_MATCH_ARBNO: return 1;
@@ -2105,7 +2108,7 @@ static int zd_nops(IR_t * nd) { int op = (int)nd->op;
     if (op == IR_CALL_PROC_STAGED && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_SUSPEND && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_KEYWORD_ASSIGN_SNOBOL4) return 1;
-    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_BUILTIN_ICON || op == IR_CALL_BUILTIN_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
+    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_BUILTIN_ICON || op == IR_CALL_BUILTIN_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_match_begin_stfh_k_raw(void) {
@@ -2576,7 +2579,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KEYWORD_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE || (c)->op == IR_TO || (c)->op == IR_TO_BY) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_STATEMENT_BEGIN && (c)->ω.node) RPO_PUSH((c)->ω.node);  \
-        if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
+        if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         (void)0;
 #define RPO_DRAIN() \
     while (qt > qh) { \

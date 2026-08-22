@@ -159,6 +159,8 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_coerce_string.cpp \
     $(SRC)/templates/bb_coerce_numeric.cpp \
     $(SRC)/templates/bb_cmp_test.cpp \
+    $(SRC)/templates/bb_ident.cpp \
+    $(SRC)/templates/bb_differ.cpp \
     $(SRC)/templates/bb_coerce_integer.cpp \
     $(SRC)/templates/bb_coerce_real.cpp \
     $(SRC)/templates/bb_match_rtab.cpp \

@@ -7,6 +7,9 @@
 int ir_value_is_null_string(const IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_CMP_TEST) return 1;
+    /* IR_IDENT/IR_DIFFER (s199 slice 2) succeed with NULVCL exactly like IR_CMP_TEST -- same family, same identity here: claws5's own
+       hot idiom is `IDENT(mem[wrd]) 0`, the PRED(a,b) expr conditional-value form this recognition exists for. */
+    if (nd->op == IR_IDENT || nd->op == IR_DIFFER) return 1;
     if (nd->op == IR_LIT_STRING) { const char * s = IR_LIT(nd).sval; return (!s || !s[0]) ? 1 : 0; }
     return 0;
 }

@@ -234,7 +234,7 @@ static void bb_emit_order_visit(const IR_graph_t *bbg, const IR_t *nd, char *vis
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int ir_node_produces_value(IR_e op) {
-    return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST
+    return op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_VAR || op == IR_VAR_REF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_COERCE_NUMERIC || op == IR_COERCE_REAL || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER
         || op == IR_BINOP || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL || op == IR_UNOP || op == IR_UNOP_TEST || op == IR_SUBSCRIPT || op == IR_RANDOM || op == IR_LIMIT
         || op == IR_SWAP || op == IR_SWAP_VAR || op == IR_CALL || ir_is_call_kind(op) || op == IR_PROC_GEN || op == IR_PROC_VALUE
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH

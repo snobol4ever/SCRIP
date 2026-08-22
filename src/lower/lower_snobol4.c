@@ -189,6 +189,29 @@ static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, in
     return ae;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* IR-IDENT/DIFFER slice 2 (Lon directive s199).  REDEFINITION GUARD, measured not assumed (3 oracle probes, sbl -bf): DEFINE/OPSYN
+   targeting IDENT or DIFFER, direct or via CODE()/EVAL, is a fatal ERROR 248 "attempted redefinition of system function" in real SPITBOL
+   -- no program that redefines these can reach a second statement, so the ORACLE never exercises a live rebinding here.  SCRIP is more
+   permissive than the oracle on this one point, though: a literal-prototype DEFINE('IDENT(...)') in THIS program is honored by the
+   pre-existing sno_predef_registered() compile-time registry (same mechanism sno_pred_relop/TT_OPSYN above already defer to), so the
+   caller below refuses the fast path whenever this program's own source binds the name -- a BEHAVIOUR check (does this program DEFINE
+   the name), never a name list, and it is what keeps a redefining program's own SCRIP-native semantics unregressed by this rung.  The
+   1/2-arg split is an operand count, never an admission test on top of that. */
+static IR_t * sx_ident_differ(scx_t * cx, const tree_t * t, int argbase, int is_differ, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_graph_t * g = cx->g;
+    IR_t * nd = lc_build(g, is_differ ? IR_DIFFER : IR_IDENT, γ, ω);
+    const tree_t * ax = (t->n > argbase + 0) ? t->c[argbase + 0] : NULL;
+    const tree_t * bx = (t->n > argbase + 1) ? t->c[argbase + 1] : NULL;
+    IR_t * ar = NULL; IR_t * br = NULL; IR_t * be; IR_t * ae;
+    if (bx) be = sx_lower(cx, bx, nd, ω, &br);
+    else { br = lc_build(g, IR_LIT_STRING, nd, ω); IR_LIT(br).sval = (char *) ""; be = br; }
+    if (!ax) sno_fatal("IDENT/DIFFER with no argument", NULL);
+    ae = sx_lower(cx, ax, be, ω, &ar);
+    ir_operand_push(nd, ar); ir_operand_push(nd, br);
+    if (res) *res = nd;
+    return ae;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     IR_t * sr0 = NULL; static int c2bb = -1; if (c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); c2bb = (e2 && *e2 == '1') ? 1 : 0; }
@@ -398,6 +421,12 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         { int lex = 0; long c1 = 0, c2 = 0; int rk = sno_pred_relop(name, &lex, &c1, &c2);
           if (rk >= 0 && t->n - argbase >= 1 && t->n - argbase <= 2) return sx_pred_cmp(cx, t, argbase, lex, rk, c1, c2, γ, ω, res); }
+        { static int _idon = -1; if (_idon < 0) { const char * e = getenv("SCRIP_IDENT_INLINE"); _idon = (e && *e == '0') ? 0 : 1; }
+          int nid = t->n - argbase;
+          if (_idon && nid >= 1 && nid <= 2 && !sno_predef_registered(name)) {
+            if (!strcmp(name, "IDENT"))  return sx_ident_differ(cx, t, argbase, 0, γ, ω, res);
+            if (!strcmp(name, "DIFFER")) return sx_ident_differ(cx, t, argbase, 1, γ, ω, res);
+          } }
         return sx_call_named(cx, name, t, argbase, γ, ω, res);
     }
     case TT_WHILE: case TT_UNTIL: {
