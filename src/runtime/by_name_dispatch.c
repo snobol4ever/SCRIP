@@ -4631,7 +4631,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs);
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
-    { static long _rspc = -1; if (_rspc < 0) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
+    { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
     char *fl = g_plw_unwind_floor;
     g_plw_unwind_floor = (char *)__builtin_frame_address(0);
     if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs); g_plw_unwind_floor = fl; return r0; }
@@ -4647,7 +4647,7 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
-    { static long _cac = -1; if (_cac < 0) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
+    { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
     rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
     if (!strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
