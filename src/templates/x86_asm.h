@@ -300,25 +300,21 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 }
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
-#define RTCC_C_R10  4u
-#define RTCC_C_R11  8u
-#define RTCC_C_ALL  15u
+#define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline unsigned x86_rtcc_wire_bank(void) { const char * e = getenv("SCRIP_RTCC_BANK_WIRES"); return (e && *e == '1') ? (RTCC_C_R10 | RTCC_C_R11) : 0u; }
-static inline unsigned x86_rtcc_nowire(unsigned m) { return m & (~(unsigned)(RTCC_C_R10 | RTCC_C_R11) | x86_rtcc_wire_bank()); }
 static inline unsigned x86_rtcc_clob(const char * sym) {
-    if (!sym) return x86_rtcc_nowire(RTCC_C_ALL);
+    if (!sym) return RTCC_C_ALL;
     static const struct { const char * n; unsigned m; } T[] = {
         { "rt_dcap_end_ok_close",       0 }, { "rt_faildescr",              0 },
         { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
         { "rt_patstk_lazy_init",        0 }, { "rt_gen_spine_resume_enter", 0 },
         { "rt_gen_spine_pass_\u03b3",   0 }, { "rt_gen_spine_pass_\u03c9",  0 },
-        { "rt_cap_match_begin", RTCC_C_R10 }, { "rt_cap_pop",      RTCC_C_R10 },
-        { "rt_cap_top",         RTCC_C_R10 }, { "rt_match_ctx_restore", RTCC_C_R10 },
-        { "rt_cmp_d", RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 },
+        { "rt_cap_match_begin", 0 }, { "rt_cap_pop",      0 },
+        { "rt_cap_top",         0 }, { "rt_match_ctx_restore", 0 },
+        { "rt_cmp_d", RTCC_C_R8 | RTCC_C_R9 },
     };
-    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return x86_rtcc_nowire(T[i].m);
-    return x86_rtcc_nowire(RTCC_C_ALL);
+    for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return T[i].m;
+    return RTCC_C_ALL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
@@ -329,9 +325,7 @@ static_assert(RTCC_SLOT_RSI * 8 == 24, "RTCC ABI drift: RTCC_SLOT_RSI no longer 
 static_assert(RTCC_SLOT_RDI * 8 == 32, "RTCC ABI drift: RTCC_SLOT_RDI no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
 static_assert(RTCC_SLOT_R8  * 8 == 40, "RTCC ABI drift: RTCC_SLOT_R8 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin (and keywords.c ANCHOR companion write)");
 static_assert(RTCC_SLOT_R9  * 8 == 48, "RTCC ABI drift: RTCC_SLOT_R9 no longer matches the literal offset in x86_rtcc_rl_bin (and the rtcc_init RT_GVA_VA seed) — this is the H2 SIGSEGV class");
-static_assert(RTCC_SLOT_R10 * 8 == 56, "RTCC ABI drift: RTCC_SLOT_R10 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
-static_assert(RTCC_SLOT_R11 * 8 == 64, "RTCC ABI drift: RTCC_SLOT_R11 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
-static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"), "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[r11+48]) — GVARQ would address a register the veneer never seeds");
+static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"), "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[rcx+48]) — GVARQ would address a register the veneer never seeds");
 static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR tier width no longer matches the 9 slots the encoders write back and reload");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
@@ -339,18 +333,14 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_AL
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);
     if (m & RTCC_C_R8)  { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }
-    if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }
-    if (m & RTCC_C_R11) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64; }
     return wb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string rl;
-    rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);
-    if (m & RTCC_C_R8)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; }
-    if (m & RTCC_C_R9)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; }
-    if (m & RTCC_C_R10) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56; }
-    if (m & RTCC_C_R11) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64; }
+    rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
+    if (m & RTCC_C_R8)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
+    if (m & RTCC_C_R9)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -358,8 +348,6 @@ static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
     std::string wb;
     if (m & RTCC_C_R8)  wb += x86_rec("mov") + "qword ptr [rip + rtccb+40], r8\n";
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rip + rtccb+48], r9\n";
-    if (m & RTCC_C_R10) wb += x86_rec("mov") + "qword ptr [rip + rtccb+56], r10\n";
-    if (m & RTCC_C_R11) wb += x86_rec("mov") + "qword ptr [rip + rtccb+64], r11\n";
     return wb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -367,8 +355,6 @@ static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     std::string rl;
     if (m & RTCC_C_R8)  rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
     if (m & RTCC_C_R9)  rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
-    if (m & RTCC_C_R10) rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb+56]\n";
-    if (m & RTCC_C_R11) rl += x86_rec("mov") + "r11, qword ptr [rip + rtccb+64]\n";
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -376,11 +362,10 @@ inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
     unsigned m = x86_rtcc_clob(sym);
     if (m == 0) return x86_call_ro(sym, ptr);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
-    if (MEDIUM_BINARY) m |= RTCC_C_R10;
     if (MEDIUM_BINARY) {
         std::string call_b;
-        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr);
-        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;
+        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
+        call_b += (char)0xFF; call_b += (char)0xD0;
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + x86_rtcc_rl_text(m);
@@ -596,7 +581,7 @@ inline std::string x86_jmp_reg(const char * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_dc(const char * dcname, uint64_t slot) {
-    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("r11", slot); std::string c; c += (char)0x41; c += (char)0xFF; c += (char)0x13; r += x86_Lrec(c); return r; }
+    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("rax", slot); std::string c; c += (char)0xFF; c += (char)0x10; r += x86_Lrec(c); return r; }
     return x86_rec("call") + dcname + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1493,19 +1478,19 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (!strcmp(mnem, "rtcc_wb")) {
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, x86_rtcc_nowire(RTCC_C_ALL))) : x86_rtcc_wb_text(x86_rtcc_nowire(RTCC_C_ALL));
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_ALL)) : x86_rtcc_wb_text(RTCC_C_ALL);
     }
     if (!strcmp(mnem, "rtcc_rl")) {
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, x86_rtcc_nowire(RTCC_C_ALL))) : x86_rtcc_rl_text(x86_rtcc_nowire(RTCC_C_ALL));
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_ALL)) : x86_rtcc_rl_text(RTCC_C_ALL);
     }
     if (!strcmp(mnem, "rtcc_anchor_cmp")) {
         if (!RTCC_GLOBAL_R8_ANCHOR) {
             uint64_t anchor_addr = (uint64_t)(uintptr_t)(const void *)rt_anchor_ptr();
             if (MEDIUM_BINARY) {
                 std::string s;
-                s += (char)0x49; s += (char)0xBB; s += u64le(anchor_addr);
-                s += (char)0x4D; s += (char)0x8B; s += (char)0x03;
+                s += (char)0x48; s += (char)0xB9; s += u64le(anchor_addr);
+                s += (char)0x4C; s += (char)0x8B; s += (char)0x01;
                 s += (char)0x48; s += (char)0x83; s += (char)0xF8; s += (char)0x00;
                 return x86_Lrec(s);
             }
@@ -2148,12 +2133,11 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     unsigned m = x86_rtcc_clob(sym);
     if (m == 0) return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
-    if (MEDIUM_BINARY) m |= RTCC_C_R10;
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     if (MEDIUM_BINARY) {
         std::string call_b;
-        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr);
-        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;
+        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
+        call_b += (char)0xFF; call_b += (char)0xD0;
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
@@ -2164,11 +2148,10 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     unsigned m = x86_rtcc_clob(sym);
     if (m == 0) return x86_call_ro(sym, ptr) + cap;
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
-    if (MEDIUM_BINARY) m |= RTCC_C_R10;
     if (MEDIUM_BINARY) {
         std::string call_b;
-        call_b += (char)0x49; call_b += (char)0xBA; call_b += u64le(ptr);
-        call_b += (char)0x41; call_b += (char)0xFF; call_b += (char)0xD2;
+        call_b += (char)0x48; call_b += (char)0xB8; call_b += u64le(ptr);
+        call_b += (char)0xFF; call_b += (char)0xD0;
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
