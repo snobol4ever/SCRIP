@@ -11,6 +11,9 @@
 # CORRECTNESS is still gated: every program's phase-1 "check:" line is
 # deterministic and is diffed against the sibling .ref.  Only the measurement
 # lines (iters:/ms:) are stripped before the diff.
+# ⛔ row bench-external-cpu-and-elapsed-clock: sbl/s, m3/s, m4/s are the ITERATION COUNT divided by
+# tools/bench_rusage's EXTERNAL cpu(user+sys) time for the winning rep, not the engine's own
+# self-reported "ms:" line -- self-timing is never again the cross-engine authority (FINDING-2026-08-22-s253).
 #
 # ⛔ THE NOISE FLOOR IS NOT GLOBAL.  It is a property of the (KERNEL, ENGINE,
 # THP-arm) triple and is BAKED PER ROW in NOISE-FLOOR.tsv beside this corpus by
@@ -19,6 +22,11 @@
 # from one kernel (arith_loop); that is the s148 instrument error in new
 # clothes and it is deleted.  The runner prints each row's min-detectable
 # difference; a delta smaller than that is WEATHER, not a regression.
+# ⛔ row bench-external-cpu-and-elapsed-clock (FINDING-2026-08-22-s253): min-det below reads
+# NOISE-FLOOR.tsv's external-instrument columns (tools/bench_rusage, cpu = user+sys, elapsed =
+# CLOCK_MONOTONIC, both outside either engine) -- NOT the self-timed TIME() column, which the two
+# engines never measured in the same unit (SPITBOL CPU-time-patched, SCRIP wall-clock).  min-det(cpu)
+# is the cross-engine authority; min-det(elap) prints alongside so the two are readable BY NAME.
 #
 # ⛔ MEASUREMENT CONDITION: SCRIP engines run with SCRIP_NOHUGE=1 by DEFAULT.
 # Transparent huge pages make every allocating row unmeasurable in the shipping
@@ -53,12 +61,17 @@ FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 [ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
 [ -d "$B" ]     || { echo "SKIP timed bench corpus missing ($B)"; exit 0; }
+# row bench-external-cpu-and-elapsed-clock: every run below is forked through tools/bench_rusage --
+# the sbl/s, m3/s, m4/s rates ARE the external cpu(user+sys) instrument now, not self-timed TIME().
+WRAP="$ROOT/tools/bench_rusage"
+[ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "FAIL build $WRAP" >&2; exit 1; }
+NIVCSW_FLAG="${BENCH_NIVCSW_THRESHOLD:-20}"   # same knob/default as the other bench_rusage call sites
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 rate() { awk -v i="$1" -v m="$2" 'BEGIN{ if(m+0>0) printf "%.0f", i/m*1000; else printf "NA" }'; }
 human() { awk -v v="$1" 'BEGIN{ if(v=="NA"){print "NA"; exit}
   if(v>=1e9) printf "%.2fG", v/1e9; else if(v>=1e6) printf "%.1fM", v/1e6;
   else if(v>=1e3) printf "%.1fK", v/1e3; else printf "%d", v }'; }
-# ---- one measured run; echoes "iters ms check" ----------------------------
+# ---- one measured run; echoes "iters cpu_ms nivcsw gc check" --------------
 run1() {
   local eng="$1" sno="$2" s in; s=$(basename "${sno%.sno}")
   # DATA-DRIVEN ROWS (BM-4): a workload benchmark is fed its corpus on stdin from a sibling
@@ -67,44 +80,52 @@ run1() {
   # /dev/null -- a program that expects input and finds none must not silently "pass" on empty.
   in="$(dirname "$sno")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
-    sbl) [ -x "$SBL" ] || { echo "- - - ORACLE-MISSING"; return; }
-         out=$(timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$sno" 2>/dev/null <"$in"); : > "$W/gc.err" ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" <"$in") ;;
+    sbl) [ -x "$SBL" ] || { echo "- - - - ORACLE-MISSING"; return; }
+         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$sno" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
-              -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - BUILD-ERR"; return; fi
-         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
+              -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - - BUILD-ERR"; return; fi
+         out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
   esac
-  local it ms ck gc
-  it=$(sed -n 's/^iters: //p' <<<"$out"); ms=$(sed -n 's/^ms: //p'   <<<"$out")
+  local it ck gc rusage_line user_us sys_us nivcsw cpu_ms
+  it=$(sed -n 's/^iters: //p' <<<"$out")
   ck=$(sed -n 's/^check: //p' <<<"$out")
   gc=$(grep -c 'regeneration #' "$W/gc.err" 2>/dev/null); gc="${gc:-0}"
-  [ -n "$it" ] || { echo "- - - CRASH"; return; }
-  echo "$it $ms $gc ${ck:-NOCHECK}"
+  [ -n "$it" ] || { echo "- - - - CRASH"; return; }
+  # gc.err carries BOTH the engine's own stderr (regeneration lines, counted above) and bench_rusage's
+  # own BENCH_RUSAGE report (its stderr is the same fd the forked child inherits) -- one capture, two reads.
+  rusage_line=$(grep '^BENCH_RUSAGE:' "$W/gc.err" | tail -1)
+  user_us=$(echo "$rusage_line" | grep -oE 'user_us=[0-9]+' | cut -d= -f2)
+  sys_us=$(echo "$rusage_line" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
+  nivcsw=$(echo "$rusage_line" | grep -oE 'nivcsw=[0-9]+' | cut -d= -f2); nivcsw="${nivcsw:-0}"
+  cpu_ms=$(awk -v u="${user_us:-0}" -v y="${sys_us:-0}" 'BEGIN{printf "%.1f", (u+y)/1000}')
+  echo "$it $cpu_ms $nivcsw $gc ${ck:-NOCHECK}"
 }
 # ---- best of REPS (max throughput = least interference) --------------------
 best() {
-  local eng="$1" sno="$2" bi=0 bm=0 bg=0 ck="" r i m g c
+  local eng="$1" sno="$2" bi=0 bm=0 bn=0 bg=0 ck="" r i m n g c
   for _ in $(seq 1 "$REPS"); do
     r=$(run1 "$eng" "$sno"); i=$(awk '{print $1}' <<<"$r"); m=$(awk '{print $2}' <<<"$r")
-    g=$(awk '{print $3}' <<<"$r"); c=$(cut -d' ' -f4- <<<"$r")
-    [ "$i" = "-" ] && { echo "- - - $c"; return; }
+    n=$(awk '{print $3}' <<<"$r"); g=$(awk '{print $4}' <<<"$r"); c=$(cut -d' ' -f5- <<<"$r")
+    [ "$i" = "-" ] && { echo "- - - - $c"; return; }
     ck="$c"
-    # the reported rep is the fastest one; its OWN gc count travels with it, so a printed rate and its
-    # gc flag always describe the same run (a suite-wide max would mark clean rows dirty and vice versa)
-    if [ "$(awk -v a="$i" -v b="$m" -v x="$bi" -v y="$bm" 'BEGIN{print (b>0 && (y<=0 || a/b > x/y))?1:0}')" = 1 ]; then bi=$i; bm=$m; bg=$g; fi
+    # the reported rep is the fastest one (by the SAME external cpu(ms) this now selects AND reports
+    # with, row bench-external-cpu-and-elapsed-clock); its OWN gc/nivcsw travel with it, so a printed
+    # rate and its gc flag always describe the same run (a suite-wide max would mark clean rows dirty)
+    if [ "$(awk -v a="$i" -v b="$m" -v x="$bi" -v y="$bm" 'BEGIN{print (b>0 && (y<=0 || a/b > x/y))?1:0}')" = 1 ]; then bi=$i; bm=$m; bn=$n; bg=$g; fi
   done
-  echo "$bi $bm $bg $ck"
+  echo "$bi $bm $bn $bg $ck"
 }
 echo "TIME-BASED SNOBOL4 BENCHMARKS -- fixed time budget, iterations counted"
 echo "engines: $ENGINES   reps: $REPS   corpus: $B"
 echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)"
-if [ -f "$FLOORTSV" ]; then echo "noise floor: $FLOORTSV (per-row; min-det = 3*cv)"
+if [ -f "$FLOORTSV" ]; then echo "noise floor: $FLOORTSV (per-row; min-det = 3*cv; cpu = external authority, elap = external alongside)"
 else echo "noise floor: NOT BAKED -- run scripts/bake_noise_floor_snobol4_timed.sh"; fi
 echo
-printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" BENCHMARK "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "min-det" "check"
-printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" "--------------------" "------------" "------------" "------------" "--------" "--------" "-----" "---------" "-----"
-tot_ok=0; tot_bad=0; tot_gc=0; tot_xf=0; tot_xp=0; UNGRADED=""; XPASSED=""
+printf "%-20s %12s %12s %12s   %8s %8s %5s %7s %12s %12s  %s\n" BENCHMARK "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "nivcsw" "min-det(cpu)" "min-det(elap)" "check"
+printf "%-20s %12s %12s %12s   %8s %8s %5s %7s %12s %12s  %s\n" "--------------------" "------------" "------------" "------------" "--------" "--------" "-----" "-------" "------------" "------------" "-----"
+tot_ok=0; tot_bad=0; tot_gc=0; tot_xf=0; tot_xp=0; tot_load=0; UNGRADED=""; XPASSED=""
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
   # ⛔ UNGRADED IS PRINTED BY NAME, NEVER SILENTLY SKIPPED (owed since s158, landed s170).
@@ -114,18 +135,26 @@ for sno in "$B"/*.sno; do
   # the list is EMPTY, the suite FAILS if it ever is not, and that is the end state made mechanical.
   if ! grep -q "INCLUDE '.*harness.inc'" "$sno"; then UNGRADED="$UNGRADED $(basename "${sno%.sno}")"; continue; fi
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
-  declare -A R=(); declare -A C=(); declare -A G=()
+  declare -A R=(); declare -A C=(); declare -A G=(); declare -A N=()
   for eng in $ENGINES; do
     res=$(best "$eng" "$sno")
     i=$(awk '{print $1}' <<<"$res"); m=$(awk '{print $2}' <<<"$res")
-    G[$eng]=$(awk '{print $3}' <<<"$res"); c=$(cut -d' ' -f4- <<<"$res")
+    N[$eng]=$(awk '{print $3}' <<<"$res"); G[$eng]=$(awk '{print $4}' <<<"$res"); c=$(cut -d' ' -f5- <<<"$res")
     if [ "$i" = "-" ]; then R[$eng]="NA"; C[$eng]="$c"; else R[$eng]=$(rate "$i" "$m"); C[$eng]="$c"; fi
   done
-  # a CRASHed/BUILD-ERR row reports "-" for its gc field; coerce to 0 so one dead row cannot abort the board
+  # a CRASHed/BUILD-ERR row reports "-" for its gc/nivcsw fields; coerce to 0 so one dead row cannot abort the board
   g3="${G[m3]:-0}"; g4="${G[m4]:-0}"
   case "$g3" in ''|*[!0-9]*) g3=0 ;; esac
   case "$g4" in ''|*[!0-9]*) g4=0 ;; esac
   gcn=$(( g3 + g4 )); [ "$gcn" -gt 0 ] && tot_gc=$((tot_gc+1))
+  # row bench-external-cpu-and-elapsed-clock, DONE-WHEN item 2: nivcsw reported per row, worst of the
+  # engines measured -- a row above the threshold is a candidate to re-measure, not silently trusted.
+  nmax=0
+  for eng in $ENGINES; do
+    nv="${N[$eng]:-0}"; case "$nv" in ''|*[!0-9]*) nv=0 ;; esac
+    [ "$nv" -gt "$nmax" ] && nmax=$nv
+  done
+  nivstr="$nmax"; if [ "$nmax" -gt "$NIVCSW_FLAG" ]; then nivstr="${nmax}!"; tot_load=$((tot_load+1)); fi
   # correctness: all engines must agree on the check line, and match the .ref
   ckstat="ok"; base=""
   for eng in $ENGINES; do
@@ -147,17 +176,24 @@ for sno in "$B"/*.sno; do
   else tot_bad=$((tot_bad+1)); fi
   sp3=$(awk -v a="${R[m3]:-NA}" -v b="${R[sbl]:-NA}" 'BEGIN{ if(a=="NA"||b=="NA"||b+0==0){print "-"} else printf "%.2fx", a/b }')
   sp4=$(awk -v a="${R[m4]:-NA}" -v b="${R[m3]:-NA}" 'BEGIN{ if(a=="NA"||b=="NA"||b+0==0){print "-"} else printf "%.2fx", a/b }')
-  md="-"
+  # columns 17/14 of NOISE-FLOOR.tsv (min_detectable_cpu_pct / min_detectable_elapsed_pct) -- see the
+  # header note above; column 8 (self-timed) is still in the file for continuity but is not read here.
+  md_cpu="-"; md_elap="-"
   if [ -f "$FLOORTSV" ]; then
-    md=$(awk -F'\t' -v b="$s" -v h="nohuge=$NOHUGE" '$1==b && $2=="m3" && $3==h {printf "%s%%", $8}' "$FLOORTSV")
-    [ -n "$md" ] || md="-"
+    md_cpu=$(awk -F'\t' -v b="$s" -v h="nohuge=$NOHUGE" '$1==b && $2=="m3" && $3==h {printf "%s%%", $17}' "$FLOORTSV")
+    md_elap=$(awk -F'\t' -v b="$s" -v h="nohuge=$NOHUGE" '$1==b && $2=="m3" && $3==h {printf "%s%%", $14}' "$FLOORTSV")
+    [ -n "$md_cpu" ] || md_cpu="-"; [ -n "$md_elap" ] || md_elap="-"
   fi
-  printf "%-20s %12s %12s %12s   %8s %8s %5s %9s  %s\n" "$s" \
+  printf "%-20s %12s %12s %12s   %8s %8s %5s %7s %12s %12s  %s\n" "$s" \
     "$(human "${R[sbl]:-NA}")" "$(human "${R[m3]:-NA}")" "$(human "${R[m4]:-NA}")" "$sp3" "$sp4" \
-    "$([ "$gcn" -gt 0 ] && echo "GC$gcn" || echo 0)" "$md" "$ckstat"
+    "$([ "$gcn" -gt 0 ] && echo "GC$gcn" || echo 0)" "$nivstr" "$md_cpu" "$md_elap" "$ckstat"
 done
 echo
 echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad xfail=$tot_xf xpass=$tot_xp"
+if [ "$tot_load" -gt 0 ]; then
+  echo "⛔ $tot_load row(s) have nivcsw > $NIVCSW_FLAG (marked '!' above) -- the winning rep was still"
+  echo "   scheduler-contaminated; re-measure on a quieter box before quoting them as a headline number."
+fi
 [ -n "$XPASSED" ] && echo "⛔ XPASS:$XPASSED -- passes WITH a sibling .xfail present. Re-measure, then RETIRE the marker."
 if [ -n "$UNGRADED" ]; then
   echo "⛔ UNGRADED (in $B, not harness-driven, absent from the table above):$UNGRADED"

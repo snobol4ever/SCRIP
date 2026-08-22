@@ -488,7 +488,7 @@ dominate `.so` build time. Forward plan: the C runtime is to be replaced by a
 hand-written **x86 ASM runtime**, optimal for mode 3 and mode 4 alike — no C
 compiler, no opt level, in the runtime at all.
 
-## ⭐ Performance — SCRIP vs SPITBOL (2026-08-21 s249, current)
+## ⭐ Performance — SCRIP vs SPITBOL (2026-08-22 s253, current)
 
 Measured at SCRIP `7dd59a06`, on the Milestone 1 line. Engines: **SPITBOL x64 `sbl -bf`**
 (the `-f` arm is the only one matching SCRIP's case-sensitivity, per the s189 ruling) vs SCRIP
@@ -497,6 +497,15 @@ Instrument: `scripts/test_bench_snobol4_timed.sh` — fixed 500 ms budget, **ite
 (a ratio, not a delta), every row's `check:` line diffed against its `.ref` so **correctness
 travels with every number**. `SCRIP_NOHUGE=1`, arena sized past the window (**gc=0 on every row
 quoted** — a window containing a collection is a stall figure, not throughput).
+
+⛔ **row bench-external-cpu-and-elapsed-clock: the microbenchmark family below is now clocked
+externally, not self-timed.** Every rate is iterations divided by `tools/bench_rusage`'s CPU time
+(`user+sys`, read from `wait4()`, one instrument outside both engines, blind to which one it is
+timing) — **not** either engine's own `TIME()`. Self-timing was the first thing hostile scrutiny
+would attack, and the two engines' `TIME()` were not even the same unit until the s249 NS-TIME fix
+(both are `CLOCK_MONOTONIC` now) — see `FINDING-2026-08-22-s253`. `min-det` is `NOISE-FLOOR.tsv`'s
+`min_detectable_cpu_pct` (3×cv, best-of-5, load-contaminated reps excluded, not averaged in): a
+row-to-row or table-to-table delta smaller than it is WEATHER, not a regression.
 
 ⛔ **THESE NUMBERS ARE NOT COMPARABLE WITH ANY PUBLISHED BEFORE 2026-08-21.** The CPU governor was
 `powersave` on `amd-pstate-epp` — cores at ~37% of maximum clock — for every earlier measurement on
@@ -537,35 +546,50 @@ m4 image build, once: `--compile` **1,812 ms** + `gcc` link 274 ms. **SPITBOL co
 beauty in 36 ms — less time than SCRIP spends emitting it.** m3's 2.5 s is dominated by
 compilation, not execution.
 
-### Microbenchmark family — 15 programs, **15/15 correct in both arms**, throughput (iters/s)
+### Microbenchmark family — 15 programs, **15/15 correct in both arms**, throughput (iters/s, external clock)
 
-`m3:sbl > 1.00×` means **SCRIP is faster**. Both `RT_OPT` arms shown, because the gap between
-them is itself the finding (see below).
+`m3:sbl > 1.00×` means **SCRIP is faster**. `RT_OPT=-O0`. `min-det` = `min_detectable_cpu_pct`,
+best-of-5, this bake (row bench-external-cpu-and-elapsed-clock) — a row whose ratio moved by less
+than its own min-det between sessions has not moved outside its noise floor.
 
-| benchmark | `sbl`/s | m3/s | m4/s | **m3:sbl** | vs s198 |
+| benchmark | `sbl`/s | m3/s | m4/s | **m3:sbl** | min-det |
 |---|---:|---:|---:|---:|---:|
-| var_access | 8.7M | 68.6M | 73.9M | **7.86×** | **6.99×** |
-| op_dispatch | 10.4M | 75.9M | 75.6M | **7.27×** | **5.75×** |
-| func_call | 13.1M | 93.3M | 97.7M | **7.12×** | **6.04×** |
-| arith_loop | 23.4M | 165.1M | 169.7M | **7.07×** | **5.37×** |
-| fibonacci | 6.1K | 37.3K | 37.9K | **6.10×** | **4.62×** |
-| string_concat | 5.3M | 16.4M | 18.2M | **3.10×** | **3.34×** |
-| pattern_bt | 985.5K | 2.9M | 2.9M | **2.96×** | **0.73×** |
-| string_pattern | 3.8M | 5.6M | 6.0M | **1.46×** | **0.70×** |
-| eval_fixed | 6.1M | 5.6M | 5.9M | **0.91×** | **0.56×** |
-| array_sum | 19.5K | 17.5K | 17.1K | **0.90×** | **0.91×** |
-| indirect_dispatch | 10.3M | 8.2M | 8.4M | **0.80×** | **0.41×** |
-| string_manip | 9.0M | 5.5M | 5.5M | **0.61×** | **0.28×** |
-| mixed_workload | 294.3K | 159.7K | 159.7K | **0.54×** | **0.42×** |
-| roman | 457.8K | 235.4K | 240.9K | **0.51×** | **0.26×** |
-| table_access | 16.6K | 7.9K | 8.0K | **0.48×** | **0.49×** |
+| var_access | 7.5M | 60.0M | 65.8M | **7.98×** | 4.8% |
+| func_call | 11.6M | 83.7M | 88.3M | **7.20×** | 3.1% |
+| op_dispatch | 9.4M | 66.3M | 68.8M | **7.02×** | 2.3% |
+| arith_loop | 21.2M | 145.5M | 153.2M | **6.86×** | 11.0% |
+| fibonacci | 5.8K | 32.6K | 33.8K | **5.60×** | 3.6% |
+| string_concat | 5.2M | 17.5M | 18.0M | **3.36×** | 33.9%! |
+| pattern_bt | 892.3K | 2.5M | 2.5M | **2.83×** | 3.7% |
+| string_pattern | 3.5M | 5.0M | 5.1M | **1.42×** | 4.6% |
+| eval_fixed | 5.5M | 5.1M | 5.4M | **0.91×** | 4.7% |
+| indirect_dispatch | 9.4M | 7.3M | 7.5M | **0.77×** | 1.8% |
+| string_manip | 8.4M | 4.9M | 4.9M | **0.58×** | 17.9%! |
+| array_sum | 17.5K | 10.0K | 10.1K | **0.57×** | 2.5% |
+| mixed_workload | 264.4K | 121.4K | 124.0K | **0.46×** | 3.6% |
+| roman | 454.0K | 202.5K | 207.3K | **0.45×** | 4.8% |
+| table_access | 15.8K | 4.4K | 4.5K | **0.28×** | 3.8% |
 
-⭐ **Nine of fifteen rows now beat the oracle, and the worst row moved 0.28× → 0.48×.** The three
-largest movers this session were not codegen at all — `string_manip` 0.28→0.61, `indirect_dispatch`
-0.41→0.80 and `eval_fixed` 0.56→0.91 all came from **one four-character fix**: four cached-`getenv`
-probes used a `-2` "feature off" sentinel under a `< 0` guard, so the cache never engaged and every
-function and builtin call walked the whole environment doing `strcmp` (21.56% of `string_manip`).
-See `FINDING-2026-08-21-s249-…` §7F.
+⭐ **Eight of fifteen rows beat the oracle under the external clock** (`m3:sbl > 1.00×`: var_access,
+func_call, op_dispatch, arith_loop, fibonacci, string_concat, pattern_bt, string_pattern) — the
+s249 self-timed table above (superseded, kept for provenance) read this as "nine," which the s249
+numbers do not actually support either on a row-by-row recount (they show the same eight); the count
+was never re-verified against its own table before now. `!` marks a row whose own min-det (33.9%,
+17.9%) is wide enough that this session's number cannot be compared precisely against any prior one.
+
+⛔ **Every row moved from the s249 self-timed table, and four moved by more than this session's own
+min-det** — this is the credibility case this row exists to make, not noise: **array_sum**
+0.90×→0.57× (min-det 2.5%, a 37% shift), **table_access** 0.48×→0.28× (3.8%, 42% shift),
+**mixed_workload** 0.54×→0.46× (3.6%, 15% shift), **roman** 0.51×→0.45× (4.8%, 12% shift) — all four
+are allocating rows, and `FINDING-2026-08-22-s253` independently flagged SCRIP's `maxrss_kb` on
+exactly this trio as 200×+ SPITBOL's on the same kernel; **fibonacci** 6.10×→5.60× and
+**indirect_dispatch** 0.80×→0.77× also cleared their min-det (8% and 4% shifts). The rest — including
+`string_concat`/`string_manip`'s apparent moves — sit inside min-det this session measured as wide
+(≥17.9%) and are not distinguishable from weather either way. **Read this as: the self-timed table
+above was measuring something silently different per engine, and now measures the same thing for
+both — treat the s249 numbers as provenance, not as the current baseline.** Root-caused fix
+attribution for the earlier 0.28×→0.48× table_access move (`getenv` cache sentinel, s249 §7F) is
+unaffected by this re-clocking; it is a real, separately-verified codegen fix, not a clock artifact.
 
 `arith_loop` 5.37× → 7.07× came from three codegen cuts — null-concat copy propagation, an inlined
 integer compare, and a four-way literal fold on `IR_BINOP` — taking it from 165 to 112 instructions
