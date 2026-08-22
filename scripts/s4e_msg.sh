@@ -173,6 +173,20 @@ case "$cmd" in
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
          else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
          printf '\n%s\n  %s\n%s\n\n' "$b" "$line" "$b"
+         # ⛔⛔ THE BANNER WAS FIRING AND NOBODY COULD SEE IT (Lon 2026-08-22 s256: "The FLEET workers are not showing
+         # a banner at the end. claude08 just sat silent like an idiot").  MEASURED, from seat08's OWN transcript --
+         # two stop_hook_summary records, 3867ms and 4166ms, "hookErrors": [], "hasOutput": true.  The hook fires and
+         # SUCCEEDS every time.  The field that decides whether a human ever reads it is "level": "suggestion": the
+         # s255 Stop hook wraps this output in {"systemMessage": ...}, which the client files as an ADVISORY HINT, not
+         # as transcript output.  The banner has been landing in a drawer since the day it was automated.
+         # ⭐ CURE, and it is LAW 18 one level further out: a status that exists only in a display channel we cannot
+         # verify is not a status.  PERSIST IT.  The verdict is already computed one line above; write it to BOARD.md
+         # so `fleet`, `board`, and Lon reading the file all see the same COMPUTED line whatever the client does with
+         # the hint.  Suppressed when `board` is the caller, so a seat's typed status is never clobbered by this.
+         if [ "${S4E_BANNER_NO_BOARD:-0}" != "1" ] && [ -d "$PO" ]; then
+           grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true
+           printf '%s | %s | %s\n' "$ME" "$line" "$(date -u +%H:%M)" >> "$PO/.b.$$"
+           mv "$PO/.b.$$" "$PO/BOARD.md" 2>/dev/null || rm -f "$PO/.b.$$"; fi
          if [ "${2:-}" = "-v" ] || [ "${3:-}" = "-v" ]; then
            printf '  its row        : %s\n' "${held:-none open}"
            printf '  its inbox      : %s message(s)   [THE LOOP reads inbox before the queue]\n' "$inbx"
@@ -212,6 +226,6 @@ case "$cmd" in
          printf '  Q = questions from that seat waiting on HQ. A seat with an open ROW resumes it when re-fired.\n\n';;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
-         [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner;;
+         [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
   *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet"; exit 2;;
 esac
