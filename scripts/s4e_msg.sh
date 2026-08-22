@@ -89,12 +89,48 @@ case "$cmd" in
          printf '\n%s\n' "$b"; printf '  %s        seat %s\n' "$verdict" "$ME"; printf '%s\n' "$b"
          printf '  did the work land? : %s\n' "$landed"
          printf '  its row            : %s\n' "$rowline"
+         # ⛔ Lon /clears blind -- he has NO view of a session's context fullness (his words, 2026-08-22).
+         # This line is the ONE self-reported field on the banner and is labelled as such: no script can
+         # compute a model's context use. Pass it as arg 3: `s4e_msg.sh banner <topic> 62`.
+         ctx="${3:-}"
+         if [ -n "$ctx" ]; then
+           if   [ "$ctx" -ge 75 ] 2>/dev/null; then cwarn="⛔ NEARLY FULL — everything is routed and pushed; a /clear here loses nothing"
+           elif [ "$ctx" -ge 50 ] 2>/dev/null; then cwarn="over half gone — keep routing to files as you go"
+           else cwarn="plenty of room"; fi
+           printf '  context (self-rep) : %s%%  — %s\n' "$ctx" "$cwarn"; fi
          printf '%s\n' "$b"
          printf '  ➜  YOU DO NEXT     : %s\n' "$todo"; [ -n "$todo2" ] && printf '                       %s\n' "$todo2"
          printf '                       /clear, then paste this:\n'
          printf '                       Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n'
          printf '%s\n\n' "$b"
          [ "$hrc" -eq 0 ] && exit 0 || exit 1;;
+  fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
+         # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
+         # (that walks every repo, 9x over) -- it inspects each seat root's clones directly, which is the same
+         # truth for the two things that matter: uncommitted work, and commits that never reached origin.
+         printf '\n  SEAT   ROW (open claim)                        TREE                  Q  LAST BOARD LINE\n'
+         printf '  ────── ────────────────────────────────────────  ────────────────────  ─  ───────────────────────────────\n'
+         for seat in hq seat1 seat2 seat3 seat4 seat5 seat6 seat7 seat8; do
+           case "$seat" in hq) root=/home/claude;; *) root="/home/claude${seat#seat}";; esac
+           [ -d "$root" ] || continue
+           row="—"; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+             if [ "$(head -1 "$c")" = "$seat" ] && ! grep -q '^DONE$' "$c"; then row="$(basename "$c" .claim)"; break; fi; done
+           dirty=0; unpushed=0; repos=0
+           for r in "$root"/*/; do [ -d "$r/.git" ] || continue; repos=$((repos+1))
+             d=$(git -C "$r" status --porcelain 2>/dev/null | wc -l); dirty=$((dirty+d))
+             br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
+             u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0); unpushed=$((unpushed+${u:-0})); done
+           if [ "$repos" -eq 0 ]; then tree="no clones"
+           elif [ "$dirty" -eq 0 ] && [ "$unpushed" -eq 0 ]; then tree="clean"
+           else tree="⛔ ${dirty} dirty ${unpushed} unpushed"; fi
+           q=0; for f in "$PO"/hq/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$seat"-q-*) q=$((q+1));; esac; done
+           bl="$(grep -m1 "^$seat |" "$PO/BOARD.md" 2>/dev/null | cut -d'|' -f2- | cut -c1-46)"; [ -n "$bl" ] || bl="(never posted)"
+           printf '  %-6s %-40.40s  %-20.20s  %s  %s\n' "$seat" "$row" "$tree" "$q" "$bl"; done
+         free=0; tot=0
+         while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
+           tot=$((tot+1)); [ -f "$PO/claims/$topic.claim" ] || free=$((free+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
+         printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
+         printf '  Q = questions from that seat waiting on HQ. A seat with an open ROW resumes it when re-fired.\n\n';;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md";;
-  *) echo "usage: next|done|ask|send|check|clear|claim|board|banner"; exit 2;;
+  *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet"; exit 2;;
 esac
