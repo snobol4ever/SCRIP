@@ -79,16 +79,10 @@ n10_lit_string_β:       add              rsp, 16
 .Lx55_0_s:              .string          ""
 #-----------------------------------------------------------------------------------------------------------------------
 n11_binop_α:            sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 32]            # var
-                        mov              rsi, qword ptr [rsp + 40]
-                        mov              rdx, qword ptr [rsp + 16]            # lit_string
-                        mov              rcx, qword ptr [rsp + 24]
-                        mov              qword ptr [rip + rtccb+40], r8
-                        call             str_concat_d@PLT
+                        mov              rax, qword ptr [rsp + 32]            # var
+                        mov              rdx, qword ptr [rsp + 40]
                         mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48];     jmp   n12_var_α
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n12_var_α
 n11_binop_β:            add              rsp, 16;                             jmp   n10_lit_string_β
 #-----------------------------------------------------------------------------------------------------------------------
 n12_var_α:              sub              rsp, 16
@@ -182,16 +176,10 @@ n23_var_β:              add              rsp, 16
                         add              rsp, 16;                             jmp   n21_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n24_binop_α:            sub              rsp, 16
-                        mov              rdi, qword ptr [rsp + 32]            # lit_string
-                        mov              rsi, qword ptr [rsp + 40]
-                        mov              rdx, qword ptr [rsp + 16]            # var
-                        mov              rcx, qword ptr [rsp + 24]
-                        mov              qword ptr [rip + rtccb+40], r8
-                        call             str_concat_d@PLT
+                        mov              rax, qword ptr [rsp + 16]            # var
+                        mov              rdx, qword ptr [rsp + 24]
                         mov              qword ptr [rsp + 0], rax             # result
-                        mov              qword ptr [rsp + 8], rdx
-                        mov              r8,  qword ptr [rip + rtccb+40]
-                        mov              r9,  qword ptr [rip + rtccb+48];     jmp   n25_var_α
+                        mov              qword ptr [rsp + 8], rdx;            jmp   n25_var_α
 n24_binop_β:            add              rsp, 16;                             jmp   n23_var_β
 #-----------------------------------------------------------------------------------------------------------------------
 n25_var_α:              sub              rsp, 16

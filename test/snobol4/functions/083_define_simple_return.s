@@ -166,23 +166,19 @@ n5_var_β:               add              rsp, 16
                         add              rsp, 16;                             jmp   n3_statement_begin_β
 #-----------------------------------------------------------------------------------------------------------------------
 n6_binop_α:             sub              rsp, 16
-                        mov              eax, dword ptr [rsp + 32]            # lit_integer
                         mov              ecx, dword ptr [rsp + 16]            # var
-                        mov              edx, eax
-                        and              edx, ecx
-                        cmp              edx, 3;                              jne   .Lx33_2
-                        mov              rax, qword ptr [rsp + 40]            # lit_integer
-                        mov              rdx, qword ptr [rsp + 24]            # var
+                        cmp              ecx, 3;                              jne   .Lx33_2
+                        mov              rax, 2
+                        mov              rdx, qword ptr [rsp + 24]
                         imul             rax, rdx
                         mov              qword ptr [rsp + 0], 3               # result
                         mov              qword ptr [rsp + 8], rax;            jmp   .Lx33_7
-.Lx33_2:                and              edx, 1;                              jz    .Lx33_0
-                        mov              rsi, qword ptr [rsp + 40]            # lit_integer
+.Lx33_2:                mov              edx, ecx
+                        and              edx, 1;                              jz    .Lx33_0
+                        mov              rsi, 2
                         mov              rdi, qword ptr [rsp + 24]            # var
-                        cmp              eax, 5;                              je    .Lx33_3
-                        cvtsi2sd         xmm0, rsi;                           jmp   .Lx33_4
-.Lx33_3:                movq             xmm0, rsi
-.Lx33_4:                cmp              ecx, 5;                              je    .Lx33_5
+                        cvtsi2sd         xmm0, rsi
+                        cmp              ecx, 5;                              je    .Lx33_5
                         cvtsi2sd         xmm1, rdi;                           jmp   .Lx33_6
 .Lx33_5:                movq             xmm1, rdi
 .Lx33_6:                mulsd            xmm0, xmm1
