@@ -11,7 +11,7 @@ static std::string xa_bb_macro_library_text(void) {
         return std::string("# === BEGIN bb macro library (EAO-4/xa_bb_macro_library) ===\n")
              + "                        .intel_syntax    noprefix\n"
              + "                        .macro           DELTA_LOAD\n"
-             + "                        mov              eax, [r10]\n"
+             + "                        mov              eax, [r11]\n"
              + "                        .endm\n"
              + "                        .macro           SIGLEN_LOAD\n"
              + "                        lea              rcx, [rip + Σlen]\n"

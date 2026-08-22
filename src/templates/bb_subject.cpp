@@ -22,11 +22,11 @@ std::string bb_subject() {
                + x86_alpha()
                + x86("lea",     "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), nb)
                + x86("lea",     "rsi", FR(_.op_sa))
-               + x86("push",    "r10")
+               + x86("push",    "r11")
                + x86_align_enter()
                + x86("call",    "rt_subject_load_nv", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, void *))rt_subject_load_nv)
                + x86_align_leave()
-               + x86("pop",     "r10")
+               + x86("pop",     "r11")
                + x86_gamma()
                + x86_beta_trampoline() ) :
                !_.op_a_sval ? x86_alpha() + x86_bomb("IR_SUBJECT: non-literal subject (PB-RB ladder)") :
@@ -35,11 +35,11 @@ std::string bb_subject() {
                + x86_alpha()
                + x86("lea",     "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_a_sval ? _.op_a_sval : ""), lb)
                + x86("lea",     "rsi", FR(_.op_sa))
-               + x86("push",    "r10")
+               + x86("push",    "r11")
                + x86_align_enter()
                + x86("call",    "rt_subject_load_lit", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, void *))rt_subject_load_lit)
                + x86_align_leave()
-               + x86("pop",     "r10")
+               + x86("pop",     "r11")
                + x86_gamma()
                + x86_beta_trampoline() );
     }

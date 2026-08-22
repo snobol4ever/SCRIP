@@ -167,10 +167,10 @@ static std::string xa_flat_dc_stub_str(void) {
         for (int i = np - 1; i >= 0; i--) zs += x86("push", dcarg4[i]);
         int push_bytes = np * 8 + (need_align_pad ? 8 : 0);
         for (int i = 0; i < np; i++) {
-            zs += x86("mov", "r10", "[rsp + " + std::to_string(i * 8) + "]")
+            zs += x86("mov", "rax", "[rsp + " + std::to_string(i * 8) + "]")
                 + x86("mov32", "edi", (long)i)
-                + x86("mov", "rsi", "[r10 + 0]")
-                + x86("mov", "rdx", "[r10 + 8]")
+                + x86("mov", "rsi", "[rax + 0]")
+                + x86("mov", "rdx", "[rax + 8]")
                 + x86("call", "rt_arg_stage", stg_fp);
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
