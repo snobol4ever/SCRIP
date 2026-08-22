@@ -488,16 +488,25 @@ dominate `.so` build time. Forward plan: the C runtime is to be replaced by a
 hand-written **x86 ASM runtime**, optimal for mode 3 and mode 4 alike — no C
 compiler, no opt level, in the runtime at all.
 
-## ⭐ Performance — SCRIP vs SPITBOL (2026-08-21 s198, current)
+## ⭐ Performance — SCRIP vs SPITBOL (2026-08-21 s249, current)
 
-Measured at SCRIP `1f6cea4d` — the **Milestone 1** tree (`beauty.sno < beauty.sno` byte-identical
-to its own source, both modes) — and re-verified at `3b70bf67`. Engines: **SPITBOL x64 `sbl -bf`**
+Measured at SCRIP `7dd59a06`, on the Milestone 1 line. Engines: **SPITBOL x64 `sbl -bf`**
 (the `-f` arm is the only one matching SCRIP's case-sensitivity, per the s189 ruling) vs SCRIP
 **m3** (`--run`, in-process) and **m4** (`--compile` → `as`+`gcc`, links `libscrip_rt.so`).
 Instrument: `scripts/test_bench_snobol4_timed.sh` — fixed 500 ms budget, **iterations counted**
 (a ratio, not a delta), every row's `check:` line diffed against its `.ref` so **correctness
 travels with every number**. `SCRIP_NOHUGE=1`, arena sized past the window (**gc=0 on every row
 quoted** — a window containing a collection is a stall figure, not throughput).
+
+⛔ **THESE NUMBERS ARE NOT COMPARABLE WITH ANY PUBLISHED BEFORE 2026-08-21.** The CPU governor was
+`powersave` on `amd-pstate-epp` — cores at ~37% of maximum clock — for every earlier measurement on
+this host. It is now `performance` (measured 4.624 GHz), and `NOISE-FLOOR.tsv` was re-baked solo
+under the new governor the same hour. Ratios survive a governor change better than absolute rates,
+but neither is safe to carry across it.
+
+⛔ **The `-O2` column is gone, not omitted.** It was last measured at s198 under the throttled
+governor and has not been re-run; quoting it beside a `performance`-governor `-O0` column would be
+comparing two different machines. Every number below is `RT_OPT=-O0`.
 
 ### ⛔ `-O2` IS NOT CORRECTNESS-EQUIVALENT — read this before quoting any `-O2` number
 
@@ -533,25 +542,37 @@ compilation, not execution.
 `m3:sbl > 1.00×` means **SCRIP is faster**. Both `RT_OPT` arms shown, because the gap between
 them is itself the finding (see below).
 
-| benchmark | `sbl`/s | m3/s `-O0` | m3/s `-O2` | m3:sbl `-O0` | m3:sbl `-O2` |
+| benchmark | `sbl`/s | m3/s | m4/s | **m3:sbl** | vs s198 |
 |---|---:|---:|---:|---:|---:|
-| var_access | 8.7M | 60.6M | 57.9M | **6.99×** | **6.71×** |
-| func_call | 13.3M | 80.4M | 78.7M | **6.04×** | **5.87×** |
-| op_dispatch | 10.5M | 60.1M | 58.7M | **5.75×** | **5.58×** |
-| arith_loop | 23.3M | 125.1M | 121.7M | **5.37×** | **5.05×** |
-| fibonacci | 6.6K | 30.4K | 30.5K | **4.62×** | **4.83×** |
-| string_concat | 5.1M | 17.1M | 32.3M | **3.34×** | **5.95×** |
-| array_sum | 19.7K | 17.8K | 18.3K | 0.91× | 0.93× |
-| pattern_bt | 3.9M | 2.9M | 3.6M | 0.73× | 0.94× |
-| string_pattern | 8.2M | 5.8M | 7.5M | 0.70× | 0.91× |
-| eval_fixed | 6.3M | 3.5M | 4.5M | 0.56× | 0.72× |
-| table_access | 16.5K | 8.1K | 9.5K | 0.49× | 0.56× |
-| mixed_workload | 376.8K | 158.1K | 196.9K | 0.42× | 0.52× |
-| indirect_dispatch | 11.1M | 4.6M | 5.5M | 0.41× | 0.50× |
-| string_manip | 9.5M | 2.6M | 3.2M | 0.28× | 0.33× |
-| roman | 812.7K | 212.6K | 334.0K | 0.26× | 0.42× |
+| var_access | 8.7M | 68.6M | 73.9M | **7.86×** | **6.99×** |
+| op_dispatch | 10.4M | 75.9M | 75.6M | **7.27×** | **5.75×** |
+| func_call | 13.1M | 93.3M | 97.7M | **7.12×** | **6.04×** |
+| arith_loop | 23.4M | 165.1M | 169.7M | **7.07×** | **5.37×** |
+| fibonacci | 6.1K | 37.3K | 37.9K | **6.10×** | **4.62×** |
+| string_concat | 5.3M | 16.4M | 18.2M | **3.10×** | **3.34×** |
+| pattern_bt | 985.5K | 2.9M | 2.9M | **2.96×** | **0.73×** |
+| string_pattern | 3.8M | 5.6M | 6.0M | **1.46×** | **0.70×** |
+| eval_fixed | 6.1M | 5.6M | 5.9M | **0.91×** | **0.56×** |
+| array_sum | 19.5K | 17.5K | 17.1K | **0.90×** | **0.91×** |
+| indirect_dispatch | 10.3M | 8.2M | 8.4M | **0.80×** | **0.41×** |
+| string_manip | 9.0M | 5.5M | 5.5M | **0.61×** | **0.28×** |
+| mixed_workload | 294.3K | 159.7K | 159.7K | **0.54×** | **0.42×** |
+| roman | 457.8K | 235.4K | 240.9K | **0.51×** | **0.26×** |
+| table_access | 16.6K | 7.9K | 8.0K | **0.48×** | **0.49×** |
 
-**m4:m3 = 0.95–1.08× on every row** — the two modes are performance-equal, as the m3 ≡ m4 design
+⭐ **Nine of fifteen rows now beat the oracle, and the worst row moved 0.28× → 0.48×.** The three
+largest movers this session were not codegen at all — `string_manip` 0.28→0.61, `indirect_dispatch`
+0.41→0.80 and `eval_fixed` 0.56→0.91 all came from **one four-character fix**: four cached-`getenv`
+probes used a `-2` "feature off" sentinel under a `< 0` guard, so the cache never engaged and every
+function and builtin call walked the whole environment doing `strcmp` (21.56% of `string_manip`).
+See `FINDING-2026-08-21-s249-…` §7F.
+
+`arith_loop` 5.37× → 7.07× came from three codegen cuts — null-concat copy propagation, an inlined
+integer compare, and a four-way literal fold on `IR_BINOP` — taking it from 165 to 112 instructions
+per iteration. `table_access` is deliberately unmoved: its cost is that `aggregates.c` stringifies
+**every** table key, so an integer key costs *more* than a string key. That is the next rung.
+
+**m4:m3 = 0.98–1.11× on every row** — the two modes are performance-equal, as the m3 ≡ m4 design
 invariant requires.
 
 ### Demo / real-workload family — 15 programs (`HEAP=4096`, GC-free window)
