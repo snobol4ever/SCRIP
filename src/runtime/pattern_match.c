@@ -974,6 +974,13 @@ int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
     return c_rt_defer_close(cur_delta);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ SNOBOL4 STRINGS ARE COUNTED, NOT NUL-TERMINATED -- CHAR(0) IS A LEGAL CHARACTER (Lon, s264: "Using any C function to manipulate strings is INVALID since the NUL character problem").  This is the
+   ONE funnel every character-class builtin resolves its argument through, so it is the one place the class is fixed: BREAK, SPAN, ANY, NOTANY and their kin all arrive here.  The else arm used a bare
+   strlen(), which stops at the first NUL: ANY(CHAR(0)) resolved to a cset of length ZERO, and every caller rejects a zero-length cset -- so a legal program died with "argument is not a string or
+   expression" (59/69/151) -- an error the oracle never raises -- while SPAN silently returned no-match.  Length now comes from the DESCRIPTOR, which SIZE() already proves is stamped correctly.
+   ⛔ THE GUARDS ARE LOAD-BEARING, ALL THREE: cv == arg.s because VARVAL_fn may hand back a CONVERTED buffer (an integer rendered as text) whose length has nothing to do with arg.slen; arg.slen != 0
+   preserves the strlen fallback for any descriptor that never got its length stamped, so this cannot regress a working path; and 0xFFFFFFFFu is the IS_CSET_fn sentinel, not a length -- a real cset
+   takes the branch above and gets kw_cset_len, which is what lets &ALPHABET carry its own NUL. */
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
     const char *cv;
     int clen;
@@ -985,7 +992,7 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
     } else {
         cv = VARVAL_fn(arg);
         if (!cv) return 0;
-        clen = (int)strlen(cv);
+        clen = (cv == arg.s && arg.slen && arg.slen != 0xFFFFFFFFu) ? (int)arg.slen : (int)strlen(cv);
     }
     *out_ptr = cv;
     *out_len = clen;

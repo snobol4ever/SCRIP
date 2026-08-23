@@ -280,12 +280,17 @@ static const char * rt_coerce_errmsg(int code) {
     default:  return "pattern primitive argument coercion failed"; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ COUNTED STRINGS: CHAR(0) IS DATA, NOT A TERMINATOR (Lon, s264).  This is the coercion every pattern primitive funnels its argument through, and it carried TWO NUL defects on ONE line.  (1) The
+   admission test was `v.s[0]`, so a string whose FIRST byte is NUL -- CHAR(0) itself -- read as EMPTY and fell into the arm below that raises "argument is not a string" (59/69/151/188).  Emptiness is
+   a question about LENGTH and must be asked of the descriptor, never of the first byte.  (2) It then OVERWROTE the incoming slen with strlen(), so 'a' CHAR(0) 'b' arrived correctly stamped at 3 and
+   left at 1 -- a silent truncation downstream of a descriptor that was right, which is why SPAN(CHAR(0)) returned no-match instead of erroring: different symptom, same line.  ⛔ 0xFFFFFFFFu is the
+   IS_CSET_fn sentinel rather than a length, so it keeps the strlen path it has always had -- widening it here would hand callers a 4-billion-byte cset. */
 void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int tc = (int)(codes & 0xffff);
     int nc = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
-    if (v.v == DT_S && v.s && v.s[0]) { *out = v; out->slen = (uint32_t)strlen(v.s); return; }
+    if (v.v == DT_S && v.s) { uint32_t n = (v.slen && v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)strlen(v.s); if (n) { *out = v; out->slen = n; return; } }
     if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
     if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = (uint32_t)strlen(v.s); return; }
     if (v.v == DT_I || v.v == DT_R) {
