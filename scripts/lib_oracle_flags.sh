@@ -92,7 +92,21 @@ sbl_clean_bin() { sbl_assert_bf "/home/resources/spitbol-bench-oracle/sbl" "the 
 # "$X64/bin/sbl" by hand, which is how a path becomes a trap.  Since Lon's s259 ruling ("everyone should be
 # using the shared /home/resources") every seat root's x64/ is a SYMLINK to /home/resources/x64, so the shared
 # path is canonical and the per-root one still resolves.
-sbl_correctness_bin() { local c="/home/resources/x64/bin/sbl"; [ -x "$c" ] || c="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/x64/bin/sbl"; sbl_assert_bf "$c" "the CORRECTNESS oracle (x64, instrumented)"; }
+# ⛔⭐⭐ SHARED ONLY -- NO PER-ROOT x64, NO SYMLINK (Lon, 2026-08-23 s261: "Ensure that no root have x64. Everyone must share." / "Do not use symlinks.")
+# This used to fall back to "${S4E_HOME}/x64/bin/sbl" when the shared oracle was missing.  That fallback is DELETED, and deleting it is the point: a fallback does not just TOLERATE a per-root clone, it
+# SILENTLY REWARDS one -- a seat that cloned x64 into its root would grade green against its own private copy and never learn it had diverged from everyone else.  A missing shared oracle must be LOUD.
+# A per-root clone is also a permanent handoff_status.sh blocker the moment it takes a local commit, since that script adopts every directory in the root that is a git repo with an origin remote.
+# VERIFIED s261 across all 19 roots: no x64 entry of any kind, symlink or directory.  The shared tree is /home/resources/x64 (clean, 0 dirty, 0 unpushed).
+sbl_correctness_bin() {
+    local c="/home/resources/x64/bin/sbl"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE SHARED CORRECTNESS ORACLE IS MISSING: %s\n" "$c" >&2
+        printf "   ⛔ DO NOT clone x64 into your seat root and DO NOT symlink it -- Lon s261, everyone shares /home/resources/x64.\n" >&2
+        printf "   Restore the SHARED tree, then re-run.  Grading with it absent prints a full, plausible, entirely false all-FAIL table.\n" >&2
+        return 1
+    fi
+    sbl_assert_bf "$c" "the CORRECTNESS oracle (x64, instrumented)"
+}
 
 # ⭐ A LIVE EDGE, PRESERVED NOT FIXED (row oracle-two-face-adoption): the clean binary above is a from-
 # source build of official upstream with exactly the two ALLOW-LISTED patches described in the block
