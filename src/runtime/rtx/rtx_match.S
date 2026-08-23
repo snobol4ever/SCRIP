@@ -63,14 +63,14 @@ RTX_FUNC(rt_cap_match_begin)
     add     eax, 1
     je      .Lcmb_wrap                  /* ZF: incremented to 0 -> wrap both   */
     mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     r8, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [r8], eax
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [r10], eax
     ret
 .Lcmb_wrap:
     mov     eax, 1
     mov     dword ptr [rip + g_cap_gen_next], eax
-    mov     r8, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     dword ptr [r8], eax
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     dword ptr [r10], eax
     ret
 RTX_ENDF(rt_cap_match_begin)
 
@@ -83,8 +83,8 @@ RTX_ENDF(rt_cap_match_begin)
  * matching the C, which must not stamp gen on a pop.
  */
 RTX_FUNC(rt_cap_pop)
-    mov     r8, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     eax, dword ptr [r8]
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     eax, dword ptr [r10]
     cmp     eax, dword ptr [rdi + 8]    /* s->gen                              */
     jne     .Lcp_ret                    /* stale slot -> no write              */
     mov     eax, dword ptr [rdi + 12]   /* s->sp                               */
@@ -109,8 +109,8 @@ RTX_ENDF(rt_cap_pop)
  */
 RTX_FUNC(rt_cap_top)
     xor     eax, eax                    /* default 0 for both failing guards   */
-    mov     r8, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     ecx, dword ptr [r8]
+    mov     r10, qword ptr [rip + g_cap_gen@GOTPCREL]
+    mov     ecx, dword ptr [r10]
     cmp     ecx, dword ptr [rdi + 8]    /* s->gen                              */
     jne     .Lct_ret
     mov     ecx, dword ptr [rdi + 12]   /* s->sp (zero-extended into rcx)      */

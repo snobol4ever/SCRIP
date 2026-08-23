@@ -322,14 +322,25 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 }
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
-#define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9)
+/* ⭐ r10/r11 JOIN THE VENEER (Lon s258): they carry the DIAG telemetry -- r10 = SNOBOL4 statement number,
+   r11 = BB node id (see the stamp below, and c951f257). The stamp was emitted but NOT PROTECTED, so any
+   runtime call could clobber it and a crash dump would name a stale statement with nothing marking it
+   stale. rtcc.h already reserved slots 7 and 8 (rtccb+56, +64) and RTCC_GPR_COUNT is 9 -- the block was
+   always big enough; only the save/restore was missing. Eradicating r10/r11 from 153 runtime asm lines
+   was the hard way round; protecting them across the veneer is the cheap way. */
+#define RTCC_C_R10  4u
+#define RTCC_C_R11  8u
+#define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTCC_NOCLOB"); return !(e && *e == '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline unsigned x86_rtcc_clob(const char * sym) {
     if (!sym) return RTCC_C_ALL;
     static const struct { const char * n; unsigned m; } LEAF[] = {
-        { "rt_cmp_d", 0 },
+        /* ⭐ r10/r11 now carry DIAG telemetry and are veneer-protected, so a leaf that WRITES them must
+           declare it or the veneer drops a live slot. The callee-class gate re-derives these from the .S
+           and caught every one -- this table is not hand-maintained trust, it is checked. */
+        { "rt_cmp_d", RTCC_C_R10 | RTCC_C_R11 },
     };
     if (x86_rtcc_noclob_on()) for (size_t i = 0; i < sizeof(LEAF) / sizeof(LEAF[0]); i++) if (strcmp(sym, LEAF[i].n) == 0) return LEAF[i].m;
     static const struct { const char * n; unsigned m; } T[] = {
@@ -337,8 +348,8 @@ static inline unsigned x86_rtcc_clob(const char * sym) {
         { "rt_is_truthy",               0 }, { "rt_proc_value",             0 },
         { "rt_patstk_lazy_init",        0 }, { "rt_gen_spine_resume_enter", 0 },
         { "rt_gen_spine_pass_\u03b3",   0 }, { "rt_gen_spine_pass_\u03c9",  0 },
-        { "rt_cap_match_begin", 0 }, { "rt_cap_pop",      0 },
-        { "rt_cap_top",         0 }, { "rt_match_ctx_restore", 0 },
+        { "rt_cap_match_begin", RTCC_C_R10 }, { "rt_cap_pop",      RTCC_C_R10 },
+        { "rt_cap_top",         RTCC_C_R10 }, { "rt_match_ctx_restore", RTCC_C_R10 },
     };
     for (size_t i = 0; i < sizeof(T) / sizeof(T[0]); i++) if (strcmp(sym, T[i].n) == 0) return T[i].m;
     return RTCC_C_ALL;
@@ -360,6 +371,8 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_AL
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);
     if (m & RTCC_C_R8)  { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }
+    if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }   /* mov [rax+56], r10 */
+    if (m & RTCC_C_R11) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64; }   /* mov [rax+64], r11 */
     return wb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -368,6 +381,8 @@ static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_AL
     rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
     if (m & RTCC_C_R8)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
     if (m & RTCC_C_R9)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
+    if (m & RTCC_C_R10) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x51; rl += (char)56; }   /* mov r10, [rcx+56] */
+    if (m & RTCC_C_R11) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x59; rl += (char)64; }   /* mov r11, [rcx+64] */
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -375,6 +390,8 @@ static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
     std::string wb;
     if (m & RTCC_C_R8)  wb += x86_rec("mov") + "qword ptr [rip + rtccb+40], r8\n";
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rip + rtccb+48], r9\n";
+    if (m & RTCC_C_R10) wb += x86_rec("mov") + "qword ptr [rip + rtccb+56], r10\n";
+    if (m & RTCC_C_R11) wb += x86_rec("mov") + "qword ptr [rip + rtccb+64], r11\n";
     return wb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -382,6 +399,8 @@ static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     std::string rl;
     if (m & RTCC_C_R8)  rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
     if (m & RTCC_C_R9)  rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
+    if (m & RTCC_C_R10) rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb+56]\n";
+    if (m & RTCC_C_R11) rl += x86_rec("mov") + "r11, qword ptr [rip + rtccb+64]\n";
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

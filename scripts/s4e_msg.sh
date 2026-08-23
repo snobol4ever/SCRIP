@@ -168,7 +168,7 @@ case "$cmd" in
                 case "$dw" in
                   */*|*'$'*) : ;;                       # names a path or expands a variable — probe would be meaningless
                   *) _vac="$(mktemp -d)"
-                     if ( cd "$_vac" && eval "timeout 20 $dw" ) >/dev/null 2>&1; then
+                     if ( cd "$_vac" && timeout 20 bash -c "$dw" ) >/dev/null 2>&1; then
                        rm -rf "$_vac"
                        printf '⛔ REFUSED: the DONE-WHEN in %s passes in an EMPTY directory, so it is not examining this tree.\n' "$tf" >&2
                        printf '   command: %s\n   Make it name what it inspects. (hq_P V2-5 used the same probe to find 31 vacuous gates.)\n' "$dw" >&2
@@ -181,7 +181,11 @@ case "$cmd" in
                   printf '⚠ DONE-WHEN OVERRIDDEN by %s -- reason recorded in the claim: %s\n' "$ME" "$S4E_DONE_OVERRIDE"
                 else
                   printf 'verifying DONE-WHEN (γ): %s\n' "$dw"
-                  if ( cd "$S4E" && eval "timeout ${S4E_DONE_TIMEOUT:-900} $dw" ) >/dev/null 2>&1; then
+                  # ⛔ bash -c, NOT bare eval: `timeout` execs its argument, so it CANNOT run a shell BUILTIN. A criterion
+                  # beginning with `cd` — a natural and common way to write one — died with "timeout: failed to run
+                  # command 'cd'" and exit 127, making that row permanently uncloseable. My own certifier rejecting
+                  # valid work. Found by running all 86 live criteria from the CWD `done` actually uses.
+                  if ( cd "$S4E" && timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >/dev/null 2>&1; then
                     printf '  ✅ DONE-WHEN exited 0 — completion is COMPUTED, not claimed.\n'
                   else
                     rc=$?
