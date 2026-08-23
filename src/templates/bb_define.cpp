@@ -280,7 +280,7 @@ static std::string bb_define_bind() {
          + x86("mov32", "edx", (long)_np)
          + x86("mov32", "ecx", (long)_nf)
          + x86("mov32", "r8d", (long)_fb)
-         + x86("lea", "r9", std::string("[rip + __]"), (uint64_t)(uintptr_t)_fn, blbl.c_str())
+         + (_.lbl_t0 ? x86("lea", "r9", std::string("[rip + __]"), (uint64_t)(uintptr_t)_fn, blbl.c_str()) : x86_load_got("r9", blbl.c_str(), (uint64_t)(uintptr_t)_fn))
          + x86_scan_sync_out()
          + x86("call", "rt_define_site", _site_fp)
          + x86_scan_sync_in_rr();
