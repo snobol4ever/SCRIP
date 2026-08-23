@@ -2225,13 +2225,51 @@ static NV_t *_var_bucket_find(const char *name) {
     return (NV_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ SPITBOL's vrblk DISCIPLINE, APPLIED TO OUR OWN NV_t (Lon s258: "follow SPITBOL's algorithm almost verbatim").  sbl.min puts every vrblk in the STATIC AREA -- "allocated dynamically but never
+   deleted or moved around" -- so SPITBOL's variable hash table is consulted only to INTERN a name at compile time and for indirect ($X) references; compiled code holds the block pointer and dereferences
+   it.  That is why SPITBOL runs a 127-bucket table (e_hnb) and still spends only 3.97% in variable access (b_vra), while we spend 45.5%.  MEASURED s258, roman.sno at N=20,000, RT_OPT=-O2, callgrind:
+   3,174,837 _var_bucket_find calls (159 per iteration) at 71 Ir each = 22.42%, plus NV_GET_fn 10.81% + __strcmp_avx2 9.36% + NV_SET_fn 2.92%.  Chains are length ~1 (3,174,825 strcmp for 3,174,837
+   lookups), so the lookup was ALREADY minimal -- hash the name, one compare -- and the only remaining cure is NOT TO DO IT.
+   ⛔ WHY THIS NEEDS NO INVALIDATION, WHICH IS THE WHOLE ARGUMENT: an NV_t comes from rt_ws_alloc, a pure bump allocator over the workspace island (gc_heap.c) whose cursor only ever advances; the GC marks
+   HB_WS blocks but never moves or frees them (gc_heap.c:358 reuses ->fwd as a MARK-STACK link, not a forwarding address).  Entries are only ever PREPENDED, and NV_SET_fn REUSES an existing entry rather
+   than shadowing it, allocating only when the name is new.  So a resolved block is valid for the life of the program -- exactly SPITBOL's static-area guarantee, which our allocator already satisfied.
+   ⛔ ONLY HITS ARE MEMOISED.  A miss may later become a hit (first assignment to a new name), so caching a miss would be wrong; a hit can never become a different entry, so caching a hit is sound forever.
+   The key is the CALL SITE's baked name POINTER, not the string, so a hit costs one compare and no hashing at all.  Distinct sites hold distinct literals; the same site always names the same variable.
+   ⛔⛔⛔ NEW GLOBAL VARIABLES, GRANTED BY LON IN-CHAT 2026-08-22 s258 ("Sure. Add a global variable.") against the banner ask required by RULES.md's NO-NEW-GLOBALS fact rule.  Two parallel arrays, which
+   that rule names explicitly.  Registers and the stack cannot carry them: the table must outlive every activation and be shared by all call sites -- persistence ACROSS calls is precisely the defect. */
+#define NV_MEMO_N 2048
+static const char *g_nv_memo_key[NV_MEMO_N];
+static NV_t       *g_nv_memo_val[NV_MEMO_N];
+static unsigned long g_nv_memo_gen;             /* bumped on EVERY insert -- see the two hazards below */
+static unsigned long g_nv_memo_seen[NV_MEMO_N];
+static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
+/* ⛔⛔ TWO HAZARDS THE FIRST DRAFT OF THIS MEMO GOT WRONG, BOTH CAUGHT BY THE CORPUS A/B (memo ON 335/22, memo OFF 355/2 -- the killswitch IS the control, which is why it exists).  Recorded because the
+   naive version looks obviously correct and is not.
+   (1) A NAME POINTER IS NOT NECESSARILY STABLE.  Call sites in EMITTED code pass a baked literal, but the RUNTIME also passes stack buffers -- c_rt_defer_close builds one in `char nb[40]`, tbl_key_str
+       formats into the caller's `char kb[64]`.  The same stack address holds different strings at different moments, so a pointer-keyed hit can hand back the wrong variable.  Cured by VALIDATING the hit
+       with strcmp against the block's own name: a pointer collision then simply misses.
+   (2) SHADOWING.  _var_bucket_find returns the FIRST chain match and new entries are PREPENDED -- and unlike NV_SET_fn's slow path it does NOT filter on _nv_ordinary, so a later insert can legitimately
+       shadow an entry the memo still points at.  strcmp cannot see that.  Cured by a GENERATION counter bumped on every insert; a cached slot is trusted only while its generation matches.
+   WHAT SURVIVES: the hash is still skipped, which was the expensive half (a per-character djb2 walk plus the modulo).  A validated hit costs a pointer compare, a generation compare and one strcmp.
+   ⛔⛔⛔ SECOND GLOBAL UNDER THE SAME GRANT: Lon in-chat 2026-08-22 s258 ("Sure. Add a global variable.") -- g_nv_memo_gen and its per-slot witness array. */
+static inline NV_t *_var_find_cached(const char *name) {
+    unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
+    if (g_nv_memo_key[i] == name && g_nv_memo_seen[i] == g_nv_memo_gen) {
+        NV_t *c = g_nv_memo_val[i];
+        if (c && strcmp(c->name, name) == 0) return c;
+    }
+    NV_t *e = _var_bucket_find(name);
+    if (e && !_nv_memo_off_get()) { g_nv_memo_key[i] = name; g_nv_memo_val[i] = e; g_nv_memo_seen[i] = g_nv_memo_gen; }
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
 static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
-    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0)) { NV_t *e = _var_bucket_find(name); if (e) return e->is_gva ? *e->cell : e->val; }
+    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) return input_read();
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
@@ -2272,7 +2310,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_bucket_find(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
+    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_find_cached(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -2331,7 +2369,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->is_gva = 0;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->next = _var_buckets[h];
-    _var_buckets[h] = e;
+    _var_buckets[h] = e; g_nv_memo_gen++;
     comm_var(name, val);
     return val;
 }
@@ -2339,7 +2377,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; comm_var(name, val); return val; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -2369,7 +2407,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->is_gva = 0;
     e->is_const = 0;
     e->next = _var_buckets[h];
-    _var_buckets[h] = e;
+    _var_buckets[h] = e; g_nv_memo_gen++;
     return &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
