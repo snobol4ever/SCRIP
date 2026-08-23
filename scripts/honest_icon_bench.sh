@@ -16,7 +16,22 @@ ICONT="${ICONT:-$(icont_bin)}" || exit 2
 ICONX="${ICONX:-$(iconx_bin)}" || exit 2
 CORPUS_SRC="${CORPUS_SRC:-$S4A/work/corpus/benchmarks/icon}"
 REPS="${REPS:-3}"
-WORK="$(mktemp -d /tmp/honest_bench_XXXXXX)"
+# ⛔ SCRATCH ON /home, NEVER BARE /tmp, AND CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267 outage).
+# /tmp is the 125G ROOT partition; /home is a separate 503G one. This script is the SIBLING of honest_icon_correctness.sh --
+# same corpus, same programs, `deal` in its default list -- and carried the identical unbounded-write shape that filled the
+# root filesystem and stopped nineteen sessions. Fixed here BEFORE it detonated a second time.
+SCRATCH_ROOT="${S4E_SCRATCH:-$S4E/.scratch}"
+mkdir -p "$SCRATCH_ROOT" 2>/dev/null || { echo "REFUSING: cannot create scratch root $SCRATCH_ROOT -- set S4E_SCRATCH to a writable dir ON /home. Refusing rather than falling back to /tmp, which is the root partition." >&2; exit 2; }
+WORK="$(mktemp -d "$SCRATCH_ROOT/honest_bench_XXXXXX")"
+honest_bench_cleanup() { [ "${ICN_KEEP_WORK:-0}" = "1" ] && return 0; [ -n "${WORK:-}" ] && [ -d "$WORK" ] && rm -rf "$WORK"; return 0; }
+trap honest_bench_cleanup EXIT INT TERM
+# ⛔ OUTPUT CAP VIA `ulimit -f`, NOT A `head -c` PIPE -- DELIBERATE, AND THE REASON IS THAT THIS IS A TIMING HARNESS.
+# A pipe inserts a process inside the timed region and measures its buffering along with the program. `ulimit -f` bounds the
+# WRITE ITSELF in the subshell: the kernel raises SIGXFSZ at the limit, the runaway dies, and the timed path is untouched.
+# The resulting non-zero rc is correct -- a program that blows the cap has not produced a usable time, and the script already
+# treats a bad rc as a void measurement. ulimit -f counts 512-byte blocks.
+CAP="${ICN_OUT_CAP:-67108864}"
+CAP_BLOCKS=$(( CAP / 512 ))
 export PATH="$(dirname "$ICONT"):$PATH"
 
 mkdir -p "$WORK/corpus"
@@ -68,7 +83,7 @@ for name in $progs; do
   ( cd "$CORPUS" && "$ICONT" -s -o "$WORK/$name.icx" "$name.icn" ) >/dev/null 2>&1
   if [ -f "$WORK/$name.icx" ]; then
     for r in $(seq $REPS); do
-      t0=$(date +%s%N); timeout 60 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.orc.out" 2>/dev/null <"$sin"; rc=$?
+      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout 60 "$ICONX" "$WORK/$name.icx" "${a[@]}" >"$WORK/$name.orc.out" 2>/dev/null <"$sin" ); rc=$?
       t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $obest ] && obest=$ms
     done
     [ $rc -eq 0 ] && o="OK ${obest}ms $(wc -l <"$WORK/$name.orc.out")L" || o="rc=$rc"
@@ -81,7 +96,7 @@ for name in $progs; do
   if [ -s "$WORK/$name.s" ] && gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt \
         -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.lerr"; then
     for r in $(seq $REPS); do
-      t0=$(date +%s%N); timeout 60 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>/dev/null <"$sin"; rc=$?
+      t0=$(date +%s%N); ( ulimit -f "$CAP_BLOCKS"; exec timeout 60 "$WORK/$name.bin" "${a[@]}" >"$WORK/$name.m4.out" 2>/dev/null <"$sin" ); rc=$?
       t1=$(date +%s%N); ms=$(( (t1-t0)/1000000 )); [ $ms -lt $mbest ] && mbest=$ms
     done
     if [ $rc -eq 0 ]; then
