@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# s4e_inbox_hook.sh -- ⭐ THE LOOP STEP 1, HARDENED INTO THE HARNESS (hq_C s261, Lon: "But what the loop says
+# never happens.  Has this been hardened or do we ask God when you pray?").
+#
+# ⛔ WHAT WAS BROKEN, AND IT WAS BROKEN FOR EVERY SEAT SIMULTANEOUSLY.  PROTOCOL.md and every CLAUDE.md say
+# "At EVERY prompt, before anything else: s4e_msg.sh check".  MEASURED s261: BOTH HQs ran check exactly ONCE,
+# at session start, read ten messages each, replied to none, cleared neither, and did not look again for the
+# rest of the session.  Four more messages arrived unseen -- including one asking for a receipt, which was the
+# very thing Lon was testing.  Lon had to ask "Are you answering your messages?" to discover it.  Two seats,
+# no coordination, identical failure: that is not a lapse, it is a MISSING ENFORCEMENT.
+#
+# ⭐ THE PRECEDENT THAT PROVES THE CURE.  The BANNER law had this exact shape -- "MANDATORY LAST ACT OF EVERY
+# SESSION", an instruction no session can follow because a session cannot know which reply is its last.  Lon
+# measured the result ("none of the sessions ... NEVER show the required banner") and the fix was NOT a
+# sterner rule, it was a `Stop` hook.  Since s255 the banner fires whether the seat finishes, blocks, or is
+# cancelled.  THE INBOX LAW HAS THE SAME DEFECT AND NEVER GOT THE SAME FIX.  This is that fix: a
+# UserPromptSubmit hook, so the inbox state is in front of the seat at every prompt mechanically.
+#
+# ⛔ WHY HEADERS AND NOT BODIES.  Dumping 11 dense messages into context at every prompt costs ~10k tokens a
+# turn and would itself become the thing a seat learns to skim past.  The hook prints the COUNT and the
+# FROM/RE line of each, which is a signal that cannot be misread, and names the command for the bodies.  HQ
+# context is the scarcest resource; a reminder that bankrupts it is not a reminder.
+#
+# ⭐ SEAT-DERIVED, NOT HARDCODED -- the same D-17 PORTABLE-HOME derivation s4e_msg.sh uses, so hq_P, ceo and
+# every seat wire the IDENTICAL hook with no per-seat edit.  A hook that hardcodes /home/claude_C would grade
+# another seat against this inbox, which is exactly the layer-2 false-GREEN hq_P found in the batons.
+set -u
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+PO="${S4E_POST:-/home/resources/postoffice}"
+ME="${S4E_SEAT:-}"
+if [ -z "$ME" ]; then case "$S4E" in
+    /home/claude)           ME=ceo;;
+    /home/claude_C)         ME=hq_C;;
+    /home/claude_P)         ME=hq_P;;
+    /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
+    /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
+    *)                      ME="$(basename "$S4E")";; esac; fi
+d="$PO/$ME/inbox"
+n=$(ls "$d"/*.msg 2>/dev/null | wc -l)
+if [ "$n" -gt 0 ]; then
+  printf '⛔ POSTOFFICE [%s] -- %s UNREAD. THE LOOP step 1 binds BEFORE anything else: read, then ACT OR REPLY, then clear (an empty inbox IS the acknowledgement). Reading without replying is NOT answering -- that is the s261 failure this hook exists to prevent.\n' "$ME" "$n"
+  for f in "$d"/*.msg; do head -1 "$f"; done
+  printf 'bodies: bash %s/SCRIP/scripts/s4e_msg.sh check   |   after acting: bash %s/SCRIP/scripts/s4e_msg.sh clear\n' "$S4E" "$S4E"
+else
+  printf '✅ POSTOFFICE [%s] -- inbox empty. That IS the acknowledgement; nothing owed.\n' "$ME"
+fi
