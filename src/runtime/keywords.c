@@ -99,7 +99,7 @@ extern int64_t rt_kwb_own[8] __attribute__((alias("kwb_own")));
 static KWB_ENT_t g_kwb[] = {
     { "ANCHOR",   KWB_INT, 0, (int64_t *)&g_anchor,    0,          (const char *)0 , "rt_anchor_g" },
     { "TRIM",     KWB_INT, 0, &kw_trim,                1,          (const char *)0 , "kw_trim" },
-    { "CASE",     KWB_INT, 0, &kwb_own[0],             1,          (const char *)0 , "rt_kwb_own" },
+    { "CASE",     KWB_INT, 0, &kwb_own[0],             0,          (const char *)0 , "rt_kwb_own" },
     { "CODE",     KWB_INT, 0, &kw_code,                0,          (const char *)0 , "kw_code" },
     { "DUMP",     KWB_INT, 0, (int64_t *)&g_dump,      0,          (const char *)0 , "g_dump" },
     { "ERRLIMIT", KWB_INT, 0, &kw_errlimit,            0,          (const char *)0 , "kw_errlimit" },
