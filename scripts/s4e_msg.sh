@@ -28,6 +28,10 @@ set -u
 shopt -s dotglob
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
+# ⭐ s266 (ceo request, Lon reporting restarted seats assuming DUO): MODE IS COMPUTED, NEVER ASSUMED FROM PROSE.
+# /home/resources/postoffice/MODE (ceo custody, first line = value) is the single authority; absent = LOUD, never
+# a silent default -- the identity-assert law applied to mode.
+s4e_mode_line() { local m; m="$(head -1 "$PO/MODE" 2>/dev/null)"; if [ -n "$m" ]; then printf 'MODE: %s\n' "$m"; else printf '⛔ MODE FILE ABSENT (%s/MODE) -- DO NOT ASSUME A MODE. Ask ceo; DUO-by-default applies ONLY when ceo has not published the file, and its absence here is an ERROR, not a default.\n' "$PO"; fi; }
 ME="${S4E_SEAT:-}"
 # ⛔⭐ LAW 6 -- IDENTITY IS ASSERTED, NEVER GLOBBED (ARCH-FLEET-CEO.md, preflight V2-4, hq_P s258). The old block
 # ended in `*) ME="$(basename "$S4E")"` and every write path did `mkdir -p` on whatever came out. That pair is
@@ -273,6 +277,7 @@ case "$cmd" in
          then echo "assigned $topic -> $seat (claim written, doorbell sent)"
          else echo "assigned $topic -> $seat (claim written; ⛔ DOORBELL NOT SENT — the claim still governs, $seat gets it from next)"; fi;;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
+         s4e_mode_line
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran
          # v1's flat file-order picker — no rank sort, no assign-awareness. seat09 locked a rank-1 row while its own
@@ -352,6 +357,7 @@ case "$cmd" in
          # reads the inbox before the queue. Two laws still hold: the verdict is COMPUTED, never typed, and it turns
          # on ONE question -- did the work land and get pushed (handoff_status.sh rc, the only sanctioned source).
          # An open question to HQ is HQ's backlog, never this seat's failure.
+         s4e_mode_line
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          held=""; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue

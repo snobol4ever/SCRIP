@@ -35,6 +35,8 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
+m="$(head -1 "$PO/MODE" 2>/dev/null)"
+if [ -n "$m" ]; then printf 'MODE: %s (computed from %s/MODE -- never assume a mode from prose)\n' "$m" "$PO"; else printf '⛔ MODE FILE ABSENT (%s/MODE) -- do not assume a mode; ask ceo.\n' "$PO"; fi
 d="$PO/$ME/inbox"
 n=$(ls "$d"/*.msg 2>/dev/null | wc -l)
 if [ "$n" -gt 0 ]; then
