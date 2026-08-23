@@ -12,7 +12,7 @@ extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" void rt_cap_finish(DESCR_t fret);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int havehome(void) { return _.op_zres || _.op_cap_anchor; }
+static inline int havehome(void) { return _.op_zres || _.op_cap_anchor || _.op_off >= 0; }
 static inline int nret_cap_live(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; } return v; }
 static inline const char * writehome(void) { return _.op_zres ? ZRESD(0) : FR(_.op_off); }
 static inline const char * readhome(void)  { return _.op_zres ? ZOPD(1, 0) : FR(_.op_off); }
