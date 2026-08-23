@@ -8,6 +8,10 @@
 #   s4e_msg.sh ask <topic> "text"         question box: sends to hq as q-<topic>
 #   s4e_msg.sh send <to> <topic> "text"   s4e_msg.sh check   s4e_msg.sh clear
 #   s4e_msg.sh claim <topic>              s4e_msg.sh board [my new status text]
+#   s4e_msg.sh sweep                      ⭐ LAW 4: move landed (DONE) rows out of QUEUE.tsv into
+#                                         QUEUE.done.tsv — the buffer must never become a graveyard again
+#   s4e_msg.sh assign <seat> <topic>      ⭐ V2-1/LAW 2 ASSIGNMENT IS THE LOCK: HQ writes <seat>'s claim
+#                                         atomically + rings a contentless doorbell; that seat's next serves it FIRST
 #   s4e_msg.sh banner [topic]             ⛔ MANDATORY LAST ACT OF EVERY SESSION: prints the COMPUTED
 #                                         SUCCESS/FAILURE banner + whether re-firing advances anything
 set -u
@@ -139,15 +143,57 @@ case "$cmd" in
          if [ -f "$c" ] && [ "$(head -1 "$c")" = "$ME" ]; then grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
          else echo "not your claim"; exit 1; fi;;
+  assign) # ⭐ V2-1 / LAW 2 — ASSIGNMENT IS THE LOCK (ARCH-FLEET-CEO.md). HQ writes the seat's claim ATOMICALLY on HQ's
+         # side, which makes the v1 dispatch race UNREPRESENTABLE: v1 mailed a brief AND let the seat run `next`, so two
+         # channels answered "what am I working on" with nothing arbitrating -- that race is what killed seat13's session
+         # (it held five rows, worked a sixth, and starved). There is now exactly one answer and it is a file on disk.
+         seat="${2:?seat}"; topic="${3:?topic}"; q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
+         case "$seat"  in ""|*/*|*$'\n'*) echo "⛔ REFUSED: seat must be a filename-safe mailbox name (seat07, hq_C, ...)" >&2; exit 2;; esac
+         case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a filename-safe slug, not the message body" >&2; exit 2;; esac
+         # ⛔ LAW 6 IDENTITY IS ASSERTED, NEVER GLOBBED: refuse a seat with no mailbox, and NEVER create one on the fly --
+         # auto-creation is exactly how phantom claude01/ was born, and it marooned two HQ messages where nobody looked.
+         [ -d "$PO/$seat/inbox" ] || { printf '⛔ REFUSED: seat "%s" has NO postoffice mailbox (%s). assign never creates one (LAW 6).\n   mailboxes that exist: %s\n' "$seat" "$PO/$seat/inbox" "$(cd "$PO" && ls -d */inbox 2>/dev/null | sed 's|/inbox||' | tr '\n' ' ')" >&2; exit 2; }
+         # ⛔ AND REFUSE WORK THAT DOES NOT EXIST OR IS ALREADY LANDED -- v1 re-dispatched finished rows because nothing checked.
+         row="$(grep -P "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null | head -1)"
+         [ -n "$row" ] || { echo "⛔ REFUSED: no QUEUE.tsv row named '$topic'. You cannot assign work that has no row." >&2; exit 2; }
+         c="$PO/claims/$topic.claim"
+         if [ -f "$c" ]; then own="$(head -1 "$c")"
+           if grep -q '^DONE$' "$c"; then echo "⛔ REFUSED: '$topic' is already DONE (held by $own). Sweep it to QUEUE.done.tsv — do NOT re-dispatch landed work." >&2; exit 1; fi
+           if [ "$own" = "$seat" ]; then echo "already assigned: $topic -> $seat"; exit 0; fi
+           echo "⛔ REFUSED: '$topic' is held by $own, not $seat. Release that claim first (that is a deliberate act, not a retry)." >&2; exit 1; fi
+         t="$(mktemp "$PO/claims/.c.XXXXXX")"; { echo "$seat"; echo "ASSIGNED-BY $ME $(date -u +%FT%TZ)"; } > "$t"
+         if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; else rm -f "$t"; echo "⛔ RACE LOST: $(head -1 "$c" 2>/dev/null) owns '$topic'" >&2; exit 1; fi
+         # THE DOORBELL CARRIES NO CONTENT (ARCH-FLEET-CEO: "the mail never carries content that isn't also in a file").
+         # A seat that never reads this message still resumes correctly, because the claim + task file are authoritative.
+         if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
+         then echo "assigned $topic -> $seat (claim written, doorbell sent)"
+         else echo "assigned $topic -> $seat (claim written; ⛔ DOORBELL NOT SENT — the claim still governs, $seat gets it from next)"; fi;;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
-         # ONE matcher for BOTH the presence test and the brief print, so they cannot disagree (that
-         # disagreement IS the bug this row fixes). Row absent => the claim is an ORPHAN: renamed or
-         # retired out from under its holder (HQ LAW 14). Skip it, SAY WHY, keep the claim (it is the
-         # record), fall through to live work. ORPHAN-SKIP IS DISARMED WHEN THE QUEUE ITSELF IS DEAD:
-         # a missing/empty QUEUE.tsv would make EVERY claim look orphaned and unpin the whole fleet at
-         # once -- an infrastructure failure is not a rename, so we pin and say so.
+         # ⭐ V2-1 SERVE ORDER (LAW 2): my-ASSIGNED  ->  my-unfinished  ->  RANK-SORTED free.
+         # v1 served the topmost row in FILE ORDER, which made rank decorative: 53 rank-0 rows sat buried behind lesser
+         # ones, and the deliberately fenced rank-99 M1 gate row was one claim away from being served as ordinary work.
+         # ONE matcher for BOTH the presence test and the brief print, so they cannot disagree (that disagreement IS a bug
+         # this row fixes). Row absent => the claim is an ORPHAN: renamed or retired out from under its holder (HQ LAW 14).
+         # Skip it, SAY WHY, keep the claim (it is the record), fall through to live work. ORPHAN-SKIP IS DISARMED WHEN THE
+         # QUEUE ITSELF IS DEAD: a missing/empty QUEUE.tsv would make EVERY claim look orphaned and unpin the whole fleet
+         # at once -- an infrastructure failure is not a rename, so we pin and say so.
          qrow() { grep -P "^[0-9]+\t\Q$1\E\t" "$q" 2>/dev/null | head -1; }
          qrows="$(grep -cP '^[0-9]+\t' "$q" 2>/dev/null)"; qrows="${qrows:-0}"
+         # ONE printer for every serve path, so a resumed row and a freshly locked row can never describe themselves differently.
+         serve() { local st="$1" verb="$2" sfx="${3:-}" srow; srow="$(qrow "$st")"; printf '%s %s %s\n' "$verb" "$st" "$sfx"
+           if [ -f "$PO/tasks/$st.task.md" ]; then printf 'task: %s\n' "$PO/tasks/$st.task.md"
+             printf '      ⭐ THE BATON IS THE TASK FILE, NOT THIS PRINTOUT — read GOAL + DONE-WHEN + the ONE ## NEXT block,\n'
+             printf '      work THAT, then rewrite ## NEXT before you stop. Questions go in ## QA, receipts in ## LEDGER.\n'; fi
+           printf '%s\n' "$srow" | awk -F'\t' 'NF>1{print "brief: " $3; print "first: " $4}'; }
+         # PASS 1 -- rows an HQ ASSIGNED to me that I have not started. These outrank anything I picked for myself.
+         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+           [ "$(head -1 "$c")" = "$ME" ] || continue
+           grep -q '^DONE$' "$c" && continue
+           grep -q '^ASSIGNED-BY ' "$c" || continue
+           grep -q '^RUNNING$' "$c" && continue
+           t="$(basename "$c" .claim)"; echo "RUNNING" >> "$c"
+           serve "$t" "ASSIGNED->RUNNING" "(dispatched by $(grep -m1 '^ASSIGNED-BY ' "$c" | cut -d' ' -f2))"; exit 0; done
+         # PASS 2 -- my own unfinished work.
          for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
            if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then
              t="$(basename "$c" .claim)"; row="$(qrow "$t")"
@@ -156,16 +202,17 @@ case "$cmd" in
                continue; fi
              if [ -z "$row" ]; then
                echo "⛔ $q IS MISSING OR HAS NO ROWS — cannot tell a renamed row from an unreadable queue, so RESUMING $t rather than unpinning you. Ask hq before trusting any next(1) verdict."; fi
-             echo "RESUME $t (yours, unfinished — s4e_msg.sh done $t when the handoff clause is met)"
-             printf '%s\n' "$row" | awk -F'\t' 'NF>1{print "brief: " $3; print "first: " $4}'
-             exit 0; fi; done
+             grep -q '^RUNNING$' "$c" || echo "RUNNING" >> "$c"
+             serve "$t" "RESUME" "(yours, unfinished — s4e_msg.sh done $t when the handoff clause is met)"; exit 0; fi; done
          [ -f "$q" ] || { echo "no QUEUE.tsv — ask hq"; exit 1; }
+         # PASS 3 -- free rows, RANK-SORTED numerically, -s so file order still breaks ties inside one rank.
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] && continue
            if "$0" claim "$topic" >/dev/null 2>&1; then
-             echo "LOCKED $topic (rank $rank)"; echo "brief: $brief"; echo "first: $step"; exit 0; fi
-         done < "$q"
+             echo "RUNNING" >> "$PO/claims/$topic.claim"
+             serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
+         done < <(grep -P '^[0-9]+\t' "$q" | sort -t$'\t' -s -k1,1n)
          echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"; exit 1;;
   banner) # ⛔ FACTS ONLY -- NO PREDICTIONS (Lon 2026-08-22: "Why are you trying to predict the future. Quit saying
          # in the banner what you will do. You do not know the future."). Every line below is a measured fact about
@@ -330,8 +377,26 @@ case "$cmd" in
          printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
          printf '  Q = questions from that seat waiting on ANY HQ.  MAIL = unread in its inbox / age of the oldest.\n'
          printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
+  sweep) # ⭐ LAW 4 — THE QUEUE IS A DISPATCH BUFFER, NOT A MEMORY. v1 reached 62% dead rows (112 of 181 DONE) because
+         # nothing ever moved a landed row out, so the picker walked a graveyard and HQ re-dispatched finished work.
+         # This moves every row whose claim carries DONE into QUEUE.done.tsv (the memory) and rewrites the buffer.
+         # ⛔ IT NEVER DELETES: every swept row is appended to QUEUE.done.tsv and the pre-sweep buffer is backed up.
+         q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; [ -f "$q" ] || { echo "no QUEUE.tsv"; exit 1; }
+         cp "$q" "$q.bak.sweep-$(date -u +%Y%m%dT%H%M%SZ)"
+         keep="$(mktemp)"; gone="$(mktemp)"; nk=0; ng=0
+         while IFS= read -r line; do
+           case "$line" in \#*) printf '%s\n' "$line" >> "$keep"; continue;; '') continue;; esac
+           topic="$(printf '%s' "$line" | cut -f2)"
+           if [ -f "$PO/claims/$topic.claim" ] && grep -q '^DONE$' "$PO/claims/$topic.claim"; then printf '%s\n' "$line" >> "$gone"; ng=$((ng+1))
+           else printf '%s\n' "$line" >> "$keep"; nk=$((nk+1)); fi
+         done < "$q"
+         if [ "$ng" -gt 0 ]; then
+           [ -s "$d" ] || printf '# S4E QUEUE — LANDED ROWS (the MEMORY; QUEUE.tsv is the BUFFER). Append-only.\n# rank\ttopic\tbrief\tfirst-step-and-done-when\n' > "$d"
+           printf '# --- swept %s by %s: %s rows ---\n' "$(date -u +%FT%TZ)" "$ME" "$ng" >> "$d"; cat "$gone" >> "$d"
+           mv "$keep" "$q"; chmod 664 "$q"; else rm -f "$keep"; fi
+         rm -f "$gone"; printf 'sweep: %s live rows kept, %s DONE rows moved to QUEUE.done.tsv (nothing deleted; buffer backed up)\n' "$nk" "$ng";;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet|mailbox"; exit 2;;
+  *) echo "usage: next|done|ask|send|check|clear|claim|assign|sweep|board|banner|fleet|mailbox"; exit 2;;
 esac
