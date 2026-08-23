@@ -979,7 +979,8 @@ int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
 {
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
-    DESCR_t val = patv_slot(hv, i, fb, 0);
+    DESCR_t val; { DTP_t *h = (DTP_t *)hv;   /* patv_slot's snapshot arm, hoisted -- see the block on rt_patv_defer_get_pat_dtp */
+      if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, 0); }
     if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
@@ -1066,11 +1067,20 @@ void *rt_defer_xpat_dtp(const char *nm)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐⭐ THE SNAPSHOT SLOT IS READ IN PLACE, NOT THROUGH A CALL (hq_P s266).  patv_slot below stays the C OF RECORD and every arm it owns is still reached through it; what is hoisted here is
+  only its FIRST LINE -- the three-load snapshot hit -- because the json deserializer takes it 316,517 times per parse (17 per value node: every `*jvalue` / `*jelement` reference in the
+  grammar re-resolves the pattern variable).  MEASURED: patv_slot 10.1M Ir/parse + dtp_fn_of 3.5M + this function's own frame = ~11% of the whole program, to hand back a pointer that was
+  already sitting in a slot.  ⛔ Written out rather than made always_inline on purpose: s264 measured that always_inline on the descr.h/core.h tag predicates BROKE three deferred-capture
+  tests by moving descriptors out of memory where the GC's stack scan could no longer see them, and this file is the deferred-capture engine itself. */
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb)
 {
-    DESCR_t v = patv_slot(hv, i, fb, 0);
-    if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }
-    if (v.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(v.s); }
+    /*⭐ The head is returned; dtp_fn_of is called for its SIDE EFFECT (compile the blob on first use) and its result is discarded.  So when the blob is already compiled the call cannot
+       change the answer -- fn non-null is exactly dtp_fn_of's own "nothing to do" condition -- and skipping it here is an identity, not an approximation. */
+    { DTP_t *h = (DTP_t *)hv;
+      if (h && h->snap && i >= 0 && i < h->nsnap) { DESCR_t sv = h->snap[i]; if (sv.v == DT_P && sv.p && ((DTP_t *)sv.p)->fn) return sv.p; } }
+    { DESCR_t v = patv_slot(hv, i, fb, 0);
+      if (v.v == DT_P && v.p) { extern void *dtp_fn_of(void *); dtp_fn_of(v.p); return v.p; }
+      if (v.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(v.s); } }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1078,7 +1088,9 @@ long rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
-    DESCR_t val = patv_slot(hv, i, fb, ival_flag);
+    DESCR_t val; { DTP_t *h = (DTP_t *)hv;   /* patv_slot's snapshot arm, hoisted -- see the block on rt_patv_defer_get_pat_dtp.  ival_flag is applied only on the NON-snapshot arm, so a
+                                                snapshot hit is flag-independent and this is the same value patv_slot would have returned. */
+      if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, ival_flag); }
     if (val.v == DT_X) { s->dtx_used = 1; long fb2 = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb2) s->failed = 1; return fb2; }
     s->val = val;
     return 0;
