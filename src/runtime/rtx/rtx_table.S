@@ -154,29 +154,34 @@ RTX_FUNC(table_find_pair_d)
     shr     r11, 8
     jmp     .Ltf_key
 
-/* --- DT_S: streaming, because the key is N bytes and not a word. djb2 (h*33 ^ b):
- * shift-add-xor per byte, no multiply in the loop, which is what makes it the right
- * shape to inline here. ⛔ djb2's own low bits are weak for SHORT keys -- 'a','b','c'
- * differ only at the bottom -- and short keys are exactly what SNOBOL4 uses, so the
- * accumulator gets ONE finishing multiply to drive that difference up top. */
-/* ⛔⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263). A SNOBOL4 string may CONTAIN
- * CHAR(0). This loop used to walk until *p == 0, which hashed 'a' CHAR(0) 'b'
- * and 'a' CHAR(0) 'c' to the SAME bucket, and the compare below then called them
- * EQUAL -- two distinct keys collapsing into one entry, a wrong ANSWER. Both are
- * length-driven now, and the length comes from the descriptor's slen, matching
- * aggregates.c _tbl_slen byte for byte including its strlen fallback when slen
- * is unstamped (that fallback is the runtime's bug, not this file's; routed). */
+/* --- DT_S: WORD-AT-A-TIME, EIGHT BYTES PER MULTIPLY. This arm used to be djb2,
+ * one byte per iteration, and it compiled to ELEVEN instructions per byte
+ * (test/je/movzx/mov/shl/add/xor/mov/inc/dec/jmp) -- so a 4-character tag cost
+ * ~50 Ir before a single bucket was touched. MEASURED on CLAWS5 (hq_P s264):
+ * table_find_pair_d was 13.02% of the whole run, 92 Ir/call over 109,360 calls
+ * per parse, and this loop was the majority of it.
+ * ⛔ THE TAIL IS OVERLAPPING, AND THAT IS THE ENTIRE SAFETY ARGUMENT. A 1..7-byte
+ * remainder is read as a 4/2/1-byte load at the FRONT plus a second load ENDING
+ * exactly at p+n, so every byte touched lies inside the string. The tempting
+ * alternative -- one 8-byte load then mask -- can step into an unmapped page when
+ * a string ends at a page boundary. Do not "simplify" it into that.
+ * ⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263) IS UNCHANGED: every load is driven by
+ * the length and nothing tests a byte for zero, so 'a' CHAR(0) 'b' and
+ * 'a' CHAR(0) 'c' still hash apart. The LENGTH is mixed in first, so two keys
+ * sharing a prefix cannot collide on length alone.
+ * ⛔⛔ THIS ARM AND aggregates.c:_tbl_h_str ARE ONE ALGORITHM IN TWO SPELLINGS.
+ * SCRIP_RTX_TABLE=0 routes lookups to the C twin, so a table INSERTED through one
+ * and READ through the other must agree bit for bit or entries simply vanish.
+ * Edit them together; A/B any table-heavy program both ways and diff. */
 .Ltf_h_str:
-    mov     r11, 5381
     test    rdx, rdx
-    je      .Ltf_str_fin                    /* NULL reads as "" -- C substitutes it */
-    mov     r8, rdx
+    je      .Ltf_str_n0                     /* s == NULL reads as "", n forced to 0  */
     mov     rcx, rsi
-    shr     rcx, 32                         /* k.slen, the counted length           */
+    shr     rcx, 32                         /* ecx = k.slen, the counted length      */
     test    ecx, ecx
-    jne     .Ltf_str_loop
-    mov     r9, rdx                         /* slen unstamped: strlen fallback, so   */
-.Ltf_str_scan:                              /*   ASM and C lose the same distinction */
+    jne     .Ltf_str_have
+    mov     r9, rdx                         /* slen unstamped: strlen fallback, so    */
+.Ltf_str_scan:                              /*   ASM and C lose the SAME distinction  */
     cmp     byte ptr [r9], 0
     je      .Ltf_str_scand
     inc     r9
@@ -184,20 +189,58 @@ RTX_FUNC(table_find_pair_d)
 .Ltf_str_scand:
     mov     rcx, r9
     sub     rcx, rdx
-.Ltf_str_loop:
+.Ltf_str_have:
+    mov     r8, rdx                         /* p -- rdx must survive, .Ltf_key reads it */
+    mov     eax, ecx                        /* n, zero-extended                       */
+    mov     r10, 0x9E3779B97F4A7C15
+    imul    r10, rax                        /* n * K0                                 */
+    mov     r11, 5381
+    xor     r11, r10                        /* h = 5381 ^ (n * K0)                    */
+    mov     r10, 0xFF51AFD7ED558CCD         /* K1, held live across the loop          */
+    cmp     ecx, 8
+    jb      .Ltf_str_tail
+.Ltf_str_w8:
+    xor     r11, [r8]                       /* unaligned 8-byte load is fine on x86-64 */
+    imul    r11, r10
+    add     r8, 8
+    sub     ecx, 8
+    cmp     ecx, 8
+    jae     .Ltf_str_w8
+.Ltf_str_tail:
     test    ecx, ecx
     je      .Ltf_str_fin
+    cmp     ecx, 4
+    jb      .Ltf_str_t2
+    mov     eax, [r8]                       /* front 4                                */
+    mov     r9d, ecx
+    sub     r9d, 4
+    mov     r9d, [r8 + r9]                  /* last 4, ending exactly at p+m          */
+    shl     r9, 32
+    or      rax, r9
+    jmp     .Ltf_str_mix
+.Ltf_str_t2:
+    cmp     ecx, 2
+    jb      .Ltf_str_t1
+    movzx   eax, word ptr [r8]
+    mov     r9d, ecx
+    sub     r9d, 2
+    movzx   r9d, word ptr [r8 + r9]         /* last 2, ending exactly at p+m          */
+    shl     r9, 32
+    or      rax, r9
+    jmp     .Ltf_str_mix
+.Ltf_str_t1:
     movzx   eax, byte ptr [r8]
-    mov     r9, r11
-    shl     r9, 5
-    add     r9, r11                         /* h * 33 == (h << 5) + h              */
-    xor     r9, rax
-    mov     r11, r9
-    inc     r8
-    dec     ecx
-    jmp     .Ltf_str_loop
+.Ltf_str_mix:
+    xor     r11, rax
+    imul    r11, r10
+    jmp     .Ltf_str_fin
+.Ltf_str_n0:
+    mov     r11, 5381                       /* n == 0: h = 5381 ^ (0 * K0)            */
 .Ltf_str_fin:
-    mov     rcx, 0x9E3779B97F4A7C15
+    mov     rax, r11
+    shr     rax, 31
+    xor     r11, rax
+    mov     rcx, 0xC4CEB9FE1A85EC53
     imul    r11, rcx
     shr     r11, 8
 

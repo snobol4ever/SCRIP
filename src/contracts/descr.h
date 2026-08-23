@@ -73,10 +73,11 @@ typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key;
 #define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
-static inline int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
-static inline int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
+/*⛔⭐ always_inline, NOT bare `static inline`.  RT_OPT IS -O0 BY FACT RULE (Lon s262: no -O2 builds, ever), and at -O0 gcc inlines NOTHING -- so every one of these one-instruction tag tests was emitted as a real CALL with a full prologue/epilogue.  MEASURED on claws5 (callgrind, 66,757-byte CLAWS5 corpus, one parse): IS_VARREF_fn 116,442 calls + IS_FAIL_fn 58,223 + IS_NAMETRAP_fn 36,767 = 32.7 calls PER TOKEN costing ~13 Ir each to answer `v.v == DT_N`.  aggregates.c already learned this on _tbl_hkey/_tbl_eq_d/_tbl_lower; descr.h never did.  ⛔ Do not relax these back to plain `static inline` -- at -O0 that silently reintroduces the call. */
+static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
+static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
+static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
+static inline __attribute__((always_inline)) int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
 #endif

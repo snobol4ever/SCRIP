@@ -194,10 +194,26 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(cons
   equality use the SAME length, so the table stays self-consistent either way -- it can lose a distinction the descriptor already lost, never invent one.  The
   real cure is that every DT_S descriptor carries slen; that is a runtime-wide sweep and it is routed to hq_C. */
 static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return k->slen ? k->slen : (k->s ? (unsigned)strlen(k->s) : 0u); }
+/*⭐⭐ WORD-AT-A-TIME, NOT BYTE-AT-A-TIME (hq_P s264, measured on CLAWS5).  djb2 is one byte per iteration and the ASM twin compiled to ELEVEN instructions per byte
+   (test/je/movzx/mov/shl/add/xor/mov/inc/dec/jmp), so hashing a 4-character tag cost ~50 Ir before a single bucket was touched.  MEASURED: table_find_pair_d was
+   13.02% of the entire claws5 run at 92 Ir/call over 109,360 calls per parse, and the byte loop was the majority of it.  This reads EIGHT bytes per multiply.
+   ⛔ THE TAIL IS OVERLAPPING, AND THAT IS THE WHOLE SAFETY ARGUMENT.  A short read never loads past p+n: for a 1..7-byte remainder it takes a 4/2/1-byte load at the
+   FRONT and a second one ending exactly at p+n, so both lie inside the string's own bytes.  The obvious alternative -- one 8-byte load and mask -- can cross into an
+   unmapped page on a string that ends at a page boundary, which is a segfault that shows up once in ten thousand runs.  Never do that here.
+   ⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263) IS PRESERVED EXACTLY: every load is driven by n and nothing inspects a byte for zero, so 'a' CHAR(0) 'b' and
+   'a' CHAR(0) 'c' still hash apart.  The length itself is mixed in first, so keys that share a prefix cannot collide on length alone.
+   ⛔⛔ THIS FUNCTION AND rtx_table.S:.Ltf_h_str ARE ONE ALGORITHM IN TWO SPELLINGS AND MUST BE EDITED TOGETHER.  The RTX gate routes to whichever is enabled at
+   run time (SCRIP_RTX_TABLE=0 selects this one), so a table INSERTED through one and LOOKED UP through the other must agree bit for bit or entries vanish.  The
+   A/B that proves it: run any table-heavy program both ways and diff the output. */
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_str(const DESCR_t *k) {
-    unsigned long long h = 5381ull; const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = _tbl_slen(k);
-    while (n--) h = h * 33ull ^ (unsigned long long)*p++;
-    return (h * 0x9E3779B97F4A7C15ull) >> 8;
+    const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;   /*⛔ s==NULL forces n=0, matching rtx_table.S .Ltf_str_n0 -- a NULL pointer with a stamped slen would otherwise word-load out of ""*/
+    unsigned long long h = 5381ull ^ ((unsigned long long)n * 0x9E3779B97F4A7C15ull), w;
+    while (m >= 8u) { h = (h ^ *(const unsigned long long *)p) * 0xFF51AFD7ED558CCDull; p += 8; m -= 8u; }
+    if (m) { w = (m >= 4u) ? ((unsigned long long)*(const unsigned *)p | ((unsigned long long)*(const unsigned *)(p + m - 4u) << 32))
+                : (m >= 2u) ? ((unsigned long long)*(const unsigned short *)p | ((unsigned long long)*(const unsigned short *)(p + m - 2u) << 32))
+                : (unsigned long long)*p;
+             h = (h ^ w) * 0xFF51AFD7ED558CCDull; }
+    return ((h ^ (h >> 31)) * 0xC4CEB9FE1A85EC53ull) >> 8;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* DT_I -- FIBONACCI (KNUTH) MULTIPLICATIVE, ONE IMUL, NO AVALANCHE CHAIN.  Integer keys in real programs are CONSECUTIVE (1..n loop counters, ids, indices), and

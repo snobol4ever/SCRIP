@@ -1255,12 +1255,20 @@ DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
-        { int found; DESCR_t hv = table_get_found_d(tb, idx, &found);   /*⭐ this arm genuinely needs the VALUE (a nested table/array is returned directly); it no longer needs the ENTRY, so it asks for the value and never holds an address into the table */
-          if (found && (hv.v == DT_T || hv.v == DT_A)) return hv; }
-        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        vc->cellp = 0; vc->tbl = tb; vc->key = 0;   /*⛔ s262 Lon: NO ADDRESS INTO A TABLE -- see rt_subscript_var above */
-        vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
-        return NAMETRAP(vc);
+        /*⭐⭐ RETURNS THE VALUE, AND ALLOCATES NOTHING (hq_P s264).  This arm used to look the key up, and then -- unless the hit was a nested TABLE/ARRAY -- allocate a
+           VCELL_t on the GC heap, fill seven fields, and hand back a NAMETRAP.  The caller's very next emitted instruction is rt_deref, which walked straight into
+           rt_deref_slow's `if (vc->tbl)` arm and LOOKED THE SAME KEY UP A SECOND TIME to get the value out.  One read of one table cost two hashed lookups, one heap
+           allocation and a GC root.  MEASURED on claws5: ~2.9 of the 14 container-only subscripts per token took that path, ~740 Ir each in lookup + alloc + slow deref.
+           ⛔ WHY RETURNING A BARE VALUE IS SAFE HERE, AND THE PROOF IS IN THE LOWERER, NOT IN THIS FILE.  `container-only` is set at exactly two sites in
+           lower_snobol4.c: line 392, every link of an RVALUE chain, and line 860, `if (k < nidx - 1)` -- the NON-FINAL links of an LVALUE chain.  The final link of an
+           lvalue chain is lowered to rt_subscript_var, which still builds the assignable nametrap.  So NOTHING IS EVER ASSIGNED THROUGH THIS FUNCTION'S RESULT, and the
+           nametrap it used to build could only ever be deref'd. ⛔ If a third `container-only` site is ever added, it must obey that same rule or this is wrong.
+           ⭐ The three outcomes reproduce rt_deref_slow's table arm EXACTLY -- hit, then the table's own default, then the null string -- so a chain that reads a missing
+           intermediate still yields NULVCL and still lands on the same kwb_error(235) at the next link. */
+        { TBPAIR_t *e = table_find_pair_d(tb, idx);
+          if (e) return e->val;
+          if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt;
+          return NULVCL; }
     }
     return rt_subscript_var(base, idx);
 }
