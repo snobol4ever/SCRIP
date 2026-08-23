@@ -34,6 +34,10 @@ SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/programs/snobol4/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
 # norm=ms : measurement lines (^iters:/^ns:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is).
+#           ⭐ s265: the `benchmarks` suite no longer needs it and no longer HAS it.  Those programs were wrappers that printed iters:/ns:/ms:;
+#           they are standalone applications now (Lon: *"the *.sno file must look like and BE the REAL program application"*) and print only their
+#           own answer, graded against a .ref minted from the oracle.  A norm filter with nothing to filter is a blindfold nobody is wearing --
+#           removed rather than left in place, so the suite grades every byte the program emits.
 #           ⛔ ns: WAS MISSING HERE AND IT COST THE WHOLE SUITE (s261): harness.inc grew a full-resolution `ns:` reading, the filter was
 #           never extended, so the live side kept a nanosecond timing the pins never had and ALL 17 BENCHMARKS graded DIFF/DIFF = 0.0%.
 #           A filter that lists measurement lines BY NAME must be extended whenever the harness prints a new one.
@@ -41,7 +45,7 @@ SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          demo/beauty  90 -
 beauty_suite   15 programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
 demos          15 programs/snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
-benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 ms
+benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
 bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -

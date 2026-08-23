@@ -41,10 +41,15 @@ declare -A FIXN=(
 
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
-  grep -q "INCLUDE '.*harness.inc'" "$sno" || continue
   s=$(basename "${sno%.sno}")
   n="${FIXN[$s]:-}"; [ -n "$n" ] || { echo "  SKIP $s (no fixed_n entry)"; continue; }
-  echo "$n" > "$W/$s.stdin"
+  # s265: fixed_n is BAKED into the twin by bench_wrap.sh --mode=iter instead of piped on stdin.  The
+  # stdin gate could only ever reach a microbenchmark: a data-driven program reads its corpus from
+  # stdin, so `fixed_n = INPUT` there consumes a line of DATA, never a count.  Baking makes
+  # iteration-based measurement reachable for the whole corpus, which is what callgrind needs.
+  bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" --mode=iter --n="$n" >/dev/null || { echo "  ⛔ $s: not wrappable, skipped" >&2; continue; }
+  sno="$W/$s.bench.sno"
+  : > "$W/$s.stdin"
   case " $ENGINES " in *" sbl "*) sbl_clean_refuse_if_load "$sno" || exit 3;; esac
   m4ok=0
   if [ -x "$SCRIP" ]; then

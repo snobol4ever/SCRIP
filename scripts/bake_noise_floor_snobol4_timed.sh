@@ -82,8 +82,12 @@ echo "#   quiet box is -0.3% (+/-2.6%), ZERO.  ⛔ NEVER compare a floor baked u
 fi
 for sno in "$B"/*.sno; do
   [ -e "$sno" ] || continue
-  grep -q "INCLUDE '.*harness.inc'" "$sno" || continue   # BM-ONE (s153): legacy programs share the directory; only harness.inc programs emit iters:/ms:
   s=$(basename "${sno%.sno}")
+  # s265: the corpus holds standalone APPLICATIONS now; the timed twin that emits iters:/ms: is built
+  # here, on the fly, from the program's *BENCH marker.  A program without one is not timeable and is
+  # named on stderr rather than silently skipped (the old gate's failure mode).
+  bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" >/dev/null || { echo "  ⛔ $s: not wrappable, skipped" >&2; continue; }
+  sno="$W/$s.bench.sno"
   case " $ENGINES " in *" sbl "*) sbl_clean_refuse_if_load "$sno" || exit 3;; esac
   # build the mode-4 program ONCE, not once per rep
   m4ok=0

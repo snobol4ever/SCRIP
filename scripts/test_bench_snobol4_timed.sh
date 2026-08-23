@@ -73,7 +73,7 @@ human() { awk -v v="$1" 'BEGIN{ if(v=="NA"){print "NA"; exit}
   else if(v>=1e3) printf "%.1fK", v/1e3; else printf "%d", v }'; }
 # ---- one measured run; echoes "iters cpu_ms nivcsw gc check" --------------
 run1() {
-  local eng="$1" sno="$2" s in; s=$(basename "${sno%.sno}")
+  local eng="$1" sno="$2" run="${3:-$2}" s in; s=$(basename "${sno%.sno}")
   # DATA-DRIVEN ROWS (BM-4): a workload benchmark is fed its corpus on stdin from a sibling
   # <family>.dat, family = the program name minus any -match/-match-fence suffix, so the three
   # variants of one grammar provably read the SAME bytes.  Microbenchmarks have no .dat and keep
@@ -81,9 +81,9 @@ run1() {
   in="$(dirname "$sno")/$(sed 's/-match\(-fence\)\?$//' <<<"$s").dat"; [ -f "$in" ] || in=/dev/null
   case "$eng" in
     sbl) [ -x "$SBL" ] || { echo "- - - - ORACLE-MISSING"; return; }
-         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$sno" 2>"$W/gc.err" <"$in") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$sno" 2>"$W/gc.err" <"$in") ;;
-    m4)  "$SCRIP" --compile "$sno" > "$W/$s.s" 2>/dev/null
+         out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$run" 2>"$W/gc.err" <"$in") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$run" 2>"$W/gc.err" <"$in") ;;
+    m4)  "$SCRIP" --compile "$run" > "$W/$s.s" 2>/dev/null
          if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
               -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - - BUILD-ERR"; return; fi
          out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
@@ -104,9 +104,9 @@ run1() {
 }
 # ---- best of REPS (max throughput = least interference) --------------------
 best() {
-  local eng="$1" sno="$2" bi=0 bm=0 bn=0 bg=0 ck="" r i m n g c
+  local eng="$1" sno="$2" run="${3:-$2}" bi=0 bm=0 bn=0 bg=0 ck="" r i m n g c
   for _ in $(seq 1 "$REPS"); do
-    r=$(run1 "$eng" "$sno"); i=$(awk '{print $1}' <<<"$r"); m=$(awk '{print $2}' <<<"$r")
+    r=$(run1 "$eng" "$sno" "$run"); i=$(awk '{print $1}' <<<"$r"); m=$(awk '{print $2}' <<<"$r")
     n=$(awk '{print $3}' <<<"$r"); g=$(awk '{print $4}' <<<"$r"); c=$(cut -d' ' -f5- <<<"$r")
     [ "$i" = "-" ] && { echo "- - - - $c"; return; }
     ck="$c"
@@ -133,11 +133,17 @@ for sno in "$B"/*.sno; do
   # above -- which is how 12 legacy-shaped programs sat in this directory reading as "not measured"
   # and as "nothing to see". Its NAME now goes to the census under the summary. BM-2 finished s170:
   # the list is EMPTY, the suite FAILS if it ever is not, and that is the end state made mechanical.
-  if ! grep -q "INCLUDE '.*harness.inc'" "$sno"; then UNGRADED="$UNGRADED $(basename "${sno%.sno}")"; continue; fi
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
+  # ⭐ s265 STANDALONE REVAMP: the .sno is the APPLICATION now, not the wrapper.  What makes a program
+  # timeable is its *BENCH marker, and the timed twin is BUILT HERE, on the fly, into $W.  The old gate
+  # asked "does it include harness.inc" -- which after the revamp is false for every program in the
+  # corpus, so the whole suite would have read as UNGRADED rather than failing loudly.
+  if ! TWIN=$(bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" 2>&1); then
+    UNGRADED="$UNGRADED $s"; echo "  ⛔ $s: $TWIN" >&2; continue; fi
+  TWIN="$W/$s.bench.sno"
   declare -A R=(); declare -A C=(); declare -A G=(); declare -A N=()
   for eng in $ENGINES; do
-    res=$(best "$eng" "$sno")
+    res=$(best "$eng" "$sno" "$TWIN")
     i=$(awk '{print $1}' <<<"$res"); m=$(awk '{print $2}' <<<"$res")
     N[$eng]=$(awk '{print $3}' <<<"$res"); G[$eng]=$(awk '{print $4}' <<<"$res"); c=$(cut -d' ' -f5- <<<"$res")
     if [ "$i" = "-" ]; then R[$eng]="NA"; C[$eng]="$c"; else R[$eng]=$(rate "$i" "$m"); C[$eng]="$c"; fi
@@ -162,9 +168,13 @@ for sno in "$B"/*.sno; do
     [ -z "$base" ] && base="${C[$eng]}"
     [ "${C[$eng]}" = "$base" ] || ckstat="DISAGREE"
   done
-  if [ "$ckstat" = ok ] && [ -f "$ref" ]; then
-    grep -q "^check: $base\$" "$ref" 2>/dev/null || ckstat="REF-DIFF"
-  fi
+  # ⛔ THE .ref IS NO LONGER A CHECK PIN.  Since s265 it holds the STANDALONE program's real output and
+  # is graded by scripts/util_mint_bench_refs.sh and the scorecard, not here.  What anchors the check
+  # line HERE is the ORACLE ITSELF: sbl is one of the engines, so "every engine agrees" already means
+  # "every engine agrees with sbl" -- an absolute grade, by RULES.md's own authority.  When sbl is not
+  # in ENGINES there is no anchor and the row says so rather than reading as verified.
+  case " $ENGINES " in *" sbl "*) : ;; *) [ "$ckstat" = ok ] && ckstat="ok(x-eng)" ;; esac
+  [ -f "$ref" ] || ckstat="${ckstat}/NO-REF"
   # XFAIL LANE -- the corpus-wide convention (CORPUS-LOCATIONS.md): a sibling .xfail marks
   # known-unimplemented territory and is counted XFAIL, not FAIL. A row that PASSES with a marker
   # present is an XPASS: printed loudly below so a stale marker cannot mask a later regression,
@@ -197,9 +207,10 @@ fi
 [ -n "$XPASSED" ] && echo "⛔ XPASS:$XPASSED -- passes WITH a sibling .xfail present. Re-measure, then RETIRE the marker."
 if [ -n "$UNGRADED" ]; then
   echo "⛔ UNGRADED (in $B, not harness-driven, absent from the table above):$UNGRADED"
-  echo "   Every benchmark here must include harness.inc -- convert it or delete it (BM-2). This is a FAILURE."
+  echo "   Every benchmark here must carry a '*BENCH kernel=... check=...' marker so scripts/bench_wrap.sh"
+  echo "   can build its timed twin -- convert it or delete it (BM-2, s265 shape). This is a FAILURE."
 else
-  echo "ungraded: none -- every .sno in $B is harness-driven and graded (BM-2 end state, s170)."
+  echo "ungraded: none -- every .sno in $B is a standalone program with a *BENCH marker and was wrapped and graded (BM-2, s265)."
 fi
 if [ "$tot_gc" -gt 0 ]; then
   echo "⛔ $tot_gc row(s) COLLECTED inside the measurement window -- those rates are stall figures, not"
