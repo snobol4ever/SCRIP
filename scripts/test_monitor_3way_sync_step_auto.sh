@@ -126,7 +126,22 @@ done
 [[ "$want_dot" = "1" ]] && ! command -v dotnet >/dev/null 2>&1 && { echo "FAIL dotnet command missing — apt-get install -y dotnet-sdk-10.0"; exit 2; }
 :
 
-TMP=$(mktemp -d /tmp/monitor_auto_XXXXXX)
+# ⛔ SCRATCH ON /home, NOT BARE /tmp, WITH CLEANUP THAT SURVIVES A KILL (row icon-sweep-scratch-hardening, s267).
+# /tmp is the 125G ROOT partition; /home is a separate 503G one, and nothing in the word "/tmp" says so.
+# ⭐ THIS SCRIPT IS NOT A HYPOTHETICAL: the s267 disk-full cleanup found a stale `monitor_auto` scratch dir holding
+# 1.8GB, the fourth-largest consumer on the full filesystem. Three participants each get their full stdout+stderr
+# redirected here (`> "$TMP/<eng>.out"`), unbounded, and a monitor run that hangs is killed by `timeout` -- which is
+# precisely when a success-path `rm -rf` never runs. Same three-part shape as honest_icon_correctness.sh.
+SCRATCH_ROOT="${S4E_SCRATCH:-$S4E/.scratch}"
+mkdir -p "$SCRATCH_ROOT" 2>/dev/null || { echo "REFUSING: cannot create scratch root $SCRATCH_ROOT -- set S4E_SCRATCH to a writable dir ON /home. Refusing rather than falling back to /tmp, which is the root partition." >&2; exit 2; }
+TMP=$(mktemp -d "$SCRATCH_ROOT/monitor_auto_XXXXXX")
+monitor_auto_cleanup() { [ "${MONITOR_KEEP_TMP:-0}" = "1" ] && return 0; [ -n "${TMP:-}" ] && [ -d "$TMP" ] && rm -rf "$TMP"; return 0; }
+trap monitor_auto_cleanup EXIT INT TERM
+# ⛔ BOUND EVERY PARTICIPANT'S WRITE. A diverging engine writes without limit for the whole timeout window; capping
+# via `ulimit -f` (512-byte blocks) bounds the write itself rather than inserting a pipe between the engine and its
+# file, which matters here because the participants are backgrounded and their fds are wired to fifos.
+MON_OUT_CAP="${MON_OUT_CAP:-268435456}"
+ulimit -f $(( MON_OUT_CAP / 512 )) 2>/dev/null || true
 
 base="$(basename "$SNO" .sno)"
 STDIN_SRC="${STDIN_SRC:-/dev/null}"
