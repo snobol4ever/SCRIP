@@ -246,7 +246,7 @@ n23_match_begin_α:      mov              r11, 16
                         push             r13                                  # outer_Σ
                         push             r14                                  # outer_δ
                         push             r15                                  # outer_Δ
-                        sub              rsp, 24
+                        sub              rsp, 40
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
@@ -265,7 +265,7 @@ n23_match_begin_α:      mov              r11, 16
                         lea              rax, [rip + .Lx60_13]
                         mov              qword ptr [rcx + 248], rax;          jmp   n24_match_assign_save_α
 n23_match_begin_β:      mov              r11, 16
-.Lx60_13:               lea              rsp, [rbp + -56]                     # retry_whack
+.Lx60_13:               lea              rsp, [rbp + -72]                     # retry_whack
                         add              dword ptr [rbp + -40], 1             # start_δ
                         mov              eax, dword ptr [rbp + -40]
                         cmp              eax, r15d;                           jg    .Lx60_1
@@ -294,7 +294,7 @@ n23_match_begin_af:     mov              r11, 16
 n24_match_assign_save_α:
                         sub              rsp, 16
                         mov              r11, 17
-                        mov              dword ptr [rsp + 0], r14d;           jmp   n25_match_alternate_α
+                        mov              dword ptr [rbp + -64], r14d;         jmp   n25_match_alternate_α
 n24_match_assign_save_β:
                         mov              r11, 17
                         add              rsp, 16;                             jmp   n23_match_begin_β
@@ -330,7 +330,7 @@ n25_match_alternate_af: mov              r11, 18
 #-----------------------------------------------------------------------------------------------------------------------
 n26_match_assign_cond_α:
                         mov              r11, 19
-                        mov              eax, dword ptr [rsp + 0]
+                        mov              eax, dword ptr [rbp + -64]
                         lea              rcx, [rip + .S0]
                         mov              qword ptr [r12 + 0], rcx
                         mov              esi, eax
