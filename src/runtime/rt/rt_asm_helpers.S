@@ -96,4 +96,28 @@ to_int:
 .Lti_slow:
     jmp    to_int_slow@PLT
     .size  to_int, .-to_int
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0): GC safepoint veneer.  Parks the six callee-saved registers on the stack ABOVE the seam-scan floor, so the collector's repairing scan sees
+ * (and fixes) the suspended side's rbx/rbp/r12-r15 values; the pops then restore the REPAIRED values.  Without this, a heap pointer riding a callee-saved register across a collect is restored stale. */
+    .globl rt_gc_point_arr
+    .type  rt_gc_point_arr, @function
+rt_gc_point_arr:
+    pushq  %rbx
+    pushq  %rbp
+    pushq  %r12
+    pushq  %r13
+    pushq  %r14
+    pushq  %r15
+    subq   $8, %rsp
+    leaq   8(%rsp), %rcx
+    call   rt_gc_point_arr_c@PLT
+    addq   $8, %rsp
+    popq   %r15
+    popq   %r14
+    popq   %r13
+    popq   %r12
+    popq   %rbp
+    popq   %rbx
+    ret
+    .size  rt_gc_point_arr, .-rt_gc_point_arr
     .section .note.GNU-stack,"",@progbits

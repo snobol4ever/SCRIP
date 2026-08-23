@@ -11,9 +11,9 @@ __attribute__((constructor)) static void rtcc_init(void) { rtcc_gc_register(); i
 void rtcc_gc_register(void)
 {
     const char *e = getenv("SCRIP_GC_UNROOT");
-    rt_gc_root_pin_add((const char *)&rtccb[0]);
+    rt_gc_root_pin_add_seamsafe((const char *)&rtccb[0]);
     if (e && strstr(e, "rtcc")) return;
-    rt_gc_root_range_add((const char *)&rtccb[0], (const char *)&rtccb[32]);
+    rt_gc_root_range_add_seamsafe((const char *)&rtccb[0], (const char *)&rtccb[32]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rtcc_load_scratch(void) { if (!g_rtcc_on) return; __asm__ __volatile__ ("movq %0, %%r10\n\tmovq %1, %%r11\n\tmovq %2, %%r8\n\tmovq %3, %%r9\n" : : "m"(rtccb[RTCC_SLOT_R10]), "m"(rtccb[RTCC_SLOT_R11]), "m"(rtccb[RTCC_SLOT_R8]), "m"(rtccb[RTCC_SLOT_R9]) : "r8", "r9", "r10", "r11"); }
