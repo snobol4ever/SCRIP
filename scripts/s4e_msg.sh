@@ -3,8 +3,9 @@
 #   s4e_msg.sh next                       ONE-SHOT PICK-AND-LOCK: resume your own unfinished
 #                                         claim, else atomically lock the topmost free QUEUE.tsv
 #                                         row and print its brief pointer + first step
-#   s4e_msg.sh done <topic>               mark your claim finished (frees nothing — claims persist
-#                                         as done-markers; next stops resuming it)
+#   s4e_msg.sh done <topic>               ⭐ VERIFIES the task baton's DONE-WHEN and REFUSES if it fails
+#                                         (LAW 1: done is COMPUTED, never declared). Override, loudly and
+#                                         recorded: S4E_DONE_OVERRIDE="why". Claims persist as done-markers.
 #   s4e_msg.sh ask <topic> "text"         question box: sends to hq as q-<topic>
 #   s4e_msg.sh send <to> <topic> "text"   s4e_msg.sh check   s4e_msg.sh clear
 #   s4e_msg.sh claim <topic>              s4e_msg.sh board [my new status text]
@@ -140,7 +141,40 @@ case "$cmd" in
          # asked for one). LAW 15 lived only as a step in the seat's CLAUDE.md -- and a step in a markdown file is a
          # hope, not a mechanism, exactly like the inbox before `check` was forced. A seat that closes a row runs
          # `done`, so `done` prints the banner. Same reason `board` does. Suppress with S4E_NO_BANNER=1.
-         if [ -f "$c" ] && [ "$(head -1 "$c")" = "$ME" ]; then grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
+         if [ -f "$c" ] && [ "$(head -1 "$c")" = "$ME" ]; then
+              # ⛔⭐⭐ DONE IS COMPUTED, NEVER DECLARED (ARCH-FLEET-CEO.md LAW 1 "NO HAND-TYPED VERDICTS", γ port).
+              # Until now `done` appended the DONE marker UNCONDITIONALLY and never ran the task's DONE-WHEN --
+              # so the one command whose entire job is to certify completion accepted the seat's word for it.
+              # That is the exact shape of the v1 free-r10 inversion (an HQ ruling DONE on prose), sitting inside
+              # the control plane written to forbid it. A law the tooling does not enforce is a hope.
+              tf="$PO/tasks/$topic.task.md"
+              if [ -f "$tf" ]; then
+                dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$tf" | head -1)"
+                if [ -z "$dw" ]; then
+                  echo "⛔ REFUSED: $tf has no DONE-WHEN: line. A task with no computable completion test cannot be closed." >&2; exit 1; fi
+                if [ -n "${S4E_DONE_OVERRIDE:-}" ]; then
+                  # ω-class escape hatch: loud, recorded, and never silent. For the case where the DONE-WHEN itself
+                  # is proven wrong -- which is a real event, and is why it must be auditable rather than forbidden.
+                  printf 'OVERRIDE-BY %s %s reason: %s\n' "$ME" "$(date -u +%FT%TZ)" "$S4E_DONE_OVERRIDE" >> "$c"
+                  printf '⚠ DONE-WHEN OVERRIDDEN by %s -- reason recorded in the claim: %s\n' "$ME" "$S4E_DONE_OVERRIDE"
+                else
+                  printf 'verifying DONE-WHEN (γ): %s\n' "$dw"
+                  if ( cd "$S4E" && eval "timeout ${S4E_DONE_TIMEOUT:-900} $dw" ) >/dev/null 2>&1; then
+                    printf '  ✅ DONE-WHEN exited 0 — completion is COMPUTED, not claimed.\n'
+                  else
+                    rc=$?
+                    printf '\n⛔⛔⛔ NOT DONE — the task DONE-WHEN exited %s. The claim is UNCHANGED and the row stays open.\n' "$rc" >&2
+                    printf '    command : %s\n' "$dw" >&2
+                    printf '    task    : %s\n' "$tf" >&2
+                    printf '    If the DONE-WHEN itself is WRONG, that is a real finding: fix it in the task file and say so\n' >&2
+                    printf '    in the LEDGER, or re-run with S4E_DONE_OVERRIDE="why" which records the reason in the claim.\n' >&2
+                    printf '    ⛔ Do NOT weaken a DONE-WHEN to make it pass -- that is the false-green trap this gate exists to stop.\n\n' >&2
+                    exit 1; fi; fi
+              else
+                printf '⚠ NO TASK BATON at %s — closing on the seat word alone, which LAW 1 forbids for a baton-backed row.\n' "$tf"
+                printf '  This is the v1 path and survives only while rows are still being converted (V2-2). Mint a baton for this topic.\n'
+              fi
+              grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
          else echo "not your claim"; exit 1; fi;;
   assign) # ⭐ V2-1 / LAW 2 — ASSIGNMENT IS THE LOCK (ARCH-FLEET-CEO.md). HQ writes the seat's claim ATOMICALLY on HQ's
