@@ -79,6 +79,7 @@ extern int         Δ;
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
 static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
+static const char * ir_define_plain_name(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int keyword_supported(const char *kw) {
     if (!kw) return 0;
@@ -1232,6 +1233,18 @@ int main(int argc, char **argv)
             g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
+            for (int _dz = 0; _dz < bbg->n; _dz++) {
+                const char * _dn = ir_define_plain_name(bbg->all[_dz]);
+                if (!_dn) continue;
+                int _dhave = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, _dn)) { _dhave = 1; break; }
+                if (_dhave) continue;
+                int _ddup = 0; for (int _dw = 0; _dw < _dz; _dw++) { const char * _dwn = ir_define_plain_name(bbg->all[_dw]); if (_dwn && !strcmp(_dwn, _dn)) { _ddup = 1; break; } }
+                if (_ddup) continue;
+                emit_sep_rule_c('-');
+                if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(_dn));
+                emit_textf("FN__%s:\n  call rt_ab_undef_fn_stub@PLT\n  ud2\n", asm_sym_name(_dn));
+                if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(_dn), asm_sym_name(_dn));
+            }
             g_frame_active = 1;
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             gva_collect_reset();
