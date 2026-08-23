@@ -119,9 +119,21 @@ run_test "demo_calculator_1_match"       "$DEMO/calculator-1-match.sno"       "$
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator-1-match-fence.sno" "$DEMO/calculator-1-match-fence.ref" "$DEMO/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator-2-match.sno"       "$DEMO/calculator-2-match.ref"       "$DEMO/calculator.input" ""
 run_test "demo_calculator_2_match_fence" "$DEMO/calculator-2-match-fence.sno" "$DEMO/calculator-2-match-fence.ref" "$DEMO/calculator.input" ""
+run_test "demo_json"                     "$DEMO/json.sno"                     "$DEMO/json.ref"                     "$DEMO/json.input"       ""
+run_test "demo_json_match"               "$DEMO/json-match.sno"               "$DEMO/json-match.ref"               "$DEMO/json.input"       ""
+run_test "demo_json_match_fence"         "$DEMO/json-match-fence.sno"         "$DEMO/json-match-fence.ref"         "$DEMO/json.input"       ""
+# ⭐ s266 -- THE THREE json PROGRAMS ARE UN-SKIPPED. They were excluded on a comment reading "HANGS (m3 AND m4)
+# ... needs >30s (currently: forever)" and "wrong verdict on valid JSON". Both cures landed 2026-08-23: the hang
+# was multi-choice pattern blobs having no drift-immune choice record and no blob re-entry (SCRIP d6eafac3), and
+# the citm-scale stack leak was bare-FENCE0 static release (hq_P a42571b7). Measured at that HEAD, stderr kept
+# SEPARATE from stdout: all three PASS in m3 AND m4 against their oracle refs. ⛔ THE SEPARATION IS LOad-BEARING
+# and is why this looked broken twice: json/calculator write `match_ms=` to TERMINAL precisely so stdout stays
+# byte-comparable, so any harness capturing with 2>&1 merges a timing line into the graded stream and reports a
+# DIFF that is pure instrument. hq_C re-made that exact mistake while verifying this un-skip and caught it only
+# by diffing against the LIVE oracle, which agreed with scrip byte-for-byte while the .ref appeared not to.
+# ⭐ The denominator moves 361 -> 364. A skip is a silent subtraction from the denominator: these three were
+# green for hours and no board could say so, because the runner had been told once that they hang forever.
 # NOT gated -- each has a one-line reason, full repro in the FINDING above:
-#   demo/json.sno, demo/json-match.sno   -- HANGS (m3 AND m4) on well-formed input; needs >30s (currently: forever)
-#   demo/json-match-fence.sno            -- wrong verdict ("Pattern match failed" on valid JSON), not a timing issue
 #   demo/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
 #   demo/expression.sno                  -- -INCLUDEs 15 files (global.sno, ShiftReduce.sno, Gen.sno, ...) absent from this checkout; won't parse
 
