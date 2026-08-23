@@ -2886,13 +2886,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (gamma_is_phi) { node_γ = node_γ; }
             break;
         }
-        { int _flk = emit_floater_kind(gtgt); if (_flk && node_γ == &lbl_γ) node_γ = emit_floater_label(_flk); }
+        { int _flk = emit_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
         { if (gtgt && gtgt->op == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
         if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
-        if (!omega_resolved) { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
+        { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
         if (getenv("SCRIP_OMEGA_DIAG")) fprintf(stderr, "[OMEGA-DIAG] i=%d node_op=%s omega_resolved=%d otgt_op=%s op_omega_is_death=%d\n", i, bb_op_name(nodes[i]->op), omega_resolved, otgt ? bb_op_name(otgt->op) : "NULL", g_emit.op_omega_is_death);
