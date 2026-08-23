@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/last_ok()Z ifeq sm_pc_0_rs_skip iconst_0 iconst_1 invokestatic rt/SnoRt/do_return(II)I pop invokestatic rt/SnoRt/fn_return_push()V return sm_pc_0_rs_skip:

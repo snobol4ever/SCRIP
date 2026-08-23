@@ -1,1 +1,0 @@
-bb79040_α: # BOX PL_ATOM('foo') xor edi, edi call rt_pl_atom_push@PLT jmp L_succ_audit L_back_audit: jmp L_succ_audit

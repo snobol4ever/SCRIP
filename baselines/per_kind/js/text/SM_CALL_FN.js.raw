@@ -1,1 +1,0 @@
-{ let _r = rt.call_or_jump("audit_fn", 1, 1); if (_r >= 0) { _pc = _r; continue; } }

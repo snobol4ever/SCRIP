@@ -1,1 +1,0 @@
-(call $sno_arith (i32.const 3))

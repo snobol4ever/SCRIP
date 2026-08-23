@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/halt_tos()V goto_w sm_pc_fn_end

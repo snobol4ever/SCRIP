@@ -1,1 +1,0 @@
-(call $sno_push_str (i32.const 0x100000) (i32.const 9))

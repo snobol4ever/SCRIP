@@ -1,1 +1,0 @@
-ldc "audit_arg" invokestatic rt/SnoPat/usercall(Ljava/lang/String;)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

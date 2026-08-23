@@ -1,1 +1,0 @@
-ldstr "audit_arg" ldc.i4 ADDR call void SnoRt::sno_call(string, int32)

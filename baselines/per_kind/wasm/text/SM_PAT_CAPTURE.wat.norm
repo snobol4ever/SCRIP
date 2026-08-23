@@ -1,1 +1,0 @@
-(call $sno_pat_capture (i32.const 0x10000a) (i32.const ADDR) (i32.const ADDR))

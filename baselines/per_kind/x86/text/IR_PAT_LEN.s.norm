@@ -1,1 +1,0 @@
-bb78016_α: # BOX LEN(5) .intel_syntax noprefix lea rax, [rip + Δ] mov eax, dword ptr [rax] add eax, 5 lea rcx, [rip + Σlen] cmp eax, dword ptr [rcx] jg L_fail_audit lea rax, [rip + Δ] mov ecx, dword ptr [rax] add ecx, 5 mov dword ptr [rax], ecx jmp L_succ_audit L_back_audit: jmp L_fail_audit

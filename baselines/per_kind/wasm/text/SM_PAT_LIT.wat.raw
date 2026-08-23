@@ -1,1 +1,0 @@
-(call $sno_pat_lit (i32.const 0x100000) (i32.const 9))

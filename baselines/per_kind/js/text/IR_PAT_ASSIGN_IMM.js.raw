@@ -1,1 +1,0 @@
-function make_pat_S_N(ms) { const varname = "captured"; let self = { succ: null, fail: null, α() { const cr = self.child.α(); if (cr === null) { self.fail.α(); return; } ms._do_capture(cr, varname, 1); self.succ.α(); return cr; }, β() { const cr = self.child.β(); if (cr === null) { self.fail.α(); return; } ms._do_capture(cr, varname, 1); return cr; } }; return self; }

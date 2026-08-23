@@ -1,1 +1,0 @@
-ldc.i4 42 call void SnoRt::push_int(int32)

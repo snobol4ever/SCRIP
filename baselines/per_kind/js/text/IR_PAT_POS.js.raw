@@ -1,1 +1,0 @@
-function make_pat_S_N(ms) { const n = 0; let self = { succ: null, fail: null, α() { if (ms.delta !== n) { self.fail.α(); return; } self.succ.α(); return ''; }, β() { self.fail.α(); } }; return self; }

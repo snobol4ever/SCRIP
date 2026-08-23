@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; invokestatic rt/SnoPat/deref(Ljava/lang/Object;)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

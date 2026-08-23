@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; dup ifnonnull pat_nany_nn_0 pop ldc "" goto pat_nany_done_0 pat_nany_nn_0: invokevirtual java/lang/Object/toString()Ljava/lang/String; pat_nany_done_0: invokestatic rt/SnoPat/notany(Ljava/lang/String;)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

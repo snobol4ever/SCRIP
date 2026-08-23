@@ -1,1 +1,0 @@
-call bool SnoRt::last_ok() brfalse NET_L1 call void SnoRt::push_null() call void SnoRt::frame_exit() ldc.i4.1 ldc.i4.0 call void SnoRt::do_return(int32, bool) call int32 SnoRt::pop_ret_pc() stloc _pc br NET_DISPATCH

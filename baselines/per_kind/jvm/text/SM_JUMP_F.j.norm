@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/last_ok()Z ifne sm_pc_0_skip invokestatic rt/SnoRt/halt_tos()V iconst_0 invokestatic java/lang/System/exit(I)V return sm_pc_0_skip:

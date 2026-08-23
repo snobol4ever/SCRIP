@@ -1,1 +1,0 @@
-{ let _r = rt.call_or_jump("audit_arg", ADDR, 1); if (_r >= 0) { _pc = _r; continue; } } rt.set_last_ok(!rt._is_fail(rt._peek()));

@@ -1,1 +1,0 @@
-bipush 42 i2l invokestatic rt/SnoRt/push_int(J)V

@@ -1,1 +1,0 @@
-(local.set $tmp (call $sno_fn_return (i32.const 1) (i32.const 0))) (if (i32.eq (local.get $tmp) (i32.const -2)) (then (br $done)) (else (local.set $pc (local.get $tmp)) (br $lp)))

@@ -1,1 +1,0 @@
-rt.pat_capture_fn("audit_arg", ADDR, "audit_arg3");

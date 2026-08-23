@@ -1,1 +1,0 @@
-bb78016_α: # BOX POS(0) mov eax, [r10] cmp eax, 0 jne L_fail_audit jmp L_succ_audit L_back_audit: jmp L_fail_audit

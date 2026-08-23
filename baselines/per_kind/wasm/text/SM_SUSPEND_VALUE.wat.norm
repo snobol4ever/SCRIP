@@ -1,1 +1,0 @@
-(call $sno_call (i32.const 0x10000a) (i32.const 9) (i32.const ADDR))

@@ -1,1 +1,0 @@
-pop pop pop ldstr "audit_fn_def" call void SnoRt::push_var(string) dup call int32 [mscorlib]System.String::get_Length() call void SnoRt::set_omega(int32) call void SnoRt::set_sigma(string) ldc.i4.0 call void SnoRt::set_delta(int32) ldc.i4.0 call void SnoRt::set_last_ok(bool)

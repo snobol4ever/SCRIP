@@ -1,1 +1,0 @@
-ldc.i4.3 call void SnoRt::arith(int32)

@@ -1,1 +1,0 @@
-(call $sno_push_real (f64.const 3.ADDR))

@@ -1,1 +1,0 @@
-(call $sno_pat_refname (i32.const 0x10000a) (i32.const ADDR))

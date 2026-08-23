@@ -1,1 +1,0 @@
-function make_pat_S_N(ms) { const lit = "audit"; const len = lit.length; let self = { succ: null, fail: null, α() { if (ms.delta + len > ms.omega || ms.sigma.slice(ms.delta, ms.delta + len) !== lit) { self.fail.α(); return; } ms.delta += len; self.succ.α(); }, β() { ms.delta -= len; self.fail.α(); } }; return self; }

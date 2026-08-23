@@ -1,1 +1,0 @@
-alt6_c0_β: jmp alt6_c0_ω jmp alt6_c0_ω alt6_c0_ω: alt6_c1_β: jmp alt6_c1_ω jmp alt6_c1_ω alt6_c1_ω: jmp L_fail_audit L_back_audit: jmp alt6_c0_β

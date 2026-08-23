@@ -1,1 +1,0 @@
-bb78016_α: # BOX TAB(10) .intel_syntax noprefix lea rax, [rip + Δ] mov ecx, dword ptr [rax] cmp ecx, 10 jg L_fail_audit mov dword ptr [rax], 10 jmp L_succ_audit L_back_audit: jmp L_fail_audit

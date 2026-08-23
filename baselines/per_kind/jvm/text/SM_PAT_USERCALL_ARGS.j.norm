@@ -1,1 +1,0 @@
-bipush 2 anewarray java/lang/Object dup bipush 1 invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; aastore dup bipush 0 invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; aastore ldc "audit_fn" swap invokestatic rt/SnoPat/usercallArgs(Ljava/lang/String;[Ljava/lang/Object;)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

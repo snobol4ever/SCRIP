@@ -1,1 +1,0 @@
-function make_pat_S_N(ms) { let self = { succ: null, fail: null, α() { self.fail.α(); return null; }, β() { self.fail.α(); return null; } }; return self; }

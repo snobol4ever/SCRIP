@@ -1,1 +1,0 @@
-(call $sno_call (i32.const 0x100014) (i32.const 8) (i32.const 1))

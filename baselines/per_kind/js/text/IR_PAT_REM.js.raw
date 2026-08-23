@@ -1,1 +1,0 @@
-function make_pat_S_N(ms) { let self = { succ: null, fail: null, α() { const r = ms.sigma.slice(ms.delta, ms.omega); ms.delta = ms.omega; self.succ.α(); return r; }, β() { self.fail.α(); } }; return self; }

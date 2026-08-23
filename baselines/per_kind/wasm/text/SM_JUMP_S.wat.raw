@@ -1,1 +1,0 @@
-(if (call $sno_last_ok) (then (i32.const 0) (local.set $pc)) (else (i32.const 1) (local.set $pc))) (br $lp)

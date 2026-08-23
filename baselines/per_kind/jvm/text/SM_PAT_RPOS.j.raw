@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; invokestatic rt/SnoRt/coerce_to_long(Ljava/lang/Object;)J invokestatic rt/SnoPat/rpos(J)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

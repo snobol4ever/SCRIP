@@ -1,1 +1,0 @@
-if (!rt.last_ok()) _pc = 0; else _pc = 1; continue;

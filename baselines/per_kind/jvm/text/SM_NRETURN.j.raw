@@ -1,1 +1,0 @@
-iconst_2 iconst_0 invokestatic rt/SnoRt/do_return(II)I pop invokestatic rt/SnoRt/fn_return_push()V return

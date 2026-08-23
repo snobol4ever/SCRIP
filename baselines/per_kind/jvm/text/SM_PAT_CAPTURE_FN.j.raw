@@ -1,1 +1,0 @@
-invokestatic rt/SnoRt/pop_obj()Ljava/lang/Object; invokestatic rt/SnoRt/coerce_to_pat(Ljava/lang/Object;)Lrt/SnoPat; ldc "audit_arg" ldc "audit_arg3" invokestatic rt/SnoPat/captureFn(Lrt/SnoPat;Ljava/lang/String;Ljava/lang/String;)Lrt/SnoPat; invokestatic rt/SnoRt/push_obj(Ljava/lang/Object;)V

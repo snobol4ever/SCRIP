@@ -1,1 +1,0 @@
-bb78016_α: # BOX REM() .intel_syntax noprefix lea rax, [rip + Σlen] mov ecx, dword ptr [rax] lea rax, [rip + Δ] mov dword ptr [rax], ecx jmp L_succ_audit L_back_audit: jmp L_fail_audit
