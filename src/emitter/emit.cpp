@@ -976,7 +976,7 @@ static const char * sr3_gamma_label(const IR_t * g) { static int _off = -1; if (
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
     { static int _ba = -1; static const char * _bo; static const char * _bs; if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); }
-      int _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
+      int _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
       { static int _all = -1; if (_all < 0) { const char * e = getenv("SCRIP_BB_ALLOC_ALL"); _all = (e && *e == '1') ? 1 : 0; }
       (void)_ba; (void)_bo; (void)_bs; (void)_all; (void)_spine;
       { extern long zw_carve_k(const IR_t *); extern int zc_nofc(void); static int _kc = -1; if (_kc < 0) { const char * e = getenv("SCRIP_NOFC_CARVE"); _kc = (e && *e == '1') ? 1 : 0; } long _k = (zc_nofc() && !_kc) ? 0 : zw_carve_k(nd);
@@ -1004,7 +1004,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.frame_region = g_emit_cfg ? ((32 + g_emit_cfg->jcon_value_region + 15) & ~15) : 0;
-    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET
+    g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME
                        || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_KEYWORD_ASSIGN_SNOBOL4 || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ASSIGN_IMM || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
                        || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE || nd->op == IR_GOTO_DEFERRED
@@ -1043,6 +1043,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_INTEGER:
     case IR_LIT_STRING:
     case IR_LIT_CHARSET:
+    case IR_LIT_NAME:
     case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;
     case IR_KEYWORD_ICON:
     case IR_KEYWORD_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
@@ -1395,6 +1396,11 @@ static int bb_ab_slot_for(const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)] : (void *)0; }
 void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
+/*⭐ SLOT-KEYED TWIN OF bb_ab_fn_cell_ptr (hq_P s266).  The cell ARRAY is a file-static of fixed extent, so a slot index names the same cell for the life of the process
+  and the caller can resolve the NAME once instead of on every call.  rt_call_proc_descr used to rebuild "alpha$<fn>", FNV-hash it and linear-probe this table on EVERY
+  SNOBOL4 function call -- 402 Ir/call, 5.1% of the json deserializer.  Nothing here changes what a lookup ANSWERS; it only lets the answer be remembered. */
+int    bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
+void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < AB_FNCELL_MAX) ? (void *)&g_ab_fn_cells[slot] : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_unowned(IR_t *nd) {
     fprintf(stderr, "FATAL emit_drive: IR op=%d has no template in the universal driver. Every op must be handled; the driver never refuses silently. "
@@ -1411,6 +1417,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_LIT_CHARSET:
+    case IR_LIT_NAME:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_KEYWORD_ICON:
     case IR_KEYWORD_ICON_GEN:
@@ -2042,7 +2049,7 @@ static int zd_wl_kind(IR_t * nd) {
     }
     if (!(g_emit_cfg && (g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph))) return 1;
     zframe_local_admitted:;
-    if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET) return 1;
+    if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME) return 1;
     if (op == IR_CALL_PROC_STAGED && !(g_emit_cfg && g_emit_cfg->pl_cells_graph)) { static int _zk2cps = -1; if (_zk2cps < 0) { const char * e = getenv("SCRIP_ZD_ICN_CPS"); _zk2cps = (e && *e == '0') ? 0 : 1; } return (_zk2cps && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_UNOP) { int v = (int)IR_LIT(nd).ival; return (v == TT_MNS || v == TT_PLS || v == TT_SIZE || v == TT_CSET_COMPL) ? 1 : 0; }
     if (op == IR_BINOP) { long long o = (long long)IR_LIT(nd).ival; return (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD || o == BINOP_POW || o == BINOP_CUNION || o == BINOP_CDIFF || o == BINOP_CINTER || binop_is_concat((long)o)) ? 1 : 0; }
@@ -2098,7 +2105,7 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_CONJUNCTION) { static int _zk2c = -1; if (_zk2c < 0) { const char * e = getenv("SCRIP_ZD_CONJ"); _zk2c = (e && *e == '0') ? 0 : 1; } return (_zk2c && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_BINOP_TEST) { static int _zk2r = -1; if (_zk2r < 0) { const char * e = getenv("SCRIP_ZD_RELOP"); _zk2r = (e && *e == '0') ? 0 : 1; } return (_zk2r && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_BOUND || op == IR_UNMARK) { static int _zk3 = -1; if (_zk3 < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _zk3 = (e && *e == '1') ? 1 : 0; } else _zk3 = 1; } return (_zk3 && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
-    if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET) return 1;
+    if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME) return 1;
     { static int _tot = -1; if (_tot < 0) { const char * e = getenv("SCRIP_ZD_TOTAL"); _tot = (e && *e == '1') ? 1 : 0; }
       if (_tot) return (ir_is_matcher(op)) ? 0 : 1; }
     return 0;

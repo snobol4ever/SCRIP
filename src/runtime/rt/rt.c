@@ -400,13 +400,14 @@ int * const rt_k_level_p = &rt_k_level;
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
 typedef struct {
-    const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; uint64_t byref_mask;
+    const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
     int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.S bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.S bakes PROC_NAME and PROC_ISGEN");
 _Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "rtx_plcall.S bakes PROC_DYN_SCOPE and the shl 7 index stride (RTX-1-PL)");
 _Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "rtx_plcall.S records this in its offset table; the fbytes computation is elided, not baked");
+_Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36, "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.S/rtx_plcall.S read the wrong words");
 __attribute__((visibility("hidden"))) rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 __attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
@@ -446,7 +447,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
+    p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
     p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -827,6 +828,28 @@ DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_ret_faildescr(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐⭐ THE ALPHA CELL IS RESOLVED ONCE PER PROCEDURE, NOT ONCE PER CALL (hq_P s266).  rt_dyn_alpha_fn below rebuilds "alpha$<name>" into a stack buffer, FNV-hashes the
+  whole concatenation and linear-probes the emitter's cell table -- MEASURED 402 Ir on EVERY SNOBOL4 function call (json deserializer: 29,573 calls/parse = 5.1% of the
+  program; claws5: 6,469 calls/parse).  The answer cannot change with the call: the cell table is a fixed-extent file-static, so a name maps to one slot forever, and the
+  MUTABLE half -- which function is sealed there -- is the cell's CONTENTS, which this still reads on every call.  So the slot index is cached in the proc record and the
+  string work disappears.  ⛔ It caches the SLOT, never the function pointer: OPSYN/re-DEFINE reseal the cell and must keep taking effect immediately. */
+static void **rt_alpha_cell_of(rt_proc_t *p, const char *name)
+{
+    extern int bb_ab_slot_index(const char *); extern void *bb_ab_cell_at(int);
+    if (!p || !name) return (void **)0;
+    if (p->alpha_slot < 0) { char cn[264]; memcpy(cn, "alpha$", 6); char *w = cn + 6, *lim = cn + sizeof cn - 1; const char *r = name; while (*r && w < lim) *w++ = *r++; *w = '\0'; p->alpha_slot = bb_ab_slot_index(cn); }
+    return (void **)bb_ab_cell_at(p->alpha_slot);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
+{
+    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
+    if (!live || !name) return fallback;
+    if (!p) { extern void *rt_dyn_alpha_fn(const char *, void *); return rt_dyn_alpha_fn(name, fallback); }
+    { void **cell = rt_alpha_cell_of(p, name);
+      return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -836,7 +859,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return FAILDESCR;
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
     long fbytes = rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
@@ -848,7 +871,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return rt_proc_call_epilogue_ret(fret);
     }
     rt_g_want_name = _wn_gen;
-    return rt_proc_enter(rt_dyn_alpha_fn(name, (void *)p->fn));
+    return rt_proc_enter(rt_dyn_alpha_fn_p(p, name, (void *)p->fn));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
@@ -1714,7 +1737,7 @@ int rt_proc_index_of(const char *name)
 {
     if (!name) return -1;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name == name) return ci; }
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0) return ci; }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; } }
     return -1;
 }
@@ -1731,7 +1754,7 @@ static rt_proc_t * rt_proc_find(const char *name)
 {
     if (!name) return (rt_proc_t *)0;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name == name) return &g_rt_gen_procs[ci]; }
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0) return &g_rt_gen_procs[ci]; }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; } }
     return (rt_proc_t *)0;
 }

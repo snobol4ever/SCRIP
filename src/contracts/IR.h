@@ -69,6 +69,7 @@ typedef enum {
     IR_LIMIT,
     IR_LIT_CHARSET,
     IR_LIT_INTEGER,
+    IR_LIT_NAME,
     IR_LIT_REAL,
     IR_LIT_STRING,
     IR_MAKE_LIST,

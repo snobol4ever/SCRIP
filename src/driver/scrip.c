@@ -409,7 +409,7 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
     switch (bb->op) {
         case IR_LIT_INTEGER: fprintf(fp, ",\"label\":\"%lld\"", (long long) IR_LIT(bb).ival); break;
         case IR_LIT_REAL: fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval); break;
-        case IR_LIT_STRING: case IR_LIT_CHARSET: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_LIT_STRING: case IR_LIT_CHARSET: case IR_LIT_NAME: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_VAR: case IR_ASSIGN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;

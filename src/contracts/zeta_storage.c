@@ -339,7 +339,7 @@ void zls_build(IR_graph_t * g) {
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }
         IR_t * r = a->operands[0];
-        if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET
+        if ((r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_LIT_CHARSET || r->op == IR_LIT_NAME
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && r->γ.node == a && fc_vcap(1, 1, 0, 0)) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }
         if ((r->op == IR_BINOP || fc_vunop_ok(r) || fc_call_ok(r)) && r->γ.node == a) {
@@ -580,7 +580,7 @@ int fc_geom(const IR_t * nd, long * k) {
     { static int _ac = -1; if (_ac < 0) { const char * e = getenv("SCRIP_ALT_CAP"); _ac = (e && *e == '0') ? 0 : 1; }
       if (fc_arm_member(nd) && !(_ac && nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd))) return 0; }
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }
-    if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR) && fc_vlit_active(nd) && (!zc_nofc() || fc_subj_member(nd))) { if (k) *k = 16; return 1; }
+    if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR) && fc_vlit_active(nd) && (!zc_nofc() || fc_subj_member(nd))) { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
@@ -650,7 +650,7 @@ static const IR_t * fvs[64]; static int fvs_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_subj_register(const IR_t * nd) { if (!nd || fvs_n >= 64) return; fvs[fvs_n++] = nd; }
 int fc_subj_member(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvs_n; i++) if (fvs[i] == nd) return 1; return 0; }
-int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
+int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fvr_n >= 256) return; fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; }
@@ -851,7 +851,7 @@ long zw_carve_k(const IR_t * nd) {
     extern int rt_zeta_port_mode(void); extern int bb_node_id(IR_t *); long _d, _k; int _spine;
     if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '0') ? 0 : 1; }    }
     if (!_ba || !nd) return 0;
-    _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
+    _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0;
     if (!_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;
     if (fc_geom(nd, &_d)) return 0;

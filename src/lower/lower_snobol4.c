@@ -258,11 +258,17 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NAME: {
         if (t->n < 1 || !t->c[0]) sno_fatal("name operator with no operand", NULL);
         if (t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
+            /*⭐⭐ `.VAR` OVER A LITERAL VARIABLE NAME IS A CONSTANT, AND IT IS NOW LOWERED AS ONE (hq_P s266).  It used to lower to a runtime IR_CALL of the builtin
+               SNO$NAME with the name as a string literal operand -- which cost the whole by-name builtin dispatch chain (rt_call_arr_bl -> setjmp -> rt_call_arr_impl ->
+               try_call_builtin_by_name_bl) and then bn_sno_name, whose body is rt_ws_strdup of a name the COMPILER already had in .rodata.  MEASURED at 644 Ir per
+               evaluation: 43,487 evaluations per json parse = 12.8% of the whole deserializer, and 6,469 per claws5 parse.  `estr = .dummy` is the SNOBOL4 return-by-name
+               idiom, so it sits in the body of EVERY deferred action.
+               ⛔ The descriptor is byte-for-byte what bn_sno_name built -- { v = DT_N, slen = 0, s = <name text> } -- so nothing downstream can tell the difference; the
+               only change is that the text is the permanent .rodata literal instead of a fresh workspace copy minted on every call.  IR_LIT_NAME joins the existing
+               LITERAL family in bb_lit_scalar (INTEGER/STRING/CHARSET/REAL) rather than getting a private path. */
             sno_reg_var(t->c[0]->v.sval);
-            IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
-            IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = t->c[0]->v.sval;
-            ir_operand_push(mk, nl);
-            if (res) *res = mk; return nl;
+            IR_t * nl = lc_build(cx->g, IR_LIT_NAME, γ, ω); IR_LIT(nl).sval = t->c[0]->v.sval;
+            if (res) *res = nl; return nl;
         }
         if (t->c[0]->t == TT_IDX && t->c[0]->n >= 2) {
             const tree_t * ix = t->c[0];
