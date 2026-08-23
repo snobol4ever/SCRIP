@@ -488,7 +488,129 @@ dominate `.so` build time. Forward plan: the C runtime is to be replaced by a
 hand-written **x86 ASM runtime**, optimal for mode 3 and mode 4 alike — no C
 compiler, no opt level, in the runtime at all.
 
-## ⭐ Performance — SCRIP vs SPITBOL (2026-08-22 s253, current)
+## ⭐⭐ Performance — SCRIP vs SPITBOL (2026-08-23 s262, CURRENT)
+
+**Instrument: callgrind Ir at fixed work — deterministic, layout-immune, load-immune.** Engines:
+`/home/resources/spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle; ⛔ never `x64/bin/sbl`,
+which carries monitor hooks) vs SCRIP **m4** (`--compile` → `as`+`gcc`, links `libscrip_rt.so`).
+`RT_OPT=-O0` on every row. **Every kernel's `check:` line is diffed against the oracle's before any
+Ir number is believed** — a broken program is fast.
+
+### ⛔ TWO METHOD RULES THAT CHANGE THE NUMBERS, NOT JUST THE PRESENTATION
+
+**1. QUOTE THE SLOPE, NOT THE QUOTIENT.** A single fixed-work run bills process startup *and*
+`harness.inc`'s unconditional 200-iteration check phase into the per-iteration figure. Measure at
+**two** N and take `(Ir@N₂ − Ir@N₁)/(N₂ − N₁)`. On `roman` that is the difference between **2.71x**
+(divide one run's totals) and **2.25x** (the slope) — the gap is ~3.6 M Ir of dynamic-linker
+relocation against a 34 MB `libscrip_rt.so`. ⛔ Both engines must be measured the same way.
+⛔ **Caveat, stated so nobody over-reads it:** `ROMAN(7000)` is `MMMMMMM` and `ROMAN(1200)` is `MCC`,
+so later iterations do more work and a "marginal Ir/iter" is the *average over the sampled range*,
+not a constant. The **ratio** is sound — identical range, both engines — but neither absolute is.
+
+**2. ⛔ THERE IS NO `-O2`. (Lon, 2026-08-23 s262 — fact rule, `.github/RULES.md`.)** `RT_OPT` is
+`-O0` for development, benchmarks and demos alike. Never pass `RT_OPT="-O2 …"`, never build an `-O2`
+RT_TAG, never quote an `-O2` number as the current state. Two reasons, the second the stronger:
+an `-O2` template-touching rebuild is ~9m30 against ~1m40, paid on every arm of a measure-and-cure
+loop; and **`-O2` grades a compiler we are deleting** — the runtime is moving to register-aware ASM
+(`src/runtime/rtx/*.S`), so an `-O2` profile ranks gcc's inlining over code that will not exist.
+Every `-O2` figure elsewhere in this file is on a basis we no longer build.
+
+### The benchmark field — all 17 SNOBOL4 kernels, same basis, same day
+
+Slope across N=500→1500, both engines, `check:` verified identical on every row.
+**ratio < 1.00x = SCRIP faster.**
+
+| kernel | SCRIP Ir/iter | SPITBOL Ir/iter | ratio |
+|---|---:|---:|---:|
+| `fibonacci` | 527,138 | 1,003,766 | **0.53x** |
+| `var_access` | 470 | 672 | **0.70x** |
+| `string_concat` | ~0 | ~0 | 0.77x ⚠️ |
+| `func_call` | 423 | 544 | **0.78x** |
+| `op_dispatch` | 466 | 599 | **0.78x** |
+| `arith_loop` | 339 | 364 | **0.93x** |
+| `ident_call1` | 456 | 418 | 1.09x |
+| `array_sum` | 314,996 | 285,652 | 1.10x |
+| `ident_call2` | 490 | 414 | 1.19x |
+| `eval_fixed` | 2,154 | 1,417 | 1.52x |
+| **`roman`** | **15,925** | **7,123** | **2.24x** |
+| `table_access` | 931,946 | 355,366 | 2.62x |
+| `indirect_dispatch` | 1,901 | 721 | 2.64x |
+| `string_pattern` | 2,835 | 886 | 3.20x |
+| `string_manip` | 2,370 | 725 | 3.27x |
+| `mixed_workload` | 53,500 | 16,297 | 3.28x |
+| `pattern_bt` | 6,012 | 1,816 | **3.31x** |
+
+**SCRIP wins 6 of 17.** ⚠️ `string_concat`'s slope is ~0 for both engines — the kernel pins its
+batch and does not scale with N, so its ratio is computed from noise and is **not quotable**.
+⭐ **The four worst rows are one cluster, not four problems:** `pattern_bt`, `mixed_workload`,
+`string_manip`, `string_pattern` are all pattern/string work, and `roman` is the same shape.
+`mixed_workload` is the fair single number for a realistic program.
+
+### `roman` — the s262 measure-and-cure ladder
+
+Fixed work, `check: 1102` verified on **every** arm; the rig refuses to print an Ir number otherwise.
+
+| arm | Ir/iter | Δ |
+|---|---:|---:|
+| session start (`-O0` baseline) | 21,968 | — |
+| bake the builtin id at the call site | 21,019 | −4.32% |
+| `bn_replace` reads its own descriptor fields | 20,747 | −1.29% |
+| `is_protected_pat_name` lead guard · `_var_init` read inline | 20,588 | −0.77% |
+| `strcmp(fn,"SNO$NOFAIL")` first-char guard | 20,487 | −0.49% |
+| bench switches (`SCRIP_DIAG_REGS=0` + `SCRIP_RTCC_VENEER=3`) | 19,950 | −2.62% |
+| `always_inline` on three hot `-O0` leaves | **19,689** | −1.31% |
+
+**−10.38% cumulative. Ratio to the clean oracle 2.53x → 2.25x.** Corpus green on every arm
+(m3 357/359, m4 355/359 + 2 SKIP, fail-set byte-identical).
+
+### ⛔ THE ONE THAT KEEPS BITING: at `-O0`, `static inline` IS A REAL CALL
+
+gcc at `-O0` honours neither `inline` nor its own cost model. Measured on `roman`: a
+`static inline` lead-character guard added to *remove* a call showed up in callgrind as
+`is_protected_pat_lead'NV_SET_fn (49,600x)` costing **0.80% of the whole program** — it had merely
+swapped a PLT call for a local one. `__attribute__((always_inline))` **is** honoured at `-O0` and is
+the only way to get inlining back without the optimiser the fact rule forbids. Three annotations
+bought **1.31%**. ⭐ In a hot `-O0` runtime leaf, `static inline` is a promise the compiler does not
+keep — say `always_inline`, or write the field reads out by hand.
+
+### Where `roman`'s instructions actually go (N=6000, 99.9% accounted)
+
+| bucket | share |
+|---|---:|
+| emitted code (mode-4 binary) | **28.06%** |
+| capture assignment (`. T`) | **18.38%** |
+| pattern engine | 13.47% |
+| builtin dispatch | 11.48% |
+| variable store by name | 9.72% |
+| `REPLACE` builtin | 9.25% |
+| startup (dynamic linker) | 3.95% |
+| string ops | 3.77% |
+| numeric coerce | 1.21% |
+| allocator | 0.38% |
+
+Capture assignment plus its by-name store is **28.1%** — writing two characters into `T` costs as
+much as all the emitted code. Inside emitted code, `match_defer` is 34.4% and `match_begin` 27.6%:
+`&ANCHOR = 0` rescans from every start position, **63 retry trips per iteration** at ~16 emitted
+instructions per trip. ⭐ The prize there is the trip **count** (SPITBOL's first-character prescan),
+not the trip cost — hand-written assembly makes a linear scan a faster linear scan.
+
+### Post-emission optimisation — measured ceiling, not a guess
+
+`tools/scrip_peep.c` is a standalone `.s → .s` optimizer, deliberately **not** a pass inside the
+emitter: m3 ≡ m4 output is a design invariant, and a post-emission pass leaves it untouched.
+Every *executed* emitted instruction at N=6000: real work **79.7%** · conditional branch **11.3%** ·
+unconditional `jmp` **7.5%** · call 1.4%. **Ceiling ≈ 7–8% of the program; realistic first cut 2–3%**
+— for scale, six runtime cures in one session bought 10.4%. ⛔ Collapsing literal boxes into their
+operator box was built, run and measured at **−0.006%**: it does not pay. The ceiling *rises* as the
+runtime moves to ASM, because it is computed where emitted code is only 28% of Ir.
+
+---
+
+## Performance — SCRIP vs SPITBOL (2026-08-22 s253, wall-clock basis, SUPERSEDED)
+
+⛔ **Superseded by the s262 section above.** Kept for its method notes (external clocking, the
+governor correction, the noise floor), which remain valid. Its `-O2` guidance is **dead** — see the
+NO-`-O2` fact rule above.
 
 Measured at SCRIP `7dd59a06`, on the Milestone 1 line. Engines: **SPITBOL x64 `sbl -bf`**
 (the `-f` arm is the only one matching SCRIP's case-sensitivity, per the s189 ruling) vs SCRIP
@@ -517,10 +639,13 @@ but neither is safe to carry across it.
 governor and has not been re-run; quoting it beside a `performance`-governor `-O0` column would be
 comparing two different machines. Every number below is `RT_OPT=-O0`.
 
-### ⛔ `-O2` IS NOT CORRECTNESS-EQUIVALENT — read this before quoting any `-O2` number
+### ⛔ `-O2` IS NOT CORRECTNESS-EQUIVALENT — and as of s262 it is not built at all
 
-`RT_OPT` defaults to `-O0`; `-O2` is for benchmark runs only (O0-DEV-O2-BENCH). That rule is
-usually explained by build time (~1m40 vs ~9m30). **It is also a correctness rule:** at `-O2`,
+⛔ **Read the NO-`-O2` fact rule in the s262 section above first: `RT_OPT` is `-O0`, full stop.**
+The sentence that used to stand here — *"`-O2` is for benchmark runs only (O0-DEV-O2-BENCH)"* — is
+**dead**, quoted once so a reader who remembers it knows it was retired deliberately. What follows
+is why `-O2` was never safe even when it was allowed, and it is the reason the fact rule costs us
+nothing: **it is also a correctness rule:** at `-O2`,
 same tree, `RT_OPT` the only variable, the Milestone 1 ladder collapses **10/10 → 3/10 in both
 modes** and `beauty.sno` self-host emits md5 `1c75f97d…` instead of `6f1671c0…`. Ablation puts
 the whole defect in **`libscrip_rt.so`** (rebuilding only the runtime at `-O2`, compiler left at

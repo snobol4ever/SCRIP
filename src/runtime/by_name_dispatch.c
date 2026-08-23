@@ -3,7 +3,7 @@
 #include <setjmp.h>
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline size_t sv_len(DESCR_t arg, const char *coerced) {
+static inline __attribute__((always_inline)) size_t sv_len(DESCR_t arg, const char *coerced) {
     if (arg.v == DT_S && arg.slen != 0xFFFFFFFFu) return arg.slen ? (size_t)arg.slen : (coerced ? strlen(coerced) : 0);
     return coerced ? strlen(coerced) : 0;
 }

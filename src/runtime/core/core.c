@@ -2252,7 +2252,7 @@ static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *
        shadow an entry the memo still points at.  strcmp cannot see that.  Cured by a GENERATION counter bumped on every insert; a cached slot is trusted only while its generation matches.
    WHAT SURVIVES: the hash is still skipped, which was the expensive half (a per-character djb2 walk plus the modulo).  A validated hit costs a pointer compare, a generation compare and one strcmp.
    ⛔⛔⛔ SECOND GLOBAL UNDER THE SAME GRANT: Lon in-chat 2026-08-22 s258 ("Sure. Add a global variable.") -- g_nv_memo_gen and its per-slot witness array. */
-static inline NV_t *_var_find_cached(const char *name) {
+static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *name) {
     unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
     if (g_nv_memo_key[i] == name && g_nv_memo_seen[i] == g_nv_memo_gen) {
         NV_t *c = g_nv_memo_val[i];
