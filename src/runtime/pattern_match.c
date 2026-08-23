@@ -826,6 +826,7 @@ extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl,
 extern const char *Σ;
 extern int Σlen;
 typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
+typedef struct { void *fn; long aux; } rt_defer_pr_t;
 __attribute__((visibility("hidden"))) rt_dfx_t *g_dfx;
 __attribute__((visibility("hidden"))) int g_dfx_top, g_dfx_cap;
 _Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.S strides g_dfx by 24");
@@ -1072,6 +1073,41 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
     if (val.v == DT_P && val.p) { extern void *dtp_fn_of(void *); dtp_fn_of(val.p); return val.p; }
     if (val.v == DT_X && rt_defer_xpat_on()) { extern void *rt_defer_xpat_dtp(const char *); return rt_defer_xpat_dtp(val.s); }
     return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ ONE RESOLUTION PER DEFERRED NODE, NOT TWO (hq_P s260, roman row).  The emitted defer box called rt_defer_get_pat_dtp and then, when the value was not a pattern, rt_defer_run_all -- and BOTH opened with
+   rt_defer_nv_read(varname) on the SAME baked literal, back to back, with nothing between them but a test and a jz.  callgrind on roman.sno (N=2000, -O2) named the pair exactly: rt_defer_nv_read'rt_defer_get_pat_dtp
+   594,060 Ir and rt_defer_nv_read'rt_defer_run_all 594,060 Ir -- identical counts -- driving NV_GET_fn'rt_defer_nv_read to 19.35% of ALL of roman's instructions plus 5.91% of __strcmp_avx2 underneath it.  The
+   lookup was already minimal (hashed, memoised, chain length ~1); the defect was doing it TWICE.  This entry resolves ONCE and returns BOTH answers in registers -- rax=fn, rdx=dtp when the value is a pattern,
+   rax=0 and rdx=the new cursor when it is a string -- so no state persists across the call and RULES.md's NO-NEW-GLOBALS rule is satisfied by construction rather than by grant.
+   ⛔ THREE CASES DELIBERATELY FALL BACK TO THE ORIGINAL TWO-CALL PAIR, because for them the second read is NOT redundant: (1) a '*'-prefixed name, where get_pat_dtp PUSHES to g_spk and run_all POPS it -- a
+   producer/consumer pair, not a repeat; (2) DT_X, where resolving the pattern CALLS A PROCEDURE that may itself assign the variable, so the second read can legitimately differ; (3) a DT_P whose fn has not
+   materialised.  Only the plain-value case -- which is what a deferred ordinary variable is -- reuses the resolution.  ⛔ ival_flag is 0 on this arm by construction: the box emits `xor esi, esi` at the only
+   site that reaches here, and esi now carries cur_delta instead. */
+static int rt_defer_merge_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_MERGE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
+{
+    rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
+    if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
+    s->val = val;
+    return c_rt_defer_close(cur_delta);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta)
+{
+    extern void *dtp_fn_of(void *);
+    rt_defer_pr_t r; r.fn = (void *)0; r.aux = 0;
+    if (!rt_defer_merge_on() || !varname || varname[0] == '*') {
+        void *dtp = rt_defer_get_pat_dtp(varname, 0);
+        if (dtp) { void *fn = *(void **)dtp; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)dtp; return r; } }
+        r.aux = (long)rt_defer_run_all(varname, cur_delta); return r;
+    }
+    DESCR_t val = rt_defer_nv_read(varname);
+    if (val.v == DT_P && val.p) { dtp_fn_of(val.p); void *fn = *(void **)val.p; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)val.p; return r; } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
+    if (val.v == DT_X) { void *dtp = rt_defer_xpat_on() ? rt_defer_xpat_dtp(val.s) : (void *)0; if (dtp) { void *fn = *(void **)dtp; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)dtp; return r; } } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
+    r.aux = (long)rt_defer_run_all_v(varname, cur_delta, val);
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_match_value_get_pat_fn(DESCR_t *pval)

@@ -15,6 +15,8 @@ extern "C" void *rt_defer_get_pat_dtp(const char *varname, int ival_flag);
 extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag);
 extern "C" int rt_defer_run_all(const char *varname, int cur_delta);
+typedef struct { void *fn; long aux; } rt_defer_pr_t;
+extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta);
 extern "C" int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta);
 extern "C" void *dtp_fn_of(void *headv);
 extern "C" void *rt_defer_xpat_dtp(const char *nm);
@@ -47,6 +49,7 @@ std::string bb_match_defer() {
     int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
+    int merged = (vslot < 0 && one_defer() && !(g_gva_active && _.op_gva_k >= 0));
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
@@ -137,17 +140,15 @@ std::string bb_match_defer() {
              + x86("mov",  RDQ("rsi", 0), "rdx")
              + x86("def",  L(15))
              + x86("def",  L(11)))
-         + IF(vslot < 0 && !(g_gva_active && _.op_gva_k >= 0),
-               x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
-             + x86("xor",  "esi", "esi")
-             + x86_align_enter()
-             + x86("call", "rt_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(const char *, int))rt_defer_get_pat_dtp)
-             + x86_align_leave()
-             + x86("mov",  "rdx", "rax")
-             + x86("test", "rax", "rax")
-             + x86("je",   L(14))
-             + x86("mov",  "rax", RDQ("rdx", 0))
-             + x86("def",  L(14)))
+         + IF(merged,
+               x86("comment", "⭐ ONE RESOLUTION, NOT TWO (hq_P s260): this site used to call rt_defer_get_pat_dtp and then, on the not-a-pattern fall-through, rt_defer_run_all -- and BOTH opened by resolving the SAME baked literal through the global name table, back to back, with only a test and a jz between them.  Measured on roman.sno: rt_defer_nv_read'rt_defer_get_pat_dtp and rt_defer_nv_read'rt_defer_run_all at 594,060 Ir EACH -- identical counts -- pushing NV_GET_fn to 19.35% of the whole program with another 5.91% of __strcmp_avx2 under it.  rt_defer_probe_run resolves once and answers both questions in registers: rax=fn (0 => not a pattern, take L0), rdx=dtp when it IS a pattern and the new cursor when it is not.  The string half therefore needs no call at all -- L0 just moves edx into eax.  esi now carries cur_delta where it used to carry a constant-zero ival_flag, which is sound because this is the only arm that reaches here and it always passed 0.")
+             + x86_xfer_enter()
+             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("mov",  "esi", "r14d")
+             + x86_anchor_enter()
+             + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int))rt_defer_probe_run)
+             + x86_anchor_leave()
+             + x86_xfer_leave())
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
@@ -175,8 +176,10 @@ std::string bb_match_defer() {
          + x86_omega()
          + (one_defer()
              ? x86("def",  "L0")
-             + x86_xfer_enter()
-             + IF(vslot < 0,
+             + IF(merged, x86("comment", "⭐ the string half of the merged probe: rt_defer_probe_run already ran it and left the new cursor in rdx, so there is no second call and no second name lookup")
+                        + x86("mov",  "eax", "edx"))
+             + IF(!merged, x86_xfer_enter())
+             + IF(!merged && vslot < 0,
                    x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
                  + x86("mov",  "esi", "r14d"))
              + IF(vslot >= 0,
@@ -184,11 +187,11 @@ std::string bb_match_defer() {
                  + x86("mov",  "esi", (long)vslot)
                  + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
                  + x86("mov",  "ecx", "r14d"))
-             + x86_anchor_enter()
-             + IF(vslot < 0,  x86("call", "rt_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_defer_run_all))
+             + IF(!merged, x86_anchor_enter())
+             + IF(!merged && vslot < 0,  x86("call", "rt_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_defer_run_all))
              + IF(vslot >= 0, x86("call", "rt_patv_defer_run_all", (uint64_t)(uintptr_t)(void *)(int (*)(void *, long, const char *, int))rt_patv_defer_run_all))
-             + x86_anchor_leave()
-             + x86_xfer_leave()
+             + IF(!merged, x86_anchor_leave())
+             + IF(!merged, x86_xfer_leave())
              : x86("def",  "L0")
          + x86_xfer_enter()
          + IF(vslot < 0,
