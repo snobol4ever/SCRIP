@@ -28,9 +28,10 @@
 # clobber today and are reported as INFORMATIONAL.  Add a register to LIVE_CLAIMS the moment RC-5 assigns a
 # global to it — that one edit is what buys the next assignment this protection.
 #
-# Usage: bash scripts/test_gate_rtcc_claimed_regs.sh [--strict]
-#   default  : INFORMATIONAL — print hazard surface + collision class, exit 0.
-#   --strict : HARD GATE — exit 1 if any non-registered file is in the collision class.
+# Usage: bash scripts/test_gate_rtcc_claimed_regs.sh [--informational]
+#   default        : HARD GATE (V2-5, gate honesty) — exit 1 if any non-registered file is in the
+#                    collision class. --strict is still accepted as a no-op spelling of the default.
+#   --informational: print hazard surface + collision class, exit 0 regardless of collisions.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
