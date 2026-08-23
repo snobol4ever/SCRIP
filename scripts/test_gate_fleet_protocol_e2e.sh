@@ -73,5 +73,25 @@ o="$(run seatX done naked)"
 case "$o" in *"no DONE-WHEN"*) ok "a baton with no computable criterion is refused, not waved through";;
   *) no "no-DONE-WHEN refusal" "REFUSED ... no DONE-WHEN" "$(echo "$o"|head -1)";; esac
 
+echo "== γ  a VACUOUS DONE-WHEN must be refused — it certifies nothing (hq_P's find) =="
+P=$(mktemp -d); mkdir -p "$P/claims" "$P/tasks" "$P/seatX/inbox" "$P/hq_C/inbox"
+printf '# idx\n0\tvac\tb\ts\n0\tvac2\tb\ts\n0\tvac3\tb\ts\n' > "$P/QUEUE.tsv"
+vactest(){ # $1 topic, $2 done-when, $3 label
+  cat > "$P/tasks/$1.task.md" <<EOF
+# TASK $1 · owner: hq_C · state: FREE
+GOAL: g
+DONE-WHEN: $2
+## NEXT
+n
+EOF
+  run hq_C assign seatX "$1" >/dev/null 2>&1; run seatX next >/dev/null 2>&1
+  o="$(run seatX done "$1")"
+  case "$o" in *REFUSED*) ok "refuses $3";; *) no "refuse $3" "⛔ REFUSED" "$(echo "$o"|head -1)";; esac
+  grep -q '^DONE$' "$P/claims/$1.claim" 2>/dev/null && no "$3 must not close the row" "no DONE marker" "row was closed" || true; }
+vactest vac  "true"     "DONE-WHEN: true"
+vactest vac2 ":"        "DONE-WHEN: :"
+vactest vac3 "echo hi"  "a command that passes in an empty directory"
+rm -rf "$P"
+
 printf '\n  %s: %d passed, %d failed\n' "$([ "$fail" -eq 0 ] && echo PASS || echo '⛔ FAIL')" "$pass" "$fail"
 [ "$fail" -eq 0 ]

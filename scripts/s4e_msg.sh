@@ -152,6 +152,28 @@ case "$cmd" in
                 dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$tf" | head -1)"
                 if [ -z "$dw" ]; then
                   echo "⛔ REFUSED: $tf has no DONE-WHEN: line. A task with no computable completion test cannot be closed." >&2; exit 1; fi
+                # ⛔⭐ A DONE-WHEN MUST EXAMINE SOMETHING (hq_P found this by source-reading the previous version).
+                # The old code accepted ANY non-empty string and ANY exit 0 as proof, so `DONE-WHEN: true` — or `:`,
+                # or `exit 0` — closed a row having verified nothing. That is EXACTLY the vacuous-gate defect hq_P
+                # had just finished removing from 31 gates, reappearing in the one command whose job is to certify
+                # completion. Two checks, because either alone still lets something through.
+                case "$(printf '%s' "$dw" | tr -d '[:space:]')" in
+                  true|:|exit0|/bin/true|/usr/bin/true|""|"#"*)
+                    printf '⛔ REFUSED: the DONE-WHEN in %s is a shell no-op (%s). It certifies nothing.\n' "$tf" "$dw" >&2
+                    printf '   A DONE-WHEN must be a command that EXAMINES the tree and can exit non-zero when the work is not done.\n' >&2
+                    exit 1;; esac
+                # VACUITY PROBE, borrowed from hq_P V2-5: run it in an EMPTY scratch directory. A criterion that
+                # passes with nothing to examine is not examining anything. Skipped when the command names an
+                # absolute path, because those legitimately still resolve from anywhere.
+                case "$dw" in
+                  */*|*'$'*) : ;;                       # names a path or expands a variable — probe would be meaningless
+                  *) _vac="$(mktemp -d)"
+                     if ( cd "$_vac" && eval "timeout 20 $dw" ) >/dev/null 2>&1; then
+                       rm -rf "$_vac"
+                       printf '⛔ REFUSED: the DONE-WHEN in %s passes in an EMPTY directory, so it is not examining this tree.\n' "$tf" >&2
+                       printf '   command: %s\n   Make it name what it inspects. (hq_P V2-5 used the same probe to find 31 vacuous gates.)\n' "$dw" >&2
+                       exit 1; fi
+                     rm -rf "$_vac";; esac
                 if [ -n "${S4E_DONE_OVERRIDE:-}" ]; then
                   # ω-class escape hatch: loud, recorded, and never silent. For the case where the DONE-WHEN itself
                   # is proven wrong -- which is a real event, and is why it must be auditable rather than forbidden.
@@ -218,7 +240,12 @@ case "$cmd" in
            if [ -f "$PO/tasks/$st.task.md" ]; then printf 'task: %s\n' "$PO/tasks/$st.task.md"
              printf '      ⭐ THE BATON IS THE TASK FILE, NOT THIS PRINTOUT — read GOAL + DONE-WHEN + the ONE ## NEXT block,\n'
              printf '      work THAT, then rewrite ## NEXT before you stop. Questions go in ## QA, receipts in ## LEDGER.\n'; fi
-           printf '%s\n' "$srow" | awk -F'\t' 'NF>1{print "brief: " $3; print "first: " $4}'; }
+           # ⭐ V2-2: QUEUE.tsv is an INDEX (rank·topic·owner·state), not a brief store. Fields 3 and 4 are
+           # owner and state now, so printing them as "brief:"/"first:" would announce "brief: unassigned".
+           # The baton is the content; the index only says who owns it and what state it is in.
+           printf '%s\n' "$srow" | awk -F'\t' 'NF>3{print "owner: " $3 "   state: " $4}
+                                                  NF>1&&NF<4{print "brief: " $3; print "first: " $4}'
+           [ -f "$PO/tasks/$st.task.md" ] || printf '⛔ NO BATON at %s/tasks/%s.task.md — under V2-2 every live row must have one. Tell your HQ; do not invent the work.\n' "$PO" "$st"; }
          # PASS 1 -- rows an HQ ASSIGNED to me that I have not started. These outrank anything I picked for myself.
          for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
            [ "$(head -1 "$c")" = "$ME" ] || continue
