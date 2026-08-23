@@ -867,6 +867,8 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
+int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen);
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz) {
@@ -4626,25 +4628,28 @@ DESCR_t rt_pl_call_gen(DESCR_t *args, int nargs, int64_t *resume) {
     pl_trail_unwind(&g_pl_trail, tp->mark); plw_zh_kill_to(tp->mark);
     return FAILDESCR;
 }
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs);
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) {
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl(fn, args, nargs, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ bidlen is the emitter's pre-resolved (strlen(fn) << 16) | bid_of(fn,len); NEGATIVE means "resolve it yourself" -- see the note on try_call_builtin_by_name_bl. */
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
     char *fl = g_plw_unwind_floor;
     g_plw_unwind_floor = (char *)__builtin_frame_address(0);
-    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs); g_plw_unwind_floor = fl; return r0; }
+    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen); g_plw_unwind_floor = fl; return r0; }
     int my = g_core_errjmp_n;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
-    DESCR_t r = rt_call_arr_impl(fn, args, nargs);
+    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen);
     g_core_errjmp_n = my;
     g_plw_unwind_floor = fl;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
@@ -4686,7 +4691,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs) {
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
           if (oc >= 0) return rt_jct_relop(a, b, oc) ? ((oc >= BINOP_SLT && oc <= BINOP_SNE) ? rt_str_coerce(b) : b) : FAILDESCR; }
     }
-    if (try_call_builtin_by_name(fn, args, nargs, &out)) return out;
+    if (try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen)) return out;
     out = APPLY_fn(fn, args, nargs);
     return out;
 }
@@ -5073,16 +5078,25 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
     buf[sl * (size_t)k] = 0; *out = BSTRVAL(buf, sl * (size_t)k); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ THE CEREMONY, NOT THE LOOP (hq_P s262).  MEASURED, roman.sno -O0 fixed work N=2000, callgrind line annotation: bn_replace is 480 Ir per call and the translate loop `buf[i] = map[sv[i]]` is 45 of them.  Of the other 435: three VARVAL_fn calls 48, three sv_len calls 81, the 4-slot map cache and its two memcmp PLT hops 101, rt_ws_alloc_c 60, result store 17.  ⭐ Ninety per cent of REPLACE was getting ready to translate five characters.
+   ⛔ WHY THE CALLS EXIST AT ALL, AND WHY `static inline` DID NOT SAVE US: at -O0 gcc honours neither `inline` nor its own cost model, so every `static inline` helper in this file is a REAL CALL with a real prologue -- and DESCR_t is 16 bytes passed BY VALUE, so sv_len pays stack traffic on top.  Under the s262 NO-`-O2` fact rule -O0 is the number of record, so a hot leaf cannot delegate its field reads to a helper and hope the optimizer folds them; it has to read the fields itself.
+   ⭐ EQUIVALENCE IS EXACT, NOT ARGUED FROM SHAPE.  VARVAL_fn is `cmp dil, DT_S / jne c_VARVAL_fn / test rsi,rsi / jz c_VARVAL_fn / mov rax,rsi / ret` (rtx_str.S:312) -- for DT_S with non-NULL .s it returns v.s unchanged and allocates nothing.  sv_len for DT_S with slen neither 0xFFFFFFFF nor 0 returns slen.  The guard below admits EXACTLY that intersection and every other descriptor -- other tags, NULL .s, the 0xFFFFFFFF sentinel, slen 0 -- falls through to the UNCHANGED pair.  It cannot answer differently, only sooner.
+   KILLSWITCH SCRIP_REPL_PL=0 restores the call pair on the same binary. */
+static int repl_pl_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_REPL_PL"); v = (e && *e == '0') ? 1 : 0; } return v; }
+/* ⛔ THE KILLSWITCH READ IS HOISTED, AND THAT IS NOT A DETAIL: the first draft called repl_pl_off() INSIDE the macro, so a getenv-memo function ran three times per REPLACE -- 26,400 non-inlined calls -- and ate two thirds of the cure it was guarding (measured -0.92% where the line annotation predicted -2.6%).  At -O0 a `static int f(void){static int v;...}` is a real call every time; a control arm has to be read ONCE and carried in a local. */
+#define BN_PTRLEN(A, P, L, F) do { DESCR_t _a = (A); \
+    if ((F) && _a.v == DT_S && _a.s && _a.slen != 0xFFFFFFFFu && _a.slen != 0u) { (P) = _a.s; (L) = (size_t)_a.slen; } \
+    else { (P) = VARVAL_fn(_a); if (!(P)) (P) = ""; (L) = sv_len(_a, (P)); } } while (0)
 static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_t *out) {
     static struct { unsigned char v, n; char f[63], t[63], map[256]; } g_rm[4];
     static int g_rm_off = -1;
     if (nargs != 3) return -1;
-    const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
-    const char *fv = VARVAL_fn(args[1]); if (!fv) fv = "";
-    const char *tv = VARVAL_fn(args[2]); if (!tv) tv = "";
-    size_t sl = sv_len(args[0], sv);
-    size_t fl = sv_len(args[1], fv);
-    if (fl != sv_len(args[2], tv) || !fl) { *out = FAILDESCR; return 1; }
+    const char *sv, *fv, *tv; size_t sl, fl, tl;
+    const int _plf = !repl_pl_off();
+    BN_PTRLEN(args[0], sv, sl, _plf);
+    BN_PTRLEN(args[1], fv, fl, _plf);
+    BN_PTRLEN(args[2], tv, tl, _plf);
+    if (fl != tl || !fl) { *out = FAILDESCR; return 1; }
     if (g_rm_off < 0) { const char *e = getenv("SCRIP_REPLMAP_OFF"); g_rm_off = (e && *e) ? 1 : 0; }
     char mloc[256]; char *map = mloc;
     if (!g_rm_off && fl < 63) { unsigned s = ((unsigned char)fv[0] * 31u + (unsigned)fl) & 3u;
@@ -5241,7 +5255,14 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
       for (t = 0; t < n; t++) a[t] = tmp[t]; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
+/*⭐⭐ BAKED-BID ENTRY (hq_P s262).  MEASURED, roman.sno -O0 fixed work N=2000, callgrind: bid_of was 1,826,260 Ir = 4.16% of the WHOLE PROGRAM, 11,002 calls at 166 Ir each -- and its ONLY job is to turn a string into the array index g_dtax_bid[_bid].  The line annotation showed the cache it indexes is ALREADY HOT: `if (_dx->kind == 4 && _dx->ctor) return ...` dispatched 8,799 of roman's 8,800 REPLACE calls straight to bn_replace.  So the program was paying a djb2 walk plus a table probe, per call, to look up a pointer it had already cached.
+  ⭐ THE CALL SITE KNOWS THE NAME AT COMPILE TIME -- it is a baked string literal in .rodata -- so the emitter computes bid_of() ITSELF and hands the answer over as an immediate.  bidlen packs (strlen(fn) << 16) | bid_of(fn,len); a NEGATIVE value means "not baked, resolve it yourself" and is what every non-emitted caller passes.
+  ⛔ THIS CANNOT ANSWER DIFFERENTLY, ONLY SOONER: the baked integer is bit-for-bit the one bid_of() would have returned for the same bytes, because emitter and runtime compile the SAME builtin_ids.h table.  A name that is not a builtin bakes 0, which is exactly bid_of()'s miss value.  Redefinition (OPSYN/DEFINE) is unaffected -- it is handled downstream by rt_dtax_gen and the APPLY_fn fallback, neither of which this touches.
+  ⛔ NO PER-OP FILTER (Lon 2026-08-20): every by-name call site bakes its bid, builtin or not.  There is no list of blessed names anywhere in this cure -- that is what makes it a class fix and not an exception table like dop_direct_fp's.
+  ⛔ NO NEW GLOBAL: the bid rides an argument register as an immediate operand baked into the instruction stream.  Nothing persists across the call. */
+int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; const char _f0 = fn ? fn[0] : 0;
@@ -5251,8 +5272,8 @@ int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (!fn || !out) return 0;
-    const size_t _fnlen = strlen(fn);
-    const int _bid = bid_of(fn, (unsigned)_fnlen);
+    const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
+    const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
     if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }

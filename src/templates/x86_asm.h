@@ -334,7 +334,13 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTCC_NOCLOB"); return !(e && *e == '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline unsigned x86_rtcc_clob(const char * sym) {
+/* ⭐ MEASUREMENT KILLSWITCH (hq_P s262): SCRIP_RTCC_VENEER=0 emits NO save/restore around ANY runtime call, so the A/B on one binary pair is the veneer's exact cost.  ⛔ It is an EMIT-time switch -- toggling it on an already-baked .s proves nothing, the arm must be re-COMPILED.  ⛔ It is NOT a shipping configuration: with it off, any call that really does clobber a live r8/r9/r10/r11 answers wrong.  A `check: 1102` under it is EVIDENCE ABOUT LIVENESS, not a licence to ship. */
+static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL; } return (unsigned)v; }
+static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline unsigned x86_rtcc_clob_raw(const char * sym);
+static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_veneer_mask(); }
+static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
     static const struct { const char * n; unsigned m; } LEAF[] = {
         /* ⭐ r10/r11 now carry DIAG telemetry and are veneer-protected, so a leaf that WRITES them must
@@ -1524,12 +1530,14 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, "rtcc_wb")) {
+        unsigned vm = x86_rtcc_veneer_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_ALL)) : x86_rtcc_wb_text(RTCC_C_ALL);
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_wb_text(RTCC_C_ALL & vm);
     }
     if (!strcmp(mnem, "rtcc_rl")) {
+        unsigned vm = x86_rtcc_veneer_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
-        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_ALL)) : x86_rtcc_rl_text(RTCC_C_ALL);
+        return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_rl_text(RTCC_C_ALL & vm);
     }
     if (!strcmp(mnem, "rtcc_anchor_cmp")) {
         if (!RTCC_GLOBAL_R8_ANCHOR) {

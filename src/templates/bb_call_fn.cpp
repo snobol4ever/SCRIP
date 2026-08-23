@@ -5,6 +5,18 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
+DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
+extern "C" {
+#include "builtin_ids.h"
+}
+/*⭐⭐ BAKE THE BUILTIN ID AT THE CALL SITE (hq_P s262).  MEASURED on roman.sno (-O0, fixed work N=2000, callgrind): bid_of() was 4.16% of the whole program -- 11,002 calls at 166 Ir -- spent turning a baked string literal into the integer index of a cache that was ALREADY HIT (the dtax kind==4 arm dispatched 8,799 of 8,800 REPLACE calls straight to bn_replace).  The name is a compile-time constant here, so we resolve it HERE, once, and hand the runtime the answer.
+  ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER: emitter and runtime compile the same builtin_ids.h, so the baked integer is bit-identical to what bid_of() would return; a non-builtin bakes 0, which is bid_of()'s own miss value.
+  ⛔ NO PER-OP FILTER (Lon 2026-08-20): EVERY by-name call site bakes, builtin or not.  No blessed-name list exists in this cure.
+  ⛔ NO NEW GLOBAL: an immediate in the instruction stream, consumed within the call.
+  ⭐ REGISTER CHOICE IS VERIFIED, NOT ASSUMED: the RTCC veneer's pre-call save uses rax as its block scratch (x86_rtcc_wb_bin) and only the POST-call reload uses rcx (x86_rtcc_rl_bin), so ecx is free to carry an argument across the wb into the call in BOTH media.
+  KILLSWITCH SCRIP_BID_BAKE=0 -- ⛔ EMIT-time, so an OFF arm must be re-COMPILED; toggling it on a baked binary proves nothing. */
+static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
 DESCR_t rt_pl_dop_unify_cs(DESCR_t * args, const char * cs);
 int bb_slot_get(IR_t * nd);
@@ -483,7 +495,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (nargs > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
-        s += x86("call", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
+        s += x86("mov32", "ecx", bid_bake_of(fn));
+        s += x86("call", "rt_call_arr_bl", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }
@@ -568,7 +581,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)nargs);
         s += x86("rtcc_wb");
-        s += x86("call_bare", "rt_call_arr", (uint64_t)(uintptr_t)(void *)rt_call_arr);
+        s += x86("mov32", "ecx", bid_bake_of(fn));
+        s += x86("call_bare", "rt_call_arr_bl", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl);
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");

@@ -14,6 +14,18 @@ int  bb_slot_get(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
+DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
+extern "C" {
+#include "builtin_ids.h"
+}
+/*⭐⭐ BAKE THE BUILTIN ID AT THE CALL SITE (hq_P s262).  MEASURED on roman.sno (-O0, fixed work N=2000, callgrind): bid_of() was 4.16% of the whole program -- 11,002 calls at 166 Ir -- spent turning a baked string literal into the integer index of a cache that was ALREADY HIT (the dtax kind==4 arm dispatched 8,799 of 8,800 REPLACE calls straight to bn_replace).  The name is a compile-time constant here, so we resolve it HERE, once, and hand the runtime the answer.
+  ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER: emitter and runtime compile the same builtin_ids.h, so the baked integer is bit-identical to what bid_of() would return; a non-builtin bakes 0, which is bid_of()'s own miss value.
+  ⛔ NO PER-OP FILTER (Lon 2026-08-20): EVERY by-name call site bakes, builtin or not.  No blessed-name list exists in this cure.
+  ⛔ NO NEW GLOBAL: an immediate in the instruction stream, consumed within the call.
+  ⭐ REGISTER CHOICE IS VERIFIED, NOT ASSUMED: the RTCC veneer's pre-call save uses rax as its block scratch (x86_rtcc_wb_bin) and only the POST-call reload uses rcx (x86_rtcc_rl_bin), so ecx is free to carry an argument across the wb into the call in BOTH media.
+  KILLSWITCH SCRIP_BID_BAKE=0 -- ⛔ EMIT-time, so an OFF arm must be re-COMPILED; toggling it on a baked binary proves nothing. */
+static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
 DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_unify_lst(DESCR_t *, int); DESCR_t rt_pl_dop_ix_g(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t rt_pl_dop_trail_mark(DESCR_t *, int); DESCR_t rt_pl_dop_trail_unwind(DESCR_t *, int); DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
@@ -281,7 +293,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     if (_.op_zres) {
-        uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
         std::string s = x86_alpha()
                       + x86("comment", std::string("BOX CALL ZD-7 byname ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
         if (narg > 0) {
@@ -306,7 +318,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         if (narg > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
         else          s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)narg);
-        s += x86("call", "rt_call_arr", fptr);
+        s += x86("mov32", "ecx", bid_bake_of(fn));
+        s += x86("call", "rt_call_arr_bl", fptr_bl);
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
@@ -321,7 +334,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     std::string fl = std::string(".Lbynamefn") + std::to_string((long long)_.nid);
-    uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int) = rt_call_arr; fptr = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = (int)narg - 1; i >= 0; i--)
@@ -348,7 +361,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("lea", "rsi", FRQ(argbase));
         s += x86("mov32", "edx", (long)narg);
         s += x86("rtcc_wb");
-        s += x86("call_bare", "rt_call_arr", fptr);
+        s += x86("mov32", "ecx", bid_bake_of(fn));
+        s += x86("call_bare", "rt_call_arr_bl", fptr_bl);
     }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
