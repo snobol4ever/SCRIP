@@ -2303,9 +2303,9 @@ int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     { static int _xd = -1; if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0; if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') { extern int rt_g_ret_by_name, rt_g_want_name; fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name); } }
-    _var_init();
+    if (!_var_init_done) _var_init();   /* ⭐ _var_init is `if (_var_init_done) return;` and nothing else on the hot path -- 17,600 cross-call hops in roman.sno to read one flag the caller can read itself.  Same file, same static; the call survives for the one time it does work. */
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
-    if (g_protected_pat_vars_armed && name && is_protected_pat_name(name)) {
+    if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) {   /* ⭐ lead pre-filter, predicate shared with the function itself (rt_protected.h) -- cannot change the answer, only reach it without a PLT hop */
         core_runtime_error(42, NULL);
         return val;
     }
