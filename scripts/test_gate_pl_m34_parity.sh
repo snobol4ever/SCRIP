@@ -13,6 +13,11 @@ VERBOSE=0
 [ "${1:-}" = "--verbose" ] && VERBOSE=1
 PASS=0; FAIL=0; REFUSED=0; SKIP=0
 TMP3=$(mktemp /tmp/plm3_XXXXXX); TMP4=$(mktemp /tmp/plm4_XXXXXX)
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
+gate_floor "$(find "${CORPUS:-$(dirname "$0")/../../corpus}" -name '*.sno' 2>/dev/null | wc -l)" 1 "corpus .sno programs"
 trap 'rm -f "$TMP3" "$TMP4"' EXIT
 for pl in "$CORPUS"/rung0[1-9]_*.pl \
           "$CORPUS"/rung1[0-9]_*.pl \

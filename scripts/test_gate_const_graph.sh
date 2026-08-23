@@ -42,4 +42,7 @@ for w in n1 n25; do
 done
 echo "CONST-GRAPH GATE: PASS=$pass FAIL=$fail"
 [ "$fail" = 0 ] && echo "GATE GREEN" || echo "GATE RED"
-exit 0
+# ⭐ V2-5 GATE HONESTY: this line used to be a bare "exit 0" -- the gate printed GATE RED and passed anyway.
+. "$(dirname "$0")/lib_gate.sh"
+gate_floor "$((pass + fail))" 1 "const-graph checks"
+gate_verdict "$fail" "const-graph check(s) failed"

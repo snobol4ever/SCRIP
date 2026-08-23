@@ -68,3 +68,9 @@ for f in "$DIR"/[0-9][0-9]_*.icn; do
 done
 echo "----"
 echo "PASS(both modes match truth)=$pass  FAIL=$fail"
+
+# ⭐ V2-5 GATE HONESTY: this script had NO exit statement, and a filter matching zero probes printed
+# PASS=0 FAIL=0 and exited 0 -- zero-probes-examined read exactly like all-pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_floor "$((pass + fail + probebad + skip))" 1 "jcon audit probes"
+gate_verdict "$fail" "probe(s) disagreed with truth"

@@ -12,6 +12,10 @@ SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 DIR=${1:-$S4E/corpus/programs/snobol4/demo}
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 pass=0; fail=0; skip=0; failed=""
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 for f in "$DIR"/*.sno; do
     [ -e "$f" ] || continue
     b=$(basename "$f" .sno)

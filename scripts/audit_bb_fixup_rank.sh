@@ -72,3 +72,8 @@ if [ "$total_dirty" -eq 0 ]; then
 else
     echo "  LAP STATUS: $total_dirty file(s) need fixup"
 fi
+
+# ⭐ V2-5 GATE HONESTY: this script had NO exit statement -- "83 file(s) need fixup" exited 0.
+. "$(dirname "$0")/lib_gate.sh"
+gate_floor "$total_files" 50 "bb_*/xa_* template files"
+gate_verdict "$total_dirty" "template file(s) need fixup"

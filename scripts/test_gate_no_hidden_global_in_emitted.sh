@@ -41,12 +41,23 @@ echo "=== GATE: no hidden-visibility global named in emitted text ==="
 #    (emitted code calls runtime functions through the PLT and those must be exported anyway, so a
 #    hidden one fails loudly at link on the first program that reaches it).
 OBJS=$(ls "$HERE/../out/rt_pic/"*.o 2>/dev/null)
-if [ -z "$OBJS" ]; then echo "  SKIP out/rt_pic/*.o absent -- run 'make libscrip_rt' first"; exit 0; fi
+# ⭐ V2-5 GATE HONESTY: absent .o files is the literal state of every fresh clone, and it was
+# indistinguishable from "checked, clean".  UNPROVEN(2) now, never a pass.
+. "$(dirname "$0")/lib_gate.sh"
+if [ -z "$OBJS" ]; then
+  echo "GATE UNPROVEN(2) [no_hidden_global_in_emitted]: out/rt_pic/*.o absent -- run 'make libscrip_rt' first"
+  echo "    This is NOT a pass: with no objects to read, no hidden global can be observed either way."
+  exit 2
+fi
 HIDDEN=$(readelf -sW $OBJS 2>/dev/null \
   | awk '$4=="OBJECT" && $5=="GLOBAL" && $6=="HIDDEN" {print $8}' \
   | sed 's/@.*//' | grep -E '^[A-Za-z_][A-Za-z0-9_]*$' | sort -u)
 
-if [ -z "$HIDDEN" ]; then echo "  no hidden-visibility globals found -- nothing to check"; exit 0; fi
+if [ -z "$HIDDEN" ]; then
+  echo "GATE UNPROVEN(2) [no_hidden_global_in_emitted]: readelf reported ZERO hidden-visibility globals across $(echo "$OBJS" | wc -w) object(s)."
+  echo "    The runtime is built -fvisibility=hidden, so zero is not a clean tree -- it means the scan did not read them."
+  exit 2
+fi
 echo "  hidden globals under test: $(echo "$HIDDEN" | tr '\n' ' ')"
 
 # 2. Emitted artifacts are the oracle. They are a LOWER BOUND: a template can name a symbol on a path

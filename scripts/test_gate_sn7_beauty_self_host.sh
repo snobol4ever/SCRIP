@@ -35,12 +35,12 @@ BEAUTY="$CORPUS/programs/snobol4/beauty_suite"
 TIMEOUT="${TIMEOUT:-30}"
 
 if [ ! -x "$SCRIP" ]; then
-    echo "SKIP scrip not built at $SCRIP"
-    exit 0
+    echo "GATE UNPROVEN(2) [sn7_beauty_self_host]: scrip not built at $SCRIP -- NOT a pass, the self-host was never attempted"
+    exit 2
 fi
 if [ ! -d "$BEAUTY" ]; then
-    echo "SKIP corpus not populated at $CORPUS"
-    exit 0
+    echo "GATE UNPROVEN(2) [sn7_beauty_self_host]: corpus not populated at $CORPUS -- NOT a pass, zero programs were compared"
+    exit 2
 fi
 
 WORK="$(mktemp -d)"
@@ -48,6 +48,10 @@ trap 'rm -rf "$WORK"' EXIT
 
 PASS=0
 FAIL=0
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 FAILS=""
 
 for sno in "$BEAUTY"/*_driver.sno; do

@@ -20,6 +20,10 @@ JRE='^[[:space:]]+(jmp|je|jne|jg|jl|jge|jle|ja|jb|jae|jbe|js|jns|jz|jnz|jc|jnc|j
 # gate's own CORPUS is env-overridable, so the exclusion is RE-CHECKED against the built list rather than trusted.  The assert prints no path from that tree -- only a count.
 LIST=$(find "$CORPUS" -path '*/programs/lon' -prune -o -name '*.sno' -print | sort)
 nlon=$(printf '%s\n' "$LIST" | grep -c '/programs/lon/' || true); [ "${nlon:-0}" -eq 0 ] || { echo "FAIL  off-limits tree reached: $nlon file(s) under corpus/programs/lon survived the prune (RULES.md ABSOLUTE RULE 1)"; exit 1; }
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 for f in $LIST; do
     [ "$LIMIT" -gt 0 ] && [ "$total" -ge "$LIMIT" ] && break
     total=$((total + 1))

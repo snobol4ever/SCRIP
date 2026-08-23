@@ -16,8 +16,13 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
-strict=0
-[ "${1:-}" = "--strict" ] && strict=1
+strict=1   # V2-5 (gate honesty): STRICT IS THE DEFAULT (VSX-8 is the hard gate and nothing invoked it).
+[ "${1:-}" = "--informational" ] && strict=0
+[ "$strict" = "0" ] && echo "⛔ --informational: verdict NOT enforced."
+# ⭐ V2-5 COVERAGE FLOOR (gate honesty): examining NOTHING must never read the same as examining everything.
+. "$(dirname "$0")/lib_gate.sh"
+gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.c "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/*.cpp "$(dirname "$0")"/../src/runtime/*.c 2>/dev/null | wc -l)" 100 "source files under src/ -- an empty tree is UNPROVEN(2), not a pass"
+
 
 # strip_comments FILE — FILE with /* ... */ block comments and // line comments removed (code only, so a
 # comment explaining the eradication does not count as a live reference).

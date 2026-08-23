@@ -22,7 +22,13 @@
 # grep -a THROUGHOUT: several sources (core.c) contain UTF-8 Greek identifiers (Σ, δ) and read as binary.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude   DATE: 2026-07-11 (NCB-0)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; REPO="${HERE}/.."; cd "$REPO" || exit 2
-STRICT=0; [ "${1:-}" = "--strict" ] && STRICT=1
+STRICT=1; [ "${1:-}" = "--informational" ] && STRICT=0   # V2-5: strict by default; --strict kept as a no-op alias
+[ "${1:-}" = "--strict" ] && STRICT=1
+[ "$STRICT" = "0" ] && echo "⛔ --informational: verdict NOT enforced."
+# ⭐ V2-5 COVERAGE FLOOR (gate honesty): examining NOTHING must never read the same as examining everything.
+. "$(dirname "$0")/lib_gate.sh"
+gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.c "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/*.cpp "$(dirname "$0")"/../src/runtime/*.c 2>/dev/null | wc -l)" 100 "source files under src/ -- an empty tree is UNPROVEN(2), not a pass"
+
 
 SCAN_DIRS="src/runtime src/driver src/machine src/lower src/parser src/contracts src/optimizer"
 

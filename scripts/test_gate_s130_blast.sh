@@ -8,6 +8,9 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 ROOT=${ROOT:-$S4E/corpus}
 SETS=${SETS:-"crosscheck programs/snobol4 probe"}
+. "$(dirname "$0")/lib_gate.sh"
+# ⭐ V2-5 GATE HONESTY: compare had no existence check -- two nonexistent files reported MOVERS=0, exit 0.
+[ $# -ge 1 ] || { echo "GATE UNPROVEN(2) [s130_blast]: no mode given. usage: record <tag> <scrip> <rt.so> | compare <tagA> <tagB>"; exit 2; }
 case "$1" in
 record)
   tag=$2; S=$3; RT=$4; out=/tmp/s130_$tag.md5; : > "$out"
@@ -19,11 +22,16 @@ record)
       echo "$(md5sum < "$o" | cut -d' ' -f1) rc=$rc $f" >> "$out"
     done
   done
-  echo "recorded $(wc -l < "$out") programs -> $out" ;;
+  echo "recorded $(wc -l < "$out") programs -> $out"
+  gate_floor "$(wc -l < "$out")" 1 "programs recorded" ;;
 compare)
   a=/tmp/s130_$2.md5; b=/tmp/s130_$3.md5
+  gate_require "$a" "recorded md5 set for tag A ($2)"; gate_require "$b" "recorded md5 set for tag B ($3)"
   n=$(wc -l < "$a"); d=$(diff "$a" "$b" | grep -c '^<')
+  gate_floor "$n" 1 "recorded programs in tag A"
   echo "s130 blast radius: TOTAL=$n MOVERS=$d"
   [ "$d" -gt 0 ] && { echo "MOVERS:"; diff "$a" "$b" | grep '^<' | awk '{print "  "$NF}' | head -40; }
   [ "$d" -eq 0 ] ;;
+*)
+  echo "GATE UNPROVEN(2) [s130_blast]: unknown mode '$1'. usage: record <tag> <scrip> <rt.so> | compare <tagA> <tagB>"; exit 2 ;;
 esac

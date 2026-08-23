@@ -29,6 +29,10 @@
 # was correctly reverted — recursive-`*` witnesses stay deep here, verified.)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 #
 # ============================ FLATDISP-9 (s200) — THE RATCHET IS RETIRED ============================
 # THE COUNT ABOVE CAN NO LONGER RATCHET, AND THE 48 WAS MEASURED ON A BROKEN TREE.

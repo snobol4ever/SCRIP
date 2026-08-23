@@ -40,6 +40,10 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 TIMEOUT="${TIMEOUT:-8}"
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 
 if [ ! -x "$SCRIP" ]; then
     echo "SKIP scrip not built at $SCRIP"

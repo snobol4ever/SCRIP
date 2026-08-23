@@ -21,6 +21,9 @@ ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 
 ROOTS="src/emitter src/templates"
+. "$HERE/lib_gate.sh"
+gate_parse_args "$@"
+gate_floor "$(ls src/emitter/*.c src/emitter/*.cpp src/emitter/*.h src/templates/*.c src/templates/*.cpp src/templates/*.h 2>/dev/null | wc -l)" 100 "emitter/template source files -- V2-5: an empty tree must not read as LANG-BLIND"
 
 # The banned identifier set (case-sensitive C identifiers, word-boundaried):
 #   g_lang            — the deleted language global

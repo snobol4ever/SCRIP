@@ -7,6 +7,10 @@ SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 DIR=${DIR:-$S4E/corpus/probe/clobarm}
 RT=${RT:-$S4E/SCRIP/out/libscrip_rt.so}
 pass=0; fail=0
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 for f in "$DIR"/*.sno; do
   b=$(basename "$f" .sno); ref=$(cat "$DIR/$b.ref" 2>/dev/null)
   m3=$(timeout 15 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); r3=$?

@@ -20,6 +20,10 @@ for b in arith_loop fibonacci pattern_bt roman string_concat func_call; do
     [ -f "$CORP/$b.sno" ] && FILES="$FILES $CORP/$b.sno"
 done
 total2=0; total1=0
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 printf "%-24s %10s %14s %12s\n" "program" "zls2_push" "zls2_bytes" "zls1_allocs"
 for f in $FILES; do
     out=$(SCRIP_ZETA_TELEM=1 SCRIP_ZLS2_TRACE=1 timeout 60s "$SCRIP" --run "$f" < /dev/null 2>&1)

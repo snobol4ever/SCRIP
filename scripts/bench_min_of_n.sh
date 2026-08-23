@@ -43,6 +43,10 @@ RATIO_FLOOR="${RATIO_FLOOR:-1.10}"
 FAMILY="${FAMILY:-}"
 ARM_A="${ARM_A:-}"
 ARM_B="${ARM_B:-}"
+# ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
+gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
+gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 # ASLR DEFAULTS TO **off** (s11).  RC-0(a)'s exit criterion is stated "at ASLR=off (setarch -R)", so the
 # instrument defaults to the layout its acceptance test is defined on.  The min-of-N statistic does move with
 # the layout draw (measured: min 427ms unpinned vs 448ms pinned), so the min is only a stable floor WITHIN one
