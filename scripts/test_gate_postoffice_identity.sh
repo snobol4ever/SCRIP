@@ -5,7 +5,16 @@
 # later green meaningful. The whole gate runs inside a THROWAWAY postoffice ($S4E_POST) so it can never touch
 # /home/resources/postoffice; identity is forced with $S4E_SEAT so no test depends on which root it runs in.
 set -u
-S="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/s4e_msg.sh"
+# ⛔ THE BINARY UNDER TEST MUST BE OVERRIDABLE, AND THIS GATE SHIPPED WITHOUT THAT (caught by hq_C's
+# cross-verification, s258, in the intended direction). The path was hardcoded to $(dirname $0)/s4e_msg.sh,
+# so when hq_C tried to aim the gate at the PRE-PATCH script to confirm my "15 of 18 fail" claim, the
+# injection SILENTLY DID NOTHING and the gate reported a confident 18/18 over the wrong binary. ⭐ That is
+# the exact class this gate exists to hunt -- an instrument that cannot say NO because it is not looking at
+# the thing you think it is (LAW 0, species 3) -- shipped inside the instrument itself. A gate whose subject
+# cannot be redirected can only ever confirm the tree it sits in.
+S="${S4E_MSG_BIN:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/s4e_msg.sh}"
+[ -f "$S" ] || { echo "⛔ no script under test at $S (set S4E_MSG_BIN)" >&2; exit 2; }
+printf '  subject: %s\n' "$S"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 pass=0; fail=0
 ok()   { pass=$((pass+1)); printf '  ok   %s\n' "$1"; }
