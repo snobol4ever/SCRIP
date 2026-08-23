@@ -1,69 +1,31 @@
-# demo/ — Five canonical SNOBOL4 demo programs
+# demo/ — SCRIP demos
 
-All source, includes, and data in one place. These five programs are the
-canonical tracked artifacts for all three backends (ASM, JVM, NET).
+A `.scrip` file is a **polyglot program**: the same task expressed in fenced sections per
+language — ```` ```SNOBOL4 ````, ```` ```Icon ````, and so on — one document, every frontend.
+Each demo directory holds the program and its `.expected` output.
 
-## Programs
+## The ten demos
 
-| Program | Description | Input | Data file |
-|---------|-------------|-------|-----------|
-| `roman.sno` | Roman numeral converter (recursive) | numbers on stdin | — |
-| `wordcount.sno` | Count words in input | text on stdin | `wordcount.input` |
-| `beauty.sno` | SNOBOL4 source beautifier | `.sno` source on stdin | includes from `inc/` |
-| `treebank.sno` | Penn Treebank S-expr parser | S-exprs on stdin | `treebank.ref` (oracle) |
-| `claws5.sno` | CLAWS5 POS corpus tokenizer | CLAWS5-tagged text on stdin | `CLAWS5inTASA.dat` |
+| Dir | Program | Task |
+|---|---|---|
+| `demo01` | `hello` | Hello World |
+| `demo02` | `wordcount` | word counting |
+| `demo03` | `roman` | Roman numerals (recursive digit-strip, after Gimpel) |
+| `demo04` | `palindrome` | palindrome test |
+| `demo05` | `fib` | Fibonacci |
+| `demo06` | `sieve` | prime sieve |
+| `demo07` | `caesar` | Caesar cipher |
+| `demo08` | `sort` | sorting |
+| `demo09` | `rpn` | RPN calculator |
+| `demo10` | `anagram` | anagram finder |
 
-## Layout
+## `family_net/` — the cross-language linkage demo
 
-```
-demo/
-  roman.sno           — recursive Roman numeral conversion
-  wordcount.sno       — word count
-  beauty.sno          — SNOBOL4 beautifier (main)
-  expression.sno      — expression parser (included by beauty.sno)
-  treebank.sno        — Penn Treebank S-expr parser
-  claws5.sno          — CLAWS5 POS tokenizer (inlines stack primitives)
-  wordcount.input     — sample input for wordcount
-  treebank.ref        — oracle output for treebank (CSNOBOL4)
-  CLAWS5inTASA.dat    — TASA corpus input for claws5
-  inc/                — shared SNOBOL4 include library
-    global.sno
-    is.sno
-    FENCE.sno
-    io.sno
-    case.sno
-    stack.sno
-```
+`run.sh` + `family.csv`: **SNOBOL4 parses CSV → Prolog infers → Icon formats** — three
+languages calling each other through real EXPORT/IMPORT linkage. Its compiled artifacts
+were removed with the retired JVM path (s267); the pipeline returns with the JVM template
+encoder. The script is the demo's specification until then.
 
-## Running via CSNOBOL4 oracle
-
-```bash
-INC=demo/inc
-
-# roman — pipe numbers in
-echo "12" | snobol4 -f -I$INC demo/roman.sno
-
-# wordcount
-snobol4 -f -I$INC demo/wordcount.sno < demo/wordcount.input
-
-# beauty (self-beautify)
-snobol4 -f -I/home/claude/corpus/programs/snobol4/demo/beauty /home/claude/corpus/programs/snobol4/demo/beauty/beauty.sno < /home/claude/corpus/programs/snobol4/demo/beauty/beauty.sno
-
-# treebank
-snobol4 -f -I$INC demo/treebank.sno < demo/treebank.ref
-
-# claws5
-snobol4 -f -I$INC demo/claws5.sno < demo/CLAWS5inTASA.dat
-```
-
-## Artifact status (ASM backend)
-
-| Artifact | Path | Status |
-|----------|------|--------|
-| `beauty_prog.s` | `artifacts/asm/beauty_prog.s` | ✅ assembles clean |
-| `roman.s` | `artifacts/asm/samples/roman.s` | ✅ assembles clean |
-| `wordcount.s` | `artifacts/asm/samples/wordcount.s` | ✅ assembles clean |
-| `treebank.s` | `artifacts/asm/samples/treebank.s` | ✅ assembles clean |
-| `claws5.s` | `artifacts/asm/samples/claws5.s` | ⚠️ ~95% (3 undef β labels — NRETURN) |
-
-See RULES.md §ASM ARTIFACTS for the regeneration script.
+History: this folder once also carried the five canonical SNOBOL4 demo programs and
+per-backend artifacts; those live canonically in `corpus/programs/snobol4/` now (full text
+in git history).
