@@ -32,6 +32,7 @@ extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
 static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 extern "C" int emit_defer_carve_rbp(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }
@@ -46,13 +47,16 @@ std::string bb_match_defer() {
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     int vslot = -1; { const char *sv = _.op_sval; if (sv) { const char *d = strstr(sv, "$V"); if (d && d[2] >= '0' && d[2] <= '9') { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } } }
-    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 4096) ? g_emit.sn4_defer_cell_n++ : -1;
+    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;   /* ⛔ 2048 not 4096: the UPPER half of g_sno_defer_cells holds the merged arm's self-validating (key,cell) PAIRS, and a DTP written into one of those words would be read back as a cell address */
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
     int merged = (vslot < 0 && one_defer() && !(g_gva_active && _.op_gva_k >= 0));
     /* ⭐ per-site cell slot for the merged arm, taken from the UPPER half of g_sno_defer_cells so it can never overlap the DTP cache the ci arm writes into the lower half (a shared slot would let one arm read the
        other's word as its own -- the runtime's slot[0]==varname check turns a collision into a harmless miss for US, but our write would corrupt a DTP for THEM, so the ranges are kept disjoint by construction). */
     static int g_defer_site_n; int msite = merged ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
+    static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "g_sno_defer_cells+%d", (2048 + msite * 2) * 8); }
+    const char * pairlbl = msite >= 0 ? pl[pln] : "";
+    uint64_t pairadr = msite >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[2048 + msite * 2] : 0;
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
@@ -143,6 +147,37 @@ std::string bb_match_defer() {
              + x86("mov",  RDQ("rsi", 0), "rdx")
              + x86("def",  L(15))
              + x86("def",  L(11)))
+         + IF(merged && msite >= 0 && defer_inline(),
+               x86("comment", "⭐⭐⭐ THE DEFERRED READ, INLINE, WITH NO CALL AT ALL (hq_P s261).  After the cell cache the remaining cost was not the lookup -- it was the CEREMONY of reaching it: an xfer_enter/leave push-pop of r13/r14/r15, an rtccb save/restore of r8/r9, a PLT call, and a branch chain, ~120 Ir per execution for what is finally 'read a cell, compare one byte'.  This arm does the whole common case in ~18 instructions: confirm the site's cached (key,cell) pair still names THIS baked literal, confirm the value is a one-character string, and compare that character against the subject at the cursor.  ⛔ WHY IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER -- the same argument the PT-3 arm above already relies on: EVERY other case falls through to L30 and the UNCHANGED call.  A cold slot, a different name at a shared slot, a non-string value, a multi-character string, a pattern, an unevaluated expression -- all take the old path untouched.  ⭐ THE REGISTER MAP IS NOT ASSUMED, IT IS VERIFIED: bb_match_break's emitted scan reads 'movzx esi, byte ptr [r13+rcx]' after 'movsxd rcx, r14d' and 'cmp ecx, r15d', so r13 is the subject base, r14d the cursor and r15d the length.  This arm reuses that exact idiom rather than a second guess about which register holds what.")
+             + x86("lea",   "rcx", "[rip + __]", pairadr, pairlbl)
+             + x86("mov",   "rax", RDQ("rcx", 0))
+             + x86("lea",   "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("cmp",   "rax", "rdx")
+             + x86("jne",   L(30))
+             + x86("mov",   "rax", RDQ("rcx", 8))
+             + x86("mov",   "edx", RDD("rax", 0))
+             + x86("and",   "edx", 255L)
+             + x86("cmp",   "edx", (long)DT_S)
+             + x86("jne",   L(30))
+             + x86("mov",   "edx", RDD("rax", 4))
+             + x86("cmp",   "edx", 1L)
+             + x86("jne",   L(30))
+             + x86("movsxd","rcx", "r14d")
+             + x86("cmp",   "ecx", "r15d")
+             + x86("jge",   L(31))
+             + x86("movzx", "esi", "[r13+rcx]")
+             + x86("mov",   "rdi", RDQ("rax", 8))
+             + x86("xor",   "edx", "edx")
+             + x86("movzx", "edi", "[rdi+rdx]")
+             + x86("cmp",   "esi", "edi")
+             + x86("jne",   L(31))
+             + x86("mov",   "edx", "r14d")
+             + x86("add",   "edx", 1L)
+             + x86("jmp",   "L0")
+             + x86("def",   L(31))
+             + x86("mov",   "edx", -1L)
+             + x86("jmp",   "L0")
+             + x86("def",   L(30)))
          + IF(merged,
                x86("comment", "⭐ ONE RESOLUTION, NOT TWO (hq_P s260): this site used to call rt_defer_get_pat_dtp and then, on the not-a-pattern fall-through, rt_defer_run_all -- and BOTH opened by resolving the SAME baked literal through the global name table, back to back, with only a test and a jz between them.  Measured on roman.sno: rt_defer_nv_read'rt_defer_get_pat_dtp and rt_defer_nv_read'rt_defer_run_all at 594,060 Ir EACH -- identical counts -- pushing NV_GET_fn to 19.35% of the whole program with another 5.91% of __strcmp_avx2 under it.  rt_defer_probe_run resolves once and answers both questions in registers: rax=fn (0 => not a pattern, take L0), rdx=dtp when it IS a pattern and the new cursor when it is not.  The string half therefore needs no call at all -- L0 just moves edx into eax.  esi now carries cur_delta where it used to carry a constant-zero ival_flag, which is sound because this is the only arm that reaches here and it always passed 0.")
              + x86_xfer_enter()
