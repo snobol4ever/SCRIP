@@ -26,10 +26,15 @@
 # error was made and caught during this harness's own bring-up.
 #
 # Usage: [REPS=3] [WARM=500] [BUD=1500] bash scripts/bench_icon_rate_3way.sh
-# Oracles: refs/icon-master/bin/{icont,iconx} and refs/jcon-master/bin/{jcont,jcon}.
+# Oracles: icont_bin()/iconx_bin() (shared /home/resources/icon-master/bin) and refs/jcon-master/bin/{jcont,jcon}.
 set -u
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
 R=/home/claude1/SCRIP; SCRIP=$R/scrip; RT=$R/out
-I=$R/refs/icon-master/bin; J=$R/refs/jcon-master/bin
+J=$R/refs/jcon-master/bin
+ICONT_BIN="$(icont_bin)" || exit 2
+iconx_bin >/dev/null || exit 2
+I="$(dirname "$ICONT_BIN")"
 export PATH="$J:$I:$PATH"
 S=${S4E_RATE:-/home/claude1/corpus/benchmarks/icon/rate}
 WARM=${WARM:-500}; BUD=${BUD:-1500}; REPS=${REPS:-3}

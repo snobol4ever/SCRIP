@@ -14,13 +14,17 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/programs/icon"
-ICONT="${ICONT:-$S4A/icon-master/bin/icont}"
-ICONX="${ICONX:-$S4A/icon-master/bin/iconx}"
 
 TIMEOUT="${TIMEOUT:-5}"
 BINARY="${1:-}"
 PASS=0
 FAIL=0
+
+if [[ "$BINARY" == "oracle" ]]; then
+    . "$SCRIPT_DIR/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
+    ICONT="${ICONT:-$(icont_bin)}" || exit 2
+    ICONX="${ICONX:-$(iconx_bin)}" || exit 2
+fi
 
 for icn in "$CORPUS"/rung03_suspend_*.icn; do
     base=$(basename "$icn" .icn)

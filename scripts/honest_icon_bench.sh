@@ -7,15 +7,17 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
 SCRIPDIR="${SCRIPDIR:-$S4A/work/SCRIP}"
 SCRIP="$SCRIPDIR/scrip"
 RTDIR="$SCRIPDIR/out"
-ICONM="${ICONM:-$S4A/work/icon-master/icon-master}"
-ICONT="$ICONM/bin/icont"; ICONX="$ICONM/bin/iconx"
+ICONT="${ICONT:-$(icont_bin)}" || exit 2
+ICONX="${ICONX:-$(iconx_bin)}" || exit 2
 CORPUS_SRC="${CORPUS_SRC:-$S4A/work/corpus/benchmarks/icon}"
 REPS="${REPS:-3}"
 WORK="$(mktemp -d /tmp/honest_bench_XXXXXX)"
-export PATH="$ICONM/bin:$PATH"
+export PATH="$(dirname "$ICONT"):$PATH"
 
 mkdir -p "$WORK/corpus"
 cp "$CORPUS_SRC"/*.icn "$CORPUS_SRC"/*.dat "$WORK/corpus/" 2>/dev/null

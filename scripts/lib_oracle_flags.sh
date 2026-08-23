@@ -124,3 +124,41 @@ sbl_clean_refuse_if_load() {
   echo "⛔ REFUSING: $1 calls LOAD() -- the clean benchmark oracle's LOAD/external-fn support is stock upstream and UNVERIFIED against x64/bin/sbl (see sbl_clean_bin() above). Benchmarking this program against it would silently report a number of unknown validity, not a loud refusal. This is a preserved gap, not a bug for this row to fix. Time it against x64/bin/sbl directly (correctness oracle, sbl_lang_flags) if you must measure a LOAD()-calling program." >&2
   return 1
 }
+
+# ⭐ ICON ORACLE ACCESSORS (row icon-oracle-accessors-shared, added 2026-08-23) -- the same one-
+# authority pattern as the SPITBOL accessors above, extended to the Arizona Icon oracle.  Before
+# this pair existed, this file had ZERO Icon awareness: `grep -rn "icont\|iconx\|icon-master"
+# scripts/*.sh` turns up at least four DIFFERENT hand-assembled roots across Icon board/bench
+# scripts (icon-build, icon-master, work/icon-master/icon-master, refs/icon-master) plus bare
+# `icont`/`iconx` trusted on PATH -- each script guessing independently, most with no existence
+# check at all before use.  A wrong or absent guess is SILENT: the harness prints a full,
+# plausible, entirely FALSE all-FAIL table (the same class sbl_correctness_bin() above exists to
+# prevent), never a loud refusal.
+# ⛔ CALLERS MUST REFUSE, NOT FALL BACK -- same law as every accessor above.  A missing icont/iconx
+# must be LOUD on stderr with a non-zero return, never a silent empty string a caller can string-
+# concat into a broken command line.
+# Canonical shared build (verified executable this session): /home/resources/icon-master/bin/{icont,iconx}.
+# ⭐ NOTE: /home/resources/icon-build/bin/{icont,iconx} is a SEPARATE tree carrying byte-identical
+# binaries (md5 confirmed both files) -- harmless today, but a future rebuild of one and not the
+# other would silently create the exact divergent-shared-oracle hazard the ORACLE-SWAP procedure
+# (ARCH-FLEET-CEO.md) exists to prevent. Not this row's fix; flagged for whoever owns oracle topology.
+icont_bin() {
+    local c="/home/resources/icon-master/bin/icont"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE SHARED ICON ORACLE (icont) IS MISSING: %s\n" "$c" >&2
+        printf "   Grading or timing an Icon harness with it absent prints a full, plausible, entirely false all-FAIL table.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'icont' on PATH -- fix the shared tree, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
+iconx_bin() {
+    local c="/home/resources/icon-master/bin/iconx"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE SHARED ICON ORACLE (iconx) IS MISSING: %s\n" "$c" >&2
+        printf "   Grading or timing an Icon harness with it absent prints a full, plausible, entirely false all-FAIL table.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'iconx' on PATH -- fix the shared tree, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}

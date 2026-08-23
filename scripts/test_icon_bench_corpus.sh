@@ -31,24 +31,29 @@
 #
 # USAGE:
 #   bash scripts/test_icon_bench_corpus.sh              # build if needed, run everything
-#   SKIP_BUILD=1 bash scripts/test_icon_bench_corpus.sh  # assume scrip/libscrip_rt/iconx exist
-#   ICONM=/path/to/icon-master bash scripts/test_icon_bench_corpus.sh   # override icon-master location
+#   SKIP_BUILD=1 bash scripts/test_icon_bench_corpus.sh  # assume scrip/libscrip_rt exist
+#   ICONT=/path/to/icont ICONX=/path/to/iconx bash scripts/test_icon_bench_corpus.sh   # override the oracle
 #
 # Exit: 0 always (this is a report, not a gate) — read the PASS/FAIL counts in the final line.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
 ROOT="$HERE/.."                                    # .../SCRIP
 SCRIP="$ROOT/scrip"
 RTDIR="$ROOT/out"
 CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
-ICONM="${ICONM:-$S4A/icon-master}"          # canonical path per RULES.md/PLAN.md session-start convention
 SKIP_BUILD="${SKIP_BUILD:-0}"
 WORK="$(mktemp -d /tmp/icon_bench_corpus_XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 
 # ---------- 1. build (idempotent — skip anything already present) ----------
+# ⛔ NO AUTO-BUILDING THE ICON ORACLE HERE (dropped under row icon-oracle-accessors-shared): the
+# oracle is a SHARED asset every seat grades against, and rebuilding it from an arbitrary board
+# script mid-fleet is exactly the unannounced-swap hazard the ORACLE-SWAP procedure (ARCH-FLEET-
+# CEO.md) exists to forbid. A missing shared oracle is now a loud refusal (icont_bin/iconx_bin),
+# never a silent from-source rebuild.
 if [ "$SKIP_BUILD" != "1" ]; then
   if [ ! -x "$SCRIP" ]; then
     echo "building scrip ..."; bash "$ROOT/scripts/build_scrip.sh" || { echo "FATAL: scrip build failed"; exit 2; }
@@ -56,17 +61,9 @@ if [ "$SKIP_BUILD" != "1" ]; then
   if [ ! -f "$RTDIR/libscrip_rt.so" ]; then
     echo "building libscrip_rt ..."; ( cd "$ROOT" && make libscrip_rt ) || { echo "FATAL: libscrip_rt build failed"; exit 2; }
   fi
-  if [ ! -x "$ICONM/bin/iconx" ]; then
-    echo "building icon-master (reference oracle) — expected pre-extracted at $ICONM ..."
-    if [ -d "$ICONM" ]; then
-      ( cd "$ICONM" && make Configure name=linux >/dev/null && make Icont ) || { echo "FATAL: icon-master build failed"; exit 2; }
-    else
-      echo "FATAL: $ICONM not found — extract icon-master there first (ICONM=... to override)"; exit 2
-    fi
-  fi
 fi
-ICONT="$ICONM/bin/icont"
-ICONX="$ICONM/bin/iconx"
+ICONT="${ICONT:-$(icont_bin)}" || exit 2
+ICONX="${ICONX:-$(iconx_bin)}" || exit 2
 # JCON (Proebsting/Townsend, Icon->JVM) — optional 4th column when built. TRAPS (see GOAL-ICON-BB.md
 # §ICON BENCHMARK MAP): jcont is #!/bin/sh but uses bashisms (dash dies "Bad substitution") — ALWAYS
 # invoke via `bash`; and it writes ../$name.zip relative paths — ALWAYS run from the source dir with
