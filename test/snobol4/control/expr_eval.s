@@ -261,7 +261,7 @@ FN__PAT$2:
 PAT$2_α_body:
                         push             rbp
                         mov              rbp, rsp
-                        sub              rsp, 120
+                        sub              rsp, 216
                         mov              rcx, qword ptr [rbp + 8]
                         mov              qword ptr [rbp + -8], rcx
                         mov              rcx, qword ptr [rbp + 16]
@@ -270,27 +270,26 @@ PAT$2_α_body:
                         mov              qword ptr [rbp + -32], r12
 #-----------------------------------------------------------------------------------------------------------------------
 n16_match_alternate_α:  mov              r11, 7
-                        sub              rsp, 32
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rbp + -64], r14d
                         lea              rax, [rip + .Lx28_21]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n19_match_defer_α
+                        mov              qword ptr [rbp + -48], rax;          jmp   n19_match_defer_α
 .Lx28_21:               lea              rax, [rip + .Lx28_19]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n17_match_defer_α
+                        mov              qword ptr [rbp + -48], rax;          jmp   n17_match_defer_α
 n16_match_alternate_s0: mov              r11, 7
                         lea              rax, [rip + .Lx28_40]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n16_match_alternate_as
+                        mov              qword ptr [rbp + -56], rax;          jmp   n16_match_alternate_as
 n16_match_alternate_s1: mov              r11, 7
                         lea              rax, [rip + .Lx28_41]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n16_match_alternate_as
+                        mov              qword ptr [rbp + -56], rax;          jmp   n16_match_alternate_as
 .Lx28_40:                                                                     jmp   n22_match_alternate_β
 .Lx28_41:                                                                     jmp   n18_match_defer_β
 n16_match_alternate_as: mov              r11, 7;                              jmp   PAT$2_γ
 n16_match_alternate_β:  mov              r11, 7
-                        mov              rax, qword ptr [rsp + 8];            jmp   rax
+                        mov              rax, qword ptr [rbp + -56];          jmp   rax
 n16_match_alternate_af: mov              r11, 7
-                        mov              r14d, dword ptr [rsp + 0]
-                        mov              rax, qword ptr [rsp + 16];           jmp   rax
-.Lx28_19:               add              rsp, 32;                             jmp   PAT$2_ω
+                        mov              r14d, dword ptr [rbp + -64]
+                        mov              rax, qword ptr [rbp + -48];          jmp   rax
+.Lx28_19:                                                                     jmp   PAT$2_ω
 #-----------------------------------------------------------------------------------------------------------------------
 n17_match_defer_α:      mov              r11, 8
                         mov              rdi, qword ptr [rbp + -24]
@@ -484,50 +483,48 @@ n20_match_lit_β:        mov              r11, 11
                         sub              r14d, 1;                             jmp   n19_match_defer_β
 #-----------------------------------------------------------------------------------------------------------------------
 n21_match_alternate_α:  mov              r11, 12
-                        sub              rsp, 32
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rbp + -96], r14d
                         lea              rax, [rip + .Lx35_21]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n26_match_defer_α
+                        mov              qword ptr [rbp + -80], rax;          jmp   n26_match_defer_α
 .Lx35_21:               lea              rax, [rip + .Lx35_19]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n25_match_defer_α
+                        mov              qword ptr [rbp + -80], rax;          jmp   n25_match_defer_α
 n21_match_alternate_s0: mov              r11, 12
                         lea              rax, [rip + .Lx35_40]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n21_match_alternate_as
+                        mov              qword ptr [rbp + -88], rax;          jmp   n21_match_alternate_as
 n21_match_alternate_s1: mov              r11, 12
                         lea              rax, [rip + .Lx35_41]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n21_match_alternate_as
+                        mov              qword ptr [rbp + -88], rax;          jmp   n21_match_alternate_as
 .Lx35_40:                                                                     jmp   n26_match_defer_β
 .Lx35_41:                                                                     jmp   n25_match_defer_β
 n21_match_alternate_as: mov              r11, 12;                             jmp   n22_match_alternate_α
 n21_match_alternate_β:  mov              r11, 12
-                        mov              rax, qword ptr [rsp + 8];            jmp   rax
+                        mov              rax, qword ptr [rbp + -88];          jmp   rax
 n21_match_alternate_af: mov              r11, 12
-                        mov              r14d, dword ptr [rsp + 0]
-                        mov              rax, qword ptr [rsp + 16];           jmp   rax
-.Lx35_19:               add              rsp, 32;                             jmp   n20_match_lit_β
+                        mov              r14d, dword ptr [rbp + -96]
+                        mov              rax, qword ptr [rbp + -80];          jmp   rax
+.Lx35_19:                                                                     jmp   n20_match_lit_β
 #-----------------------------------------------------------------------------------------------------------------------
 n22_match_alternate_α:  mov              r11, 13
-                        sub              rsp, 32
-                        mov              dword ptr [rsp + 0], r14d
+                        mov              dword ptr [rbp + -160], r14d
                         lea              rax, [rip + .Lx37_21]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n24_match_defer_α
+                        mov              qword ptr [rbp + -144], rax;         jmp   n24_match_defer_α
 .Lx37_21:               lea              rax, [rip + .Lx37_19]
-                        mov              qword ptr [rsp + 16], rax;           jmp   n23_match_defer_α
+                        mov              qword ptr [rbp + -144], rax;         jmp   n23_match_defer_α
 n22_match_alternate_s0: mov              r11, 13
                         lea              rax, [rip + .Lx37_40]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n22_match_alternate_as
+                        mov              qword ptr [rbp + -152], rax;         jmp   n22_match_alternate_as
 n22_match_alternate_s1: mov              r11, 13
                         lea              rax, [rip + .Lx37_41]
-                        mov              qword ptr [rsp + 8], rax;            jmp   n22_match_alternate_as
+                        mov              qword ptr [rbp + -152], rax;         jmp   n22_match_alternate_as
 .Lx37_40:                                                                     jmp   n24_match_defer_β
 .Lx37_41:                                                                     jmp   n23_match_defer_β
 n22_match_alternate_as: mov              r11, 13;                             jmp   n16_match_alternate_s0
 n22_match_alternate_β:  mov              r11, 13
-                        mov              rax, qword ptr [rsp + 8];            jmp   rax
+                        mov              rax, qword ptr [rbp + -152];         jmp   rax
 n22_match_alternate_af: mov              r11, 13
-                        mov              r14d, dword ptr [rsp + 0]
-                        mov              rax, qword ptr [rsp + 16];           jmp   rax
-.Lx37_19:               add              rsp, 32;                             jmp   n21_match_alternate_β
+                        mov              r14d, dword ptr [rbp + -160]
+                        mov              rax, qword ptr [rbp + -144];         jmp   rax
+.Lx37_19:                                                                     jmp   n21_match_alternate_β
 #-----------------------------------------------------------------------------------------------------------------------
 n23_match_defer_α:      mov              r11, 14
                         mov              rdi, qword ptr [rbp + -24]
@@ -774,7 +771,7 @@ PAT$2_res:
                         add              rsp, 32
 #-----------------------------------------------------------------------------------------------------------------------
 PAT$2_β:
-                                                                              jmp   PAT$2_ω
+                                                                              jmp   n16_match_alternate_β
 #-----------------------------------------------------------------------------------------------------------------------
 PAT$2_γ:
                         mov              rcx, qword ptr [rbp + -16]
