@@ -3,6 +3,9 @@
 #include "core.h"
 #include "sil_macros.h"
 #include <string.h>
+/* Forward declarations: table_new sits above the hash/bucket machinery in this file and needs its sizing helpers. */
+static unsigned  _tbl_nbuck_for(int init);
+static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 static long g_agg_list_ser = 1;
 static long g_agg_table_ser = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -77,21 +80,34 @@ void array_set2(ARBLK_t *a, int i, int j, DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static TBBUCK_t **_tbl_vec_new(unsigned nb) {
+    TBBUCK_t **v = rt_gcheap_alloc(HB_AGGB, (unsigned long long)nb * sizeof(TBBUCK_t *));
+    memset(v, 0, (size_t)nb * sizeof(TBBUCK_t *));
+    return v;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void) {
-    TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
-    memset(t->buckets, 0, sizeof(t->buckets));   /*⭐ s262: a zeroed TBBUCK_t IS the empty bucket -- {slot=0,len=0,cap=0} -- so the bulk clear survives the chain-to-array change unchanged */
+    TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));   /*⭐ s262: a zeroed TBBUCK_t IS the empty bucket -- {slot=0,len=0,cap=0} -- so the bulk clear survives the chain-to-array change unchanged */
     t->id   = g_agg_table_ser++;
     t->size = 0;
     t->init = 11;
     t->inc  = 10;
     t->is_set = 0;
+    t->nbuck = _tbl_nbuck_for(t->init);
+    t->buckets = _tbl_vec_new(t->nbuck);
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⛔ inc IS ACCEPTED AND IGNORED, DELIBERATELY AND ON THE ORACLE'S AUTHORITY: SPITBOL manual sec 4214 -- "Arg2 is just there for
+  compatibility with other versions of SNOBOL; it is ignored by SPITBOL".  It is stored so PROTOTYPE can report it, never consulted for sizing. */
 TBBLK_t *table_new_args(int init, int inc) {
     TBBLK_t *t = table_new();
-    if (init > 0) t->init = init;
     if (inc  > 0) t->inc  = inc;
+    if (init > 0) {
+        t->init  = init;
+        unsigned nb = _tbl_nbuck_for(init);
+        if (nb != t->nbuck) { t->nbuck = nb; t->buckets = _tbl_vec_new(nb); }   /* empty table: nothing to move */
+    }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -169,9 +185,18 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(cons
 /* DT_S -- STREAMING, BECAUSE THE KEY IS N BYTES AND NOT A WORD.  djb2 (h*33 ^ byte) over the bytes: shift-add-xor per byte, no multiply in the loop, which is what
    makes it the right shape for the inlined ASM arm.  ⛔ djb2's own low bits are weak for SHORT keys -- 'a', 'b', 'c' differ only in the bottom bits -- and short
    keys are exactly what SNOBOL4 programs use, so the accumulator gets ONE finishing multiply to drive that difference up into the high half before the >> 8. */
+/*⛔⛔ COUNTED, NEVER NUL-TERMINATED (Lon, 2026-08-23 s263): *"Using any C function to manipulate strings is INVALID since the NUL character problem."*
+  A SNOBOL4 string may CONTAIN CHAR(0) -- it is a counted string, and its length is the only thing that says where it ends.  This arm used to walk until *p == 0,
+  which meant 'a' CHAR(0) 'b' and 'a' CHAR(0) 'c' hashed IDENTICALLY, and the equality arm below used strcmp, which called them EQUAL.  Two distinct keys silently
+  collapsing into one table entry is a wrong ANSWER, not a slow one.  Both arms are length-driven now and they agree by construction.
+  ⛔ THE slen == 0 FALLBACK IS THE CODEBASE'S BUG, NOT THIS FILE'S, AND IT IS DELIBERATELY LEFT VISIBLE.  `slen ? slen : strlen(s)` is the idiom everywhere in the
+  runtime (rt_runtime.c:77, pattern_match.c:54, string_builtins.c:50, ...), so a descriptor that never got its length stamped still truncates here.  Hashing and
+  equality use the SAME length, so the table stays self-consistent either way -- it can lose a distinction the descriptor already lost, never invent one.  The
+  real cure is that every DT_S descriptor carries slen; that is a runtime-wide sweep and it is routed to hq_C. */
+static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return k->slen ? k->slen : (k->s ? (unsigned)strlen(k->s) : 0u); }
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_str(const DESCR_t *k) {
-    unsigned long long h = 5381ull; const unsigned char *p = (const unsigned char *)(k->s ? k->s : "");
-    while (*p) h = h * 33ull ^ (unsigned long long)*p++;
+    unsigned long long h = 5381ull; const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = _tbl_slen(k);
+    while (n--) h = h * 33ull ^ (unsigned long long)*p++;
     return (h * 0x9E3779B97F4A7C15ull) >> 8;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -239,14 +264,40 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_hkey(DESCR_
     return ((unsigned long long)k.v << 56) | (_tbl_hval(&k) & 0x00FFFFFFFFFFFFFFull);   /*⭐ NO SHARED POST-MIX: each per-datatype algorithm already returned a finished 56-bit hash.  All this adds is the tag byte on top. */
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define TBL_BUCKET_OF(h_) ((unsigned)(h_) & (unsigned)(TABLE_BUCKETS - 1))
+/*⭐⭐⭐ THE BUCKET COUNT COMES FROM THE PROGRAM'S OWN TABLE(n) (hq_P s263, on Lon's prompt to go look at what that argument actually means).
+  ⛔ WHAT IT MEANS, CHECKED AGAINST BOTH ORACLES RATHER THAN ASSUMED.  SPITBOL manual v3.7 sec 4208-4219 and 4536-4538: TABLE(Arg1,Arg2,Arg3) -- "Arg1 is the
+  estimated size... The number you specify is NOT A LIMIT on the size of the table -- it just sets aside an initial amount of memory", "Arg2 is just there for
+  compatibility with other versions of SNOBOL; IT IS IGNORED BY SPITBOL", Arg3 is the default entry value.  CSNOBOL4's snobol4func(1) agrees: "optional initial
+  size n".  So Arg1 is an ESTIMATED ENTRY COUNT.  It is NOT a bucket count and NOT a ceiling -- TABLE(10) must still hold ten thousand entries correctly.
+  ⛔ SCRIP WAS IGNORING IT FOR SIZING AND GAVE EVERY TABLE 256 BUCKETS.  That is a 2 KB pointer vector cleared per TABLE(), free for one big table and ruinous for a
+  program that builds thousands of small ones -- CLAWS5 is exactly that program (a TABLE per number, and a TABLE per word inside it), and it was paying +17%
+  cache-misses against the chained original for vectors that were 99% empty.
+  ⭐ SO: nbuck is a power of two derived from init, aimed at ~2 entries per bucket, floored at 4 and capped so a wild estimate cannot allocate the world.  And
+  because Arg1 is an ESTIMATE rather than a limit, the table REHASHES when it outgrows it (_tbl_rehash).  A wrong estimate costs a rehash, never correctness. */
+static unsigned _tbl_nbuck_for(int init) {
+    unsigned want = (init > 0) ? (unsigned)init / 2u : 4u, nb = 4u;
+    while (nb < want && nb < 65536u) nb <<= 1;
+    return nb;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define TBL_BUCKET_OF(t_, h_) ((unsigned)(h_) & ((t_)->nbuck - 1u))
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Datatype first, then value.  Reached only for candidates whose FULL 64-bit hkey already matched, so it is the genuine-collision arm, not the hot path. */
 static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DESCR_t k) {
     if (e->key_descr.v != k.v) return 0;
     switch (k.v) {
         case DT_SNUL: return 1;
-        case DT_S:    return e->key_descr.s && k.s && strcmp(e->key_descr.s, k.s) == 0;
+        /*⭐ LENGTH FIRST, THEN memcmp -- NEVER strcmp.  A DESCR_t already carries slen, so a length compare rejects a
+           mismatch without touching a single byte, and a match then costs a LENGTH-BOUNDED memcmp instead of a scan
+           that has to hunt for the NUL.  __strcmp_avx2 was 5.4% of CLAWS5, a string-keyed program, entirely from
+           this arm.  ⛔ slen == 0 is ambiguous in SCRIP (it can mean "empty" or "not stamped, use strlen"), so a
+           zero on EITHER side falls back to strcmp rather than guessing -- the fast path is only taken when both
+           lengths are known.  Identical pointers short-circuit both. */
+        case DT_S:    { const char *a = e->key_descr.s, *b = k.s; unsigned la, lb;
+                        if (a == b) return 1;
+                        if (!a || !b) return 0;
+                        la = _tbl_slen(&e->key_descr); lb = _tbl_slen(&k);
+                        return la == lb && memcmp(a, b, (size_t)la) == 0; }   /* length first: rejects without touching a byte, and memcmp is NUL-clean where strcmp was not */
         case DT_I:    return e->key_descr.i == k.i;
         case DT_R:    { union { double d; unsigned long long u; } a, b; a.d = e->key_descr.r; b.d = k.r; return a.u == b.u; }
         case DT_A:    return e->key_descr.arr == k.arr;
@@ -264,6 +315,7 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
   ⭐ THE SORTED INVARIANT PAYS FOR BOTH ARMS: the linear arm stops at the first hkey past the target instead of walking the whole bucket, so even the small-bucket
   case reads about half the entries a chain did on a miss.  MEASURED at fixed work (200 rebuilds x 500 int keys, callgrind Ir, RT_OPT=-O0). */
 #define TBL_LINEAR_MAX 12u
+#define TBL_LOAD_MAX    4u   /* average entries per bucket before the vector doubles; 4 keeps every bucket inside the linear-scan window */
 static inline __attribute__((always_inline)) unsigned _tbl_lower(const TBPAIR_t *en, unsigned n, unsigned long long h) {
     if (n <= TBL_LINEAR_MAX) { const TBPAIR_t *p = en, *e = en + n; while (p < e && p->hkey < h) p++; return (unsigned)(p - en); }
     { unsigned lo = 0;
@@ -276,7 +328,7 @@ static inline __attribute__((always_inline)) unsigned _tbl_lower(const TBPAIR_t 
   costs 64 KB of arena the GC then sweeps every cycle, and the binary search does not care whether the array grew geometrically. */
 static TBBUCK_t *_tbl_grow(TBBLK_t *tbl, TBBUCK_t *b) {
     unsigned nc;
-    if (!b)                 { int hint = tbl->init / TABLE_BUCKETS; nc = 1u; while (nc < (unsigned)hint && nc < 64u) nc <<= 1; }
+    if (!b)                 { int hint = tbl->init / (int)tbl->nbuck; nc = 1u; while (nc < (unsigned)hint && nc < 64u) nc <<= 1; }
     else if (b->cap < 128u) nc = b->cap * 2u;
     else                    nc = b->cap + 128u;
     TBBUCK_t *nb = rt_gcheap_alloc(HB_AGGB, (unsigned long long)(sizeof(TBBUCK_t) + (size_t)nc * sizeof(TBPAIR_t)));   /*⛔ HB_AGGB, NOT rt_agg_alloc.  Every rt_agg_alloc kind is a type the GC sweep CASTS -- kind 0 is read back as a VCELL_t, kind 1 as a SINGLE TBPAIR_t, kind 2 as a TBBLK_t -- and a bucket is an ARRAY of entries, which none of those three describe. */
@@ -295,7 +347,7 @@ const char *tbl_pair_key(TBPAIR_t *e) {
 TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {   /*⭐ THE C OF RECORD.  rtx_table.S owns the exported symbol table_find_pair_d and tail-jumps here when its gate is clear or the key's datatype lazily assigns a serial id (DT_A/DT_T/DT_DATA -- file-static counters, and NO-NEW-GLOBALS forbids exporting them without a grant). */
     if (!tbl) return (TBPAIR_t *)0;
     unsigned long long h = _tbl_hkey(k);
-    TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(h)];
+    TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return (TBPAIR_t *)0;
     { const TBPAIR_t *p = b->ent + _tbl_lower(b->ent, b->len, h), *e = b->ent + b->len;   /* pointer walk: the equal-hkey run is ~1 long, and a pointer bump beats recomputing i*48 per step */
       for (; p < e && p->hkey == h; p++) if (_tbl_eq_d(p, k)) return (TBPAIR_t *)p; }
@@ -310,11 +362,36 @@ int     table_has_d(TBBLK_t *tbl, DESCR_t k) { return table_find_pair_d(tbl, k) 
 int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     if (!tbl) return 0;
     unsigned long long h = _tbl_hkey(k);
-    TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(h)];
+    TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return 0;
     for (unsigned i = _tbl_lower(b->ent, b->len, h); i < b->len && b->ent[i].hkey == h; i++)
         if (_tbl_eq_d(&b->ent[i], k)) { memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t)); b->len--; tbl->size--; return 1; }
     return 0;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐⭐ REHASH -- WHAT MAKES TABLE(n) AN ESTIMATE RATHER THAN A LIMIT.  SPITBOL is explicit that n "is not a limit on the size of the table", so a table handed a bad
+  estimate must degrade in SPEED, never in correctness.  When the average bucket passes TBL_LOAD_MAX entries the vector doubles and every entry is redistributed.
+  ⭐ AND IT NEVER RE-HASHES A KEY.  hkey is stored in the entry, so redistribution is a mask against the new width -- no per-key hash, no strcmp, no datatype
+  dispatch, and no touching of the key at all.  That is the second time storing the hash pays for its 8 bytes (the first is the sorted binary search).
+  ⛔ Entries move here, which is exactly why nothing may hold an address into a bucket -- see the ⭐⭐ block in core.h. */
+static void _tbl_rehash(TBBLK_t *tbl) {
+    unsigned old_n = tbl->nbuck, nb = old_n << 1;
+    if (!nb || nb > 1u << 22) return;                       /* refuse to grow past sanity; the table still works, just deeper buckets */
+    TBBUCK_t **ov = tbl->buckets, **nv = _tbl_vec_new(nb);
+    tbl->buckets = nv; tbl->nbuck = nb;
+    for (unsigned b = 0; b < old_n; b++) {
+        TBBUCK_t *ob = ov[b];
+        if (!ob) continue;
+        for (unsigned i = 0; i < ob->len; i++) {
+            TBPAIR_t *e = &ob->ent[i];
+            unsigned  nbi = (unsigned)e->hkey & (nb - 1u);
+            TBBUCK_t *nbk = nv[nbi];
+            if (!nbk || nbk->len == nbk->cap) { nbk = _tbl_grow(tbl, nbk); nv[nbi] = nbk; }
+            unsigned j = _tbl_lower(nbk->ent, nbk->len, e->hkey);   /* the old bucket is sorted, but two old buckets interleave into one new one */
+            if (j < nbk->len) memmove(&nbk->ent[j + 1], &nbk->ent[j], (size_t)(nbk->len - j) * sizeof(TBPAIR_t));
+            nbk->ent[j] = *e; nbk->len++;
+        }
+    }
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*⭐ INSERT KEEPS THE BUCKET SORTED.  Overwrite in place on a hit (no growth, no move); otherwise open a hole at the end of the equal-hkey run and drop the slot in.
@@ -326,7 +403,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (!tbl) return;
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     unsigned long long h = _tbl_hkey(k);
-    unsigned bi = TBL_BUCKET_OF(h);
+    unsigned bi = TBL_BUCKET_OF(tbl, h);
     TBBUCK_t *b = tbl->buckets[bi];
     unsigned i = b ? _tbl_lower(b->ent, b->len, h) : 0u;
     if (b) for (; i < b->len && b->ent[i].hkey == h; i++)
@@ -335,6 +412,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));   /* i == len is the common case (a fresh hkey past every sibling) and costs no move at all */
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }   /*⭐ key stays NULL -- tbl_pair_key() mints it if anyone ever asks */
     b->len++; tbl->size++;
+    if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*⭐ THE STRING-KEYED LOOKUPS ARE DELETED (s262).  table_get / table_get_found / table_has / table_delete / table_find_pair / table_set_descr / table_set_descr_keyown

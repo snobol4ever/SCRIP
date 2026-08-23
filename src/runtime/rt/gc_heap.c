@@ -418,7 +418,9 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
   with zero pins anywhere. */
     gc_mark_agg(t);
     rt_gc_visit_descr(&t->dflt);
-    for (int b = 0; b < TABLE_BUCKETS; b++) {
+    if (!t->buckets) return;
+    rt_gc_visit_raw((const char **)&t->buckets);   /*⭐ the bucket VECTOR is its own block now (sized from TABLE(n)); register its location so the slide repairs it */
+    for (unsigned b = 0; b < t->nbuck; b++) {
         TBBUCK_t *bk = t->buckets[b];
         if (!bk) continue;
         rt_gc_visit_raw((const char **)&t->buckets[b]);   /*⭐ DOWNSTREAM AND SLIDABLE (Lon s262): register the LOCATION so the slide rewrites it -- never pin the block so it cannot move */

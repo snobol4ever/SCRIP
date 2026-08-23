@@ -160,7 +160,8 @@ typedef struct _TBBUCK_t { unsigned len, cap; TBPAIR_t ent[]; } TBBUCK_t;
   Ir at fixed work was the only instrument that could answer, which is what RULES.md says to reach for first. */
 #define TABLE_BUCKETS 256
 typedef struct _TBBLK_t {
-    TBBUCK_t      *buckets[TABLE_BUCKETS];
+    TBBUCK_t     **buckets;   /*⭐ SIZED FROM THE PROGRAM'S OWN TABLE(n), not a fixed 256 -- see the ⭐⭐ block above TABLE_BUCKETS */
+    unsigned       nbuck;     /* power of two, always; TBL_BUCKET_OF masks with nbuck-1 */
     int            size;
     int            init, inc;
     int            is_set;
@@ -170,7 +171,7 @@ typedef struct _TBBLK_t {
 /*⭐ THE ONLY SANCTIONED WALKS.  A bucket is {slot,len,cap}, never a chain -- `for (e = t->buckets[b]; e; e = e->next)`
   no longer compiles, which is deliberate: it is how every one of the twelve former chain walks was found.  Entries
   are dense in slot[0..len-1] (delete compacts), so the null test doubles as the loop bound.  Caller declares e_. */
-#define TBL_FOREACH(t_, e_)            for (int _tb = 0; _tb < TABLE_BUCKETS; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
+#define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 #define TBL_BUCKET_FOREACH(t_, b_, e_) if ((t_)->buckets[b_]) for (unsigned _ts = 0; _ts < (t_)->buckets[b_]->len && ((e_) = &(t_)->buckets[b_]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);

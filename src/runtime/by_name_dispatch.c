@@ -6444,7 +6444,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_key) && nargs == 1) {
         DESCR_t td = args[0];
         if (td.v != DT_T || !td.tbl) { *out=FAILDESCR; return 1; }
-        for (int _bi=0;_bi<TABLE_BUCKETS;_bi++)
+        for (unsigned _bi=0;_bi<td.tbl->nbuck;_bi++)
             if (td.tbl->buckets[_bi] && td.tbl->buckets[_bi]->len) {
                 *out = td.tbl->buckets[_bi]->ent[0].key_descr; return 1;
             }

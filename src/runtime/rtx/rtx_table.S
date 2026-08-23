@@ -50,6 +50,7 @@
  * bucket vector is at offset ZERO. ⛔ A BUCKET IS 16 BYTES, NOT 8: it was a bare
  * chain pointer until s262 and is now {TBPAIR_t *ent; unsigned len, cap}. */
 #define TBPAIR_KEYD_V     8       /* key_descr.v    (uint8)         */
+#define TBPAIR_KEYD_SLEN 12       /* key_descr.slen (uint32)        */
 #define TBPAIR_KEYD_VAL  16       /* key_descr value union          */
 #define TBPAIR_HKEY      40       /* hkey           (u64, sort key) */
 #define TBPAIR_SIZE      48
@@ -63,7 +64,14 @@
 #define TBBUCK_LEN        0       /* TBBUCK_t.len   (unsigned)      */
 #define TBBUCK_CAP        4       /* TBBUCK_t.cap   (unsigned)      */
 #define TBBUCK_ENT        8       /* TBBUCK_t.ent[] (TBPAIR_t [])   */
-#define TBL_BUCKET_MASK 255       /* TABLE_BUCKETS-1, core.h; the assert pins the power of two */
+/* ⛔ THE BUCKET COUNT IS NO LONGER A COMPILE-TIME CONSTANT.  It is sized per table
+ * from the program's own TABLE(n) estimate (SPITBOL: Arg1 is the estimated entry
+ * count, not a limit and not a bucket count), so the mask is LOADED from the
+ * table, never baked here.  A literal 255 was correct only while every table had
+ * 256 buckets, and it would silently select the wrong bucket for every other
+ * width -- the same class of bug as the old `movzx eax,al` fold it replaced. */
+#define TBBLK_BUCKETS     0       /* TBBLK_t.buckets (TBBUCK_t **)  */
+#define TBBLK_NBUCK       8       /* TBBLK_t.nbuck   (unsigned, pow2) */
 #define TBL_LINEAR_MAX   12       /* aggregates.c _tbl_lower crossover */
 
 RTX_GATE_DEF(table)
@@ -151,21 +159,42 @@ RTX_FUNC(table_find_pair_d)
  * shape to inline here. ⛔ djb2's own low bits are weak for SHORT keys -- 'a','b','c'
  * differ only at the bottom -- and short keys are exactly what SNOBOL4 uses, so the
  * accumulator gets ONE finishing multiply to drive that difference up top. */
+/* ⛔⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263). A SNOBOL4 string may CONTAIN
+ * CHAR(0). This loop used to walk until *p == 0, which hashed 'a' CHAR(0) 'b'
+ * and 'a' CHAR(0) 'c' to the SAME bucket, and the compare below then called them
+ * EQUAL -- two distinct keys collapsing into one entry, a wrong ANSWER. Both are
+ * length-driven now, and the length comes from the descriptor's slen, matching
+ * aggregates.c _tbl_slen byte for byte including its strlen fallback when slen
+ * is unstamped (that fallback is the runtime's bug, not this file's; routed). */
 .Ltf_h_str:
     mov     r11, 5381
     test    rdx, rdx
     je      .Ltf_str_fin                    /* NULL reads as "" -- C substitutes it */
     mov     r8, rdx
+    mov     rcx, rsi
+    shr     rcx, 32                         /* k.slen, the counted length           */
+    test    ecx, ecx
+    jne     .Ltf_str_loop
+    mov     r9, rdx                         /* slen unstamped: strlen fallback, so   */
+.Ltf_str_scan:                              /*   ASM and C lose the same distinction */
+    cmp     byte ptr [r9], 0
+    je      .Ltf_str_scand
+    inc     r9
+    jmp     .Ltf_str_scan
+.Ltf_str_scand:
+    mov     rcx, r9
+    sub     rcx, rdx
 .Ltf_str_loop:
-    movzx   ecx, byte ptr [r8]
-    test    cl, cl
+    test    ecx, ecx
     je      .Ltf_str_fin
+    movzx   eax, byte ptr [r8]
     mov     r9, r11
     shl     r9, 5
     add     r9, r11                         /* h * 33 == (h << 5) + h              */
-    xor     r9, rcx
+    xor     r9, rax
     mov     r11, r9
     inc     r8
+    dec     ecx
     jmp     .Ltf_str_loop
 .Ltf_str_fin:
     mov     rcx, 0x9E3779B97F4A7C15
@@ -182,9 +211,11 @@ RTX_FUNC(table_find_pair_d)
     mov     rcx, 0x00FFFFFFFFFFFFFF
     and     r11, rcx
     or      r11, rax                        /* r11 = hkey                          */
-    mov     ecx, r11d
-    and     ecx, TBL_BUCKET_MASK
-    mov     rcx, [rdi + rcx*8]              /* b = tbl->buckets[i]; buckets at off 0 */
+    mov     eax, [rdi + TBBLK_NBUCK]        /* nbuck, always a power of two          */
+    dec     eax                             /* mask                                   */
+    and     eax, r11d                       /* bucket = hkey & (nbuck-1)              */
+    mov     rcx, [rdi + TBBLK_BUCKETS]      /* the vector, its own block              */
+    mov     rcx, [rcx + rax*8]              /* b = buckets[bucket]                    */
     test    rcx, rcx
     je      .Ltf_null                       /* NULL bucket == empty, no block at all  */
     lea     r8, [rcx + TBBUCK_ENT]          /* ent                                    */
@@ -264,23 +295,59 @@ RTX_FUNC(table_find_pair_d)
 
 /* --- DT_S equality: strcmp, and the null guards are the C's, kept exactly
  * (`e->key_descr.s && k.s && strcmp(...) == 0`). */
+/* --- DT_S equality: LENGTH FIRST, then bytes. Never a NUL-terminated compare.
+ * A length mismatch rejects without touching a byte, and an equal length then
+ * compares exactly that many bytes -- so an embedded CHAR(0) is just data. */
 .Ltf_eq_str:
-    mov     rax, [r10 + TBPAIR_KEYD_VAL]
+    mov     rax, [r10 + TBPAIR_KEYD_VAL]    /* e->key_descr.s                        */
     test    rax, rax
     je      .Ltf_next
     test    rdi, rdi
     je      .Ltf_next
-    mov     rcx, rdi
+    cmp     rax, rdi
+    je      .Ltf_hit                        /* same bytes, trivially equal           */
+    mov     edx, [r10 + TBPAIR_KEYD_SLEN]   /* e length                              */
+    test    edx, edx
+    jne     .Ltf_eq_klen
+    mov     r8, rax                         /* unstamped: strlen fallback, as in C   */
+.Ltf_eq_escan:
+    cmp     byte ptr [r8], 0
+    je      .Ltf_eq_escand
+    inc     r8
+    jmp     .Ltf_eq_escan
+.Ltf_eq_escand:
+    mov     rdx, r8
+    sub     rdx, rax
+.Ltf_eq_klen:
+    mov     rcx, rsi
+    shr     rcx, 32                         /* k length                              */
+    test    ecx, ecx
+    jne     .Ltf_eq_cmplen
+    mov     r8, rdi
+.Ltf_eq_kscan:
+    cmp     byte ptr [r8], 0
+    je      .Ltf_eq_kscand
+    inc     r8
+    jmp     .Ltf_eq_kscan
+.Ltf_eq_kscand:
+    mov     rcx, r8
+    sub     rcx, rdi
+.Ltf_eq_cmplen:
+    cmp     edx, ecx
+    jne     .Ltf_next                       /* different lengths => different keys    */
+    test    ecx, ecx
+    je      .Ltf_hit                        /* both empty                             */
+    mov     r8, rdi
 .Ltf_scmp:
     movzx   edx, byte ptr [rax]
-    movzx   r8d, byte ptr [rcx]
-    cmp     dl, r8b
+    movzx   r9d, byte ptr [r8]
+    cmp     dl, r9b
     jne     .Ltf_next
-    test    dl, dl
-    je      .Ltf_hit                        /* both hit NUL together == strcmp 0     */
     inc     rax
-    inc     rcx
-    jmp     .Ltf_scmp
+    inc     r8
+    dec     ecx
+    jne     .Ltf_scmp
+    jmp     .Ltf_hit
 
 .Ltf_hit:
     mov     rax, r10
