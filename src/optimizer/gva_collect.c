@@ -5,6 +5,8 @@ static const char **g_gva_names = NULL;
 static int g_gva_n = 0;
 static int g_gva_max = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int is_protected_pat_name(const char *name);
+/* ⛔ PROTECTED PATTERN NAMES ARE REFUSED ADMISSION TO THE GVA ISLAND (hq_C s261, lead from hq_P s262).  A GVA-eligible name is stored with a direct cell write (mov [r9+N], rax) that NEVER CALLS NV_SET_fn, so EVERY name-based guard living inside NV_SET_fn is bypassed for it -- core.c:2308's protected-variable refusal (ERROR 042) among them, which let `ARB = 1` land silently and the program run on.  Refusing here rather than at the three gva_collect_var call sites is deliberate: this predicate is the single admission funnel, and a per-call-site filter is the shape RULES.md forbids.  It sits beside the existing exclusion list for the same reason those names are there -- their stores must stay on the guarded path.  ⛔ NOT a compile-time refusal, and it must not become one: measured against x64/bin/sbl -bf, SPITBOL prints the program's earlier output and THEN raises 042 at RUN time (in statement 2, stmts executed 2), so the store must still be reached and refused during execution -- which is exactly what routing it back through NV_SET_fn does, at zero fast-path cost. */
 int gva_name_eligible(const char *name) {
     if (!name || !name[0]) return 0;
     if (name[0] == '&') return 0;
@@ -12,6 +14,7 @@ int gva_name_eligible(const char *name) {
                                    "FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE",
                                    "FATALLIMIT","PARM","PI", (const char *)0 };
     for (int i = 0; excl[i]; i++) if (strcmp(name, excl[i]) == 0) return 0;
+    if (is_protected_pat_name(name)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
