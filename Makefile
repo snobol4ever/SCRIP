@@ -47,7 +47,7 @@ NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(SRC)/backends/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
-.PHONY: all scrip setup pristine \
+.PHONY: all scrip setup pristine pristine-all buildinfo FORCE \
         test test-ir test-all \
         native codegen-emit-test \
         monitor-ipc \
@@ -59,9 +59,32 @@ SCRIP_CC_BIN := $(ROOT)/scrip
 
 all: scrip
 
-pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT): wipe THIS tree's objdir + out, rebuild everything. Supersedes the hand-typed `rm -rf /tmp/si_objs out && make`.
-	rm -rf $(OBJ) $(ROOT)/out
+pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now SCOPED TO THIS CONFIGURATION.
+	# ⭐ WHY SCOPED IS STILL PRISTINE (Lon s258): it wipes every object THIS build can possibly link --
+	# the compiler objdir, this RT_TAG's runtime objects, this tag's .so, the canonical symlink, and the
+	# binary. Other tags live in directories this configuration never reads, so they cannot contaminate a
+	# verdict; they are a cache, not state. That is what lets an -O2 gate run stop costing 9m30 every time.
+	# Use `make pristine-all` for the old wipe-everything behaviour.
+	# ⛔ AND IT NOW REMOVES ./scrip, WHICH THE OLD RECIPE DID NOT: `rm -rf $(OBJ) out` left the previous
+	# binary in place, so a build that failed part-way left a stale, plausible ./scrip that every later
+	# test would silently grade instead of failing loudly. Measured 2026-08-22: mid-rebuild the tree held a
+	# 20:06 -O0 binary while an -O2 build was still running. That is the "non-empty is not alive" class.
+	rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(ROOT)/scrip
 	$(MAKE) all
+
+pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
+	rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip
+	$(MAKE) all
+
+buildinfo:  # ⭐ what am I actually about to link? print it rather than assume it (LAW 0)
+	@printf 'RT_OPT     : %s\n' '$(RT_OPT)'
+	@printf 'ZCFLAGS    : %s\n' '$(ZCFLAGS)'
+	@printf 'RT_TAG     : %s\n' '$(RT_TAG)'
+	@printf 'RT_OBJDIR  : %s  (%s objects cached)\n' '$(RT_OBJDIR)' "$$(ls $(RT_OBJDIR)/*.o 2>/dev/null | wc -l)"
+	@printf 'RT_SO      : %s\n' '$(RT_SO)'
+	@printf 'canonical  : out/libscrip_rt.so -> %s\n' "$$(readlink out/libscrip_rt.so 2>/dev/null || echo '(none)')"
+	@printf 'compiler   : %s  (hardcoded -O0; RT_OPT does NOT affect it)\n' '$(OBJ)'
+	@printf 'cached tags:\n'; for d in out/rt_pic-*; do [ -d "$$d" ] && printf '   %s  %s objects\n' "$$d" "$$(ls $$d/*.o 2>/dev/null|wc -l)"; done; true
 
 # ── libscrip_rt.so — runtime support library for --native codegen-emit --x64 ────────────
 # EM-6: full SNOBOL4 runtime compiled -fPIC and linked into the .so.
@@ -337,7 +360,27 @@ RT_PIC_SRCS := \
 RT_OPT ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O0-DEV-O2-BENCH (Lon 2026-08-20 s179): -O0 for development; -O2 explicitly for benchmark/demo runs only
 RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
     -I$(SRC)/parser/snobol4 -I$(SRC)/parser/raku -I$(SRC)/optimizer
-RT_OBJDIR := out/rt_pic
+# ⭐⭐ BUILD CACHE KEYED BY THE FLAGS THAT PRODUCED IT (Lon 2026-08-22 s258, in-chat: "can we enforce a
+# pure incremental build and keep these objects around longer ... That is killing us concerning optimized
+# tests"). MEASURED CAUSE, and it is NOT header fan-out (that was the hypothesis; transitive-include census
+# over 274 TUs says NO header invalidates the whole set -- worst is descr.h at 80.3%):
+#   CBASE/CXXRT hardcode -O0, so ONLY this runtime honours RT_OPT. RT_OBJDIR was ONE directory shared by
+#   every RT_OPT value, and `pristine` deletes it -- so -O0 and -O2 objects could NEVER coexist and every
+#   switch threw the other away and paid full price again (1m40 at -O0 vs 9m30 at -O2).
+# ⛔ AND THERE WAS A SILENT WRONG BUILD UNDERNEATH IT, which is why the culture was "always pristine":
+#   with no flag stamp, a plain `RT_OPT="-O2 ..." make` after an -O0 build found every .o newer than its
+#   .c, did NOTHING, and handed back an -O0 runtime while the caller believed it was -O2. That is the
+#   HQ-27 ABI-mix class through a different door, and it is why nobody could trust incremental.
+# Keying the directory by the flags fixes both at once: mixing is now structurally impossible (different
+# directories), so incremental is trustworthy, so pristine stops being mandatory for a flag switch.
+# Pay -O2 ONCE, then switch arms in seconds, forever.
+# ⛔ NORMALISE BEFORE HASHING. `RT_OPT ?= -O0 ... # comment` leaves TRAILING SPACES in the value (make
+# keeps everything up to the #), so a bare `make` and an explicit RT_OPT="<the same flags>" would hash
+# differently and silently keep two identical caches. `tr -s` + strip makes the key depend on the FLAGS,
+# not on their spacing.
+RT_TAG    := $(shell printf '%s|%s' '$(strip $(RT_OPT))' '$(strip $(ZCFLAGS))' | tr -s ' ' | md5sum | cut -c1-10)
+RT_OBJDIR := out/rt_pic-$(RT_TAG)
+RT_SO     := out/libscrip_rt-$(RT_TAG).so
 RT_PIC_OBJS := $(addprefix $(RT_OBJDIR)/,$(addsuffix .o,$(basename $(notdir $(RT_PIC_SRCS)))))
 vpath %.c $(sort $(dir $(RT_PIC_SRCS)))
 vpath %.cpp $(sort $(dir $(RT_PIC_SRCS)))
@@ -350,10 +393,20 @@ $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
-out/libscrip_rt.so: $(RT_PIC_OBJS)
+$(RT_SO): $(RT_PIC_OBJS)
 	@mkdir -p out
-	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o out/libscrip_rt.so
-	@echo "Built: out/libscrip_rt.so"
+	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o $@
+	@echo "Built: $@   RT_OPT=$(RT_OPT)"
+# out/libscrip_rt.so REMAINS THE CANONICAL PATH -- 73 scripts reference it by that exact name, so it must
+# never move. It is a symlink to whichever configuration was actually built.
+# ⛔ THE FORCE PREREQUISITE IS LOAD-BEARING, NOT A TIC: make resolves a symlink to its TARGET's timestamp,
+# so switching back to a previously-built (older) tag would leave the link pointing at the newer wrong .so
+# and make would call it up to date. That is precisely the silent-wrong-build class this rung exists to
+# kill, so the link is refreshed unconditionally. It costs one symlink call.
+out/libscrip_rt.so: $(RT_SO) FORCE
+	@ln -sfn $(notdir $(RT_SO)) out/libscrip_rt.so
+	@echo "out/libscrip_rt.so -> $(notdir $(RT_SO))   RT_OPT=$(RT_OPT)"
+FORCE:
 
 # ── EM-2 synthetic-program harness — RETIRED (SMX-4, 2026-05-30): sm_codegen_x64_emit
 # and its test driver were part of the now-deleted Stack-Machine native emitter.
