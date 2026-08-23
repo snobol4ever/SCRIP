@@ -22,7 +22,7 @@
 #   (c) bb_macros.s / sm_macros.s — macro libraries, not program output
 # Counting them invented an entire PHANTOM FAMILY: blk_alloc/blk_free showed 15/30 static sites
 # and got written into ARCH-SNOBOL4-RTX.md section 5 as the ALLOC family, when the live compiler
-# emits ZERO calls to either and their C has sat in archive/backend/ (unbuilt) for eras. RTX-2
+# emits ZERO calls to either and their C sat in archive/backend/ (unbuilt) for eras — archive/ deleted s267, full text in git history. RTX-2
 # was aimed at dead symbols because of this. The live marker is the FIRST LINE: GNU as Intel
 # syntax, `.intel_syntax noprefix` (Lon ruling s162, ARCH section 1). Filter on it, not on names.
 # This is the same class of error as the s26 F12/F13 stale-artifact lesson in RULES.md step 4:

@@ -4,7 +4,7 @@
  *
  * WHAT THIS FAMILY ACTUALLY IS (corrected s163 — see the rung's FINDING):
  *   ARCH section 5 names the ALLOC family "blk_alloc / blk_free". Those symbols are DEAD:
- *   zero live call sites, their C sits in archive/backend/, and they appear only in the five
+ *   zero live call sites, their C sat in archive/backend/ (deleted s267, in git history), and they appear only in the five
  *   legacy `scrip-cc -asm` artifacts that the inventory script sweeps alongside real output.
  *   The LIVE mint is rt_gcheap_alloc — the SIL bump allocator every string, aggregate and
  *   workspace block is carved from (manual p.216: bump until exhaustion, then regenerate).
