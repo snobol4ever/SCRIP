@@ -71,7 +71,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
           if (mprotect(al, (size_t)pg, PROT_NONE) != 0) scrip_co_uerror("scrip_coexpr: guard mprotect failed");
           if (pthread_attr_setstack(&attribs, lo, sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstack failed");
           new_ctx->stk_win = (void *)w; new_ctx->stk_guard = (unsigned long)al;
-          { rt_hblk_t *h = (rt_hblk_t *)w - 1; rt_gc_root_pin_add((const char *)w); rt_gc_root_range_add((const char *)lo, (const char *)h + h->size); } }
+          { rt_hblk_t *h = (rt_hblk_t *)w - 1; rt_gc_root_range_add((const char *)lo, (const char *)h + h->size); } }
 #endif
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
@@ -90,7 +90,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
 #if ZC_COEXPR_STACK_GCHEAP
-    if (ctx->stk_win) { long pg = sysconf(_SC_PAGESIZE); rt_gc_root_pin_del((const char *)ctx->stk_win); rt_gc_root_range_del((const char *)ctx->stk_guard + pg);
+    if (ctx->stk_win) { long pg = sysconf(_SC_PAGESIZE); rt_gc_root_range_del((const char *)ctx->stk_guard + pg);
         mprotect((void *)ctx->stk_guard, (size_t)pg, PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; }
 #endif
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }

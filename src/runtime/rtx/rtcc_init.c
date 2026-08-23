@@ -11,7 +11,6 @@ __attribute__((constructor)) static void rtcc_init(void) { rtcc_gc_register(); i
 void rtcc_gc_register(void)
 {
     const char *e = getenv("SCRIP_GC_UNROOT");
-    rt_gc_root_pin_add_seamsafe((const char *)&rtccb[0]);
     if (e && strstr(e, "rtcc")) return;
     rt_gc_root_range_add_seamsafe((const char *)&rtccb[0], (const char *)&rtccb[32]);
 }

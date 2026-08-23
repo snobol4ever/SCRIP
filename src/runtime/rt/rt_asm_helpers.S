@@ -120,4 +120,28 @@ rt_gc_point_arr:
     popq   %rbx
     ret
     .size  rt_gc_point_arr, .-rt_gc_point_arr
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* long rt_gc_collect(void): exhaustion-collect veneer, same contract as rt_gc_point_arr above -- parks the six callee-saved registers above the repairing scan's floor so a heap pointer riding
+ * rbx/rbp/r12-r15 across a mid-statement collect is repaired in the parked copy and restored repaired. */
+    .globl rt_gc_collect
+    .type  rt_gc_collect, @function
+rt_gc_collect:
+    pushq  %rbx
+    pushq  %rbp
+    pushq  %r12
+    pushq  %r13
+    pushq  %r14
+    pushq  %r15
+    subq   $8, %rsp
+    leaq   8(%rsp), %rdi
+    call   rt_gc_collect_c@PLT
+    addq   $8, %rsp
+    popq   %r15
+    popq   %r14
+    popq   %r13
+    popq   %r12
+    popq   %rbp
+    popq   %rbx
+    ret
+    .size  rt_gc_collect, .-rt_gc_collect
     .section .note.GNU-stack,"",@progbits

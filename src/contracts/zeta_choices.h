@@ -26,9 +26,7 @@
 #define ZC_PORT_OWNED        5
 #define ZC_PORT_FORTH        6
 #define ZC_PORT_HEAP         7
-#ifndef ZC_ZH_IN_GCHEAP
-#define ZC_ZH_IN_GCHEAP 1
-#endif
+
 #ifndef ZC_COEXPR_STACK_GCHEAP
 #define ZC_COEXPR_STACK_GCHEAP 1
 #endif

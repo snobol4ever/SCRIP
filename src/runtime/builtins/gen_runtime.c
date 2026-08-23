@@ -275,10 +275,9 @@ DESCR_t rt_keyword_dump_set(DESCR_t v)  { extern long g_dump;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gen_gc_roots(void)
 {
-    extern void rt_gc_visit_descr(DESCR_t *d); extern void rt_gc_visit_raw(const char **loc); extern void rt_gc_pin_ptr(const char *p);
+    extern void rt_gc_visit_descr(DESCR_t *d); extern void rt_gc_visit_raw(const char **loc);
     rt_gc_visit_descr(&drive_val);
     for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
-    rt_gc_pin_ptr(scan_subj);
     rt_gc_visit_raw(&scan_subj);
     for (int i = 0; i < scan_depth; i++) { rt_gc_visit_raw(&scan_stack[i].subj); rt_gc_visit_raw((const char **)&scan_stack[i].sigma); }
 }
