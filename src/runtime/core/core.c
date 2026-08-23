@@ -5,6 +5,7 @@
 #include "utf8.h"
 #include "../../parser/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
+#include "../snobol4_system_fns.h"
 extern int g_protected_pat_vars_armed;
 int g_call_fastpath_off = 0;
 #include <stdio.h>
@@ -2809,6 +2810,7 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (!proto || !*proto) return FAILDESCR;
     const char *entry = (n >= 2) ? VARVAL_fn(a[1]) : NULL;
     if (entry && !*entry) entry = NULL;
+    { FNCBLK_t *probe = _parse_define_spec(proto); if (sn4_is_system_fn(probe->name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; } }
     if (entry)
         DEFINE_fn_entry(proto, NULL, entry);
     else

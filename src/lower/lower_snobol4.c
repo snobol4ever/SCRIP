@@ -7,6 +7,7 @@
 #include "bb_program.h"
 #include "parser/icon/icon_lex.h"
 #include "zeta_choices.h"
+#include "snobol4_system_fns.h"
 int rt_zeta_port_mode(void);
 int rt_kw_index(const char * kw);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2397,6 +2398,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             const tree_t * pnode = (dfn->n > 1) ? dfn->c[1] : NULL;
             if (!pnode || pnode->t != TT_QLIT || !pnode->v.sval) sno_fatal("TT_DEFINE missing literal prototype string", NULL);
             sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
+            if (sn4_is_system_fn(d.fname)) { fprintf(stderr, "SCRIP: ERROR 248 -- attempted redefinition of system function: %s\n", d.fname); exit(1); }
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
             for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
@@ -2416,6 +2418,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
         }
         sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), entry_opt, &d);
+        if (sn4_is_system_fn(d.fname)) { fprintf(stderr, "SCRIP: ERROR 248 -- attempted redefinition of system function: %s\n", d.fname); exit(1); }
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
         if (found >= 0) defs[found] = d;
