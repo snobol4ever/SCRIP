@@ -18,10 +18,10 @@ std::string bb_make_list() {
         if (na > 0) {
             s += x86("sub", "rsp", (long)(na * 16));
             for (int i = 0; i < na; i++) {
-                s += x86("mov", "r8", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + na * 16 + 0) + "]").c_str());
-                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 0) + "]").c_str(), "r8");
-                s += x86("mov", "r8", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + na * 16 + 8) + "]").c_str());
-                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r8");
+                s += x86("mov", "r8", ZOPQ(i, na * 16 + 0));
+                s += x86("mov", x86_zref(i * 16 + 0, 1), "r8");
+                s += x86("mov", "r8", ZOPQ(i, na * 16 + 8));
+                s += x86("mov", x86_zref(i * 16 + 8, 1), "r8");
             }
             s += x86_reg_disp32_lea64("rdi", "rsp", 0);
         } else {

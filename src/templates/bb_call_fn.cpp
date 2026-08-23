@@ -455,10 +455,10 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (nargs > 0) {
             s += x86("sub", "rsp", (long)(nargs * 16));
             for (int i = 0; i < nargs; i++) {
-                s += x86("mov", "r8", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + nargs * 16 + 0) + "]").c_str());
-                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 0) + "]").c_str(), "r8");
-                s += x86("mov", "r8", (std::string("[rsp + ") + std::to_string(_.op_zread[i] + nargs * 16 + 8) + "]").c_str());
-                s += x86("mov", (std::string("[rsp + ") + std::to_string(i * 16 + 8) + "]").c_str(), "r8");
+                s += x86("mov", "r8", ZOPQ(i, nargs * 16 + 0));
+                s += x86("mov", x86_zref(i * 16 + 0, 1), "r8");
+                s += x86("mov", "r8", ZOPQ(i, nargs * 16 + 8));
+                s += x86("mov", x86_zref(i * 16 + 8, 1), "r8");
             }
         }
         bool zd_sank = false;
