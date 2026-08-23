@@ -1086,12 +1086,33 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
    site that reaches here, and esi now carries cur_delta instead. */
 static int rt_defer_merge_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_MERGE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ THE dfx FRAME IS UNOBSERVABLE ON THIS PATH, SO IT IS NOT BUILT (hq_P s260).  rt_defer_run_all pushed a dfx frame, stored the resolved value into it, and had c_rt_defer_close pop it straight back off -- and
+   between the push and the pop NOTHING RUNS: no call out, no emitted code, no assembly.  The value never leaves the C frame, so the g_dfx round trip is pure ceremony.  Measured on roman.sno it was not cheap
+   ceremony: rt_dfx_push'rt_defer_probe_run 2,376,245 Ir (3.78% of the whole program) plus the pop, the 24-byte struct copy and the top-of-stack check inside c_rt_defer_close.  ⛔ ONLY this path may skip it --
+   every other caller of c_rt_defer_close can have emitted code or a procedure call between its push and its close, where the frame IS observable (rt_defer_step reads the top frame; rtx_match.S strides g_dfx by
+   24), so c_rt_defer_close itself is untouched and the push/close balance elsewhere is exactly as it was.  ⭐ The llen==1 arm is the same argument one level down: a one-byte compare was calling __strncmp_avx2,
+   1,069,308 Ir (1.70%), and a deferred single character is the common shape -- roman's deferred node is one digit. */
+static int rt_defer_close_v(int cur_delta, DESCR_t val)
+{
+    if (IS_FAIL_fn(val)) return -1;
+    char nb[40];
+    if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
+    else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
+    if (val.v == DT_S || val.v == DT_SNUL) {
+        const char *lit = val.s ? val.s : "";
+        int llen = val.slen ? (int)val.slen : (int)strlen(lit);
+        if (cur_delta + llen > Σlen) return -1;
+        if (llen == 1) { if (Σ[cur_delta] != lit[0]) return -1; }
+        else if (llen > 0 && strncmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
+        return cur_delta + llen;
+    }
+    return -1;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
 {
-    rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
-    if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
-    s->val = val;
-    return c_rt_defer_close(cur_delta);
+    if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) return -1;
+    return rt_defer_close_v(cur_delta, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta)
