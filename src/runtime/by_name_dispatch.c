@@ -6803,8 +6803,30 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
         DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
         char pb[64]; const char *proto;
-        if (IS_INT_fn(args[0])) { snprintf(pb, sizeof pb, "%lld", (long long)args[0].i); proto = pb; }
-        else { proto = VARVAL_fn(args[0]); if (!proto || !*proto) { *out = FAILDESCR; return 1; } }
+        /*⭐⭐ ARRAY(n) WITH AN INTEGER BOUND NO LONGER ROUND-TRIPS THROUGH TEXT (hq_P s264, measured on the json deserializer).
+           This arm used to snprintf the integer into a decimal string, hand that string to sno_array_from_proto, which copied it
+           byte by byte into its own buffer, ran strchr for a ':' and then strtol'd it BACK to the integer we started with -- and
+           then rt_ws_strdup'd the string a third time onto the block.  MEASURED: json builds one key-order ARRAY per object, so a
+           400-object parse made 400 of these, 4,405 strtol calls per 11 iterations, for arrays ONE element long; sno_array_from_proto
+           + array_new were 14.7% of the whole json run on an input containing ZERO json arrays.
+           ⛔ THE ->proto STRING IS DELIBERATELY NOT STORED, AND THAT IS NOT A LOSS: agg_prototype() (aggregates.c:114) ALREADY
+           reconstructs it from lo/hi/ndim whenever ->proto is NULL, and for the lo==1 case it formats exactly "%d" of a->hi --
+           byte-identical to what this line used to strdup.  A NULL ->proto is an established state (array_new itself sets it, and
+           pattern_match.c:532 does too), so PROTOTYPE() is unaffected.  Same lazy-mint discipline as tbl_pair_key().
+           ⛔ Only the INTEGER form takes this path.  ARRAY('3,4') and ARRAY('0:9') still carry real prototype syntax and still go
+           through sno_array_from_proto, unchanged. */
+        if (IS_INT_fn(args[0])) {
+            const long long _n = (long long)args[0].i;
+            if (_n < 0) { *out = FAILDESCR; return 1; }                       /* hi < lo-1, matching sno_array_from_proto */
+            extern ARBLK_t *array_new(int lo, int hi);
+            ARBLK_t *_a = array_new(1, (int)_n);
+            if (!_a) { *out = FAILDESCR; return 1; }
+            if (!(init.v == DT_SNUL && init.slen == 0)) for (long long _k = 0; _k < _n; _k++) _a->data[_k] = init;   /* array_new already laid down NULVCL */
+            DESCR_t _r; memset(&_r, 0, sizeof _r); _r.v = DT_A; _r.slen = 0; _r.arr = _a;
+            *out = _r; return 1;
+        }
+        proto = VARVAL_fn(args[0]); if (!proto || !*proto) { *out = FAILDESCR; return 1; }
+        (void)pb;
         DESCR_t r = sno_array_from_proto(proto, init);
         if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_ws_strdup(proto);
         *out = r; return 1;
