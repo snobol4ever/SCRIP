@@ -162,8 +162,21 @@ case "$cmd" in
          # goodwill. Un-park with: park <topic> FREE.
          topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
          grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" || { echo "⛔ no QUEUE.tsv row named $topic"; exit 1; }
+         # ⛔ s266 — PARK MUST NOT DESTROY ANOTHER SEAT'S RUNNING CLAIM. hq_C parked rung-E5-suspend-cache as
+         # SUPERSEDED while seat13 was mid-flight on it; the rm below deleted their claim, so their computed `done`
+         # said "not your claim" AFTER the fix was already landed and pushed. A park is a routing verdict on a ROW;
+         # it has no authority over a claim it does not hold. Now: a live claim held by someone else REFUSES the
+         # park (like assign); S4E_PARK_FORCE=1 overrides but ANNOTATES the claim instead of deleting it, so the
+         # holder's `done` still works.
+         c="$PO/claims/$topic.claim"
+         if [ -f "$c" ] && ! grep -q '^DONE$' "$c" && [ "$(head -1 "$c")" != "$ME" ]; then
+             hold="$(head -1 "$c")"
+             if [ "${S4E_PARK_FORCE:-0}" != "1" ]; then echo "⛔ REFUSED: $topic is claimed RUNNING by $hold — a park is not an eviction. Ask them, or S4E_PARK_FORCE=1 to park AROUND the claim (it is preserved)."; exit 1; fi
+             printf 'PARKED-AROUND by %s %s (claim preserved; holder done still works)\n' "$ME" "$(date -u +%Y-%m-%dT%H:%MZ)" >> "$c"; echo "  (claim held by $hold PRESERVED — parked around it)"
+         elif [ -f "$c" ] && ! grep -q '^DONE$' "$c" ; then
+             rm -f "$c"; echo "  (cleared my own holding claim — the state column carries this now, not a lock)"
+         fi
          tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$topic" -v s="$st" '$2==t&&NF>3{$4=s} {print}' "$q" > "$tmp" && cat "$tmp" > "$q" && rm -f "$tmp"
-         c="$PO/claims/$topic.claim"; [ -f "$c" ] && ! grep -q '^DONE$' "$c" && rm -f "$c" && echo "  (cleared the holding claim — the state column carries this now, not a lock)"
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **STATE -> %s** by %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$st" "$ME" >> "$b"
          echo "$topic state -> $st";;
