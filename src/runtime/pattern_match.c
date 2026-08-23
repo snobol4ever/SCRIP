@@ -1101,7 +1101,14 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
    producer/consumer pair, not a repeat; (2) DT_X, where resolving the pattern CALLS A PROCEDURE that may itself assign the variable, so the second read can legitimately differ; (3) a DT_P whose fn has not
    materialised.  Only the plain-value case -- which is what a deferred ordinary variable is -- reuses the resolution.  ⛔ ival_flag is 0 on this arm by construction: the box emits `xor esi, esi` at the only
    site that reaches here, and esi now carries cur_delta instead. */
-static int rt_defer_merge_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_MERGE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/* ⛔ always_inline, and READ ONCE PER CALL -- the fourth instance of this class in one session.  At -O0 (the s262
+   NO-`-O2` fact rule makes -O0 the number of record) gcc emits a real call for a `static inline`, so a killswitch
+   memo consulted on a hot path costs a call every time it is consulted.  MEASURED: rt_defer_merge_on was 3.66% of
+   pattern_bt's marginal profile, and rt_defer_probe_run below consulted it TWICE per call.  Sibling instances cured
+   the same day: repl_pl_off (three reads per bn_replace), is_protected_pat_lead (0.80% of roman), _var_find_cached,
+   sv_len.  ⭐ THE RULE: a control arm must be read ONCE into a local and carried -- never re-consulted inside the
+   code it guards. */
+static inline __attribute__((always_inline)) int rt_defer_merge_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_MERGE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐ THE dfx FRAME IS UNOBSERVABLE ON THIS PATH, SO IT IS NOT BUILT (hq_P s260).  rt_defer_run_all pushed a dfx frame, stored the resolved value into it, and had c_rt_defer_close pop it straight back off -- and
    between the push and the pop NOTHING RUNS: no call out, no emitted code, no assembly.  The value never leaves the C frame, so the g_dfx round trip is pure ceremony.  Measured on roman.sno it was not cheap
@@ -1161,11 +1168,12 @@ rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
 {
     extern void *dtp_fn_of(void *);
     rt_defer_pr_t r; r.fn = (void *)0; r.aux = 0;
-    if (rt_defer_merge_on() && varname && varname[0] != '*') {
+    const int _merge = rt_defer_merge_on();
+    if (_merge && varname && varname[0] != '*') {
         int ok = 0; DESCR_t cv = rt_defer_cell_read(varname, site, &ok);
         if (ok && cv.v != DT_P && cv.v != DT_X) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
     }
-    if (!rt_defer_merge_on() || !varname || varname[0] == '*') {
+    if (!_merge || !varname || varname[0] == '*') {
         void *dtp = rt_defer_get_pat_dtp(varname, 0);
         if (dtp) { void *fn = *(void **)dtp; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)dtp; return r; } }
         r.aux = (long)rt_defer_run_all(varname, cur_delta); return r;

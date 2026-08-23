@@ -199,6 +199,7 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
     const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
+    if (rt_plain_int_str(s)) return 0;   /* ⭐ a plain integer is never a REAL: strtod and strtoll consume the same span, so the pair below would return 0 anyway -- see rt_plain_int_str in core.h */
     char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);
     if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
 }

@@ -40,6 +40,31 @@ const char *rt_sno_indirect_name(DESCR_t v);
 DESCR_t INTVAL_fn(DESCR_t d);
 DESCR_t PATVAL_fn(DESCR_t d);
 DESCR_t VARVUP_fn(DESCR_t d);
+/* ⭐⭐ ONE PASS INSTEAD OF libc's NUMBER PARSER (hq_P s262).  MEASURED across the 17-kernel field, marginal profiles:
+   `mixed_workload` -- the fair single number for a realistic program, 3.28x slower than SPITBOL -- spends
+   __strtod_l_internal 8.81% + ____strtol_l_internal 4.57% + str_to_mpn 2.55% = 15.9% of its steady-state
+   instructions inside libc's locale-aware number parser.  `operand_is_real_str` was calling strtoll AND strtod on
+   every string operand purely to decide "integer or real", and `is_numeric_like` called strtod on every string to
+   decide "is this numeric at all".  strtod is not a cheap function: it is locale-sensitive and any longish digit
+   run walks its bignum path, which is what put str_to_mpn on the profile.
+   ⭐ A PLAIN INTEGER NEEDS NO CONVERSION TO CLASSIFY -- optional blanks, optional sign, digits, optional blanks,
+   NUL.  That is a single character scan and it is the overwhelmingly common case in this corpus.
+   ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER, and both callers are checked against libc's own behaviour:
+   is_numeric_like returns 1 for such a string because strtod consumes the digits and leaves only blanks;
+   operand_is_real_str returns 0 because strtod and strtoll consume exactly the same span (`endd <= endi`).
+   Everything else -- a '.', an exponent, "inf"/"nan", a 0x hex float, leading junk, overflow -- falls through to
+   the UNCHANGED libc path, which is why none of those cases had to be re-implemented here.
+   ⛔ always_inline, not plain `inline`: under the s262 NO-`-O2` fact rule -O0 is the number of record, and at -O0
+   gcc emits a real call for a `static inline` -- a lesson this seat paid 0.80% to learn earlier the same day. */
+static inline __attribute__((always_inline)) int rt_plain_int_str(const char *s) {
+    if (!s) return 0;
+    while (*s == ' ' || *s == '\t') s++;
+    if (*s == '+' || *s == '-') s++;
+    if (*s < '0' || *s > '9') return 0;
+    while (*s >= '0' && *s <= '9') s++;
+    while (*s == ' ' || *s == '\t') s++;
+    return *s == '\0';
+}
 int is_numeric_like(DESCR_t d);
 int64_t to_int(DESCR_t v);
 double to_real(DESCR_t v);

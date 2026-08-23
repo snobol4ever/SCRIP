@@ -573,6 +573,7 @@ int is_numeric_like(DESCR_t d) {
         const char *s = d.s ? d.s : "";
         while (*s == ' ' || *s == '\t') s++;
         if (!*s) return 1;
+        if (rt_plain_int_str(s)) return 1;   /* ⭐ see rt_plain_int_str in core.h -- strtod was 8.81% of mixed_workload */
         char *end;
         strtod(s, &end);
         if (end == s) return 0;
