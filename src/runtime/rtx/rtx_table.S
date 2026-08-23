@@ -399,3 +399,56 @@ RTX_FUNC(table_find_pair_d)
     xor     eax, eax
     ret
 RTX_ENDF(table_find_pair_d)
+
+/*-----------------------------------------------------------------------------
+ * DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx)
+ *   rdi = base tag word (v in dil) . rsi = base value . rdx = idx tag word
+ *   rcx = idx value . -> rax = result tag word . rdx = result value
+ *
+ * ⭐⭐ WHY THIS IS HERE AND NOT LEFT IN C (hq_P s266).  This is the READ half of
+ * every SNOBOL4 table subscript -- `mem[num][wrd][tag]` is FOURTEEN of them per
+ * CLAWS5 token -- and at -O0 the C wrapper cost 55 Ir to reach a lookup that then
+ * cost 79.  The 55 buys three things: two 16-byte struct copies gcc makes because
+ * DESCR_t is passed by value (`DESCR_t b = base;` and then IS_VARREF_fn's own
+ * by-value argument), the spill of all four incoming registers to the frame, and
+ * a tag compare chain -- 42% of the cost of a hit, none of it the lookup.  The
+ * hit path here is nine instructions plus the find.
+ *
+ * ⛔ THE GUARD IS DELIBERATELY NARROW, the standard RTX shape: ONLY a base that is
+ * already a plain DT_T with a non-null block runs here.  A VARREF base (which must
+ * be deref'd), a DT_A array, and the error arm all tail-jump to the C of record,
+ * which is unchanged and still owns every one of those answers.  The MISS arm
+ * likewise tail-jumps to C -- see the ⭐⭐ block on c_rt_svco_miss_d for why the
+ * table default and NULVCL are bought rather than copied.
+ *
+ * ⛔ TBPAIR_t.val AT 24 IS PINNED BY _Static_assert IN rtx_init.c (the same one
+ * rtx_icnsub.S already relies on), so a core.h drift breaks the BUILD, not the
+ * lookup.  val is a DESCR_t: tag word at +24, value at +32.
+ *
+ * KILLSWITCH: shares SCRIP_RTX_TABLE=0 with the lookup -- one gate, one family.
+ */
+RTX_FUNC(rt_subscript_var_container_only)
+    RTX_GATE(table, c_rt_subscript_var_container_only)
+    cmp     dil, DT_T
+    je      .Lsvco_tbl
+    cmp     dil, DT_A
+    je      rt_subscript_var                    /* ARRAY: the C's own tail call, and  */
+                                                /*   rt_subscript_var is already asm. */
+                                                /*   A DT_A base is never a VARREF, so */
+                                                /*   base == the C's deref'd b.        */
+    jmp     c_rt_subscript_var_container_only   /* VARREF and the error arm            */
+.Lsvco_tbl:
+    test    rsi, rsi
+    je      c_rt_subscript_var_container_only   /* !tb -- the C answers FAILDESCR     */
+    push    rsi                                 /* tb; also aligns rsp for the call   */
+    mov     rdi, rsi                            /* tbl                                */
+    mov     rsi, rdx                            /* k tag word                         */
+    mov     rdx, rcx                            /* k value                            */
+    call    table_find_pair_d
+    pop     rdi                                 /* tb back, for the default arm       */
+    test    rax, rax
+    je      c_rt_svco_miss_d                    /* tail call: default, else null       */
+    mov     rdx, [rax + 32]                     /* e->val.value                        */
+    mov     rax, [rax + 24]                     /* e->val tag word                     */
+    ret
+RTX_ENDF(rt_subscript_var_container_only)

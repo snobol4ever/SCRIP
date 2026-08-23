@@ -1259,7 +1259,16 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
+/*⭐⭐ THE MISS ARM, KEPT IN C ON PURPOSE (hq_P s266).  rtx_table.S owns the exported rt_subscript_var_container_only and tail-jumps here when the hashed lookup misses.  It stays C
+  because the two things it needs -- TBBLK_t.dflt's offset and the exact bit pattern of NULVCL (which is DT_SNUL plus a pointer to a "" literal, NOT a zero word) -- are the kind of
+  constant that an .S file can only COPY, and a copied constant is a drift hazard with no build-time witness.  One call on the miss path buys both from the C of record. */
+DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) {
+    if (!tb) return FAILDESCR;
+    if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt;
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     extern int kwb_error(int code, const char *msg);
     DESCR_t b = base;
     if (IS_VARREF_fn(b)) b = rt_deref(b);
