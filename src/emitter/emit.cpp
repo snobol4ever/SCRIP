@@ -698,6 +698,10 @@ static int cap_in_repeat_body(const IR_t * nd) {
         if ((ni >= lo && ni <= hi) || (si >= lo && si <= hi)) return 1; }
     return 0;
 }
+static int cap_save_cond_gap_has_alt(const IR_t * nd) {
+    if (!nd || nd->n_operands < 1 || !nd->operands[0]) return 0;
+    return nd->operands[0]->op == IR_MATCH_ALTERNATE;
+}
 static int zd_k(IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence_body_kk(const IR_t * nd) {
@@ -772,6 +776,7 @@ static int frame_need_of(const IR_t * nd) {
         }
         if (!h) h = cap_in_alt_arm(nd);
         if (!h) h = cap_in_repeat_body(nd);
+        if (!h) h = cap_save_cond_gap_has_alt(nd);
         return h; }
     default:                    return earn_hazard_in(nd, 0);
     }
