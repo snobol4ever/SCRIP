@@ -20,12 +20,19 @@ sandbox() { # $1 = dir ; builds a postoffice whose FILE ORDER DISAGREES WITH RAN
   # refuses an identity with no mailbox, so an assigning HQ with no inbox is correctly rejected. Cross-verifying
   # hq_P's rung found this gate's sandbox at fault, not their code — the sandbox now models the real law.
   local s; for s in seatAA seatBB hq_C; do mkdir -p "$P/$s/inbox"; done
+  # ⛔ FOUND STALE (fix-dispatch-bus-two-failure-modes, s266): the 4th column used to be free-form
+  # "first-step-and-done-when" prose (any non-FREE-looking text was harmless); V2-2 repointed it to
+  # owner/state and s265 made the state column LOAD-BEARING (Pass 3 now `continue`s past anything that
+  # is not literally FREE or empty). This sandbox still wrote "step-N" there, so EVERY row silently read
+  # as not-FREE and P1 failed "QUEUE EMPTY" even against an unmodified script — reproduced against git
+  # HEAD before this fix, so it is not a side effect of any other change, just a gate nobody re-ran since
+  # s265 landed (LAW 0 species 3, a blind instrument caught by trying to actually rely on its verdict).
   { printf '# sandbox queue — file order is DELIBERATELY the inverse of rank order\n'
-    printf '9\tlast-in-rank-first-in-file\tbrief-9\tstep-9\n'
-    printf '5\tmiddle-row\tbrief-5\tstep-5\n'
-    printf '0\tTHE-RANK-ZERO-ROW\tbrief-0\tstep-0\n'
+    printf '9\tlast-in-rank-first-in-file\tbrief-9\tFREE\n'
+    printf '5\tmiddle-row\tbrief-5\tFREE\n'
+    printf '0\tTHE-RANK-ZERO-ROW\tbrief-0\tFREE\n'
     printf '\n'
-    printf '3\tanother-row\tbrief-3\tstep-3\n'; } > "$P/QUEUE.tsv"; }
+    printf '3\tanother-row\tbrief-3\tFREE\n'; } > "$P/QUEUE.tsv"; }
 run() { local P="$1" seat="$2"; shift 2; S4E_POST="$P" S4E_SEAT="$seat" S4E_NO_BANNER=1 bash "$MSG" "$@" 2>&1; }
 
 echo "== P1  rank-sorted picker =="
@@ -96,10 +103,24 @@ printf 'seatAA\nDONE\n' > "$P/claims/middle-row.claim"    # a v1 DONE marker
 out="$(run "$P" seatAA next)"
 case "$out" in *"middle-row"*) no "a v1 DONE claim must not be resumed" "not middle-row" "$(echo "$out" | head -1)";;
   *) ok "a pre-V2-1 DONE claim is still treated as finished";; esac
+rm -rf "$P"
+# ⛔ FOUND STALE, own sandbox (fix-dispatch-bus-two-failure-modes, s266): the orphan check used to run in
+# the SAME $P as the two steps above, whose second `next` call falls through to Pass 3 and locks
+# THE-RANK-ZERO-ROW as an unavoidable side effect (Pass 3 is not the thing under test here, it just runs
+# because nothing else matched). With rank-sort applied to Pass 2 too (this row's own fix), a seat holding
+# BOTH that real rank-0 claim AND the orphan correctly resumes the real one FIRST and never reaches the
+# orphan in that call — which is the more correct behaviour, not a regression, but it means this assertion
+# was silently relying on glob order visiting the orphan before the leftover real claim. Isolating the
+# orphan in its OWN sandbox tests the actual property (kept, not pinning, reported) without that leftover
+# claim confusing "does an orphan get skipped" with "which of two open claims wins" — the latter is now
+# covered on its own merits by test_gate_dispatch_bus_failure_modes.sh.
+P=$(mktemp -d); sandbox "$P"
 printf 'seatAA\n' > "$P/claims/orphan-topic.claim"        # claim naming a topic with no row (HQ LAW 14)
 out="$(run "$P" seatAA next)"
 case "$out" in *"SKIP orphan-topic"*) ok "orphan-claim skip survived the rewrite (claim kept, seat not pinned)";;
   *) no "orphan skip" "SKIP orphan-topic ..." "$(echo "$out" | head -1)";; esac
+[ -f "$P/claims/orphan-topic.claim" ] && ok "the orphaned claim file is KEPT (the record), not deleted" \
+  || no "orphan claim kept" "file still present" "file gone"
 rm -rf "$P"
 
 printf '\n  %s: %d passed, %d failed\n' "$([ "$fail" -eq 0 ] && echo PASS || echo '⛔ FAIL')" "$pass" "$fail"

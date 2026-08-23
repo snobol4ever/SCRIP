@@ -72,6 +72,12 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
 ME="$(s4e_canon "$ME")"
+# ⭐ SHARED BY next() AND banner() (fix-dispatch-bus-two-failure-modes, s266). Resolve a topic's QUEUE.tsv
+# rank, or a large sentinel when the row is absent/orphaned. Hoisted to top level (was a next()-local
+# function) so both commands sort candidates the SAME deterministic way instead of each falling back to
+# glob (alphabetical) file order whenever a seat holds more than one claim.
+qrow()  { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" 2>/dev/null | head -1; }
+qrank() { local row; row="$(qrow "$1")"; [ -n "$row" ] && printf '%s' "$row" | cut -f1 || echo 999999; }
 cmd="${1:-check}"
 case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
@@ -304,8 +310,7 @@ case "$cmd" in
          # Skip it, SAY WHY, keep the claim (it is the record), fall through to live work. ORPHAN-SKIP IS DISARMED WHEN THE
          # QUEUE ITSELF IS DEAD: a missing/empty QUEUE.tsv would make EVERY claim look orphaned and unpin the whole fleet
          # at once -- an infrastructure failure is not a rename, so we pin and say so.
-         qrow() { grep -P "^[0-9]+\t\Q$1\E\t" "$q" 2>/dev/null | head -1; }
-         qrows="$(grep -cP '^[0-9]+\t' "$q" 2>/dev/null)"; qrows="${qrows:-0}"
+         qrows="$(grep -cP '^[0-9]+\t' "$q" 2>/dev/null)"; qrows="${qrows:-0}"   # qrow/qrank are top-level now, shared with banner()
          # ONE printer for every serve path, so a resumed row and a freshly locked row can never describe themselves differently.
          serve() { local st="$1" verb="$2" sfx="${3:-}" srow; srow="$(qrow "$st")"; printf '%s %s %s\n' "$verb" "$st" "$sfx"
            if [ -f "$PO/tasks/$st.task.md" ]; then printf 'task: %s\n' "$PO/tasks/$st.task.md"
@@ -318,24 +323,39 @@ case "$cmd" in
                                                   NF>1&&NF<4{print "brief: " $3; print "first: " $4}'
            [ -f "$PO/tasks/$st.task.md" ] || printf '⛔ NO BATON at %s/tasks/%s.task.md — under V2-2 every live row must have one. Tell your HQ; do not invent the work.\n' "$PO" "$st"; }
          # PASS 1 -- rows an HQ ASSIGNED to me that I have not started. These outrank anything I picked for myself.
-         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-           [ "$(head -1 "$c")" = "$ME" ] || continue
-           grep -q '^DONE$' "$c" && continue
-           grep -q '^ASSIGNED-BY ' "$c" || continue
-           grep -q '^RUNNING$' "$c" && continue
-           t="$(basename "$c" .claim)"; echo "RUNNING" >> "$c"
-           serve "$t" "ASSIGNED->RUNNING" "(dispatched by $(grep -m1 '^ASSIGNED-BY ' "$c" | cut -d' ' -f2))"; exit 0; done
-         # PASS 2 -- my own unfinished work.
-         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-           if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then
-             t="$(basename "$c" .claim)"; row="$(qrow "$t")"
-             if [ -z "$row" ] && [ "$qrows" -gt 0 ]; then
-               echo "SKIP $t — your unfinished claim names a topic with NO QUEUE.tsv row (renamed or retired out from under you). Claim KEPT as the record; falling through to live work. If you were mid-rung on it: s4e_msg.sh ask $t 'row vanished under me'"
-               continue; fi
-             if [ -z "$row" ]; then
-               echo "⛔ $q IS MISSING OR HAS NO ROWS — cannot tell a renamed row from an unreadable queue, so RESUMING $t rather than unpinning you. Ask hq before trusting any next(1) verdict."; fi
-             grep -q '^RUNNING$' "$c" || echo "RUNNING" >> "$c"
-             serve "$t" "RESUME" "(yours, unfinished — s4e_msg.sh done $t when the handoff clause is met)"; exit 0; fi; done
+         # ⭐ RANK-SORTED even among MY OWN claims (fix-dispatch-bus-two-failure-modes, s266, seat07's
+         # q-s4e-msg-banner-attribution-undercount): this used to be a bare glob loop, so a seat holding TWO
+         # assigned-not-yet-running claims was served whichever topic sorted first ALPHABETICALLY, not the
+         # fleet's own rank priority. Same defect shape V2-1 already fixed for Pass 3 (free rows); it had
+         # just never been applied to "mine" too. Candidates are gathered first, THEN sorted by qrank, THEN
+         # served -- one lowest-rank winner, deterministic regardless of claims/ directory order.
+         while IFS=$'\t' read -r _rk t; do
+           [ -n "${t:-}" ] || continue
+           c="$PO/claims/$t.claim"; echo "RUNNING" >> "$c"
+           serve "$t" "ASSIGNED->RUNNING" "(dispatched by $(grep -m1 '^ASSIGNED-BY ' "$c" | cut -d' ' -f2))"; exit 0
+         done < <(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+             [ "$(head -1 "$c")" = "$ME" ] || continue
+             grep -q '^DONE$' "$c" && continue
+             grep -q '^ASSIGNED-BY ' "$c" || continue
+             grep -q '^RUNNING$' "$c" && continue
+             t="$(basename "$c" .claim)"; printf '%s\t%s\n' "$(qrank "$t")" "$t"
+           done | sort -t$'\t' -s -k1,1n)
+         # PASS 2 -- my own unfinished work, same rank-sort fix, same reason.
+         while IFS=$'\t' read -r _rk t; do
+           [ -n "${t:-}" ] || continue
+           c="$PO/claims/$t.claim"; row="$(qrow "$t")"
+           if [ -z "$row" ] && [ "$qrows" -gt 0 ]; then
+             echo "SKIP $t — your unfinished claim names a topic with NO QUEUE.tsv row (renamed or retired out from under you). Claim KEPT as the record; falling through to live work. If you were mid-rung on it: s4e_msg.sh ask $t 'row vanished under me'"
+             continue; fi
+           if [ -z "$row" ]; then
+             echo "⛔ $q IS MISSING OR HAS NO ROWS — cannot tell a renamed row from an unreadable queue, so RESUMING $t rather than unpinning you. Ask hq before trusting any next(1) verdict."; fi
+           grep -q '^RUNNING$' "$c" || echo "RUNNING" >> "$c"
+           serve "$t" "RESUME" "(yours, unfinished — s4e_msg.sh done $t when the handoff clause is met)"; exit 0
+         done < <(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+             [ "$(head -1 "$c")" = "$ME" ] || continue
+             grep -q '^DONE$' "$c" && continue
+             t="$(basename "$c" .claim)"; printf '%s\t%s\n' "$(qrank "$t")" "$t"
+           done | sort -t$'\t' -s -k1,1n)
          [ -f "$q" ] || { echo "no QUEUE.tsv — ask hq"; exit 1; }
          # PASS 3 -- free rows, RANK-SORTED numerically, -s so file order still breaks ties inside one rank.
          while IFS=$'\t' read -r rank topic brief step; do
@@ -360,8 +380,24 @@ case "$cmd" in
          s4e_mode_line
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
-         held=""; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-           if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then held="$(basename "$c" .claim)"; break; fi; done
+         # ⭐ fix-dispatch-bus-two-failure-modes (s266, seat07's q-s4e-msg-banner-attribution-undercount):
+         # `held` used to be "whichever of my OPEN claims sorts first ALPHABETICALLY" -- a seat holding two
+         # open claims could run `done <topic>` to close ONE and have its OWN banner report the OTHER.
+         # `done` already passes the topic it just verified as $2 (see the `done` arm below); when banner
+         # gets a real topic (not "-v", the direct-invocation verbose flag) THAT topic wins outright, no
+         # scan needed. A bare invocation (Stop hook, `board`) falls back to the same rank-sort next()
+         # uses, never glob order.
+         pref="${2:-}"; [ "$pref" = "-v" ] && pref=""
+         held=""
+         if [ -n "$pref" ] && [ -f "$PO/claims/$pref.claim" ] && [ "$(head -1 "$PO/claims/$pref.claim")" = "$ME" ] && ! grep -q '^DONE$' "$PO/claims/$pref.claim"; then
+           held="$pref"
+         else
+           held="$(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+               [ "$(head -1 "$c")" = "$ME" ] || continue
+               grep -q '^DONE$' "$c" && continue
+               t="$(basename "$c" .claim)"; printf '%s\t%s\n' "$(qrank "$t")" "$t"
+             done | sort -t$'\t' -s -k1,1n | head -1 | cut -f2)"
+         fi
          qwait=0; for hb in $(s4e_hqboxes); do for f in "$PO/$hb"/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$ME"-q-*) qwait=$((qwait+1));; esac; done; done
          inbx=0; for f in "$PO/$ME/inbox"/*.msg; do [ -f "$f" ] && inbx=$((inbx+1)); done
          # ⛔⭐ V2-3 -- DRAIN BEFORE MINT, MADE MECHANICAL (LAW 3, ARCH-FLEET-CEO.md; hq_P s258). Measured basis, from
@@ -399,11 +435,20 @@ case "$cmd" in
          # ⛔ ATTRIBUTABLE ONLY. A bare `log --since` counts commits this clone merely PULLED -- it credited a seat
          # that did nothing with 4 commits. This project's commit messages carry the seat id and the row topic, so
          # the level is measured by ATTRIBUTION: commits naming this seat or its row, and FINDING files naming either.
+         # Same fix as `held` above, reusing $pref: after `done` marks a row DONE it is no longer "open",
+         # so `held`'s open-only pref check would miss it -- row1/rowst must accept a CLOSED pref too, since
+         # that is exactly the row `done` just closed and wants attributed here.
          rowst="none"; row1=""
-         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-           [ "$(head -1 "$c")" = "$ME" ] || continue
-           if grep -q '^DONE$' "$c"; then [ "$rowst" = "none" ] && { rowst="CLOSED"; row1="$(basename "$c" .claim)"; }
-           else rowst="OPEN"; row1="$(basename "$c" .claim)"; break; fi; done
+         if [ -n "$pref" ] && [ -f "$PO/claims/$pref.claim" ] && [ "$(head -1 "$PO/claims/$pref.claim")" = "$ME" ]; then
+           row1="$pref"; grep -q '^DONE$' "$PO/claims/$pref.claim" && rowst="CLOSED" || rowst="OPEN"
+         else
+           row1="$(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+               [ "$(head -1 "$c")" = "$ME" ] || continue
+               t="$(basename "$c" .claim)"; d=1; grep -q '^DONE$' "$c" || d=0
+               printf '%s\t%s\t%s\n' "$d" "$(qrank "$t")" "$t"
+             done | sort -t$'\t' -s -k1,1n -k2,2n | head -1 | cut -f3)"
+           if [ -n "$row1" ]; then grep -q '^DONE$' "$PO/claims/$row1.claim" 2>/dev/null && rowst="CLOSED" || rowst="OPEN"; fi
+         fi
          cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
            n=$(git -C "$r" log --since='12 hours ago' -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
          # seat8 2026-08-22: every FINDING-*.md ever written (202/202 checked) names the seat the OLD,
