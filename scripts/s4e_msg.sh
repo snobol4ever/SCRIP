@@ -24,8 +24,73 @@ shopt -s dotglob
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
 ME="${S4E_SEAT:-}"
-if [ -z "$ME" ]; then case "$S4E" in /home/claude) ME=hq;; /home/claude_C) ME=hq_C;; /home/claude_P) ME=hq_P;; /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";; /home/claude[1-9]) ME="seat0${S4E#/home/claude}";; *) ME="$(basename "$S4E")";; esac; fi
+# ⛔⭐ LAW 6 -- IDENTITY IS ASSERTED, NEVER GLOBBED (ARCH-FLEET-CEO.md, preflight V2-4, hq_P s258). The old block
+# ended in `*) ME="$(basename "$S4E")"` and every write path did `mkdir -p` on whatever came out. That pair is
+# EXACTLY how the phantom `claude01/` mailbox was born: seat01's clone predated the zero-padding commit, its ME
+# resolved to the literal "claude01", the script CREATED /home/resources/postoffice/claude01/inbox on the spot,
+# and the seat then read an empty box for a day while HQ's real mail piled up in seat01/. An invented identity
+# that silently succeeds is the "non-empty is not alive" false-signal class on the fleet bus itself. Now: the
+# guess is CANONICALISED first (the known legacy spellings fold onto their real mailbox), then ASSERTED -- and
+# an identity with no mailbox is a loud non-zero exit, never a fresh directory.
+# ⭐ /home/claude IS `ceo` (Lon s257 topology ruling). The legacy `hq` mailbox stays readable until its backlog
+# drains; it is simply no longer any root's identity.
+s4e_canon() { case "$1" in
+    claude)                    echo ceo;;
+    claude0[1-9]|claude1[0-6]) echo "seat${1#claude}";;
+    claude[1-9])               echo "seat0${1#claude}";;
+    seat[1-9])                 echo "seat0${1#seat}";;
+    *)                         echo "$1";; esac; }
+s4e_boxes() { for _b in "$PO"/*/; do [ -d "$_b/inbox" ] || continue; basename "$_b"; done; }
+s4e_assert_box() { [ -d "$PO/$1/inbox" ] && return 0
+    printf '\n⛔⛔⛔ NO POSTOFFICE MAILBOX FOR %s "%s" ⛔⛔⛔\n' "${2:-identity}" "$1" >&2
+    printf '    %s does NOT exist, and this script no longer creates one on the fly (LAW 6: that is how the\n' "$PO/$1/inbox" >&2
+    printf '    phantom claude01/ mailbox was born and how seat01 lost a day of HQ mail).\n' >&2
+    printf '    known mailboxes: %s\n' "$(s4e_boxes | tr '\n' ' ')" >&2
+    printf '    if this identity is genuinely new, an HQ creates it DELIBERATELY: %s mailbox %s\n\n' "$0" "$1" >&2
+    exit 3; }
+# ⭐ THE OWNING HQ IS A FACT ON DISK, NEVER A GUESS. `ask` used to hardcode `hq`; with hq retiring and two HQs
+# owning different questions, guessing would route a correctness question into the perf HQ's backlog. Order:
+# $S4E_HQ -> the mailbox's own HQ file -> legacy hq while it still exists -> REFUSE and say so.
+s4e_hq() { if [ -n "${S4E_HQ:-}" ]; then echo "$S4E_HQ"
+    elif [ -s "$PO/$ME/HQ" ]; then head -1 "$PO/$ME/HQ"
+    elif [ -d "$PO/hq/inbox" ]; then echo hq
+    else echo ""; fi; }
+if [ -z "$ME" ]; then case "$S4E" in
+    /home/claude)           ME=ceo;;
+    /home/claude_C)         ME=hq_C;;
+    /home/claude_P)         ME=hq_P;;
+    /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
+    /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
+    *)                      ME="$(basename "$S4E")";; esac; fi
+ME="$(s4e_canon "$ME")"
 cmd="${1:-check}"
+case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
+# ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
+# $PO/.msg.XXXXXX and then mv's it into the destination inbox; when that mv failed the temp file just SAT there
+# -- one rotted 46 hours at the postoffice root, a seat-to-seat brief neither end ever knew was lost. A message
+# whose header still names a reachable mailbox is RE-DELIVERED here; one that does not is REPORTED loudly and
+# left on disk. Never deleted: an undeliverable message is evidence, not garbage.
+s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
+    _h="$(head -1 "$_o")"; _to="$(printf '%s' "$_h" | sed -n 's/^FROM [^ ]* TO \([^ ]*\) RE .*$/\1/p')"
+    _tp="$(printf '%s' "$_h" | sed -n 's/^FROM [^ ]* TO [^ ]* RE \([^ :]*\).*$/\1/p')"
+    _fr="$(printf '%s' "$_h" | sed -n 's/^FROM \([^ ]*\) TO .*$/\1/p')"
+    _to="$(s4e_canon "${_to:-}")"; _fr="$(s4e_canon "${_fr:-}")"
+    if [ -n "$_to" ] && [ -d "$PO/$_to/inbox" ] && [ -n "$_tp" ]; then
+      if mv "$_o" "$PO/$_to/inbox/$(date +%s%N)-${_fr:-unknown}-${_tp}.msg" 2>/dev/null; then
+        printf '⭐ ORPHAN SWEPT: a message stranded at the postoffice root was delivered to %s (topic %s, from %s)\n' "$_to" "$_tp" "${_fr:-unknown}"; continue; fi; fi
+    printf '⛔ ORPHAN MESSAGE, UNDELIVERABLE AND LEFT IN PLACE: %s -- header reads: %s\n' "$_o" "$(printf '%s' "$_h" | cut -c1-100)" >&2; done; }
+# ⭐ ONE mailbox->root map and ONE HQ-set, used by BOTH `fleet` and `banner` so the two views can never
+# disagree about who exists. A mailbox with no root is not an error -- `hq` is exactly that today: retiring,
+# still holding a 29-message backlog that must stay VISIBLE until it is drained.
+s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;;
+    seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
+s4e_hqboxes() { for _h in hq hq_C hq_P ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
+s4e_is_hq() { case "$1" in hq|hq_C|hq_P|ceo) return 0;; *) return 1;; esac; }
+# age in whole minutes of the oldest .msg in a mailbox; empty when the box is clear.
+s4e_oldest_min() { _old=""; for _f in "$PO/$1/inbox"/*.msg; do [ -f "$_f" ] || continue
+    _m=$(( ( $(date +%s) - $(stat -c %Y "$_f" 2>/dev/null || echo 0) ) / 60 ))
+    [ -z "$_old" ] && _old=$_m; [ "$_m" -gt "$_old" ] && _old=$_m; done; echo "$_old"; }
+s4e_sweep_orphans
 # ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
 # ruling unread in its inbox while asking Lon the same question in chat). The inbox is HQ's ONLY channel to a
 # running seat -- Lon does not relay -- so it cannot depend on the seat remembering to `check`. Every subcommand
@@ -39,7 +104,7 @@ case "$cmd" in check|clear) ;; *)
     printf '    bash SCRIP/scripts/s4e_msg.sh check      <- do this now\n\n'; fi ;;
 esac
 case "$cmd" in
-  send)  to="${2:?to}"; topic="${3:?topic}"; shift 3; mkdir -p "$PO/$to/inbox"
+  send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
          # calling `send seat8 "<a whole message containing SCRIP/scripts/...>"` made the topic carry slashes, the mv failed with
          # "No such file or directory" -- AND THE SCRIPT PRINTED `sent` ANYWAY.  A seat-to-seat message that is silently dropped
@@ -50,10 +115,18 @@ case "$cmd" in
          t="$(mktemp "$PO/.msg.XXXXXX")"; { echo "FROM $ME TO $to RE $topic"; echo "$*"; } > "$t"
          d="$PO/$to/inbox/$(date +%s%N)-$ME-$topic.msg"
          if mv "$t" "$d" && [ -s "$d" ]; then echo "sent -> $to/$topic"; else rm -f "$t"; echo "⛔ NOT SENT -- could not write $d. The message was DROPPED; nothing was delivered." >&2; exit 1; fi;;
-  ask)   topic="${2:?topic}"; shift 2; exec "$0" send hq "q-$topic" "$*";;
-  check) d="$PO/$ME/inbox"; mkdir -p "$d"; n=$(ls "$d" 2>/dev/null | wc -l)
+  ask)   topic="${2:?topic}"; shift 2; _hq="$(s4e_hq)"
+         [ -n "$_hq" ] || { echo "⛔ REFUSED: no owning HQ resolved for $ME. Set S4E_HQ=hq_C|hq_P, or have your HQ write it: echo hq_C > $PO/$ME/HQ" >&2; exit 2; }
+         exec "$0" send "$_hq" "q-$topic" "$*";;
+  check) d="$PO/$ME/inbox"; n=$(ls "$d" 2>/dev/null | wc -l)
          echo "[$ME] inbox: $n message(s)"; for f in "$d"/*.msg; do [ -f "$f" ] || continue; echo "--- $(basename "$f")"; cat "$f"; done;;
   clear) rm -f "$PO/$ME/inbox/"*.msg 2>/dev/null; echo "[$ME] inbox cleared";;
+  # ⭐ CREATION IS A DELIBERATE ACT WITH A NAME (V2-4). LAW 6 forbids mailboxes appearing as a side effect of a
+  # typo, not mailboxes existing -- Lon adds seats, and a fleet that cannot enrol one is not operable. So the
+  # capability survives as ONE explicit subcommand that says what it did, and every implicit mkdir is gone.
+  mailbox) nm="$(s4e_canon "${2:?mailbox name}")"
+         case "$nm" in ""|*/*|*$'\n'*|.*) echo "⛔ REFUSED: mailbox name must be a plain slug" >&2; exit 2;; esac
+         if [ -d "$PO/$nm/inbox" ]; then echo "mailbox $nm already exists"; else mkdir -p "$PO/$nm/inbox" && echo "created mailbox $nm (deliberate, by $ME)"; fi;;
   claim) topic="${2:?topic}"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
          if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
          else t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
@@ -104,8 +177,17 @@ case "$cmd" in
          if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          held=""; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
            if [ "$(head -1 "$c")" = "$ME" ] && ! grep -q '^DONE$' "$c"; then held="$(basename "$c" .claim)"; break; fi; done
-         qwait=0; for f in "$PO"/hq/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$ME"-q-*) qwait=$((qwait+1));; esac; done
+         qwait=0; for hb in $(s4e_hqboxes); do for f in "$PO/$hb"/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$ME"-q-*) qwait=$((qwait+1));; esac; done; done
          inbx=0; for f in "$PO/$ME/inbox"/*.msg; do [ -f "$f" ] && inbx=$((inbx+1)); done
+         # ⛔⭐ V2-3 -- DRAIN BEFORE MINT, MADE MECHANICAL (LAW 3, ARCH-FLEET-CEO.md; hq_P s258). Measured basis, from
+         # the fleet-v1 retrospective: 29 messages and 15 seat questions sat unread in HQ's inbox for 1h47m while HQ
+         # minted new rows; seat13 starved holding five of them; HQ's own board line was the oldest on the board. The
+         # rule "answer every pending question before minting" existed and was ignored, for the same reason the banner
+         # law was ignored before the Stop hook: a step in a markdown file is a hope, not a mechanism. So the HQ's own
+         # verdict now refuses to say ✅ while a seat's question has been rotting. ⛔ Binds HQ ONLY -- a seat's inbox
+         # is HQ talking TO it, and holding unread mail is not a seat's protocol failure.
+         staleage="$(s4e_oldest_min "$ME")"; stalemin="${S4E_DRAIN_MIN:-30}"; drain=0
+         if s4e_is_hq "$ME" && [ -n "$staleage" ] && [ "$staleage" -gt "$stalemin" ]; then drain=1; fi
          freerows=0; nrow=""; nrank=""
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] && continue; freerows=$((freerows+1))
@@ -146,7 +228,7 @@ case "$cmd" in
          mealt="${ME/#seat0/seat}"
          fnd=$(git -C "$S4E/.github" log --since='12 hours ago' --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
-         else lvl="row ${rowst} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed /12h"; fi
+         else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed /12h"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
          # NARROWER question -- does anything of value live ONLY in this session. A clone merely BEHIND origin (clean
          # tree, nothing unpushed) loses nothing on /clear; it just pulls next time. Measured directly per repo, since
@@ -158,6 +240,10 @@ case "$cmd" in
            u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
            onlyhere=$((onlyhere + d + ${u:-0})); done
          if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
+         # rc is deliberately NOT changed by the drain refusal, for the same reason NOTHING LANDED did not change it:
+         # rc answers "is it safe to /clear", and unread mail is safe to /clear -- it is on disk and waits. What the
+         # drain law governs is the VERDICT LON READS, and that is this line.
+         elif [ "$drain" -eq 1 ]; then line="⛔ DRAIN FIRST — $ME — ${inbx} unread, oldest ${staleage}m (limit ${stalemin}m). LAW 3: answer every pending question into its task file BEFORE minting or assigning. No ✅ until the inbox is current — $lvl"
          # ⛔⛔ s255, LON: "I never stopped a FLEET worker whose banner did not say SUCCESS after I prompted 'show me
          # the required banner.' So they lied."  THE SEATS DID NOT LIE -- THIS HEADLINE ANSWERED THE WRONG QUESTION.
          # SUCCESS was emitted on handoff_status rc=0, i.e. "tree clean, nothing unpushed" -- which A SEAT THAT DID
@@ -172,6 +258,16 @@ case "$cmd" in
          elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
          else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
+         # ⭐ V2-3, second half: the BOARD LINE carries the oldest-unanswered age and the row topic. BOARD.md is what
+         # `fleet` renders and what Lon reads when he is not reading a banner, and in v1 it could not show either --
+         # so an HQ sitting on a 1h47m question looked exactly like an HQ with an empty inbox.
+         # ⛔ BOTH CLAUSES ARE UNCONDITIONAL, and that is the fix for a defect this gate caught in its own first
+         # green run: the row topic was riding inside $lvl, and $lvl COLLAPSES to "NOTHING ATTRIBUTABLE LANDED"
+         # whenever a session has no attributable commit -- so precisely the sessions worth chasing (a seat holding
+         # a row and producing nothing) were the ones whose board line refused to name the row. A field that
+         # disappears exactly when it matters is a blind instrument (LAW 0, species 3).
+         [ -z "${row1:-}" ]   || line="$line · row ${row1}"
+         [ -z "$staleage" ]   || line="$line · mail ${inbx}/${staleage}m"
          printf '\n%s\n  %s\n%s\n\n' "$b" "$line" "$b"
          # ⛔⛔ THE BANNER WAS FIRING AND NOBODY COULD SEE IT (Lon 2026-08-22 s256: "The FLEET workers are not showing
          # a banner at the end. claude08 just sat silent like an idiot").  MEASURED, from seat08's OWN transcript --
@@ -199,33 +295,43 @@ case "$cmd" in
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
          # (that walks every repo, 9x over) -- it inspects each seat root's clones directly, which is the same
          # truth for the two things that matter: uncommitted work, and commits that never reached origin.
-         printf '\n  SEAT   ROW (open claim)                        TREE                  Q  LAST BOARD LINE\n'
-         printf '  ────── ────────────────────────────────────────  ────────────────────  ─  ───────────────────────────────\n'
+         printf '\n  SEAT     ROW (open claim)                      TREE                  Q  MAIL      LAST BOARD LINE\n'
+         printf '  ──────── ──────────────────────────────────────  ────────────────────  ─  ────────  ─────────────────────\n'
          # ⛔ SEAT LIST IS DISCOVERED, NEVER TYPED (s255): a hand-typed list silently omits any seat Lon adds,
          # and a seat missing from the health screen is a seat nobody looks at. Numeric sort so 10 follows 9.
-         for seat in hq $(ls -d /home/claude[0-9][0-9] /home/claude[1-9] 2>/dev/null | sed "s|/home/claude\([0-9]\)$|claude0\1|; s|/home/claude|seat|" | sort -u); do
-           case "$seat" in hq) root=/home/claude;; *) root="/home/claude${seat#seat}";; esac
-           [ -d "$root" ] || continue
-           row="—"; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+         # ⛔⭐ THE CENSUS ENUMERATES POSTOFFICE MAILBOXES, NOT /home/claude* GLOBS (LAW 6, V2-4). The glob it
+         # replaced could not see hq_C, hq_P or ceo AT ALL -- the two HQs running the fleet were invisible on the
+         # fleet's own health screen, and so was every message waiting in their inboxes. It also silently omitted
+         # any mailbox whose seat root is not yet cloned, which is the state every new seat starts in. The
+         # postoffice IS the fleet roster; the home directories are just where the clones happen to live.
+         for seat in $(s4e_boxes | sort); do
+           root="$(s4e_root "$seat")"
+           row="-"; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
              if [ "$(head -1 "$c")" = "$seat" ] && ! grep -q '^DONE$' "$c"; then row="$(basename "$c" .claim)"; break; fi; done
            dirty=0; unpushed=0; repos=0
-           for r in "$root"/*/; do [ -d "$r/.git" ] || continue; repos=$((repos+1))
+           for r in "$root"/*/; do [ -n "$root" ] || continue; [ -d "$r/.git" ] || continue; repos=$((repos+1))
              d=$(git -C "$r" status --porcelain 2>/dev/null | wc -l); dirty=$((dirty+d))
              br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
              u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0); unpushed=$((unpushed+${u:-0})); done
-           if [ "$repos" -eq 0 ]; then tree="no clones"
+           if [ -z "$root" ]; then tree="(no root, retiring)"
+           elif [ "$repos" -eq 0 ]; then tree="no clones"
            elif [ "$dirty" -eq 0 ] && [ "$unpushed" -eq 0 ]; then tree="clean"
            else tree="⛔ ${dirty} dirty ${unpushed} unpushed"; fi
-           q=0; for f in "$PO"/hq/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$seat"-q-*) q=$((q+1));; esac; done
-           bl="$(grep -m1 "^$seat |" "$PO/BOARD.md" 2>/dev/null | cut -d'|' -f2- | cut -c1-46)"; [ -n "$bl" ] || bl="(never posted)"
-           printf '  %-6s %-40.40s  %-20.20s  %s  %s\n' "$seat" "$row" "$tree" "$q" "$bl"; done
+           # a question can now be waiting in ANY HQ's inbox (hq is retiring, hq_C and hq_P own the two lanes),
+           # so the count sums over the whole HQ set -- counting only legacy hq/ would read 0 the day it retires.
+           q=0; for hb in $(s4e_hqboxes); do for f in "$PO/$hb"/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$seat"-q-*) q=$((q+1));; esac; done; done
+           unread=0; for f in "$PO/$seat"/inbox/*.msg; do [ -f "$f" ] && unread=$((unread+1)); done
+           if [ "$unread" -eq 0 ]; then mail="-"; else om="$(s4e_oldest_min "$seat")"; mail="$unread/${om:-0}m"; fi
+           bl="$(grep -m1 "^$seat |" "$PO/BOARD.md" 2>/dev/null | cut -d'|' -f2- | cut -c1-40)"; [ -n "$bl" ] || bl="(never posted)"
+           printf '  %-8s %-38.38s  %-20.20s  %s  %-8.8s  %s\n' "$seat" "$row" "$tree" "$q" "$mail" "$bl"; done
          free=0; tot=0
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            tot=$((tot+1)); [ -f "$PO/claims/$topic.claim" ] || free=$((free+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
          printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
-         printf '  Q = questions from that seat waiting on HQ. A seat with an open ROW resumes it when re-fired.\n\n';;
+         printf '  Q = questions from that seat waiting on ANY HQ.  MAIL = unread in its inbox / age of the oldest.\n'
+         printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet"; exit 2;;
+  *) echo "usage: next|done|ask|send|check|clear|claim|board|banner|fleet|mailbox"; exit 2;;
 esac
