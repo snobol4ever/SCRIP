@@ -1207,7 +1207,7 @@ static int sno_cap_name_strict(void) { static int v = -1; if (v < 0) { const cha
 static int sno_rtseq_resume(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTSEQ_RESUME"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sno_defer_resume(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_RESUME"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sno_seq_tail(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_SEQ_TAIL"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int sno_alt_tail(void) { const char * e = getenv("SCRIP_ALT_TAIL"); return (e && *e == '1') ? 1 : 0; }
+static int sno_alt_tail(void) { const char * e = getenv("SCRIP_ALT_TAIL"); return (e && *e == '0') ? 0 : 1; }
 static int sno_fence_rtail(void) { const char * e = getenv("SCRIP_FENCE_RTAIL"); return (e && *e == '0') ? 0 : 1; }
 static int sno_pat_contains_fence(const tree_t * t, int depth) { if (!t || depth > 64) return 0; if (sno_is_fence(t)) return 1; for (int i = 0; i < t->n; i++) if (sno_pat_contains_fence(t->c[i], depth + 1)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
