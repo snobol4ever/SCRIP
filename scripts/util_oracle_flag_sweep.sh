@@ -34,7 +34,7 @@ DEMO="$CORPUS/programs/snobol4/demo"
 #    4 of the 42 movers at s191 dissolved on this rule with nothing else changed.  Same argument the iters:/ms: rule
 #    already makes.  `stmts executed` and `REGENERATIONS` are DELIBERATELY LEFT IN: those are deterministic given the
 #    program, so a change in them is a real behavioural change this sweep should keep failing on.
-NRM='/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^execution time msec[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory used (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory left (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d'
+NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^execution time msec[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory used (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory left (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d'
 [ -x "$SBL" ] || { echo "FATAL: no oracle at $SBL -- a board without it prints a plausible all-FAIL table (PLAN.md 1b)"; exit 1; }
 # ⛔ THIS TABLE IS A SECOND COPY OF scorecard_snobol4.sh's SUITES TABLE AND NOTHING KEEPS THEM IN STEP (named s191, row `gimpel-suite-harness`).
 # The two are edited independently and have already drifted once: s191 changed the gimpel row there to `-name *_driver.sno` -- the 145 files in

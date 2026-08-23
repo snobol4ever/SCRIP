@@ -33,7 +33,10 @@ SBL="${SBL:-$S4A/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/programs/snobol4/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
-# norm=ms : measurement lines (^iters:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is)
+# norm=ms : measurement lines (^iters:/^ns:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is).
+#           ⛔ ns: WAS MISSING HERE AND IT COST THE WHOLE SUITE (s261): harness.inc grew a full-resolution `ns:` reading, the filter was
+#           never extended, so the live side kept a nanosecond timing the pins never had and ALL 17 BENCHMARKS graded DIFF/DIFF = 0.0%.
+#           A filter that lists measurement lines BY NAME must be extended whenever the harness prints a new one.
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          demo/beauty  90 -
 beauty_suite   15 programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
@@ -188,7 +191,7 @@ run_one() {  # suite lib prog norm run_to
     local o="$1" r="$2"
     [ $r -eq 124 ] && { echo TIMEOUT; return; }
     [ $r -ge 128 ] && { echo "SIG$((r-128))"; return; }
-    if [ "$norm" = ms ]; then sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$o"; [ $have_pin = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/pin"; [ $have_live = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/live"; fi  # BM-ONE (s153): measurement lines are DELETED both sides (refs hold only the check: line -- the live oracle); rewrite-to-N was for the retired stamped family
+    if [ "$norm" = ms ]; then sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$o"; [ $have_pin = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/pin"; [ $have_live = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/live"; fi  # BM-ONE (s153): measurement lines are DELETED both sides (refs hold only the check: line -- the live oracle); rewrite-to-N was for the retired stamped family
     { [ $have_pin = 1 ] && cmp -s "$o" "$W/pin"; } && { echo PASS; return; }
     { [ $have_live = 1 ] && cmp -s "$o" "$W/live"; } && { echo PASS; return; }
     [ $r -ne 0 ] && { echo "RC$r"; return; }
