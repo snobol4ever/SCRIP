@@ -108,6 +108,7 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_icncall.S \
     $(RT)/rtx/rtx_icnsub.S \
     $(RT)/rtx/rtx_plunify.S \
+    $(RT)/rtx/rtx_table.S \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rtx/rtcc_init.c \
     $(RT)/rt/rt_slab.c \

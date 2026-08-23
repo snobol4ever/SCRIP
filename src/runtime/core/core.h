@@ -112,42 +112,85 @@ DESCR_t    array_get(ARBLK_t *a, int i);
 void      array_set(ARBLK_t *a, int i, DESCR_t v);
 DESCR_t    array_get2(ARBLK_t *a, int i, int j);
 void      array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
+/*⭐⭐ THE TABLE IS A SORTED-INDEX HASH (Lon, 2026-08-23 s262).  Hash by DATATYPE first, then by VALUE; one
+  CONTIGUOUS array per bucket; BINARY SEARCH inside the bucket.  `TBPAIR_t.next` is RETIRED -- buckets are no
+  longer chains -- and its 8 bytes now carry `hkey`, the (datatype,value) sort key.
+  ⛔ 48 BYTES, key@0, val@24 STILL PINNED by _Static_assert in rtx_init.c; only the last member changed name.
+  ⭐⭐ THE ENTRIES ARE INLINE IN THE BUCKET, AND THAT IS LON'S RULING (2026-08-23 s262), verbatim: "all references are
+  supposed to be downstream so that everything is easily slidable.  And we should never have in our code a place that
+  depends on that pointer not moving."
+  ⛔ THE FIRST CUT OF THIS FILE GOT THAT BACKWARDS.  It put entries OUT of line and kept them still, because
+  pattern_match.c minted a VCELL_t holding `cellp = &e->val` and stored through it later -- so the data structure was
+  bent around one caller's assumption that an address into it would stay valid.  That assumption is the bug, not the
+  constraint: it forced a whole extra indirection layer AND it required pinning table blocks against a COMPACTING
+  collector.  The caller was fixed instead -- a table VCELL now names (tbl, key_descr) and re-resolves on use, which
+  also picks up the table's default value correctly, which the raw cell pointer never did.
+  ⭐ SO A BUCKET IS ONE CONTIGUOUS BLOCK OF ENTRIES, hkey-sorted, binary-searched, and its only outbound pointers are
+  `ent` and `key` -- both downstream, both slidable, nothing anywhere holding an interior address across a statement. */
 typedef struct _TBBLK_tEntry {
-    char   *key;
-    DESCR_t  key_descr;
-    DESCR_t  val;
-    struct _TBBLK_tEntry *next;
+    char              *key;
+    DESCR_t            key_descr;
+    DESCR_t            val;
+    unsigned long long hkey;
 } TBPAIR_t;
+/*⭐⭐ len AND cap LIVE IN THE ENTRY BLOCK, NOT IN THE BUCKET VECTOR -- AND THAT IS A MEASUREMENT, NOT A TASTE.
+  The first cut made a bucket {TBPAIR_t *ent; unsigned len, cap} = 16 bytes, which DOUBLED TBBLK_t from 2,088 to
+  4,160 bytes.  Every TABLE() memsets that vector, and programs that build MANY SMALL TABLES pay it per table:
+  CLAWS5 (a 3-level TABLE of TABLE of TABLES, one inner table per num and per word) went to 114.7M instructions
+  from 118.7M -- FEWER instructions -- yet 68.4M cycles against 63.8M, IPC 1.65 against 1.82, and 5% slower on the
+  wall.  The work got cheaper and the program got slower, because the clearing and the sparse bucket vector
+  evicted everything else.  ⛔ INSTRUCTION COUNT COULD NOT SEE THIS AND CALLGRIND Ir SAID THE OPPOSITE: `rep
+  stosb` is one instruction whatever the length.  perf cycles/IPC was the only instrument that could answer.
+  ⭐ So the bucket is a bare pointer again (8 bytes, TBBLK_t back to 2,088 = the chained original's size), an
+  EMPTY bucket is NULL and allocates nothing, and len/cap ride in the entry block -- which is strictly better
+  locality than the first cut had, because they now share a cache line with ent[0] instead of sitting in a
+  separate 4 KB vector. */
+typedef struct _TBBUCK_t { unsigned len, cap; TBPAIR_t ent[]; } TBBUCK_t;
+/*⭐⭐ 256 BUCKETS -- KEPT, AND KEPT ON A MEASUREMENT THAT CONTRADICTED THE ARGUMENT FOR CHANGING IT (s262).
+  THE ARGUMENT WAS PLAUSIBLE AND WRONG.  A CHAINED bucket had to stay shallow because depth was linear cost, so 256 heads were the price of speed; a SEARCHED bucket
+  supposedly inverts that -- depth is cheap, so fewer and deeper should be strictly better, and TBBLK_t would shrink from 4.1 KB to 1 KB with it.  The sweep says no.
+  callgrind Ir at fixed work (200 rebuilds x 500 integer keys, RT_OPT=-O0), chained baseline 185,809,919:
+        256 -> 180,173,520 (-3.0%)      128 -> 184,480,220 (-0.7%)      64 -> 189,515,120 (+2.0%)      32 -> 200,307,020 (+7.8%)
+  Monotone, and it crosses the baseline between 128 and 64.  The reason is that the search is LINEAR below TBL_LINEAR_MAX, which is where every one of these depths
+  lands, so halving the bucket count does not buy a halved binary search -- it buys a doubled linear scan, and the bucket vector it saves is memset by `rep stosb`,
+  which is nearly free.  Depth is only cheap once it is deep enough to reach the binary arm, and a table that deep is not what SNOBOL4 programs build.
+  ⛔ TWO MEASUREMENT TRAPS ON THE WAY TO THIS NUMBER, BOTH RECORDED BECAUSE BOTH LOOKED LIKE ANSWERS: (1) the first sweep changed this constant WITHOUT updating the
+  _Static_assert in rtx_init.c that pinned it, so make failed and every arm silently re-measured the 256 binary -- the differing wall-clock figures were pure box
+  noise presented as a result.  (2) wall-clock on this box swings +/-30% run to run (6,144..8,704 iters for ONE binary), so it cannot resolve a 3% effect at all.
+  Ir at fixed work was the only instrument that could answer, which is what RULES.md says to reach for first. */
 #define TABLE_BUCKETS 256
 typedef struct _TBBLK_t {
-    TBPAIR_t *buckets[TABLE_BUCKETS];
+    TBBUCK_t      *buckets[TABLE_BUCKETS];
     int            size;
     int            init, inc;
     int            is_set;
     DESCR_t        dflt;
     long           id;
 } TBBLK_t;
+/*⭐ THE ONLY SANCTIONED WALKS.  A bucket is {slot,len,cap}, never a chain -- `for (e = t->buckets[b]; e; e = e->next)`
+  no longer compiles, which is deliberate: it is how every one of the twelve former chain walks was found.  Entries
+  are dense in slot[0..len-1] (delete compacts), so the null test doubles as the loop bound.  Caller declares e_. */
+#define TBL_FOREACH(t_, e_)            for (int _tb = 0; _tb < TABLE_BUCKETS; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
+#define TBL_BUCKET_FOREACH(t_, b_, e_) if ((t_)->buckets[b_]) for (unsigned _ts = 0; _ts < (t_)->buckets[b_]->len && ((e_) = &(t_)->buckets[b_]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
-TBPAIR_t  *table_find_pair(TBBLK_t *tbl, const char *key);
 /* ⭐ DESCRIPTOR-KEYED TABLE API -- hash by DATATYPE, then by VALUE (Lon s262).  These are the ONLY sound entry
    points once any key is hashed by value: a table whose entries were placed by _tbl_hash_d cannot be found by the
    string-keyed calls above, which hash the ENCODED key as text.  Convert callers, do not mix. */
-TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
+/*⭐ THE PRINTABLE KEY IS LAZY (s262).  e->key is NOT built on insert any more -- nothing on the hot path reads it, because
+   _tbl_eq_d compares key_descr.  Iteration, CONVERT, sorting and set output go through this accessor, which materialises
+   the encoding on FIRST demand and caches it in the entry.  ⛔ It ALLOCATES: never call it from the collector -- gc_heap.c
+   tests the raw e->key field instead, and a null there simply means "never printed". */
+const char *tbl_pair_key(TBPAIR_t *e);
+TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);   /* rtx_table.S owns this symbol; RTX_GATE tail-jumps to the C body below */
+TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
 int        table_has_d(TBBLK_t *tbl, DESCR_t k);
 int        table_delete_d(TBBLK_t *tbl, DESCR_t k);
 void       table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
-DESCR_t    table_get(TBBLK_t *tbl, const char *key);
-DESCR_t    table_get_found(TBBLK_t *tbl, const char *key, int *found);
-void      table_set(TBBLK_t *tbl, const char *key, DESCR_t val);
-void      table_set_descr(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val);
-void      table_set_descr_keyown(TBBLK_t *tbl, const char *key, DESCR_t key_d, DESCR_t val);
-int       table_delete(TBBLK_t *tbl, const char *key);
-int       table_has(TBBLK_t *tbl, const char *key);
 TBBLK_t  *set_union(TBBLK_t *x, TBBLK_t *y);
 TBBLK_t  *set_diff(TBBLK_t *x, TBBLK_t *y);
 TBBLK_t  *set_inter(TBBLK_t *x, TBBLK_t *y);
@@ -357,7 +400,6 @@ const char *NV_name_from_ptr(const DESCR_t *ptr);
 extern DESCR_t (*g_eval_pat_hook)(DESCR_t pat);
 extern DESCR_t (*g_eval_str_hook)(const char *s);
 DESCR_t *array_ptr(ARBLK_t *a, int i);
-DESCR_t *table_ptr(TBBLK_t *tbl, DESCR_t key_d);
 extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
 int    subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);

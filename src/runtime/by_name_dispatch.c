@@ -6141,9 +6141,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             nt->init = src.tbl->init;
             nt->inc  = src.tbl->inc;
             nt->is_set = src.tbl->is_set;
-            for (int b = 0; b < TABLE_BUCKETS; b++)
-                for (TBPAIR_t *p = src.tbl->buckets[b]; p; p = p->next)
-                    table_set_descr_d(nt, p->key_descr, p->val);
+            { TBPAIR_t *p; TBL_FOREACH(src.tbl, p) table_set_descr_d(nt, p->key_descr, p->val); }
             DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
             *out = d; return 1;
         }
@@ -6447,8 +6445,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t td = args[0];
         if (td.v != DT_T || !td.tbl) { *out=FAILDESCR; return 1; }
         for (int _bi=0;_bi<TABLE_BUCKETS;_bi++)
-            if (td.tbl->buckets[_bi]) {
-                *out = td.tbl->buckets[_bi]->key_descr; return 1;
+            if (td.tbl->buckets[_bi] && td.tbl->buckets[_bi]->len) {
+                *out = td.tbl->buckets[_bi]->ent[0].key_descr; return 1;
             }
         *out = FAILDESCR; return 1;
     }
@@ -6599,9 +6597,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int i_mode = (nargs >= 2) ? (int)to_int(args[1]) : 1;
         if (i_mode < 1 || i_mode > 4) i_mode = 1;
         int n = 0;
-        for (int _bi = 0; _bi < TABLE_BUCKETS; _bi++) for (TBPAIR_t *e = tb->buckets[_bi]; e; e = e->next) n++;
+        { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
         TBPAIR_t **ent = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*));
-        { int _k = 0; for (int _bi = 0; _bi < TABLE_BUCKETS; _bi++) for (TBPAIR_t *e = tb->buckets[_bi]; e; e = e->next) ent[_k++] = e; }
+        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) ent[_k++] = e; }
         int by_val = (i_mode % 2 == 0);
         { TBPAIR_t **_tmp = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*)); sort_msort_pairs(ent, _tmp, n, by_val); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);

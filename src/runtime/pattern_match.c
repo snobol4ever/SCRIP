@@ -492,17 +492,15 @@ DESCR_t sort_fn(DESCR_t arr) {
     if (arr.v != DT_T) return arr;
     TBBLK_t *tbl = arr.tbl;
     if (!tbl) return FAILDESCR;
-    int n = 0;
-    for (int h = 0; h < TABLE_BUCKETS; h++)
-        for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) n++;
+    int n = 0; TBPAIR_t *e;
+    TBL_FOREACH(tbl, e) n++;
     if (n == 0) return FAILDESCR;
     const char **keys = rt_ws_alloc(n * sizeof(char *));
     DESCR_t *key_descrs = rt_ws_alloc(n * sizeof(DESCR_t));
     DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
     int idx = 0;
-    for (int h = 0; h < TABLE_BUCKETS; h++)
-        for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) {
-            keys[idx] = e->key;
+    TBL_FOREACH(tbl, e) {
+            keys[idx] = tbl_pair_key(e);
             key_descrs[idx] = e->key_descr;
             vals[idx] = e->val;
             idx++;
@@ -1216,9 +1214,8 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     }
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
-        TBPAIR_t *e = table_find_pair_d(tb, idx);   /* ⭐ hash by datatype then value; no stringify, and no per-subscript rt_ws_strdup_c -- vc->key_d already carries the key */
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        vc->cellp = e ? &e->val : 0; vc->tbl = tb; vc->key = 0;
+        vc->cellp = 0; vc->tbl = tb; vc->key = 0;   /*⛔⭐ s262 Lon: NO CODE MAY HOLD AN ADDRESS INTO A TABLE.  cellp used to be &e->val, which forced entries to be pinned against a compacting collector; the cell names (tbl, key_descr) and re-resolves instead -- and that also applies the table's DEFAULT on a miss, which the raw pointer never did.  ⭐ IT ALSO DELETED A WHOLE LOOKUP: this arm used to call table_find_pair_d purely to compute that address, so minting a subscript and then reading it hashed TWICE.  Measured at fixed work, 100,000 reads: table_find_pair_d 51.0M Ir with the probe, 38.7M without. */
         vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
@@ -1251,10 +1248,10 @@ DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
-        TBPAIR_t *e = table_find_pair_d(tb, idx);   /* ⭐ hash by datatype then value -- see rt_subscript_var above */
-        if (e && (e->val.v == DT_T || e->val.v == DT_A)) return e->val;
+        { int found; DESCR_t hv = table_get_found_d(tb, idx, &found);   /*⭐ this arm genuinely needs the VALUE (a nested table/array is returned directly); it no longer needs the ENTRY, so it asks for the value and never holds an address into the table */
+          if (found && (hv.v == DT_T || hv.v == DT_A)) return hv; }
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        vc->cellp = e ? &e->val : 0; vc->tbl = tb; vc->key = 0;
+        vc->cellp = 0; vc->tbl = tb; vc->key = 0;   /*⛔ s262 Lon: NO ADDRESS INTO A TABLE -- see rt_subscript_var above */
         vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
@@ -1292,11 +1289,10 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
         return FAILDESCR;
     }
     if (obj.v == DT_T && obj.tbl) {
-        TBBLK_t *tbl = obj.tbl; int64_t seen = 0;
-        for (int b = 0; b < TABLE_BUCKETS; b++)
-            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
+        TBBLK_t *tbl = obj.tbl; int64_t seen = 0; TBPAIR_t *ep;
+        TBL_FOREACH(tbl, ep) {
                 if (seen == idx) {
-                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &ep->val; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = 0; vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;   /*⛔ s262 Lon: NO ADDRESS INTO A TABLE */
                     return NAMETRAP(vc);
                 }
                 seen++;
@@ -1352,9 +1348,8 @@ DESCR_t rt_random_var(DESCR_t base) {
     }
     if (base.v == DT_T && base.tbl) {
         TBBLK_t *tbl = base.tbl; if (tbl->size <= 0) return FAILDESCR;
-        long n = (long)(rval * (double)tbl->size) + 1; long seen = 0;
-        for (int b = 0; b < TABLE_BUCKETS; b++)
-            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next)
+        long n = (long)(rval * (double)tbl->size) + 1; long seen = 0; TBPAIR_t *ep;
+        TBL_FOREACH(tbl, ep)
                 if (++seen == n) {
                     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = rt_ws_strdup_c(ep->key); vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0;
                         vc->len = 0;

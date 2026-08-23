@@ -1129,11 +1129,12 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             ARBLK_t *a = array_new2d(1, n, 1, 2);
             a->proto_bare = 1;
             int row = 1;
-            for (int b = 0; b < TABLE_BUCKETS && row <= n; b++) {
-                for (TBPAIR_t *e = tbl->buckets[b]; e && row <= n; e = e->next) {
+            TBPAIR_t *e;
+            {
+                TBL_FOREACH(tbl, e) { if (row > n) break;
                     DESCR_t kd = (e->key_descr.v != DT_SNUL)
                                  ? e->key_descr
-                                 : STRVAL(e->key ? e->key : "");
+                                 : STRVAL(tbl_pair_key(e));
                     array_set2(a, row, 1, kd);
                     array_set2(a, row, 2, e->val);
                     row++;

@@ -13,6 +13,13 @@
 #define HB_AGGT  208
 #define HB_PLJ   209
 #define HB_WSS   210
+/*⭐ HB_AGGB (s262) -- A TABLE BUCKET'S CONTIGUOUS INDEX ARRAY: TBSLOT_t {hkey, entry*} records.
+  ⛔ IT IS ITS OWN TYPE BECAUSE THE SWEEP READS TYPES STRUCTURALLY.  An HB_AGGP block is cast to a single TBPAIR_t
+  and its key_descr/val visited as descriptors; a slot array landing in that class had its 64-bit hkey read as a
+  DESCR_t and segfaulted the collector (measured, not feared).  HB_AGGB carries NO descriptors -- the entries it
+  points at are marked by gc_visit_tbblk walking the table -- so its sweep arm is a deliberate no-op. */
+#define HB_AGGB  211
+#define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
 #define HBF_PIN  0x0004

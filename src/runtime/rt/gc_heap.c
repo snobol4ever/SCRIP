@@ -355,7 +355,7 @@ static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
 {
     uint16_t old = h->flags;
     h->flags = (uint16_t)(old | HBF_MARK | addf);
-    if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
+    if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || HB_IS_AGG(h->type))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_pin_ptr(const char *p)
@@ -370,7 +370,7 @@ static void gc_cons_scan_t(const char *lo, const char *hi, int ws_only)
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u);
     for (; p + 8 <= hi; p += 8) { const char *q = *(const char *const *)p;
         if (!ws_only) rt_gc_pin_ptr(q);
-        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) {
+        else { rt_hblk_t *h = gc_blk_of(q); if (h && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || HB_IS_AGG(h->type))) {
             if (!(h->flags & HBF_PIN) && h->type >= 200 && h->type < 216) { g_gc_pin_tag[g_gc_scan_tag & 7][h->type - 200] += 1;
                 if (g_gc_pin_src_n < 32) { g_gc_pin_src[g_gc_pin_src_n][0] = (void *)p; g_gc_pin_src[g_gc_pin_src_n][1] = (void *)(uintptr_t)h->type; g_gc_pin_src_n++; } }
             gc_mark_blk(h, HBF_PIN); } } }
@@ -395,10 +395,33 @@ static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t)
 {
+/*⭐⭐ NOTHING HERE IS PINNED, AND THAT IS THE POINT (Lon, 2026-08-23 s262).
+  His ruling, and the correction that produced this block: *"GC handles sliding pointers, they just never need to be
+  PINNED."*  Pointers are FINE.  A table points at its bucket blocks, a bucket's entries point at key strings, and
+  every one of those may relocate freely -- what a data structure must never do is require that a block STAY PUT.
+  ⛔ AN EARLIER CUT OF THIS FUNCTION PINNED THE BLOCKS A TABLE OWNS, and it was wrong twice over: it re-introduced
+  the pin path Lon had just deleted, and it did so to protect a dependency that should not have existed.  The pin is
+  gone; the cure is registration.  rt_gc_visit_raw hands the collector the LOCATION of each outbound pointer, so the
+  slide pass REWRITES it in place -- which is what "downstream and easily slidable" means in practice.
+  ⛔ WHAT IS STILL THE COLLECTOR'S BUG, and is hq_C's lane as of s263: both fixup registries (g_gc_cells, g_gc_raws)
+  store INTERIOR addresses -- &e->key_descr lives inside an entry block -- so when the block holding a registered
+  location is itself moved, the repair writes through a stale address.  Registries must hold (block, offset).  That
+  defect is PRE-EXISTING and measured: at the parent commit, with chains still in place, table_variety.sno printed
+  its correct check value and then died in rt_gcheap_verify with "corrupt title".  Chained tables survived
+  table_access only BY ACCIDENT -- an entry that happened to sit in a C-stack slot picked up HBF_PIN from the
+  conservative scan.  Nothing structural was protecting them; removing the pin path merely stopped hiding it. */
     gc_mark_agg(t);
     rt_gc_visit_descr(&t->dflt);
-    for (int b = 0; b < TABLE_BUCKETS; b++) for (TBPAIR_t *e = t->buckets[b]; e; e = e->next) { gc_mark_agg(e); if (e->key) gc_mark_agg(e->key);
-        rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); }
+    for (int b = 0; b < TABLE_BUCKETS; b++) {
+        TBBUCK_t *bk = t->buckets[b];
+        if (!bk) continue;
+        rt_gc_visit_raw((const char **)&t->buckets[b]);   /*⭐ DOWNSTREAM AND SLIDABLE (Lon s262): register the LOCATION so the slide rewrites it -- never pin the block so it cannot move */
+        for (unsigned i = 0; i < bk->len; i++) {
+            TBPAIR_t *e = &bk->ent[i];
+            if (e->key) rt_gc_visit_raw((const char **)&e->key);
+            rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val);
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d)
@@ -573,7 +596,7 @@ static long gc_collect_ex(int cons_stack)
     { char *p = g_hp_arena; long i = 0; int fold = gc_walk_fold(); if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
         h->flags &= (uint16_t)~(HBF_MARK | HBF_PIN);
-        if (h->type == HB_ZBLK || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT)) nforeign++;
+        if (h->type == HB_ZBLK || h->type == HB_PLJ || HB_IS_AGG(h->type)) nforeign++;
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
@@ -607,6 +630,7 @@ static long gc_collect_ex(int cons_stack)
             if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); if (vc->key) gc_mark_agg(vc->key);
                 if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
                 rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); continue; }
+            if (h->type == HB_AGGB) continue;   /*⭐ s262 bucket index: {hkey, entry*} records, no descriptors -- its entries are marked by gc_visit_tbblk */
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
@@ -620,6 +644,7 @@ static long gc_collect_ex(int cons_stack)
               if (h->type == HB_AGGV) { VCELL_t *vc = (VCELL_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (vc->key) gc_mark_agg(vc->key);
                   if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
                   rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv); if (vc->cellp) rt_gc_visit_descr(vc->cellp); continue; }
+              if (h->type == HB_AGGB) { scanned[i] = 1; changed = 1; nscan++; continue; }   /*⭐ s262 bucket index -- see the worklist arm */
               if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (e->key) gc_mark_agg(e->key);
                   rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
               if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
@@ -630,12 +655,11 @@ static long gc_collect_ex(int cons_stack)
     { long pws = 0, pwsc = 0, pzb = 0, pval = 0, dwsc = 0, pagg = 0, dagg = 0; int fold = gc_walk_fold();
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if (!pz && (h->flags & HBF_MARK) && (h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_PLJ || (h->type >= HB_AGGV && h->type <= HB_AGGT))) h->flags |= HBF_PIN;
+        /* ⛔ TYPE-BASED PIN REMOVED (Lon s262: "Completely remove the PIN path.  Let's see what breaks.").  It was gated on !pz, i.e. it only ever fired when the collector could NOT be precise -- a fallback for imprecision, not a design.  Marked blocks now relocate like any other live block. */
         if (h->type == HB_WSC && !(h->flags & HBF_PIN)) dwsc++;
-        if (h->type >= HB_AGGV && h->type <= HB_AGGT && !(h->flags & HBF_PIN)) dagg++;
-        if (h->flags & HBF_PIN) { if (h->type == HB_WS) pws++; else if (h->type == HB_WSC) pwsc++; else if (h->type >= HB_AGGV && h->type <= HB_AGGT) pagg++; else if (h->type == HB_ZBLK) pzb++;
-            else pval++; h->fwd = (uint64_t)h; nlive++; npin++; }
-        else if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
+        if (HB_IS_AGG(h->type) && !(h->flags & HBF_PIN)) dagg++;
+        /* ⛔ THE PIN ARM IS GONE (Lon s262).  It mapped a pinned block to itself (h->fwd = h) so the compactor left it in place; every live block now relocates. */
+        if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; }
         if (h->flags & HBF_PIN) dest = (char *)h + h->size; }

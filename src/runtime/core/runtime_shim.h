@@ -48,8 +48,7 @@ static inline void _iset_impl(DESCR_t nameVal, DESCR_t v) {
 static inline DESCR_t _aref_impl(DESCR_t arr, DESCR_t *keys, int n) {
     if (n <= 0) return FAILDESCR;
     if (arr.v == DT_T) {
-        const char *k = VARVAL_fn(keys[0]);
-        return table_get(arr.tbl, k ? k : "");
+        return table_get_d(arr.tbl, keys[0]);   /*⭐ s262: hash the DESCRIPTOR, not its text -- the string-keyed lookups are gone (aggregates.c) */
     }
     if (arr.v == DT_A) {
         int i = (int)to_int(keys[0]);
@@ -63,8 +62,7 @@ static inline DESCR_t _aref_impl(DESCR_t arr, DESCR_t *keys, int n) {
 static inline void _aset_impl(DESCR_t arr, DESCR_t *keys, int n, DESCR_t v) {
     if (n <= 0) return;
     if (arr.v == DT_T) {
-        const char *k = VARVAL_fn(keys[0]);
-        table_set_descr(arr.tbl, k ? k : "", keys[0], v);
+        table_set_descr_d(arr.tbl, keys[0], v);   /*⭐ s262: hash the DESCRIPTOR, not its text */
         return;
     }
     if (arr.v == DT_A) {

@@ -336,6 +336,18 @@ RTX_FUNC(rt_subscript_var)
  *    2,000,001 of 2,000,001 arrivals measured base.v=9 slen=1.
  */
 .Lsub_table:
+    /* ⛔⭐ s262 STAND-DOWN, AND IT IS OBSOLESCENCE, NOT A TODO.  RTX-26/29 existed to find the entry
+     * for a DT_T subscript so it could build a VCELL holding `cellp = &e->val`.  Lon ruled that
+     * address out of existence -- "we should never have in our code a place that depends on that
+     * pointer not moving" -- so rt_subscript_var no longer looks the key up AT ALL: it mints a cell
+     * naming (tbl, key_descr) and re-resolves on use.  There is nothing left here to accelerate.
+     * The C path this bails to is FASTER than what these arms did, because the whole probe is gone.
+     * ⛔ The arms below are also structurally dead: they walk a CHAIN (`e = e->next`) and hash a
+     * STRINGIFIED key, and neither exists any more -- a bucket is a sorted contiguous array of
+     * 48-byte entries and the hash is per-datatype.  A wrong-shape walk here would read arbitrary
+     * memory and still assemble and still link, which is why this is a hard jump and not a comment.
+     * ⭐ The hashed lookup itself now lives in rtx_table.S (RTX-TBL), where it belongs. */
+    jmp     .Lsub_bail
     cmp     al, DT_T
     jne     .Lsub_bail
     mov     rsi, rdx                    /* rsi = tb (TBBLK_t *)                  */

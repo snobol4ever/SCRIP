@@ -497,13 +497,8 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     }
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl   = obj.tbl;
-        int64_t  seen  = 0;
-        for (int b = 0; b < TABLE_BUCKETS; b++) {
-            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
-                if (seen == idx) { *out = ep->val; return 1; }
-                seen++;
-            }
-        }
+        int64_t  seen  = 0; TBPAIR_t *ep;
+        TBL_FOREACH(tbl, ep) { if (seen == idx) { *out = ep->val; return 1; } seen++; }
         return 0;
     }
     {
@@ -521,9 +516,9 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
 int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl  = obj.tbl;
-        int64_t  seen = 0;
-        for (int b = 0; b < TABLE_BUCKETS; b++) {
-            for (TBPAIR_t *ep = tbl->buckets[b]; ep; ep = ep->next) {
+        int64_t  seen = 0; TBPAIR_t *ep;
+        TBL_FOREACH(tbl, ep) {
+            {
                 if (seen == idx) { *out = ep->key_descr; return 1; }
                 seen++;
             }
