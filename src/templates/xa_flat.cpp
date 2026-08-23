@@ -363,7 +363,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
         int rs = g_emit_cfg->resume_slot;
         return x86("comment", "PL-FR-4 zframe epilogue-γ (Prolog gen): check pending resume cursor before unwind")
              + x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor")
-             + x86("mov", "r12", "[r11]")
+             + x86("mov", "r12", "[r12]")
              + x86("test", "r12", "r12")
              + x86("je", L(50))
              + x86("mov", "qword ptr [rsp# + " + std::to_string(rs) + "]", "r12")

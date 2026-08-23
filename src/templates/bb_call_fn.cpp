@@ -69,23 +69,23 @@ static std::string sink_unb(const char * reg, int lyes, int lno) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_trailpush(const char * creg, int lslow) {
     return x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail")
-         + x86("mov", "rdi", "[r10 + 0]")
+         + x86("mov", "rdi", "[r12 + 0]")
          + x86("test", "rdi", "rdi")   + x86_jcc_id("je", lslow)
-         + x86("mov", "eax", "dword ptr [r10 + 32]")
+         + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("mov32", "esi", (long)24)
          + x86("imul", "rsi", "rax")
-         + x86("mov", "rax", "[r10 + 24]")
+         + x86("mov", "rax", "[r12 + 24]")
          + x86("sub", "rax", (long)24)
          + x86("cmp", "rsi", "rax")    + x86_jcc_id("ja", lslow)
          + x86("add", "rdi", "rsi")
-         + x86("mov", "[r11 + 0]", creg)
+         + x86("mov", "[rdi + 0]", creg)
          + x86("mov", "rax", (std::string("[") + creg + " + 0]").c_str())
-         + x86("mov", "[r11 + 8]", "rax")
+         + x86("mov", "[rdi + 8]", "rax")
          + x86("mov", "rax", (std::string("[") + creg + " + 8]").c_str())
-         + x86("mov", "[r11 + 16]", "rax")
-         + x86("mov", "eax", "dword ptr [r10 + 32]")
+         + x86("mov", "[rdi + 16]", "rax")
+         + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("add", "eax", (long)1)
-         + x86("mov", "dword ptr [r10 + 32]", "eax");
+         + x86("mov", "dword ptr [r12 + 32]", "eax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_cp16(const char * dst, const char * src) {
@@ -96,44 +96,44 @@ static std::string sink_cp16(const char * dst, const char * src) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_tp_nc(const char * creg) {
-    return x86("mov", "rdi", "[r10 + 0]")
-         + x86("mov", "eax", "dword ptr [r10 + 32]")
+    return x86("mov", "rdi", "[r12 + 0]")
+         + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("mov32", "esi", (long)24)
          + x86("imul", "rsi", "rax")
          + x86("add", "rdi", "rsi")
-         + x86("mov", "[r11 + 0]", creg)
+         + x86("mov", "[rdi + 0]", creg)
          + x86("mov", "rax", (std::string("[") + creg + " + 0]").c_str())
-         + x86("mov", "[r11 + 8]", "rax")
+         + x86("mov", "[rdi + 8]", "rax")
          + x86("mov", "rax", (std::string("[") + creg + " + 8]").c_str())
-         + x86("mov", "[r11 + 16]", "rax")
-         + x86("mov", "eax", "dword ptr [r10 + 32]")
+         + x86("mov", "[rdi + 16]", "rax")
+         + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("add", "eax", (long)1)
-         + x86("mov", "dword ptr [r10 + 32]", "eax");
+         + x86("mov", "dword ptr [r12 + 32]", "eax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_carve48(int lslow) {
     return x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
-         + x86("mov", "eax", "dword ptr [r10 + 24]")
+         + x86("mov", "eax", "dword ptr [r12 + 24]")
          + x86("test", "eax", "eax")            + x86_jcc_id("je", lslow)
-         + x86("mov", "rdi", "[r10 + 0]")
-         + x86("mov", "rax", "[r10 + 8]")
+         + x86("mov", "rdi", "[r12 + 0]")
+         + x86("mov", "rax", "[r12 + 8]")
          + x86("sub", "rax", (long)48)
          + x86("cmp", "rdi", "rax")             + x86_jcc_id("ja", lslow);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_carve48_take(void) {
     return x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_hp_fr, "g_hp_fr")
-         + x86("mov", "rdi", "[r10 + 0]")
-         + x86("mov", "[r11 + 0]", (long)0)
-         + x86("mov", "dword ptr [r11 + 8]", (long)48)
-         + x86("mov", "dword ptr [r11 + 12]", (long)(209 | (1 << 16)))
-         + x86("lea", "rdx", "[r11 + 16]")
+         + x86("mov", "rdi", "[r12 + 0]")
+         + x86("mov", "[rdi + 0]", (long)0)
+         + x86("mov", "dword ptr [rdi + 8]", (long)48)
+         + x86("mov", "dword ptr [rdi + 12]", (long)(209 | (1 << 16)))
+         + x86("lea", "rdx", "[rdi + 16]")
          + x86("mov", "rax", "rdi")
          + x86("add", "rax", (long)48)
-         + x86("mov", "[r10 + 0]", "rax")
-         + x86("mov", "rax", "[r10 + 16]")
+         + x86("mov", "[r12 + 0]", "rax")
+         + x86("mov", "rax", "[r12 + 16]")
          + x86("add", "rax", (long)1)
-         + x86("mov", "[r10 + 16]", "rax");
+         + x86("mov", "[r12 + 16]", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_kid(const char * creg, int koff, int lunb, int lbnd, int ljoin) {
@@ -246,7 +246,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86("cmp", "cl", (long)DT_PLREF);
     s += x86_jcc_id("jne", 73);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
-    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("test", "eax", "eax");
     s += x86_jcc_id("je", 72);
     s += x86("mov", "edx", "dword ptr [r8 + 4]");
@@ -263,36 +263,36 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += sink_unb("rcx", 76, 72);
     s += x86_deflabel_id(76);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
-    s += x86("mov", "rdi", "[r10 + 0]");
+    s += x86("mov", "rdi", "[r12 + 0]");
     s += x86("test", "rdi", "rdi")   + x86_jcc_id("je", 72);
-    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov", "eax", "dword ptr [r12 + 32]");
     s += x86("mov32", "esi", (long)24);
     s += x86("imul", "rsi", "rax");
-    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("mov", "rax", "[r12 + 24]");
     s += x86("sub", "rax", (long)48);
     s += x86("cmp", "rsi", "rax")    + x86_jcc_id("ja", 72);
     s += x86("add", "rdi", "rsi");
-    s += x86("mov", "[r11 + 0]", "r9");
+    s += x86("mov", "[rdi + 0]", "r9");
     s += x86("mov", "rax", "[r9 + 0]");
-    s += x86("mov", "[r11 + 8]", "rax");
+    s += x86("mov", "[rdi + 8]", "rax");
     s += x86("mov", "rax", "[r9 + 8]");
-    s += x86("mov", "[r11 + 16]", "rax");
-    s += x86("mov", "[r11 + 24]", "rcx");
+    s += x86("mov", "[rdi + 16]", "rax");
+    s += x86("mov", "[rdi + 24]", "rcx");
     s += x86("mov", "rax", "[rcx + 0]");
-    s += x86("mov", "[r11 + 32]", "rax");
+    s += x86("mov", "[rdi + 32]", "rax");
     s += x86("mov", "rax", "[rcx + 8]");
-    s += x86("mov", "[r11 + 40]", "rax");
-    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov", "[rdi + 40]", "rax");
+    s += x86("mov", "eax", "dword ptr [r12 + 32]");
     s += x86("add", "eax", (long)2);
-    s += x86("mov", "dword ptr [r10 + 32]", "eax");
+    s += x86("mov", "dword ptr [r12 + 32]", "eax");
     s += x86("mov", "r12", "[r8 + 8]");
-    s += x86("mov", "rax", "[r10 + 0]");
+    s += x86("mov", "rax", "[r12 + 0]");
     s += x86("mov", "[r9 + 0]", "rax");
-    s += x86("mov", "rax", "[r10 + 8]");
+    s += x86("mov", "rax", "[r12 + 8]");
     s += x86("mov", "[r9 + 8]", "rax");
-    s += x86("mov", "rax", "[r10 + 16]");
+    s += x86("mov", "rax", "[r12 + 16]");
     s += x86("mov", "[rcx + 0]", "rax");
-    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("mov", "rax", "[r12 + 24]");
     s += x86("mov", "[rcx + 8]", "rax");
     s += x86("mov", "rax", "[r8 + 0]");
     s += x86("mov", "rdx", "[r8 + 8]");
@@ -300,18 +300,18 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += x86_deflabel_id(80);
     s += x86("comment", "PL-SINK-3 inline $unify_lst WRITE mode: carve 2 kids off the PLJ frontier, join unbound args, bind subject to the './2 cell");
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
-    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("test", "eax", "eax");
     s += x86_jcc_id("je", 72);
     s += sink_carve48(72);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
-    s += x86("mov", "rdi", "[r10 + 0]");
+    s += x86("mov", "rdi", "[r12 + 0]");
     s += x86("test", "rdi", "rdi");
     s += x86_jcc_id("je", 72);
-    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov", "eax", "dword ptr [r12 + 32]");
     s += x86("mov32", "esi", (long)24);
     s += x86("imul", "rsi", "rax");
-    s += x86("mov", "rax", "[r10 + 24]");
+    s += x86("mov", "rax", "[r12 + 24]");
     s += x86("sub", "rax", (long)72);
     s += x86("cmp", "rsi", "rax");
     s += x86_jcc_id("ja", 72);
@@ -326,7 +326,7 @@ static std::string sink_unify_lst_str(int argbase, uint64_t ufp, const char * us
     s += sink_tp_nc("r8");
     s += x86("mov", "dword ptr [r8 + 0]", (long)DT_PLREF);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
-    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("mov", "dword ptr [r8 + 4]", "eax");
     s += x86("mov", "[r8 + 8]", "rdx");
     s += x86("mov", "rax", "[r8 + 0]");
@@ -348,7 +348,7 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
         extern void *g_pl_zf_pending_cursor;
         s += x86("comment", "PL-FR-4 N0-SUPPRESS: if pending β-resume, lexprep2 already wrote correct trail mark — skip pl_trail_mark and use frame slot as-is");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor");
-        s += x86("mov", "rax", "[r11]");
+        s += x86("mov", "rax", "[rdi]");
         s += x86("test", "rax", "rax");
         s += x86_jcc_id("je", 102);
         s += x86("mov", "rax", FRQ(resoff));
@@ -357,15 +357,15 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
         s += x86_deflabel_id(102);
     }
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_cellws_on, "g_plw_cellws_on");
-    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("test", "eax", "eax");
     s += x86_jcc_id("jne", 100);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_zeta_mode, "g_zeta_mode");
-    s += x86("mov", "eax", "dword ptr [r10 + 0]");
+    s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("cmp", "eax", (long)2);
     s += x86_jcc_id("je", 100);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
-    s += x86("mov", "eax", "dword ptr [r10 + 32]");
+    s += x86("mov", "eax", "dword ptr [r12 + 32]");
     s += x86("movsxd", "rdx", "eax");
     s += x86("mov32", "eax", (long)DT_I);
     s += x86_jmp_id(101);
@@ -389,7 +389,7 @@ static std::string sink_ix_g_str(int argbase, uint64_t ufp, const char * usym, i
     if (kk == 3) {
         s += x86("cmp", "al", (long)DT_PLREF) + x86_jcc_id("jne", 119);
         s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_plw_dot_sl, "g_plw_dot_sl");
-        s += x86("mov", "edx", "dword ptr [r10 + 0]");
+        s += x86("mov", "edx", "dword ptr [r12 + 0]");
         s += x86("cmp", "dl", (long)DT_SNUL)  + x86_jcc_id("je", 116);
         s += x86("mov", "esi", "dword ptr [r8 + 4]");
         s += x86("cmp", "esi", "edx")    + x86_jcc_id("jne", 115);
