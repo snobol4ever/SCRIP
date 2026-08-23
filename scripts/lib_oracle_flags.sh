@@ -138,10 +138,15 @@ sbl_clean_refuse_if_load() {
 # must be LOUD on stderr with a non-zero return, never a silent empty string a caller can string-
 # concat into a broken command line.
 # Canonical shared build (verified executable this session): /home/resources/icon-master/bin/{icont,iconx}.
-# ⭐ NOTE: /home/resources/icon-build/bin/{icont,iconx} is a SEPARATE tree carrying byte-identical
-# binaries (md5 confirmed both files) -- harmless today, but a future rebuild of one and not the
-# other would silently create the exact divergent-shared-oracle hazard the ORACLE-SWAP procedure
-# (ARCH-FLEET-CEO.md) exists to prevent. Not this row's fix; flagged for whoever owns oracle topology.
+# ⭐ CORRECTED s266 by hq_C, who created it: /home/resources/icon-build is NOT a separate tree -- it is a
+# SYMLINK to /home/resources/icon-master (`ls -ld` says so). The md5s match because they are the same file,
+# so the divergent-shared-oracle hazard flagged here cannot occur by construction: there is nothing to
+# rebuild independently. ⛔ DO NOT "fix" this by deleting the symlink -- several Icon scripts default their
+# oracle to "$S4A/icon-build" (honest_icon_correctness.sh, scorecard_icon.sh ORACLE_BIN), and removing it
+# breaks them while these accessors are still being adopted. The symlink exists precisely so those callers
+# resolve to the one canonical tree instead of guessing. ⭐ The original note's instinct was right and worth
+# keeping in spirit -- two oracle paths IS the hazard shape, and it deserved the flag; what makes it safe
+# here is that one path is a link to the other, which `ls -l` answers and md5 cannot.
 icont_bin() {
     local c="/home/resources/icon-master/bin/icont"
     if [ ! -x "$c" ]; then
