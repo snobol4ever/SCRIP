@@ -4655,7 +4655,11 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
     rt_gc_point_arr(args, nargs, (const char **)0);
     if (!fn) return out;
-    if (!strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
+    /* ⭐ FIRST-CHARACTER GUARD, the s260 FAIL-strcmp cure's shape (hq_P s262).  MEASURED, roman.sno -O0 N=6000: this line
+       was a full __strcmp_avx2 PLT hop on EVERY builtin call -- 31,002 calls, 620,040 Ir = 0.57% of the program -- to
+       recognise one reserved name that no benchmark ever passes.  strcmp(fn,"SNO$NOFAIL")==0 IMPLIES fn[0]=='S', so a
+       first-character test cannot change the answer, only reach it without a call. */
+    if (fn[0] == 'S' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
         extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
