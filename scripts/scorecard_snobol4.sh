@@ -46,7 +46,7 @@ bb_probes      10 probe/bb                                            -name *.sn
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
-probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 -
+probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 ms
 csnobol4_suite  5 programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
 gimpel          5 programs/gimpel                                     -name *_driver.sno         SELFDIR:programs/include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
