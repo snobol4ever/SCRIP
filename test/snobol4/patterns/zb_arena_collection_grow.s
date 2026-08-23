@@ -135,12 +135,15 @@ n7_match_pos_β:         mov              r11, 8;                              j
 #-----------------------------------------------------------------------------------------------------------------------
 n8_match_arbno_α:       mov              r11, 9
                         mov              dword ptr [rbp + -64], r14d
-                        mov              dword ptr [rbp + -60], r14d;         jmp   n9_match_rpos_α
-n8_match_arbno_β:       mov              r11, 9;                              jmp   n12_match_alternate_α
+                        mov              dword ptr [rbp + -60], r14d
+                        mov              qword ptr [rbp + -56], r12;          jmp   n9_match_rpos_α
+n8_match_arbno_β:       mov              r11, 9
+                        mov              r12, qword ptr [rbp + -56];          jmp   n12_match_alternate_α
 n8_match_arbno_as:      mov              r11, 9
                         mov              eax, dword ptr [rbp + -60]
                         cmp              r14d, eax;                           je    n12_match_alternate_β
-                        mov              dword ptr [rbp + -60], r14d;         jmp   n9_match_rpos_α
+                        mov              dword ptr [rbp + -60], r14d
+                        mov              qword ptr [rbp + -56], r12;          jmp   n9_match_rpos_α
 n8_match_arbno_af:      mov              r11, 9
                         mov              eax, dword ptr [rbp + -64]
                         cmp              r14d, eax;                           jne   n12_match_alternate_β

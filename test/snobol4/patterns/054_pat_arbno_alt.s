@@ -143,12 +143,15 @@ n8_match_assign_save_β: mov              r11, 9
 #-----------------------------------------------------------------------------------------------------------------------
 n9_match_arbno_α:       mov              r11, 10
                         mov              dword ptr [rbp + -80], r14d
-                        mov              dword ptr [rbp + -76], r14d;         jmp   n10_match_assign_cond_α
-n9_match_arbno_β:       mov              r11, 10;                             jmp   n14_match_alternate_α
+                        mov              dword ptr [rbp + -76], r14d
+                        mov              qword ptr [rbp + -72], r12;          jmp   n10_match_assign_cond_α
+n9_match_arbno_β:       mov              r11, 10
+                        mov              r12, qword ptr [rbp + -72];          jmp   n14_match_alternate_α
 n9_match_arbno_as:      mov              r11, 10
                         mov              eax, dword ptr [rbp + -76]
                         cmp              r14d, eax;                           je    n14_match_alternate_β
-                        mov              dword ptr [rbp + -76], r14d;         jmp   n10_match_assign_cond_α
+                        mov              dword ptr [rbp + -76], r14d
+                        mov              qword ptr [rbp + -72], r12;          jmp   n10_match_assign_cond_α
 n9_match_arbno_af:      mov              r11, 10
                         mov              eax, dword ptr [rbp + -80]
                         cmp              r14d, eax;                           jne   n14_match_alternate_β
