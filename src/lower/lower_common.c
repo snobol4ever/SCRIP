@@ -246,9 +246,9 @@ void lc_call_argblks(IR_t * call, double dv, int nargs, lc_argblk_fn mk, void * 
     for (int k = 0; k < nargs; k++) blks[k] = mk(cx, args[k]);
     (void)(blks);
 }
-static struct { const IR_t ** nd; const char ** src; int n; int max; } g_bb_src = { 0, 0, 0, 0 };
+static struct { const IR_t ** nd; const char ** src; int * line; int n; int max; } g_bb_src = { 0, 0, 0, 0, 0 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_src_note(const IR_t * nd, const char * src) {
+void bb_src_note(const IR_t * nd, const char * src, int line) {
     if (!nd || !src || !src[0]) return;
     for (int i = 0; i < g_bb_src.n; i++) {
         if (g_bb_src.nd[i] != nd) continue;
@@ -268,11 +268,13 @@ void bb_src_note(const IR_t * nd, const char * src) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
         const IR_t ** a = (const IR_t **) realloc((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
         const char ** b = (const char **) realloc((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
-        if (!a || !b) return;
-        g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.max = m;
+        int * c = (int *) realloc((void *) g_bb_src.line, (size_t) m * sizeof(int));
+        if (!a || !b || !c) return;
+        g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.line = c; g_bb_src.max = m;
     }
     g_bb_src.nd[g_bb_src.n] = nd;
     g_bb_src.src[g_bb_src.n] = lp_strdup(src);
+    g_bb_src.line[g_bb_src.n] = line;
     g_bb_src.n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -282,6 +284,12 @@ const char * bb_src_of(const IR_t * nd) {
       for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i] != nd) continue;
           if (_sd) fprintf(stderr, "[SRC] hit nd=%p i=%d/%d src=%.44s\n", (const void *) nd, i, g_bb_src.n, g_bb_src.src[i] ? g_bb_src.src[i] : "-");
           return g_bb_src.src[i]; } }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int bb_line_of(const IR_t * nd) {
+    if (!nd) return 0;
+    for (int i = 0; i < g_bb_src.n; i++) if (g_bb_src.nd[i] == nd) return g_bb_src.line[i];
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

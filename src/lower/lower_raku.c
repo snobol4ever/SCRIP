@@ -304,7 +304,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], bentry, γ);
-        bb_src_note(centry, "rk_while_cond");
+        bb_src_note(centry, "rk_while_cond", 0);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_CLOOP: {
@@ -315,8 +315,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = lower_rblock(cx, t->c[3], incr_entry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[1], bentry, γ);
-        bb_src_note(centry, "rk_cloop_cond");
-        if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr");
+        bb_src_note(centry, "rk_cloop_cond", 0);
+        if (incr_entry && incr_entry != LOOP) bb_src_note(incr_entry, "rk_cloop_incr", 0);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         IR_t * ientry = lower_rblock(cx, t->c[0], LOOP, ω);
         *res = LOOP; return ientry; }
@@ -327,7 +327,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * bentry = (t->n > 1) ? lower_rblock(cx, t->c[1], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
         IR_t * centry = lower_cond(cx, t->c[0], γ, bentry);
-        bb_src_note(centry, "rk_until_cond");
+        bb_src_note(centry, "rk_until_cond", 0);
         γ_to(LOOP, centry); ω_to(LOOP, centry);
         *res = LOOP; return centry; }
     case TT_REPEAT: if (t->v.ival != 0 && t->n > 1) {
@@ -337,8 +337,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = γ; cx->loop_next = centry;
         IR_t * bentry = lower_rblock(cx, t->c[0], centry, ω);
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        bb_src_note(bentry, "rk_repeat_body");
-        bb_src_note(centry, "rk_repeat_cond");
+        bb_src_note(bentry, "rk_repeat_body", 0);
+        bb_src_note(centry, "rk_repeat_cond", 0);
         γ_to(BACK, bentry); ω_to(BACK, bentry);
         *res = BACK; return bentry; }
     else {
@@ -347,7 +347,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         cx->loop_exit = ω; cx->loop_next = LOOP;
         IR_t * bentry = (t->n > 0) ? lower_rblock(cx, t->c[0], LOOP, ω) : LOOP;
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
-        if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body");
+        if (bentry && bentry != LOOP) bb_src_note(bentry, "rk_loop_body", 0);
         γ_to(LOOP, bentry); ω_to(LOOP, bentry);
         *res = LOOP; return bentry; }
     case TT_LOOP_BREAK: case TT_LOOP_NEXT: {

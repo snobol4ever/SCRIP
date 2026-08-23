@@ -569,6 +569,7 @@ typedef struct {
     int                          op_tail_fpr_rsp;
     int                          op_body_has_arbno;
     const char *                 op_src;
+    int                          op_line;
     int                          op_res_live;
     int                          flat_deep_arrival;
     int                          flat_fb_refine;

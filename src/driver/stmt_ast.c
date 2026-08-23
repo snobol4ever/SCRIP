@@ -141,11 +141,15 @@ const char *stmt_attr_str(const tree_t *attr)
 }
 static char ** g_src_lines = NULL;
 static int     g_src_nlines = 0;
+static char *  g_src_path = NULL;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * stmt_src_get_file(void) { return g_src_path; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void stmt_src_set_file(const char * path)
 {
     for (int i = 0; i < g_src_nlines; i++) free(g_src_lines[i]);
     free(g_src_lines); g_src_lines = NULL; g_src_nlines = 0;
+    free(g_src_path); g_src_path = path ? strdup(path) : NULL;
     FILE * f = path ? fopen(path, "r") : NULL;
     if (!f) return;
     fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);

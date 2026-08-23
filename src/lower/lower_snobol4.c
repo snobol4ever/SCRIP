@@ -2204,7 +2204,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         IR_t * t = anchor[i];
         int hops = 0;
         while (t && t->op == IR_GOTO && t->γ.node && hops++ < 64) t = t->γ.node;
-        if (t) bb_src_note(t, ssrc);
+        if (t) bb_src_note(t, ssrc, lp_s_int(st[i], ":line"));
     }
     free(anchor);
     free(fail_tgt); free(asgn_land);
