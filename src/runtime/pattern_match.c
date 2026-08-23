@@ -1115,10 +1115,39 @@ static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
     return rt_defer_close_v(cur_delta, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta)
+/* ⭐⭐⭐ SPITBOL'S vrblk DISCIPLINE FOR THE DEFERRED NAME (hq_P s261).  After the two-lookups-became-one cure, the ONE surviving resolution was still the largest runtime item in roman: NV_GET_fn'rt_defer_nv_read
+   14.85% + __strcmp_avx2'NV_GET_fn 4.37% = 19.2%, 140,381 calls at ~74 Ir each.  callgrind's line annotation says the LOOKUP is not what costs -- the CEREMONY is: NV_GET_fn's prologue 1,214,530 Ir, a NON-INLINED
+   _var_init() call 462,184 Ir to test one flag, the memo index 770,115, the memo key/generation check 1,271,736, and the strcmp that validates a memo hit 2,376,240.  You cannot make a lookup cheap enough; you
+   have to stop doing it.  NV_PTR_fn already hands back the STABLE cell -- core.c's own memo comment carries the proof: an NV_t comes from rt_ws_alloc, a bump allocator whose cursor only advances, the GC marks
+   HB_WS blocks but never moves or frees them, and NV_SET_fn REUSES an existing entry rather than shadowing it, so a resolved cell is valid for the life of the program.  That is exactly SPITBOL's static-area
+   guarantee, and it is why sbl spends 3.97% in b_vra where we spent 19.2%.
+   ⭐ THE SLOT IS SELF-VALIDATING, WHICH IS WHY A COLLISION CANNOT BECOME A WRONG ANSWER.  Each site gets a PAIR in the EXISTING g_sno_defer_cells array -- [0] the baked varname pointer that resolved, [1] the
+   cell -- and the cached cell is used only when [0] still equals the varname this call was handed.  Two sites landing on one slot therefore MISS and re-resolve; they never hand each other a cell.  No new global:
+   the array already exists for the DTP cache, and the DTP arm only allocates when ci >= 0 (a GVA-eligible name), which never fires for the PATV$ sites this arm serves.
+   ⛔ NOT CACHED, and each for its own reason: an '&' name (rt_defer_nv_read has a keyword path NV_PTR_fn does not model), a NULL return (NV_PTR_fn refuses the reserved I/O and control names -- INPUT, OUTPUT,
+   STLIMIT, ANCHOR, ...  whose value is COMPUTED, not stored), and site < 0 (the emitter had no slot to give). */
+static DESCR_t rt_defer_cell_read(const char *varname, long site, int *ok)
+{
+    extern DESCR_t *NV_PTR_fn(const char *name);
+    extern uint64_t g_sno_defer_cells[4096];
+    *ok = 0;
+    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return NULVCL;
+    uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
+    DESCR_t *cell;
+    if (slot[0] == (uint64_t)(uintptr_t)varname) cell = (DESCR_t *)(uintptr_t)slot[1];
+    else { cell = NV_PTR_fn(varname); if (!cell) return NULVCL; slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell; }
+    *ok = 1;
+    return *cell;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
 {
     extern void *dtp_fn_of(void *);
     rt_defer_pr_t r; r.fn = (void *)0; r.aux = 0;
+    if (rt_defer_merge_on() && varname && varname[0] != '*') {
+        int ok = 0; DESCR_t cv = rt_defer_cell_read(varname, site, &ok);
+        if (ok && cv.v != DT_P && cv.v != DT_X) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
+    }
     if (!rt_defer_merge_on() || !varname || varname[0] == '*') {
         void *dtp = rt_defer_get_pat_dtp(varname, 0);
         if (dtp) { void *fn = *(void **)dtp; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)dtp; return r; } }

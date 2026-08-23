@@ -16,7 +16,7 @@ extern "C" void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb);
 extern "C" long  rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag);
 extern "C" int rt_defer_run_all(const char *varname, int cur_delta);
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
-extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta);
+extern "C" rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site);
 extern "C" int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta);
 extern "C" void *dtp_fn_of(void *headv);
 extern "C" void *rt_defer_xpat_dtp(const char *nm);
@@ -50,6 +50,9 @@ std::string bb_match_defer() {
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
     int merged = (vslot < 0 && one_defer() && !(g_gva_active && _.op_gva_k >= 0));
+    /* ⭐ per-site cell slot for the merged arm, taken from the UPPER half of g_sno_defer_cells so it can never overlap the DTP cache the ci arm writes into the lower half (a shared slot would let one arm read the
+       other's word as its own -- the runtime's slot[0]==varname check turns a collision into a harmless miss for US, but our write would corrupt a DTP for THEM, so the ranges are kept disjoint by construction). */
+    static int g_defer_site_n; int msite = merged ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
@@ -145,8 +148,9 @@ std::string bb_match_defer() {
              + x86_xfer_enter()
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("mov",  "esi", "r14d")
+             + x86("mov",  "rdx", (long)msite)
              + x86_anchor_enter()
-             + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int))rt_defer_probe_run)
+             + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int, long))rt_defer_probe_run)
              + x86_anchor_leave()
              + x86_xfer_leave())
          + x86("test", "rax", "rax")
