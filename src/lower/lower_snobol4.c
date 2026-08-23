@@ -84,13 +84,25 @@ static int sno_expr_eq(const tree_t * a, const tree_t * b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect(const tree_t * expr) {
     if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
-    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
+    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && strncmp(g_sno_exprs[i].name, "EXPRNM$", 7) && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
     if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
     char buf[32]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
     g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
     g_sno_exprs[g_sno_nexpr].expr = expr;
     g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
     g_sno_exprs[g_sno_nexpr].want_name = 0;
+    return g_sno_exprs[g_sno_nexpr++].name;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_expr_collect_nm(const tree_t * expr) {
+    if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
+    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && g_sno_exprs[i].want_name && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
+    if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
+    char buf[40]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPRNM$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPRNM$%d", g_sno_nexpr);
+    g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
+    g_sno_exprs[g_sno_nexpr].expr = expr;
+    g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
+    g_sno_exprs[g_sno_nexpr].want_name = 1;
     return g_sno_exprs[g_sno_nexpr++].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1498,7 +1510,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
-        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
         IR_LIT(nd).sval = (char *) vn;
@@ -1522,7 +1534,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
-        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[48]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_IMM, succ, NULL);
         IR_LIT(nd).sval = (char *) vn;
@@ -2276,7 +2288,9 @@ void sno_expr_thunks_build(int x0) {
         IR_t * fJ = lc_build(gx, IR_GOTO, no, NULL);
         sno_reg_var(g_sno_exprs[xi].name);
         IR_t * asn = lc_build(gx, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = (char *) g_sno_exprs[xi].name;
-        IR_t * vr = NULL; IR_t * e = sx_lower(&ex, g_sno_exprs[xi].expr, asn, fJ, &vr);
+        const tree_t * xe = g_sno_exprs[xi].expr;
+        if (g_sno_exprs[xi].want_name && xe && xe->t == TT_INDIRECT && xe->n > 0 && xe->c[0] && g_sno_exprs[xi].name && !strncmp(g_sno_exprs[xi].name, "EXPRNM$", 7)) xe = xe->c[0];
+        IR_t * vr = NULL; IR_t * e = sx_lower(&ex, xe, asn, fJ, &vr);
         ir_operand_push(asn, vr);
         if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
         { IR_t * ad = lc_build(gx, IR_DEFINE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }
