@@ -68,11 +68,10 @@ n4_call_α:              sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd85]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 262164
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -120,11 +119,10 @@ n8_call_α:              sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd92]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 262164
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -211,11 +209,10 @@ n16_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd105]
                         lea              rsi, [rsp + 0]
                         mov              edx, 3
-                        mov              ecx, 262144
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -253,11 +250,10 @@ n20_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd112]
                         xor              esi, esi
                         mov              edx, 0
-                        mov              ecx, 262144
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -375,11 +371,10 @@ n31_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd128]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 262144
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -408,11 +403,10 @@ n32_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd130]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 262144
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -533,11 +527,10 @@ n44_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd150]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 524341
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -692,11 +685,10 @@ n58_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd172]
                         lea              rsi, [rsp + 0]
                         mov              edx, 2
-                        mov              ecx, 327680
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
@@ -746,11 +738,10 @@ n63_call_α:             sub              rsp, 16
                         lea              rdi, [rip + .Lrkfnzd180]
                         lea              rsi, [rsp + 0]
                         mov              edx, 1
-                        mov              ecx, 262144
                         mov              qword ptr [rip + rtccb+40], r8
                         mov              qword ptr [rip + rtccb+56], r10
                         mov              qword ptr [rip + rtccb+64], r11
-                        call             rt_call_arr_bl@PLT
+                        call             rt_call_arr@PLT
                         mov              r8,  qword ptr [rip + rtccb+40]
                         mov              r9,  qword ptr [rip + rtccb+48]
                         mov              r10, qword ptr [rip + rtccb+56]
