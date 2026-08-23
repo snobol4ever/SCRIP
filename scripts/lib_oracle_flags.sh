@@ -45,7 +45,54 @@ sbl_lang_flags() { echo "-bf"; }
 # tracked repo (built alongside its upstream source clone, both living outside the seat-root workspace so
 # neither is ever discovered as a repo by tooling that walks S4E_HOME); a caller that cannot find it must
 # say so loudly, never silently substitute x64/bin/sbl.
-sbl_clean_bin() { echo "/home/resources/spitbol-clean/sbl"; }
+# ⛔⛔ THE -f CAPABILITY ASSERTION (hq_P s259, row `oracle-bin-sbl-trap`).  MEASURED: three SPITBOL binaries on
+# this box -- `spitbol-clean/bin/sbl` (before it was repointed), `spitbol-fork-rebuilt/bin/sbl` and
+# `spitbol-upstream/bin/sbl`, all byte-identical -- DO NOT SUPPORT `-f`.  Handed the MANDATORY `-bf` they answer
+# "No END statement found in source file(s)." to EVERY program, including a two-line one that plainly has an END.
+# A harness pointed at one of them prints a full, plausible, ENTIRELY FALSE all-FAIL table -- the exact class
+# CLAUDE.md records this project hitting in three separate sessions.
+# ⭐ WHY IT IS STRUCTURAL AND WILL COME BACK: a SPITBOL source tree SHIPS a prebuilt `bin/sbl` as BASEBOL, the
+# BOOTSTRAP compiler; `make spitbol` consumes it and writes the real product to the TOP LEVEL as `./sbl`.  In our
+# `x64/` fork `bin/sbl` IS the product.  The two layouts disagree, so the natural generalisation "the oracle is
+# <root>/bin/sbl" lands EXACTLY on the trap.  Documentation cannot fix that; a capability check can.
+# ⛔ THE RULE THIS ENCODES: an oracle is not a PATH, it is a BINARY THAT ACCEPTS `-bf`.  Never assemble a path.
+sbl_bf_capable() {   # $1 = binary.  0 = accepts -bf, 1 = does not, 2 = could not be tested.  Memoised per shell.
+    [ -n "${1:-}" ] && [ -x "$1" ] || return 1
+    local key; key="_sbl_bf_memo_$(printf '%s' "$1" | tr -c 'A-Za-z0-9' '_')"
+    local memo="${!key:-}"; [ -n "$memo" ] && return "$memo"
+    local t; t="$(mktemp 2>/dev/null)" || { printf '%s' "$1" >/dev/null; return 2; }
+    printf "        OUTPUT = 'sblbfok'\nEND\n" > "$t"
+    local out; out="$(timeout 30 "$1" -bf "$t" < /dev/null 2>&1)"; rm -f "$t"
+    case "$out" in *sblbfok*) eval "$key=0"; return 0 ;; esac
+    eval "$key=1"; return 1
+}
+# ⛔ REFUSE, NEVER FALL BACK -- the same law as the two functions above, now applied to CAPABILITY rather than
+# to mere existence.  A missing binary was already loud; a PRESENT binary that silently grades nothing was not.
+sbl_assert_bf() {    # $1 = binary, $2 = human label.  Prints the path on success; refuses loudly and returns 3.
+    if sbl_bf_capable "$1"; then printf '%s\n' "$1"; return 0; fi
+    printf '⛔ REFUSING: %s at %s does not accept the MANDATORY -bf (s189).\n' "${2:-oracle}" "$1" >&2
+    printf '   It answers "No END statement found" to EVERY program, so a run against it is a FALSE all-FAIL table,\n' >&2
+    printf '   not a measurement. A SPITBOL tree ships bin/sbl as the BASEBOL BOOTSTRAP; the built product is ./sbl\n' >&2
+    printf '   at the TOP LEVEL. Do not assemble oracle paths -- use sbl_clean_bin / sbl_correctness_bin.\n' >&2
+    return 3
+}
+# ⛔⛔ NAMING, CORRECTED BY LON s259 ("What is spitbol-upstream, is the pristine version? ... What is upstream mean?").
+# "UPSTREAM" IS A GIT WORD, NOT A QUALITY WORD: it names the project you forked FROM (github.com/spitbol/spitbol),
+# as opposed to `origin`, your own fork (snobol4ever/x64).  It says PROVENANCE and says NOTHING about whether the
+# binary in that tree can serve as an oracle -- and the one shipped there CANNOT (no `-f`).
+# ⭐ MEASURED, and it inverts the old names: `spitbol-upstream` had **0 modified files** -- it was the genuinely
+# pristine one -- while `spitbol-clean` has **4** (the two allow-listed patches).  THE NAME "clean" WAS THE LIE.
+# Renamed by ROLE s259, compatibility symlinks left at both old names so nothing in flight breaks:
+#   spitbol-pristine/      <- was spitbol-upstream       untouched reference SOURCE. ⛔ NOT an oracle: its shipped
+#                                                        bin/sbl is the BASEBOL bootstrap and rejects `-bf`.
+#   spitbol-bench-oracle/  <- was spitbol-clean          the minimal-patch BUILD we TIME against. ⭐ the oracle.
+#   x64/                   (shared, symlinked into all 19 roots since Lon s259) the CORRECTNESS oracle + IPC monitor.
+sbl_clean_bin() { sbl_assert_bf "/home/resources/spitbol-bench-oracle/sbl" "the CLEAN benchmark oracle"; }
+# ⭐ THE CORRECTNESS FACE, through the authority for the first time (hq_P s259).  Callers previously assembled
+# "$X64/bin/sbl" by hand, which is how a path becomes a trap.  Since Lon's s259 ruling ("everyone should be
+# using the shared /home/resources") every seat root's x64/ is a SYMLINK to /home/resources/x64, so the shared
+# path is canonical and the per-root one still resolves.
+sbl_correctness_bin() { local c="/home/resources/x64/bin/sbl"; [ -x "$c" ] || c="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/x64/bin/sbl"; sbl_assert_bf "$c" "the CORRECTNESS oracle (x64, instrumented)"; }
 
 # ⭐ A LIVE EDGE, PRESERVED NOT FIXED (row oracle-two-face-adoption): the clean binary above is a from-
 # source build of official upstream with exactly the two ALLOW-LISTED patches described in the block

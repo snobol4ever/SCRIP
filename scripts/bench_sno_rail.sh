@@ -10,12 +10,12 @@
 # Window inadequacy + startup contamination was the disease; ratios from sub-100ms wall are BOGUS.
 # .so swap: programs link -L$SODIR -rpath $SODIR; caller stages rt variants there.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255). A private fallback would time a DIFFERENT LANGUAGE or the wrong binary. Fix the checkout; do not work around this." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"   # BENCHMARK oracle (s255) -- never x64/bin/sbl, it is instrumented ~2.2-3.5x slower
-[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — us/iter numbers below would be fiction, not a benign gap. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — us/iter numbers below would be fiction, not a benign gap. Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
 D="$CORPUS/programs/snobol4/demo"; W="${W:-$(mktemp -d)}"; SODIR="${SODIR:-/tmp}"
 MIN_MS="${MIN_MS:-800}"; NMAX="${NMAX:-16384}"; R="${R:-5}"
 SO_A="${SO_A:-/tmp/rt_o0.so}"; SO_B="${SO_B:-}"   # SO_B empty = single-config mode

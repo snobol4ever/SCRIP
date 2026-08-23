@@ -2,12 +2,12 @@
 # Three-way SNOBOL4 benchmark comparison: SCRIP mode-4 (AOT native) vs SPITBOL vs CSNOBOL4.
 # Writes a TSV row per benchmark to $OUT as it goes (partial progress survives a timeout).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 ROOT=$S4E/SCRIP
 B=$S4E/corpus/benchmarks/snobol4
 . "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255) -- x64/bin/sbl is instrumented, ~2.2-3.5x slower (was a bare non-overridable assignment; row oracle-two-face-adoption normalized it to the same ${SBL:-...} pattern every other converted script uses)
-[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every sbl_ms/sbl_rc column below would be fiction, not a benign gap. The 'done' progress line has no rc visible -- a missing oracle must not print a plausible sbl=NNNms. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every sbl_ms/sbl_rc column below would be fiction, not a benign gap. The 'done' progress line has no rc visible -- a missing oracle must not print a plausible sbl=NNNms. Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
 CSN=$S4A/csnobol4/snobol4
 RT=$ROOT/out
 OUT=${OUT:-/tmp/cmp3.tsv}

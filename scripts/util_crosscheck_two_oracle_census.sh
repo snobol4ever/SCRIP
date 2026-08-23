@@ -25,7 +25,7 @@
 # usage: bash scripts/util_crosscheck_two_oracle_census.sh [out.tsv]
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: sibling root
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 . "$S4E/SCRIP/scripts/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 CC="$S4E/corpus/crosscheck"; SBL="${SBL:-$S4A/x64/bin/sbl}"; CSN="${CSNOBOL4:-/usr/local/bin/snobol4}"; SCRIP="$S4E/SCRIP/scrip"
 out="${1:-/tmp/crosscheck_two_oracle_census.tsv}"

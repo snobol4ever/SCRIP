@@ -14,7 +14,7 @@
 # It copies the beauty directory to a scratch dir (so the .inc files resolve), rewrites the named grammar
 # assignment INCLUDING its `+` continuation lines, runs SCRIP and the oracle on the same input, and prints both.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -uo pipefail
 NAME="${1:?usage: util_beauty_override.sh <GrammarName> \"<replacement>\" [stdin-file]}"
 REPL="${2:?replacement text required}"

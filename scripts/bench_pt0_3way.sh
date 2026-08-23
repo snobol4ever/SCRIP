@@ -29,7 +29,7 @@
 # Usage: bash scripts/bench_pt0_3way.sh [--progs "a b c"] [--reps N] [--samples N] [--compile-cost]
 set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"   # BENCHMARK oracle (s255)
@@ -55,7 +55,7 @@ open(out_path,'w').write('\n'.join(lines[:mi]+tail)+'\n')
 PYEOF
 }
 med() { printf '%s\n' "$@" | sort -n | sed -n "$(( (N+1)/2 ))p"; }
-[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction. Build /home/resources/spitbol-clean (see RULES.md Oracles) -- seats do not clone x64 (s255)."; exit 3; }
+[ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction. Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255)."; exit 3; }
 RTO=$(grep -o '\-O[0-9]' "$HERE/../Makefile" 2>/dev/null | head -1)
 echo "# PT-0 3-way baseline · reps=$REPS · samples=$N · median-of-$N · RT_OPT=${RTO:-unknown} · $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 for p in $PROGS; do

@@ -11,7 +11,7 @@
 #      Classification logic is ONE AUTHORITY (classify_one) shared by every caller.  Default invocation is byte-identical in
 #      behaviour to the s58/s59 instrument: SWEEP_DIRS="test demo", SWEEP_JOBS=1.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
-S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/claude)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
+S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 cd "$(dirname "$0")/.."
 ROOT=$PWD   # include-bearing tests (-include 'lib/*.sno') resolve against the corpus checkout: sbl is CWD-relative, scrip honors SNO_LIB (s59 harness fix; both engines verified on test_case)
 OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
