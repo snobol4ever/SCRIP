@@ -6143,7 +6143,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             nt->is_set = src.tbl->is_set;
             for (int b = 0; b < TABLE_BUCKETS; b++)
                 for (TBPAIR_t *p = src.tbl->buckets[b]; p; p = p->next)
-                    table_set_descr(nt, p->key, p->key_descr, p->val);
+                    table_set_descr_d(nt, p->key_descr, p->val);
             DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
             *out = d; return 1;
         }
@@ -6421,7 +6421,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         DESCR_t vd = (nargs >= 3) ? args[2] : ((td.tbl && td.tbl->is_set) ? kd : NULVCL);
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
-        table_set_descr(td.tbl, ks, kd, vd);
+        table_set_descr_d(td.tbl, kd, vd);
         *out = td; return 1;
     }
     L_bidjmp_6124: ;
@@ -6430,7 +6430,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
-        table_delete(td.tbl, ks);
+        table_delete_d(td.tbl, kd);
         *out = td; return 1;
     }
     L_bidjmp_6132: ;
@@ -6439,8 +6439,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
-        if (!table_has(td.tbl,ks)) { *out=FAILDESCR; return 1; }
-        *out = table_get(td.tbl, ks); return 1;
+        if (!table_has_d(td.tbl,kd)) { *out=FAILDESCR; return 1; }
+        *out = table_get_d(td.tbl, kd); return 1;
     }
     L_bidjmp_6140: ;
     if ((_bid == BID_key) && nargs == 1) {
@@ -6761,7 +6761,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 DESCR_t *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
                 char kb[64];
                 if (elems) for (int _i = 0; _i < n; _i++)
-                    table_set_descr(tbl, tbl_key_str(elems[_i], kb, sizeof kb), elems[_i], elems[_i]);
+                    table_set_descr_d(tbl, elems[_i], elems[_i]);
             }
         }
         *out = TABLE_VAL(tbl); return 1;

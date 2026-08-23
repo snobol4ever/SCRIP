@@ -1155,7 +1155,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                 DESCR_t kd = array_get2(a, i, a->lo2);
                 DESCR_t vd = array_get2(a, i, a->lo2 + 1);
                 char kb[64];
-                table_set_descr(tbl, tbl_key_str(kd, kb, sizeof kb), kd, vd);
+                table_set_descr_d(tbl, kd, vd);
             }
             return TABLE_VAL(tbl);
         }
@@ -1668,7 +1668,7 @@ static DESCR_t _ITEM_(DESCR_t *a, int n) {
     DESCR_t arr = a[0];
     if (IS_TBL(arr)) {
         const char *k = VARVAL_fn(a[1]);
-        return table_get(arr.tbl, k ? k : "");
+        return table_get_d(arr.tbl, STRVAL(k ? k : ""));   /* ⛔ this site COERCES the key to text on purpose (VARVAL_fn above), so it stays a DT_S key -- DT_S hashing is unchanged */
     }
     if (IS_ARR(arr)) {
         int i = (int)to_int(a[1]);

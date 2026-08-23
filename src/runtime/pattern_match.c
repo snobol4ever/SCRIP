@@ -222,8 +222,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         return array_get(arr.arr, (int)to_int(idx));
     }
     if (arr.v == DT_T) {
-        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        int found; DESCR_t hit = table_get_found(arr.tbl, ks, &found);
+        int found; DESCR_t hit = table_get_found_d(arr.tbl, idx, &found);
         if (found) return hit;
         if (arr.tbl->dflt.v != DT_FAIL && arr.tbl->dflt.v != 0)
             return arr.tbl->dflt;
@@ -283,8 +282,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         return 1;
     }
     if (arr.v == DT_T) {
-        char kb[64];
-        table_set_descr(arr.tbl, tbl_key_str(idx, kb, sizeof kb), idx, val);
+        table_set_descr_d(arr.tbl, idx, val);
         return 1;
     }
     if (arr.v == DT_DATA) {
@@ -1218,11 +1216,9 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     }
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
-        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        TBPAIR_t *e = table_find_pair(tb, ks);
+        TBPAIR_t *e = table_find_pair_d(tb, idx);   /* ⭐ hash by datatype then value; no stringify, and no per-subscript rt_ws_strdup_c -- vc->key_d already carries the key */
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        if (e) { vc->cellp = &e->val; vc->tbl = tb; vc->key = 0; }
-        else   { vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); }
+        vc->cellp = e ? &e->val : 0; vc->tbl = tb; vc->key = 0;
         vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
@@ -1255,12 +1251,10 @@ DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
-        char kb[64]; const char *ks = tbl_key_str(idx, kb, sizeof kb);
-        TBPAIR_t *e = table_find_pair(tb, ks);
+        TBPAIR_t *e = table_find_pair_d(tb, idx);   /* ⭐ hash by datatype then value -- see rt_subscript_var above */
         if (e && (e->val.v == DT_T || e->val.v == DT_A)) return e->val;
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        if (e) { vc->cellp = &e->val; vc->tbl = tb; vc->key = 0; }
-        else   { vc->cellp = 0; vc->tbl = tb; vc->key = rt_ws_strdup_c(ks); }
+        vc->cellp = e ? &e->val : 0; vc->tbl = tb; vc->key = 0;
         vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
@@ -1405,7 +1399,7 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return FAILDESCR;
     if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
-        int found; DESCR_t hit = table_get_found(vc->tbl, vc->key, &found);
+        int found; DESCR_t hit = table_get_found_d(vc->tbl, vc->key_d, &found);
         if (found) return hit;
         if (vc->tbl->dflt.v != DT_FAIL && vc->tbl->dflt.v != 0) return vc->tbl->dflt;
         return NULVCL;
@@ -1432,7 +1426,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
     }
     VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
     if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
-    if (vc->tbl) { table_set_descr_keyown(vc->tbl, vc->key, vc->key_d, val); return val; }
+    if (vc->tbl) { table_set_descr_d(vc->tbl, vc->key_d, val); return val; }
     if (IS_VARREF_fn(vc->sv)) {
         char nb[64]; const char *src; long srclen;
         if (val.v == DT_S || val.v == DT_SNUL) { src = val.s ? val.s : ""; srclen = val.slen ? (long)val.slen : (long)strlen(src); }

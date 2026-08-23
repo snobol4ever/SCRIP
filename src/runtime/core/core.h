@@ -132,6 +132,15 @@ TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
 TBPAIR_t  *table_find_pair(TBBLK_t *tbl, const char *key);
+/* ⭐ DESCRIPTOR-KEYED TABLE API -- hash by DATATYPE, then by VALUE (Lon s262).  These are the ONLY sound entry
+   points once any key is hashed by value: a table whose entries were placed by _tbl_hash_d cannot be found by the
+   string-keyed calls above, which hash the ENCODED key as text.  Convert callers, do not mix. */
+TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
+DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
+DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
+int        table_has_d(TBBLK_t *tbl, DESCR_t k);
+int        table_delete_d(TBBLK_t *tbl, DESCR_t k);
+void       table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
 DESCR_t    table_get(TBBLK_t *tbl, const char *key);
 DESCR_t    table_get_found(TBBLK_t *tbl, const char *key, int *found);
 void      table_set(TBBLK_t *tbl, const char *key, DESCR_t val);

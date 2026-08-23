@@ -133,6 +133,72 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐⭐⭐ ONE HASH FUNCTION PER DATATYPE, THEN BY VALUE (Lon, 2026-08-23 s262).  DIAGNOSED s258, FILED AS A QUEUE ROW LOCKED BY A SEAT THAT NEVER EXISTED, AND THEREFORE NEVER CURED FOR A DAY.
+  ⛔⛔ MY FIRST ATTEMPT MEASURED WORSE (+0.24%, then +6.13% on table_access) AND THE REASON WAS A CONSTRAINT I INVENTED, NOT A LIMIT OF HASHING.  I made the typed hash reproduce the STRING hash bucket-for-bucket so that string-keyed and descriptor-keyed callers could share one table while I converted callers gradually.  To reproduce djb2("\001i123") you must walk the digits '1','2','3' -- so the "typed" hash still stringified in all but name, bought only the strcmp, and paid a fatter hash function for it.  ⭐ THE CURE IS TO STOP HEDGING: hash an integer AS AN INTEGER (a multiply and a shift), and convert EVERY caller in the same change so there is no mixed-hash hazard to hedge against.  A table where some callers hash by string and some by value silently misses; that risk is what this file now removes by construction.
+  ⛔ DT_S HASHING IS DELIBERATELY UNCHANGED -- still djb2 over the bytes -- for two reasons: a string key IS its own value so there is nothing to gain, and rtx_icnsub.S RTX-26 INLINES this exact djb2 loop to walk the chain itself for DT_S subscripts.  Changing it would send the assembly to the wrong bucket.  That arm handles DT_S only, so integer keys never reach it.
+  ⛔ THE STRUCT DOES NOT MOVE: sizeof(TBPAIR_t)==48, key@0, val@24, next@40, pinned by a _Static_assert in rtx_init.c.
+  ⛔ TBPAIR_t.key IS STILL POPULATED on insert -- iteration, sorting, CONVERT and the set operators read it -- but it is built ONCE per distinct key instead of on every lookup, which is where the 36.6% was.
+  KILLSWITCH SCRIP_TBL_TYPED=0 restores string hashing and string compare on the same binary. */
+static inline __attribute__((always_inline)) int tbl_typed_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_TBL_TYPED"); v = (e && *e == '0') ? 1 : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) unsigned _tbl_mix64(unsigned long long u) { u *= 0x9E3779B97F4A7C15ull; u ^= u >> 29; u *= 0xBF58476D1CE4E5B9ull; u ^= u >> 32; return (unsigned)(u & (unsigned long long)(TABLE_BUCKETS - 1)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned _tbl_hash_d(DESCR_t k) {
+    if (tbl_typed_off()) { char kb[64]; return _tbl_hash(tbl_key_str(k, kb, sizeof kb)); }
+    switch (k.v) {
+        case DT_S:    { unsigned h = 5381; const char *p = k.s ? k.s : ""; while (*p) h = h * 33 ^ (unsigned char)*p++; return h % TABLE_BUCKETS; }   /* unchanged -- rtx_icnsub.S inlines this loop */
+        case DT_SNUL: return _tbl_mix64(0x6E756C6Cull);
+        case DT_I:    return _tbl_mix64((unsigned long long)(long long)k.i ^ 0x01000000ull);
+        case DT_R:    { union { double d; unsigned long long u; } cv; cv.d = k.r; return _tbl_mix64(cv.u ^ 0x02000000ull); }
+        case DT_A:    { if (!k.arr) return _tbl_mix64(0x03000000ull); if (!k.arr->id) k.arr->id = g_agg_list_ser++; return _tbl_mix64((unsigned long long)k.arr->id ^ 0x03000000ull); }
+        case DT_T:    { if (!k.tbl) return _tbl_mix64(0x04000000ull); if (!k.tbl->id) k.tbl->id = g_agg_table_ser++; return _tbl_mix64((unsigned long long)k.tbl->id ^ (k.tbl->is_set ? 0x05000000ull : 0x04000000ull)); }
+        default:      { char kb[64]; return _tbl_hash(tbl_key_str(k, kb, sizeof kb)); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Datatype first, then value.  Distinct types are never equal -- tbl_key_str's encoding, which still backs e->key, is injective across types, so this matches what the string compare always did. */
+static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DESCR_t k) {
+    if (e->key_descr.v != k.v) return 0;
+    switch (k.v) {
+        case DT_I:    return e->key_descr.i == k.i;
+        case DT_SNUL: return 1;
+        case DT_S:    return e->key && k.s && strcmp(e->key, k.s) == 0;
+        case DT_R:    return e->key_descr.r == k.r;
+        case DT_A:    return e->key_descr.arr == k.arr;
+        case DT_T:    return e->key_descr.tbl == k.tbl;
+        default:      { char kb[64]; const char *ks = tbl_key_str(k, kb, sizeof kb); return e->key && strcmp(e->key, ks) == 0; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBPAIR_t *table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {
+    if (!tbl) return (TBPAIR_t *)0;
+    unsigned h = _tbl_hash_d(k);
+    for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) if (_tbl_eq_d(e, k)) return e;
+    return (TBPAIR_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t table_get_d(TBBLK_t *tbl, DESCR_t k) { TBPAIR_t *e = table_find_pair_d(tbl, k); return e ? e->val : NULVCL; }
+DESCR_t table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found) { TBPAIR_t *e = table_find_pair_d(tbl, k); *found = e ? 1 : 0; return e ? e->val : NULVCL; }
+int     table_has_d(TBBLK_t *tbl, DESCR_t k) { return table_find_pair_d(tbl, k) != (TBPAIR_t *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
+    if (!tbl) return 0;
+    unsigned h = _tbl_hash_d(k);
+    for (TBPAIR_t **pp = &tbl->buckets[h]; *pp; pp = &(*pp)->next) if (_tbl_eq_d(*pp, k)) { *pp = (*pp)->next; tbl->size--; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
+    if (!tbl) return;
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
+    unsigned h = _tbl_hash_d(k);
+    for (TBPAIR_t *e = tbl->buckets[h]; e; e = e->next) if (_tbl_eq_d(e, k)) { e->val = val; e->key_descr = k; return; }
+    char kb[64]; const char *ks = tbl_key_str(k, kb, sizeof kb);   /* ONCE per distinct key, on insert only */
+    TBPAIR_t *e = rt_agg_alloc(1, sizeof(TBPAIR_t));
+    e->key = rt_ws_strdup_c(ks); e->key_descr = k; e->val = val;
+    e->next = tbl->buckets[h]; tbl->buckets[h] = e; tbl->size++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBPAIR_t *table_find_pair(TBBLK_t *tbl, const char *key) {
     if (!tbl || !key) return (TBPAIR_t *)0;
     unsigned h = _tbl_hash(key);
@@ -208,7 +274,7 @@ int table_has(TBBLK_t *tbl, const char *key) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
     if (!dst || !src) return;
-    for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = src->buckets[i]; e; e = e->next) table_set_descr(dst, e->key, e->key_descr, e->key_descr);
+    for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = src->buckets[i]; e; e = e->next) table_set_descr_d(dst, e->key_descr, e->key_descr);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
@@ -219,24 +285,22 @@ TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = table_new(); r->is_set = 1;
-    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (!table_has(y, e->key)) table_set_descr(r, e->key, e->key_descr, e->key_descr);
+    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (!table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = table_new(); r->is_set = 1;
-    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (table_has(y, e->key)) table_set_descr(r, e->key, e->key_descr, e->key_descr);
+    if (x) for (int i = 0; i < TABLE_BUCKETS; i++) for (TBPAIR_t *e = x->buckets[i]; e; e = e->next) if (table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) {
     if (base.v != DT_T || !base.tbl) return NULVCL;
-    char kb[64];
-    return table_get(base.tbl, tbl_key_str(key, kb, sizeof kb));
+    return table_get_d(base.tbl, key);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_table_idx_set(DESCR_t base, DESCR_t key, DESCR_t val) {
     if (base.v != DT_T || !base.tbl) return;
-    char kb[64];
-    table_set_descr(base.tbl, tbl_key_str(key, kb, sizeof kb), key, val);
+    table_set_descr_d(base.tbl, key, val);
 }
