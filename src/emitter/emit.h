@@ -603,6 +603,7 @@ typedef struct {
     int                          op_arbno_frame_off;
     int                          op_cap_frame_off;
     int                          op_fence0_release;
+    int                          op_fence0_floor;
     int                          op_fence_body_kk;
     int                          op_fence_frame_off;
     int                          op_arbno_body_actframe;
