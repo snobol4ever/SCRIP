@@ -2225,16 +2225,29 @@ static int xop_frame_member(const IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int blob_frame_scope(void);
+extern "C" int sn4_choice_rbp(void);
+int sn4_alt_carrier(void);
+void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int choice_frame_candidate(const IR_t * nd) {   /* ⭐ s266 MULTI-CHOICE RECORDS: a pattern BLOB with >=2 choice nodes could not use the shared [rbp+cro] record (one slot, N writers clobber), so blob_choice_rbp_scan refused it and every MATCH_ALTERNATE fell back to the FLAT [rsp+N] record -- which seat04 proved is read through WHATEVER drift the arm's interior (a retained ARBNO record, a defer frame) left on the stack: the json-alternate-af-spin, and the x1.sno silent wrong answer.  The cure is the planner that already exists: each unsealed MATCH_ALTERNATE in a >=2-choice blob becomes a 2-cell frame-slot candidate and its record lives at ITS OWN [rbp+off], drift-immune like ARBNO-FRAME/capture slots.  ⛔ nc==1 blobs are deliberately NOT candidates -- they keep the legacy shared-cro path byte-identical (that path is proven; this one is new), and the seat04 FENCE-relax probe (sn4_alt_fence_relax, measured-broken) is untouched: it concerned the SHARED record, not these.  Killswitch SCRIP_CHOICE_RBP_MULTI=0 restores the (broken) flat fallback for bisection. */
+    if (!nd || nd->seal) return 0;
+    { static int _cm = -1; if (_cm < 0) { const char * e = getenv("SCRIP_CHOICE_RBP_MULTI"); _cm = (e && *e == '0') ? 0 : 1; } if (!_cm) return 0; }
+    if (!sn4_choice_rbp() || !sn4_alt_carrier() || !blob_frame_scope()) return 0;
+    { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); if (_nc < 2) return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_slot_is_candidate(const IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_MATCH_ARBNO) return arbno_frame_candidate(nd);
     if (nd->op == IR_MATCH_ASSIGN_SAVE) return frame_need_of(nd);
     if (nd->op == IR_MATCH_FENCE1) return fence_frame_candidate(nd);
+    if (nd->op == IR_MATCH_ALTERNATE) return choice_frame_candidate(nd);
     if (leaf_frame_member(nd)) return 1;
     if (xop_frame_member(nd)) return 1;
     return 0;
 }
-int blob_frame_scope(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count) {
     if (out_index) *out_index = -1; if (out_count) *out_count = 0;
@@ -2246,7 +2259,7 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
     int k = 0, found = -1; extern int zdp_scratch_cell(const IR_t *);
     for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        if (j == qi) found = k; k += zdp_scratch_cell(m) ? 2 : 1; }
+        if (j == qi) found = k; k += (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1); }
     if (out_index) *out_index = found; if (out_count) *out_count = k;
     return blob ? 2 : 1;
 }
@@ -2255,6 +2268,7 @@ int sn4_blob_casmark(void) { static int v = -1; if (v < 0) { const char * e = ge
 static int blob_head_bytes(void) { return sn4_blob_casmark() ? 40 : 24; }
 static int frame_slot_off(int scan_rc, int idx) { return -((scan_rc == 2 ? (blob_head_bytes() + 8) : 64) + 16 * idx); }
 extern "C" int sn4_choice_rbp_off(void);
+static int choice_frame_slot(const IR_t * alt_nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zzone_off_for(const IR_t * nd, int customer) {
     if (!nd) return -1;
@@ -2263,7 +2277,7 @@ int zzone_off_for(const IR_t * nd, int customer) {
     case ZCUS_ARBNO:   return arbno_frame_slot(nd);
     case ZCUS_CAPTURE: return capture_frame_slot(nd);
     case ZCUS_FENCE:   return fence_frame_slot(nd);
-    case ZCUS_CHOICE:  { int c = sn4_choice_rbp_off(); return c ? c : -1; }
+    case ZCUS_CHOICE:  { int c = choice_frame_slot(nd); if (!c) c = sn4_choice_rbp_off(); return c ? c : -1; }
     default:           return -1;
     }
 }
@@ -2351,6 +2365,17 @@ extern "C" int sn4_choice_rbp_off(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int sn4_choice_rbp_off(void) {
     return blob_choice_rbp_scan() ? -(int)blob_frame_bytes() : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int choice_frame_slot(const IR_t * alt_nd) {   /* the per-node record home for a multi-choice blob's MATCH_ALTERNATE (see choice_frame_candidate); 0 = no slot, caller falls back */
+    if (!alt_nd || !choice_frame_candidate(alt_nd)) return 0;
+    int idx = -1, rc = frame_slot_scan(alt_nd, &idx, NULL); if (rc != 2 || idx < 0) return 0;
+    return frame_slot_off(rc, idx + 1);   /* the node owns cells idx and idx+1; idx+1 is the LOWER address, so the record's cro+0..+23 stays inside its own 32 bytes */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int sn4_choice_rbp_off_nd(void) {   /* what bb_match_alternate actually asks: THIS node's record home -- its own slot in a multi-choice blob, else the legacy shared slot, else 0 (flat) */
+    if (g_emit.node && g_emit.node->op == IR_MATCH_ALTERNATE) { int off = choice_frame_slot(g_emit.node); if (off) return off; }
+    return sn4_choice_rbp_off();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_diag_regs_suppress(void) {
@@ -3086,7 +3111,20 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!_f1r) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && resume_carrier_ok(nodes[i], _sd)) { resume_tgt = betas[i]; break; }
             if (!_f1 && !_sd && resume_tgt == &lbl_ω && sn4_alt_carrier() && g_emit_cfg->body_root && (g_emit_cfg->body_root->op == IR_MATCH_ALTERNATE || g_emit_cfg->body_root->op == IR_DISJUNCTION) && !g_emit_cfg->body_root->seal) {
                 int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
-                if (_nc == 1 && !_fn && (_lf || sn4_choice_rbp_off() != 0)) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root) { resume_tgt = betas[i]; break; }    } } }
+                if (_nc == 1 && !_fn && (_lf || sn4_choice_rbp_off() != 0)) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root) { resume_tgt = betas[i]; break; }    }
+            if (!_sd && resume_tgt == &lbl_ω && sn4_alt_carrier()) {   /* ⭐ s266 TAIL RESUME (companion to choice_frame_candidate): a blob the arms above declined -- >=2 choice nodes, or a FENCE anywhere in the graph -- had its β entry fall through to ω: the blob answered "total failure" to any re-entry (the x1.sno silent wrong answer; the f1.sno fence-variant wrong answer).  The correct re-entry point is the TAIL -- the unique node whose γ exits the blob -- NOT body_root, which the lowerer publishes as the ENTRY.  From the tail the backward cascade runs on the blob's own static wiring, so an interior FENCE needs no blob-level refusal: recede reaches its β only through that wiring and the fence node itself answers (commit semantics live in ITS template).  The one fence case that must NOT resume is a fence AT the tail -- re-entry into a committed tail must fail -- and β→ω is exactly that, so it is kept by refusal.  Also refused: any sealed choice node, a >=2-choice blob whose alternates lack their per-node records (the cascade would clobber a shared record), any DISJUNCTION, a non-unique tail. */
+                int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
+                if (_nc >= 1) {
+                    int _mok = 1;
+                    for (int i = 0; i < n && _mok; i++) { int _o = (int)nodes[i]->op;
+                        if (_o == IR_DISJUNCTION) _mok = 0;
+                        else if (_o == IR_MATCH_ALTERNATE && (nodes[i]->seal || (_nc >= 2 && !choice_frame_slot(nodes[i])))) _mok = 0; }
+                    int _ti = -1;
+                    if (_mok) for (int i = 0; i < n; i++) { int _o = (int)nodes[i]->op;
+                        if (_o == IR_GOTO || _o == IR_SUCCEED || _o == IR_FAIL) continue;
+                        IR_t * _tt = zd_chase(nodes[i]->γ.node); if (_tt && _tt->op == IR_SUCCEED) { if (_ti >= 0) { _ti = -2; break; } _ti = i; } }
+                    if (_mok && _ti >= 0 && nodes[_ti]->op != IR_MATCH_FENCE1 && nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt = betas[_ti];
+                } } } }
         emit_jmp_label(resume_tgt, JMP_JMP);
     }
     }

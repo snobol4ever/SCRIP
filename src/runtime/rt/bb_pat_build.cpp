@@ -19,7 +19,13 @@ void ir_drive_slot_assign(IR_graph_t * g);
 void zls_reset(void);
 IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat);
 int zls_g_region(const IR_graph_t * g);
+int sn4_choice_rbp_off(void);
+int sn4_pt_frame(void);
+void sn4_blob_choice_scan(int *, int *, int *);
+extern int g_flat_frame_floor;
 }
+#include <cstdio>
+#include <cstdlib>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_jmp_entry_ktotal(const IR_graph_t *g) {
     int rg = g ? zls_g_region(g) : -1;
@@ -95,6 +101,7 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     int kt = bb_jmp_entry_ktotal(g) + 16;
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     g_emit.flat_pat = 1;
+    if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), sn4_pt_frame(), g_flat_frame_floor, _nc, _lf, _fn); }
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit.flat_pat = 0;
