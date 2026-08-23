@@ -8,13 +8,13 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-SD="${SD:-$S4E/corpus/SCRIP}"
+SD="${SD:-$S4E/SCRIP/bootstrap}"
 
 LANG="${1:-snobol4}"
 SRC="${2:-}"
 
 if [ ! -f "$SCRIP" ]; then echo "SKIP scrip not found: $SCRIP"; exit 0; fi
-if [ ! -d "$SD" ];   then echo "SKIP corpus/SCRIP not found: $SD"; exit 0; fi
+if [ ! -d "$SD" ];   then echo "SKIP SCRIP/bootstrap not found: $SD"; exit 0; fi
 
 # Shared runtime — beauty.sno INCLUDE order:
 #   global, case, assign, match, counter, stack, tree, ShiftReduce,
@@ -42,7 +42,7 @@ RUNTIME=(
     "$SD/trace.sc"
 )
 
-# PST-RB-5e (2026-05-17): lower.sc and lower_driver.sc were deleted from corpus/SCRIP
+# PST-RB-5e (2026-05-17): lower.sc and lower_driver.sc were deleted from the parser source tree (now SCRIP/bootstrap)
 # and will be re-translated from lower.c when that file stabilizes.  The PST-era
 # parsers (snobol4, snocone, icon, prolog, raku, rebus) now emit pure AST via TDump
 # and need no SCRIP-side lowering pass.

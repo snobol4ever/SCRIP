@@ -35,7 +35,7 @@ SAMPLE=${2:?Usage: run_parser_sync_monitor.sh <lang> <sample-input>}
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
 
-PARSER_SC="$REPO_ROOT/../corpus/SCRIP/parser_${LANG}.sc"
+PARSER_SC="$REPO_ROOT/bootstrap/parser_${LANG}.sc"
 if [[ ! -f "$PARSER_SC" ]]; then
     # Try alternative layout
     PARSER_SC="${CORPUS_ROOT:-$REPO_ROOT/../corpus}/SCRIP/parser_${LANG}.sc"

@@ -1,0 +1,13 @@
+--- SM ---
+; SM_Program  count=11
+   0  SM_STNO               stmt=1 line=1
+   1  SM_PUSH_LIT_S         s="hello"
+   2  SM_STORE_VAR          s="X"
+   3  SM_STNO               stmt=2 line=2
+   4  SM_PAT_LIT            s="hi"
+   5  SM_PUSH_VAR           s="X"
+   6  SM_PUSH_LIT_S         s="bye"
+   7  SM_EXEC_STMT          s="X" nargs=1
+   8  SM_LABEL              s="END"
+   9  SM_STNO               stmt=3 line=5
+  10  SM_HALT              

@@ -6,7 +6,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
 FIX="${FIX:-$S4E/corpus/programs/snocone/parser-fixtures}"
-SD="${SD:-$S4E/corpus/SCRIP}"
+SD="${SD:-$S4E/SCRIP/bootstrap}"
 
 if [ ! -f "$SCRIP" ]; then echo "SKIP scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$FIX" ];   then echo "SKIP fixtures not found: $FIX";  exit 0; fi
