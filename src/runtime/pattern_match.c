@@ -870,7 +870,7 @@ long c_rt_defer_open(const char *varname, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
-    if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return 0; }
+    if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return 0; }
     if (varname && varname[0] == '*') {
         for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; return 0; } if (r.v == DT_X && !s->dtx_used) { s->dtx_used = 1; long fb2 = rt_proc_call_open(r.s ? r.s : "", 0); if (!fb2) s->failed = 1; return fb2; } s->val = r; return 0; } }
         long fb = rt_proc_call_open(varname + 1, 0); if (!fb) s->failed = 1; return fb;
@@ -938,7 +938,7 @@ int rt_defer_run_all(const char *varname, int cur_delta)
 {
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
-    if (varname && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
+    if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
     if (varname && varname[0] == '*') {
         for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; } else if (r.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(r.s ? r.s : "", 0)); } else s->val = r; return c_rt_defer_close(cur_delta); } }
         s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(varname + 1, 0)); return c_rt_defer_close(cur_delta);
