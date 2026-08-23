@@ -16,7 +16,10 @@ ok()   { pass=$((pass+1)); printf '  ok   %s\n' "$1"; }
 no()   { fail=$((fail+1)); printf '  FAIL %s\n     expected: %s\n     actual  : %s\n' "$1" "$2" "$3"; }
 sandbox() { # $1 = dir ; builds a postoffice whose FILE ORDER DISAGREES WITH RANK ORDER (that disagreement is the test)
   local P="$1"; rm -rf "$P"; mkdir -p "$P/claims" "$P/tasks"
-  local s; for s in seatAA seatBB; do mkdir -p "$P/$s/inbox"; done
+  # ⛔ hq_C's OWN mailbox is part of the sandbox: since hq_P's V2-4 (LAW 6 IDENTITY IS ASSERTED) every subcommand
+  # refuses an identity with no mailbox, so an assigning HQ with no inbox is correctly rejected. Cross-verifying
+  # hq_P's rung found this gate's sandbox at fault, not their code — the sandbox now models the real law.
+  local s; for s in seatAA seatBB hq_C; do mkdir -p "$P/$s/inbox"; done
   { printf '# sandbox queue — file order is DELIBERATELY the inverse of rank order\n'
     printf '9\tlast-in-rank-first-in-file\tbrief-9\tstep-9\n'
     printf '5\tmiddle-row\tbrief-5\tstep-5\n'
