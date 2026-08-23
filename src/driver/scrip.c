@@ -1300,6 +1300,11 @@ int main(int argc, char **argv)
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
+            if (rt_zeta_storage_get() == (int)ZC_STORAGE_FRAME_RSP) {
+                extern int zls_g_region(const IR_graph_t *);
+                long need = bbg ? (long)zls_g_region(bbg) : 0L;
+                if (need > 0) { need = (need + 15) & ~15L; emit_textf("  sub rsp, %ld\n", need); }
+            }
             if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
             if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
             if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
@@ -1479,6 +1484,11 @@ int main(int argc, char **argv)
             int n_proc_slot = proc_slot_count();
             emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
+            if (rt_zeta_storage_get() == (int)ZC_STORAGE_FRAME_RSP) {
+                extern int zls_g_region(const IR_graph_t *);
+                long need = sbbg ? (long)zls_g_region(sbbg) : 0L;
+                if (need > 0) { need = (need + 15) & ~15L; emit_textf("  sub rsp, %ld\n", need); }
+            }
             if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
             if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
             if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
