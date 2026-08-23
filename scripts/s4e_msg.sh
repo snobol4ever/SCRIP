@@ -136,6 +136,37 @@ case "$cmd" in
          if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
          else t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
               if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
+  unclaim) # ⭐ s265 — RELEASE AN UNWORKED CLAIM. Minted because THREE seats hit its absence in one day (seat08,
+         # seat09, seat13): a stale-clone picker mis-locked a row, the seat correctly refused to work it, and then had
+         # NO WAY TO PUT IT BACK. `done` was the only exit and `done` is COMPUTED — closing a row you never worked
+         # would have to defeat the DONE-WHEN gate, which is the false-green trap the gate exists to stop. So seats
+         # held locks on rows they were not working, and a claimed row hides itself from the picker: one stale clone
+         # silently removed a row from the whole fleet's reach. ⛔ REFUSES a claim that is DONE (that is a receipt, not
+         # a lock) and one you do not own. The release is APPENDED to the baton's LEDGER, so a lock that was taken and
+         # returned leaves a trace instead of vanishing.
+         topic="${2:?topic}"; c="$PO/claims/$topic.claim"
+         [ -f "$c" ] || { echo "no claim on $topic — nothing to release"; exit 1; }
+         own="$(head -1 "$c")"
+         [ "$own" = "$ME" ] || { echo "⛔ $topic is claimed by $own, not you — a lock is released by its holder or by an HQ"; exit 1; }
+         grep -q '^DONE$' "$c" && { echo "⛔ $topic is DONE — that claim is a receipt, not a lock. Leave it."; exit 1; }
+         why="${3:-released unworked}"
+         b="$PO/tasks/$topic.task.md"
+         [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
+         rm -f "$c"; echo "released $topic — $why";;
+  park)  # ⭐ s265 — TAKE A ROW OUT OF THE PICKER WITHOUT CLOSING IT. Minted with `unclaim`, same day, same cause:
+         # `161-o2-red` was PARKED BY LON at s258 and its baton said so, yet QUEUE.tsv still carried it as rank-0 FREE,
+         # so the rank-sorted picker served it as the TOPMOST work in the fleet. seat08 read the ruling, refused it,
+         # and then had to SIT ON THE CLAIM to stop the next idle seat being handed the same parked row. ⛔ The state
+         # column was decorative — 94 of 94 rows read FREE and nothing consulted it. `park` writes it and PASS 3 now
+         # obeys it, so a ruling recorded in a baton is finally enforced by the dispatcher instead of by a seat's
+         # goodwill. Un-park with: park <topic> FREE.
+         topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
+         grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" || { echo "⛔ no QUEUE.tsv row named $topic"; exit 1; }
+         tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$topic" -v s="$st" '$2==t&&NF>3{$4=s} {print}' "$q" > "$tmp" && cat "$tmp" > "$q" && rm -f "$tmp"
+         c="$PO/claims/$topic.claim"; [ -f "$c" ] && ! grep -q '^DONE$' "$c" && rm -f "$c" && echo "  (cleared the holding claim — the state column carries this now, not a lock)"
+         b="$PO/tasks/$topic.task.md"
+         [ -f "$b" ] && printf '\n- %s **STATE -> %s** by %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$st" "$ME" >> "$b"
+         echo "$topic state -> $st";;
   done)  topic="${2:?topic}"; c="$PO/claims/$topic.claim"
          # ⛔ THE BANNER FIRES ITSELF HERE (HQ 2026-08-22, after seat4 finished its row and gave NO banner until Lon
          # asked for one). LAW 15 lived only as a step in the seat's CLAUDE.md -- and a step in a markdown file is a
@@ -229,6 +260,24 @@ case "$cmd" in
          then echo "assigned $topic -> $seat (claim written, doorbell sent)"
          else echo "assigned $topic -> $seat (claim written; ⛔ DOORBELL NOT SENT — the claim still governs, $seat gets it from next)"; fi;;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
+         # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
+         # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran
+         # v1's flat file-order picker — no rank sort, no assign-awareness. seat09 locked a rank-1 row while its own
+         # HQ assignment sat unserved; seat13 locked rank 4 while ~30 rank-0 rows were FREE. Neither got any warning,
+         # because the V2 fix only ever protected a seat whose clone ALREADY had it. ⛔ The check cannot be "git fetch
+         # and compare" — a seat that never pulled has a stale origin/main too, so that test passes precisely when it
+         # must fail. So the authority is the SHARED postoffice, which no clone can be behind: PROTOCOL-VERSION there
+         # is the required protocol, S4E_PROTO below is this script's own, and next() REFUSES rather than dispatching
+         # from a picker it cannot vouch for. A seat that mis-locks a row removes it from the whole fleet's reach.
+         S4E_PROTO=3
+         if [ -f "$PO/PROTOCOL-VERSION" ]; then
+           need="$(head -1 "$PO/PROTOCOL-VERSION" | tr -cd '0-9')"; need="${need:-0}"
+           if [ "$S4E_PROTO" -lt "$need" ]; then
+             echo "⛔ REFUSING TO DISPATCH — your s4e_msg.sh is PROTOCOL $S4E_PROTO, the fleet is on $need."
+             echo "   Your clone is behind origin and would run the OLD picker: no rank sort, no assign-awareness."
+             echo "   That mis-locks a row and HIDES IT FROM THE WHOLE FLEET (a claimed row leaves the picker)."
+             echo "   Fix, then re-run:  cd \"$S4E/SCRIP\" && git pull --rebase origin main"
+             exit 3; fi; fi
          # ⭐ V2-1 SERVE ORDER (LAW 2): my-ASSIGNED  ->  my-unfinished  ->  RANK-SORTED free.
          # v1 served the topmost row in FILE ORDER, which made rank decorative: 53 rank-0 rows sat buried behind lesser
          # ones, and the deliberately fenced rank-99 M1 gate row was one claim away from being served as ordinary work.
@@ -273,6 +322,11 @@ case "$cmd" in
          # PASS 3 -- free rows, RANK-SORTED numerically, -s so file order still breaks ties inside one rank.
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
+           # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
+           # which is how `161-o2-red` — PARKED BY LON at s258, and saying so in its own baton — kept being served as
+           # the fleet's TOPMOST rank-0 row. A ruling that only a human enforces is not a ruling. Anything not FREE is
+           # not work: PARKED, BLOCKED, DONE all skip here.
+           case "$step" in FREE|'') : ;; *) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] && continue
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
