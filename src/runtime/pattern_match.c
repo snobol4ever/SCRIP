@@ -648,6 +648,23 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     while (c->cur < c->top) {
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         int len = (int)e->len; if (len < 0) len = 0;
+        /* ⛔ THE CAPTURE MUST LIE INSIDE THE SUBJECT. Guarding len<0 was never enough: a 4-byte input of
+           "\t" reached here with len=480251808 after a deferred *F() re-entered and pushed a second dcf
+           frame, and the outer frame's entry was then read stale. That allocated ~458 MB (heap exhausted
+           at 512 MB, abort) -- and the ABORT WAS MASKING THE REAL HAZARD, because had the allocation
+           succeeded the memcpy below would have read 458 MB PAST THE SUBJECT. The same bound is already
+           enforced elsewhere in this file for literals; it simply was not applied on this path.
+           ⭐ This is a GUARD, not the root fix: the root defect is that a reentrant push invalidates the
+           outer frame's entries. Refusing here turns silent memory corruption into a named, bounded
+           failure that says exactly what it saw. */
+        { extern int Σlen;
+          long long _end = (long long)e->saved_delta + (long long)len;
+          if (len > Σlen || _end > (long long)Σlen) {
+              fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s', frame depth %d). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
+                      len, (unsigned long long)e->saved_delta, _end, Σlen, e->varname ? e->varname : "(null)", g_dcf_top);
+              c->cur += sizeof(rt_dcap_e);
+              rc = 1;
+              continue; } }
         char *copy = rt_str_alloc(len);
         if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = '\0'; }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
