@@ -2426,6 +2426,25 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     }
                     if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; aent[ci] = 0; } rl = rl0; }
                 } } } }
+        { static int _zvo = -1; if (_zvo < 0) { const char * e = getenv("SCRIP_ZD_VLIST_OMEGA"); _zvo = (e && *e == '1') ? 1 : 0; }
+          if (_zvo && zarm) { int grew = 1;
+            while (grew) { grew = 0; int rl_now = rl;
+                for (int r0 = 0; r0 < rl_now; r0++) { int i0 = run[r0];
+                    IR_t * ot = zd_chase(nodes[i0]->ω.node); if (!ot) continue;
+                    int oti = -1; for (int k = 0; k < n; k++) if (nodes[k] == ot) { oti = k; break; }
+                    if (oti < 0 || claim[oti] >= 0 || bb_src_of(nodes[oti])) continue;
+                    int seed = (zarm[i0] >= 0) ? zarm[i0] : i0;
+                    int rl0 = rl; int bad = 0; int g2 = 0; int first = 1; IR_t * c2 = ot;
+                    while (c2 && g2++ <= n) {
+                        int ci = -1; for (int k = 0; k < n; k++) if (nodes[k] == c2) { ci = k; break; }
+                        if (ci < 0 || claim[ci] >= 0) break;
+                        if (bb_src_of(nodes[ci]) || emit_floater_kind(nodes[ci])) { bad = 1; break; }
+                        run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; zarm[ci] = seed; if (first) { aent[ci] = 1; first = 0; } rl++;
+                        c2 = zd_chase(c2->γ.node);
+                    }
+                    if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; aent[ci] = 0; } }
+                    else if (rl > rl0) grew = 1;
+                } } } }
         for (int k = 0; k < n; k++) cm[k] = 0;
         int nblob = 0;
         { int wn = 0;
@@ -2449,7 +2468,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int REL = fence0_release_bytes(nodes[i]);
                 int K = zd_k(nodes[i]);
                 { if (nodes[i]->op == IR_MATCH_BEGIN && zdh_match < 0) zdh_match = (int)zd + K; }
-                if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]]; zon[i] = 1; zout[i] = arm_zd + K; arm_zd = arm_zd + K; }
+                if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]] - zd_k(nodes[zarm[i]]); zon[i] = 1; zout[i] = arm_zd + K; arm_zd = arm_zd + K; }
                 else { zon[i] = 1; zout[i] = zd + K - REL; zd = zd + K - REL; }
                 IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
                 int gin = 0; int oin = 0;
