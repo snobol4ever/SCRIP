@@ -7,7 +7,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" int sn4_choice_rbp_off(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string alt_entry_stubs(long N, int cro) {
+static std::string alt_entry_stubs(long N, int cro) {   /* internal labels 21..19+N, plus L(19); alt_sigma_base(N) starts ABOVE this range -- the two series collided at exactly N==21 (porter) */
     std::string r;
     for (long j = 1; j < N; j++)
         r += x86("def", L((int)(20 + j)))
@@ -17,15 +17,17 @@ static std::string alt_entry_stubs(long N, int cro) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int alt_sigma_base(long N) { long b = 20 + N; return (int)(b > 40 ? b : 40); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string alt_sigma_stubs(long N, int cro) {
-    std::string r;
+    std::string r; const int sb = alt_sigma_base(N);
     for (long j = 0; j < N; j++)
         r += x86("def", PAIR((int)(2 * N + 2 + j)))
-           + x86_lea_rip_id("rax", (int)(40 + j))
+           + x86_lea_rip_id("rax", (int)(sb + j))
            + x86("mov", CROQ(cro, 8), "rax")
            + x86("jmp", PAIR((int)(2 * N)));
     for (long j = 0; j < N; j++)
-        r += x86("def", L((int)(40 + j)))
+        r += x86("def", L((int)(sb + j)))
            + x86("jmp", PAIR((int)(N + j)));
     return r;
 }

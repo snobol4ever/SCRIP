@@ -692,7 +692,20 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return nl;
     }
     case TT_VLIST: {
-        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }
+        /* SPITBOL parenthesised value list (e1, e2, ...) -- failure-driven alternation IN AN EXPRESSION: the value is the
+           first arm that SUCCEEDS.  This is the ONLY SNOBOL4 form that catches a failure part-way through an expression and
+           then resumes inside that same expression, so it is the only one that must put the zeta spine back where it found
+           it: a box concedes on omega WITHOUT popping the operand cells it already carved (zdp_out_omega models exactly
+           that), and normally the statement boundary is what cleans up.  Re-entering a sibling arm skips that boundary, so
+           the enclosing concatenation would read cells belonging to the abandoned arm -- measured as 'p' (IDENT(y) 5, 9)
+           yielding "9" instead of "p9" under cell-stack, while frame-rsp / cell-heap (static offsets) were already right.
+           The cure is NOT a spine mark/restore (IR_BOUND/IR_UNMARK was tried and is the wrong tool): the real blocker is
+           zd_plan() in the emitter, which claims ZETA DEPTH only along LINEAR gamma RUNS starting at statement heads.
+           Arm 2 is reachable only through an omega edge, so it is never claimed, gets zd_on=0, and its boxes address
+           cells at stale static offsets (measured: no `sub rsp,16` at the arm-2 head, writing [rsp+80] off a base that
+           had already been unwound to the statement frontier).  Teaching zd_plan about a second entry into the middle
+           of an expression is the actual rung -- see FINDING-2026-08-23-hq_C-vlist-expr-alternation. */
+        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }   /* STILL OFF BY DEFAULT: turning it on trades "statement fails" for SILENT WRONG VALUES under cell-stack -- see the comment above */
         if (!g_vlist_alt || t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
         static int g_vlist_n = 0; char nmb[24]; snprintf(nmb, sizeof nmb, "VLIST$%d", g_vlist_n++); char * tmpn = (char *) lp_strdup(nmb); sno_reg_var(tmpn);
         IR_t * jn = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(jn).sval = tmpn;

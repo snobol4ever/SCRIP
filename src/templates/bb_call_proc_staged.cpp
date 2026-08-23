@@ -80,6 +80,7 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
     return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SAI_L0 200   /* stage_arg_inline owns internal labels 200..215 (i in [0,8)); the old base 20 put i==4 on L(29), which bcps_nret_consult also defines -- a duplicate .Lx<uid>_29 in one box */
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
     bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;
     std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
@@ -87,16 +88,16 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
          + x86("mov", "eax", "dword ptr [r8 + 0]")
          + x86("test", "eax", "eax")
-         + x86("jne", L(20 + i * 2))
+         + x86("jne", L(SAI_L0 + i * 2))
          + x86("mov", "rax", FRQ(slot))
          + x86("mov", "rdx", FRQ(slot + 8))
          + x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)g_call_args, "g_call_args")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16) + "]").c_str(), "rax")
          + x86("mov", (std::string("[r8 + ") + std::to_string(i * 16 + 8) + "]").c_str(), "rdx")
-         + x86("jmp", L(21 + i * 2))
-         + x86("def", L(20 + i * 2))
+         + x86("jmp", L(SAI_L0 + 1 + i * 2))
+         + x86("def", L(SAI_L0 + i * 2))
          + slow
-         + x86("def", L(21 + i * 2));
+         + x86("def", L(SAI_L0 + 1 + i * 2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * bb_chain_terminal_staged(IR_t * entry) { IR_t * n = entry; int guard = 0;
