@@ -4652,8 +4652,18 @@ DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    extern int g_gc_pending;
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
-    rt_gc_point_arr(args, nargs, (const char **)0);
+    /* ⭐ INLINE-CHEAP-CHECK (perf-dispatch-gc-safepoint-necessity): rt_gc_point_arr's asm veneer pays an UNCONDITIONAL push/pop of all 6 callee-saved
+       registers before rt_gc_point_arr_c ever reads g_gc_pending -- the overwhelming majority of calls (no collection due) pay that cost for nothing.
+       PRECEDENT: this exact shape is already landed and shipping at a sibling by-name-dispatch call site (rtx_plunify.S rt_pl_dop_unify, "absorbed
+       rt_gc_point_arr" comment) -- check g_gc_pending BEFORE paying for the veneer, call the REAL, UNCHANGED veneer only when a collection is due.
+       The cold (collecting) path below is byte-identical to today's unconditional call, so correctness when a collection actually runs is untouched
+       (same register-parking, same g_gc_seam_sp/g_gc_shield_arr); only the zero-cost-today fast path changes. Matches g_gc_pending ONLY, same as the
+       precedent -- not rt_gc_point_arr_c's second (heap-gcline) condition, deferring that trigger to whichever later safepoint next sees it, same
+       tradeoff the precedent already ships with. Killswitch SCRIP_DISPATCH_GC_INLINE=0 restores the unconditional call on the same binary. */
+    { static int _gcik = -1; if (_gcik == -1) { const char *ev = getenv("SCRIP_DISPATCH_GC_INLINE"); _gcik = (ev && *ev == '0') ? 0 : 1; }
+      if (!_gcik || g_gc_pending) rt_gc_point_arr(args, nargs, (const char **)0); }
     if (!fn) return out;
     /* ⭐ FIRST-TWO-CHARACTER GUARD, the s260 FAIL-strcmp cure's shape extended (perf-by-name-builtin-dispatch, s271).
        MEASURED, string_manip.sno -O0 N=20000, callgrind: the single-char fn[0]=='S' guard still let EVERY ordinary
