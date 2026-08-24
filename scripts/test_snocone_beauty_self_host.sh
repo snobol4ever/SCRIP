@@ -74,8 +74,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Resolve paths ----------------------------------------------------------
-SC_DIR="$CORPUS/snocone/demo/beauty"
-SNO_DIR="$CORPUS/beauty"
+SC_DIR="$CORPUS/library"
+SNO_DIR="$CORPUS/demo/beauty"
 [[ -z "$INPUT" ]] && INPUT="$SNO_DIR/beauty.sno"
 
 [[ -x "$SCRIP"   ]] || { echo "FAIL scrip not found: $SCRIP"     >&2; exit 2; }
@@ -97,7 +97,7 @@ for f in "${LIB_FILES[@]}"; do
     [[ -f "$p" ]] || { echo "FAIL lib not found: $p" >&2; exit 2; }
     LIBS+=("$p")
 done
-DRIVER="$SC_DIR/beauty.sc"
+DRIVER="$CORPUS/demo/beauty/beauty.sc"
 [[ -f "$DRIVER" ]] || { echo "FAIL driver not found: $DRIVER" >&2; exit 2; }
 
 # --- Run scrip --------------------------------------------------------------
