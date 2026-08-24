@@ -2520,11 +2520,11 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { if (nodes[k] == gt) gin = 1; if (nodes[k] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; } }
                 else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
-                { (void)0; }
+                { if (zarm && zarm[i] >= 0) { if (gt == nodes[zarm[i]]) gin = 0; if (ot == nodes[zarm[i]]) oin = 0; } }
                 { int oib = port_sz_beta(nodes[i]->ω.sz); if (!oin && oib && K == 0 && !beta_is_stmt_land(ot)) oin = 1; }
                 { if (!oin && K == 0) { int _io = !ot; if (!_io) { for (int _ik = 0; _ik <= r; _ik++) { if (nodes[run[_ik]] == ot) { _io = 1; break; } } } if (_io) oin = 1; } }
                                 { long kc = 0;
-                int _wzdepth = (int)zd;
+                int _wzdepth = (zarm && zarm[i] >= 0) ? zout[i] : (int)zd;
                 {
                 if (!gin) zgpop[i] = ((zdh_match >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zdh_match + emit_match_begin_stfh_k() : _wzdepth) + (int)kc;
                 if (!oin) zwpop[i] = _wzdepth - K + (int)kc; } }
