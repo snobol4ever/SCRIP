@@ -250,6 +250,11 @@ static IR_t * sx_nameval(scx_t * cx, const tree_t * inner, IR_t * γ, IR_t * ω,
 }
 static const tree_t * sno_const_val(const char * ck);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_arm_result(IR_t * rv) {
+    if (rv) switch (rv->op) { case IR_GOTO: case IR_SUCCEED: case IR_FAIL: case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: return NULL; default: break; }
+    return rv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (!t) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
     switch (t->t) {
@@ -711,26 +716,32 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return nl;
     }
     case TT_VLIST: {
-        /* SPITBOL parenthesised value list (e1, e2, ...) -- failure-driven alternation IN AN EXPRESSION: the value is the
-           first arm that SUCCEEDS.  This is the ONLY SNOBOL4 form that catches a failure part-way through an expression and
-           then resumes inside that same expression, so it is the only one that must put the zeta spine back where it found
-           it: a box concedes on omega WITHOUT popping the operand cells it already carved (zdp_out_omega models exactly
-           that), and normally the statement boundary is what cleans up.  Re-entering a sibling arm skips that boundary, so
-           the enclosing concatenation would read cells belonging to the abandoned arm -- measured as 'p' (IDENT(y) 5, 9)
-           yielding "9" instead of "p9" under cell-stack, while frame-rsp / cell-heap (static offsets) were already right.
-           The cure is NOT a spine mark/restore (IR_BOUND/IR_UNMARK was tried and is the wrong tool): the real blocker is
-           zd_plan() in the emitter, which claims ZETA DEPTH only along LINEAR gamma RUNS starting at statement heads.
-           Arm 2 is reachable only through an omega edge, so it is never claimed, gets zd_on=0, and its boxes address
-           cells at stale static offsets (measured: no `sub rsp,16` at the arm-2 head, writing [rsp+80] off a base that
-           had already been unwound to the statement frontier).  Teaching zd_plan about a second entry into the middle
-           of an expression is the actual rung -- see FINDING-2026-08-23-hq_C-vlist-expr-alternation. */
-        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }   /* STILL OFF BY DEFAULT: turning it on trades "statement fails" for SILENT WRONG VALUES under cell-stack -- see the comment above */
+        /* SPITBOL parenthesised value list (e1, e2, ...): value is the first arm that SUCCEEDS, later arms tried only on
+           failure. Lowered onto IR_DISJUNCTION (mirrors lower_icon.c's lower_alt for Icon `|` / lower_prolog.c's `;` --
+           the same host, three syntaxes): each arm's own γ AND ω both target dj itself, so the runtime template
+           (bb_disjunction) tells success from failure by which PORT fired, not by graph shape -- nodes that reach dj via
+           their own ω get tagged "φ" (try next arm), via γ get "σ" (this arm won, copy its result into dj's own cell).
+           dj's σ-copy landing gives every arm the SAME fixed result slot regardless of how many nodes any one arm cost,
+           which is what makes this immune to the old temp-var lowering's arm-length-convergence defect. SNOBOL4 has no
+           generator concept, so unlike Icon's arms (which can push a real per-arm resume point), every arm's resume is
+           dj itself -- failing an arm always falls through to dj's own next-arm dispatch, never anything finer-grained. */
+        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }
         if (!g_vlist_alt || t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
-        static int g_vlist_n = 0; char nmb[24]; snprintf(nmb, sizeof nmb, "VLIST$%d", g_vlist_n++); char * tmpn = (char *) lp_strdup(nmb); sno_reg_var(tmpn);
-        IR_t * jn = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(jn).sval = tmpn;
-        IR_t * head = NULL; IR_t * nxt = ω;
-        for (int i = t->n - 1; i >= 0; i--) { IR_t * asn = lc_build(cx->g, IR_ASSIGN, jn, ω); IR_LIT(asn).sval = tmpn; IR_t * vr = NULL; head = sx_lower(cx, t->c[i], asn, nxt, &vr); ir_operand_push(asn, vr); nxt = head; }
-        if (res) *res = jn; return head;
+        IR_graph_t * g = cx->g;
+        IR_t * dj = lc_build(g, IR_DISJUNCTION, γ, ω);
+        int n = t->n; if (n > 64) n = 64;
+        IR_t * resv[64];
+        for (int j = 0; j < n; j++) {
+            int before = g->n; IR_t * ar = NULL;
+            IR_t * ej = sx_lower(cx, t->c[j], dj, dj, &ar);
+            for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (!x) continue;
+                if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+                if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) memcpy(x->γ.sz, "φ", 3); else memcpy(x->γ.sz, "σ", 3); x->γ.sz[3] = 0; } }
+            ir_operand_push(dj, ej); ir_operand_push(dj, dj); resv[j] = ar;
+        }
+        for (int j = 0; j < n; j++) ir_operand_push(dj, sno_arm_result(resv[j]));
+        IR_LIT(dj).ival = (long) n;
+        if (res) *res = dj; return dj;
     }
     default: {
         char buf[64]; snprintf(buf, sizeof buf, "tree kind %d", (int) t->t);
