@@ -4,7 +4,7 @@
 #   make scrip        — build the unified scrip x86 executable
 #   make all          — alias for scrip
 #   make setup        — install system packages + CSNOBOL4 + SPITBOL oracle
-#   make test         — run corpus (mode-4 gate)
+#   make test         — THE blocking set: SNOBOL4 corpus (m3+m4) + the two live gates
 #   make monitor-ipc  — build test/monitor/monitor_ipc.so
 #   make clean        — remove build artefacts
 #   make distclean    — clean + remove /tmp caches
@@ -31,12 +31,12 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
-RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⭐ O0-DEV-O2-BENCH (Lon 2026-08-20 in-chat, s179, SUPERSEDES O2-ALWAYS/s178): -O0 for ALL normal development — -O2 is reserved for benchmark and demo runs, passed explicitly (RT_OPT="-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer" make). Label any perf number with its RT_OPT.
+RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.S, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
 DEPFLAGS := -MMD -MP
 CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) -DDYN_ENGINE_LINKED $(ZCFLAGS)
-CRT     := $(CBASE) -DDYN_ENGINE_LINKED $(ZCFLAGS)
+CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) $(ZCFLAGS)
+CRT     := $(CBASE) $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
 # Runner defaults
@@ -48,7 +48,7 @@ JASMIN       := $(SRC)/backends/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
 .PHONY: all scrip setup pristine pristine-all buildinfo FORCE \
-        test test-ir test-all \
+        test \
         native codegen-emit-test \
         monitor-ipc \
         libscrip_rt \
@@ -71,6 +71,11 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 	# 20:06 -O0 binary while an -O2 build was still running. That is the "non-empty is not alive" class.
 	rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(ROOT)/scrip
 	$(MAKE) all
+
+test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ Gate VERDICTS still require `make pristine` first (HQ-27); this target only builds what is missing.
+	bash scripts/test_corpus_snobol4.sh
+	bash scripts/test_gate_emit_no_lang.sh
+	bash scripts/test_gate_template_medium_invisible.sh
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip
@@ -389,11 +394,11 @@ vpath %.S $(sort $(dir $(RT_PIC_SRCS)))
 $(RT_OBJDIR):
 	@mkdir -p $(RT_OBJDIR)
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
-	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES $(ZCFLAGS) -c $< -o $@
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_SO): $(RT_PIC_OBJS)
 	@mkdir -p out
 	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o $@
