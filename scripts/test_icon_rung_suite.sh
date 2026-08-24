@@ -112,9 +112,9 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0
+    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0 BADEXIT=0
     MODE_FAIL=0
-    local icn base name exp got want errf rc
+    local icn base name exp got want errf rc want_rc
     errf="$WORK/err.txt"
     for icn in "${FILES[@]}"; do
         exp="${icn%.icn}.expected"
@@ -135,11 +135,25 @@ run_corpus() {
         # SUITE-HONESTY (GOAL-ICON-BB 2026-06-03): a nonzero exit without the [SMX] banner is a FAIL in
         # EVERY mode (m2 included), even when stdout happens to match .expected — kills the vacuous pass
         # where an aborting program with empty stdout matched an empty .expected (rung36_jcon_proto).
-        if [ "$rc" -ne 0 ]; then
-            [ "$VERBOSE" = 1 ] && echo "FAIL $name (rc=$rc)"
-            FAIL=$((FAIL+1)); MODE_FAIL=1; continue
-        fi
+        # ⭐ GRADED AGAINST THE ORACLE, NOT AGAINST 0 (ported from test_icon_all_rungs.sh f5dd74af — item 2
+        # of task icon-regression-232-to-169): a `<base>.exitcode` sidecar names the expected code where it
+        # is not 0. Wrong-rc-but-right-stdout lands in its own BADEXIT bucket, never silently inside FAIL
+        # and never silently inside PASS — symmetric with all_rungs so the two instruments cannot diverge
+        # on this axis again. No program in the corpus needs a sidecar today (find turns up zero); this
+        # closes the missing capability, it is not a reaction to an observed false result.
+        want_rc=0
+        [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
         want=$(cat "$exp")
+        if [ "$rc" -ne "$want_rc" ]; then
+            if [ "$got" = "$want" ]; then
+                [ "$VERBOSE" = 1 ] && echo "BADEXIT $name (stdout correct, exit $rc, expected $want_rc)"
+                BADEXIT=$((BADEXIT+1)); MODE_FAIL=1
+            else
+                [ "$VERBOSE" = 1 ] && echo "FAIL $name (rc=$rc, expected $want_rc)"
+                FAIL=$((FAIL+1)); MODE_FAIL=1
+            fi
+            continue
+        fi
         if [ "$got" = "$want" ]; then
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
             PASS=$((PASS+1))
@@ -152,11 +166,14 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
-    if [ "$REFUSED" -gt 0 ]; then
-        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$((PASS+FAIL+XFAIL+REFUSED)) ---"
-    else
-        echo "--- Icon ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
-    fi
+    # ⭐ Byte-identical to the pre-BADEXIT summary whenever BADEXIT=0 (true for the whole corpus today) —
+    # the field is inserted only when it has something to say, same convention this file already used for
+    # REFUSED, so no board number or downstream grep changes until a sidecar file actually exists.
+    local total=$((PASS+FAIL+XFAIL)) line="PASS=$PASS FAIL=$FAIL"
+    if [ "$BADEXIT" -gt 0 ]; then line="$line BADEXIT=$BADEXIT"; total=$((total+BADEXIT)); fi
+    line="$line XFAIL=$XFAIL"
+    if [ "$REFUSED" -gt 0 ]; then line="$line REFUSED=$REFUSED"; total=$((total+REFUSED)); fi
+    echo "--- Icon ($mode): $line TOTAL=$total ---"
 }
 
 collect_files
