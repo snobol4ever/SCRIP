@@ -5285,10 +5285,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
-    dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0;
-    if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }
+    /* ⭐ ARRAY-PATH GEN-ONLY VALIDATION (perf-dispatch-callsite-cache STEP2, s271).  bid_of() (builtin_ids.h) is an
+       INJECTIVE map over its nonzero range -- 176 distinct builtin/operator names, 176 distinct ids, each returned
+       only after bid_of's OWN internal memcmp against g_bid_tab -- so _bid uniquely determines fn's bytes whenever
+       _bid>0, the only case g_dtax_bid[_bid] is ever indexed (the bid==0 miss value routes to g_dtax[] instead).
+       Every write into a g_dtax_bid[] slot (dtx4/dtx5, and the DATA-type/synonym/miss-cache writes further below)
+       is keyed by THAT SAME call's fn, so a later call reaching the identical slot can only do so by presenting
+       the identical fn bytes again -- the len+memcmp recheck the hash path g_dtax[] still needs (arbitrary names
+       CAN collide into one of its 256 buckets) is therefore provably redundant here once gen alone matches. */
+    dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0; int _dx_bid_path = 0;
+    if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; _dx_bid_path = 1; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }
       if (_dx) {
-        if (_dx->gen == rt_dtax_gen && _dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)) {
+        if (_dx->gen == rt_dtax_gen && (_dx_bid_path || (_dx->len == _dxl && !memcmp(_dx->nm, fn, _dxl)))) {
           if (_dx->kind == 4 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *))_dx->ctor)(args, nargs, out);
           if (_dx->kind == 5 && _dx->ctor) return ((int (*)(DESCR_t *, int, DESCR_t *, int))_dx->ctor)(args, nargs, out, (int)_dx->nf);
           if (_dx->kind == 2 && _dx->syn) return try_call_builtin_by_name(_dx->syn, args, nargs, out);
