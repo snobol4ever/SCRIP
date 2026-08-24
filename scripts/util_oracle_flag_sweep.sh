@@ -43,7 +43,7 @@ NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^exec
 # on programs no board grades, which is worse than useless: it looks like evidence.  ⭐ THE STRUCTURAL FIX IS ONE AUTHORITY, NOT TWO CAREFUL
 # EDITORS -- routed as row `suite-table-one-authority`.  Until it lands, ANY edit to either table must be made to BOTH, in the same commit.
 SUITES=$(cat <<'EOF'
-beauty_self    SELF                                                -                          demo/beauty
+beauty_self    SELF                                                -                          beauty
 beauty_suite   snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
 demos          snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR
 benchmarks     benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR
@@ -63,7 +63,7 @@ stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basen
   case "$d" in "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5.input";; treebank*) echo "$DEMO/treebank.input";; json*) echo "$DEMO/json.input";;
     calculator*) echo "$DEMO/calculator.input";; porter*) echo "$DEMO/porter.input";; *) echo /dev/null;; esac; return;; esac; echo /dev/null; }
 sc_libpath() { local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"; }
-libspec_for() { case "$1" in beauty_self) echo demo/beauty;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:include;; *) echo SELFDIR;; esac; }
+libspec_for() { case "$1" in beauty_self) echo beauty;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:include;; *) echo SELFDIR;; esac; }
 lon_guard() { case "$1" in */programs/lon/*) echo "REFUSED off-limits lon path: $1" >&2; return 1;; esac; return 0; }
 one_prog() {
   local name="$1" lib="$2" prog="$3" d in L W r1 r2 rf m1 m2 mf tag
