@@ -14,7 +14,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 CORPUS=$S4E/corpus/tests/prolog
-SWIT=$CORPUS/swi_tests
+SWIT=$S4E/corpus/packages/prolog/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 MATCH_PY="${HERE}/util_swi_match.py"
 REPORT_PY="${HERE}/util_swi_report.py"

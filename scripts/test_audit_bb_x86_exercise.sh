@@ -34,12 +34,12 @@ if [ ! -x "$SCRIP" ]; then
     echo "SKIP scrip not built at $SCRIP"
     exit 0
 fi
-if [ ! -d "$CORPUS/snobol4" ]; then
+if [ ! -d "$CORPUS/tests/snobol4" ]; then
     echo "SKIP corpus not populated at $CORPUS"
     exit 0
 fi
 
-ROOT="$CORPUS/snobol4"
+ROOT="$CORPUS/tests/snobol4"
 if [ -n "$SUBSET" ]; then ROOT="$ROOT/$SUBSET"; fi
 
 TMP="$(mktemp /tmp/bb_audit_XXXX.s)"
