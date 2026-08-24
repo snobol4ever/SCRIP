@@ -2,11 +2,11 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog/rung19
+CORPUS="$S4E/corpus/prolog"
 PASS=0; FAIL=0
 [ -d "$CORPUS" ] || { echo "SKIP: $CORPUS missing"; exit 0; }
-for f in "$CORPUS"/*.pl; do
-    ref="${f%.pl}.ref"; [ -f "$ref" ] || continue
+for f in "$CORPUS"/rung19_*.pl; do
+    ref="${f%.pl}.expected"; [ -f "$ref" ] || continue
     actual=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
     expected=$(cat "$ref")
     if [ "$actual" = "$expected" ]; then echo "  PASS $(basename $f)"; PASS=$((PASS+1))

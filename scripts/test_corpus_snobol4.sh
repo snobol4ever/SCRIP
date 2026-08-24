@@ -12,7 +12,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-10}"
-INC="${INC:-$CORPUS/demo/inc}"
+INC="${INC:-$CORPUS/include}"
 BEAUTY="${BEAUTY:-$CORPUS/snobol4/beauty_suite}"
 DEMO="${DEMO:-$CORPUS/demo}"
 

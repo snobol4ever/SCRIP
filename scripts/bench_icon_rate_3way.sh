@@ -30,13 +30,14 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
-R=/home/claude1/SCRIP; SCRIP=$R/scrip; RT=$R/out
+S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root
+R="$S4E/SCRIP"; SCRIP=$R/scrip; RT=$R/out
 J=$R/refs/jcon-master/bin
 ICONT_BIN="$(icont_bin)" || exit 2
 iconx_bin >/dev/null || exit 2
 I="$(dirname "$ICONT_BIN")"
 export PATH="$J:$I:$PATH"
-S=${S4E_RATE:-/home/claude1/corpus/benchmarks/icon/rate}
+S=${S4E_RATE:-$S4E/corpus/benchmarks/icon/rate}
 WARM=${WARM:-500}; BUD=${BUD:-1500}; REPS=${REPS:-3}
 LOAD0=$(cut -d" " -f1-3 /proc/loadavg)
 W=$(mktemp -d /tmp/rate3_XXXXXX); cd "$W"; cp $S/*.icn .
