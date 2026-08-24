@@ -226,6 +226,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_call_bool.cpp \
     $(SRC)/templates/bb_call_fn.cpp \
     $(SRC)/templates/bb_binop_relop.cpp \
+    $(SRC)/templates/bb_binop_relop_val.cpp \
     $(SRC)/templates/bb_binop_arith.cpp \
     $(SRC)/templates/bb_binop_concat_slot.cpp \
     $(SRC)/templates/bb_binop_xrep_slot.cpp \
