@@ -27,7 +27,7 @@ def off_limits(path): return any(k in path.replace(os.sep,"/") for k in OFF_LIMI
 DEMO=CORPUS+"/demo"
 NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines.  Measured on
-# csnobol4-suite/tab.sno: the uppercasing was CORRECT and the only difference from the -b baseline was
+# csnobol4_suite/tab.sno: the uppercasing was CORRECT and the only difference from the -b baseline was
 # `memory used (bytes) 15912` vs `15888` (24 bytes, from the symbol table holding different identifier
 # strings) -- so the accept test REVERTED a good conversion.  These three lines are not a semantic
 # property of the program, exactly as the scorecard already argues for its own iters:/ms: rule.

@@ -28,7 +28,7 @@ SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
 DEMO="$CORPUS/demo"
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines, and without stripping them this
-#    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4-suite/tab.sno had its keywords uppercased
+#    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4_suite/tab.sno had its keywords uppercased
 #    CORRECTLY -- normalized -bf output byte-identical to the pre-edit -b output -- and still read as a MOVER on
 #    `memory used (bytes) 15912` vs `15888` alone (24 bytes, the symbol table holding different identifier strings).
 #    4 of the 42 movers at s191 dissolved on this rule with nothing else changed.  Same argument the iters:/ms: rule
@@ -52,7 +52,7 @@ patterns       crosscheck/patterns                                 -maxdepth 1 -
 crosscheck     crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc
 feature_test   SCRIPTEST                                           -name *.sno                CORPUS
 probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
-csnobol4_suite snobol4/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR
+csnobol4_suite snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR
 gimpel         snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include
 misc           MISC                                                -name *.sno                SELFDIR
 EOF

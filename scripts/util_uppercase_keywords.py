@@ -57,7 +57,7 @@ def fix_line(line):
 END_STMT = re.compile(r"^[Ee][Nn][Dd][ \t]*(?:[;*].*)?$")
 def fix_text(src):
     """⛔ s191: STOP AT THE END STATEMENT.  Everything after `END` is the program's inline INPUT DATA,
-    not code, and uppercasing it CORRUPTS THE DATA.  Measured on csnobol4-suite/tab.sno, whose data is the
+    not code, and uppercasing it CORRUPTS THE DATA.  Measured on csnobol4_suite/tab.sno, whose data is the
     Gettysburg Address: `or any nation` -> `or ANY nation`, `that field` -> `that FIELD`.  Already landed
     once (corpus c8a687ef, s188): trim0/trim1 read `this line has a leading tab` -> `... leading TAB`, so a
     file whose data DESCRIBES ITSELF now contradicts itself.  Inert under SPITBOL, which never reads

@@ -44,14 +44,14 @@ DEMO="$CORPUS/demo"
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          include 90 -
 beauty_suite   15 snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
-demos          15 demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
+demos          15 demo                               -maxdepth 2 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
 bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 ms
-csnobol4_suite  5 snobol4/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
+csnobol4_suite  5 snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
 gimpel          5 snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
@@ -143,7 +143,7 @@ sc_suite_fields() {  # $1 = suite name -> "root<TAB>fargs<TAB>lib<TAB>rto<TAB>no
 # turns rc 124 into TIMEOUT and nine of twelve suites run on a 20s budget, so a program near budget flips TIMEOUT<->PASS under
 # CPU load WITH NO TREE CHANGE, and every META and every fail-set-by-name in GOAL-SNOBOL4-100.md rests on that number.  MEASURED,
 # NOT HYPOTHETICAL (seat5, s189): two seats ran a full 12-suite board at --jobs 12 on the same 16-core box SIMULTANEOUSLY and
-# neither knew until an unrelated ps; csnobol4-suite/nqueens.sno gave TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 across
+# neither knew until an unrelated ps; csnobol4_suite/nqueens.sno gave TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 across
 # five runs of the SAME script on the SAME binary.  This is the HQ-27 class -- a stale build is indistinguishable from a current
 # one by inspecting its output -- and it takes the same cure: MAKE THE PROVENANCE TRAVEL WITH THE NUMBER.
 # ⛔ THE REGISTRY IS BOX-SCOPED, NOT TREE-SCOPED, AND THAT IS THE WHOLE POINT.  The colliding seats hold SEPARATE CHECKOUTS
@@ -388,7 +388,7 @@ cmd_report() {
 }
 # ---------------------------------------------------------------- one program, N times (row `scorecard-provenance`, s190)
 # ⛔ THIS EXISTS BECAUSE THE CONTENTION EXPERIMENT NEEDS ONE PROGRAM, NOT NINETY.  seat5 convicted this instrument by running
-# csnobol4-suite/nqueens.sno FIVE TIMES on the SAME binary and getting TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 --
+# csnobol4_suite/nqueens.sno FIVE TIMES on the SAME binary and getting TIMEOUT/TIMEOUT, SIG11/TIMEOUT (x3) and SIG11/SIG11 --
 # and until s190 the only way to re-run one program THE WAY THE BOARD RUNS IT was to run its whole suite, which perturbs the
 # very load being measured.  It calls run_one -- the same authority, the same lib path, the same oracle flags, the same grade()
 # -- and adds nothing but the repeat count and the load stamp, so a row measured here is comparable to a row on the board.

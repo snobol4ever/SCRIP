@@ -142,7 +142,7 @@ run_test "demo_json_match_fence"         "$DEMO/json-match-fence.sno"         "$
 # ⭐ The denominator moves 361 -> 364. A skip is a silent subtraction from the denominator: these three were
 # green for hours and no board could say so, because the runner had been told once that they hang forever.
 # NOT gated -- each has a one-line reason, full repro in the FINDING above:
-#   demo/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
+#   demo/calculator/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
 #   demo/expression.sno                  -- -INCLUDEs 15 files (global.sno, ShiftReduce.sno, Gen.sno, ...) absent from this checkout; won't parse
 
 T_ALL=$((SECONDS-T0_ALL))

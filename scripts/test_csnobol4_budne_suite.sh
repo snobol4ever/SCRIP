@@ -18,7 +18,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-15}"
-SUITE="$CORPUS/snobol4/csnobol4-suite"
+SUITE="$CORPUS/snobol4/csnobol4_suite"
 FENCE="$CORPUS/crosscheck/patterns"
 
 # ── corpus guard ──────────────────────────────────────────────────────────────

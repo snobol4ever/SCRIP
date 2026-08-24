@@ -7,7 +7,7 @@
 # instruction-count regression into an immediate gate failure instead of something found three weeks later
 # under other drift.  s249 named the idiom "arith loop instruction budget" -- this gate generalises it.
 #
-# WORKLOADS.  (1) roman -- corpus/demo/roman.sno, fully self-contained (no external input
+# WORKLOADS.  (1) roman -- corpus/demo/roman/roman.sno, fully self-contained (no external input
 # file) -- DEFINE/recursion/REPLACE over ~345 roman-numeral conversions, chosen because it is RUNTIME-C-
 # dominated (pattern REPLACE + string building through libscrip_rt.so), the counterpart of the compiler-
 # emitted-dominated arith_loop s249 already budgets.  ⛔ porter.sno was the original choice but CANNOT BE
@@ -72,7 +72,7 @@ SCRIP_BIN="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
 DEMO="$CORPUS_ROOT/demo"
-BEAUTY_DIR="$CORPUS_ROOT/demo"
+BEAUTY_DIR="$CORPUS_ROOT/demo/beauty"
 BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 
 TOL_PCT="${TOL_PCT:-2}"
@@ -95,7 +95,7 @@ TOL_PCT="${TOL_PCT:-2}"
 #   22971235 10,224,807  +0.003% RE-PROVEN after rebasing onto seat01's RTX-31/RTX-NEW-ICNVAR runtime work (rtx_icnsub.S,
 #                                rtx_icnvar.S).  A rebase is a NEW TREE and its gate must be re-proven, not assumed: those
 #                                are table-subscript fast paths and roman touches none of them, but that was MEASURED, not argued.
-# ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/roman.sno is unchanged since 2026-08-18 and roman.ref since April
+# ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/roman/roman.sno is unchanged since 2026-08-18 and roman.ref since April
 # (345 conversions); only path moves touched either.  A shrunken workload is the way this measurement lies, and it did not.
 # ⭐ Independently cross-checked the same day (seat06, queue row `defer-nv-read-by-pointer-not-name`): 10225516/10224807/10224052
 # across three separate make-pristine measurements at nearby commits, converging on this same number within noise -- two

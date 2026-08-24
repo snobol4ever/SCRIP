@@ -63,7 +63,7 @@ printf 'END\n' > "$WORKDIR/end_only.sno"
 check_m3 "bare-END" "$WORKDIR/end_only.sno"
 check_m4 "bare-END" "$WORKDIR/end_only.sno"
 
-SUITE="$CORPUS_ROOT/snobol4/csnobol4-suite"
+SUITE="$CORPUS_ROOT/snobol4/csnobol4_suite"
 for w in preload1 preload2 preload3 preload4 end; do
     f="$SUITE/$w.sno"
     if [ ! -f "$f" ]; then
@@ -78,5 +78,5 @@ if [ "$FAIL" -ne 0 ]; then
     echo "GATE FAIL: end-only-program floor regressed."
     exit 1
 fi
-echo "GATE OK: bare-END and the csnobol4-suite END-only witnesses exit 0 with zero output in both modes."
+echo "GATE OK: bare-END and the csnobol4_suite END-only witnesses exit 0 with zero output in both modes."
 exit 0
