@@ -815,9 +815,9 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
-        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { extern void rt_zeta_set_mode(int); const char *z = argv[argi] + 7; int zm = strcmp(z, "zls") == 0 ? 0 : strcmp(z, "zls2") == 0 ? 1 : strcmp(z, "zh") == 0 ? 2 : -1;  if (zm < 0) { fprintf(stderr, "scrip: bad --zeta=%s (valid: zls, zls2, zh)\n", z); return 2; } rt_zeta_set_mode(zm); argi++; }
-        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { const char *z = argv[argi] + 12; int pm = strcmp(z, "plain") == 0 ? 0 : strcmp(z, "instrumented") == 0 ? 1 : strcmp(z, "alloc") == 0 ? 2 : strcmp(z, "inline") == 0 ? 3 : strcmp(z, "cstack") == 0 ? 4 : strcmp(z, "forth") == 0 ? 6 : strcmp(z, "heap") == 0 ? 7 : -1;  if (pm < 0) { fprintf(stderr, "scrip: bad --zeta-port=%s (valid: plain, instrumented, alloc, inline, cstack, forth, heap)\n", z); return 2; } if (pm == ZC_PORT_FORTH) rt_zeta_storage_set(ZC_STORAGE_CELL_STACK); else if (pm == ZC_PORT_CSTACK) rt_zeta_storage_set(ZC_STORAGE_FRAME_RSP); else if (pm == ZC_PORT_HEAP) rt_zeta_storage_set(ZC_STORAGE_CELL_HEAP); else rt_zeta_port_set_mode(pm); argi++; }
-        else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { const char *z = argv[argi] + 15; if (strcmp(z, "frame-r12") == 0) { fprintf(stderr, "scrip: --zeta-storage=frame-r12 RETIRED s23k ZW-0 (r12 = COND-ASSIGN stack, Lon directive; island zeta-frame technique withdrawn)\n"); return 2; } int sm = strcmp(z, "frame-rsp") == 0 ? 1 : strcmp(z, "cell-stack") == 0 ? 2 : strcmp(z, "cell-heap") == 0 ? 3 : -1;  if (sm < 0) { fprintf(stderr, "scrip: bad --zeta-storage=%s (valid: frame-r12, frame-rsp, cell-stack, cell-heap)\n", z); return 2; } rt_zeta_storage_set(sm); argi++; }
+        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { fprintf(stderr, "scrip: --zeta= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
+        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { fprintf(stderr, "scrip: --zeta-port= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
+        else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { fprintf(stderr, "scrip: --zeta-storage= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
         else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
@@ -1300,14 +1300,6 @@ int main(int argc, char **argv)
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
-            if (rt_zeta_storage_get() == (int)ZC_STORAGE_FRAME_RSP) {
-                extern int zls_g_region(const IR_graph_t *);
-                long need = bbg ? (long)zls_g_region(bbg) : 0L;
-                if (need > 0) { need = (need + 15) & ~15L; emit_textf("  sub rsp, %ld\n", need); }
-            }
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
@@ -1484,14 +1476,6 @@ int main(int argc, char **argv)
             int n_proc_slot = proc_slot_count();
             emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
-            if (rt_zeta_storage_get() == (int)ZC_STORAGE_FRAME_RSP) {
-                extern int zls_g_region(const IR_graph_t *);
-                long need = sbbg ? (long)zls_g_region(sbbg) : 0L;
-                if (need > 0) { need = (need + 15) & ~15L; emit_textf("  sub rsp, %ld\n", need); }
-            }
-            if (rt_zeta_mode() != (int)ZC_ZETA) emit_textf("  mov edi, %d\n  call rt_zeta_set_mode@PLT\n", rt_zeta_mode());
-            if (rt_zeta_storage_get() != (int)ZC_STORAGE) emit_textf("  mov edi, %d\n  call rt_zeta_storage_set@PLT\n", rt_zeta_storage_get());
-            if (rt_zeta_port_mode() != (int)ZC_PORT) emit_textf("  mov edi, %d\n  call rt_zeta_port_set_mode@PLT\n", rt_zeta_port_mode());
             if (n_procs > 0) emit_textf("  call main_init\n");
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
