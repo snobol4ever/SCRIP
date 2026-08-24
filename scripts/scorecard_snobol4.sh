@@ -31,7 +31,7 @@ SC="$(cd "$HERE/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/snobol4/demo"
+DEMO="$CORPUS/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
 # norm=ms : measurement lines (^iters:/^ns:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is).
 #           ⭐ s265: the `benchmarks` suite no longer needs it and no longer HAS it.  Those programs were wrappers that printed iters:/ns:/ms:;

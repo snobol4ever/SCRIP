@@ -26,7 +26,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/snobol4/demo"
+DEMO="$CORPUS/demo"
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines, and without stripping them this
 #    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4-suite/tab.sno had its keywords uppercased
 #    CORRECTLY -- normalized -bf output byte-identical to the pre-edit -b output -- and still read as a MOVER on

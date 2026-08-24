@@ -86,7 +86,7 @@ FC_BASELINE=${FC_BASELINE:-0}
 KNOWN_TIMEOUT="beauty.sno"
 KNOWN_NOCODE="f13_eval_code.sno"
 [ -x "$SCRIP" ] || { echo "GATE FAIL: no $SCRIP (run: make scrip)"; exit 2; }
-export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/snobol4/demo/inc:$S4E/corpus/library${SNO_LIB:+:$SNO_LIB}"
+export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:$S4E/corpus/library${SNO_LIB:+:$SNO_LIB}"
 tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp" "$tmp.f"' EXIT
 n=0
@@ -100,7 +100,7 @@ while IFS= read -r f; do
   else                       cls=OK
   fi
   printf '%s\t%s\t%s\n' "$cls" "$m" "$(basename "$f")" >> "$tmp"
-done < <(find "$CORPUS/snobol4/demo" "$CORPUS/feat" -name '*.sno' 2>/dev/null | sort)
+done < <(find "$CORPUS/demo" "$CORPUS/feat" -name '*.sno' 2>/dev/null | sort)
 ok_n=$(awk -F'\t' '$1=="OK"{c++} END{print c+0}' "$tmp")
 ok_m=$(awk -F'\t' '$1=="OK"{s+=$2} END{print s+0}' "$tmp")
 fail=0

@@ -9,7 +9,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
-SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/snobol4/demo"; W="${W:-$(mktemp -d)}"   # BENCHMARK oracle (s255)
+SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/demo"; W="${W:-$(mktemp -d)}"   # BENCHMARK oracle (s255)
 [ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction, not a benign gap (row oracle-two-face-adoption). Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
 input_of() { case $1 in claws5-match) echo $D/CLAWS5inTASA.dat;; treebank-match) echo $D/VBGinTASA.dat;; json-match) echo $D/twitter.json;; calculator-1-match|calculator-2-match) echo $D/calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'

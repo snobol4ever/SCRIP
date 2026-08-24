@@ -58,7 +58,7 @@ run_one() {
 
 echo "=== SNOBOL4 → JS ladder ==="
 for sno in "$CORPUS/csnobol4-suite/"*.sno; do run_one "$sno"; done
-for sno in "$CORPUS/snobol4/demo/"*.sno; do run_one "$sno"; done
+for sno in "$CORPUS/demo/"*.sno; do run_one "$sno"; done
 for sno in "$CORPUS/snobol4/feat/"*.sno; do run_one "$sno"; done
 
 TOTAL=$((PASS+FAIL))

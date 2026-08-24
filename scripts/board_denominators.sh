@@ -18,7 +18,7 @@ row() {
 
 d_crosscheck()  { find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | wc -l; }
 d_probebb()     { find "$CORPUS/probe/bb/probes" -name "*.sno" 2>/dev/null | wc -l; }
-d_demo()        { find "$CORPUS/snobol4/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
+d_demo()        { find "$CORPUS/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)

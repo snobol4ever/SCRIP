@@ -23,7 +23,7 @@ SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"
 OUT="${1:?usage: util_s_md5_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
-  { find "$CORPUS/snobol4/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
+  { find "$CORPUS/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
 gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
   (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
   if   [ "$rc" -ne 0 ]; then printf 'COMPILE_RC_%s\t%s\n' "$rc" "$1"

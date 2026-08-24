@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CSNOBOL4="${CSNOBOL4:-$S4A/csnobol4/snobol4}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 MONITOR_DIR="${MONITOR_DIR:-$HERE/monitor}"
-PROBE="$CORPUS/snobol4/demo/csn_bridge_b/probe_b.sno"
+PROBE="$CORPUS/demo/csn_bridge_b/probe_b.sno"
 
 EXPECTED_RECORDS=12  # SN-26-bridge-coverage-f: +5 LABEL records (DEFINE,SQR_END,3×top-level + SQR body)
 
