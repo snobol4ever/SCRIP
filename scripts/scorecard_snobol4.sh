@@ -31,7 +31,7 @@ SC="$(cd "$HERE/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/snobol4/demo"
+DEMO="$CORPUS/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
 # norm=ms : measurement lines (^iters:/^ns:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is).
 #           ⭐ s265: the `benchmarks` suite no longer needs it and no longer HAS it.  Those programs were wrappers that printed iters:/ns:/ms:;
@@ -44,7 +44,7 @@ DEMO="$CORPUS/snobol4/demo"
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          beauty  90 -
 beauty_suite   15 snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
-demos          15 snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
+demos          15 demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
 bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -

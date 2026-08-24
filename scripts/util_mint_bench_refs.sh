@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --dir)   DIRS="$DIRS $2"; shift 2 ;;
   *) echo "usage: util_mint_bench_refs.sh [--write] [--dir <d>]" >&2; exit 2 ;;
 esac; done
-[ -n "$DIRS" ] || DIRS="$S4E/corpus/benchmarks/snobol4 $S4E/corpus/benchmarks/snobol4/demo"
+[ -n "$DIRS" ] || DIRS="$S4E/corpus/benchmarks/snobol4 $S4E/corpus/benchmarks/demo"
 [ -x "$SBL" ] || { echo "⛔ ORACLE MISSING: $SBL -- refusing to mint or grade (absent-oracle false-FAIL class)." >&2; exit 3; }
 [ -x "$SCRIP" ] || { echo "⛔ scrip not built at $SCRIP" >&2; exit 3; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

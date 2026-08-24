@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_sn4_js_ladder.sh — SNOBOL4 → JS ladder test driver
-# Runs all .sno files with .ref files in csnobol4-suite and snobol4/demo
+# Runs all .sno files with .ref files in csnobol4-suite and demo
 # Compares output to .ref
 # Usage: bash scripts/test_sn4_js_ladder.sh [--verbose]
 # Exit: 0 if no regression from FLOOR, 1 otherwise
@@ -58,7 +58,7 @@ run_one() {
 
 echo "=== SNOBOL4 → JS ladder ==="
 for sno in "$CORPUS/csnobol4-suite/"*.sno; do run_one "$sno"; done
-for sno in "$CORPUS/snobol4/demo/"*.sno; do run_one "$sno"; done
+for sno in "$CORPUS/demo/"*.sno; do run_one "$sno"; done
 for sno in "$CORPUS/snobol4/feat/"*.sno; do run_one "$sno"; done
 
 TOTAL=$((PASS+FAIL))

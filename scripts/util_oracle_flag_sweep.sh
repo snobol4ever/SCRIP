@@ -26,7 +26,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/snobol4/demo"
+DEMO="$CORPUS/demo"
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines, and without stripping them this
 #    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4-suite/tab.sno had its keywords uppercased
 #    CORRECTLY -- normalized -bf output byte-identical to the pre-edit -b output -- and still read as a MOVER on
@@ -45,7 +45,7 @@ NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^exec
 SUITES=$(cat <<'EOF'
 beauty_self    SELF                                                -                          beauty
 beauty_suite   snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
-demos          snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR
+demos          demo                               -maxdepth 1 -name *.sno    SELFDIR
 benchmarks     benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR
 bb_probes      probe/bb                                            -name *.sno                SELFDIR
 patterns       crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc

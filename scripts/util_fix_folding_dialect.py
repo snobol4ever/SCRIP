@@ -24,7 +24,7 @@ S4E=os.environ.get("S4E_HOME") or os.path.dirname(os.path.dirname(os.path.dirnam
 CORPUS=S4E+"/corpus"; SBL=(os.environ.get("SBL") or S4E+"/x64/bin/sbl"); SC=S4E+"/SCRIP"
 OFF_LIMITS=("/programs/lon/","/programs/include/")   # lon: RULES.md ABSOLUTE (do not run, do not read).  include/: HQ interim s191 -- inherits the do-not-read half pending Lon's credential ruling, so it is excluded BY CONSTRUCTION here, not skipped at run time
 def off_limits(path): return any(k in path.replace(os.sep,"/") for k in OFF_LIMITS)
-DEMO=CORPUS+"/snobol4/demo"
+DEMO=CORPUS+"/demo"
 NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines.  Measured on
 # csnobol4-suite/tab.sno: the uppercasing was CORRECT and the only difference from the -b baseline was
