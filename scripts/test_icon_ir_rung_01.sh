@@ -12,7 +12,7 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 
 set -e
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/programs/icon"
+CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 
 TIMEOUT="${TIMEOUT:-5}"
 BINARY="${1:-}"

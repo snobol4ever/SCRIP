@@ -11,7 +11,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-BEAUTY_DIR="${CORPUS:-$S4E/corpus}/programs/snocone/demo/beauty/test"
+BEAUTY_DIR="${CORPUS:-$S4E/corpus}/snocone/demo/beauty/test"
 TIMEOUT="${TIMEOUT:-10}"
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 

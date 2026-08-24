@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/../../.."
 PASS=0; FAIL=0
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/programs/icon"
+RUNG_DIR="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 for icn in "$RUNG_DIR"/rung22_lists_*.icn; do
   base="${icn%.icn}"; exp="$base.expected"; [ -f "$exp" ] || continue
   ${1:-/tmp/scrip-cc} -jvm "$icn" -o /tmp/t22.j 2>/dev/null

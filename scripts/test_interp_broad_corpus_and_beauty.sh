@@ -7,7 +7,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-INC="$CORPUS/programs/snobol4/demo/inc"
+INC="$CORPUS/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
@@ -55,7 +55,7 @@ run_sno() {
 }
 
 while IFS= read -r sno; do run_sno "$sno"; done < <(
-    find "$CORPUS/programs/snobol4" "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort | head -300
+    find "$CORPUS/snobol4" "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort | head -300
 )
 [ -f "$HERE/../test/snobol4/beauty.sno" ] && run_sno "$HERE/../test/snobol4/beauty.sno"
 

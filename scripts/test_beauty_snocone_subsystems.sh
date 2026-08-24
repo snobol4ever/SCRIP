@@ -2,7 +2,7 @@
 # run_beauty_sc_subsystem.sh — run Snocone BEAUTY subsystem tests via scrip --run
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
-SCRIPT_DIR="${CORPUS:-$S4E/corpus}/programs/snocone/demo/beauty/test"
+SCRIPT_DIR="${CORPUS:-$S4E/corpus}/snocone/demo/beauty/test"
 SCRIP="${SCRIP:-./scrip}"
 TIMEOUT="${TIMEOUT:-10}"
 STOP_ON_FAIL="${STOP_ON_FAIL:-0}"

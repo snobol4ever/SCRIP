@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_prolog_swi_suite.sh — run SWI plunit conformance suite under --run
-# Iterates corpus/programs/prolog/swi_tests/test_*.pl, loads each with
+# Iterates corpus/prolog/swi_tests/test_*.pl, loads each with
 # plunit.pl shim + a main wrapper, compares PASS/FAIL per suite against .ref.
 #
 # Matching: set-based (order-independent, deduped — ignores double-run artefacts).
@@ -13,7 +13,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/programs/prolog
+CORPUS=$S4E/corpus/prolog
 SWIT=$CORPUS/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 MATCH_PY="${HERE}/util_swi_match.py"

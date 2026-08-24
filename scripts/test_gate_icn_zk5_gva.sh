@@ -54,8 +54,8 @@ end
 EOF
 check "global_write_heavy" /tmp/zk5_global_witness.icn
 # lock 2: palindrome.icn from corpus (global-heavy ZK-0 table entry)
-if [ -f "$CORPUS/programs/icon/palindrome.icn" ]; then
-    check "palindrome" "$CORPUS/programs/icon/palindrome.icn"
+if [ -f "$CORPUS/icon/palindrome.icn" ]; then
+    check "palindrome" "$CORPUS/icon/palindrome.icn"
 else
     echo "SKIP palindrome.icn (corpus not found)"
 fi

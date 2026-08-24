@@ -7,7 +7,7 @@
 # Usage: test_gate_s130_blast.sh record <tag> <scrip> <rt.so>   |   compare <tagA> <tagB>
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 ROOT=${ROOT:-$S4E/corpus}
-SETS=${SETS:-"crosscheck programs/snobol4 probe"}
+SETS=${SETS:-"crosscheck snobol4 probe"}
 . "$(dirname "$0")/lib_gate.sh"
 # ⭐ V2-5 GATE HONESTY: compare had no existence check -- two nonexistent files reported MOVERS=0, exit 0.
 [ $# -ge 1 ] || { echo "GATE UNPROVEN(2) [s130_blast]: no mode given. usage: record <tag> <scrip> <rt.so> | compare <tagA> <tagB>"; exit 2; }

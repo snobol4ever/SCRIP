@@ -13,7 +13,7 @@
 #
 # Options:
 #   --input FILE       SNOBOL4 source to beautify
-#                      (default: corpus/programs/snobol4/demo/beauty/beauty.sno)
+#                      (default: corpus/snobol4/demo/beauty/beauty.sno)
 #   --mode MODE        scrip mode: --run | --run | --run
 #                      (default: --run)
 #   --timeout N        seconds for scrip run (default: 30)
@@ -74,8 +74,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Resolve paths ----------------------------------------------------------
-SC_DIR="$CORPUS/programs/snocone/demo/beauty"
-SNO_DIR="$CORPUS/programs/snobol4/demo/beauty"
+SC_DIR="$CORPUS/snocone/demo/beauty"
+SNO_DIR="$CORPUS/snobol4/demo/beauty"
 [[ -z "$INPUT" ]] && INPUT="$SNO_DIR/beauty.sno"
 
 [[ -x "$SCRIP"   ]] || { echo "FAIL scrip not found: $SCRIP"     >&2; exit 2; }

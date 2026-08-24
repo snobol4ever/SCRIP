@@ -5,7 +5,7 @@
 #   bash scripts/util_ref_mint.sh <suite> <dir> [<dir>...] --apply    # mint a .ref beside every LIVE program
 #
 # ⛔ A SUITE THAT IS NEVER GRADED IS NOT A PASSING SUITE, IT IS AN UNOPENED ONE.  Grading is by `.ref` diff, so a program with no
-# `.ref` is invisible to every board -- corpus/programs/snobol4/parser/ held 88 such programs and feat/ 19 more.  These are
+# `.ref` is invisible to every board -- corpus/snobol4/parser/ held 88 such programs and feat/ 19 more.  These are
 # self-checking programs that print their own PASS/FAIL, so they were DESIGNED to be graded.
 # ⛔⛔ BUT A .ref MINTED FROM A BROKEN ORACLE RUN PINS A LIE, AND THERE ARE THREE WAYS TO PIN ONE, NOT ONE.  This tool mints ONLY
 # on `LIVE` and names every other class instead:
@@ -18,7 +18,7 @@
 # path, stdin or flag set than the board GRADES with is a pin that can never match -- seat5 hit that twice in one session and
 # wrote the rule: a census is a harness, copy run_one, never re-derive it.  Validated on a program that already had a pin:
 # feat/f13_eval_code minted through this door is BYTE-IDENTICAL to its checked-in .ref.
-# ⛔ programs/lon/ AND programs/include/ ARE REFUSED BY CONSTRUCTION, not skipped at run time (RULES.md: lon is a CREDENTIAL rule
+# ⛔ lon/ AND include/ ARE REFUSED BY CONSTRUCTION, not skipped at run time (RULES.md: lon is a CREDENTIAL rule
 # -- do not run, do not read into a transcript; include/ is under HQ's conservative interim pending Lon's boundary ruling).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd)"
@@ -29,7 +29,7 @@ apply=""; dirs=""
 for a in "$@"; do case "$a" in --apply) apply=1;; *) dirs="${dirs:+$dirs }$a";; esac; done
 [ -n "$dirs" ] || { echo "usage: $0 <suite> <dir>... [--apply]" >&2; exit 2; }
 for d in $dirs; do case "$(cd "$d" 2>/dev/null && pwd)/" in *"/programs/lon/"*|*"/programs/include/"*)
-  echo "⛔ REFUSED $d: programs/lon and programs/include are excluded BY CONSTRUCTION (RULES.md credential rule / HQ interim). There is no flag that mints them." >&2; exit 2;; esac; done
+  echo "⛔ REFUSED $d: lon and include are excluded BY CONSTRUCTION (RULES.md credential rule / HQ interim). There is no flag that mints them." >&2; exit 2;; esac; done
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf 'STATUS\tPROGRAM\tRC\tBYTES\tACTION\n'
 n_live=0; n_have=0; n_dead=0; n_empty=0; n_unrun=0; n_mint=0

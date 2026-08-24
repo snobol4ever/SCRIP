@@ -63,7 +63,7 @@ printf 'END\n' > "$WORKDIR/end_only.sno"
 check_m3 "bare-END" "$WORKDIR/end_only.sno"
 check_m4 "bare-END" "$WORKDIR/end_only.sno"
 
-SUITE="$CORPUS_ROOT/programs/csnobol4-suite"
+SUITE="$CORPUS_ROOT/csnobol4-suite"
 for w in preload1 preload2 preload3 preload4 end; do
     f="$SUITE/$w.sno"
     if [ ! -f "$f" ]; then

@@ -18,7 +18,7 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 set -uo pipefail
 NAME="${1:?usage: util_beauty_override.sh <GrammarName> \"<replacement>\" [stdin-file]}"
 REPL="${2:?replacement text required}"
-BDIR="$S4E/corpus/programs/snobol4/demo/beauty"
+BDIR="$S4E/corpus/snobol4/demo/beauty"
 IN="${3:-}"
 SBL="$S4A/x64/bin/sbl"
 [ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT ($SBL). D-17b: seats do not clone x64 -- point S4E_ASSETS at a root that has it." >&2; exit 2; }

@@ -122,7 +122,7 @@ if [ -n "${CORPUS_ROOT:-}" ]; then
       # COVERAGE artifact wearing the costume of a measurement -- this ladder's own
       # recurring failure, caught inside the fix for it.  The count is printed and carried
       # into the verdict text so a thin surface can never read as proof of absence.
-      find "$CORPUS_ROOT/programs/$lang" "$CORPUS_ROOT/benchmarks/$lang" \
+      find "$CORPUS_ROOT/$lang" "$CORPUS_ROOT/benchmarks/$lang" \
            -name "*.$ext" 2>/dev/null > "$TMP/progs_$lang"
       n=$(wc -l < "$TMP/progs_$lang" 2>/dev/null || echo 0)
       echo "$lang $n" >> "$TMP/surface_sizes"

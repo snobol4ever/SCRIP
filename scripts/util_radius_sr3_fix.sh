@@ -14,7 +14,7 @@ set -u
 SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_sr3}
 rm -rf "$OUT"; mkdir -p "$OUT"
-DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/programs/snobol4 $S4E/corpus/crosscheck"}
+DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/snobol4 $S4E/corpus/crosscheck"}
 tot=0; diffn=0; failn=0; curedn=0
 for d in $DIRS; do
     [ -d "$d" ] || continue

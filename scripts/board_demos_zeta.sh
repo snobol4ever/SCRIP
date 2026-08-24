@@ -9,7 +9,7 @@
 # Authors: LCherryholmes | Claude Opus 5
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
-DEMO="$S4E/corpus/programs/snobol4/demo"
+DEMO="$S4E/corpus/snobol4/demo"
 SCRIP="$S4E/SCRIP/scrip"
 TIMEOUT="${TIMEOUT:-30}"
 MODE="${1:-m3}"

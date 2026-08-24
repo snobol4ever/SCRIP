@@ -30,7 +30,7 @@ CHECK="${CHECK:-0}"
 [ -x "$SCRIP" ] || { echo "FATAL: $SCRIP not built (run scripts/build_scrip.sh)"; exit 2; }
 [ -d "$CORPUS" ] || { echo "FATAL: corpus dir $CORPUS not found"; exit 2; }
 case "$CORPUS" in
-  */programs/icon|*/programs/icon/*)
+  */icon|*/icon/*)
     echo "REFUSED: $CORPUS is the Icon rung TEST-PROGRAM suite, not a .s-artifact tree."
     echo "         Lon directive 2026-07-11: .s artifacts are maintained for the DEMO and BENCHMARK"
     echo "         corpora ONLY, never for the ~299 rung test programs. Pointing ICON_CORPUS here is"

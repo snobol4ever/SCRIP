@@ -541,7 +541,7 @@ run_icon_x86() {
   local pass=0 fail=0
   local ICN_INC="$ROOT/src/parser/icon"
   local RT_H="$ROOT/src/runtime"
-  local ICN_CORPUS="${CORPUS}/programs/icon"
+  local ICN_CORPUS="${CORPUS}/icon"
   if [[ ! -x "$SCRIP_CC" || ! -d "$ICN_CORPUS" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -579,7 +579,7 @@ run_icon_x86() {
 run_icon_jvm() {
   local cell="icon_jvm"
   local pass=0 fail=0 compile_fail=0
-  local ICN_CORPUS="${CORPUS}/programs/icon"
+  local ICN_CORPUS="${CORPUS}/icon"
   if ! command -v java &>/dev/null || [[ ! -f "$JASMIN" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -634,7 +634,7 @@ run_icon_jvm() {
 run_icon_wasm() {
   local cell="icon_wasm"
   local pass=0 fail=0
-  local ICN_CORPUS="${CORPUS}/programs/icon"
+  local ICN_CORPUS="${CORPUS}/icon"
   if [[ ! -x "$SCRIP_CC" || ! -d "$ICN_CORPUS" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -693,7 +693,7 @@ run_prolog_x86() {
   local SNO_LIB="$RT_CACHE/libsno4rt_asm.a"
   local PL_LIB="$RT_CACHE/libsno4rt_pl.a"
   local W="$WORK/$cell"; mkdir -p "$W"
-  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/programs/prolog"
+  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
   local rpass=0 rfail=0
   for pl in "$PL_CORPUS"/*.pl; do
     [[ -f "$pl" ]] || continue
@@ -731,7 +731,7 @@ run_prolog_jvm() {
   ensure_sno_harness "$W" || { echo "SKIP" > "$RESULTS/${cell}_status"; return; }
 
   # Compile ALL prolog tests at once, batch jasmin, one SnoHarness run
-  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/programs/prolog"
+  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
   local jfiles=() compile_fail=0
   for pl in "$PL_CORPUS"/*.pl; do
     [[ -f "$pl" ]] || continue
@@ -859,7 +859,7 @@ run_prolog_wasm() {
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
   local W="$WORK/$cell"; mkdir -p "$W"
-  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/programs/prolog"
+  local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
   local PL_RUNNER="$ROOT/test/wasm/pl_run_wasm.js"
   local PL_RUNTIME="$ROOT/src/backends/runtime/wasm/pl_runtime.wasm"
   if [[ ! -f "$PL_RUNNER" ]]; then

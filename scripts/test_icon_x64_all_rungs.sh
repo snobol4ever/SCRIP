@@ -27,7 +27,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="$(cd "$HERE/.." && pwd)/out"
 RT_SO="$RT_DIR/libscrip_rt.so"
-CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/icon}"
 RUNG=""
 
 while [[ $# -gt 0 ]]; do

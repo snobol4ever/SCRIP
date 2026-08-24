@@ -23,7 +23,7 @@ classify_rc() {  # $1 = exit code from `timeout N cmd`
   elif [ "$rc" -ge 128 ]; then echo "CRASH($((rc-128)))"
   else echo "RC=$rc"; fi
 }
-SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/programs/snobol4/demo}
+SC=${SC:-$S4E/SCRIP}; D=${D:-$S4E/corpus/snobol4/demo}
 . "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL=${SBL:-$S4A/x64/bin/sbl}   # CORRECTNESS oracle -- identity board, no timing, x64/bin/sbl stays authoritative
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT

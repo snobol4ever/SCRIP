@@ -43,7 +43,7 @@ files() {
     snobol4) find "$REPO/test/snobol4" -name '*.sno' 2>/dev/null | sort ;;
     snocone) { find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find "$CORPUS/crosscheck/snocone" -name '*.sc' 2>/dev/null; } | sort ;;
     prolog)  find "$REPO/test/prolog"  -name '*.pl'  2>/dev/null | sort ;;
-    pascal)  find "$CORPUS/programs/pascal" -name '*.pas' 2>/dev/null | sort ;;
+    pascal)  find "$CORPUS/pascal" -name '*.pas' 2>/dev/null | sort ;;
     raku)    find "$REPO/test/raku" \( -name '*.raku' -o -name '*.p6' -o -name '*.pl6' -o -name '*.rk' \) 2>/dev/null | sort ;;
     *) echo "scoreboard: unknown LANG '$1'" >&2; exit 2 ;;
   esac

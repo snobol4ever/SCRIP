@@ -8,7 +8,7 @@ set -e
 
 SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 CORPUS=${CORPUS:-$S4E/corpus}
-SMOKE_DIR="$CORPUS/programs/snobol4/smoke"
+SMOKE_DIR="$CORPUS/snobol4/smoke"
 TEMP_DIR=${TEMP_DIR:-/tmp/sno_js_tests}
 
 if [ ! -d "$SMOKE_DIR" ]; then

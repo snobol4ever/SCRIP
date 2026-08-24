@@ -7,7 +7,7 @@
 #      the row) but it makes the rank column lie to every human who reads the file.
 #   3. DIRTY SEAT TREES — uncommitted work. Cross-checked against that seat's OPEN claim: dirty+open = in flight;
 #      dirty with NO open claim = STRANDED, the class that lost seat5's codegen at s189.
-# ⛔ corpus/programs/lon/ paths are SUPPRESSED to a count (RULES.md: not run, not read into a transcript).
+# ⛔ corpus/lon/ paths are SUPPRESSED to a count (RULES.md: not run, not read into a transcript).
 # ⛔ git is invoked --no-optional-locks so a sweep can never contend with a seat's live build for the index lock.
 # Exit 0 = consistent; 1 = at least one OPEN orphan or one stranded tree (the two conditions that lose work).
 set -u
@@ -37,6 +37,6 @@ for d in /home/claude /home/claude1 /home/claude2 /home/claude3 /home/claude4 /h
     out="$(git -C "$p" --no-optional-locks status --porcelain 2>/dev/null)"; [ -n "$out" ] || continue
     lon="$(printf '%s\n' "$out" | grep -c 'programs/lon/')"; n="$(printf '%s\n' "$out" | wc -l)"
     if [ -n "$open" ]; then v="in flight ⟵${open}"; else v="⛔ STRANDED — dirty with NO open claim"; rc=1; fi
-    printf '  %-8s %-8s %2s entries  %s%s\n' "$me" "$r" "$n" "$v" "$([ "$lon" -gt 0 ] && echo "  [$lon programs/lon path(s) SUPPRESSED]")"
+    printf '  %-8s %-8s %2s entries  %s%s\n' "$me" "$r" "$n" "$v" "$([ "$lon" -gt 0 ] && echo "  [$lon lon path(s) SUPPRESSED]")"
     printf '%s\n' "$out" | grep -v 'programs/lon/' | head -8 | sed 's/^/             /'; done; done
 echo "=== VERDICT: $([ $rc -eq 0 ] && echo CONSISTENT || echo 'ATTENTION — see ⛔ lines') ==="; exit $rc

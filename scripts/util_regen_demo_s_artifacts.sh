@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-DEMO="$CORPUS/programs/snobol4/demo"
+DEMO="$CORPUS/snobol4/demo"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$DEMO" ]; then echo "SKIP  corpus demo dir not found: $DEMO"; exit 0; fi
@@ -57,7 +57,7 @@ done
 
 echo "Committing to corpus..."
 cd "$CORPUS"
-for f in $DEMOS; do git add "programs/snobol4/demo/$f.s" 2>/dev/null || true; done
+for f in $DEMOS; do git add "snobol4/demo/$f.s" 2>/dev/null || true; done
 if git diff --cached --quiet; then
     echo "  No changes — demo artifacts already current."
 else

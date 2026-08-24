@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-INC="$CORPUS/programs/snobol4/demo/inc"
+INC="$CORPUS/snobol4/demo/inc"
 TIMEOUT="${TIMEOUT:-10}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi

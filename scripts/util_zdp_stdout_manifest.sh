@@ -4,7 +4,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 OUT=$1
 : > "$OUT"
-for f in $(find $S4E/corpus/programs/snobol4 $S4E/corpus/probe -name '*.sno' | sort); do
+for f in $(find $S4E/corpus/snobol4 $S4E/corpus/probe -name '*.sno' | sort); do
     h=$(timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)
     echo "$h  $f" >> "$OUT"
 done

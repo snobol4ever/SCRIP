@@ -36,9 +36,9 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 # Fallback to legacy in-tree paths for backward compat (no longer populated).
 if [[ -n "${CORPUS:-}" ]]; then
   TEST_SNO="$CORPUS/crosscheck"
-  TEST_ICN="$CORPUS/programs/icon"
-  TEST_PRO="$CORPUS/programs/prolog"
-  TEST_REB="$CORPUS/programs/rebus"
+  TEST_ICN="$CORPUS/icon"
+  TEST_PRO="$CORPUS/prolog"
+  TEST_REB="$CORPUS/rebus"
 else
   TEST_SNO="$ROOT/test/snobol4"
   TEST_ICN="$ROOT/test/icon"

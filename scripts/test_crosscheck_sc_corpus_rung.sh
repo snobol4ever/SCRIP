@@ -11,7 +11,7 @@
 #   bash test/crosscheck/run_sc_corpus_rung.sh $CORPUS/crosscheck/snocone
 #   bash test/crosscheck/run_sc_corpus_rung.sh \
 #       $CORPUS/crosscheck/snocone \
-#       $CORPUS/programs/snocone/corpus
+#       $CORPUS/snocone/corpus
 #
 # Environment overrides:
 #   SCRIP_CC        — path to scrip binary     (default: ./scrip)

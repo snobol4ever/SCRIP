@@ -31,7 +31,7 @@ SC="$(cd "$HERE/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/programs/snobol4/demo"
+DEMO="$CORPUS/snobol4/demo"
 # ---------------------------------------------------------------- WEIGHTS (name  weight  root  find-args  lib  run-timeout  norm)
 # norm=ms : measurement lines (^iters:/^ns:/^ms:) are DELETED from both sides before diff (timing is not correctness; the check: line is).
 #           ⭐ s265: the `benchmarks` suite no longer needs it and no longer HAS it.  Those programs were wrappers that printed iters:/ns:/ms:;
@@ -43,28 +43,28 @@ DEMO="$CORPUS/programs/snobol4/demo"
 #           A filter that lists measurement lines BY NAME must be extended whenever the harness prints a new one.
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          demo/beauty  90 -
-beauty_suite   15 programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
-demos          15 programs/snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
+beauty_suite   15 snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
+demos          15 snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
 bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 ms
-csnobol4_suite  5 programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
-gimpel          5 programs/gimpel                                     -name *_driver.sno         SELFDIR:programs/include   20 -
+csnobol4_suite  5 csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
+gimpel          5 gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
-# ⛔ LON IS EXCLUDED STRUCTURALLY, NOT SKIPPED AT RUN TIME (Lon in-chat 2026-08-20, via HQ; row `scorecard-drop-lon`, s189).  Lon ruled "We'll not run any programs/lon
-# programs" over ALL of corpus/programs/lon/, and until s189 this script still executed that suite through run_one in BOTH engines and BOTH modes -- so RUNNING THE SNOBOL4
-# SCORECARD WAS ITSELF AN INSTANCE OF THE VIOLATION (found by seat1 s185, .github 93aca5c8).  The `lon 5 programs/lon ...` row is DELETED from the table above rather than
+# ⛔ LON IS EXCLUDED STRUCTURALLY, NOT SKIPPED AT RUN TIME (Lon in-chat 2026-08-20, via HQ; row `scorecard-drop-lon`, s189).  Lon ruled "We'll not run any lon
+# programs" over ALL of corpus/lon/, and until s189 this script still executed that suite through run_one in BOTH engines and BOTH modes -- so RUNNING THE SNOBOL4
+# SCORECARD WAS ITSELF AN INSTANCE OF THE VIOLATION (found by seat1 s185, .github 93aca5c8).  The `lon 5 lon ...` row is DELETED from the table above rather than
 # filtered at run time, because a run-time skip is re-openable by anyone passing --suites lon; a deleted row is not.  The guard below closes the other door: no suite may
 # name that tree by ROOT or by LIB, so re-adding the row -- or quietly pointing some other suite's include path at it -- fails the script instead of running the programs.
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
-# ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/programs/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
-case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names programs/lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
-MISC_DIRS="programs/snobol4/feat programs/snobol4/parser programs/snobol4/smoke programs/snobol4/jvm_j3 programs/snobol4/linker programs/snobol4/bench programs/dotnet programs/aisnobol"
+# ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
+case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
+MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/bench dotnet aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
   local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
@@ -103,7 +103,7 @@ sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from
 # between two OUTPUT statements prints the first, dies with the report, NEVER REACHES THE SECOND -- and exits 0; move the filename to
 # the third argument and the identical program runs clean.  The cause is a DIALECT split the manual names outright (v3.7 p.12, p.224):
 # Catspaw SPITBOL takes the filename as INPUT's THIRD argument, SNOBOL4+ puts it FOURTH, so a SNOBOL4+ program hands Catspaw an empty
-# file spec -- ERROR 116.  MEASURED s191 in corpus/programs/gimpel: 8 library modules and 20 drivers exit 0 while printing the fatal
+# file spec -- ERROR 116.  MEASURED s191 in corpus/gimpel: 8 library modules and 20 drivers exit 0 while printing the fatal
 # report (ERROR 042/116/156/160/199/248), and the 10 of those drivers carrying NO pin had that dump as their ONLY ground truth -- every
 # one a false red BY CONSTRUCTION.  The report is recognised by its two invariant parts TOGETHER, never either alone: the
 # `FILE(N) : ERROR nnn -- text` line AND the `in statement N` locator of the termination block (`stmts executed` is NOT invariant -- a
@@ -233,7 +233,7 @@ cmd_run() {
   for nm in $(echo "$only" | tr ',' ' '); do
     echo "$SUITES" | awk 'NF{print $1}' | grep -qx -- "$nm" && continue
     case "$nm" in
-      lon) echo "⛔ REFUSED --suites lon: Lon ruled corpus/programs/lon is not to be run, and the suite was DELETED from this scorecard at s189. There is no flag that runs it." >&2;;
+      lon) echo "⛔ REFUSED --suites lon: Lon ruled corpus/lon is not to be run, and the suite was DELETED from this scorecard at s189. There is no flag that runs it." >&2;;
       *)   echo "⛔ REFUSED --suites $nm: no such suite. Known: $(echo "$SUITES" | awk 'NF{print $1}' | tr '\n' ' ')" >&2;;
     esac; bad=1
   done

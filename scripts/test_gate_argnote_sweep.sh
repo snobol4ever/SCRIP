@@ -14,12 +14,12 @@ trap 'rm -rf "$TMP"' EXIT
 stray=0; jumpnote=0; emitfail=0; total=0; notes=0; failed=""
 JRE='^[[:space:]]+(jmp|je|jne|jg|jl|jge|jle|ja|jb|jae|jbe|js|jns|jz|jnz|jc|jnc|jo|jno|jp|jnp|jecxz|jrcxz)[[:space:]].*#'
 # ⛔ THE OFF-LIMITS TREE IS PRUNED BY CONSTRUCTION, NOT SKIPPED IN THE LOOP (RULES.md ABSOLUTE RULE 1; row `scorecard-drop-lon`, s189).  This gate roots at the CORPUS ROOT and
-# runs `$SCRIP --compile` on every .sno it finds, so until s189 it COMPILED all 99 programs under corpus/programs/lon on every run -- against a rule whose words are "NEVER RUN,
+# runs `$SCRIP --compile` on every .sno it finds, so until s189 it COMPILED all 99 programs under corpus/lon on every run -- against a rule whose words are "NEVER RUN,
 # NEVER COMPILE ... in any mode, under any harness", and whose second reason is that those files may carry live Personal Access Tokens.  The `-prune` is what the rule asks for
 # ("must EXCLUDE this directory by construction rather than by skipping it at run time"); the assertion under it is because a prune is one edit away from being lost and this
 # gate's own CORPUS is env-overridable, so the exclusion is RE-CHECKED against the built list rather than trusted.  The assert prints no path from that tree -- only a count.
 LIST=$(find "$CORPUS" -path '*/programs/lon' -prune -o -name '*.sno' -print | sort)
-nlon=$(printf '%s\n' "$LIST" | grep -c '/programs/lon/' || true); [ "${nlon:-0}" -eq 0 ] || { echo "FAIL  off-limits tree reached: $nlon file(s) under corpus/programs/lon survived the prune (RULES.md ABSOLUTE RULE 1)"; exit 1; }
+nlon=$(printf '%s\n' "$LIST" | grep -c '/programs/lon/' || true); [ "${nlon:-0}" -eq 0 ] || { echo "FAIL  off-limits tree reached: $nlon file(s) under corpus/lon survived the prune (RULES.md ABSOLUTE RULE 1)"; exit 1; }
 # ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
 . "$(dirname "$0")/lib_gate.sh"
 gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"

@@ -13,7 +13,7 @@
 # compile segfaults reads COMPILE_RC_139 in BOTH arms and correctly shows as ZERO movers instead of two random
 # hashes.  rc==0 with empty output emits COMPILE_EMPTY.  Only rows carrying a real md5 are byte-identity claims.
 # Measured at s149 on 529 programs: rc==0 527, rc!=0 2 (crosscheck/coverage/coverage_sno_nodes.sno,
-# programs/snobol4/demo/expression.sno), and ZERO failed compiles emitted bytes — so the hazard has no live
+# snobol4/demo/expression.sno), and ZERO failed compiles emitted bytes — so the hazard has no live
 # instance on this tree today and this change is byte-identical in effect here.  It is landed anyway because the
 # next codegen rung that segfaults the compiler is exactly when a silent wrong answer would cost a session.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
@@ -23,7 +23,7 @@ SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"
 OUT="${1:?usage: util_s_md5_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
-  { find "$CORPUS/programs/snobol4/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
+  { find "$CORPUS/snobol4/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
 gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
   (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
   if   [ "$rc" -ne 0 ]; then printf 'COMPILE_RC_%s\t%s\n' "$rc" "$1"

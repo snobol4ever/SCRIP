@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# util_patch_plunit.sh — patch corpus/programs/prolog/plunit.pl:
+# util_patch_plunit.sh — patch corpus/prolog/plunit.pl:
 #
 # Fix 1 (determinism cuts): pj_run_list/pj_run_suite/pj_run_tests leave choice
 #   points; backtracking re-enters earlier suites when a later suite fails.
@@ -19,7 +19,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CORPUS=$S4E/corpus
-PLUNIT=$CORPUS/programs/prolog/plunit.pl
+PLUNIT=$CORPUS/prolog/plunit.pl
 
 [ -f "$PLUNIT" ] || { echo "ERROR: $PLUNIT not found"; exit 1; }
 
@@ -96,6 +96,6 @@ echo "Committing corpus ..."
 cd "$CORPUS"
 git config user.name "LCherryholmes"
 git config user.email "lcherryh@yahoo.com"
-git add programs/prolog/plunit.pl
+git add prolog/plunit.pl
 git commit -m "PL-12: plunit.pl v3 — once/1 around pj_run_one + verdict guard"
 echo "DONE"

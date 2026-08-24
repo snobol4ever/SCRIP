@@ -10,12 +10,12 @@ DECISION PROCEDURE (per program):
   accept     iff after the edit, -bf rc == 0 AND output == pin (if pinned) else == the -b output
              the program produced BEFORE the edit.  Otherwise REVERT and report.
 ⛔ TWO DIRECTORIES ARE NEVER OPENED, BY CONSTRUCTION (OFF_LIMITS below, enforced in closure() so the
-   walk never descends and in the write loop as a belt): corpus/programs/lon/ (RULES.md ABSOLUTE --
-   do not run, do not read) and corpus/programs/include/ (HQ interim s191 -- inherits the do-not-read
+   walk never descends and in the write loop as a belt): corpus/lon/ (RULES.md ABSOLUTE --
+   do not run, do not read) and corpus/include/ (HQ interim s191 -- inherits the do-not-read
    half pending Lon's credential ruling).  Both locks are READ locks, not just write locks: closure()
    open()s every file it reaches, and a secret read into a transcript has been copied somewhere new.
    CONSEQUENCE, STATED SO IT IS NOT MISREAD AS A BUG: a gimpel program whose fix needs an uppercased
-   file under programs/include/ cannot be completed, so the accept test fails and the driver REVERTS
+   file under include/ cannot be completed, so the accept test fails and the driver REVERTS
    and names it.  That is the correct outcome, not a failure of the tool."""
 import os, re, subprocess, sys, hashlib, shutil
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,7 @@ S4E=os.environ.get("S4E_HOME") or os.path.dirname(os.path.dirname(os.path.dirnam
 CORPUS=S4E+"/corpus"; SBL=(os.environ.get("SBL") or S4E+"/x64/bin/sbl"); SC=S4E+"/SCRIP"
 OFF_LIMITS=("/programs/lon/","/programs/include/")   # lon: RULES.md ABSOLUTE (do not run, do not read).  include/: HQ interim s191 -- inherits the do-not-read half pending Lon's credential ruling, so it is excluded BY CONSTRUCTION here, not skipped at run time
 def off_limits(path): return any(k in path.replace(os.sep,"/") for k in OFF_LIMITS)
-DEMO=CORPUS+"/programs/snobol4/demo"
+DEMO=CORPUS+"/snobol4/demo"
 NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines.  Measured on
 # csnobol4-suite/tab.sno: the uppercasing was CORRECT and the only difference from the -b baseline was
@@ -36,7 +36,7 @@ NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
 ENVN=re.compile(rb"^(?:execution time msec|memory used \(bytes\)|memory left \(bytes\))\s+[0-9]+\n", re.M)
 def norm(b): return ENVN.sub(b"", NRM.sub(b"", b))
 def libspec(su): return {"beauty_self":"demo/beauty","patterns":"demo/inc","crosscheck":"demo/inc",
-    "feature_test":"CORPUS","gimpel":"SELFDIR:programs/include"}.get(su,"SELFDIR")
+    "feature_test":"CORPUS","gimpel":"SELFDIR:include"}.get(su,"SELFDIR")
 def libpath(spec,pd):
     out=[]
     for e in spec.split(":"):

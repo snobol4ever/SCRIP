@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # install_gnu_prolog_tests.sh — copy GNU Prolog test suite files into corpus
 # Source: https://github.com/didoudiaz/gprolog/tree/master/src/TestsPl
-# Target: /home/claude/corpus/programs/prolog/gnu_tests/
+# Target: /home/claude/corpus/prolog/gnu_tests/
 # Idempotent: skips files already present.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-TARGET=$S4E/corpus/programs/prolog/gnu_tests
+TARGET=$S4E/corpus/prolog/gnu_tests
 UPSTREAM=https://github.com/didoudiaz/gprolog.git
 
 TESTS=(

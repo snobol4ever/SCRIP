@@ -8,7 +8,7 @@
 #   test(Name [, TestOpts]) :- Body.
 #   :- end_tests(Block).
 #
-# Each test becomes corpus/programs/prolog/swi/<file>/<block>__<name>[_<k>].pl with:
+# Each test becomes corpus/prolog/swi/<file>/<block>__<name>[_<k>].pl with:
 #   main :- ( <checked-body> -> write(ok) ; write(fail) ), nl.
 # plus every helper clause that appeared inside the block (so Body resolves), and a sibling
 # .expected = "ok\n"  (or a .xfail with a reason when the test is out of scope / unrepresentable).

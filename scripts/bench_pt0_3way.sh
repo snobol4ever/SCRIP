@@ -32,7 +32,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; RT="${RT_DIR:-$HERE/../out}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
-SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/programs/snobol4/demo"   # BENCHMARK oracle (s255)
+SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/snobol4/demo"   # BENCHMARK oracle (s255)
 W="${W:-$(mktemp -d)}"; N="${SAMPLES:-7}"; REPS="${REPS:-2000}"; CCOST=0
 PROGS="${PROGS:-treebank-match treebank-match-fence}"
 while [ $# -gt 0 ]; do case $1 in --progs) PROGS="$2"; shift 2;; --reps) REPS="$2"; shift 2;; --samples) N="$2"; shift 2;; --compile-cost) CCOST=1; shift;; *) echo "unknown arg $1"; exit 2;; esac; done

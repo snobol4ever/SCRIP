@@ -65,7 +65,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
 CORPUS="${1:-$S4E/corpus}"
-DIRS="${EARN2_DIRS:-crosscheck/patterns probe/bb probe/earn0 programs/snobol4/demo benchmarks/snobol4}"
+DIRS="${EARN2_DIRS:-crosscheck/patterns probe/bb probe/earn0 snobol4/demo benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 

@@ -17,7 +17,7 @@
 #                                Replays grade(): PASS iff output == pinned .ref OR == live arm (live counts
 #                                only when the oracle exited 0).  Reports m3 and m4 before -> after.
 #
-# ⛔ corpus/programs/lon/ IS OFF LIMITS (RULES.md ABSOLUTE RULES; Lon s186).  TWO INDEPENDENT LOCKS: the
+# ⛔ corpus/lon/ IS OFF LIMITS (RULES.md ABSOLUTE RULES; Lon s186).  TWO INDEPENDENT LOCKS: the
 #    `lon` suite is not enumerated at all, AND every program path is re-checked before it is run.  This
 #    script is therefore usable where scorecard_snobol4.sh currently is not.
 # ⛔ ^iters:/^ms: lines are deleted from every arm before hashing (the scorecard's own norm=ms rule).
@@ -26,7 +26,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 SC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"; SBL="${SBL:-$S4A/x64/bin/sbl}"; SCRIP="${SCRIP:-$SC/scrip}"
-DEMO="$CORPUS/programs/snobol4/demo"
+DEMO="$CORPUS/snobol4/demo"
 # ⛔ s191: SPITBOL's ABNORMAL-TERMINATION report carries ENVIRONMENT-DEPENDENT lines, and without stripping them this
 #    sweep REPORTS ITS OWN NOISE AS FLAG SENSITIVITY.  Measured: csnobol4-suite/tab.sno had its keywords uppercased
 #    CORRECTLY -- normalized -bf output byte-identical to the pre-edit -b output -- and still read as a MOVER on
@@ -44,26 +44,26 @@ NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^exec
 # EDITORS -- routed as row `suite-table-one-authority`.  Until it lands, ANY edit to either table must be made to BOTH, in the same commit.
 SUITES=$(cat <<'EOF'
 beauty_self    SELF                                                -                          demo/beauty
-beauty_suite   programs/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
-demos          programs/snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR
+beauty_suite   snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
+demos          snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR
 benchmarks     benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR
 bb_probes      probe/bb                                            -name *.sno                SELFDIR
 patterns       crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc
 crosscheck     crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc
 feature_test   SCRIPTEST                                           -name *.sno                CORPUS
 probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
-csnobol4_suite programs/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR
-gimpel         programs/gimpel                                     -name *_driver.sno         SELFDIR:programs/include
+csnobol4_suite csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR
+gimpel         gimpel                                     -name *_driver.sno         SELFDIR:include
 misc           MISC                                                -name *.sno                SELFDIR
 EOF
 )
-MISC_DIRS="programs/snobol4/feat programs/snobol4/parser programs/snobol4/smoke programs/snobol4/jvm_j3 programs/snobol4/linker programs/snobol4/bench programs/dotnet programs/aisnobol"
+MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/bench dotnet aisnobol"
 stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
   [ -f "$b.input" ] && { echo "$b.input"; return; }; [ -f "$b.in" ] && { echo "$b.in"; return; }
   case "$d" in "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5.input";; treebank*) echo "$DEMO/treebank.input";; json*) echo "$DEMO/json.input";;
     calculator*) echo "$DEMO/calculator.input";; porter*) echo "$DEMO/porter.input";; *) echo /dev/null;; esac; return;; esac; echo /dev/null; }
 sc_libpath() { local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"; }
-libspec_for() { case "$1" in beauty_self) echo demo/beauty;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:programs/include;; *) echo SELFDIR;; esac; }
+libspec_for() { case "$1" in beauty_self) echo demo/beauty;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:include;; *) echo SELFDIR;; esac; }
 lon_guard() { case "$1" in */programs/lon/*) echo "REFUSED off-limits lon path: $1" >&2; return 1;; esac; return 0; }
 one_prog() {
   local name="$1" lib="$2" prog="$3" d in L W r1 r2 rf m1 m2 mf tag

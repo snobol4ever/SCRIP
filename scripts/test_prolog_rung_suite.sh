@@ -20,7 +20,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-$S4E/corpus/programs/prolog}"
+CORPUS="${CORPUS:-$S4E/corpus/prolog}"
 RUNG=""
 MODE="all"                              # DEFAULT: run all three modes
 SMX_SIG='\[SMX\]'                       # both refuse banners begin with "[SMX]"

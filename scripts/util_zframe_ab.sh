@@ -9,8 +9,8 @@ LABEL="$1"
 S=$S4E/SCRIP; C=$S4E/corpus
 export LD_LIBRARY_PATH=$S/out:${LD_LIBRARY_PATH:-}
 PROGS="
-$C/programs/snobol4/feat/f04_pattern_primitives.sno
-$C/programs/snobol4/parser/pat_arbno.sno
+$C/snobol4/feat/f04_pattern_primitives.sno
+$C/snobol4/parser/pat_arbno.sno
 $C/benchmarks/snobol4/pattern_bt.sno
 $C/benchmarks/snobol4/string_pattern.sno
 $C/benchmarks/snobol4/arith_loop.sno
@@ -21,16 +21,16 @@ $C/benchmarks/snobol4/var_access.sno
 $C/benchmarks/snobol4/roman.sno
 $C/benchmarks/snobol4/func_call.sno
 $C/benchmarks/snobol4/op_dispatch.sno
-$C/programs/icon/rung36_jcon_args.icn
-$C/programs/icon/rung36_jcon_btrees.icn
-$C/programs/icon/rung36_jcon_string.icn
-$C/programs/icon/rung36_jcon_sieve.icn
+$C/icon/rung36_jcon_args.icn
+$C/icon/rung36_jcon_btrees.icn
+$C/icon/rung36_jcon_string.icn
+$C/icon/rung36_jcon_sieve.icn
 $C/benchmarks/icon/concord.icn
 $C/benchmarks/icon/deal.icn
-$C/programs/prolog/rung11_findall_findall_basic.pl
-$C/programs/prolog/rung10_assert_assertz_basic.pl
-$C/programs/icon/rung36_jcon_cxprimes.icn
-$C/programs/snobol4/feat/f01_hello.sno
+$C/prolog/rung11_findall_findall_basic.pl
+$C/prolog/rung10_assert_assertz_basic.pl
+$C/icon/rung36_jcon_cxprimes.icn
+$C/snobol4/feat/f01_hello.sno
 "
 ok=0; crash=0; miss=0
 for p in $PROGS; do

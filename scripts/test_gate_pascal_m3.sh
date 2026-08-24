@@ -2,7 +2,7 @@
 # test_gate_pascal_m3.sh — Pascal M3 (--run) gate
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
-CORPUS="${CORPUS:-$S4E/corpus/programs/pascal}"
+CORPUS="${CORPUS:-$S4E/corpus/pascal}"
 RESULTS="${RESULTS:-/tmp/m3_results.tsv}"
 PASS=0; FAIL=0; NOREF=0; XFAIL=0
 echo -e "probe\tclass\tnotes" > "$RESULTS"

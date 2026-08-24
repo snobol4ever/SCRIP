@@ -25,7 +25,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 1
 [ -x ./scrip ] || { echo "FAIL  ./scrip not built"; exit 1; }
 ENVS=("$@"); [ ${#ENVS[@]} -eq 0 ] && ENVS=("SCRIP_ZDP=1")
-CORPUS_DIRS="${CORPUS_DIRS:-$S4E/corpus/programs/snobol4 $S4E/corpus/probe}"
+CORPUS_DIRS="${CORPUS_DIRS:-$S4E/corpus/snobol4 $S4E/corpus/probe}"
 LIST=$(find $CORPUS_DIRS -name '*.sno' 2>/dev/null | sort)
 TOTAL=0; MOVED=0; FLAKY=0; MOVERS=""; FLAKIES=""
 for f in $LIST; do

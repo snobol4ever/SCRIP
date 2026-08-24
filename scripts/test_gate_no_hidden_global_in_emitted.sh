@@ -62,7 +62,7 @@ echo "  hidden globals under test: $(echo "$HIDDEN" | tr '\n' ' ')"
 
 # 2. Emitted artifacts are the oracle. They are a LOWER BOUND: a template can name a symbol on a path
 #    no committed artifact exercises, which is why step 3 also reads the templates.
-ART=$(ls "$CORPUS"/benchmarks/*/*.s "$CORPUS"/programs/*/demo/*.s 2>/dev/null)
+ART=$(ls "$CORPUS"/benchmarks/*/*.s "$CORPUS"/*/demo/*.s 2>/dev/null)
 if [ -z "$ART" ]; then echo "  SKIP no .s artifacts found under $CORPUS"; exit 0; fi
 
 FAIL=0

@@ -41,7 +41,7 @@ LIBS    := -lm -lpthread
 
 # Runner defaults
 SNO          ?= $(error SNO is required — e.g. make run SNO=prog.sno)
-INC          ?= $(CORPUS)/programs/inc
+INC          ?= $(CORPUS)/inc
 JVM_CACHE    := /tmp/scrip_jvm_cache
 NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(SRC)/backends/jasmin.jar

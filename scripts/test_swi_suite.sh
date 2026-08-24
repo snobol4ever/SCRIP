@@ -7,7 +7,7 @@
 #   scripts/test_swi_suite.sh <probe_root_dir> [--modes=run,compile,gprolog]
 # The probe_root_dir contains one subdir per source file (as emitted by swi_extract_tests.py).
 set -u
-ROOT="${1:-corpus/programs/prolog/swi}"
+ROOT="${1:-corpus/prolog/swi}"
 SCRIP="${SCRIP:-./scrip}"
 GPROLOG="${GPROLOG:-gprolog}"
 MODES="${MODES:-run,compile,gprolog}"

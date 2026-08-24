@@ -9,7 +9,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/programs/prolog
+CORPUS=$S4E/corpus/prolog
 SWIT=$CORPUS/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 WRAP=$(mktemp /tmp/pl_wrap_XXXXXX.pl)

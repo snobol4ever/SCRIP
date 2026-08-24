@@ -66,7 +66,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/icon}"
 # ⛔ FLOORS RE-DERIVED s247 (seat1, N-0) — 31/11/11 -> 26/26/24, AND THE ARITHMETIC IS THE JUSTIFICATION.
 # The old floors were calibrated against a bucket that walked `find $CORPUS -name '*.icn'` RECURSIVELY —
 # 1,348 files across jcon-ref/, jcon-compiler/, ipl/, parser/, repro/, of which 1,048 CARRY NO `.expected`.

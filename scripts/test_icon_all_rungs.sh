@@ -20,7 +20,7 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-$S4E/corpus/programs/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/icon}"
 RUNG=""
 
 while [[ $# -gt 0 ]]; do

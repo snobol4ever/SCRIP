@@ -19,7 +19,7 @@ run_suite(){ local s="$1" out="$2" r=""
   case "$s" in
     rungs_m3)       r="$(cd "$SD" && bash scripts/test_icon_all_rungs.sh 2>/dev/null | parse_rungs)";;
     rungs_m3_cells) r="$(cd "$SD" && SCRIP_ICN_CELLS=1 bash scripts/test_icon_all_rungs.sh 2>/dev/null | parse_rungs)";;
-    rungs_m4)       r="$(cd "$SD" && bash scripts/test_icon_x64_all_rungs.sh --corpus "$CORPUS/programs/icon" 2>/dev/null | parse_rungs)";;
+    rungs_m4)       r="$(cd "$SD" && bash scripts/test_icon_x64_all_rungs.sh --corpus "$CORPUS/icon" 2>/dev/null | parse_rungs)";;
     bench_correct)  local raw rc pc tc
                     # ⛔ row icon-board-timeout-scored-as-zero (hq_C find): `timeout 900` killing this suite used to
                     # collapse into "0 0" (awk's END block always prints something, even over zero input lines), which

@@ -15,7 +15,7 @@ JCONREPO=${JCONREPO:-$S4A/work/jcon-master/jcon-master}
 ICONREPO=${ICONREPO:-$S4A/work/icon-master/icon-master}
 JT=${JT:-$S4A/jt}
 RT="$SCRIP/out"
-JCOMPILER="$CORPUS/programs/icon/jcon-compiler"
+JCOMPILER="$CORPUS/icon/jcon-compiler"
 SEMI="$SCRIP/tools/semicolonize_icon.py"
 if [ "${PERF:-0}" = "1" ]; then RTOPT='-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer';
 else RTOPT='-O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer'; fi

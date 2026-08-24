@@ -81,7 +81,7 @@ xcheck "recursion" "$T"
 rm -f "$T"
 
 # Rung corpus files (PJ-9b: extended to walk flat-file corpus, not just subdirs)
-RUNGS=$S4E/corpus/programs/prolog
+RUNGS=$S4E/corpus/prolog
 if [ -d "$RUNGS" ]; then
     for f in "$RUNGS"/rung*.pl; do
         [ -f "$f" ] || continue

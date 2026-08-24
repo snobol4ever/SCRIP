@@ -3,7 +3,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/programs/prolog/rung27
+CORPUS=$S4E/corpus/prolog/rung27
 PASS=0; FAIL=0
 echo "=== rung27: nb_setval / nb_getval / aggregate_all ==="
 for f in "$CORPUS"/*.pl; do

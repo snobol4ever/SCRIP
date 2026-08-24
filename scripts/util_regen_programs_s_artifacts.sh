@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # util_regen_programs_s_artifacts.sh — regenerate the mode-4 (--compile) x86 .s artifact
-# for every program under corpus/programs/{icon,prolog,rebus}, side-by-side with its
-# source, committing ONLY artifacts whose bytes changed.  (programs/snobol4 is covered
+# for every program under corpus/{icon,prolog,rebus}, side-by-side with its
+# source, committing ONLY artifacts whose bytes changed.  (snobol4 is covered
 # by util_regen_demo_s_artifacts.sh + util_regen_feature_s_artifacts.sh — not swept here.)
 #
-# WHY (s21x provenance census): programs/icon (276 non-empty .s) and programs/prolog (134)
+# WHY (s21x provenance census): icon (276 non-empty .s) and prolog (134)
 # carried CURRENT operand spellings but a pre-formatting-change header — one or more
 # emitter generations stale, and no script existed to refresh them (benchmarks had
 # update_icon_bench_asm.sh; programs had nothing).  Same PHILOSOPHY as the siblings:
@@ -26,7 +26,7 @@ TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: the 
 
 emitted=0; changed=0; same=0; efail=0; afail=0
 for tree in $TREES; do
-    D="$CORPUS/programs/$tree"; [ -d "$D" ] || continue
+    D="$CORPUS/$tree"; [ -d "$D" ] || continue
     case "$tree" in icon) EXT=icn;; prolog) EXT=pl;; rebus) EXT=reb;; *) echo "  SKIP unknown tree $tree"; continue;; esac
     for src in $(find "$D" -name "*.$EXT" | sort); do
         s="${src%.*}.s"; t="$TMPD/prog_regen.s"
@@ -46,7 +46,7 @@ done
 echo "--- programs .s ($TREES): emitted=$emitted changed=$changed unchanged=$same emit-fail=$efail as-fail=$afail ---"
 
 cd "$CORPUS"
-for tree in $TREES; do git add "programs/$tree" 2>/dev/null || true; done
+for tree in $TREES; do git add "$tree" 2>/dev/null || true; done
 if git diff --cached --quiet 2>/dev/null; then
     echo "  No changes — programs .s artifacts already current."
 else
