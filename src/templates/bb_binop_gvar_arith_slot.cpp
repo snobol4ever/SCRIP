@@ -36,11 +36,11 @@ std::string bb_binop_gvar_arith_slot() {
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("rtcc_wb")
              + x86("call_bare", "rt_num_arith", (uint64_t)(uintptr_t)(void *) rt_num_arith)
+             + x86("rtcc_rl")
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
-             + x86("rtcc_rl")
              + x86_gamma() + x86_beta() + x86_omega();
     return (IF(_.op_off >= 0
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)

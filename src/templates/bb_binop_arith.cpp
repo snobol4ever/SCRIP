@@ -74,9 +74,9 @@ static inline std::string fc_tail() {
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
          + x86("rtcc_wb")
          + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+         + x86("rtcc_rl")
          + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je")
-         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx")
-         + x86("rtcc_rl");
+         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string inl_tail() {
@@ -84,9 +84,9 @@ static inline std::string inl_tail() {
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
          + x86("rtcc_wb")
          + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+         + x86("rtcc_rl")
          + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je")
-         + x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx")
-         + x86("rtcc_rl");
+         + x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
@@ -173,11 +173,11 @@ std::string bb_binop_arith() {
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
              + x86("rtcc_wb")
              + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+             + x86("rtcc_rl")
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
-             + x86("rtcc_rl")
              + x86_gamma()
              + x86_beta_trampoline();
     }
@@ -244,11 +244,11 @@ std::string bb_binop_arith() {
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
              + x86("rtcc_wb")
              + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
+             + x86("rtcc_rl")
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
-             + x86("rtcc_rl")
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_off >= 0 && inl_ok(),
