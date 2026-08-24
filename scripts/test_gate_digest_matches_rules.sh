@@ -17,15 +17,35 @@
 # RETIRED-text pattern (a distinctive phrase from wording RULES.md itself has explicitly retired).
 # A raw hit is not yet a violation -- a digest is allowed to MENTION retired text while explaining
 # it is dead (RULES.md line ~149 does exactly this, on purpose, "quoted once, here, only so a reader
-# who remembers it knows it was retired"). So each hit's +-2 line window is checked for a CORRECTIVE
-# SIGNAL word list; only a hit with NO corrective signal nearby counts as a violation. This is a
-# substring/proximity heuristic, not comprehension -- it can miss a differently-worded stale claim
-# and could in principle misfire on an unlucky sentence. It is READ-ONLY and reports for a human (or
-# the owning seat) to adjudicate; it does not decide anything by itself. Validated against the real
-# fleet at mint (2026-08-24): the O2 rule below found 3 raw hits, all 3 correctly self-aware (0
-# violations) -- proving the corrective-signal filter is load-bearing, not decorative, since a naive
-# grep-only gate would have flagged all 3 as false positives. The SEGV-attribution rule found 16 of
-# 19 roots carrying the retired claim UNCORRECTED (real, live, same-day as this gate's own mint).
+# who remembers it knows it was retired"). So each hit's OWN LINE is checked for a CORRECTIVE SIGNAL
+# word list; only a hit with NO corrective signal on that same line counts as a violation. This is a
+# substring heuristic, not comprehension -- it can miss a differently-worded stale claim and could in
+# principle misfire on an unlucky sentence. It is READ-ONLY and reports for a human (or the owning
+# seat) to adjudicate; it does not decide anything by itself.
+#
+# ⛔ CORRECTED 2026-08-24, SAME DAY AS MINT (seat15 found it, hq_C root-caused it, this seat fixed it
+# -- kept here as an addendum, not a silent edit, per this project's own transcription-provenance
+# rule). The ORIGINAL version checked a +-2 LINE WINDOW around each hit, and two of the signal
+# alternatives were unanchored catch-alls: `correct(ed|ion)?` (the optional group matches the bare
+# substring "correct", so it fires on "correctness" -- a word saturating a project whose HQ is named
+# HQ-CORRECTNESS) and `csnobol4` alone (fires on any unrelated mention of the oracle tree, which every
+# digest's workspace-map section contains). PROVEN BY CONSTRUCTION: a scratch file carrying the exact
+# retired SEGV-handler line reported GATE PASS(0) with "correctness" one line above it, and PASS(0)
+# again with "csnobol4" one line above it -- a real violation, wrongly exempted by unrelated text in a
+# DIFFERENT sentence. Current state was genuinely clean when this fired (verified independently of the
+# gate, by direct per-root reading), so it was not masking anything THAT day -- but the instrument
+# could not have told a true clean state from a false one, which is the actual defect: a gate needs a
+# test for every way it can say NOTHING, not only for every way it can say something, and the exemption
+# path never had one. Fix: (1) anchor the signal check to the MATCHED LINE ONLY, never a window -- every
+# real corrected example measured (both rules, all fleet roots) puts the correction in the SAME
+# sentence/line as the retired text, so this loses no real recall; (2) drop both catch-alls --
+# `corrected|correction` (no optional group) and `csnobol4[ -]?oracle` (adjacency required). Re-verified
+# against real data after the fix: O2 rule's 3 self-aware hits still correctly exempted (0 violations,
+# unchanged); SEGV rule's live violations still correctly caught. Negative-tested the exemption path
+# itself, not just the three exit-code arms: hq_C's two proof-by-construction false negatives (word on
+# the line ABOVE a real hit) now both correctly report VIOLATION; a same-line "correctness" (no
+# "corrected"/"correction") on an otherwise-real hit now also correctly reports VIOLATION, isolating the
+# regex-tightening fix from the windowing fix. Full receipts in the task file's own LEDGER and a FINDING.
 #
 # ⛔ READ-ONLY BY DEFAULT (task's own NEXT step 2) -- THIS SCRIPT NEVER WRITES TO ANY ROOT'S CLAUDE.md.
 # hq_P attempted a bulk cross-seat edit at s267 and was correctly blocked by the permission classifier
@@ -65,7 +85,7 @@ EXAMINED=0
 # check_rule <rule_id> <retired_text_grep_-E_pattern> <corrective_signal_grep_-E_pattern> <citation>
 check_rule() {
     local rule_id="$1" retired_re="$2" signal_re="$3" citation="$4"
-    local f lineno rest window
+    local f lineno rest
     for f in "${ROOTS[@]}"; do
         EXAMINED=$((EXAMINED + 1))
         if [ ! -r "$f" ]; then
@@ -75,12 +95,13 @@ check_rule() {
         fi
         while IFS=: read -r lineno rest; do
             [ -n "${lineno:-}" ] || continue
-            window="$(sed -n "$(( lineno > 2 ? lineno - 2 : 1 )),$(( lineno + 2 ))p" "$f")"
-            if printf '%s\n' "$window" | grep -qiE "$signal_re"; then
+            # SAME LINE ONLY -- see the 2026-08-24 CORRECTED addendum above. A wider window let an
+            # unrelated word in a different sentence exempt a real violation.
+            if printf '%s\n' "$rest" | grep -qiE "$signal_re"; then
                 continue
             fi
             VIOLATIONS=$((VIOLATIONS + 1))
-            echo "GATE HIT [$rule_id] $f:$lineno -- retired text with no corrective signal nearby"
+            echo "GATE HIT [$rule_id] $f:$lineno -- retired text with no corrective signal on the same line"
             echo "    | $rest"
             echo "    cite: $citation"
         done < <(grep -niE "$retired_re" "$f")
@@ -94,7 +115,7 @@ check_rule "NO-O2-EVER" \
 
 check_rule "SEGV-HANDLER-ATTRIBUTION" \
     'CSN_NO_SEGV_HANDLER|SCRIP_NO_SEGV_HANDLER' \
-    'not SCRIP|NEVER.{0,15}SCRIP|csnobol4|no getenv|correct(ed|ion)?|WRONG|never was|externally.clone' \
+    'not SCRIP|NEVER.{0,15}SCRIP|csnobol4[ -]?oracle|no getenv|corrected|correction|WRONG|never was|externally.clone' \
     '.github/RULES.md ASM-DIFF-FIRST correction, landed 2026-08-24 (~line 47)'
 
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
