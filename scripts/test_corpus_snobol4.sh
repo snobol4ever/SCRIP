@@ -29,6 +29,7 @@ done
 
 PASS3=0; FAIL3=0; FAILURES3=""
 PASS4=0; FAIL4=0; SKIP4=0; FAILURES4=""
+MISSING=0; MISSING_LIST=""
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -44,10 +45,18 @@ compile_mode4() {
     rm -rf "$tmp"
 }
 
+# ⛔⛔ A HARDCODED PATH THAT NO LONGER RESOLVES IS A MISSING PROGRAM, NOT A MISSING TEST (hq_C s272, seat04's find).
+# The s271 guard above checks the DIRECTORIES exist; it cannot see that $DEMO/wordcount/wordcount.sno stopped
+# resolving when the tree re-nested underneath it. These two lines used to `return` silently, so each of the ~40
+# hardcoded demo rows below could leave the board with NO signal at all -- neither PASS, nor FAIL, nor SKIP. The
+# corpus demo paths have now been repointed FIVE times in one day (6ce46ebc dac73079 843cacfb 1177e66e 50923f55),
+# and every single break was noticed only because a human recognised the printed total had shrunk. That is not an
+# instrument. ⛔ The DISCOVERED corpora (crosscheck, beauty) filter a ref-less .sno BEFORE calling here, so a
+# missing file can only ever mean a stale hardcoded path -- which is always a defect and never a legitimate skip.
 run_test() {
     local label="$1" sno="$2" ref="$3" input="${4:-}" filter="${5:-}"
-    [ ! -f "$ref" ] && return
-    [ ! -f "$sno" ] && return
+    if [ ! -f "$sno" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no program at ${sno}\n"; return; fi
+    if [ ! -f "$ref" ]; then MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  ${label}: no oracle ref at ${ref}\n"; return; fi
     local exp; exp=$(cat "$ref")
     local slug; slug=$(echo "$label" | tr '/: ' '_')
     local inp_arg; [ -n "$input" ] && [ -f "$input" ] && inp_arg="$input" || inp_arg=""
@@ -153,3 +162,17 @@ echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
 
 printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
+
+# ⛔⛔ THE VERDICT IS AN EXIT CODE, NOT A PRINTED NUMBER (hq_C s272). Until now this script's last statement was
+# the printf above, so it exited 0 with any number of mode-4 failures -- the SAME false-green shape as `make test`,
+# sitting inside the blocking set itself. CLAUDE.md has said "mode-4 is the hard gate" throughout; nothing enforced
+# it. m3 stays informational per that documented contract, but it is printed in the verdict so it cannot hide.
+if [ "$MISSING" -gt 0 ]; then
+    echo "⛔ GATE REFUSES: $MISSING hardcoded corpus path(s) no longer resolve -- the board is SMALLER than it looks:"
+    printf "$MISSING_LIST"
+    echo "   Repoint them; do NOT read the shrunken total as a pass. FAIL=0 over a shrunken denominator is not green."
+    exit 2
+fi
+if [ "$FAIL4" -gt 0 ]; then echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 (mode-3 FAIL=$FAIL3, informational)"; exit 1; fi
+echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · MISSING=0"
+exit 0
