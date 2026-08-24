@@ -167,3 +167,57 @@ iconx_bin() {
     fi
     printf '%s\n' "$c"
 }
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ⭐ THE PROLOG AND JVM-ICON RIVALS (hq_P s272, at CEO's instruction; Lon installed swipl+gprolog, CEO built jcon).
+# Same loud-refusal contract as icont_bin/iconx_bin above and for the same reason: another root or container may not
+# have these, and a benchmark harness that silently falls back to a missing rival prints a plausible, entirely FALSE
+# column rather than refusing. ⛔ Never hand-assemble these paths and never fall back to a bare name on PATH.
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+swipl_bin() {
+    local c="/usr/bin/swipl"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE SWI-PROLOG RIVAL IS MISSING: %s\n" "$c" >&2
+        printf "   A Prolog rival column measured with it absent is not slow, it is ABSENT -- and a harness that fills it anyway publishes a false number.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'swipl' on PATH -- install it, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
+gprolog_bin() {
+    local c="/usr/bin/gprolog"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE GNU-PROLOG RIVAL IS MISSING: %s\n" "$c" >&2
+        printf "   A Prolog rival column measured with it absent is not slow, it is ABSENT -- and a harness that fills it anyway publishes a false number.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'gprolog' on PATH -- install it, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
+# ⛔⭐ JCON RE-EXECS BY NAME, SO THE ACCESSOR EXPORTS PATH -- CALLING IT BY ABSOLUTE PATH ALONE IS NOT ENOUGH (CEO s272,
+# measured: the launcher scripts resolve their siblings off PATH). Use as: eval "$(jcon_path_export)"; then run jcont/jcon.
+jcont_bin() {
+    local c="/home/resources/jcon-master/bin/jcont"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE JCON (JVM Icon) RIVAL IS MISSING: %s\n" "$c" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'jcont' on PATH -- rebuild the shared drop, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
+jcon_bin() {
+    local c="/home/resources/jcon-master/bin/jcon"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE JCON (JVM Icon) RUNNER IS MISSING: %s\n" "$c" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'jcon' on PATH -- rebuild the shared drop, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
+jcon_path_export() {
+    local d="/home/resources/jcon-master/bin"
+    if [ ! -x "$d/jcont" ] || [ ! -x "$d/jcon" ]; then
+        printf "⛔ THE JCON RIVAL IS MISSING under %s -- refusing to export a PATH that would let a bare 'jcont' resolve elsewhere.\n" "$d" >&2
+        return 1
+    fi
+    printf 'export PATH="%s:$PATH"\n' "$d"
+}
