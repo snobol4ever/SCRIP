@@ -7,9 +7,34 @@
 # It does NOT hardcode a repo count. With no args it DISCOVERS every git repo that has an
 # 'origin' remote directly under the workspace root (the parent of the SCRIP repo this
 # script lives in) — so it can never miss a touched repo, and it prints how many it found.
-# Pass explicit repo dirs to override. A handoff is COMPLETE only when EVERY discovered
-# repo is tree-clean AND local HEAD == origin/<branch> with zero unpushed. Reading origin
-# needs no credential; only the push that PRECEDES this check does. Exit 0 = complete, 1 = blocked.
+# Pass explicit repo dirs to override. Reading origin needs no credential; only the push that
+# PRECEDES this check does.
+#
+# ⭐ THREE-STATE VERDICT (instrument-repair-bundle PART 2, s273; precedent copied verbatim from
+# test_corpus_snobol4.sh's rc=0/1/2 shape, SCRIP 9873fe6e): "I cannot honestly tell" is not the
+# same answer as either confident one, and collapsing it into BLOCKED (or worse, COMPLETE) is how
+# an unreachable remote or an unreadable repo gets misread as a real verdict.
+#   exit 0  CHAT SESSION COMPLETE — every repo examined, none blocked, none unknown.
+#   exit 1  CHAT SESSION WAITING  — a repo is DIRTY, UNPUSHED, or DIVERGED. Known, actionable.
+#   exit 2  CHAT SESSION REFUSES  — a repo's push-state could not be determined (fetch failed,
+#           unreadable) or there was nothing to examine at all. NOT a pass; read the reason(s).
+#
+# ⭐ PER-REPO STATE, three-way (adopted from tasks/handoff-status-three-state-push-check.task.md,
+# hq_P s269, FINDING-2026-08-24-hq_P-three-instruments-that-cannot-express-their-own-outcome.md
+# §1): the old script printed one word, UNPUSHED, for BOTH "your work is missing from origin,
+# nothing of yours at risk" and "you have local commits origin doesn't." A seat reading the label
+# (not the count beside it) concluded it had LOST work it had not — exactly the panic that tempts
+# `reset --hard`/`push --force`, the two actions THE LOOP §3b most wants to prevent.
+#   SYNCED   — local HEAD == origin/<branch>. Nothing to do.
+#   BEHIND   — HEAD is an ancestor of origin (all of ours is already there; we're missing some of
+#              theirs). NOT a failure of this session's own work — does not block.
+#   UNPUSHED — origin is an ancestor of HEAD (we have commits origin doesn't). Blocks.
+#   DIVERGED — neither is an ancestor of the other (both sides moved). Blocks — and a plain push
+#              will be REJECTED here, so the reason says "pull --rebase", never "push".
+# ⛔ FETCH-IS-NOT-CHECKOUT, both directions: the remote ref must be FRESH before any ancestry
+# check runs, or a stale origin/<branch> makes the test confidently wrong in whichever direction
+# the staleness happens to run. A fetch failure is therefore its own UNKNOWN state, never silently
+# read as any of the four above.
 set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # <ws>/SCRIP/scripts
 WS="$(dirname "$(dirname "$SELF_DIR")")"                    # <ws> (parent of the SCRIP repo)
@@ -27,21 +52,62 @@ if [ ${#REPOS[@]} -eq 0 ]; then
   IFS=$'\n' REPOS=($(printf '%s\n' "${REPOS[@]}" | sort)); unset IFS
 fi
 echo "=== CHAT SESSION STATUS — checking ${#REPOS[@]} repo(s) ($src); ground truth from git ==="
-[ ${#REPOS[@]} -eq 0 ] && { echo "CHAT SESSION WAITING — no git repos with an 'origin' remote found under $WS"; exit 1; }
-blocked=0; reasons=()
+# ⛔ ZERO-EXAMINED IS NOT A PASS (same law as lib_gate.sh's gate_floor: "zero-work-examined is
+# indistinguishable from all-clean, so it is refused rather than passed"). An empty workspace used
+# to read WAITING (rc=1) — a mislabel in the OTHER direction: there is nothing here to be blocked
+# ON, the honest answer is "could not examine anything."
+if [ ${#REPOS[@]} -eq 0 ]; then
+  echo "⛔ CHAT SESSION REFUSES — no git repos with an 'origin' remote found under $WS"
+  echo "   This is NOT complete and NOT a known block: there was nothing to examine. Check WS/S4E_HOME."
+  exit 2
+fi
+blocked=0; unknown=0; reasons=(); unknown_reasons=()
 for r in "${REPOS[@]}"; do
   name=$(basename "$r")
   br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
   dirty=$(git -C "$r" status --porcelain 2>/dev/null | wc -l)
-  git -C "$r" fetch --quiet origin 2>/dev/null || reasons+=("$name: fetch failed (origin ref may be stale)")
+  if ! git -C "$r" fetch --quiet origin 2>/dev/null; then
+    unknown_reasons+=("$name: fetch failed — origin unreachable or no credential; push-state UNKNOWABLE from here, not assumed BLOCKED or COMPLETE")
+    unknown=1
+    printf "  %-22s %-10s local=%s origin=%s\n" "$name [$br]" "UNKNOWN" "${dirty}dirty" "fetch-failed"
+    continue
+  fi
   lh=$(git -C "$r" rev-parse HEAD 2>/dev/null)
   oh=$(git -C "$r" rev-parse "origin/$br" 2>/dev/null || echo MISSING)
-  unpushed=$(git -C "$r" log --oneline "@{u}..HEAD" 2>/dev/null | wc -l)
-  st="OK"
-  if [ "$dirty" -ne 0 ]; then st="DIRTY"; reasons+=("$name: $dirty uncommitted change(s) — commit them"); blocked=1; fi
-  if [ "$lh" != "$oh" ] || [ "$unpushed" -ne 0 ]; then st="UNPUSHED"; reasons+=("$name: local HEAD not on origin/$br ($unpushed unpushed) — git pull --rebase && git push"); blocked=1; fi
+  st="SYNCED"
+  if [ "$dirty" -ne 0 ]; then st="DIRTY"; fi
+  if [ "$oh" = "MISSING" ]; then
+    # origin has no such branch at all -- everything local is, by definition, unpushed.
+    [ "$st" = "DIRTY" ] || st="UNPUSHED"
+    reasons+=("$name: origin has no branch '$br' — git push -u origin $br")
+    blocked=1
+  elif [ "$lh" != "$oh" ]; then
+    fwd=0; git -C "$r" merge-base --is-ancestor "$lh" "$oh" 2>/dev/null && fwd=1
+    back=0; git -C "$r" merge-base --is-ancestor "$oh" "$lh" 2>/dev/null && back=1
+    if [ "$fwd" -eq 1 ]; then
+      [ "$st" = "DIRTY" ] || st="BEHIND"   # all of OURS is on origin; nothing at risk, does not block
+    elif [ "$back" -eq 1 ]; then
+      [ "$st" = "DIRTY" ] || st="UNPUSHED"
+      reasons+=("$name: $(git -C "$r" rev-list --count "$oh..$lh" 2>/dev/null || echo '?') commit(s) not on origin/$br — git push")
+      blocked=1
+    else
+      [ "$st" = "DIRTY" ] || st="DIVERGED"
+      reasons+=("$name: DIVERGED from origin/$br — both sides have unique commits, a plain push will be REJECTED — git pull --rebase && git push")
+      blocked=1
+    fi
+  fi
+  if [ "$dirty" -ne 0 ]; then reasons+=("$name: $dirty uncommitted change(s) — commit them"); blocked=1; fi
   printf "  %-22s %-10s local=%s origin=%s\n" "$name [$br]" "$st" "${lh:0:9}" "${oh:0:9}"
 done
 echo "------------------------------------------------------------"
-if [ "$blocked" -eq 0 ] && [ ${#reasons[@]} -eq 0 ]; then echo "CHAT SESSION COMPLETE"; exit 0
-else echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"; exit 1; fi
+if [ "$blocked" -ne 0 ]; then
+  echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"
+  [ "$unknown" -ne 0 ] && { echo "  (also UNKNOWN, see below — fix the known blockers first, they are certain; the unknown repo(s) still need a look)"; printf '  - %s\n' "${unknown_reasons[@]}"; }
+  exit 1
+elif [ "$unknown" -ne 0 ]; then
+  echo "⛔ CHAT SESSION REFUSES — cannot honestly say COMPLETE or WAITING:"; printf '  - %s\n' "${unknown_reasons[@]}"
+  echo "   No repo is a KNOWN blocker, but at least one could not be examined. This is NOT a pass."
+  exit 2
+else
+  echo "CHAT SESSION COMPLETE"; exit 0
+fi
