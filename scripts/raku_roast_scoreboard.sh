@@ -24,7 +24,7 @@ ROOT=$(pwd)
 SCRIP="$ROOT/scrip"
 MANIFEST="$ROOT/refs/rakudo-main/t/spectest.data.6.c"
 ROAST="$ROOT/refs/roast"
-OUT="$ROOT/RAKU-COVERAGE.md"
+OUT="$ROOT/../.github/RAKU-COVERAGE.md"
 DO_M4=0; LIMIT=0; SECTION=""
 while [ $# -gt 0 ]; do
   case "$1" in
