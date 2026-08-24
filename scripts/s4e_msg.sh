@@ -105,6 +105,13 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|ceo) return 0;; *) return 1;; esac; }
 s4e_oldest_min() { _old=""; for _f in "$PO/$1/inbox"/*.msg; do [ -f "$_f" ] || continue
     _m=$(( ( $(date +%s) - $(stat -c %Y "$_f" 2>/dev/null || echo 0) ) / 60 ))
     [ -z "$_old" ] && _old=$_m; [ "$_m" -gt "$_old" ] && _old=$_m; done; echo "$_old"; }
+# ⭐ banner-attributes-wrong-row-on-unclaim (s273): a SESSION-SCOPED receipt of the last row THIS seat
+# actually closed (released or done'd), written at the moment of the transition. banner's row1 fallback
+# (bare invocation, no $pref -- Stop hook, `board`) reads this instead of rescanning ALL historical claims
+# under this identity, which is what let an ancient unrelated DONE claim surface as if it were this
+# session's work. Two lines: topic, then "STATE ISO-TIMESTAMP". Overwritten each transition -- only the
+# LATEST closing action is ever attributed, matching "what did this seat just finish."
+s4e_mark_row() { mkdir -p "$PO/$ME"; printf '%s\n%s %s\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$PO/$ME/.last-row"; }
 s4e_sweep_orphans
 # ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
 # ruling unread in its inbox while asking Lon the same question in chat). The inbox is HQ's ONLY channel to a
@@ -185,6 +192,7 @@ case "$cmd" in
          why="${why:-${3:-released unworked}}"
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
+         s4e_mark_row "$topic" RELEASED
          rm -f "$c"; echo "released $topic — $why";;
   park)  # ⭐ s265 — TAKE A ROW OUT OF THE PICKER WITHOUT CLOSING IT. Minted with `unclaim`, same day, same cause:
          # `161-o2-red` was PARKED BY LON at s258 and its baton said so, yet QUEUE.tsv still carried it as rank-0 FREE,
@@ -278,6 +286,7 @@ case "$cmd" in
                 printf '  This is the v1 path and survives only while rows are still being converted (V2-2). Mint a baton for this topic.\n'
               fi
               grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
+              s4e_mark_row "$topic" DONE
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
          else echo "not your claim"; exit 1; fi;;
   assign) # ⭐ V2-1 / LAW 2 — ASSIGNMENT IS THE LOCK (ARCH-FLEET-CEO.md). HQ writes the seat's claim ATOMICALLY on HQ's
@@ -461,27 +470,40 @@ case "$cmd" in
          # Same fix as `held` above, reusing $pref: after `done` marks a row DONE it is no longer "open",
          # so `held`'s open-only pref check would miss it -- row1/rowst must accept a CLOSED pref too, since
          # that is exactly the row `done` just closed and wants attributed here.
-         rowst="none"; row1=""
+         # ⛔⭐ FIXED (banner-attributes-wrong-row-on-unclaim, s273): the OLD else-branch rescanned EVERY
+         # claim ever held by $ME, open or DONE, and sorted by (done-flag, rank) -- so a session with ZERO
+         # open claims (the exact shape `unclaim` leaves behind) fell through to "whichever ancient DONE
+         # claim under this identity sorts first", attributing a stale prior session's row (and, via the
+         # cmts/fnd --grep="$row1" below, sometimes its commit/FINDING counts too) to a session that never
+         # touched it. Measured 4 independent times (seat08/seat06/seat02 LEDGER, this bundle's own repro).
+         # THE FIX: never guess across sessions. $held (computed above) is ALREADY the correct "my lowest-
+         # rank OPEN claim, DONE claims excluded" answer -- reuse it outright instead of re-deriving a
+         # DONE-admitting variant. When there is no open claim (unclaim left none, or nothing was ever
+         # claimed this session), fall back to the SESSION-SCOPED receipt `s4e_mark_row` writes at the
+         # moment `unclaim`/`done` actually close a row -- never to claims/*.claim history at large.
+         rowst="none"; row1=""; rowmark_ts=""
          if [ -n "$pref" ] && [ -f "$PO/claims/$pref.claim" ] && [ "$(head -1 "$PO/claims/$pref.claim")" = "$ME" ]; then
            row1="$pref"; grep -q '^DONE$' "$PO/claims/$pref.claim" && rowst="CLOSED" || rowst="OPEN"
-         else
-           row1="$(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-               [ "$(head -1 "$c")" = "$ME" ] || continue
-               t="$(basename "$c" .claim)"; d=1; grep -q '^DONE$' "$c" || d=0
-               printf '%s\t%s\t%s\n' "$d" "$(qrank "$t")" "$t"
-             done | sort -t$'\t' -s -k1,1n -k2,2n | head -1 | cut -f3)"
-           if [ -n "$row1" ]; then grep -q '^DONE$' "$PO/claims/$row1.claim" 2>/dev/null && rowst="CLOSED" || rowst="OPEN"; fi
+         elif [ -n "$held" ]; then
+           row1="$held"; rowst="OPEN"
+         elif [ -s "$PO/$ME/.last-row" ]; then
+           row1="$(sed -n 1p "$PO/$ME/.last-row")"; rowst="$(sed -n 2p "$PO/$ME/.last-row" | cut -d' ' -f1)"
+           rowmark_ts="$(sed -n 2p "$PO/$ME/.last-row" | cut -d' ' -f2-)"
          fi
+         # ⭐ SESSION-SCOPED WINDOW when we know it (banner-attributes-wrong-row-on-unclaim, s273): a flat
+         # 12h lookback is a calendar guess; the moment `unclaim`/`done` wrote the marker we read above IS
+         # this session's own close time, a tighter and more honest anchor -- use it when available.
+         since="${rowmark_ts:-12 hours ago}"
          cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
-           n=$(git -C "$r" log --since='12 hours ago' -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
+           n=$(git -C "$r" log --since="$since" -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
          # seat8 2026-08-22: every FINDING-*.md ever written (202/202 checked) names the seat the OLD,
          # unpadded way ("seat8"), because s255's zero-padding change touched $ME fleet-wide but no seat's
          # file-naming habit. Matching $ME alone ("seat08") against the corpus finds ZERO files, always,
          # for every single-digit seat -- so a same-session FINDING silently fails attribution here too.
          mealt="${ME/#seat0/seat}"
-         fnd=$(git -C "$S4E/.github" log --since='12 hours ago' --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
+         fnd=$(git -C "$S4E/.github" log --since="$since" --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
-         else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed /12h"; fi
+         else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
          # NARROWER question -- does anything of value live ONLY in this session. A clone merely BEHIND origin (clean
          # tree, nothing unpushed) loses nothing on /clear; it just pulls next time. Measured directly per repo, since
