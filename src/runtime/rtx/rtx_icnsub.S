@@ -187,6 +187,19 @@ RTX_FUNC(rt_subscript_var)
     jne     c_rt_subscript_var
     jmp     .Lsub_array
 .Lsub_not_array:
+    /* RTX-31: a SNOBOL4 TABLE base ALSO arrives ALREADY DEREF'D, same shape as RTX-28's
+     * DT_A above -- MEASURED (seat01, 2026-08-24, table_access.sno, gdb hit-count breakpoints):
+     * base.v=24 (DT_T) on 10,500/10,500 c_rt_subscript_var entries (every T[I]=v write), and
+     * ZERO of those ever reached .Lsub_table_int (RTX-29) below -- the DT_N gate this arm used
+     * to fall through to rejected every one of them, so every table WRITE paid a full C call
+     * for work this mints in ten instructions. See perf-table-subscript-fastpath task LEDGER. */
+    cmp     dil, DT_T
+    jne     .Lsub_not_table_direct
+    cmp     dl, DT_I                   /* this fast mint covers the DT_I-key traffic (T[I]);
+                                        * a DT_S key still bails to C, same as RTX-26 already does */
+    jne     c_rt_subscript_var
+    jmp     .Lsub_table_direct
+.Lsub_not_table_direct:
     cmp     dil, DT_N                   /* base must be the VARREF shape        */
     jne     c_rt_subscript_var
     mov     rax, rdi
@@ -671,6 +684,65 @@ RTX_FUNC(rt_subscript_var)
 .Lsub_arr_fail:
     mov     eax, DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* stamped (row descr-stamp-asm-mints) */
     xor     edx, edx
+    ret
+
+/*-----------------------------------------------------------------------------
+ * RTX-31-ICN -- THE DT_T TABLE ARM, BASE ALREADY DEREF'D (`T[I]`, SNOBOL4 shape).
+ *
+ * C of record, pattern_match.c c_rt_subscript_var's base.v==DT_T arm (the ONLY arm that
+ * matters here -- IS_VARREF_fn(base) is false for a bare DT_T value, descr.h:79, so C's
+ * own rt_deref-if-varref step is a no-op and execution goes straight to this mint):
+ *     vc->cellp = 0; vc->tbl = tb; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR;
+ *     vc->pos = 0; vc->len = 0; return NAMETRAP(vc);
+ * NO LOOKUP, NO STRINGIFY -- s262 (Lon) forbade cellp=&e->val outright ("we should never
+ * have in our code a place that depends on that pointer not moving"), so the C mint for a
+ * table subscript is already just seven field stores. This arm is that mint in asm.
+ *
+ * ⛔ WHY THIS ARM DID NOT EXIST: nothing above tested dil==DT_T, so every SNOBOL4 table
+ * write fell through the DT_N ("must be a VARREF") gate and bailed to the full C call --
+ * paying call/ret + IS_VARREF_fn + the base.v if-cascade for a mint C itself does in seven
+ * stores. RTX-29 (.Lsub_table_int, below) was reachable only via that same DT_N gate, so it
+ * NEVER ran for this traffic either -- confirmed by hit-count, not inferred: 0/0 on
+ * table_access.sno, all 10,500 subscript-writes bailed to C instead. RTX-29 stays as-is;
+ * this is a new, additional arm, not a replacement.
+ *
+ * ⚠ DT_S-KEYED TABLES STILL BAIL, DELIBERATELY. Reusing RTX-26's own already-standing
+ * decision (see the s262 stand-down comment on .Lsub_table above): a hashed string-key
+ * lookup is semantic work this arm does not attempt to shortcut. Only the DT_I-key mint
+ * -- which needs no lookup at all, hit or miss -- is fast-pathed here.
+ *
+ * FRAME: 24 bytes (8 mod 16, same alignment rule as every other arm in this function):
+ *   [rsp+0] tb   [rsp+8] idx tag word   [rsp+16] idx payload
+ */
+.Lsub_table_direct:
+    test    rsi, rsi
+    je      c_rt_subscript_var          /* tb == NULL => C's FAILDESCR (unreached in practice) */
+    sub     rsp, 24
+    mov     [rsp + 0], rsi              /* tb survives the rt_agg_alloc call     */
+    mov     [rsp + 8], rdx              /* idx tag word                          */
+    mov     [rsp + 16], rcx             /* idx payload                           */
+
+    xor     edi, edi                    /* kind = 0                              */
+    mov     esi, VCELL_SIZE             /* n    = sizeof(VCELL_t)                */
+    call    rt_agg_alloc                /* already asm (ALLOC gate); do not fork  */
+                                        /*   the bump allocator for a 2nd owner   */
+
+    mov     qword ptr [rax + VCELL_CELLP], 0    /* vc->cellp = 0 -- no lookup, matches C exactly */
+    mov     rcx, [rsp + 0]
+    mov     [rax + VCELL_TBL], rcx      /* vc->tbl = tb                          */
+    mov     qword ptr [rax + VCELL_KEY], 0      /* vc->key = 0                   */
+    mov     r8, [rsp + 8]
+    mov     r9, [rsp + 16]
+    mov     [rax + VCELL_KEY_D], r8     /* vc->key_d = idx (tag word)            */
+    mov     [rax + VCELL_KEY_D + 8], r9 /*            ... (payload)              */
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* vc->sv = FAILDESCR, stamped (row descr-stamp-asm-mints) */
+    mov     qword ptr [rax + VCELL_SV + 8], 0
+    mov     qword ptr [rax + VCELL_POS], 0
+    mov     qword ptr [rax + VCELL_LEN], 0
+
+    add     rsp, 24
+    mov     rdx, rax                    /* rdx = vc                              */
+    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)   /* NAMETRAP, stamped (row descr-stamp-asm-mints) */
     ret
 
 /*-----------------------------------------------------------------------------

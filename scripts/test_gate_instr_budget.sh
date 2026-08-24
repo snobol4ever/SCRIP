@@ -36,7 +36,11 @@
 # This gate measures whichever out/libscrip_rt.so is already built; it does not itself rebuild the runtime.
 #
 # TABLE_ACCESS / ARRAY_SUM (added 2026-08-24, seat04, row `perf-table-array-runtime` NEXT step -- see
-# FINDING-2026-08-24-seat04-post-fix-table-array-callgrind-remeasurement.md).  Both are run STANDALONE
+# FINDING-2026-08-24-seat04-post-fix-table-array-callgrind-remeasurement.md; TABLE_ACCESS_IR_WATERMARK
+# RE-PINNED same day by seat01, row `perf-table-subscript-fastpath`, after RTX-31 (rtx_icnsub.S) +
+# RTX-NEW-ICNVAR (rtx_icnvar.S) closed two dead asm-fast-path gaps for SNOBOL4 table subscript/assign --
+# see FINDING-2026-08-24-seat01-table-subscript-fastpath-rtx31-icnvar-table-store.md.  ARRAY_SUM_IR_WATERMARK
+# untouched: confirmed OK (not NOTE) post-fix, those arms never touch the DT_A array path.  Both are run STANDALONE
 # (no bench_wrap.sh fixed-iter twin, no fixed_n) exactly like roman/beauty above: table_access.sno's own
 # MAIN calls TABLE_ACCESS(1) then TABLE_ACCESS(20) and array_sum.sno's calls ARRAY_SUM(1) then (20) --
 # 21 total outer builds each, small and fast, each with a real .ref from the s265 standalone revamp.
@@ -76,7 +80,8 @@ TOL_PCT="${TOL_PCT:-2}"
 ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-22522863}"
 BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-2215545392}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
-TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-15267937}"
+# TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
+TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-12986443}"
 ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-10912565}"
 
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }

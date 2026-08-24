@@ -52,6 +52,9 @@
 
 RTX_GATE_DEF(icnvar)
 
+#define VCELL_TBL        8      /* VCELL_t.tbl     (TBBLK_t *)    */
+#define VCELL_KEY_D      24     /* VCELL_t.key_d   (DESCR_t)      */
+
 /*-----------------------------------------------------------------------------
  * DESCR_t rt_assign_var(DESCR_t var, DESCR_t val)
  *   C of record: src/runtime/pattern_match.c:1196 (renamed c_rt_assign_var)
@@ -126,11 +129,64 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_c                      /* !vc -> C returns FAILDESCR          */
     mov     r10, [rsi]                  /* vc->cellp (offset 0)                */
     test    r10, r10
-    je      .Lav_c                      /* tbl / tvsubs arms stay in C         */
+    jne     .Lav_cellp_store            /* nonzero: direct-cell store, below    */
+    /* RTX-NEW-ICNVAR (seat01, 2026-08-24): cellp==0 -- check vc->tbl before falling
+     * to C.  This file's own header above calls table stores "volume, not speed" and
+     * deliberately leaves them cold; that call was right for Icon's queens board (the
+     * workload this port was measured against) and is WRONG for what changed it: the
+     * sibling fix in rtx_icnsub.S (RTX-31) now mints a (tbl,key_d) trap -- cellp==0,
+     * tbl!=0 -- for EVERY SNOBOL4 table subscript-write, and table_access.sno alone
+     * sends 10,500 of them here, ALL of which fell to c_rt_assign_var: the single
+     * largest named C-side cost in the post-RTX-31 profile (8.93%). This is still not
+     * "porting the insert" -- table_set_descr_d (aggregates.c) is called UNCHANGED,
+     * same hash + sorted-bucket-insert it already does; this arm only skips the
+     * redundant GC-safepoint/sxt/IS_NAMETRAP re-checks rt_assign_var's OWN asm entry
+     * already did above, and calls that one function directly. See
+     * perf-table-subscript-fastpath task LEDGER. */
+    mov     r11, [rsi + VCELL_TBL]
+    test    r11, r11
+    je      .Lav_c                      /* tvsubs (sv-shaped) trap: still C's job */
+    jmp     .Lav_table_store
+.Lav_cellp_store:
     mov     [r10], rdx                  /* {v, slen}                           */
     mov     [r10 + 8], rcx              /* value union                         */
     mov     rax, rdx                    /* return val                          */
     mov     rdx, rcx
+    ret
+
+/*--- FAST PATH E: table store  (RTX-NEW-ICNVAR, 2026-08-24) -----------------
+ * C of record, c_rt_assign_var_body's vc->tbl arm (pattern_match.c):
+ *     table_set_descr_d(vc->tbl, vc->key_d, val); return val;
+ * Calls the SAME C insert function, unchanged; only the two calling layers
+ * around it (c_rt_assign_var -> c_rt_assign_var_body) and their redundant
+ * GC-safepoint/sxt-break/IS_NAMETRAP re-checks are skipped -- this asm entry
+ * already ran the one check that matters (the GC safepoint, top of function)
+ * before ever reaching .Lav_nametrap.
+ *
+ * table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) -- five integer/
+ * pointer args (tbl, k.v, k.value, val.v, val.value), all in registers, no
+ * stack args needed (SysV allows six). val is PARKED across the call (two
+ * pushes, 16 bytes, keeps RTX_CALL_ALIGN's exact 0-mod-16 alignment -- same
+ * idiom as .Lav_sxt's four pushes above) because the call clobbers rdx/rcx
+ * and the return value is val itself, not table_set_descr_d's (void).
+ */
+.Lav_table_store:
+    mov     r9,  [rsi + VCELL_KEY_D]        /* key_d tag word                   */
+    mov     r10, [rsi + VCELL_KEY_D + 8]    /* key_d payload                    */
+    RTX_CALL_ALIGN
+    push    rdx                             /* park val.tag (for the return)    */
+    push    rcx                             /* park val.value; two pushes = 16B */
+    mov     rdi, r11                        /* arg1 = tbl                       */
+    mov     rsi, r9                         /* arg2 = key_d.tag                 */
+    mov     rdx, r10                        /* arg3 = key_d.value               */
+    mov     rcx, [rsp + 8]                  /* arg4 = val.tag                   */
+    mov     r8,  [rsp]                      /* arg5 = val.value                 */
+    call    table_set_descr_d@PLT
+    pop     rcx                             /* val.value                        */
+    pop     rdx                             /* val.tag                          */
+    RTX_CALL_UNALIGN
+    mov     rax, rdx                        /* return lo = val.tag              */
+    mov     rdx, rcx                        /* return hi = val.value            */
     ret
 
 /*--- FAST PATH A: named global.  NV_SET_fn(var.s, val); return val; ---------
