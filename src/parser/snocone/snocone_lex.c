@@ -333,7 +333,7 @@ TT_LE:           goto LX_RELOP_REMOVED;
 TT_GE:           goto LX_RELOP_REMOVED;
 TT_LT:           goto LX_RELOP_REMOVED;
 TT_GT:           goto LX_RELOP_REMOVED;
-LX_RELOP_REMOVED: fprintf(stderr, "snocone:%d: relational operator sugar removed (s272) -- call the predicates: EQ NE LT LE GT GE, LEQ LNE LLT LLE LGT LGE, IDENT DIFFER\n", ctx->line); EMIT(T_COLON);
+LX_RELOP_REMOVED: EMIT(T_COLON);
 TT_ADD:           EMIT(T_2PLUS);
 TT_SUB:           EMIT(T_2MINUS);
 TT_MUL:           EMIT(T_2STAR);
