@@ -14,7 +14,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="$ROOT/scrip"
-ICN_CORPUS="$S4E/corpus/icon"
+ICN_CORPUS="$S4E/corpus/tests/icon"
 TIMEOUT=8
 PASS=0; FAIL=0
 

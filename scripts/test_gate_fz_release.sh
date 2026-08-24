@@ -27,8 +27,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 FZ="${FZ:-$S4E/corpus/probe/fz}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -d "$FZ" ]    || { echo "SKIP no $FZ"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -d "$FZ" ]    || { echo "⛔ REFUSED-TO-GRADE no $FZ"; exit 2; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 rc=0
 echo "=== FZ GATE -- LOCK 1: witnesses vs oracle .ref, DISARMED default, both modes ==="

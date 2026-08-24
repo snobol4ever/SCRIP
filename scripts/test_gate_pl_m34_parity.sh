@@ -8,7 +8,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-CORPUS="${CORPUS:-$S4E/corpus/prolog}"
+CORPUS="${CORPUS:-$S4E/corpus/tests/prolog}"
 VERBOSE=0
 [ "${1:-}" = "--verbose" ] && VERBOSE=1
 PASS=0; FAIL=0; REFUSED=0; SKIP=0

@@ -9,7 +9,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog
+CORPUS=$S4E/corpus/tests/prolog
 SWIT=$CORPUS/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 WRAP=$(mktemp /tmp/pl_wrap_XXXXXX.pl)
@@ -31,8 +31,8 @@ f="$SWIT/${BASE}.pl"
 ref="$SWIT/${BASE}.ref"
 [ -f "$f" ]    || { echo "ERROR: $f not found"; exit 1; }
 [ -f "$ref" ]  || { echo "ERROR: $ref not found"; exit 1; }
-[ -f "$PLUNIT" ] || { echo "SKIP: $PLUNIT missing"; exit 0; }
-[ -x "$SCRIP" ]  || { echo "SKIP: scrip not built"; exit 0; }
+[ -f "$PLUNIT" ] || { echo "⛔ REFUSED-TO-GRADE: $PLUNIT missing"; exit 2; }
+[ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 
 printf 'main :- run_tests.\n' > "$WRAP"
 

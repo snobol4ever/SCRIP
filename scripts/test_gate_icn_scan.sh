@@ -66,7 +66,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-$S4E/corpus/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 # ⛔ FLOORS RE-DERIVED s247 (seat1, N-0) — 31/11/11 -> 26/26/24, AND THE ARITHMETIC IS THE JUSTIFICATION.
 # The old floors were calibrated against a bucket that walked `find $CORPUS -name '*.icn'` RECURSIVELY —
 # 1,348 files across jcon-ref/, jcon-compiler/, ipl/, parser/, repro/, of which 1,048 CARRY NO `.expected`.
@@ -80,7 +80,7 @@ SCAN_M2_MIN="${SCAN_M2_MIN:-26}"
 SCAN_M3_MIN="${SCAN_M3_MIN:-26}"
 SCAN_M4_MIN="${SCAN_M4_MIN:-24}"
 BAD=0
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 2; }
 
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {

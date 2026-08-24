@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# dyn89_sweep.sh — sno4parse parse-error sweep across corpus/snobol4
+# dyn89_sweep.sh — sno4parse parse-error sweep across corpus/tests/snobol4
 #
 # For each .sno file: run sno4parse, report OK / ERR / HANG.
 # Output is one line per file — safe for context windows.
 # Errors include the first error message only.
 #
 # Usage: bash dyn89_sweep.sh [corpus_dir]
-# Default: ~/corpus/snobol4
+# Default: ~/corpus/tests/snobol4
 #
 # (The SCRIP/csnobol4/ 2.3.3 patch fragments this rode beside were deleted s267 -- git history.)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
@@ -14,7 +14,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 
 SNO4=$S4E/SCRIP/sno4parse
-CORPUS="${1:-$S4E/corpus/snobol4}"
+CORPUS="${1:-$S4E/corpus/tests/snobol4}"
 TIMEOUT=10
 
 OK=0; ERR=0; HANG=0

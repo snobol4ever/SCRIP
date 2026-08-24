@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_prolog_swi_suite.sh — run SWI plunit conformance suite under --run
-# Iterates corpus/prolog/swi_tests/test_*.pl, loads each with
+# Iterates corpus/tests/prolog/swi_tests/test_*.pl, loads each with
 # plunit.pl shim + a main wrapper, compares PASS/FAIL per suite against .ref.
 #
 # Matching: set-based (order-independent, deduped — ignores double-run artefacts).
@@ -13,7 +13,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog
+CORPUS=$S4E/corpus/tests/prolog
 SWIT=$CORPUS/swi_tests
 PLUNIT=$CORPUS/plunit.pl
 MATCH_PY="${HERE}/util_swi_match.py"
@@ -33,9 +33,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[ -d "$SWIT" ]   || { echo "SKIP: $SWIT missing"; exit 0; }
-[ -f "$PLUNIT" ] || { echo "SKIP: $PLUNIT missing"; exit 0; }
-[ -x "$SCRIP" ]  || { echo "SKIP: scrip not built"; exit 0; }
+[ -d "$SWIT" ]   || { echo "⛔ REFUSED-TO-GRADE: $SWIT missing"; exit 2; }
+[ -f "$PLUNIT" ] || { echo "⛔ REFUSED-TO-GRADE: $PLUNIT missing"; exit 2; }
+[ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$WRAP"
 
@@ -72,7 +72,7 @@ done
 
 echo ""
 echo "Suite totals: PASS=$PASS FAIL=$FAIL TOTAL=$TOTAL  mode=$MODE"
-[ "$TOTAL" -gt 0 ] || { echo "SKIP: no test files found"; exit 0; }
+[ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: no test files found"; exit 2; }
 pct=$((PASS * 100 / TOTAL))
 echo "Coverage: ${pct}%  (gate: >=80%)"
 [ "$pct" -ge 80 ]

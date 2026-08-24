@@ -18,8 +18,8 @@ SCRIP="${SCRIP:-$SCRIP/scrip}"
 CORPUS="$S4E/corpus"
 SCRIP_DIR="$S4E/SCRIP/bootstrap"   # moved from corpus/SCRIP (RULES.md REPO BOUNDARY, Lon s267: the self-hosted Snocone frontend is compiler source, not a corpus program)
 
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }
-[ -d "$SCRIP_DIR" ] || { echo "SKIP corpus SCRIP dir missing: $SCRIP_DIR"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP"; exit 2; }
+[ -d "$SCRIP_DIR" ] || { echo "⛔ REFUSED-TO-GRADE corpus SCRIP dir missing: $SCRIP_DIR"; exit 2; }
 
 pass=0
 fail=0

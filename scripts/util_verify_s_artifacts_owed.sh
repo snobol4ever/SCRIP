@@ -192,7 +192,7 @@ fi
 if [ "$icon_rc" -ne 0 ] && [ "$icon_owed" -eq 0 ] && [ "$icon_trouble" -eq 0 ]; then
   # Caught empirically (row six-owed-verifier, 2026-08-24): the script's own refusal guard
   # `case "$CORPUS" in */icon|*/icon/*)` matches ANY path ending in /icon — including its
-  # OWN correct default corpus/benchmarks/icon, not just the corpus/icon rung-test tree it
+  # OWN correct default corpus/benchmarks/icon, not just the corpus/tests/icon rung-test tree it
   # means to exclude. Confirmed with ZERO env override (its true documented default): same
   # REFUSED. A rc!=0 with no WOULD-/CERR lines means it did not check anything — never
   # silently pass that as clean. Script bug, unrelated to this row; flagged, not fixed, here.

@@ -14,9 +14,9 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-30}"
 # (rt_proc_call_gen_h trampoline; real fix = PL-SPEED-3/7 DET no-C-frame spine).
 # Until that lands, raise the soft C-stack limit so they run to completion.
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
-[ -d "$B" ] || { echo "SKIP bench corpus missing: $B"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 HAVE_GNU=0; command -v gprolog >/dev/null 2>&1 && HAVE_GNU=1
 HAVE_SWI=0; command -v swipl   >/dev/null 2>&1 && HAVE_SWI=1
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

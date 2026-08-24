@@ -39,7 +39,7 @@ for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
     else st=DIFF; fi
   fi
   rm -f $S $X $RE
-  echo "$st ${src#$S4E/corpus/snobol4/}" >> "$OUT"
+  echo "$st ${src#$S4E/corpus/tests/snobol4/}" >> "$OUT"
 done
 sort -o "$OUT" "$OUT"
 awk '{print $1}' "$OUT" | sort | uniq -c | sort -rn

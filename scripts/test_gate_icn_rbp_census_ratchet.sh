@@ -58,8 +58,8 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
 ICN_C_BASELINE="${ICN_C_BASELINE:-0}"
 PY="$HERE/util_icn_rbp_census.py"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -d "$BENCH" ] || { echo "SKIP no Icon benchmark corpus at $BENCH"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -d "$BENCH" ] || { echo "⛔ REFUSED-TO-GRADE no Icon benchmark corpus at $BENCH"; exit 2; }
 [ -f "$PY" ]    || { echo "GATE FAIL: missing $PY"; exit 2; }
 # ⛔ EXIT STATUS READ FROM python DIRECTLY, NEVER THROUGH A PIPE -- a `| tail` reports TAIL's
 # status and silently discards the verdict (the defect test_gate_fc_no_residual_rbp.sh records

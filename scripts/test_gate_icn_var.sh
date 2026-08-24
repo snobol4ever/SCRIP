@@ -52,12 +52,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
-CORPUS="${CORPUS:-$S4E/corpus/icon}"
+CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 VAR_M2_MIN="${VAR_M2_MIN:-62}"
 VAR_M3_MIN="${VAR_M3_MIN:-12}"
 VAR_M4_MIN="${VAR_M4_MIN:-22}"
 BAD=0
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 2; }
 
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {

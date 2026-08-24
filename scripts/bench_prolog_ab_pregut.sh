@@ -19,8 +19,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; NEW="$(cd "$HERE/.." && pw
 PREGUT_REF="${PREGUT_REF:-7ec7305a}"; OLD="${PREGUT_DIR:-$S4E/SCRIP-pregut}"
 V="${BENCH_V:-$S4E/corpus/benchmarks/prolog/vanroy}"
 W=/tmp/ab_pregut.$$; mkdir -p "$W"; trap 'rm -rf "$W"' EXIT
-command -v gprolog >/dev/null || { echo "SKIP: gprolog absent (apt-get install gprolog)"; exit 0; }
-[ -d "$V" ] || { echo "SKIP: vanroy corpus missing: $V"; exit 0; }
+command -v gprolog >/dev/null || { echo "⛔ REFUSED-TO-GRADE: gprolog absent (apt-get install gprolog)"; exit 2; }
+[ -d "$V" ] || { echo "⛔ REFUSED-TO-GRADE: vanroy corpus missing: $V"; exit 2; }
 if [ ! -d "$OLD" ]; then (cd "$NEW" && git worktree add "$OLD" "$PREGUT_REF") || { echo "FAIL worktree"; exit 1; }; fi
 [ -x "$OLD/scrip" ] || (cd "$OLD" && make -j4 scrip >/tmp/ab_build_old.log 2>&1) || { echo "FAIL old build (see /tmp/ab_build_old.log)"; exit 1; }
 [ -f "$OLD/out/libscrip_rt.so" ] || (cd "$OLD" && make libscrip_rt >>/tmp/ab_build_old.log 2>&1) || { echo "FAIL old rt"; exit 1; }

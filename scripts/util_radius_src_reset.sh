@@ -24,7 +24,7 @@ SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_src_reset}
 KILLSWITCH=${KILLSWITCH:-SCRIP_SRC_RESET}
 rm -rf "$OUT"; mkdir -p "$OUT"
-DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/snobol4 $S4E/corpus/crosscheck $S4E/corpus/probe/eval $S4E/corpus/icon $S4E/corpus/prolog"}
+DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/tests/snobol4 $S4E/corpus/crosscheck $S4E/corpus/probe/eval $S4E/corpus/tests/icon $S4E/corpus/tests/prolog"}
 tot=0; diffn=0; failn=0
 for d in $DIRS; do
     [ -d "$d" ] || continue

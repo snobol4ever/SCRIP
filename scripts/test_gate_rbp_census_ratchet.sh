@@ -69,8 +69,8 @@ gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime sha
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="$CORPUS/benchmarks/snobol4"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -d "$BENCH" ]  || { echo "SKIP no benchmark corpus at $BENCH"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -d "$BENCH" ]  || { echo "⛔ REFUSED-TO-GRADE no benchmark corpus at $BENCH"; exit 2; }
 ALL=0; D=0; TABLE=""
 for f in "$BENCH"/*.sno; do
     s=$(mktemp); "$SCRIP" --compile "$f" > "$s" 2>/dev/null

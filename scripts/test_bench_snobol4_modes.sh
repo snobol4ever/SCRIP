@@ -3,9 +3,9 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"; CAP=200000; T="${TIMEOUT:-30}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
-[ -d "$B" ] || { echo "SKIP bench corpus missing"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf "%-22s %-9s %10s  %s\n" BENCH STATUS "wall(ms)" "self/ref"
 ok=0; crash=0; fail=0

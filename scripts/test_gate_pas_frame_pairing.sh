@@ -3,7 +3,7 @@
 # For every emitted proc_* region, assert push_rbp==pop_rbp and mov_rbp_rsp==mov_rsp_rbp
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
-CORPUS="${CORPUS:-$S4E/corpus/pascal}"
+CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 FAIL=0; PASS=0
 WITNESSES="${WITNESSES:-emptyproc p2 nestvar varparam}"
 # ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.

@@ -12,9 +12,9 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CSNO="${CSNO:-$(command -v snobol4)}"   # BENCHMARK oracle (s255)
 T="${TIMEOUT:-120}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
-[ -d "$B" ] || { echo "SKIP bench corpus missing"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing"; exit 2; }
 have_sbl=0; [ -x "$SBL" ] && have_sbl=1
 have_csno=0; [ -n "$CSNO" ] && [ -x "$CSNO" ] && have_csno=1
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

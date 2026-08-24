@@ -12,7 +12,7 @@
 #
 # Invocation from any script:
 #   SBL32="/home/claude/sbl32"
-#   [ -x "$SBL32" ] || { echo "SKIP sbl32 not installed"; exit 0; }
+#   [ -x "$SBL32" ] || { echo "⛔ REFUSED-TO-GRADE sbl32 not installed"; exit 2; }
 #   qemu-i386-static "$SBL32" -b file.sno
 #
 # Why the patch is needed: SPITBOL's MINIMAL architecture CALLs into its

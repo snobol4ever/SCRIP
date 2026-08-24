@@ -19,7 +19,7 @@ DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=(
     "$REPO_ROOT/test/parser/icon"
-    $S4E/corpus/icon
+    $S4E/corpus/tests/icon
   )
 fi
 

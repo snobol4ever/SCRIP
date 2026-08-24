@@ -2,7 +2,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog
+CORPUS=$S4E/corpus/tests/prolog
 RUNG="$CORPUS/rung38_iso_errors"
 
 echo "=== rung38_iso_errors: ISO §7.10/7.11 error terms (PR-15 driver) ==="

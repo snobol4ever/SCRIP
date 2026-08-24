@@ -63,7 +63,7 @@ gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime sha
 # this box measures 1.085x pinned and 1.075x unpinned.  ⇒ NO RATIO BELOW ~1.09x IS TRUSTWORTHY HERE, which
 # independently corroborates RATIO_FLOOR=1.10 below.  The rail is not yet an accepted instrument on this box.
 ASLR="${ASLR:-off}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP"; exit 2; }
 if [ -n "${PROGS:-}" ]; then LIST=""; for p in $PROGS; do LIST="$LIST $BENCH/$p.sno"; done
 else LIST=$(ls "$BENCH"/*.sno 2>/dev/null); fi
 [ -n "$LIST" ] || { echo "no benchmarks found under $BENCH"; exit 1; }

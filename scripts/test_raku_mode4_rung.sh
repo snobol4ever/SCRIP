@@ -17,7 +17,7 @@ RUNNER="$HERE/run_raku_via_x86_backend.sh"
 TESTDIR="$SCRIP/test/raku"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built: $SCRIP"; exit 1; }
 [ -f "$LIBRT" ] || { echo "FAIL libscrip_rt.so not built: $LIBRT (run 'make libscrip_rt')"; exit 1; }
-[ -d "$TESTDIR" ] || { echo "SKIP no test/raku dir"; exit 0; }
+[ -d "$TESTDIR" ] || { echo "⛔ REFUSED-TO-GRADE no test/raku dir"; exit 2; }
 
 PASS=0; FAIL=0; SKIP=0
 for rk in "$TESTDIR"/*.raku; do

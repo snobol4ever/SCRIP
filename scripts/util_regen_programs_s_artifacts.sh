@@ -21,7 +21,7 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 RUNG="${1:-regen}"; shift 2>/dev/null || true
 TREES="${*:-icon prolog rebus}"
 
-[ -x "$SCRIP" ] || { echo "SKIP  scrip not built: $SCRIP"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE  scrip not built: $SCRIP"; exit 2; }
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: the old fixed /tmp/prog_regen.* was shared by every seat root, so two concurrent regens overwrote each other's asm mid-compare (s169 seat2 FINDING §7.5)
 
 emitted=0; changed=0; same=0; efail=0; afail=0

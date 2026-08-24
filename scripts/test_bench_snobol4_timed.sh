@@ -59,8 +59,8 @@ SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255): x64/bin/sbl carries 
 SBLFLAGS="${SBLFLAGS:--s16m}"   # SIZING ONLY -- the language arm comes from sbl_lang_flags and may not be overridden here
 FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
 ENGINES="${ENGINES:-sbl m3 m4}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -d "$B" ]     || { echo "SKIP timed bench corpus missing ($B)"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -d "$B" ]     || { echo "⛔ REFUSED-TO-GRADE timed bench corpus missing ($B)"; exit 2; }
 # row bench-external-cpu-and-elapsed-clock: every run below is forked through tools/bench_rusage --
 # the sbl/s, m3/s, m4/s rates ARE the external cpu(user+sys) instrument now, not self-timed TIME().
 WRAP="$ROOT/tools/bench_rusage"

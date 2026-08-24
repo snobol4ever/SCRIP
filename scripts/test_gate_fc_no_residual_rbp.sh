@@ -77,7 +77,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 cd "$(dirname "$0")/.." || exit 2
 SCRIP=${SCRIP:-./scrip}
-CORPUS=${CORPUS:-$S4E/corpus/snobol4}
+CORPUS=${CORPUS:-$S4E/corpus/tests/snobol4}
 FC_TIMEOUT=${FC_TIMEOUT:-60}
 FC_BASELINE=${FC_BASELINE:-0}
 # Programs known NOT to compile cleanly.  These are DEFECTS ON RECORD, not exemptions -- each one is

@@ -2,7 +2,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog
+CORPUS=$S4E/corpus/tests/prolog
 RUNG="$CORPUS/rung36_arith_edge"
 
 echo "=== rung36_arith_edge: ISO §8 arithmetic edge cases (PR-13 driver) ==="

@@ -14,11 +14,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-60}"; N="${RUNS:-3}"
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -f "$RT/libscrip_rt.so" ] || { echo "SKIP libscrip_rt.so not built"; exit 0; }
-[ -d "$B" ] || { echo "SKIP bench corpus missing: $B"; exit 0; }
-command -v gprolog >/dev/null 2>&1 || { echo "SKIP gprolog absent"; exit 0; }
-command -v swipl   >/dev/null 2>&1 || { echo "SKIP swipl absent"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
+command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
+command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 # median_ms <cmd...> : run N times, print median wall ms (captures stdout to $W/last.out)

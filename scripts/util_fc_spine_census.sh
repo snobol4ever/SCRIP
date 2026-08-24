@@ -7,7 +7,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/crosscheck}"
-[ -d "$CORPUS" ] || CORPUS="$S4E/corpus/snobol4/crosscheck"
+[ -d "$CORPUS" ] || CORPUS="$S4E/corpus/tests/snobol4/crosscheck"
 [ -d "$CORPUS" ] || { echo "no corpus dir found"; exit 1; }
 declare -A CELLS; TOTAL=0; PROGS=0
 for f in $(find "$CORPUS" -name "*.sno" | sort); do

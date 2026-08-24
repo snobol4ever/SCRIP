@@ -25,8 +25,8 @@ run_compile() {
     gcc -no-pie -o "$W/pbin" "$W/p.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>/dev/null || { rm -rf "$W"; return 1; }
     printf '%s' "$inp" | timeout 8 "$W/pbin" 2>/dev/null; rm -rf "$W"
 }
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-command -v "$GPROLOG" >/dev/null 2>&1 || { echo "SKIP gprolog oracle not installed"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+command -v "$GPROLOG" >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog oracle not installed"; exit 2; }
 echo "=== rung46_read: read/1 + read_term/2 real-term reading (PL-ISO-7a) — oracle=gprolog 1.4.5 ==="
 PASS=0; FAIL=0
 check() {

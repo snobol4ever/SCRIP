@@ -5,7 +5,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 OUT=${1:-/tmp/zdp_sweep_out}
 mkdir -p "$OUT"; : > "$OUT/sources.txt"; : > "$OUT/tiers.txt"
 n=0
-for f in $(find $S4E/corpus/snobol4 $S4E/corpus/probe -name '*.sno' | sort); do
+for f in $(find $S4E/corpus/tests/snobol4 $S4E/corpus/probe -name '*.sno' | sort); do
     n=$((n+1))
     SCRIP_ZDP=2 timeout 15 ./scrip --compile "$f" < /dev/null 2>"$OUT/.err" >/dev/null
     grep "^\[ZDP\]   node" "$OUT/.err" | sed 's/.*op=\([A-Za-z0-9_]*\) \([A-Z-]*\) tier=\([A-Z]*\).*/\1 \2 \3/' >> "$OUT/sources.txt"

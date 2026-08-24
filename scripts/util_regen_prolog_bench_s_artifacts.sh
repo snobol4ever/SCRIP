@@ -17,8 +17,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP:-$ROOT/scrip}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
 RUNG="${1:-prolog-bench-regen}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built"; exit 0; }
-[ -d "$B" ] || { echo "SKIP bench corpus missing: $B"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/regen_{cerr,aserr}.$$ was PID-keyed (safe) but the .s temps escaped on SIGKILL; one dir under the trap covers both (s169 seat2 FINDING §7.5)
 changed=0; fenced=0; rejected=0; emitted=0; timedout=0; errored=0
 for pl in "$B"/*.pl; do

@@ -41,8 +41,8 @@ RT_SO="$ROOT/out/libscrip_rt.so"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built — run scripts/build_scrip.sh"; exit 0; }
-[ -f "$RT_SO" ] || { echo "SKIP libscrip_rt.so not built — run: make libscrip_rt"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built — run scripts/build_scrip.sh"; exit 2; }
+[ -f "$RT_SO" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built — run: make libscrip_rt"; exit 2; }
 
 EXPECTED_OUTPUT="Hello, World!"
 HW_EXPECTED_PASS=6   # all six languages PASS-wired after IJ-HELLO-4

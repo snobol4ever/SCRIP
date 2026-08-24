@@ -71,7 +71,7 @@ GATE="SCRIP_RTX_${FAM}"
 # Reports ON/PRISTINE = 1.000 ±noise to prove the rail is stable before any code changes land.
 ASLR_PRE=""; [ "$ASLR_OFF" = "1" ] && ASLR_PRE="setarch -R"
 
-[ -x "$SCRIP" ]                        || { echo "SKIP: scrip not built"; exit 0; }
+[ -x "$SCRIP" ]                        || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 [ -f "$PRISTINE/libscrip_rt.so" ]      || { echo "FAIL: no libscrip_rt.so in --pristine '$PRISTINE'"; exit 1; }
 [ -f "$RTX/libscrip_rt.so" ]           || { echo "FAIL: no libscrip_rt.so in --rtx '$RTX'"; exit 1; }
 [ $# -gt 0 ]                           || { echo "FAIL: no programs given"; exit 1; }

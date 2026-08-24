@@ -55,7 +55,7 @@ case "$FAM" in
   *)     FAMSET="string_manip table_access func_call" ;;
 esac
 PROGS="${*:-$FAMSET}"
-[ -x "$SCRIP" ] || { echo "SKIP scrip not built at $SCRIP"; exit 0; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 
 # ---- scale a program's dominant loop bound by factor F ----

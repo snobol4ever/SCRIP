@@ -5,7 +5,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
-FIX="${FIX:-$S4E/corpus/snocone/parser-fixtures}"
+FIX="${FIX:-$S4E/corpus/tests/snocone/parser-fixtures}"
 SD="${SD:-$S4E/SCRIP/bootstrap}"
 
 if [ ! -f "$SCRIP" ]; then echo "SKIP scrip not found: $SCRIP"; exit 0; fi
