@@ -45,7 +45,8 @@ W       ({WS}|{CONT})+
 G       ({WS}|{CONT})*
 %%
 <INITIAL>\n             { lineno++; return T_STMT_END; }
-<INITIAL>[*!|;]         { BEGIN(SKIP); }
+<INITIAL>[*!|]          { BEGIN(SKIP); }
+<INITIAL>";"            { return T_STMT_END; }
 <INITIAL>[ \t]          { g_stmt_lineno = lineno; BEGIN(BODY_START); }
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+'[^'\n]+'[^\n]*\n  {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
@@ -123,7 +124,7 @@ G       ({WS}|{CONT})*
     BEGIN(LABEL);
 }
  /*--------------------------------------------------------------------------------------------------------------------*/
-<LABEL>[^ \t\n]+  {
+<LABEL>[^ \t\n;]+  {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
     memcpy(strbuf+strpos, yytext, take); strpos += take;

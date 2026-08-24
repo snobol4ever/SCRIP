@@ -29,6 +29,7 @@ duplicate_label	SAME	FIXED this session (was WRONG): parser now rejects a genuin
 missing_end	SAME	FIXED this session (was WRONG): parser now requires an END statement, matching oracle's refusal
 deep_recursion	DEFENSIBLE	FIXED (was WRONG): libscrip_rt.so SIGSEGV handler detects the stack-guard-page fault and reports ERROR 246 cleanly, rc=1; oracle detects the same condition but exits rc=0 with its own fatal dump (same asymmetry already accepted for undef_label_goto)
 huge_string	DEFENSIBLE	SCRIP enforces no MAXLNGTH-style string-length ceiling; a reasonable modern default, not an instability
+end_star_no_boundary	SAME	'*' jammed onto END with no boundary (no ';', no whitespace, no true column 1) is not a valid trailing-comment start in either engine -- both fail to find a valid END and refuse (snobol4-trailing-star-comment-not-lexed witness 3)
 TSV
 WRONG_RATCHET="${WRONG_RATCHET:-0}"   # known-red ceiling: both prior WRONGs cured -- bad_type_arith (FINDING-2026-08-24-seat04-arith-operand-type-check.md) and deep_recursion (recursion-stack-overflow-diagnostic task)
 same=0; def=0; wrong=0; total=0; wrong_names=""
