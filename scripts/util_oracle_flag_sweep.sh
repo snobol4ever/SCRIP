@@ -36,27 +36,26 @@ DEMO="$CORPUS/demo"
 #    program, so a change in them is a real behavioural change this sweep should keep failing on.
 NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^execution time msec[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory used (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d; /^memory left (bytes)[[:space:]][[:space:]]*[0-9][0-9]*$/d'
 [ -x "$SBL" ] || { echo "FATAL: no oracle at $SBL -- a board without it prints a plausible all-FAIL table (PLAN.md 1b)"; exit 1; }
-# ⛔ THIS TABLE IS A SECOND COPY OF scorecard_snobol4.sh's SUITES TABLE AND NOTHING KEEPS THEM IN STEP (named s191, row `gimpel-suite-harness`).
-# The two are edited independently and have already drifted once: s191 changed the gimpel row there to `-name *_driver.sno` -- the 145 files in
-# that tree matching `*.sno` but not `*_driver.sno` are LIBRARY MODULES, a DEFINE and a label with no END and no output, so they are not programs
-# and cannot be scored -- and this copy had to be changed by hand to match.  A sweep enumerating rows the scorecard does not score reports movers
-# on programs no board grades, which is worse than useless: it looks like evidence.  ⭐ THE STRUCTURAL FIX IS ONE AUTHORITY, NOT TWO CAREFUL
-# EDITORS -- routed as row `suite-table-one-authority`.  Until it lands, ANY edit to either table must be made to BOTH, in the same commit.
-SUITES=$(cat <<'EOF'
-beauty_self    SELF                                                -                          beauty
-beauty_suite   tests/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
-demos          demo                               -maxdepth 1 -name *.sno    SELFDIR
-benchmarks     benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR
-bb_probes      probe/bb                                            -name *.sno                SELFDIR
-patterns       crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc
-crosscheck     crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc
-feature_test   SCRIPTEST                                           -name *.sno                CORPUS
-probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
-csnobol4_suite packages/snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR
-gimpel         packages/snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include
-misc           MISC                                                -name *.sno                SELFDIR
-EOF
-)
+# ⛔ SINGLE AUTHORITY (row `suite-table-one-authority`, fixed 2026-08-24 -- this table used to be a
+# SECOND COPY of scorecard_snobol4.sh's SUITES table, and the two drifted independently at least twice
+# (s191's gimpel `-name *_driver.sno` fix had to be hand-mirrored here; a `demos` maxdepth divergence,
+# 2 vs 1, was found live and unremarked at this fix's own mint -- neither editor had noticed). A sweep
+# enumerating rows the scorecard does not score reports movers on programs no board grades, which reads
+# as evidence, not noise. NOW: extracted from scorecard_snobol4.sh's own table at RUN TIME via its
+# `SCORECARD_PRINT_SUITES=1` hook (post its own lon-guard), projected down to the 4 columns this sweep
+# needs (name, root, find-args, lib -- weight/timeout/norm are scorecard-only and dropped). ⛔ REFUSES
+# (rc!=0), NEVER falls back to a private copy, on ANY extraction failure -- a silent fallback here is
+# exactly the bug this row exists to kill, so failure must be loud, not quiet. Negative-tested by
+# injection (missing script, script exiting nonzero, empty output, malformed row) -- see the task's own
+# LEDGER/FINDING for receipts.
+SCORECARD_SH="$SC/scripts/scorecard_snobol4.sh"
+[ -x "$SCORECARD_SH" ] || { echo "FATAL: cannot extract SUITES -- $SCORECARD_SH missing or not executable. Refusing rather than falling back to a private copy." >&2; exit 1; }
+_sc_raw="$(SCORECARD_PRINT_SUITES=1 "$SCORECARD_SH" 2>&1)"; _sc_rc=$?
+if [ "$_sc_rc" -ne 0 ]; then echo "FATAL: scorecard_snobol4.sh SCORECARD_PRINT_SUITES=1 exited $_sc_rc -- refusing rather than falling back to a private copy. Output was:" >&2; printf '%s\n' "$_sc_raw" >&2; exit 1; fi
+[ -n "$_sc_raw" ] || { echo "FATAL: scorecard_snobol4.sh SCORECARD_PRINT_SUITES=1 printed nothing -- refusing rather than falling back to a private copy." >&2; exit 1; }
+SUITES="$(printf '%s\n' "$_sc_raw" | awk 'NF<7{print "FATAL: malformed SUITES row from scorecard (need >=7 fields, got "NF"): " $0 > "/dev/stderr"; bad=1; next} {fa=""; for(i=4;i<=NF-3;i++) fa=fa (fa==""?"":" ") $i; print $1, $3, fa, $(NF-2)} END{if(bad) exit 1}')" || { echo "FATAL: SUITES extraction/projection from scorecard_snobol4.sh failed -- refusing rather than falling back to a private copy." >&2; exit 1; }
+[ -n "$SUITES" ] || { echo "FATAL: projected SUITES table is empty after extraction -- refusing rather than falling back to a private copy." >&2; exit 1; }
+unset _sc_raw _sc_rc
 MISC_DIRS="tests/snobol4/feat tests/snobol4/parser tests/snobol4/smoke tests/snobol4/jvm_j3 tests/snobol4/linker packages/snobol4/dotnet packages/snobol4/aisnobol"
 stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
   [ -f "$b.input" ] && { echo "$b.input"; return; }; [ -f "$b.in" ] && { echo "$b.in"; return; }

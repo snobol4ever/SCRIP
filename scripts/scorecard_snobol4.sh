@@ -64,6 +64,11 @@ EOF
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
 # ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
 case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
+# ⛔ SINGLE AUTHORITY (row `suite-table-one-authority`, s191/hq_C V2-2): this SUITES table is the ONLY
+# copy.  util_oracle_flag_sweep.sh no longer keeps its own -- it extracts this exact table at run time
+# via SCORECARD_PRINT_SUITES=1, which prints it (post lon-guard, so a corrupted table refuses here too)
+# and exits before touching a corpus, an oracle, or a compiled scrip.  Requires no argument and no $1.
+if [ "${SCORECARD_PRINT_SUITES:-0}" = "1" ]; then printf '%s\n' "$SUITES"; exit 0; fi
 MISC_DIRS="tests/snobol4/feat tests/snobol4/parser tests/snobol4/smoke tests/snobol4/jvm_j3 tests/snobol4/linker packages/snobol4/dotnet packages/snobol4/aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
