@@ -1124,22 +1124,35 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (strcasecmp(type, "ARRAY")   == 0) {
         if (IS_ARR(val)) return val;
         if (IS_TBL(val) && val.tbl) {
+            /*⭐ NESTED, NOT FLAT (matches sort_fn, pattern_match.c:493) -- array_new2d's flat ndim=2 ARBLK_t is never
+               correctly walked by the chain-based subscript machinery (c_rt_subscript_var's DT_A arm resolves each
+               [i,j] link one index at a time and has no ndim>1 row-stride case), so a[1,1] on a flat-built table-to-
+               array conversion misreads the wrong cell regardless of key content -- reproduces with plain NUL-free
+               keys. sort_fn's outer-array-of-inner-[key,val]-arrays shape is proven correct against this same chain:
+               each level is genuinely ndim=1, so ordinary single-index subscripting composes across levels for free. */
             TBBLK_t *tbl = val.tbl;
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
-            ARBLK_t *a = array_new2d(1, n, 1, 2);
-            a->proto_bare = 1;
-            int row = 1;
+            ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
+            a->lo = 1; a->hi = n; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
+            a->proto_bare = 1; a->id = rt_agg_serial_list();
+            { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_ws_strdup(pb); }
+            a->data = rt_ws_alloc(n * sizeof(DESCR_t));
+            int row = 0;
             TBPAIR_t *e;
-            {
-                TBL_FOREACH(tbl, e) { if (row > n) break;
-                    DESCR_t kd = (e->key_descr.v != DT_SNUL)
-                                 ? e->key_descr
-                                 : STRVAL(tbl_pair_key(e));
-                    array_set2(a, row, 1, kd);
-                    array_set2(a, row, 2, e->val);
-                    row++;
-                }
+            TBL_FOREACH(tbl, e) { if (row >= n) break;
+                DESCR_t kd = (e->key_descr.v != DT_SNUL)
+                             ? e->key_descr
+                             : STRVAL(tbl_pair_key(e));
+                ARBLK_t *rb = rt_ws_alloc(sizeof(ARBLK_t));
+                rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
+                rb->proto_bare = 1; rb->proto = 0; rb->id = rt_agg_serial_list();
+                rb->data = rt_ws_alloc(2 * sizeof(DESCR_t));
+                rb->data[0] = kd;
+                rb->data[1] = e->val;
+                DESCR_t rd = {0}; rd.v = DT_A; rd.arr = rb;
+                a->data[row] = rd;
+                row++;
             }
             return ARRAY_VAL(a);
         }
@@ -1150,13 +1163,25 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         if (IS_ARR(val) && val.arr) {
             ARBLK_t *a = val.arr;
             int rows = a->hi - a->lo + 1;
+            TBBLK_t *tbl = table_new_args(rows > 0 ? rows : 10, 10);
+            /*⭐ NESTED FIRST -- this is the shape CONVERT(table,'ARRAY') and SORT() now emit (outer ndim=1 array of
+               inner 2-element [key,val] DT_A arrays, see the ARRAY branch above). Fall back to the flat ndim=2
+               array_get2 layout for arrays built some other way (e.g. a hand-built ARRAY('n,2')). */
+            if (a->ndim == 1 && a->data) {
+                for (int i = 0; i < rows; i++) {
+                    DESCR_t rowv = a->data[i];
+                    if (rowv.v != DT_A || !rowv.arr) return FAILDESCR;
+                    ARBLK_t *rb = rowv.arr;
+                    if (rb->hi - rb->lo + 1 != 2 || !rb->data) return FAILDESCR;
+                    table_set_descr_d(tbl, rb->data[0], rb->data[1]);
+                }
+                return TABLE_VAL(tbl);
+            }
             int cols = a->hi2 - a->lo2 + 1;
             if (cols != 2) return FAILDESCR;
-            TBBLK_t *tbl = table_new_args(rows > 0 ? rows : 10, 10);
             for (int i = a->lo; i <= a->hi; i++) {
                 DESCR_t kd = array_get2(a, i, a->lo2);
                 DESCR_t vd = array_get2(a, i, a->lo2 + 1);
-                char kb[64];
                 table_set_descr_d(tbl, kd, vd);
             }
             return TABLE_VAL(tbl);
