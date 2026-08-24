@@ -10,7 +10,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_gcc() {
     x86_begin();
-    return (PLATFORM_X86 && _.op_name1) ?
+    return (_.op_name1) ?
            x86("comment", "IR_GCC (grammar char-class): match one char at [Sigma+delta] against RO-sealed cset; delta<Delta bounds; gamma advances delta by 1; omega on non-member/EOS")
          + x86_alpha()
          + x86("mov",     "eax", "r14d")

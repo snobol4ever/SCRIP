@@ -10,7 +10,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_upto() {
     x86_begin();
-    if (PLATFORM_X86)
         return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
                x86("comment", "IR_SCAN_UPTO (var cset) [fstranl.r upto: generate positions with s[i] in cset-descr@slot; cursor at off+16; beta resumes]")
              + x86_alpha()

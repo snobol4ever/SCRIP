@@ -17,7 +17,7 @@ static inline int stf() { return _.flat_stmt_frame; }
 static inline int mon_vars_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); v = (e && *e == (char)48) ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_global() {
-    if (!(PLATFORM_X86 && (_.op_zres || (_.op_a_slot >= 0 && _.op_off >= 0))))
+    if (!((_.op_zres || (_.op_a_slot >= 0 && _.op_off >= 0))))
         return x86_alpha()
              + x86_bomb((std::string("bb_assign_global: unhandled (needs descr flat-chain + rhs slot + own slot) var=") + (_.op_sval ? _.op_sval : "?")).c_str());
     if (_.op_zres)

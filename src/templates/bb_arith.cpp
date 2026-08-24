@@ -8,8 +8,7 @@ extern long rt_arith(int lk, long li, const char *ls, int rk, long ri, const cha
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_arith() {
-    return IF(PLATFORM_X86,
-           x86_alpha()
+    return x86_alpha()
          + x86("comment", "IR_ARITH")
          + IF(_.bb_lk < 0,
               x86_gamma()
@@ -28,5 +27,5 @@ std::string bb_arith() {
             + x86("call", "rt_arith", (uint64_t)(uintptr_t)(void*)rt_arith)
             + x86("add", "rsp", (long)8)
             + x86_gamma()
-            + x86_beta_trampoline()));
+            + x86_beta_trampoline());
 }

@@ -13,7 +13,6 @@ int64_t to_int(DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {
     x86_begin();
-    if (PLATFORM_X86)
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0 && _.op_sc >= 0) ? x86_alpha() + x86_bomb("bb_to_by: unhandled (needs from/to/by operand slots, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO_BY real")

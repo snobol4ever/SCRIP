@@ -9,8 +9,7 @@ extern DESCR_t rt_random_var(DESCR_t base);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_random() {
-    return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || _.op_a_slot < 0) ? x86_alpha() + x86_bomb("bb_random: needs own slot + base operand slot")
+    return (_.op_off < 0 || _.op_a_slot < 0) ? x86_alpha() + x86_bomb("bb_random: needs own slot + base operand slot")
          : x86("comment", "IR_RANDOM")
          + x86_alpha()
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

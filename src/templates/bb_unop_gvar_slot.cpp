@@ -11,7 +11,7 @@ extern int64_t rt_gvar_get_int(const char *name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop_gvar_slot() {
-    if (PLATFORM_X86) return IF(_.op_off >= 0
+    return IF(_.op_off >= 0
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0),
                             x86_alpha()

@@ -1411,7 +1411,7 @@ static inline void x86_rec_split(const char * p, size_t len, x86_rec_t & r) {
 static inline int x86_rec_kind(const x86_rec_t & r) { if (r.marg) return r.al ? 4 : 0; if (!r.ol) return 1; return (r.op[0] == 'j') ? 3 : 2; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_4col(const std::string & s) {
-    if (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !PLATFORM_X86) return s;
+    if (MEDIUM_BINARY || MEDIUM_MACRO_DEF) return s;
     { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_ASM_COLUMNS"); on = (e && *e == '0') ? 0 : 1; } if (!on) return s; }
     const int jn = x86_4col_joinon(); const int CJ = x86_col4();
     std::string o; o.reserve(s.size() + s.size() / 2);

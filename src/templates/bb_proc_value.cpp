@@ -10,8 +10,7 @@ extern DESCR_t rt_proc_value(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_proc_value() {
     x86_begin();
-    return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || !_.op_sval) ? x86_alpha() + x86_bomb("bb_proc_value: needs own slot + baked proc name")
+    return (_.op_off < 0 || !_.op_sval) ? x86_alpha() + x86_bomb("bb_proc_value: needs own slot + baked proc name")
          : x86("comment", "IR_PROC_VALUE")
          + x86_alpha()
          + x86("mov",     "rdi", ROQ(0))

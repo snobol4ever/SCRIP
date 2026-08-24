@@ -14,7 +14,7 @@ DESCR_t NV_GET_fn(const char * name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_arith_slot() {
-    if (PLATFORM_X86 && _.op_arith_descr && _.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
+    if (_.op_arith_descr && _.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
         return x86_alpha()
              + x86("comment", "IR_BINOP_GVAR_ARITH (dynamic operands: DESCR-in DESCR-out via rt_num_arith)")
              + IF(_.bb_lk == (int)IR_VAR && _.op_name1 && _.op_parts_lbl[0], x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))
@@ -42,7 +42,7 @@ std::string bb_binop_gvar_arith_slot() {
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86("rtcc_rl")
              + x86_gamma() + x86_beta() + x86_omega();
-    return PLATFORM_X86 ? (IF(_.op_off >= 0
+    return (IF(_.op_off >= 0
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
                               && (_.bb_rk == (int)IR_LIT_INTEGER || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0),
@@ -76,5 +76,5 @@ std::string bb_binop_gvar_arith_slot() {
                               && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)
                               && (_.bb_rk == (int)IR_LIT_INTEGER || (_.bb_rk == (int)IR_VAR && _.op_name2 != 0) || _.op_sb >= 0)),
-                            x86_bomb("bb_binop_gvar_arith_slot: shape mismatch (dispatch chose this arm but predicate failed)"))) : std::string();
+                            x86_bomb("bb_binop_gvar_arith_slot: shape mismatch (dispatch chose this arm but predicate failed)")));
 }

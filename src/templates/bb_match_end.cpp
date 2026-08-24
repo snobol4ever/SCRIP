@@ -161,8 +161,7 @@ static std::string release_pump() { return one_end() ? release_pump_one() : rele
 std::string bb_match_end() {
     x86_begin();
     if (getenv("SCRIP_MEND_ADDR_DIAG")) fprintf(stderr, "[MEND] op_off=%d op_fc_disp=%d op_dval=%g rfc=%d zc_frame=%d op_tail=%d\n", _.op_off, _.op_fc_disp, _.op_dval, rfc() ? 1 : 0, (int)x86_zc_frame(), _.op_tail);
-    return !PLATFORM_X86 ? std::string()
-         : _.op_off < 0
+    return _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_tail && rfc()
          ? x86("comment", "IR_MATCH_END (CAS-MARKER-CARRY tail: scan to the head's tag-0 sentinel, recover patstk (+16) and the rsp mark (+8) off it, one-mov unwind -- depth-free on every success-path depth, where the old RSP(op_fc_disp) reloads under-counted the live leaf cells the non-popping γ spine leaves (the 041 class: [rsp+16] read the assign_save cell, rsp := 0x7fff00000000).  Marker NOT popped here -- the pump walks the pend entries above it and its own L(6) scan pops the lot)")

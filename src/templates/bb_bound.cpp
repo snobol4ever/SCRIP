@@ -7,7 +7,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_bound() {
     x86_begin();
-    if (!PLATFORM_X86 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_bound: no mark slot (op_off)");
+    if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_bound: no mark slot (op_off)");
     if (_.op_zres) {
         if (_.op_sb == 1)
             return x86("comment", "IR_BOUND cells arm -- save rsp to frame slot (Op_Mark: bounded-expression entry frontier)")

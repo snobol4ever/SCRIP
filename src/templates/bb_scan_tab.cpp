@@ -12,7 +12,7 @@ static int tab_admit() { return _.op_off >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_tab() {
     x86_begin();
-    return (!PLATFORM_X86 || !tab_admit()) ? x86_alpha() + x86_bomb("bb_scan_tab: no result slot (op_off)") :
+    return (!tab_admit()) ? x86_alpha() + x86_bomb("bb_scan_tab: no result slot (op_off)") :
            x86("comment", "IR_SCAN_TAB")
          + x86_alpha()
          + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))

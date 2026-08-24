@@ -11,7 +11,7 @@ void *rt_pl_cp_pop(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_indirect_goto() {
     x86_begin();
-    if (!PLATFORM_X86 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_indirect_goto: no label-variable slot (op_off<0)");
+    if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_indirect_goto: no label-variable slot (op_off<0)");
     if (_.op_zres) {
         uint64_t pop_fp; { void *(*fp)(void) = rt_pl_retry_pop; pop_fp = (uint64_t)(uintptr_t)(void *)fp; }
         return x86("comment", "IR_INDIRECT_GOTO (ZD/cells: retry stack pop)")

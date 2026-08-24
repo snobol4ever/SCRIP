@@ -10,8 +10,7 @@ void rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_replace() {
     x86_begin();
-    return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || (_.op_sa < 0 && !(_.op_zres && _.op_zread[2] >= 0)) || (_.op_sb < 0 && !_.op_zres)) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
+    return (_.op_off < 0 || (_.op_sa < 0 && !(_.op_zres && _.op_zread[2] >= 0)) || (_.op_sb < 0 && !_.op_zres)) ? x86_alpha() + x86_bomb("IR_MATCH_REPLACE: head/subject/repl slot unresolved")
          : x86("comment", "IR_MATCH_REPLACE")
          + x86_alpha()
          + x86_align_enter()

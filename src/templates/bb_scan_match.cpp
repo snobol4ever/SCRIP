@@ -12,7 +12,7 @@ ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_match() {
     x86_begin();
-    return (PLATFORM_X86 && _.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
+    return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
            x86("comment", "IR_SCAN_MATCH (var needle) [fstranl.r match: rt_scan_needle coerces (int/real->string) -> {ptr,len}; fail unless Delta-delta>=len && memcmp==0; result {DT_I, delta+1+len}]")
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
@@ -45,7 +45,7 @@ std::string bb_scan_match() {
              + x86("mov",     FRQ(_.op_off + 8), "rax")
              + x86_gamma()
              + x86_beta_trampoline() :
-           (!PLATFORM_X86 || !(_.op_off >= 0 && _.op_name1)) ? x86_alpha() + x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)") :
+           (!(_.op_off >= 0 && _.op_name1)) ? x86_alpha() + x86_bomb("bb_scan_match: unhandled (needs literal string arg + descr flat-chain slot)") :
            x86("comment", "IR_SCAN_MATCH")
          + x86_alpha()
          + x86("mov",     "rax", "r15")

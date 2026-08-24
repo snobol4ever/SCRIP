@@ -18,7 +18,7 @@ static std::string scanalt_dispatch_chain(long N, int base, int lo) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_alternate() {
     x86_begin();
-    return !PLATFORM_X86 ? std::string() : _.op_off < 0
+    return _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_SCAN_ALTERNATE: value/state slot not granted (zls)")
              : x86("comment", "IR_SCAN_ALT_NARY")
              + x86_alpha()

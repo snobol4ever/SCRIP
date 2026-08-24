@@ -10,10 +10,10 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_get() {
-    if (!(PLATFORM_X86 && _.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0)
+    if (!(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0)
      || !(_.bb_lk == (int)IR_LIT_INTEGER || _.bb_lk == (int)IR_LIT_STRING || (_.bb_lk == (int)IR_VAR && _.op_name2 && _.op_parts_lbl[1])))
         return x86_alpha()
-             + x86_bomb(!(PLATFORM_X86 && _.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0)
+             + x86_bomb(!(_.op_off >= 0 && _.op_name1 && _.op_parts_lbl[0] && _.op_sa >= 0)
                         ? "bb_idx_get: unhandled (needs base name + result/scratch slots)"
                         : "bb_idx_get: unhandled key kind (LIT_I immediate, LIT_S literal, or VAR by-name only)");
     x86_begin();

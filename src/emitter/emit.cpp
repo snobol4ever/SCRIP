@@ -22,7 +22,6 @@ const char * stmt_src_get_file(void);
 bb_emit_mode_t  bb_emit_mode = EMIT_BINARY_WIRED;
 int             g_sm_native_unsupported = 0;
 FILE           *bb_emit_out  = NULL;
-bb_platform_t   g_platform      = BB_PLATFORM_X86;
 bb_medium_t     g_medium        = BB_MEDIUM_BINARY;
 void          (*g_emit_chain_posthook)(void) = NULL;
 int             g_use_sm_macros = 0;
@@ -192,7 +191,7 @@ void emitter_init_binary(bb_buf_t buf, int size)
     bb_emit_overflow = 0;
     bb_label_alias_reset();
     bb_emit_mode = EMIT_BINARY_WIRED;
-    g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_BINARY;
+    g_medium = BB_MEDIUM_BINARY;
     bb_emit_begin(buf, size);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -201,7 +200,7 @@ void emitter_init_text(FILE *out, int mode)
     g_is_text = 1; g_emit_text_mode = mode; g_emit_pos = 0;
     bb_label_alias_reset();
     bb_emit_mode = EMIT_TEXT;
-    g_platform = BB_PLATFORM_X86; g_medium = BB_MEDIUM_TEXT;
+    g_medium = BB_MEDIUM_TEXT;
     bb_emit_out  = out ? out : stdout;
     emit_set_sink(out ? out : stdout);
 }

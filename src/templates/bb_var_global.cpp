@@ -12,7 +12,6 @@ DESCR_t NV_GET_fn(const char * name);
 static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {
-    if (PLATFORM_X86)
         return !_.op_zres && _.op_off < 0 ? x86_alpha() + x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)")
              : g_gva_active && _.op_gva_k >= 0 ?
                x86("comment", "IR_VAR")

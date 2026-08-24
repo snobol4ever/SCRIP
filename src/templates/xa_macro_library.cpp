@@ -6,11 +6,11 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_macro_library_open_text(void) {
-    return IF(PLATFORM_X86, std::string("# === BEGIN sm macro library (via ") + "MEDIUM" + "_MACRO_DEF template dispatch) ===\n" + ".intel_syntax noprefix\n");
+    return std::string("# === BEGIN sm macro library (via ") + "MEDIUM" + "_MACRO_DEF template dispatch) ===\n" + ".intel_syntax noprefix\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_macro_library_close_text(void) {
-    return IF(PLATFORM_X86, std::string("# === END sm macro library ===\n"));
+    return std::string("# === END sm macro library ===\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_macro_library_open(void) {

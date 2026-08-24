@@ -8,7 +8,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_pos() {
     x86_begin();
-    if (!PLATFORM_X86 || !(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_scan_pos: no result slot (op_off)");
+    if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_scan_pos: no result slot (op_off)");
     return x86("comment", "BOX ICN IR_SCAN_POS pos(n) [ICN-SCAN-3 fscan.r: i=cvpos(i,len); succeed iff i==&pos (r14+1); result {DT_I,i} normalized; single-shot beta->omega]")
          + x86_alpha()
          + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))

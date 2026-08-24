@@ -8,7 +8,6 @@ void rt_indirect_assign_var(const char *holder, const char *val_name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_indirect_assign_var() {
-    if (PLATFORM_X86)
         return x86_alpha()
              + x86("comment", "IR_INDIRECT_ASSIGN_VAR")
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval   ? _.op_sval   : ""), _.bb_ls)

@@ -10,7 +10,7 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glit() {
     x86_begin();
-    return (PLATFORM_X86 && _.op_name1) ?
+    return (_.op_name1) ?
            x86("comment", "IR_GLIT (grammar literal): match RO string at [Sigma+delta]; delta<Delta bounds; gamma advances delta by len; omega on mismatch/EOS")
          + x86_alpha()
          + x86("mov",     "rax", "r15")

@@ -26,7 +26,7 @@ extern DESCR_t POWER_fn(DESCR_t, DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_gvar_arith() {
     x86_begin();
-    if (PLATFORM_X86) return IF(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval,
+    return IF(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval,
                             x86_alpha()
                           + x86("comment", "IR_BINOP_GVAR_ARITH")
                           + IF(_.bb_lk == (int)IR_LIT_REAL, x86("mov", "rdi", (long)DT_R))

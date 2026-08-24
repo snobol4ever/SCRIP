@@ -10,7 +10,7 @@ extern int g_monitor_bin;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_idx_set() {
-    if (!PLATFORM_X86 || !(_.op_a_slot >= 0 && _.op_sb >= 0 && _.op_sc >= 0))
+    if (!(_.op_a_slot >= 0 && _.op_sb >= 0 && _.op_sc >= 0))
         return x86_alpha() + x86_bomb("bb_idx_set: needs base/key/value operand slots ([ζ+off] producers)");
     x86_begin();
     return x86_alpha()

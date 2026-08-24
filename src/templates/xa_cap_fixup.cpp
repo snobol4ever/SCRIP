@@ -6,7 +6,7 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_cap_fixup_text(void) {
-    return IF(PLATFORM_X86 && g_emit.xa_cap_dlbl && g_emit.xa_cap_dlbl[0] && g_emit.xa_cap_child_lbl && g_emit.xa_cap_child_lbl[0],
+    return IF(g_emit.xa_cap_dlbl && g_emit.xa_cap_dlbl[0] && g_emit.xa_cap_child_lbl && g_emit.xa_cap_child_lbl[0],
               std::string("lea rdi, [rip + ") + g_emit.xa_cap_dlbl + "]\n"
             + "lea rsi, [rip + " + g_emit.xa_cap_child_lbl + "]\n"
             + IF(g_emit.xa_cap_is_arbno, std::string("call rt_init_arbno@PLT\n"))

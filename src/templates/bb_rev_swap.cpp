@@ -15,8 +15,7 @@ static long rsw_kind(const char *n) { if (!n || n[0] != '&') return 0; if (!strc
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_swap() {
     return [&](long lk, long rk) {
-        return !PLATFORM_X86 ? std::string()
-             : (lk < 0 || rk < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos is its own rung (wire it in rsw_kind + rsw_get/rsw_set)")
+        return (lk < 0 || rk < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: <-> keyword operand other than &pos is its own rung (wire it in rsw_kind + rsw_get/rsw_set)")
              : ((lk == 0 && _.op_sb < 0) || (rk == 0 && _.op_sa < 0)) ? x86_alpha() + x86_bomb("bb_rev_swap: plain <-> operand has no LOWER-granted varslot")
              : (_.op_off < 0) ? x86_alpha() + x86_bomb("bb_rev_swap: no result slot")
              : x86("comment", "IR_REV_SWAP")

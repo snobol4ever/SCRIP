@@ -19,15 +19,13 @@ extern "C" void *rt_gen_get_omega_wire(void *gen_fb);
 static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
-    if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
-        if (MEDIUM_BINARY)    return std::string();
-        if (MEDIUM_TEXT) {
-            if (!g_is_text) return std::string();
-            return std::string("  cmp esi, 0\n")
-                 + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
-                 + "  jmp " + (g_emit.flat_lbl_β      ? g_emit.flat_lbl_β      : "?") + "\n";
-        }
+    if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
+    if (MEDIUM_BINARY)    return std::string();
+    if (MEDIUM_TEXT) {
+        if (!g_is_text) return std::string();
+        return std::string("  cmp esi, 0\n")
+             + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
+             + "  jmp " + (g_emit.flat_lbl_β      ? g_emit.flat_lbl_β      : "?") + "\n";
     }
     return std::string();
 }
@@ -124,15 +122,13 @@ static std::string xaf_anchor_leave_text(void) {
 static std::string xaf_add_rdi_imm_bin(int n) { return (n >= -128 && n <= 127) ? bytes(3, "\x48\x83\xC7") + std::string(1, (char)(unsigned char)n) : bytes(3, "\x48\x81\xC7") + u32le((uint32_t)n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
-    if (PLATFORM_X86) {
-        if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
-        if (MEDIUM_BINARY)    return std::string();
-        if (MEDIUM_TEXT) {
-            if (!g_flat_data_any) return std::string();
-            return std::string("  .section .data\n")
-                 + std::string(g_flat_data_buf, g_flat_data_len)
-                 + "  .section .text\n";
-        }
+    if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
+    if (MEDIUM_BINARY)    return std::string();
+    if (MEDIUM_TEXT) {
+        if (!g_flat_data_any) return std::string();
+        return std::string("  .section .data\n")
+             + std::string(g_flat_data_buf, g_flat_data_len)
+             + "  .section .text\n";
     }
     return std::string();
 }
@@ -255,7 +251,7 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_PL_ZANCHOR_POISON"); on = (e && *e == '1') ? 1 : 0; } return on; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
-    if (!PLATFORM_X86 || !g_emit.zframe_graph) return std::string();
+    if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
@@ -330,7 +326,7 @@ static int xa_flat_class_c(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_prologue_str(void) {
-    if (!PLATFORM_X86 || !xa_flat_class_c()) return std::string();
+    if (!xa_flat_class_c()) return std::string();
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
     if (!_cf) return std::string();
     { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
@@ -344,7 +340,7 @@ static std::string xa_flat_chain_prologue_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_str(void) {
-    if (!PLATFORM_X86 || !xa_flat_class_c()) return std::string();
+    if (!xa_flat_class_c()) return std::string();
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
     if (!_cf) return std::string();
     return x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
@@ -354,7 +350,7 @@ static std::string xa_flat_chain_epilogue_str(void) {
 static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
-    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _ggw_fp; { void *(*_f)(void *) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
@@ -416,7 +412,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
-    if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
+    if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _gow_fp; { void *(*_f)(void *) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }

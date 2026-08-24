@@ -27,7 +27,7 @@ static inline int bcs_null_side() { if (getenv("SCRIP_OPT_NULLCAT") && getenv("S
     return (_.op_ival == BINOP_CONCAT_FRACDIGIT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_concat_slot() {
-    if (PLATFORM_X86 && _.op_zres && bcs_null_side() >= 0) {
+    if (_.op_zres && bcs_null_side() >= 0) {
         const int k = bcs_null_side();
         return x86("comment", "IR_BINOP_CONCAT zd null-identity")
              + x86_alpha()
@@ -38,7 +38,7 @@ std::string bb_binop_concat_slot() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (PLATFORM_X86 && !_.op_zres && bcs_ok() && bcs_null_side() >= 0) {
+    if (!_.op_zres && bcs_ok() && bcs_null_side() >= 0) {
         const int s = bcs_null_side() ? _.op_sb : _.op_sa;
         return x86_alpha()
              + x86("comment", "IR_BINOP_CONCAT null-identity")
@@ -49,7 +49,7 @@ std::string bb_binop_concat_slot() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (PLATFORM_X86 && _.op_zres)
+    if (_.op_zres)
         return x86("comment", "IR_BINOP_CONCAT zd")
              + x86_alpha()
              + x86("note", ZOPN(0)) + x86("mov", "rdi", ZOPQ(0, 0))
@@ -63,7 +63,7 @@ std::string bb_binop_concat_slot() {
              + x86("rtcc_rl")
              + x86_gamma()
              + x86_beta_trampoline();
-    return IF(PLATFORM_X86 && bcs_ok(),
+    return IF(bcs_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_CONCAT")
          + x86("mov", "rdi", FRQ(_.op_sa))

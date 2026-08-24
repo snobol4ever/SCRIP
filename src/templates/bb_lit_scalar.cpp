@@ -21,8 +21,7 @@ static inline const char * ls_rd(int w) { return _.op_zres ? ZRESD(w) : FR(_.op_
 static inline std::string ls_dual(int w) { return (_.op_zres && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? x86("mov", "rax", ZRES(w)) + x86("mov", FRQ(_.op_off + w), "rax") : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {
-    return !PLATFORM_X86 ? std::string()
-         : _.op_node_kind == (int)IR_LIT_INTEGER && (_.op_off >= 0 || _.op_zres)
+    return _.op_node_kind == (int)IR_LIT_INTEGER && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_INTEGER")
              + x86_alpha()
              + x86("note", ZRESN()) + x86("mov",    ls_rq(0), lit_tag_imm((long)DT_I))

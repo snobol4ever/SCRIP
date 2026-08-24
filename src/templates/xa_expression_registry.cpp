@@ -6,7 +6,7 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_expression_registry_text(void) {
-    return IF(PLATFORM_X86 && g_emit.xa_expr_count > 0,
+    return IF(g_emit.xa_expr_count > 0,
               std::string(".section .data\n.align 8\n.Lexpression_registry:\n")
             + FOR(0, g_emit.xa_expr_count, [](int i) {
                   return std::string(".quad .S") + std::to_string(g_emit.xa_expr_str_idxs[i]) + "\n"

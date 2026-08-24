@@ -86,27 +86,14 @@ typedef enum {
 } bb_emit_mode_t;
 #define EMIT_BINARY     EMIT_BINARY_WIRED
 typedef enum {
-    BB_PLATFORM_X86  = 0,
-    BB_PLATFORM_JVM  = 1,
-    BB_PLATFORM_NET  = 2,
-    BB_PLATFORM_JS   = 3,
-    BB_PLATFORM_WASM = 4
-} bb_platform_t;
-typedef enum {
     BB_MEDIUM_TEXT      = 0,
     BB_MEDIUM_BINARY    = 1,
     BB_MEDIUM_MACRO_DEF = 2
 } bb_medium_t;
-extern bb_platform_t   g_platform;
 extern bb_medium_t     g_medium;
 extern void          (*g_emit_chain_posthook)(void);
 extern int             g_use_sm_macros;
 extern int             g_use_bb_macros;
-#define PLATFORM_X86   (g_platform == BB_PLATFORM_X86)
-#define PLATFORM_JVM   (g_platform == BB_PLATFORM_JVM)
-#define PLATFORM_NET   (g_platform == BB_PLATFORM_NET)
-#define PLATFORM_JS    (g_platform == BB_PLATFORM_JS)
-#define PLATFORM_WASM  (g_platform == BB_PLATFORM_WASM)
 #define MEDIUM_TEXT      (g_medium == BB_MEDIUM_TEXT)
 #define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
 #define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)

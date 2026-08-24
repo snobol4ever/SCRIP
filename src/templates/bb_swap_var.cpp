@@ -9,7 +9,6 @@ extern DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_swap_var() {
-    if (PLATFORM_X86)
         return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0) ? x86_alpha() + x86_bomb("bb_swap_var: needs own slot + two variable operand slots") :
                x86("comment", "IR_SWAP_VAR x:=:y through variables (canonical swap, oasgn.r:265)")
              + x86_alpha()

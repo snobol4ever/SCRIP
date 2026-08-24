@@ -14,7 +14,7 @@ DESCR_t str_repeat_d(DESCR_t s, DESCR_t n);
 static inline int bxr_ok() { return _.op_off >= 0 && _.op_ival == BINOP_XREP && _.op_sa >= 0 && _.op_sb >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_xrep_slot() {
-    return IF(PLATFORM_X86 && bxr_ok(),
+    return IF(bxr_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_XREP")
          + x86("mov", "rdi", FRQ(_.op_sa))

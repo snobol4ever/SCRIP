@@ -16,7 +16,6 @@ static std::string frame_reach(const char * reg, int hops) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_frame() {
-    if (PLATFORM_X86)
         return _.op_off < 0 ? x86_alpha() + x86_bomb("bb_var_frame: needs gvar flat-chain + own slot") :
                x86("comment", "IR_VAR_FRAME")
              + x86_alpha()

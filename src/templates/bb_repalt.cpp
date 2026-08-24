@@ -9,15 +9,14 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_repalt_clear() {
     x86_begin();
-    return !PLATFORM_X86 ? std::string()
-         : x86_alpha()
+    return x86_alpha()
          + x86("comment", "IR_REPALT clear")
          + x86("mov", FRQ(_.op_off + 16), (long)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_repalt_yield() {
     x86_begin();
-    return [&]() { return !PLATFORM_X86 ? std::string() : (_.op_sa < 0) ? x86_bomb("bb_repalt_yield: sub-expression value slot not materialised")
+    return [&]() { return (_.op_sa < 0) ? x86_bomb("bb_repalt_yield: sub-expression value slot not materialised")
          : x86("comment", "IR_REPALT yield")
          + x86("mov", "rax", FRQ(_.op_sa))
          + x86("mov", FRQ(_.op_off),     "rax")
@@ -28,8 +27,7 @@ std::string bb_repalt_yield() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_repalt_test() {
     x86_begin();
-    return !PLATFORM_X86 ? std::string()
-         : x86("comment", "IR_REPALT test")
+    return x86("comment", "IR_REPALT test")
          + x86("mov", "rax", FRQ(_.op_off + 16))
          + x86("cmp", "rax", (long)1);
 }

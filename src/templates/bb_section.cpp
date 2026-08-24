@@ -11,7 +11,6 @@ extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_section() {
-    if (PLATFORM_X86)
         return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0)
              ? x86_alpha() + x86_bomb("bb_section: needs own slot + base/i1/i2 operand slots")
              : (_.op_sval && _.op_sval[0] == 'l' && _.op_sval[1] == 'v' && !_.op_sval[2])

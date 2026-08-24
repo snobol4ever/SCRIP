@@ -10,8 +10,7 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_assign_var() {
-    return !PLATFORM_X86 ? std::string()
-         : (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) ? x86_alpha() + x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot")
+    return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sc < 0) ? x86_alpha() + x86_bomb("bb_rev_assign_var: needs own slot + variable/value operand slots + save slot")
          : x86("comment", "IR_REV_ASSIGN_VAR")
          + x86_alpha()
          + x86("mov",     "rdi", FRQ(_.op_a_slot))

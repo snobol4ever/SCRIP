@@ -6,7 +6,7 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_pattern_blobs_text(void) {
-    return IF(PLATFORM_X86 && g_emit.xa_pat_blob_invariant_n > 0, std::string(".intel_syntax noprefix\n") + ".text\n");
+    return IF(g_emit.xa_pat_blob_invariant_n > 0, std::string(".intel_syntax noprefix\n") + ".text\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_pattern_blobs(void) {

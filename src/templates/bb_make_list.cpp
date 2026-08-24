@@ -35,9 +35,7 @@ std::string bb_make_list() {
         s += x86_beta_trampoline();
         return s;
     }
-    return !PLATFORM_X86
-             ? std::string()
-         : _.op_off < 0
+    return _.op_off < 0
              ? x86_alpha() + x86_bomb("bb_make_list: unhandled (needs result slot, descr flat-chain)")
          : ![&]() { for (int i = 0; i < _.op_arg_slot_n; i++) if (_.op_arg_slot[i] < 0) return 0; return 1; }()
              ? x86_alpha() + x86_bomb("bb_make_list: element slot unfilled")
