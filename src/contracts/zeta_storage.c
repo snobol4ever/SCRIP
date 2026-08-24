@@ -571,6 +571,7 @@ int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
 int fc_alt_fpmax(const IR_t * nd);
 int fc_save_active(const IR_t * nd);
 int fc_vlit_active(const IR_t * nd);
+int fc_vdj_active(const IR_t * nd);
 int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zc_nofc(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_NOFC"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
@@ -581,7 +582,7 @@ int fc_geom(const IR_t * nd, long * k) {
       if (fc_arm_member(nd) && !(_ac && nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd))) return 0; }
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }
     if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR) && fc_vlit_active(nd) && (!zc_nofc() || fc_subj_member(nd))) { if (k) *k = 16; return 1; }
-    if (nd->op == IR_DISJUNCTION && IR_LIT(nd).ival > 0 && nd->n_operands > 2 * (int)IR_LIT(nd).ival) { if (k) *k = 16; return 1; }
+    if (nd->op == IR_DISJUNCTION && fc_vdj_active(nd) && IR_LIT(nd).ival > 0 && nd->n_operands > 2 * (int)IR_LIT(nd).ival) { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
@@ -645,6 +646,17 @@ void fc_arbno_member_register(const IR_t * nd) { if (nd && fcab_n < 512) fcab[fc
 int fc_arbno_member(const IR_t * nd) { for (int i = 0; i < fcab_n; i++) if (fcab[i] == nd) return 1; return 0; }
 int fc_seq_active(const IR_t * nd) { (void)nd; return 0; }
 static const IR_t * fvl[256]; static int fvl_n = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Value-disjunctions whose CONSUMERS read the arm result from the ζ-spine, declared by whoever lowered them. The
+   structural shape (3N operands past 2N port pairs, ival>0) is NOT sufficient to grant a flat cell: it is true of
+   every frontend that lowers a value-carrying disjunction onto this one shared host, and a grant to a host whose
+   consumers still address the FRAME re-routes FRQ() to the spine for the producer alone -- the producer/consumer
+   split. The grant is therefore keyed on the consuming regime, which only the lowerer knows, and is registered the
+   same way fc_vlit/fc_save already are. Every IR_DISJUNCTION stays eligible, so this is a behavioral condition and
+   not a per-op admission list. */
+static const IR_t * fvdj[256]; static int fvdj_n = 0;
+void fc_vdj_register(const IR_t * nd) { if (!nd || fvdj_n >= 256) return; fvdj[fvdj_n++] = nd; }
+int fc_vdj_active(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvdj_n; i++) if (fvdj[i] == nd) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_vlit_register(const IR_t * nd) { if (!nd || fvl_n >= 256) return; fvl[fvl_n++] = nd; }
 static const IR_t * fvs[64]; static int fvs_n = 0;

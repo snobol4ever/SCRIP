@@ -740,6 +740,12 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         for (int j = 0; j < n; j++) ir_operand_push(dj, sno_arm_result(resv[j]));
         IR_LIT(dj).ival = (long) n;
+        /* Declare that THIS disjunction's consumers read the arm result off the ζ-spine, which is what earns the flat
+           cell. The structural shape alone does not: lower_icon.c's lower_alt and lower_if build the identical 3N-past-2N
+           host for `|` and if/then/else, and their consumers address the frame -- granting on shape cost 47 Icon programs
+           (hq_P s271, revert-proven against the 232/31/30 baseline). The host is shared by three frontends; the consuming
+           regime is not, and only the lowerer knows it. */
+        { extern void fc_vdj_register(const IR_t *); fc_vdj_register(dj); }
         if (res) *res = dj; return dj;
     }
     default: {
