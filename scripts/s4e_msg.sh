@@ -133,9 +133,24 @@ case "$cmd" in
   ask)   topic="${2:?topic}"; shift 2; _hq="$(s4e_hq)"
          [ -n "$_hq" ] || { echo "⛔ REFUSED: no owning HQ resolved for $ME. Set S4E_HQ=hq_C|hq_P, or have your HQ write it: echo hq_C > $PO/$ME/HQ" >&2; exit 2; }
          exec "$0" send "$_hq" "q-$topic" "$*";;
-  check) d="$PO/$ME/inbox"; n=$(ls "$d" 2>/dev/null | wc -l)
-         echo "[$ME] inbox: $n message(s)"; for f in "$d"/*.msg; do [ -f "$f" ] || continue; echo "--- $(basename "$f")"; cat "$f"; done;;
-  clear) rm -f "$PO/$ME/inbox/"*.msg 2>/dev/null; echo "[$ME] inbox cleared";;
+  # ⛔ CLEAR DELETES ONLY WHAT CHECK DISPLAYED (hq_C s269). MEASURED, not hypothetical: a message arrived
+  # between this seat's `check` and its `clear`, and the old `rm -f *.msg` destroyed it UNREAD and
+  # UNRECOVERABLE -- clear does not archive, and no sent-copy is kept anywhere. The banner had even printed
+  # "2 UNREAD" one line above the rm. THE LOOP's own step 1 (read -> act -> clear) makes that window a
+  # certainty, not an accident: acting on a brief is exactly when a seat is slowest. So `check` now records
+  # what it showed, and `clear` refuses to remove anything it did not.
+  check) d="$PO/$ME/inbox"; n=$(ls "$d" 2>/dev/null | wc -l); lc="$PO/$ME/.last-check"
+         echo "[$ME] inbox: $n message(s)"; : > "$lc"
+         for f in "$d"/*.msg; do [ -f "$f" ] || continue; basename "$f" >> "$lc"; echo "--- $(basename "$f")"; cat "$f"; done;;
+  clear) d="$PO/$ME/inbox"; lc="$PO/$ME/.last-check"
+         [ -f "$lc" ] || { echo "⛔ REFUSED: nothing has been read in this seat. Run 'check' first -- clear only removes what check displayed." >&2; exit 2; }
+         _cl=0; _kept=0
+         for f in "$d"/*.msg; do [ -f "$f" ] || continue; _b="$(basename "$f")"
+           if grep -qxF "$_b" "$lc" 2>/dev/null; then rm -f "$f"; _cl=$((_cl+1))
+           else _kept=$((_kept+1)); echo "⛔ KEPT UNREAD (arrived after your last check): $_b"; fi; done
+         rm -f "$lc"
+         if [ "$_kept" -gt 0 ]; then echo "[$ME] cleared $_cl, KEPT $_kept UNREAD -- run 'check' again before you stop"; exit 1
+         else echo "[$ME] inbox cleared ($_cl)"; fi;;
   # ⭐ CREATION IS A DELIBERATE ACT WITH A NAME (V2-4). LAW 6 forbids mailboxes appearing as a side effect of a
   # typo, not mailboxes existing -- Lon adds seats, and a fleet that cannot enrol one is not operable. So the
   # capability survives as ONE explicit subcommand that says what it did, and every implicit mkdir is gone.
