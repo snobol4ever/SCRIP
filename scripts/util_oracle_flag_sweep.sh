@@ -53,7 +53,7 @@ crosscheck     crosscheck                                          -name *.sno -
 feature_test   SCRIPTEST                                           -name *.sno                CORPUS
 probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
 csnobol4_suite snobol4/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR
-gimpel         gimpel                                     -name *_driver.sno         SELFDIR:include
+gimpel         snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include
 misc           MISC                                                -name *.sno                SELFDIR
 EOF
 )
