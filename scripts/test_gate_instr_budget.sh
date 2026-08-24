@@ -76,8 +76,28 @@ BEAUTY_DIR="$CORPUS_ROOT/demo"
 BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 
 TOL_PCT="${TOL_PCT:-2}"
-# Watermarks: RT_OPT=-O0, measured on a `make pristine` build, 2026-08-22, SCRIP `cd13321e`.  Re-pin with the FINDING that changed them.
-ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-22522863}"
+# ⭐ ROMAN RE-PINNED 2026-08-24 hq_P s272: 22522863 -> 10224491, RT_OPT=-O0, `make pristine`, SCRIP `1177e66e`, mode-4, correctness OK
+# against roman.ref.  That is 2.20x on the faster axis (watermark/measured) and it is NOT one commit: it is the s262-s264 roman
+# campaign, unpinned for two days.  Bisected ladder, EVERY ARM RE-MEASURED AT -O0 BY THIS GATE'S OWN measure_ir -- the commit
+# messages below quote their own -O2 figures, which is why the ladder had to be re-walked rather than summed from them
+# (RULES.md: a number carried into a new column must be re-measured, not copied):
+#   cd13321e 22,521,791  the old watermark tree -- reproduces the pinned 22,522,863 to 0.005%, so the pin itself was sound
+#   646b8047 23,073,347  +2.45% ABOVE the pin -- a real small regression, never chased, swamped by what follows (see FINDING)
+#   6c3f081c 23,070,607
+#   db8f96d6 19,790,962  -14.2%  NV_* vrblk memo, ordinary-variable fast path   [runtime only: emitted .s md5 unchanged]
+#   97ef3c3a 19,380,226  -2.1%   first-char guard on the FAIL strcmp, defer path
+#   454b5190 17,012,452  -12.2%  one name resolution per deferred node instead of two
+#   f8081604 15,283,650  -10.2%  drop the unobservable dfx frame on the merged defer path
+#   3342581a 10,238,326  -33.0%  COMPOUND of ~6 named roman wins in a82768c2..3342581a (84aaef7e -26.7%, a16598a2 -13.2%,
+#                                e3951bae -10.4%, cb743fe9 -6.7%, 69030b07 -6.3%, 083d106f -5.6%) -- the s262 ladder proper
+#   eca52780 10,217,267  flat    (seat04 measured table/array here and correctly left roman alone: not their row)
+#   1177e66e 10,224,491  flat    HEAD -- emitted .s BYTE-IDENTICAL to eca52780 (md5 ac1f4619), so today's cures moved nothing here
+# ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/roman.sno is unchanged since 2026-08-18 and roman.ref since April
+# (345 conversions); only path moves touched either.  A shrunken workload is the way this measurement lies, and it did not.
+# Watermarks: RT_OPT=-O0, measured on a `make pristine` build.  Re-pin with the FINDING that changed them.
+ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
+# BEAUTY: measured 2,188,115,136 at 1177e66e -- -1.24%, INSIDE the +-2% band, so left pinned deliberately.  Re-pinning a
+# workload that never left its band would spend the band's whole purpose (absorbing honest drift) on absorbing nothing.
 BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-2215545392}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
