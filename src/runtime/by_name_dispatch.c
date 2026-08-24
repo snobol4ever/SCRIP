@@ -5282,6 +5282,48 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
     }
     if (!fn || !out) return 0;
+    /* ⭐ NAME-INDEPENDENT FAST PATH (perf-dispatch-callsite-cache STEP3, s272).  When rt_dtax_gen==0, NOT ONE OPSYN or
+       DATA() has EVER executed in this run (exactly two write sites in the whole tree -- rt_builtin_synonym_add and
+       driver_data.c's DATA() registration, re-grepped for this change; rt_dtax_gen starts at 0, driver_data.c:13) --
+       so bidlen's baked _bid, for this CLOSED, ENUMERATED set of bid-keyed builtins, PROVABLY still means its plain
+       compiled-in self; skip g_dtax_bid/g_dtax and the branch-selection between them entirely and call the C
+       function directly.  Scoped to the fourteen names whose _bid the switch below ALREADY re-checks explicitly
+       (SIZE..DIFFER) -- the relop family (EQ/NE/LT/LE/GT/GE/LGT/LLT/LGE/LLE/LEQ/LNE) has NO builtin_ids.h entry at
+       all (grepped, zero hits), so bid_of() bakes 0 for them and they fall through unchanged to the hash-path cache.
+       ⛔ ORDER MATTERS, TWICE: (a) runs AFTER the DT_DATA field-precedence block above -- a record field literally
+       named SIZE/TRIM/... still wins, unchanged; (b) this function is reached ONLY from rt_call_arr_impl, itself
+       reached ONLY from inside rt_call_arr_bl's setjmp-protected region (no other caller in the tree) -- so a
+       longjmp from deep inside e.g. bn_remdr's core_runtime_error(312, "remdr caused real overflow") path (the only
+       core_runtime_error/core_icn_error call among these fourteen bodies, all read in full before writing this)
+       still unwinds to THIS SAME call's own handler under Icon &error trapping, byte-for-byte as today, because
+       this fast path never leaves that call chain -- an earlier sketch of this idea that called bn_* from EMITTED
+       CODE, bypassing rt_call_arr_bl's setjmp altogether, WOULD have retargeted that longjmp and was rejected
+       before being written, on exactly this ground.  Return-value/*out shape is EXACT, not argued from shape: every
+       case below is the identical `return bn_X(args, nargs, out[, op])` the array-cache-hit path already performs
+       (kind 4/5 a few lines below), just reached without a cache-cell read; a nargs mismatch still returns -1 with
+       *out untouched, propagating exactly as it does today.  bidlen<0 (a non-emitted caller) always fails the
+       guard.  ⛔ NO NEW GLOBAL: every read here is bidlen (a parameter), rt_dtax_gen (pre-existing extern), or
+       dtax_off()'s memoized static (pre-existing) -- nothing new persists across calls. */
+    if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
+        const int _fb = bidlen & 0xFFFF;
+        extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);
+        if (g_bidprof_on < 0) bidprof_init();
+        if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
+        if (_fb == BID_SIZE)    return bn_size(args, nargs, out);
+        if (_fb == BID_REPLACE) return bn_replace(args, nargs, out);
+        if (_fb == BID_TRIM)    return bn_trim(args, nargs, out);
+        if (_fb == BID_SUBSTR)  return bn_substr(args, nargs, out);
+        if (_fb == BID_REVERSE) return bn_reverse(args, nargs, out);
+        if (_fb == BID_INTEGER) return bn_integer(args, nargs, out);
+        if (_fb == BID_DUPL)    return bn_dupl(args, nargs, out);
+        if (_fb == BID_LPAD)    return bn_lpad(args, nargs, out);
+        if (_fb == BID_RPAD)    return bn_rpad(args, nargs, out);
+        if (_fb == BID_REMDR)   return bn_remdr(args, nargs, out);
+        if (_fb == BID_DATE)    return bn_date(args, nargs, out);
+        if (_fb == BID_TIME)    return bn_time(args, nargs, out);
+        if (_fb == BID_IDENT)   return bn_identdiffer(args, nargs, out, 1);
+        if (_fb == BID_DIFFER)  return bn_identdiffer(args, nargs, out, 0);
+    }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
