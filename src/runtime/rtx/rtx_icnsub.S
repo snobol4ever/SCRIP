@@ -781,6 +781,24 @@ RTX_FUNC(rt_subscript_var)
  * break lvalue insert (s223 finding 3).
  */
 .Lsub_table_int:
+    /* ⛔⭐ STAND-DOWN (hq_C ruling s272, 2026-08-24, mirroring RTX-26's own s262 stand-down above --
+     * see .Lsub_table's header for the full reasoning, which applies here VERBATIM: this arm falls
+     * into the identical dead hash+chain+strcmp machinery via .Lsub_hash_init below, and that
+     * machinery still assumes the pre-s262 table layout (fixed 256-bucket `hash & 0xFF` indexing, a
+     * linked TBPAIR_t chain with a `next` field) against the LIVE s262 layout (core.h:130-170):
+     * TBBLK_t.nbuck is a dynamic per-table power of two (`hash & (nbuck-1)`), and buckets[] holds
+     * TBBUCK_t* -- pointers to `{len,cap,ent[]}` dense-array headers, not chain nodes, and TBPAIR_t
+     * has no `next` field at all. RTX-29 was NAMED in RTX-26's own stand-down comment ("RTX-26/29
+     * existed to find the entry...") but never got the same jmp -- it has its OWN entry gate
+     * (line 230 above) into the shared dead code, so RTX-26's bail alone never touched this traffic.
+     * ⛔ PROVEN LIVE, NOT HYPOTHETICAL: a 5-line Icon repro (local t; t:=table(0); every i:=1 to 5
+     * do t[i]:=i; every i:=1 to 5 do write(t[i]);) SIGSEGVs 8/8 runs on the unpatched arm -- an
+     * out-of-bounds tb->buckets[hash&0xFF] read landing on adjacent heap, misread as a chain-node
+     * pointer. Full trace: FINDING-2026-08-24-seat08-rtx29-live-crash-hazard-confirmed.md. Do NOT
+     * attempt to make this arm CORRECT against the current layout (re-derive hash&(nbuck-1), walk a
+     * dense sorted array, etc.) -- the C fallback below this jump is already the correct behavior,
+     * same ruling as RTX-26. The itoa key-build body is kept below, dead, for reference only. */
+    jmp     .Lsub_bail
     mov     rsi, rdx                    /* rsi = tb (TBBLK_t *)                  */
     test    rsi, rsi
     je      .Lsub_bail
