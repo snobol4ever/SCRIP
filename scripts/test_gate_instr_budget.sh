@@ -94,6 +94,10 @@ TOL_PCT="${TOL_PCT:-2}"
 #   1177e66e 10,224,491  flat    HEAD -- emitted .s BYTE-IDENTICAL to eca52780 (md5 ac1f4619), so today's cures moved nothing here
 # ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/roman.sno is unchanged since 2026-08-18 and roman.ref since April
 # (345 conversions); only path moves touched either.  A shrunken workload is the way this measurement lies, and it did not.
+# ⭐ Independently cross-checked the same day (seat06, queue row `defer-nv-read-by-pointer-not-name`): 10225516/10224807/10224052
+# across three separate make-pristine measurements at nearby commits, converging on this same number within noise -- two
+# independent methodologies (this ladder; seat06's --separate-callers=2 profile showing NV_GET_fn'rt_defer_nv_read gone from
+# the hot-line list) agree.  Receipts: FINDING-2026-08-24-seat06-defer-nv-read-by-pointer-already-landed-repin.md.
 # Watermarks: RT_OPT=-O0, measured on a `make pristine` build.  Re-pin with the FINDING that changed them.
 ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
 # BEAUTY: measured 2,188,115,136 at 1177e66e -- -1.24%, INSIDE the +-2% band, so left pinned deliberately.  Re-pinning a
