@@ -172,9 +172,17 @@ case "$cmd" in
          topic="${2:?topic}"; c="$PO/claims/$topic.claim"
          [ -f "$c" ] || { echo "no claim on $topic — nothing to release"; exit 1; }
          own="$(head -1 "$c")"
-         [ "$own" = "$ME" ] || { echo "⛔ $topic is claimed by $own, not you — a lock is released by its holder or by an HQ"; exit 1; }
+         # ⛔ s272 hq_C — THE CODE CONTRADICTED ITS OWN MESSAGE. The header above and this very string both said "or by
+         # an HQ", and the test was a bare $own = $ME, so NO HQ could ever release anything. That is not cosmetic: in
+         # FLEET-12 the seats that hold the stalest locks are seat13..seat16, which DO NOT EXIST in this mode and can
+         # never come back to release their own claims. 9 rows were hidden from the picker by seats that are not
+         # running, with no in-tool way to free them short of rm. An HQ release is ANNOTATED with who forced it.
+         if [ "$own" != "$ME" ]; then
+             s4e_is_hq "$ME" || { echo "⛔ $topic is claimed by $own, not you — a lock is released by its holder or by an HQ"; exit 1; }
+             why="${3:-released by HQ}"; why="$why (forced by $ME over $own's claim)"
+         fi
          grep -q '^DONE$' "$c" && { echo "⛔ $topic is DONE — that claim is a receipt, not a lock. Leave it."; exit 1; }
-         why="${3:-released unworked}"
+         why="${why:-${3:-released unworked}}"
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          rm -f "$c"; echo "released $topic — $why";;
