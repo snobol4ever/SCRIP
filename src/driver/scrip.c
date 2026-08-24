@@ -946,10 +946,9 @@ int main(int argc, char **argv)
                 char probe[4096];
                 snprintf(probe, sizeof probe, "%s/lib", walk);
                 struct stat st;
-                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) {
-                    sno_add_include_dir(strdup(walk));
-                    break;
-                }
+                int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
+                if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); }
+                if (hit) sno_add_include_dir(strdup(walk));
                 p = strrchr(walk, '/');
             }
             sno_add_include_dir(".");
