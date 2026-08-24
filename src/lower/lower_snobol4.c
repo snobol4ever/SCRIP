@@ -2590,7 +2590,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].lower_sc.n = defs[di].nnames < STAGE2_FRAME_SLOT_MAX ? defs[di].nnames : STAGE2_FRAME_SLOT_MAX;
         g_stage2.proc_table[fpi].is_generator = 0;
         g_stage2.proc_table[fpi].dyn_scope = 1;
-        g_stage2.proc_table[fpi].result_name = defs[di].result_name;
+        g_stage2.proc_table[fpi].result_name = rn;
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
     sno_expr_thunks_build(0);
