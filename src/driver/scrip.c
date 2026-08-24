@@ -1348,12 +1348,15 @@ int main(int argc, char **argv)
                           if (bbg->n_dentry >= _bd) break;
                           for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
                               IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
-                              IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd || _gd->op != IR_GOTO_DEFERRED || !IR_LIT(_gd).sval) break;
-                              const char *_en = IR_LIT(_gd).sval; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
-                              IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
-                                  _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
-                              if (!_tn) break;
-                              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; } } } }
+                              IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd) break;
+                              if (_gd->op == IR_GOTO_DEFERRED) { if (!IR_LIT(_gd).sval) break;
+                                  const char *_en = IR_LIT(_gd).sval; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
+                                  IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
+                                      _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
+                                  if (!_tn) break;
+                                  bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
+                              { char _anb[300]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
+                                bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = strdup(_anb); bbg->n_dentry++; break; } } } } }
                 { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
                   if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
                       if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;

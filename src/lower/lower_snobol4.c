@@ -846,6 +846,10 @@ static const char * sno_qlit_fold(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     const tree_t * subj = lc_stmt_subj(s);
+    if (subj && subj->t == TT_DEFINE && subj->n > 1 && subj->c[1] && subj->c[1]->t == TT_QLIT && subj->c[1]->v.sval) {
+        if (out_argbase) *out_argbase = 1;
+        return subj;
+    }
     if (!subj || subj->t != TT_FNC) return NULL;
     const char * name = subj->v.sval; int argbase = 0;
     if (!name && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR) { name = subj->c[0]->v.sval; argbase = 1; }

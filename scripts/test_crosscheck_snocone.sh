@@ -64,7 +64,7 @@ xcheck "while" "$T"
 rm -f "$T"
 
 # Beauty-sc subsystems
-BEAUTY=${CORPUS:-$S4E/corpus}/snocone/demo/snobol4/beauty/test
+BEAUTY=${CORPUS:-$S4E/corpus}/demo/snocone/beauty/test
 for subsys in assign fence global arith; do
     f="$BEAUTY/test_$subsys.sc"
     ref="$BEAUTY/test_$subsys.ref"
