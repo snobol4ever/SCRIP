@@ -27,7 +27,7 @@ std::string bb_iterate() {
                  : x86("call", "rt_list_bang_at",     (uint64_t)(uintptr_t)(void *)rt_list_bang_at))
          + x86("mov",  FRQ(_.op_off),     "rax")
          + x86("mov",  FRQ(_.op_off + 8), "rdx")
-         + x86("cmp64", "rax", (long)DT_FAIL)
+         + x86("cmp",   "al",  (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma()
          + x86_beta()
