@@ -70,6 +70,12 @@ void bb_slot_register(IR_t * nd, int off);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_wire_cross(int gid, int wid) { return icn_wire_stack_on() ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_wire_land(const char *fname) { return icn_wire_stack_on() ? IF(!bcps_wire_pair_consumed(fname), x86("add", "rsp", 16L)) : std::string(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_retfix(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RET_FIX"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
@@ -383,12 +389,14 @@ static std::string bcps_det_arm() {
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
-                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (!e || *e != (char)48) ? 1 : 0; } return (_sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
-                   + bb_glue_pass_wires(3, 4)
+                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_on() && _sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+                   + bcps_wire_cross(3, 4)
                    + x86("def", L(3))
+                   + bcps_wire_land(_.op_sval)
                    + bcps_epi_named(0, epig_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(4))
+                   + bcps_wire_land(_.op_sval)
                    + bcps_epi_named(1, epiw_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(1))
@@ -603,12 +611,14 @@ static std::string bcps_det_arm() {
          + (dc ? std::string("")
             : (x86_zc_frame() == ZC_FRAME_RSP)
             ? (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (_sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_SLIM_PAIR=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
-            + bb_glue_pass_wires(3, 4)
+            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_on() && _sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+            + bcps_wire_cross(3, 4)
             + x86("def", L(3))
+            + bcps_wire_land(_.op_sval)
             + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
             + x86("jmp", L(2))
             + x86("def", L(4))
+            + bcps_wire_land(_.op_sval)
             + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
             + x86("jmp", L(2))
             : is_dyn
@@ -616,8 +626,9 @@ static std::string bcps_det_arm() {
             + x86("push", "r12")
             + x86("sub", "rsp", 8L)
             + x86("mov", "r12", "rsp")
-            + bb_glue_pass_wires(3, 4)
+            + bcps_wire_cross(3, 4)
             + x86("def", L(3))
+            + x86("comment", "is_dyn arm: no landing release here -- mov rsp,r12 below already discards the pushed pair (r12 was captured pre-push); an add here would shift the [rax+8] value read")
             + x86("mov", "rax", "rsp")
             + x86("mov", "rax", RDQ("rax", 8))
             + x86("mov", "rdi", RDQ("rax", 0))
@@ -704,8 +715,9 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-         + bb_glue_pass_wires(3, 4)
+         + bcps_wire_cross(3, 4)
          + x86("def", L(3))
+         + bcps_wire_land(_.op_sval)
          + (zf_resume
             ? x86("mov", FRQ(act + 8), "rax")
             : x86("mov", FRQ(act + 8), "rsp")
@@ -720,6 +732,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("call", "rt_gen_spine_pass_γ", pasg_fp)
          + x86("jmp", L(2))
          + x86("def", L(4))
+         + bcps_wire_land(_.op_sval)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(6))

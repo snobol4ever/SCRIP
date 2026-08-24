@@ -16,6 +16,8 @@ extern "C" void rt_gen_save_wires(void *gen_fb, void *gw, void *ww);
 extern "C" void *rt_gen_get_gamma_wire(void *gen_fb);
 extern "C" void *rt_gen_get_omega_wire(void *gen_fb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (PLATFORM_X86) {
         if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
@@ -174,6 +176,23 @@ static std::string xa_flat_dc_stub_str(void) {
                 + x86("call", "rt_arg_stage", stg_fp);
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
+        if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
+            zs += x86("comment", "N-1(b/c): push {gamma=id2,omega=id3} instead of rcx/rdx, ON TOP of the unconditional double r12 stash above (kept unconditional, not just for OLD, so this arm's stack parity vs the caller of this stub stays a multiple of 16 -- three qwords under the pair would misalign every nested call the callee makes: measured as a real SIGSEGV deep in glibc's snprintf via a nested image() call, s268). Release order at landing: pair(16) + one r12 duplicate(8) = 24, then pop the other (identical) duplicate as the real jump target.")
+                + x86_lea_id("rcx", 3) + x86("push", "rcx")
+                + x86_lea_id("rcx", 2) + x86("push", "rcx")
+                + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
+                + x86_deflabel_id(2)
+                + x86("add", "rsp", 24L)
+                + x86("pop", "r12")
+                + x86("jmp", "r12")
+                + x86_deflabel_id(3)
+                + x86("add", "rsp", 24L)
+                + x86("pop", "r12")
+                + x86("mov32", "eax", 104L)
+                + x86("xor", "edx", "edx")
+                + x86("jmp", "r12");
+            return zs;
+        }
         zs += x86_lea_id("rcx", 2)
             + x86_lea_id("rdx", 3)
             + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
@@ -298,12 +317,6 @@ static std::string xa_flat_zframe_prologue_str(void) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_wire_hdr_base(void) {
-    int kt = g_emit.flat_frame_bytes;
-    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    return kt;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xa_flat_class_zf(void) {
     if (g_emit.zframe_graph) return 1;
     if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
@@ -343,7 +356,7 @@ static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
-    int kt = xa_flat_wire_hdr_base();
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _ggw_fp; { void *(*_f)(void *) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
         return x86("comment", "ICN-FR-5 no-unwind epilogue-γ: r14=gen____; get γ-wire(r14)→r15; get caller____(r14)→___ (rsp stays at gen____); rdi:rsi=[r14+0/8]; rax=gen____; jmp r15")
@@ -388,6 +401,12 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
     }
+    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
+        return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; NON-CONSUMING jmp through the caller-pushed gamma wire at [rsp+0] -- the caller's own landing releases the pair (bcps_wire_land), never this exit. Guarded to the Icon (icn_cells_graph) case only -- xa_flat_class_zf() also admits pure zframe_graph (Prolog/Raku/Pascal), whose callee side this rung never touched. SCRIP_ICN_WIRE_STACK=0 restores the [kt-24] header byte-exactly.")
+             + x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + x86("add", "rsp", (long)kt)
+             + bb_glue_wire_γ();
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24]; unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
@@ -399,7 +418,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!PLATFORM_X86 || !xa_flat_class_zf()) return std::string();
-    int kt = xa_flat_wire_hdr_base();
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _gow_fp; { void *(*_f)(void *) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
         uint64_t _sw_fp;  { void  (*_f)(void *, void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
@@ -414,6 +433,10 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("call", "rt_gen_save_wires", _sw_fp)
              + x86("jmp", "r15");
     }
+    if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
+        return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
+             + x86("add", "rsp", (long)kt)
+             + bb_glue_wire_ω();
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + x86("add", "rsp", (long)kt)
