@@ -118,7 +118,7 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 # matching compile_mode4()'s own contract. Missing harness or missing suite files is the SAME
 # MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
 HARNESS="$HERE/corpus_suite_harness.py"
-SUITES="$CORPUS/suites"
+SUITES="$CORPUS/tests/snobol4"
 for family in crosscheck/patterns crosscheck/strings; do
     s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
     if [ ! -f "$HARNESS" ]; then
