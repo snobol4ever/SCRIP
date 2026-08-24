@@ -1428,7 +1428,6 @@ DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret)
     DESCR_t frame0 = fret;
     return rt_proc_call_epilogue_γ(frame0);
 }
-#if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
 __asm__(
 ".text\n"
 ".globl rt_proc_enter\n"
@@ -1474,7 +1473,6 @@ __asm__(
 "  popq %rbx\n"
 "  jmp rt_proc_call_epilogue_ω\n"
 );
-#endif
 DESCR_t rt_proc_enter(void *fn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_open_fn(void)
@@ -1504,12 +1502,10 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 {
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     for (int i = 0; i < nargs; i++) g_call_args[i] = args ? args[i] : NULVCL;
-#if defined(ZC_FRAME) && defined(ZC_FRAME_RSP) && ZC_FRAME == ZC_FRAME_RSP
     if (p->jmp_entry) {
         (void)rt_proc_call_prologue_lex(p, nargs, wn);
         return rt_proc_enter((void *)p->fn);
     }
-#endif
     long fbytes = (long)rt_proc_call_prologue_lex(p, nargs, wn);
     void *fb = alloca((size_t)fbytes);
     void *fn2 = rt_frame_prep(fb, fbytes);
