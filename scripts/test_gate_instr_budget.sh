@@ -112,6 +112,18 @@ ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
 #   2,215,545,392  pin-era program, pin-era compiler   (the 2026-08-22 pin)
 #   2,185,743,429  pin-era program, TODAY's compiler   -> -1.35%  <- THE ONLY REAL COMPILER DELTA, and it is still a FIXED POINT
 #   1,897,159,187  new program, today's compiler       -> -13.2% of the drop is the EDITED WORKLOAD, not the compiler
+# ⭐ CLEAN A/B OF THE TWO BEAUTY FORMS (ceo s271 task 1), ONE TREE, ONE SITTING, one pristine -O0 build at SCRIP `22971235`
+# with NO src change between arms -- ceo's own two runs were hours apart with script commits between them, so this re-runs
+# it properly rather than quoting across trees.  All three arms VERIFIED SELF-HOST FIXED POINTS:
+#   2,185,743,429  DECLARED_CONSTANT form, 630 lines  (corpus 8e309aa4)
+#   1,888,454,918  classic frozen,         622 lines  (corpus 1ce15a5ac, the pre-BEAUTY-CN snapshot)
+#   1,897,159,187  classic + Lon's 4-line edit, 618 lines  (corpus e63689fae -- what ships, and what is pinned above)
+# ⭐ THE MULTIPLE, on the faster axis, reference = the constants form: classic is 1.16x.  Stated as percentages with the
+# basis NAMED, because a percent without its basis is the trap: the constants form spends +15.7% MORE instructions than
+# classic (percent OF classic); equivalently classic spends -13.6% (percent OF the constants total).  ceo measured 1.15x
+# / ~13% hours apart across trees -- independent agreement to 0.2%, so that reading was sound and is now tight.
+# ⛔ LON'S 4-LINE EDIT IS NOT RESOLVABLE BY THIS INSTRUMENT: +0.46% against a workload whose own run-to-run jitter is
+# ~0.4% (three runs: 1,890,181,588 / 1,897,159,187 / 1,898,412,363).  It sits AT the noise floor -- do not quote it as a cost.
 # ⛔ So the honest reading of a -14.4% NOTE here was: -1.35% earned, -13.2% is a different program.  The new pin is a fresh
 # basis, and NO cross-workload comparison may be made against the old one (RULES.md: a SLOPE is not a TOTAL; a number carried
 # into a new column must be re-measured).  Beauty remains the Milestone-1 self-host fixed point under the new source.
