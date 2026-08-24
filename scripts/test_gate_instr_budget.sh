@@ -91,7 +91,10 @@ TOL_PCT="${TOL_PCT:-2}"
 #   3342581a 10,238,326  -33.0%  COMPOUND of ~6 named roman wins in a82768c2..3342581a (84aaef7e -26.7%, a16598a2 -13.2%,
 #                                e3951bae -10.4%, cb743fe9 -6.7%, 69030b07 -6.3%, 083d106f -5.6%) -- the s262 ladder proper
 #   eca52780 10,217,267  flat    (seat04 measured table/array here and correctly left roman alone: not their row)
-#   1177e66e 10,224,491  flat    HEAD -- emitted .s BYTE-IDENTICAL to eca52780 (md5 ac1f4619), so today's cures moved nothing here
+#   1177e66e 10,224,491  flat    the pin -- emitted .s BYTE-IDENTICAL to eca52780 (md5 ac1f4619), so today's cures moved nothing here
+#   22971235 10,224,807  +0.003% RE-PROVEN after rebasing onto seat01's RTX-31/RTX-NEW-ICNVAR runtime work (rtx_icnsub.S,
+#                                rtx_icnvar.S).  A rebase is a NEW TREE and its gate must be re-proven, not assumed: those
+#                                are table-subscript fast paths and roman touches none of them, but that was MEASURED, not argued.
 # ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/roman.sno is unchanged since 2026-08-18 and roman.ref since April
 # (345 conversions); only path moves touched either.  A shrunken workload is the way this measurement lies, and it did not.
 # ⭐ Independently cross-checked the same day (seat06, queue row `defer-nv-read-by-pointer-not-name`): 10225516/10224807/10224052
@@ -100,9 +103,19 @@ TOL_PCT="${TOL_PCT:-2}"
 # the hot-line list) agree.  Receipts: FINDING-2026-08-24-seat06-defer-nv-read-by-pointer-already-landed-repin.md.
 # Watermarks: RT_OPT=-O0, measured on a `make pristine` build.  Re-pin with the FINDING that changed them.
 ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
-# BEAUTY: measured 2,188,115,136 at 1177e66e -- -1.24%, INSIDE the +-2% band, so left pinned deliberately.  Re-pinning a
-# workload that never left its band would spend the band's whole purpose (absorbing honest drift) on absorbing nothing.
-BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-2215545392}"
+# ⛔⭐ BEAUTY RE-PINNED 2026-08-24 hq_P s272 as a WORKLOAD REBASE, NOT A WIN: 2,215,545,392 -> 1,897,159,187 (SCRIP `22971235`).
+# The gate reported -14.4% "improved; consider re-pinning down" and that invitation was a TRAP: beauty.sno was HAND-EDITED by
+# Lon the same day (corpus b131a913d, the DECLARED_CONSTANT beauty.sno deleted; then e63689fae, Lon's 4-line edit), 630 -> 618
+# lines with 266 lines changed.  The watermark had outlived the program it measured, so pinning the new number as an
+# improvement would have credited a hand edit as a 14.4% compiler win.  DECOMPOSED INSTEAD, by re-measuring the PIN-ERA
+# beauty.sno (corpus 8e309aa4, with its own .inc set) on TODAY's compiler -- the only apples-to-apples arm available:
+#   2,215,545,392  pin-era program, pin-era compiler   (the 2026-08-22 pin)
+#   2,185,743,429  pin-era program, TODAY's compiler   -> -1.35%  <- THE ONLY REAL COMPILER DELTA, and it is still a FIXED POINT
+#   1,897,159,187  new program, today's compiler       -> -13.2% of the drop is the EDITED WORKLOAD, not the compiler
+# ⛔ So the honest reading of a -14.4% NOTE here was: -1.35% earned, -13.2% is a different program.  The new pin is a fresh
+# basis, and NO cross-workload comparison may be made against the old one (RULES.md: a SLOPE is not a TOTAL; a number carried
+# into a new column must be re-measured).  Beauty remains the Milestone-1 self-host fixed point under the new source.
+BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1897159187}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
 TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-12986443}"
