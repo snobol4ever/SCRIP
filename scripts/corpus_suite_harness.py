@@ -54,7 +54,7 @@ def resolve_paths():
         "scrip_bin": Path(os.environ.get("SCRIP", str(scrip_root / "scrip"))),
         "rt_dir": Path(os.environ.get("RT_DIR", str(scrip_root / "out"))),
         "corpus": s4e_home / "corpus",
-        "inc": Path(os.environ.get("INC", str(s4e_home / "corpus" / "demo" / "inc"))),
+        "inc": Path(os.environ.get("INC", str(s4e_home / "corpus" / "include"))),
         "scrip_root": scrip_root,
         "timeout": float(os.environ.get("TIMEOUT", "10")),
         "stdbuf_bin": _which("stdbuf"),
@@ -384,6 +384,22 @@ def cmd_convert(args):
         refuse(f"no .sno/.ref pairs discovered under {family_dir}")
     print(f"discovered {len(pairs)} pairs in {family_dir}", file=sys.stderr)
 
+    # ⛔ DELIBERATE SKIP, NEVER SILENT DROP (Snocone removed-syntax precedent, task ## NEXT / ## SNOCONE):
+    # a stem named here is loudly excluded from THIS conversion run and left as a loose file pair --
+    # not deleted, not converted. Reason is mandatory and printed so a skip can never be mistaken for
+    # a file the harness simply failed to notice.
+    skip_names = set(n for n in (args.skip.split(",") if args.skip else []) if n)
+    if skip_names:
+        skipped = [p for p in pairs if p[0].stem in skip_names]
+        pairs = [p for p in pairs if p[0].stem not in skip_names]
+        for sno, ref in skipped:
+            print(f"⛔ SKIPPING (deliberate): {sno.stem} -- {args.skip_reason or 'no reason given'}", file=sys.stderr)
+        unmatched = skip_names - {p[0].stem for p in skipped}
+        if unmatched:
+            refuse(f"--skip named stem(s) not found in {family_dir}: {sorted(unmatched)}")
+        if not pairs:
+            refuse(f"--skip excluded every discovered pair under {family_dir} -- nothing left to convert")
+
     entries = []
     failures = []
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_"))
@@ -478,6 +494,8 @@ def main():
     c.add_argument("out_sno")
     c.add_argument("out_ref")
     c.add_argument("--modes", default="m3,m4")
+    c.add_argument("--skip", default="", help="comma-separated .sno stems to deliberately exclude from this run (left as loose files, never deleted)")
+    c.add_argument("--skip-reason", default="", help="mandatory-in-spirit reason printed for every --skip name")
     c.set_defaults(func=cmd_convert)
 
     r = sub.add_parser("run", help="run a suite .sno/.ref pair and print PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP counts")
