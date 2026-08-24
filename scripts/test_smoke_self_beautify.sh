@@ -10,8 +10,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-BEAUTY="$S4E/corpus/snobol4/demo/beauty/beauty.sno"
-INC="$S4E/corpus/snobol4/demo/beauty"
+BEAUTY="$S4E/corpus/beauty/beauty.sno"
+INC="$S4E/corpus/beauty"
 BIN="${1:-/tmp/beauty_full_bin}"
 
 echo "=== Milestone 0: self-beautify smoke test ==="
