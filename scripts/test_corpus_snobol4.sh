@@ -12,12 +12,20 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-10}"
-INC="$CORPUS/demo/inc"
-BEAUTY="$CORPUS/snobol4/beauty_suite"
-DEMO="$CORPUS/demo"
+INC="${INC:-$CORPUS/demo/inc}"
+BEAUTY="${BEAUTY:-$CORPUS/snobol4/beauty_suite}"
+DEMO="${DEMO:-$CORPUS/demo}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
 if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
+# ⛔⛔ REFUSE ON A MISSING SUBTREE -- DO NOT SILENTLY DISCOVER FEWER PROGRAMS (hq_C s271). This board read
+# "PASS=342 FAIL=0" for a whole session because $DEMO pointed at a path that did not exist: every visible signal
+# said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most
+# dangerous shape a board has, and corpus paths have moved three times in two days, so this WILL happen again.
+# FAIL=0 is not a verdict; FAIL=0 over the expected denominator is.
+for _d in "$DEMO" "$BEAUTY"; do
+    if [ ! -d "$_d" ]; then echo "⛔ GATE REFUSES: corpus subtree missing: $_d"; echo "   The corpus layout moved. Repoint this script; do NOT read a smaller total as a pass."; exit 2; fi
+done
 
 PASS3=0; FAIL3=0; FAILURES3=""
 PASS4=0; FAIL4=0; SKIP4=0; FAILURES4=""

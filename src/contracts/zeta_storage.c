@@ -654,36 +654,49 @@ static const IR_t * fvl[256]; static int fvl_n = 0;
    split. The grant is therefore keyed on the consuming regime, which only the lowerer knows, and is registered the
    same way fc_vlit/fc_save already are. Every IR_DISJUNCTION stays eligible, so this is a behavioral condition and
    not a per-op admission list. */
+/* ⛔ SILENT TRUNCATION IN A CORRECTNESS PATH IS A SIZE-DEPENDENT MISCOMPILE (hq_P s271). Every fc_*_register below
+   is a fixed-cap table that used to `return` at the cap without a word. For the optimization tables that merely cost
+   a missed cell; for fvdj it silently withholds a grant the consumer still expects from the spine, reintroducing the
+   producer/consumer split as a bug that appears ONLY in large programs and shows on nothing in our corpus, because
+   our programs are small. It is reported LOUDLY, once per table, and never gated on an env var -- a diagnostic you
+   have to opt into is exactly the instrument that cannot express its own failure. SCRIP_FC_REG_HIGHWATER=1 prints
+   the peak occupancy of every table so the caps can be sized from measurement rather than from guessing. */
+static void fc_reg_full(const char * tbl, int cap) { static const char * seen[16]; static int seen_n = 0;
+    for (int i = 0; i < seen_n; i++) if (seen[i] == tbl) return;
+    if (seen_n < 16) seen[seen_n++] = tbl;
+    fprintf(stderr, "⛔ fc_%s_register: TABLE FULL at cap %d -- further registrations are being DROPPED. In a correctness-gating table (fvdj) this withholds a flat cell the consumer still reads from the spine, i.e. a miscompile that only appears in programs this large. Raise the cap in src/contracts/zeta_storage.c.\n", tbl, cap); }
+static void fc_reg_hw(const char * tbl, int n) { static const char * e = (const char *) 1; if (e == (const char *) 1) e = getenv("SCRIP_FC_REG_HIGHWATER");
+    if (e && *e != '0') fprintf(stderr, "FC-REG-HW %-6s %d\n", tbl, n); }
 static const IR_t * fvdj[256]; static int fvdj_n = 0;
-void fc_vdj_register(const IR_t * nd) { if (!nd || fvdj_n >= 256) return; fvdj[fvdj_n++] = nd; }
+void fc_vdj_register(const IR_t * nd) { if (!nd) return; if (fvdj_n >= 256) { fc_reg_full("vdj", 256); return; } fvdj[fvdj_n++] = nd; fc_reg_hw("vdj", fvdj_n); }
 int fc_vdj_active(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvdj_n; i++) if (fvdj[i] == nd) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vlit_register(const IR_t * nd) { if (!nd || fvl_n >= 256) return; fvl[fvl_n++] = nd; }
+void fc_vlit_register(const IR_t * nd) { if (!nd) return; if (fvl_n >= 256) { fc_reg_full("vlit", 256); return; } fvl[fvl_n++] = nd; fc_reg_hw("vlit", fvl_n); }
 static const IR_t * fvs[64]; static int fvs_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_subj_register(const IR_t * nd) { if (!nd || fvs_n >= 64) return; fvs[fvs_n++] = nd; }
+void fc_subj_register(const IR_t * nd) { if (!nd) return; if (fvs_n >= 64) { fc_reg_full("subj", 64); return; } fvs[fvs_n++] = nd; fc_reg_hw("subj", fvs_n); }
 int fc_subj_member(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvs_n; i++) if (fvs[i] == nd) return 1; return 0; }
 int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0 || fvr_n >= 256) return; fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; }
+void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; if (fvr_n >= 256) { fc_reg_full("vread", 256); return; } fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; fc_reg_hw("vread", fvr_n); }
 int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
 static const IR_t * fvb[256]; static int fvb_n = 0;
 static const IR_t * fvcl[64]; static int fvcl_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_call_register(const IR_t * nd) { if (!nd || fvcl_n >= 64) return; fvcl[fvcl_n++] = nd; }
 int fc_call_active(const IR_t * nd) { if (!nd || !fc_cells_on()) return 0; for (int i = 0; i < fvcl_n; i++) if (fvcl[i] == nd) return 1; return 0; }
-void fc_vbinop_register(const IR_t * nd) { if (!nd || fvb_n >= 256) return; fvb[fvb_n++] = nd; }
+void fc_vbinop_register(const IR_t * nd) { if (!nd) return; if (fvb_n >= 256) { fc_reg_full("vbinop", 256); return; } fvb[fvb_n++] = nd; fc_reg_hw("vbinop", fvb_n); }
 int fc_vbinop_active(const IR_t * nd) { if (!nd || (nd->op != IR_BINOP && nd->op != IR_UNOP)) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; long w; } fvw[512]; static int fvw_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0 || fvw_n >= 512) return; fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; }
+void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0) return; if (fvw_n >= 512) { fc_reg_full("vwpop", 512); return; } fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; fc_reg_hw("vwpop", fvw_n); }
 long fc_vwpop(const IR_t * nd) { if (!fc_cells_on()) return 0; for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
 int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256 && fvw_n + nw <= 512; }
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_save_register(const IR_t * nd) { if (!nd || fcv_n >= 256) return; fcv[fcv_n++] = nd; }
+void fc_save_register(const IR_t * nd) { if (!nd) return; if (fcv_n >= 256) { fc_reg_full("save", 256); return; } fcv[fcv_n++] = nd; fc_reg_hw("save", fcv_n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fc_save_active(const IR_t * nd) {
     if (!nd || nd->op != IR_MATCH_ASSIGN_SAVE || !fc_cells_on()) return 0;
