@@ -107,6 +107,39 @@ while IFS= read -r sno; do
     run_test "$label" "$sno" "$ref" "$input" ""
 done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 
+# ── Suite families (corpus-suites-consolidation) ────────────────────────────────
+# ⭐ A converted family's loose files are gone (the crosscheck loop above simply stops finding
+# them once deleted -- no exclusion needed here); this block runs its suite .sno/.ref pair through
+# the ONE Python harness (corpus_suite_harness.py) and folds the result into the SAME PASS3/FAIL3/
+# PASS4/FAIL4/SKIP4 this board already reports, so "byte-equal before and after" is a statement
+# about these same four counters, not a parallel instrument. CRASH/HANG/UNPROVEN at the run stage
+# fold into FAIL -- the bucket the old per-file instrument put them in too (it never distinguished
+# them either, see RULES.md/FINDING 5ad95ab1); mode-4 compile/link failure folds into SKIP4,
+# matching compile_mode4()'s own contract. Missing harness or missing suite files is the SAME
+# MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
+HARNESS="$HERE/corpus_suite_harness.py"
+SUITES="$CORPUS/suites"
+for family in crosscheck/patterns; do
+    s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
+    if [ ! -f "$HARNESS" ]; then
+        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
+    fi
+    if [ ! -f "$s_sno" ] || [ ! -f "$s_ref" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no suite file at ${s_sno}\n"; continue
+    fi
+    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
+    if [ -z "$board" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: harness produced no SUITE_BOARD line\n"; continue
+    fi
+    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
+    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
+    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
+    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
+done
+
 # ── Beauty library drivers ─────────────────────────────────────────────────────
 for sno in "$BEAUTY"/*_driver.sno; do
     [ ! -f "$sno" ] && continue
