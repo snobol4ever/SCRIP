@@ -922,13 +922,14 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e sno_pat_eff_kind(const tree_t * t) {
     if (!t) return TT_VAR;
-    if (t->t != TT_VAR || !t->v.sval) return t->t;
+    if ((t->t != TT_VAR && t->t != TT_KEYWORD) || !t->v.sval) return t->t;
     static const struct { const char * n; tree_e k; } m[] = {
         { "ABORT", TT_ABORT }, { "ARB",  TT_ARB  }, { "BAL", TT_BAL }, { "FAIL", TT_FAIL },
         { "FENCE", TT_FENCE }, { "REM",  TT_REM  }, { "SUCCEED", TT_SUCCEED }, { NULL, TT_VAR }
     };
-    for (int i = 0; m[i].n; i++) if (!strcmp(t->v.sval, m[i].n)) return m[i].k;
-    return TT_VAR;
+    const char * nm = t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval;
+    for (int i = 0; m[i].n; i++) if (!strcmp(nm, m[i].n)) return m[i].k;
+    return t->t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_is_fence(const tree_t * t) { return t && sno_pat_eff_kind(t) == TT_FENCE; }
