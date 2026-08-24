@@ -6291,27 +6291,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
-    extern ScanEntry   scan_stack[];
     L_bidjmp_5900: ;
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
         const char *s;
         if (IS_REAL_fn(args[0])) { char _rb[64]; real_str(args[0].r,_rb,sizeof _rb); s = rt_ws_strdup(_rb); }
         else { s = VARVAL_fn(args[0]); if (!s) s = ""; }
-        if (scan_depth < SCAN_STACK_MAX) {
-            scan_stack[scan_depth].subj = scan_subj;
-            scan_stack[scan_depth].pos  = scan_pos;
-            scan_depth++;
-        }
+        scan_depth++;
         scan_subj = rt_ws_strdup(s); scan_pos = 1;
         *out = args[0]; return 1;
     }
     L_bidjmp_5912: ;
     if ((_bid == BID_ICN_SCAN_POP) && nargs == 1) {
-        if (scan_depth > 0) {
-            scan_depth--;
-            scan_subj = scan_stack[scan_depth].subj;
-            scan_pos  = scan_stack[scan_depth].pos;
-        }
+        if (scan_depth > 0) scan_depth--;
         *out = args[0]; return 1;
     }
     L_bidjmp_5920: ;

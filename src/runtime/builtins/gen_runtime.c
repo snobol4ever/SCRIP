@@ -19,7 +19,6 @@ tree_t  *drive_node = NULL;
 DESCR_t  drive_val;
 const char *scan_subj  = "";
 int         scan_pos   = 1;
-ScanEntry scan_stack[SCAN_STACK_MAX];
 int         scan_depth = 0;
 ScanEntry scan_saved[SCAN_STACK_MAX];
 int         scan_saved_depth = 0;
@@ -33,7 +32,6 @@ void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
     if (!s) { s = (ScanState *)calloc(1, sizeof(ScanState)); if (!s) return NULL; }
     s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth;
-    for (int i = 0; i < scan_depth && i < SCAN_STACK_MAX; i++) s->stack[i] = scan_stack[i];
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) s->saved[i] = scan_saved[i];
     return s;
 }
@@ -42,7 +40,6 @@ void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
     scan_subj = s->subj ? s->subj : ""; scan_pos = s->pos; scan_depth = s->depth; scan_saved_depth = s->saved_depth;
-    for (int i = 0; i < scan_depth && i < SCAN_STACK_MAX; i++) scan_stack[i] = s->stack[i];
     for (int i = 0; i < scan_saved_depth && i < SCAN_STACK_MAX; i++) scan_saved[i] = s->saved[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -52,17 +49,10 @@ void rt_scan_state_reset(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi, uint64_t sigma, uint64_t delta, uint64_t Delta) {
+ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
-    if (scan_depth < SCAN_STACK_MAX) {
-        scan_stack[scan_depth].subj  = scan_subj;
-        scan_stack[scan_depth].pos   = scan_pos;
-        scan_stack[scan_depth].sigma = sigma;
-        scan_stack[scan_depth].delta = delta;
-        scan_stack[scan_depth].Delta = Delta;
-        scan_depth++;
-    }
+    scan_depth++;
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
@@ -85,35 +75,24 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_leave(uint64_t *out3) {
+void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
     if (scan_depth > 0) {
         scan_depth--;
         if (scan_saved_depth < SCAN_STACK_MAX) {
             scan_saved[scan_saved_depth].subj  = scan_subj;
             scan_saved[scan_saved_depth].pos   = scan_pos;
-            scan_saved[scan_saved_depth].sigma = scan_stack[scan_depth].sigma;
-            scan_saved[scan_saved_depth].delta = scan_stack[scan_depth].delta;
-            scan_saved[scan_saved_depth].Delta = scan_stack[scan_depth].Delta;
             scan_saved_depth++;
         }
-        scan_subj = scan_stack[scan_depth].subj;
-        scan_pos  = scan_stack[scan_depth].pos;
-        if (out3) { out3[0] = scan_stack[scan_depth].sigma; out3[1] = scan_stack[scan_depth].delta; out3[2] = scan_stack[scan_depth].Delta; }
-    } else if (out3) { out3[0] = 0; out3[1] = 0; out3[2] = 0; }
+    }
+    scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
+    scan_pos  = (int)outer_delta + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_reenter(void) {
     ScanSubjRegs r; r.ptr = 0; r.len = 0;
     if (scan_saved_depth <= 0) return r;
     scan_saved_depth--;
-    if (scan_depth < SCAN_STACK_MAX) {
-        scan_stack[scan_depth].subj  = scan_subj;
-        scan_stack[scan_depth].pos   = scan_pos;
-        scan_stack[scan_depth].sigma = scan_saved[scan_saved_depth].sigma;
-        scan_stack[scan_depth].delta = scan_saved[scan_saved_depth].delta;
-        scan_stack[scan_depth].Delta = scan_saved[scan_saved_depth].Delta;
-        scan_depth++;
-    }
+    scan_depth++;
     scan_subj = scan_saved[scan_saved_depth].subj;
     scan_pos  = scan_saved[scan_saved_depth].pos;
     if (!scan_subj) scan_subj = "";
@@ -279,5 +258,4 @@ void gen_gc_roots(void)
     rt_gc_visit_descr(&drive_val);
     for (int f = 0; f < frame_depth; f++) { GenFrame *fr = &frame_stack[f]; for (int i = 0; i < fr->env_n; i++) rt_gc_visit_descr(&fr->env[i]); rt_gc_visit_descr(&fr->return_val); for (int g = 0; g < fr->gen_depth; g++) rt_gc_visit_raw(&fr->gen[g].sval); }
     rt_gc_visit_raw(&scan_subj);
-    for (int i = 0; i < scan_depth; i++) { rt_gc_visit_raw(&scan_stack[i].subj); rt_gc_visit_raw((const char **)&scan_stack[i].sigma); }
 }
