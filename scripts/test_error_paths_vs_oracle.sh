@@ -19,7 +19,7 @@ FLAGS="$(sbl_lang_flags)"
 read -r -d '' TABLE <<'TSV' || true
 undef_var_arith	SAME	null-valued operand coerces to 0 in both engines, identical accepted result
 undef_label_goto	DEFENSIBLE	both detect+report; oracle exits rc=0 with a fatal dump, SCRIP exits rc=1 with a concise diagnostic
-bad_type_arith	WRONG	SCRIP silently computes a wrong result instead of erroring on a non-numeric arithmetic operand
+bad_type_arith	DEFENSIBLE	FIXED (was WRONG): SCRIP now fails the statement on a non-numeric operand across +/-/*//,** left+right (arithmetic.c is_numeric_like guard); &ERRTYPE stays unpopulated, same residual gap as bad_type_builtin/div_by_zero
 bad_type_builtin	DEFENSIBLE	SCRIP fails the statement correctly (matches oracle's control flow) but leaves &ERRTYPE unpopulated
 div_by_zero	DEFENSIBLE	SCRIP fails the statement safely; oracle instead hard-crashes its own error-report path (known SPITBOL fragility)
 subscript_range	SAME	both engines fail the out-of-declared-bounds assignment identically, &ERRTYPE 0 on both sides
@@ -30,7 +30,7 @@ missing_end	SAME	FIXED this session (was WRONG): parser now requires an END stat
 deep_recursion	WRONG	unbounded recursion raw-SIGSEGVs with zero diagnostic; oracle cleanly reports ERROR 246 stack overflow
 huge_string	DEFENSIBLE	SCRIP enforces no MAXLNGTH-style string-length ceiling; a reasonable modern default, not an instability
 TSV
-WRONG_RATCHET="${WRONG_RATCHET:-2}"   # known-red ceiling: bad_type_arith + deep_recursion, per FINDING-2026-08-23-*-error-paths-vs-oracle.md
+WRONG_RATCHET="${WRONG_RATCHET:-1}"   # known-red ceiling: deep_recursion only -- bad_type_arith cured, see FINDING-2026-08-24-seat04-arith-operand-type-check.md
 same=0; def=0; wrong=0; total=0; wrong_names=""
 while IFS=$'\t' read -r name verdict why; do
     [ -z "$name" ] && continue
@@ -52,5 +52,5 @@ if [ "$wrong" -gt "$WRONG_RATCHET" ]; then
     echo "GATE FAIL(1) [test_error_paths_vs_oracle]: WRONG=$wrong exceeds ratchet ceiling $WRONG_RATCHET (new divergence(s) among:$wrong_names) -- a WRONG classification needs its own witness + task file, never a silent ratchet bump."
     exit 1
 fi
-echo "GATE PASS(0) [test_error_paths_vs_oracle]: WRONG=$wrong within ratchet ceiling $WRONG_RATCHET (known: bad_type_arith, deep_recursion -- see FINDING + their task files)"
+echo "GATE PASS(0) [test_error_paths_vs_oracle]: WRONG=$wrong within ratchet ceiling $WRONG_RATCHET (known: deep_recursion -- see FINDING + its task file)"
 exit 0

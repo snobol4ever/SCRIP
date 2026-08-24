@@ -252,6 +252,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
     if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
+    if (!csop && (!is_numeric_like(a) || !is_numeric_like(b))) return FAILDESCR;   /* Appendix D 1 -- reuses the GT/LT/EQ family's own numeric-string validator (core.c) instead of letting to_real/to_int's strtod/strtoll silently read a non-numeric string as 0 */
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = csop ? 0.0 : to_real(a), rd = csop ? 0.0 : to_real(b);
