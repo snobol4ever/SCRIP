@@ -1352,7 +1352,11 @@ DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
 void *rt_gen_get_fb(void) { return (void *)0; }
-typedef struct { void *gen_fb; void *cont; void *caller_fb; void *gwire; void *owire; } icn_gen_state_t;
+/*⭐ N-2 (hq_P s272) -- `frame` WAS `caller_fb`, A DEAD FIELD: zero reads and zero writes anywhere in this file, measured before the rename, so this costs no storage and displaces nothing.  It now carries the suspend-generator's OFF-STACK ACTIVATION RECORD.
+  ⛔ WHY OFF-STACK AT ALL, measured twice and do not re-litigate it: (1) the C stack cannot hold it -- s271 gdb witness, the record sat 336 bytes below the caller's rsp and was overwritten by `write()`'s own call frame between yield and dereference; (2) the GC ARENA cannot hold it either -- `gc_heap.c:668`, "THE PIN ARM IS GONE (Lon s262) ... every live block now relocates", and the record's address is banked in `FRQ(act+8)` and resume-record word 3, NEITHER of which the compactor can enumerate for fixup, so a collection between suspend and resume leaves both copies stale.  Same staleness class, two different mechanisms.
+  ⭐ WHERE IT DOES LIVE, and why this array is the right home: the WORKSPACE ISLAND (`rt_ws_alloc`, HB_WS).  The compaction index is built by walking `g_hp_arena` alone (`gc_heap.c:610-614`); the island is a separate mapping that never enters that index and is therefore NEVER RELOCATED, while `gc_heap.c:624` scans it as a root region.  Non-moving and traced is exactly the pair this record needs, and it is the same storage `icn_gen_stk_grow` already grows through.
+  ⛔ THE ISLAND IS A BUMP ALLOCATOR WITH NO FREE (`g_wsi_ws += total`), so a generator in a loop would leak one record per activation until the island aborts -- hence the FREE LIST below.  It rides THIS array (a retired entry keeps `frame`, clears `gen_fb`) rather than a new global, which is why this rung needs no NO-NEW-GLOBALS grant. */
+typedef struct { void *gen_fb; void *cont; void *frame; void *gwire; void *owire; } icn_gen_state_t;
 __attribute__((visibility("hidden"))) static icn_gen_state_t  g_icn_gen_stk_buf[64];
 __attribute__((visibility("hidden"))) static icn_gen_state_t *g_icn_gen_stk     = g_icn_gen_stk_buf;
 __attribute__((visibility("hidden"))) static int              g_icn_gen_stk_top = 0;
@@ -1377,6 +1381,38 @@ static void icn_gen_stk_grow(void) {
     if (!nb) return;
     if (g_icn_gen_stk == g_icn_gen_stk_buf) memcpy(nb, g_icn_gen_stk_buf, (size_t)g_icn_gen_stk_top * sizeof(icn_gen_state_t));
     g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐ N-2 ACTIVATION-RECORD ALLOCATOR (hq_P s272).  Layout the emitter agrees to, and it is why the R-4(b) PORT protocol transfers unchanged even though its STORAGE could not: [base+0]=caller rbp  [base+8]=γ  [base+16]=ω  [base+24...]=ζ.  The re-homed operand accessors (`ZOPQ`/`ZRES`, x86_asm.h:888-895) address through `RDQ("rbp", off)`, so pointing rbp at this record instead of at the stack redirects every ζ reference with NO change to a single template -- and `[rbp+8]`/`[rbp+16]` keep meaning γ/ω exactly as the existing α-prologue comment already claims.
+  ⛔ REGISTERED AS A GC ROOT RANGE, and the registration has a second effect that is deliberate, not incidental: `rt_gc_root_range_add` bumps `g_gc_rrng_n` WITHOUT bumping `g_gc_rrng_ss`, and `gc_heap.c:619` computes the precise-zeta fast path as `pz = (... && g_gc_rrng_n == g_gc_rrng_ss)`.  So registering a live generator's record automatically FORCES the conservative scan for as long as that generator is suspended, which is the arm that also scans the island.  The record cannot be precise-path-skipped while it is live; correctness is structural rather than a promise, and the cost is paid only while a suspension is outstanding. */
+void *rt_icn_gen_frame_alloc(void *gen_fb, long bytes)
+{
+    extern void *rt_ws_alloc(size_t);
+    extern void  rt_gc_root_range_add(const char *lo, const char *hi);
+    if (bytes < 0) bytes = 0;
+    { long need = (bytes + 24 + 15) & ~15L;
+      for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {                                                   /* FREE LIST: a retired entry keeps its record and clears gen_fb.  Reuse needs the */
+          icn_gen_state_t *e = &g_icn_gen_stk[i];                                                          /* stored span to cover `need`, which is why cap rides the record's own word -1.   */
+          if (!e->gen_fb && e->frame && ((long *)e->frame)[-1] >= need) {
+              e->gen_fb = gen_fb; e->cont = (void *)0; e->gwire = (void *)0; e->owire = (void *)0;
+              memset(e->frame, 0, (size_t)need); return e->frame; } }
+      { char *blk = (char *)rt_ws_alloc((size_t)need + 16);
+        if (!blk) return (void *)0;
+        { char *rec = blk + 16; ((long *)rec)[-1] = need;                                                  /* word -1 is the record's own capacity; word -2 is padding kept for 16B alignment */
+          memset(rec, 0, (size_t)need);
+          rt_gc_root_range_add(rec, rec + need);
+          icn_gen_stk_grow();
+          if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return (void *)0;
+          g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb, (void *)0, (void *)rec, (void *)0, (void *)0 };
+          return rec; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⛔ RETIRE, NOT FREE -- and the distinction is the whole point.  The record STAYS registered as a GC root range and stays allocated; only its `gen_fb` binding is cleared so the next activation can reuse it.  Un-registering would mean removing an entry from `g_gc_rrng`, which has no removal API (`gc_heap.c:484` only appends) and would silently invalidate the `g_gc_rrng_ss` accounting that `pz` is computed from.  A retired record is zeroed on REUSE rather than here, so a stale suspension that resumes after ω -- which is a bug, but a bug we would rather see as its own value than as a wild pointer -- reads zeros. */
+void rt_icn_gen_frame_retire(void *gen_fb)
+{
+    icn_gen_state_t *e = icn_gen_find(gen_fb);
+    if (!e) return;
+    e->gen_fb = (void *)0; e->cont = (void *)0; e->gwire = (void *)0; e->owire = (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
