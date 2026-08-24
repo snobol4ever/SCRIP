@@ -85,7 +85,13 @@ for name in $progs; do
       >"$WORK/$name.s" 2>"$WORK/$name.cerr" )
   if [ -s "$WORK/$name.s" ] && gcc -no-pie "$WORK/$name.s" -L"$RTDIR" -lscrip_rt \
         -Wl,-rpath,"$RTDIR" -o "$WORK/$name.bin" 2>"$WORK/$name.lerr"; then
-    OUTPUT=1 timeout 120 "$WORK/$name.bin" "${a[@]}" 2>/dev/null <"$sin" | head -c "$CAP" >"$WORK/$name.scr"
+    # ⛔ `stdbuf -o0` IS LOAD-BEARING, NOT TIDINESS (hq_P s269). stdout here is a PIPE, so libc block-buffers it.
+    # When the program dies abnormally -- SIGSEGV, or SIGTERM from `timeout` -- the unflushed buffer is LOST, and a
+    # program that ran correctly for thousands of lines before crashing reported `0` lines and compared as DIVERGE.
+    # That is how FIVE SEGFAULTS were booked as wrong answers: concord printed 20 good lines, ipxref 17, rsg 5017,
+    # every one of them discarded at the moment of death. Unbuffered, the partial output survives and the row tells
+    # the truth about how far the program got before it died.
+    OUTPUT=1 timeout 120 stdbuf -o0 "$WORK/$name.bin" "${a[@]}" 2>"$WORK/$name.rerr" <"$sin" | head -c "$CAP" >"$WORK/$name.scr"
     scr_rc=${PIPESTATUS[0]}
   else
     printf "%-9s | %-9s | %-9s | %-9s | %s\n" "$name" "-" "-" "EMITFAIL" "$(grep -m1 -oE 'FATAL.{0,30}' "$WORK/$name.cerr")"
@@ -100,8 +106,20 @@ for name in $progs; do
   cap_o=0; cap_s=0
   [ "$(stat -c%s "$WORK/$name.orc" 2>/dev/null || echo 0)" -ge "$CAP" ] && cap_o=1
   [ "$(stat -c%s "$WORK/$name.scr" 2>/dev/null || echo 0)" -ge "$CAP" ] && cap_s=1
+  # ⛔ HOW THE RUN ENDED OUTRANKS WHAT IT PRINTED (hq_P s269, row icon-bench-correct-zero-of-eight). `scr_rc` was
+  # CAPTURED HERE AND NEVER READ: the ladder went straight from the cap checks to `cmp`, so a program that SEGFAULTED
+  # or HUNG fell through to DIVERGE -- a WRONG-ANSWER verdict for a program that never produced an answer at all.
+  # Measured cost: 6 of the 8 rows were misclassified. FIVE were SIGSEGV (concord, geddump, ipxref, tgrlink, rsg) and
+  # ONE was a hang (micsum); not one of them was the wrong-output defect the board had been reporting for sessions.
+  # A fixer reading DIVERGE goes and diffs outputs; the actual work is a crash. ⭐ Same class as the timeout-scored-as-
+  # zero cure above and as `test_gate_bb_one_box.sh`: an instrument that cannot express one of its own outcomes
+  # reports the wrong one CONFIDENTLY. These branches come BEFORE `cmp` and AFTER the cap checks -- a cap hit makes
+  # `head` close the pipe and the writer die of SIGPIPE (141), so RUNAWAY must keep first claim on that rc.
   if [ "$cap_s" -eq 1 ] && [ "$cap_o" -eq 0 ]; then v="RUNAWAY"; d="SCRIP output hit the ${CAP}-byte cap, oracle did not - unbounded output, NOT a diff"
   elif [ "$cap_o" -eq 1 ] || [ "$cap_s" -eq 1 ]; then v="CAPPED"; d="output truncated at ${CAP} bytes (oracle=$cap_o scrip=$cap_s) - comparison is UNPROVEN, not a pass"
+  elif [ "$scr_rc" -ge 128 ]; then v="CRASH"; d="SCRIP died on SIG$(kill -l "$((scr_rc-128))" 2>/dev/null || echo "?($scr_rc)") after $sl good line(s) [oracle $ol] - a CRASH, not a diff$([ -s "$WORK/$name.rerr" ] && printf ': %s' "$(head -c 60 "$WORK/$name.rerr" | tr '\n' ' ')")"
+  elif [ "$scr_rc" -eq 124 ]; then v="HANG"; d="SCRIP did not terminate within 120s after $sl good line(s) [oracle $ol] - non-termination, NOT a diff"
+  elif [ "$orc_rc" -ge 124 ]; then v="UNPROVEN"; d="the ORACLE itself died/hung (rc=$orc_rc) - no verdict is possible about SCRIP"
   elif [ "$ol" -eq 0 ] && [ "$sl" -eq 0 ]; then v="NO-OUTPUT"; d="both empty - NOT a pass, harness or program produced nothing"
   elif cmp -s "$WORK/$name.orc.w" "$WORK/$name.scr.w"; then v="IDENTICAL"; d="-"
   else v="DIVERGE"; d="$(diff "$WORK/$name.orc.w" "$WORK/$name.scr.w" | head -2 | tr '\n' ' ' | cut -c1-40)"; fi
