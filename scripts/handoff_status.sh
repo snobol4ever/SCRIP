@@ -100,6 +100,26 @@ for r in "${REPOS[@]}"; do
   printf "  %-22s %-10s local=%s origin=%s\n" "$name [$br]" "$st" "${lh:0:9}" "${oh:0:9}"
 done
 echo "------------------------------------------------------------"
+echo "=== .s ARTIFACT DRIFT (RULES.md handoff step 4) — WARN-ONLY, does not affect the verdict below ==="
+echo "    (ramp per row six-owed-verifier, 2026-08-24 s272 QA: BLOCK once the standing count below is cleared)"
+if [ "${SKIP_S_ARTIFACT_CHECK:-0}" = "1" ]; then
+  echo "  SKIPPED (SKIP_S_ARTIFACT_CHECK=1 set) — .s drift is UNVERIFIED this run."
+else
+  verifier="$SELF_DIR/util_verify_s_artifacts_owed.sh"
+  if [ ! -x "$verifier" ]; then
+    echo "  ⛔ $verifier missing/not executable — .s drift is UNVERIFIED this run."
+  else
+    s_out="$(bash "$verifier" 2>&1)"; s_rc=$?
+    if [ "$s_rc" -eq 0 ]; then
+      printf '%s\n' "$s_out" | grep '^S-ARTIFACTS-' | sed 's/^/  /'
+      echo "  CLEAN — benchmark/demo/prolog_bench/icon_bench all current, all checks actually ran."
+    else
+      echo "  ⛔⛔⛔ OWED/TROUBLE — see detail below. NOT a handoff blocker (WARN ramp, see banner above)."
+      printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
+    fi
+  fi
+fi
+echo "------------------------------------------------------------"
 if [ "$blocked" -ne 0 ]; then
   echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"
   [ "$unknown" -ne 0 ] && { echo "  (also UNKNOWN, see below — fix the known blockers first, they are certain; the unknown repo(s) still need a look)"; printf '  - %s\n' "${unknown_reasons[@]}"; }
