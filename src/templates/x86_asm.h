@@ -2046,6 +2046,9 @@ extern "C" int emit_defer_rbp(void);
 extern "C" int emit_defer_carve_rbp(void);
 extern "C" void rt_zdp_sm_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_genframe2() {   /* N-2 (hq_P s271): the generator ACTIVATION-FRAME protocol. Lives HERE, not in emit.cpp, because the alpha/gamma/res/omega arms are emitted from the driver while the caller-side landing is emitted from a bb_* template into libscrip_rt.so -- one switch, two link units, so it has to sit in the header both sides already include. ⛔ DEFAULT OFF until all five slices land and the D2-suspend witness set is green: alpha carve, gamma resume-record, res landing, omega retire and the caller landing are ONE protocol, and a half-built one crashes differently rather than better. SCRIP_ICN_GENFRAME2=1 arms it. */
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME2"); v = (e && *e == '1') ? 1 : 0; } return v;
+}
 inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zdp_rbp_frames() {

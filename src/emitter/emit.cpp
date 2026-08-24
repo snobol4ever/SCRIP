@@ -2778,6 +2778,19 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
         if (g_emit_cfg && g_emit_cfg->pl_cells_graph && g_emit.flat_all_zd) { int _plk = 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && zd_wl_kind(_nd)) _plk += zd_k(_nd); } if (_plk > 0) { bb_emit_x86(x86("sub", "rsp", (long)_plk)); } }
+    } else if (icn_genframe2() && g_emit.flat_gen) {
+        int kt2 = g_emit.flat_frame_bytes;
+        int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
+        int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
+        int frame_total = kt2 + (np + nl) * 16;
+        extern void rt_lcl_proc_args_install(void *, int, int);
+        extern void rt_icn_zframe_args_install(void *, int, int);
+        int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
+        bb_emit_x86(x86("comment", "N-2 GENERATOR ACTIVATION FRAME (R-4(b) shape): a suspend-generator is re-entered at beta AFTER its caller has run, so its zeta storage cannot live in the caller's stack -- which is exactly where it lived, since this graph reached NEITHER prologue arm above and carved nothing while addressing out to [rsp+frame_total]. rbp homes the frame so gamma-SUSPEND can hand back the caller's rsp while KEEPING this one: [rbp+0]=caller rbp [rbp+8]=gamma [rbp+16]=omega, read in place rather than banked.")
+                  + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)frame_total)
+                  + x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
+                  + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
+                        (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
     } else if (g_emit.flat_lcl_proc) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
@@ -3083,6 +3096,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_emit.flat_pat) {
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
+        } else if (icn_genframe2() && g_emit.flat_gen) {
+            bb_emit_x86(x86("comment", "N-2 GENERATOR RESUME LANDING: the caller re-entered through the 4-word record this graph's gamma left on the stack -- word 3 is THIS frame's rbp, so restore it and discard the record, leaving rsp exactly where the alpha carve put it. ⛔ The landing must NOT release the frame: yielding is not returning (Lon s195), and beta falls through from here straight back into the body.")
+                      + x86_rsp_load64("rbp", 24) + x86("add", "rsp", 32L));
         } else {
         if (g_is_text) {
             char _res[96];
@@ -3147,6 +3163,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
+    else if (icn_genframe2() && g_emit.flat_gen) {
+        bb_emit_x86(x86("comment", "N-2 GENERATOR SUSPEND: yielding KEEPS the frame and the pair. The pair is read IN PLACE off rbp ([rbp+8]=gamma [rbp+16]=omega, put there by the caller's pushes before it jumped in) rather than banked at alpha, so no entry-cached scratch register has to survive the body's calls. Four words go down -- this frame's rbp, omega, gamma, resume label -- and rsp is left pointing at them: that address IS the resume token the caller banks, and rbp is handed back to the caller before the jump.")
+                  + x86("mov", "rcx", RDQ("rbp", 16)) + x86("push", "rbp") + x86("push", "rcx")
+                  + x86("mov", "rcx", RDQ("rbp", 8)) + x86("push", "rcx")
+                  + x86_lea_ext("rax", &lbl_res) + x86("push", "rax")
+                  + x86("mov", "rbp", RDQ("rbp", 0))
+                  + x86("comment", "⛔ SET THE PORT TAG LAST AND NEVER OMIT IT: the caller's landing is SHARED by this port and the retiring one, and it tells them apart by al. Leaving eax alone here does not mean 'no tag' -- it means the tag is whatever the body last computed, so the landing takes the RETIRE arm at random and unwinds a frame that is still live. bb_glue_outer_gamma set DT_S for the same reason; the record build clobbers rax, so it goes after the push, not before.")
+                  + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
+    }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ()); }
     }
     if (!bare && !_top_hoist) {
@@ -3156,6 +3181,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nmov edi, 1\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0xBF, 0x01, 0x00); ef_b1(0x00); ef_b1(0x00); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }
+    else if (icn_genframe2() && g_emit.flat_gen) {
+        bb_emit_x86(x86("comment", "N-2 GENERATOR RETIRE: exhaustion is the ONE exit that owns the release -- mov rsp,rbp;pop rbp puts the stack back at entry depth, exactly where the caller's PUSHed pair sits. ⭐ The RETURN CONTRACT IS THEN LEFT BYTE-IDENTICAL TO THE PRE-FRAME EMITTER: ret through the [rsp+0] slot carrying DT_FAIL in eax, which is what bb_glue_outer_omega already did and what the caller's landing already expects. Only the release is new, so this arm cannot move the caller's arithmetic. ⛔ gamma must never do this: a suspend leaves a live resume record below, and releasing there would eat the frame the caller is about to re-enter.")
+                  + x86("mov", "rsp", "rbp") + x86("pop", "rbp") + x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
+    }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {

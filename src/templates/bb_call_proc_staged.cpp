@@ -717,11 +717,32 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
          + bcps_wire_cross(3, 4)
          + x86("def", L(3))
-         + bcps_wire_land(_.op_sval)
-         + (zf_resume
-            ? x86("mov", FRQ(act + 8), "rax")
-            : x86("mov", FRQ(act + 8), "rsp")
-              + x86("add", "rsp", 8L))
+         + (icn_genframe2()
+            ? /* N-2: L(3) is a SHARED landing -- the callee reaches it from BOTH ports, so the two arrivals must be told
+               * apart before rsp is touched. A retiring generator still `ret`s through this slot at entry depth carrying
+               * DT_FAIL, exactly as the pre-frame emitter did; a SUSPENDING one arrives by `jmp` with nothing popped and
+               * rsp pointing at the 4-word resume record it just built. The port tag in al is the existing discriminator
+               * (the epilogue below already routes on it), so branch on it here rather than inventing a second channel.
+               * ⭐ The caller needs nothing banked for its own rsp: record word 3 is the generator's rbp, and the three
+               * words the caller pushed before jumping in sit at rbp+8/+16/+24, so its pre-call rsp is recoverable from it: the retire arm below lands at gen-rbp+40 (ret past gamma, then wire_land 16, then 8), so the suspend arm must land THERE TOO or every [rsp+k] after the join means two different slots depending on which port arrived. */
+              x86("comment", "N-2 GENERATOR LANDING: tell a SUSPEND arrival from a RETIRE arrival by the port tag, then restore rsp from the record instead of from a banked copy -- both arms MUST join at the same rsp -- gen-rbp+40, which is where the retire arm has always landed.")
+              + x86("cmp", "al", (long)DT_FAIL)
+              + x86("je", L(8))
+              + x86("mov", "rcx", "rsp")
+              + x86("mov", "rax", RDQ("rsp", 24))
+              + x86("lea", "rsp", RDQ("rax", 32))
+              + x86("mov", FRQ(act + 8), "rcx")
+              + x86("jmp", L(9))
+              + x86("def", L(8))
+              + bcps_wire_land(_.op_sval)
+              + x86("mov", FRQ(act + 8), "rsp")
+              + x86("add", "rsp", 8L)
+              + x86("def", L(9))
+            : bcps_wire_land(_.op_sval)
+              + (zf_resume
+                 ? x86("mov", FRQ(act + 8), "rax")
+                 : x86("mov", FRQ(act + 8), "rsp")
+                   + x86("add", "rsp", 8L)))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
