@@ -10,7 +10,6 @@ void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_string() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres)
         return x86("comment", "IR_COERCE_STRING zd")
              + x86_alpha()

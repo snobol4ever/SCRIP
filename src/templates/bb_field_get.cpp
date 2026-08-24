@@ -9,7 +9,6 @@ extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_field_get() {
-    if (!PLATFORM_X86) return std::string();
     int lv = (_.op_node_kind == IR_FIELD_VAR);
     if (_.op_zres)
         return x86("comment", lv ? "IR_FIELD_GET lv zd" : "IR_FIELD_GET zd")

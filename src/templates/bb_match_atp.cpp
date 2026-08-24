@@ -8,7 +8,6 @@ extern "C" void rt_at_cursor(const char *varname, int cur_delta);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_atp() {
-    if (!PLATFORM_X86) return std::string();
     static char b[24];
     return !(_.op_sval ? _.op_sval : "")[0] ? std::string()
          : (strtab_label(b, sizeof b, _.op_sval ? _.op_sval : ""),

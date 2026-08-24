@@ -9,7 +9,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_enter_init() {
     x86_begin();
-    if (!PLATFORM_X86) return x86_alpha() + x86_bomb("bb_enter_init: no x86 platform");
     return IF(_.op_off < 0, x86_alpha() + x86_bomb("bb_enter_init: op_off < 0 (no slot assigned)"))
          + IF(!(_.op_off < 0),
              x86_alpha()

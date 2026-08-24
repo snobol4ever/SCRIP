@@ -30,7 +30,6 @@ static std::string an_memb(long i) { return i >= CSK() ? x86_omega() + x86("def"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_any() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = an_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (an_rangep()) an_ranges();

@@ -18,7 +18,6 @@ static std::string bb_match_pos_body() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_pos() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres) return bb_match_pos_body();
     return bb_match_pos_body();
 }

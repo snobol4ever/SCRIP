@@ -32,7 +32,6 @@ static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = bk_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (bk_rangep()) bk_ranges();

@@ -9,7 +9,6 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_var() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres)
         return x86("comment", "IR_ASSIGN_VAR zd")
              + x86_alpha()

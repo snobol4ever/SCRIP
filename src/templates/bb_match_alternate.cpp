@@ -35,7 +35,6 @@ static std::string alt_sigma_stubs(long N, int cro) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_alternate() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     const int cro = sn4_choice_rbp_off_nd();   /* per-node record slot in a multi-choice blob (s266), else the legacy shared slot, else 0 = the FLAT own-carved record */
     return x86("comment", cro ? "IR_MATCH_ALT_NARY (ALT-RBP s128, frame-resident choice record)" : "IR_MATCH_ALT_NARY (ALT-FLAT, s61 own-carved record)")
              + x86_alpha()

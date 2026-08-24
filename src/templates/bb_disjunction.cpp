@@ -27,7 +27,6 @@ static std::string disj_sigma_copy() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_disjunction() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     return _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_DISJUNCTION nary: value/state slot not granted (zls)")
              : x86("comment", "IR_DISJUNCTION_NARY")

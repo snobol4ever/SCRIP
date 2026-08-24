@@ -24,7 +24,6 @@ static bool cv_is_apply() { return _.op_sval && strcmp(_.op_sval, "apply") == 0 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_value() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0 || _.op_sa < 0) return x86_alpha() + x86_bomb("bb_call_value: needs own slot + callee operand slot");
     int n = _.op_arg_slot_n;
     for (int i = 0; i < n; i++)

@@ -146,7 +146,6 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_dc_stub_str(void) {
-    if (!PLATFORM_X86) return std::string();
     x86_begin();
     int kt = g_emit.flat_frame_bytes;
     int anchor = -1;

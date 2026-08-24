@@ -801,7 +801,6 @@ static int frame_need_of(const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_prepare(IR_t *nd) {
-    if (!PLATFORM_X86) return;
     g_emit.bb_ls = NULL;
     g_emit.bb_rs = NULL;
     g_emit.bb_op_lbl = NULL;
@@ -809,7 +808,6 @@ void bb_prepare(IR_t *nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_classify_node(IR_t *nd) {
-    if (!PLATFORM_X86) return;
     g_emit.op_frame_need = frame_need_of(nd);
     { static int _ed = -1; if (_ed < 0) { const char * e = getenv("SCRIP_EARN_DIAG"); _ed = (e && *e == '1') ? 1 : 0; }
       if (_ed && nd) fprintf(stderr, "[EARN] op=%d need=%d haz=%d pat_static=%d n_op=%d\n", nd->op, g_emit.op_frame_need, earn_hazard_in(nd, 0), nd->pat_static, nd->n_operands); }

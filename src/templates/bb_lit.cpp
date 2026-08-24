@@ -7,7 +7,6 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit() {
-    if (!PLATFORM_X86) return std::string();
     const char *s = _.op_sval ? _.op_sval : "";
     long n = (long)strlen(s);
     const char *lbl = emit_intern_str(s);

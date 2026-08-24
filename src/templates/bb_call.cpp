@@ -288,7 +288,6 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
@@ -378,7 +377,6 @@ static std::string bb_call_byname_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_gen_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     const char * fn   = _.op_sval ? _.op_sval : "";
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
@@ -432,7 +430,6 @@ static int is_jct_call(IR_t * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * e = cond ? cond->entry : NULL;
@@ -460,7 +457,6 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
@@ -485,7 +481,6 @@ static std::string bb_call_bool_jct_cond_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_bool_cond_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
     IR_graph_t * cond = blks ? blks[0] : NULL;
     IR_t * relnd = rkbool_cond_relop(cond);
@@ -507,7 +502,6 @@ static std::string bb_call_bool_cond_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     switch (_.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
         case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);

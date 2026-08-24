@@ -9,7 +9,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_limit() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0))
         return x86_alpha() + x86_bomb("bb_limit: unhandled (needs descr flat-chain, static slots, count slot, gen-β)");
     return x86("comment", "IR_LIMIT")
@@ -30,6 +29,5 @@ std::string bb_limit() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_limit_init() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     return x86("mov", FRQ(_.op_off + 16), (long)0);
 }

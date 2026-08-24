@@ -11,7 +11,6 @@ DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx);
 std::string bb_key_gen(IR_t * pBB) {
     x86_begin();
     (void)pBB;
-    if (!PLATFORM_X86) return std::string();
     if (_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_key_gen: IR_KEY_GEN — operand/idx/out slot missing");
     return x86("comment", "IR_KEY_GEN")
          + x86_alpha()

@@ -7,7 +7,6 @@ void rt_gvar_assign_pat(const char *name, void *head);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_ref_invariant() {
-    if (!PLATFORM_X86) return std::string();
     static char bn[24];
     strtab_label(bn, sizeof bn, _.op_sval ? _.op_sval : "");
     return x86("comment", "IR_REF_INVARIANT frozen-pattern store")

@@ -42,7 +42,6 @@ static std::string bb_match_len_body() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_len() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres) return bb_match_len_body();
     return bb_match_len_body();
 }

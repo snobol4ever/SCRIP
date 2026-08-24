@@ -446,7 +446,6 @@ static int bcfn_result_slot(IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     const char * fn = _.op_sval ? _.op_sval : "";
     int nargs = (int) _.op_ival;
     if (_.op_zres) {

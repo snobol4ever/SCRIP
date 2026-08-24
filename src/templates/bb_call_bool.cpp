@@ -13,7 +13,6 @@ static int rkbool_arg_is_relop(IR_t * a0) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_bool_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     IR_t * a0 = ir_call_arg(_.node, 0);
     if (rkbool_arg_is_relop(a0))
         return x86_alpha()

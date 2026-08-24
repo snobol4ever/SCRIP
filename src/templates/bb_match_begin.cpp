@@ -30,7 +30,6 @@ static const char * HKD() { return "dword ptr [rsp# + 0]"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_begin() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (emit_match_rbp()) {
         int extra = _.op_frame_extra;
         return x86("comment", "IR_MATCH_BEGIN (MATCH-RBP frame; mark=[rbp-8])")

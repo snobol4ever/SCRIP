@@ -19,7 +19,6 @@ static std::string bb_match_rem_body() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_rem() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres) return bb_match_rem_body();
     return bb_match_rem_body();
 }

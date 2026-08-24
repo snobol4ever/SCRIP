@@ -8,7 +8,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arb() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     int _diag = getenv("SCRIP_ARB_DIAG") ? 1 : 0;
     std::string _line1 = x86("comment", "IR_MATCH_ARB")
          + x86_alpha()

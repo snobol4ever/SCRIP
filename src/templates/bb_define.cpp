@@ -52,7 +52,6 @@ extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_activate() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     long   nsave    = (long)_.op_ival;
     long   nformals = (long)_.op_ab_nformals;
     const char * fname = _.op_sval ? _.op_sval : "?";
@@ -266,7 +265,6 @@ static std::string bb_define_activate() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_bind() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     const char * fname = _.op_sval ? _.op_sval : "?";
     std::string albl = std::string(fname) + "_act_\xce\xb1";
     std::string clbl = std::string("fn_cell$") + fname;
@@ -380,7 +378,6 @@ void  bb_scc_handoff_pending_clear(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_sr() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     long role = (long)_.op_ival;
     int inl5 = (role == 5) ? 1 : 0; if (inl5) role = 4;
     if (role == 3) {

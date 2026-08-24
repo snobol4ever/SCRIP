@@ -19,7 +19,6 @@ static inline const char * readhome(void)  { return _.op_zres ? ZOPD(1, 0) : FR(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_capture() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     static char b[24];
     return (_.op_off < 0)
          ? ( x86_alpha()

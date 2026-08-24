@@ -10,7 +10,6 @@ void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, l
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_numeric() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres)
         return x86("comment", "IR_COERCE_NUMERIC zd")
              + x86_alpha()

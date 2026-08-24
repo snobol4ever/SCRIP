@@ -29,7 +29,6 @@ static long na_tablep() { return na_gu() && !na_rangep() && (CSK() == 0 || CSK()
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {
-    if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = na_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (na_rangep()) na_ranges();

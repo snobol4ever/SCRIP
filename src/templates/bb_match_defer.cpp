@@ -43,7 +43,6 @@ static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = get
                                      + x86("mov",RDQ("rcx",0),"rsp"))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
-    if (!PLATFORM_X86) return std::string();
     static char b[24];
     strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     int vslot = -1; { const char *sv = _.op_sval; if (sv) { const char *d = strstr(sv, "$V"); if (d && d[2] >= '0' && d[2] <= '9') { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } } }

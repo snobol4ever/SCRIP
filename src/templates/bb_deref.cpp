@@ -9,7 +9,6 @@ extern DESCR_t rt_deref(DESCR_t d);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_deref() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres)
         return x86("comment", "IR_DEREF variable -> value zd")
              + x86_alpha()

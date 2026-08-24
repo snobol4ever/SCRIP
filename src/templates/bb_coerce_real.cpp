@@ -10,7 +10,6 @@ void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_real() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     return IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_real: needs operand slot (op_sa) + own value slot (op_off)"))
          + IF(!(_.op_sa < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_REAL")

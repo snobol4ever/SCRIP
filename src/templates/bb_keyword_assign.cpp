@@ -18,7 +18,6 @@ struct DESCR_t rt_keyword_dump_set(struct DESCR_t v);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_assign() {
-    if (!PLATFORM_X86) return std::string();
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_assign: no result slot");
     if (_.op_a_slot < 0) return x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);

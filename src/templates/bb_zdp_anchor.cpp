@@ -7,7 +7,6 @@ extern "C" {
 extern "C" void rt_zdp_anchor(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" std::string bb_zdp_anchor(long op, long node) {
-    if (!PLATFORM_X86) return std::string();
     return x86("comment", "ZDP-ANCHOR")
          + x86("push", "rdi")
          + x86("push", "rsi")
@@ -25,7 +24,6 @@ extern "C" void rt_zdp_origin(void);
 extern "C" void rt_zdp_probe(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" std::string bb_zdp_origin(long node) {
-    if (!PLATFORM_X86) return std::string();
     return x86("comment", "ZDP-ORIGIN")
          + x86("push", "rdi")
          + x86("push", "rsi")
@@ -38,7 +36,6 @@ extern "C" std::string bb_zdp_origin(long node) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, long want_rbp) {
-    if (!PLATFORM_X86) return std::string();
     return x86("comment", "ZDP-PROBE")
          + x86("push", "rdi")
          + x86("push", "rsi")

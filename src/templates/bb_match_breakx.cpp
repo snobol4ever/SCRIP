@@ -53,7 +53,6 @@ static std::string bx_guts_call(long e, long bump) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_breakx() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = bx_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (_.op_zres && _.op_sa >= 0)

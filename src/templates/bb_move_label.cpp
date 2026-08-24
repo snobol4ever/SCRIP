@@ -11,7 +11,6 @@ void rt_pl_cp_push(void *addr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_move_label() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_move_label: no shared-slot owner (op_off<0)");
     if (!_.lbl_t0) return x86_alpha() + x86_bomb("bb_move_label: resume-target label unresolved (lbl_t0 NULL)");
     if (_.op_zres && _.lbl_t1_p) {

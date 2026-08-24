@@ -10,7 +10,6 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_make_list() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres) {
         int na = _.op_arg_slot_n;
         std::string s = x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")

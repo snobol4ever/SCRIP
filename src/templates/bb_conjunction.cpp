@@ -6,7 +6,6 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_conjunction() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_sa >= 0 && _.op_off >= 0 && _.op_sa != _.op_off) {
         return x86_alpha()
              + x86("comment", "IR_CONJUNCTION value-forward copy")

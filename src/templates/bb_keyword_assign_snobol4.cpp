@@ -10,7 +10,6 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_assign_snobol4() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_a_slot < 0 && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: rhs operand slot unresolved");
     const int kwi = _.op_sval ? rt_kw_index(_.op_sval) : -1;
     if (kwi < 0) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: keyword not named by the block");

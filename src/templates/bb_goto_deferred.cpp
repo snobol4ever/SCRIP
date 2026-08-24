@@ -11,7 +11,6 @@ void *rt_goto_resolve(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_goto_deferred() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     { static int _df = -1; if (_df < 0) { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }
     if (_df && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
         std::string lbl = std::string("LBL__") + _.op_sval;

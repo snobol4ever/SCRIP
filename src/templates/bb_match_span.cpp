@@ -33,7 +33,6 @@ static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_span() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     static char c[24];
     const void * ct = sp_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (sp_rangep()) sp_ranges();

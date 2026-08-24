@@ -209,7 +209,6 @@ static void arbno_arm_diag(const char * arm) { static int d = -1; if (d < 0) { c
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arbno() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0) ? (_.op_arbno_frame_off == -1 ? "bomb-defer-unframed" : "ARBNO-FRAME") : "FRAMELESS");
     return _.op_arbno_body_kk > 0
              ? bb_match_arbno_frameless_k()

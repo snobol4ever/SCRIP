@@ -10,7 +10,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence0() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     int rel = _.op_fence0_release;
     int flr = _.op_fence0_floor;
     return x86("comment", flr > 0 ? "IR_MATCH_FENCE0 (bare FENCE cut box, BLOB DYNAMIC RELEASE: alpha commits and restores rsp to the blob activation floor rbp-K, freeing every left-context backtrack record the static chase cannot size — the unbounded-leak class of FINDING-2026-08-23-seat04-json-fence0; then gamma; beta abandons to omega)"

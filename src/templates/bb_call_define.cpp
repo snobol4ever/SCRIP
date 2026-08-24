@@ -10,7 +10,6 @@ extern DESCR_t rt_proc_define(const char * spec);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_define() {
-    if (!PLATFORM_X86) return std::string();
     return x86_alpha()
          + x86("comment", "IR_CALL_DEFINE")
          + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_sval, _.op_parts_lbl[0])

@@ -8,7 +8,6 @@ int64_t rt_initial_fire(int64_t site);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_initial() {
-    if (!PLATFORM_X86) return std::string();
     x86_begin();
     return x86("comment", "IR_INITIAL run-once guard")
          + x86_alpha()

@@ -10,7 +10,6 @@ DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_sequence() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     return _.op_off < 0
              ? x86_alpha() + x86_bomb("IR_SCAN_SEQUENCE: value/state slot not granted (zls)")
              : x86("comment", "IR_SCAN_SEQ_NARY")

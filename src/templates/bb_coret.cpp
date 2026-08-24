@@ -10,7 +10,6 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coret() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     return IF(_.op_sa < 0, x86_alpha() + x86_bomb("bb_coret: no produced-value slot (coret.operand[0] has no DESCR slot -- body value node missing from chain)"))
          + IF(!(_.op_sa < 0),
              x86("comment", "IR_CORET yield")

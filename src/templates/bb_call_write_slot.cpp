@@ -30,7 +30,6 @@ static std::string bcws_slot(int off, bb_label_t * beta_tgt) { uint64_t fptr; { 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     return bcws_slot(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -54,7 +53,6 @@ static std::string bcws_binop_int(int off, bb_label_t * beta_tgt) { uint64_t fpt
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
-    if (!PLATFORM_X86) return std::string();
     IR_t * a0 = ir_call_arg(_.node, 0);
     int off = bb_slot_get(a0);
     if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }

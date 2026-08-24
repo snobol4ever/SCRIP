@@ -13,7 +13,6 @@ extern uint64_t g_scan_hit_start;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_value() {
-    if (!PLATFORM_X86) return std::string();
     return x86("comment", "IR_MATCH_VALUE (operand[0] pattern value, no manufactured name)")
          + x86_alpha()
          + IF(_.op_zres,  x86("lea",  "rdi", ZOPQ(0, 0)))

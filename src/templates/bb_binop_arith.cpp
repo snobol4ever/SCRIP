@@ -90,7 +90,6 @@ static inline std::string inl_tail() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_binop_arith() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_zres && fuse_on() && fuse_op_ok()) {
         /* ⭐ THE FOUR COMBINATIONS (Lon s249, in-chat): an IR_LIT_INTEGER operand is DT_I with a known value AT COMPILE TIME, so
            unknown⊕unknown, LIT⊕unknown, unknown⊕LIT and LIT⊕LIT are four different tag tests, not one runtime test.  The frame arm

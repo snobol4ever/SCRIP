@@ -36,7 +36,6 @@ static std::string fence_whack_commit(int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
-    if (!PLATFORM_X86) return std::string();
     if (_.op_ival == 0)
         return x86("comment", "IR_MATCH_FENCE1 ival=0 (FENCE0 interior sync box: alpha commits — match null — then gamma; beta abandons to omega; NO RSP whack — WHACK CONTRACT clause 5: statement ζ release is STATEMENT_END's authority; the op_zw arm that lived here double-released the UCLAIM statement claim below the ___ floor — ZWS-FENCE0-UCLAIM fix, MECH s6)")
              + x86_alpha()

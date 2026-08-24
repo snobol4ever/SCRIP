@@ -12,7 +12,6 @@ const char *rt_kw_direct_sym(int idx, int *soff, const void **base);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_snobol4() {
-    if (!PLATFORM_X86) return std::string();
     const int kwi = _.op_sval ? rt_kw_index(_.op_sval) : -1;
     int soff = 0; const void *cbase = (const void *)0;
     const char *csym = (kwi >= 0) ? rt_kw_direct_sym(kwi, &soff, &cbase) : (const char *)0;

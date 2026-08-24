@@ -9,7 +9,6 @@ extern int rt_case_eq(const DESCR_t *sel, const DESCR_t *key);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_case_arm() {
-    if (!PLATFORM_X86) return std::string();
     if (_.op_ival == 1) {
         if (_.op_sb < 0 || _.op_off < 0) return x86_bomb("bb_case_arm(take): needs value slot (op_sb) + case slot (op_off)");
         return x86("comment", "IR_CASE_ARM take")
