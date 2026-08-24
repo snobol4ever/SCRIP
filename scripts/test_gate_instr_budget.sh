@@ -35,6 +35,19 @@
 # (concurrent template churn), beauty -4.49% (a real win from the concurrent free-r10/free-r11 campaign).
 # This gate measures whichever out/libscrip_rt.so is already built; it does not itself rebuild the runtime.
 #
+# TABLE_ACCESS / ARRAY_SUM (added 2026-08-24, seat04, row `perf-table-array-runtime` NEXT step -- see
+# FINDING-2026-08-24-seat04-post-fix-table-array-callgrind-remeasurement.md).  Both are run STANDALONE
+# (no bench_wrap.sh fixed-iter twin, no fixed_n) exactly like roman/beauty above: table_access.sno's own
+# MAIN calls TABLE_ACCESS(1) then TABLE_ACCESS(20) and array_sum.sno's calls ARRAY_SUM(1) then (20) --
+# 21 total outer builds each, small and fast, each with a real .ref from the s265 standalone revamp.
+# ⛔ THIS IS NOT THE SAME MEASUREMENT AS THE FINDING'S SPITBOL-RATIO NUMBERS.  That FINDING used
+# bench_wrap.sh --mode=iter at N=2,000/100/8,192 to get a large, statistically stable Ir/iter figure
+# comparable against SPITBOL.  This gate has a different job -- catch a REGRESSION against SCRIP's OWN
+# prior instruction count, same shape as roman/beauty above -- so it uses the smaller un-wrapped
+# standalone run, same as they do, and never compares across engines.  Watermarks below are RT_OPT=-O0,
+# `make pristine` at SCRIP `eca52780`, mode-4, plain `valgrind --tool=callgrind` (no --smc-check flag,
+# matching this gate's own measure_ir, not profile_callgrind.sh's pattern-blob flag).
+#
 # PROVING THE FAIL PATH (recorded once, not re-run every invocation -- 2026-08-22, this pristine build).
 # ROMAN_IR_WATERMARK=1000000 bash scripts/test_gate_instr_budget.sh negative-tests the budget arithmetic by
 # injection (the established idiom for this codebase's gates -- see e.g. test_gate_argnote_sweep.sh's
@@ -56,16 +69,20 @@ RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
 DEMO="$CORPUS_ROOT/programs/snobol4/demo"
 BEAUTY_DIR="$DEMO/beauty"
+BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 
 TOL_PCT="${TOL_PCT:-2}"
 # Watermarks: RT_OPT=-O0, measured on a `make pristine` build, 2026-08-22, SCRIP `cd13321e`.  Re-pin with the FINDING that changed them.
 ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-22522863}"
 BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-2215545392}"
+# Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
+TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-15267937}"
+ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-10912565}"
 
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "GATE FAIL(2): libscrip_rt.so not built at $RT_DIR"; exit 2; }
 command -v valgrind >/dev/null 2>&1 || { echo "GATE FAIL(2): valgrind not installed"; exit 2; }
-[ "$ROMAN_IR_WATERMARK" -gt 0 ] && [ "$BEAUTY_IR_WATERMARK" -gt 0 ] || { echo "GATE FAIL(2): watermark(s) not pinned yet"; exit 2; }
+[ "$ROMAN_IR_WATERMARK" -gt 0 ] && [ "$BEAUTY_IR_WATERMARK" -gt 0 ] && [ "$TABLE_ACCESS_IR_WATERMARK" -gt 0 ] && [ "$ARRAY_SUM_IR_WATERMARK" -gt 0 ] || { echo "GATE FAIL(2): watermark(s) not pinned yet"; exit 2; }
 
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 FAIL=0
@@ -122,9 +139,33 @@ else
     echo "GATE FAIL(2): beauty measurement did not produce an Ir count"; exit 2
 fi
 
+if measure_ir table_access "$BENCH/table_access.sno" /dev/null ""; then
+    table_access_ir="$IR_TOTAL"
+    if diff -q "$RUN_OUT" "$BENCH/table_access.ref" >/dev/null 2>&1; then
+        echo "OK   table_access: output matches table_access.ref"
+    else
+        echo "FAIL table_access: output DIFFERS from table_access.ref -- Ir count below is not trustworthy"; FAIL=1
+    fi
+    check_budget table_access "$table_access_ir" "$TABLE_ACCESS_IR_WATERMARK"
+else
+    echo "GATE FAIL(2): table_access measurement did not produce an Ir count"; exit 2
+fi
+
+if measure_ir array_sum "$BENCH/array_sum.sno" /dev/null ""; then
+    array_sum_ir="$IR_TOTAL"
+    if diff -q "$RUN_OUT" "$BENCH/array_sum.ref" >/dev/null 2>&1; then
+        echo "OK   array_sum: output matches array_sum.ref"
+    else
+        echo "FAIL array_sum: output DIFFERS from array_sum.ref -- Ir count below is not trustworthy"; FAIL=1
+    fi
+    check_budget array_sum "$array_sum_ir" "$ARRAY_SUM_IR_WATERMARK"
+else
+    echo "GATE FAIL(2): array_sum measurement did not produce an Ir count"; exit 2
+fi
+
 if [ "$FAIL" -ne 0 ]; then
     echo "GATE FAIL: instruction budget exceeded or a correctness check failed."
     exit 1
 fi
-echo "GATE OK: both workloads within their pinned instruction budget."
+echo "GATE OK: all four workloads within their pinned instruction budget."
 exit 0
