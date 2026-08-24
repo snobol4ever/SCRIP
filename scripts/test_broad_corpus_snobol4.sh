@@ -94,11 +94,11 @@ for sno in "$BEAUTY"/*_driver.sno; do
 done
 
 # ── Demo programs ─────────────────────────────────────────────────────────────
-run_test "demo_wordcount" "$DEMO/wordcount.sno" "$DEMO/wordcount.ref" "$DEMO/wordcount.input" ""
-run_test "demo_treebank"  "$DEMO/treebank.sno"  "$DEMO/treebank.ref"  "$DEMO/treebank.input"  ""
-run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/claws5.input"    ""
+run_test "demo_wordcount" "$DEMO/wordcount/wordcount.sno" "$DEMO/wordcount/wordcount.ref" "$DEMO/wordcount/wordcount.input" ""
+run_test "demo_treebank"  "$DEMO/treebank/treebank.sno"  "$DEMO/treebank/treebank.ref"  "$DEMO/treebank/treebank.input"  ""
+run_test "demo_claws5"    "$DEMO/claws5/claws5.sno"    "$DEMO/claws5/claws5.ref"    "$DEMO/claws5/claws5.input"    ""
 TIMEOUT=30 \
-run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
+run_test "demo_roman"     "$DEMO/roman/roman.sno"     "$DEMO/roman/roman.ref"     ""                      "^ms:"
 
 T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS3+FAIL3))

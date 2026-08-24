@@ -103,33 +103,33 @@ done
 # ── Demo programs ─────────────────────────────────────────────────────────────
 # Coverage audit (demo-corpus-coverage-audit, 2026-08-22): wordcount's ref/input were
 # missing (silent no-op, neither PASS nor FAIL) -- regenerated via x64/bin/sbl -bf.
-run_test "demo_wordcount" "$DEMO/wordcount.sno" "$DEMO/wordcount.ref" "$DEMO/wordcount.input" ""
-run_test "demo_treebank"  "$DEMO/treebank.sno"  "$DEMO/treebank.ref"  "$DEMO/treebank.input"  ""
-run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"    "$DEMO/claws5.input"    ""
+run_test "demo_wordcount" "$DEMO/wordcount/wordcount.sno" "$DEMO/wordcount/wordcount.ref" "$DEMO/wordcount/wordcount.input" ""
+run_test "demo_treebank"  "$DEMO/treebank/treebank.sno"  "$DEMO/treebank/treebank.ref"  "$DEMO/treebank/treebank.input"  ""
+run_test "demo_claws5"    "$DEMO/claws5/claws5.sno"    "$DEMO/claws5/claws5.ref"    "$DEMO/claws5/claws5.input"    ""
 TIMEOUT=30 \
-run_test "demo_roman"     "$DEMO/roman.sno"     "$DEMO/roman.ref"     ""                      "^ms:"
+run_test "demo_roman"     "$DEMO/roman/roman.sno"     "$DEMO/roman/roman.ref"     ""                      "^ms:"
 # 15 rows below newly gated by the same audit -- each independently oracle-verified
 # (x64/bin/sbl -bf) and scrip-verified before wiring in; see FINDING-2026-08-22-*-demo-corpus-coverage-audit.md
-run_test "demo_arithmetic"          "$DEMO/arithmetic.sno"          "$DEMO/arithmetic.ref"          "" ""
-run_test "demo_counter"             "$DEMO/counter.sno"             "$DEMO/counter.ref"             "" ""
-run_test "demo_hello"               "$DEMO/hello.sno"               "$DEMO/hello.ref"               "" ""
-run_test "demo_pattern_test"        "$DEMO/pattern_test.sno"        "$DEMO/pattern_test.ref"        "" ""
-run_test "demo_claws5_match"        "$DEMO/claws5-match.sno"        "$DEMO/claws5-match.ref"        "$DEMO/claws5.input"     ""
-run_test "demo_claws5_match_fence"  "$DEMO/claws5-match-fence.sno"  "$DEMO/claws5-match-fence.ref"  "$DEMO/claws5.input"     ""
-run_test "demo_treebank_match"      "$DEMO/treebank-match.sno"      "$DEMO/treebank-match.ref"      "$DEMO/treebank.input"   ""
-run_test "demo_treebank_match_fence" "$DEMO/treebank-match-fence.sno" "$DEMO/treebank-match-fence.ref" "$DEMO/treebank.input" ""
-run_test "demo_treebank_alloc"      "$DEMO/treebank-alloc.sno"      "$DEMO/treebank-alloc.ref"      "$DEMO/treebank.input"   ""
-run_test "demo_porter"              "$DEMO/porter.sno"              "$DEMO/porter.ref"              "$DEMO/porter.input"     ""
+run_test "demo_arithmetic"          "$DEMO/arithmetic/arithmetic.sno"          "$DEMO/arithmetic/arithmetic.ref"          "" ""
+run_test "demo_counter"             "$DEMO/counter/counter.sno"             "$DEMO/counter/counter.ref"             "" ""
+run_test "demo_hello"               "$DEMO/hello/hello.sno"               "$DEMO/hello/hello.ref"               "" ""
+run_test "demo_pattern_test"        "$DEMO/pattern_test/pattern_test.sno"        "$DEMO/pattern_test/pattern_test.ref"        "" ""
+run_test "demo_claws5_match"        "$DEMO/claws5/claws5-match.sno"        "$DEMO/claws5/claws5-match.ref"        "$DEMO/claws5/claws5.input"     ""
+run_test "demo_claws5_match_fence"  "$DEMO/claws5/claws5-match-fence.sno"  "$DEMO/claws5/claws5-match-fence.ref"  "$DEMO/claws5/claws5.input"     ""
+run_test "demo_treebank_match"      "$DEMO/treebank/treebank-match.sno"      "$DEMO/treebank/treebank-match.ref"      "$DEMO/treebank/treebank.input"   ""
+run_test "demo_treebank_match_fence" "$DEMO/treebank/treebank-match-fence.sno" "$DEMO/treebank/treebank-match-fence.ref" "$DEMO/treebank/treebank.input" ""
+run_test "demo_treebank_alloc"      "$DEMO/treebank/treebank-alloc.sno"      "$DEMO/treebank/treebank-alloc.ref"      "$DEMO/treebank/treebank.input"   ""
+run_test "demo_porter"              "$DEMO/porter/porter.sno"              "$DEMO/porter/porter.ref"              "$DEMO/porter/porter.input"     ""
 # calculator-1/-2 (full evaluators) print a trailing nondeterministic "match_ms=" timing
 # line -- same class as demo_roman's "^ms:" filter above, just a different literal marker.
-run_test "demo_calculator_1"        "$DEMO/calculator-1.sno"        "$DEMO/calculator-1.ref"        "$DEMO/calculator.input" "^match_ms="
-run_test "demo_calculator_1_match"       "$DEMO/calculator-1-match.sno"       "$DEMO/calculator-1-match.ref"       "$DEMO/calculator.input" ""
-run_test "demo_calculator_1_match_fence" "$DEMO/calculator-1-match-fence.sno" "$DEMO/calculator-1-match-fence.ref" "$DEMO/calculator.input" ""
-run_test "demo_calculator_2_match"       "$DEMO/calculator-2-match.sno"       "$DEMO/calculator-2-match.ref"       "$DEMO/calculator.input" ""
-run_test "demo_calculator_2_match_fence" "$DEMO/calculator-2-match-fence.sno" "$DEMO/calculator-2-match-fence.ref" "$DEMO/calculator.input" ""
-run_test "demo_json"                     "$DEMO/json.sno"                     "$DEMO/json.ref"                     "$DEMO/json.input"       ""
-run_test "demo_json_match"               "$DEMO/json-match.sno"               "$DEMO/json-match.ref"               "$DEMO/json.input"       ""
-run_test "demo_json_match_fence"         "$DEMO/json-match-fence.sno"         "$DEMO/json-match-fence.ref"         "$DEMO/json.input"       ""
+run_test "demo_calculator_1"        "$DEMO/calculator/calculator-1.sno"        "$DEMO/calculator/calculator-1.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
+run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
+run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
+run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""
+run_test "demo_calculator_2_match_fence" "$DEMO/calculator/calculator-2-match-fence.sno" "$DEMO/calculator/calculator-2-match-fence.ref" "$DEMO/calculator/calculator.input" ""
+run_test "demo_json"                     "$DEMO/json/json.sno"                     "$DEMO/json/json.ref"                     "$DEMO/json/json.input"       ""
+run_test "demo_json_match"               "$DEMO/json/json-match.sno"               "$DEMO/json/json-match.ref"               "$DEMO/json/json.input"       ""
+run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"         "$DEMO/json/json-match-fence.ref"         "$DEMO/json/json.input"       ""
 # ⭐ s266 -- THE THREE json PROGRAMS ARE UN-SKIPPED. They were excluded on a comment reading "HANGS (m3 AND m4)
 # ... needs >30s (currently: forever)" and "wrong verdict on valid JSON". Both cures landed 2026-08-23: the hang
 # was multi-choice pattern blobs having no drift-immune choice record and no blob re-entry (SCRIP d6eafac3), and

@@ -139,10 +139,10 @@ done
 
 # 3. demo programs
 echo "── demos ──"
-run_test "demo_wordcount" "$DEMO/wordcount.sno" "$DEMO/wordcount.ref"
-run_test "demo_treebank"  "$DEMO/treebank.sno"  "$DEMO/treebank.ref"
-run_test "demo_claws5"    "$DEMO/claws5.sno"    "$DEMO/claws5.ref"
-TIMEOUT=30 run_test "demo_roman" "$DEMO/roman.sno" "$DEMO/roman.ref"
+run_test "demo_wordcount" "$DEMO/wordcount/wordcount.sno" "$DEMO/wordcount/wordcount.ref"
+run_test "demo_treebank"  "$DEMO/treebank/treebank.sno"  "$DEMO/treebank/treebank.ref"
+run_test "demo_claws5"    "$DEMO/claws5/claws5.sno"    "$DEMO/claws5/claws5.ref"
+TIMEOUT=30 run_test "demo_roman" "$DEMO/roman/roman.sno" "$DEMO/roman/roman.ref"
 
 # 4. CSNOBOL4 Budne suite
 echo "── csnobol4 suite ──"

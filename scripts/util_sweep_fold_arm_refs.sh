@@ -72,9 +72,9 @@ ref_stdin() {
   [ -f "$d/$n.dat" ] && { echo "$d/$n.dat"; return; }
   if [ "$d" = "$DEMO" ]; then
     case "$n" in
-      claws5*) echo "$DEMO/claws5.input"; return;; treebank*) echo "$DEMO/treebank.input"; return;;
-      json*) echo "$DEMO/json.input"; return;; calculator*) echo "$DEMO/calculator.input"; return;;
-      porter*) echo "$DEMO/porter.input"; return;;
+      claws5*) echo "$DEMO/claws5/claws5.input"; return;; treebank*) echo "$DEMO/treebank/treebank.input"; return;;
+      json*) echo "$DEMO/json/json.input"; return;; calculator*) echo "$DEMO/calculator/calculator.input"; return;;
+      porter*) echo "$DEMO/porter/porter.input"; return;;
     esac
   fi
   echo /dev/null

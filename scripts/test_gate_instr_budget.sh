@@ -169,9 +169,9 @@ check_budget() {  # label ir watermark
 
 echo "=== instr-budget-gate: RT_OPT=-O0 pinned watermarks, TOL_PCT=${TOL_PCT}% ==="
 
-if measure_ir roman "$DEMO/roman.sno" /dev/null ""; then
+if measure_ir roman "$DEMO/roman/roman.sno" /dev/null ""; then
     roman_ir="$IR_TOTAL"
-    if diff -q "$RUN_OUT" "$DEMO/roman.ref" >/dev/null 2>&1; then
+    if diff -q "$RUN_OUT" "$DEMO/roman/roman.ref" >/dev/null 2>&1; then
         echo "OK   roman: output matches roman.ref"
     else
         echo "FAIL roman: output DIFFERS from roman.ref -- Ir count below is not trustworthy"; FAIL=1

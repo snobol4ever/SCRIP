@@ -31,7 +31,7 @@ if [ ! -x "$SCRIP" ]; then
   exit 1
 fi
 
-"$SCRIP" --compile "$DEMO/json.sno" -o /tmp/gate_json_fence0.s < /dev/null > /dev/null 2>&1
+"$SCRIP" --compile "$DEMO/json/json.sno" -o /tmp/gate_json_fence0.s < /dev/null > /dev/null 2>&1
 gcc -no-pie /tmp/gate_json_fence0.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o /tmp/gate_json_fence0.bin 2>/dev/null
 
 for w in synth_perf223 synth_perf224; do
@@ -39,7 +39,7 @@ for w in synth_perf223 synth_perf224; do
     echo "  FAIL: missing witness or ref for $w"; fail=$((fail+1)); continue
   fi
 
-  timeout 60 "$SCRIP" --run "$DEMO/json.sno" < "$PROBE/$w.json" > /tmp/gate_m3_$w.txt 2>/dev/null
+  timeout 60 "$SCRIP" --run "$DEMO/json/json.sno" < "$PROBE/$w.json" > /tmp/gate_m3_$w.txt 2>/dev/null
   diff -q /tmp/gate_m3_$w.txt "$PROBE/$w.ref" > /dev/null 2>&1; chk $? "m3 $w matches oracle"
 
   timeout 60 /tmp/gate_json_fence0.bin < "$PROBE/$w.json" > /tmp/gate_m4_$w.txt 2>/dev/null

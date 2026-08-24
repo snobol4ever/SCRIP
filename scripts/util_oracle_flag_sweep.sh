@@ -60,8 +60,8 @@ EOF
 MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/bench snobol4/dotnet snobol4/aisnobol"
 stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
   [ -f "$b.input" ] && { echo "$b.input"; return; }; [ -f "$b.in" ] && { echo "$b.in"; return; }
-  case "$d" in "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5.input";; treebank*) echo "$DEMO/treebank.input";; json*) echo "$DEMO/json.input";;
-    calculator*) echo "$DEMO/calculator.input";; porter*) echo "$DEMO/porter.input";; *) echo /dev/null;; esac; return;; esac; echo /dev/null; }
+  case "$d" in "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5/claws5.input";; treebank*) echo "$DEMO/treebank/treebank.input";; json*) echo "$DEMO/json/json.input";;
+    calculator*) echo "$DEMO/calculator/calculator.input";; porter*) echo "$DEMO/porter/porter.input";; *) echo /dev/null;; esac; return;; esac; echo /dev/null; }
 sc_libpath() { local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"; }
 libspec_for() { case "$1" in beauty_self) echo include;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:include;; *) echo SELFDIR;; esac; }
 lon_guard() { case "$1" in */programs/lon/*) echo "REFUSED off-limits lon path: $1" >&2; return 1;; esac; return 0; }

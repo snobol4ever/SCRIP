@@ -71,8 +71,8 @@ stdin_for() {  # $1 = program path -> input file or /dev/null
   if [ -f "$b.input" ]; then echo "$b.input"; return; fi
   if [ -f "$b.in" ]; then echo "$b.in"; return; fi
   case "$d" in
-    "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5.input";; treebank*) echo "$DEMO/treebank.input";; json*) echo "$DEMO/json.input";;
-                          calculator*) echo "$DEMO/calculator.input";; porter*) echo "$DEMO/porter.input";; *) echo /dev/null;; esac; return;;
+    "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5/claws5.input";; treebank*) echo "$DEMO/treebank/treebank.input";; json*) echo "$DEMO/json/json.input";;
+                          calculator*) echo "$DEMO/calculator/calculator.input";; porter*) echo "$DEMO/porter/porter.input";; *) echo /dev/null;; esac; return;;
   esac
   echo /dev/null
 }
