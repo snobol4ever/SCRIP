@@ -6,7 +6,7 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-JASMIN="${JASMIN:-$HERE/../src/backends/jasmin.jar}"
+JASMIN="${JASMIN:-$HERE/../backends/jasmin.jar}"
 ORACLE="${ORACLE:-$S4A/x64/bin/sbl}"
 PASS=0; FAIL=0
 
@@ -38,11 +38,11 @@ run_smoke() {
     fi
     # Copy runtime classes
     mkdir -p "$class_dir/rt"
-    java -jar "$JASMIN" "$HERE/../src/backends/runtime/jvm/SnoRt.j" -d "$class_dir" > /dev/null 2>&1
-    java -jar "$JASMIN" "$HERE/../src/backends/runtime/jvm/SnoRtMatchState.j" -d "$class_dir" > /dev/null 2>&1
+    java -jar "$JASMIN" "$HERE/../backends/runtime/jvm/SnoRt.j" -d "$class_dir" > /dev/null 2>&1
+    java -jar "$JASMIN" "$HERE/../backends/runtime/jvm/SnoRtMatchState.j" -d "$class_dir" > /dev/null 2>&1
     # Compile SnoPat.java (pattern matcher) with SnoRt on classpath
     if which javac > /dev/null 2>&1; then
-        javac -cp "$class_dir" -d "$class_dir" "$HERE/../src/backends/runtime/jvm/SnoPat.java" > /dev/null 2>&1
+        javac -cp "$class_dir" -d "$class_dir" "$HERE/../backends/runtime/jvm/SnoPat.java" > /dev/null 2>&1
     fi
     # Run
     local jvm_out=$(timeout 5 java -cp "$class_dir" Prog 2>/dev/null || echo "")

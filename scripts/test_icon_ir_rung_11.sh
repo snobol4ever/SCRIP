@@ -2,7 +2,7 @@
 # run_rung11.sh — rung11_bang_augconcat JVM corpus runner
 set -euo pipefail
 DRIVER="${1:-/tmp/scrip}"
-JASMIN="$(dirname "$0")/../../../src/backends/jasmin.jar"
+JASMIN="$(dirname "$0")/../../../backends/jasmin.jar"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 TMPDIR_OUT="$(mktemp -d)"

@@ -11,7 +11,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/scrip}"
 CORPUS="$S4E/corpus"
-RT="$HERE/../src/backends/runtime/js/sno_runtime.js"
+RT="$HERE/../backends/runtime/js/sno_runtime.js"
 TIMEOUT=10
 VERBOSE="${1:-}"
 FLOOR=70

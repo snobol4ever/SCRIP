@@ -5,7 +5,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")}" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 DEMO_DIR="${DEMO_DIR:-$S4E/corpus/demo}"
-JASM="${JASMIN:-$HERE/../src/backends/jasmin.jar}"
+JASM="${JASMIN:-$HERE/../backends/jasmin.jar}"
 
 echo "Generating JVM artifacts for SNOBOL4 demo programs..."
 echo "Demo dir: $DEMO_DIR"
