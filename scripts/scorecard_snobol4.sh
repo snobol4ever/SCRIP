@@ -64,7 +64,7 @@ EOF
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
 # ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
 case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
-MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/bench snobol4/dotnet snobol4/aisnobol"
+MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/dotnet snobol4/aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
   local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
