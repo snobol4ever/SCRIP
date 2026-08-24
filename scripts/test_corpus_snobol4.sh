@@ -16,8 +16,14 @@ INC="${INC:-$CORPUS/demo/inc}"
 BEAUTY="${BEAUTY:-$CORPUS/snobol4/beauty_suite}"
 DEMO="${DEMO:-$CORPUS/demo}"
 
-if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
-if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
+# ⛔⛔⛔ s272 hq_C (CEO audit correction 2) — A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT.
+# These two arms printed SKIP and exited 0, so a box with no compiler built, or no corpus cloned, reported
+# SUCCESS to every caller that reads $? — which is every gate, every board, and handoff_status.sh. That is the
+# ABSENT-ORACLE FALSE-GREEN class, and it is the exact twin of the `make test` no-recipe trap: a check that
+# ran nothing and said nothing was wrong. ⭐ rc=2 means REFUSED-TO-GRADE and is distinct from rc=1 FAILED:
+# a caller can tell 'I could not measure' from 'I measured and it is broken'. Silence could say neither.
+if [ ! -x "$SCRIP" ]; then echo "⛔ REFUSED TO GRADE: scrip not built at $SCRIP" >&2; exit 2; fi
+if [ ! -d "$CORPUS" ]; then echo "⛔ REFUSED TO GRADE: corpus not found at $CORPUS" >&2; exit 2; fi
 # ⛔⛔ REFUSE ON A MISSING SUBTREE -- DO NOT SILENTLY DISCOVER FEWER PROGRAMS (hq_C s271). This board read
 # "PASS=342 FAIL=0" for a whole session because $DEMO pointed at a path that did not exist: every visible signal
 # said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most

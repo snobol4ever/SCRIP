@@ -41,14 +41,20 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ⛔⛔⛔ s272 hq_C (CEO audit correction 2) — A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT.
+# These two arms printed SKIP and exited 0, so a box with no compiler built, or no corpus cloned, reported
+# SUCCESS to every caller that reads $? — which is every gate, every board, and handoff_status.sh. That is the
+# ABSENT-ORACLE FALSE-GREEN class, and it is the exact twin of the `make test` no-recipe trap: a check that
+# ran nothing and said nothing was wrong. ⭐ rc=2 means REFUSED-TO-GRADE and is distinct from rc=1 FAILED:
+# a caller can tell 'I could not measure' from 'I measured and it is broken'. Silence could say neither.
 if [ ! -x "$SCRIP" ]; then
-    echo "SKIP scrip binary not found at $SCRIP — run scripts/build_scrip.sh" >&2
-    exit 0
+    echo "⛔ REFUSED TO GRADE: no scrip binary at $SCRIP — run scripts/build_scrip.sh" >&2
+    exit 2
 fi
 if [ ! -d "$CORPUS" ]; then
-    echo "SKIP corpus not found at $CORPUS" >&2
-    echo "     clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
-    exit 0
+    echo "⛔ REFUSED TO GRADE: no corpus at $CORPUS" >&2
+    echo "   clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2
+    exit 2
 fi
 
 OUTDIR="$(dirname "$RT_SO")"
