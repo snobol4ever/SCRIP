@@ -10,8 +10,10 @@ extern "C" {
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
+extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 static char bk_nlb[24];
+static char bk_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long bk_gu() { return _.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL || ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE); }
 static long bk_rangep() { return _.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE; }
@@ -32,6 +34,29 @@ static std::string bk_char() { return x86("cmp", "ecx", "r15d") + x86_omega("jge
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
+    if (_.node && _.node->pat_static && _.op_sval) {
+        const char * vn1 = _.op_sval;
+        return x86("comment", "IR_MATCH_BREAK defer")
+             + x86_alpha()
+             + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)vn1, (strtab_label(bk_dlb, sizeof bk_dlb, vn1), bk_dlb))
+             + x86("lea",   "rsi", LFC(4))
+             + x86("lea",   "rdx", LFC(12))
+             + x86("call",  "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
+             + x86("test",  "rax", "rax")
+             + x86_omega("js")
+             + x86("mov",   "edi", "r14d")
+             + x86("mov",   "rsi", LFCQ(4))
+             + x86("mov",   "edx", LFC(12))
+             + x86("call",  "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)
+             + x86("cmp",   "eax", "r15d")
+             + x86_omega("jge")
+             + x86("mov",   LFC(0), "r14d")
+             + x86("mov",   "r14d", "eax")
+             + x86_gamma()
+             + x86_beta()
+             + x86("mov",   "r14d", LFC(0))
+             + x86_omega();
+    }
     static char c[24];
     const void * ct = bk_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (bk_rangep()) bk_ranges();

@@ -10,8 +10,10 @@ extern "C" {
 extern "C" long rt_sg_scan_member(void);
 extern "C" long rt_sg_scan_nonmember(void);
 extern "C" long rt_sg_member(void);
+extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len);
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 static char na_nlb[24];
+static char na_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long na_gu() { return _.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL || ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE); }
 static long na_rangep() { return _.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE; }
@@ -29,6 +31,32 @@ static long na_tablep() { return na_gu() && !na_rangep() && (CSK() == 0 || CSK()
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {
+    if (_.node && _.node->pat_static && _.op_sval) {
+        const char * vn1 = _.op_sval;
+        return x86("comment", "IR_MATCH_NOTANY defer")
+             + x86_alpha()
+             + x86("mov",    "eax", "r14d")
+             + x86("cmp",    "eax", "r15d")
+             + x86_omega("jge")
+             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)vn1, (strtab_label(na_dlb, sizeof na_dlb, vn1), na_dlb))
+             + x86("lea",    "rsi", LFC(0))
+             + x86("lea",    "rdx", LFC(8))
+             + x86("call",   "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)
+             + x86("test",   "rax", "rax")
+             + x86_omega("js")
+             + x86("movsxd", "rcx", "r14d")
+             + x86("movzx",  "edi", "[r13+rcx]")
+             + x86("mov",    "rsi", LFCQ(0))
+             + x86("mov",    "edx", LFC(8))
+             + x86("call",   "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
+             + x86("test",   "eax", "eax")
+             + x86_omega("jne")
+             + x86("add",    "r14d", (long)1)
+             + x86_gamma()
+             + x86_beta()
+             + x86("sub",    "r14d", (long)1)
+             + x86_omega();
+    }
     static char c[24];
     const void * ct = na_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
     if (na_rangep()) na_ranges();

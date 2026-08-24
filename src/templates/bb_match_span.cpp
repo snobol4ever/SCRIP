@@ -66,10 +66,10 @@ std::string bb_match_span() {
              + x86_beta()
              + x86("mov",    "r14d", LFC(0))
              + x86_omega();
-    if (_.op_sval && _.op_sval[0] == '*')
+    if (_.node && _.node->pat_static && _.op_sval)
         return x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
-             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval + 1), (strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval + 1), sp_nlb))
+             + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), (strtab_label(sp_nlb, sizeof sp_nlb, _.op_sval), sp_nlb))
              + x86("lea",    "rsi", LFC(0))
              + x86("lea",    "rdx", LFC(8))
              + x86("call",   "rt_pat_prim_str", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str)

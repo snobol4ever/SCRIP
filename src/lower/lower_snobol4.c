@@ -1355,8 +1355,14 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, (t->t == TT_ANY) ? IR_MATCH_ANY : IR_MATCH_NOTANY, succ, NULL);
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
-        if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_pre_req(cx, t, nd);
+        if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
+        { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
+              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK: sval is a deferred variable NAME, not literal cset text -- discriminator, NOT a leading-star sniff (ambiguous: a literal cset can itself start with a star, e.g. the mulop cset in expr_eval.sno) */
+              return nd;
+          } }
+        sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_FAIL:    { IR_t * j = lc_build(g, IR_GOTO, NULL, NULL); sno_ω_to(j, fail); lc_γ_to(j, fail); return j; }
@@ -1369,8 +1375,13 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
           if (arg && arg->t == TT_VAR && arg->v.sval) {
-              char pb[128]; snprintf(pb, sizeof pb, "*%s", arg->v.sval);
-              IR_LIT(nd).sval = lp_strdup(pb);
+              IR_LIT(nd).sval = lp_strdup(arg->v.sval);
+              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
+              return nd;
+          }
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
+              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
               return nd;
           } }
         sno_pre_req(cx, t, nd);
@@ -1380,8 +1391,14 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         IR_t * nd = lc_build(g, (t->t == TT_BREAK) ? IR_MATCH_BREAK : IR_MATCH_BREAKX, succ, NULL);
         sno_ω_to(nd, fail);
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
-        if (cs) IR_LIT(nd).sval = (char *) cs;
-        else sno_pre_req(cx, t, nd);
+        if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
+        { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
+              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
+              return nd;
+          } }
+        sno_pre_req(cx, t, nd);
         return nd;
     }
     case TT_TAB: case TT_RTAB: {
@@ -1389,6 +1406,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("TAB/RTAB requires a count argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
+            const tree_t * inner = t->c[0]->c[0];
+            char pb[128]; snprintf(pb, sizeof pb, "*%s", inner->v.sval);
+            IR_LIT(nd).sval = lp_strdup(pb);
+            return nd;
+        }
         if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
         sno_pre_req(cx, t, nd);
         return nd;
@@ -1398,6 +1421,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
+            const tree_t * inner = t->c[0]->c[0];
+            char pb[128]; snprintf(pb, sizeof pb, "*%s", inner->v.sval);
+            IR_LIT(nd).sval = lp_strdup(pb);
+            return nd;
+        }
         if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
         sno_pre_req(cx, t, nd);
         return nd;
