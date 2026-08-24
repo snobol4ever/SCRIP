@@ -27,10 +27,10 @@ wrong_arity	SAME	both engines silently discard the extra call argument and compu
 unterminated_string	SAME	both engines cleanly refuse to compile with a comparable diagnosis
 duplicate_label	SAME	FIXED this session (was WRONG): parser now rejects a genuine duplicate label, matching oracle's Error 217
 missing_end	SAME	FIXED this session (was WRONG): parser now requires an END statement, matching oracle's refusal
-deep_recursion	WRONG	unbounded recursion raw-SIGSEGVs with zero diagnostic; oracle cleanly reports ERROR 246 stack overflow
+deep_recursion	DEFENSIBLE	FIXED (was WRONG): libscrip_rt.so SIGSEGV handler detects the stack-guard-page fault and reports ERROR 246 cleanly, rc=1; oracle detects the same condition but exits rc=0 with its own fatal dump (same asymmetry already accepted for undef_label_goto)
 huge_string	DEFENSIBLE	SCRIP enforces no MAXLNGTH-style string-length ceiling; a reasonable modern default, not an instability
 TSV
-WRONG_RATCHET="${WRONG_RATCHET:-1}"   # known-red ceiling: deep_recursion only -- bad_type_arith cured, see FINDING-2026-08-24-seat04-arith-operand-type-check.md
+WRONG_RATCHET="${WRONG_RATCHET:-0}"   # known-red ceiling: both prior WRONGs cured -- bad_type_arith (FINDING-2026-08-24-seat04-arith-operand-type-check.md) and deep_recursion (recursion-stack-overflow-diagnostic task)
 same=0; def=0; wrong=0; total=0; wrong_names=""
 while IFS=$'\t' read -r name verdict why; do
     [ -z "$name" ] && continue
@@ -52,5 +52,5 @@ if [ "$wrong" -gt "$WRONG_RATCHET" ]; then
     echo "GATE FAIL(1) [test_error_paths_vs_oracle]: WRONG=$wrong exceeds ratchet ceiling $WRONG_RATCHET (new divergence(s) among:$wrong_names) -- a WRONG classification needs its own witness + task file, never a silent ratchet bump."
     exit 1
 fi
-echo "GATE PASS(0) [test_error_paths_vs_oracle]: WRONG=$wrong within ratchet ceiling $WRONG_RATCHET (known: deep_recursion -- see FINDING + its task file)"
+echo "GATE PASS(0) [test_error_paths_vs_oracle]: WRONG=$wrong within ratchet ceiling $WRONG_RATCHET (both prior WRONGs cured this session -- bad_type_arith and deep_recursion, see FINDING + their task files)"
 exit 0

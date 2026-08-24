@@ -126,6 +126,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/pat_pool.c \
     $(RT)/rt/rt_coexpr.c \
     $(RT)/rt/bbprof.c \
+    $(RT)/rt/rt_stack_overflow.c \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/argval.c \
     $(SRC)/runtime/core/name_save.c \
