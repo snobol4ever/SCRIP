@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_run_beauty_oracle.sh — run SPITBOL oracle on beauty.sno for a given input.
 #
-# Must be run from corpus/snobol4/demo/beauty/ so that -INCLUDE files resolve.
+# Must be run from corpus/beauty/ so that -INCLUDE files resolve.
 # Outputs beautified SNOBOL4 to stdout.
 #
 # Usage:
@@ -9,7 +9,7 @@
 #
 # Options:
 #   --input  FILE   SNOBOL4 source to beautify (required, or use stdin with -)
-#   --beauty PATH   path to beauty.sno (default: corpus/snobol4/demo/beauty/beauty.sno)
+#   --beauty PATH   path to beauty.sno (default: corpus/beauty/beauty.sno)
 #   --corpus PATH   path to corpus root (default: /home/claude/corpus)
 #   --oracle PATH   path to sbl binary (default: /home/claude/x64/bin/sbl)
 #   --timeout N     seconds (default: 30)
@@ -43,8 +43,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -z "$BEAUTY_SRC" ]] && BEAUTY_SRC="$CORPUS/snobol4/demo/beauty/beauty.sno"
-BEAUTY_INC="$CORPUS/snobol4/demo/beauty"
+[[ -z "$BEAUTY_SRC" ]] && BEAUTY_SRC="$CORPUS/beauty/beauty.sno"
+BEAUTY_INC="$CORPUS/beauty"
 
 if [[ ! -x "$ORACLE" ]]; then
     echo "SKIP oracle not found: $ORACLE" >&2; exit 1

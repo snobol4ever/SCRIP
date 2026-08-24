@@ -42,7 +42,7 @@ DEMO="$CORPUS/snobol4/demo"
 #           never extended, so the live side kept a nanosecond timing the pins never had and ALL 17 BENCHMARKS graded DIFF/DIFF = 0.0%.
 #           A filter that lists measurement lines BY NAME must be extended whenever the harness prints a new one.
 SUITES=$(cat <<'EOF'
-beauty_self    20 SELF                                                -                          demo/beauty  90 -
+beauty_self    20 SELF                                                -                          beauty  90 -
 beauty_suite   15 snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
 demos          15 snobol4/demo                               -maxdepth 1 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
