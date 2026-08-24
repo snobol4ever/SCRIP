@@ -609,7 +609,7 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
     if (g_rspd_save && g_rspd_beta) fprintf(stderr, "RSPDIFF beta-children (save-beta)  = %ld\n", (long)(g_rspd_save - g_rspd_beta));
     if (g_rspd_s2 && g_rspd_g6)    fprintf(stderr, "RSPDIFF exhaust-delta (s2-g6)      = %ld\n", (long)(g_rspd_s2 - g_rspd_g6));
 }
-#define RT_DCAP_ISLAND_BYTES (4u << 20)
+#define RT_DCAP_ISLAND_BYTES ((size_t)64u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
 #include "pin_va.h"
