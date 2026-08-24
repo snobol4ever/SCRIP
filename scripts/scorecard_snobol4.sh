@@ -51,8 +51,8 @@ patterns       10 crosscheck/patterns                                 -maxdepth 
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 ms
-csnobol4_suite  5 csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
-gimpel          5 gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
+csnobol4_suite  5 snobol4/csnobol4-suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
+gimpel          5 snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )

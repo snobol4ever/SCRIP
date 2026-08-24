@@ -23,7 +23,7 @@ TIMEOUT="${TIMEOUT:-15}"
 INC="${INC:-$CORPUS/demo/inc}"
 BEAUTY="${BEAUTY:-$CORPUS/snobol4/beauty}"
 DEMO="${DEMO:-$CORPUS/demo}"
-SUITE="${SUITE:-$CORPUS/csnobol4-suite}"
+SUITE="${SUITE:-$CORPUS/snobol4/csnobol4-suite}"
 FENCE="${FENCE:-$CORPUS/crosscheck/patterns}"
 MODE="${MODE:---run}"
 
