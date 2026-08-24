@@ -7,7 +7,8 @@
 # MEDIUM_TEXT arm emits — it must NOT hand-encode instruction bytes nor count
 # byte offsets to locate rel32 patch sites. This gate counts, per template, the
 # BAD-SITE tokens that mark a hand-encoded arm. The count only ever decreases as
-# arms are converted to assembled-asm (or stubbed loud via bomb_bytes()).
+# arms are converted to assembled-asm.  (bomb_bytes() was the old loud-stub route; deleted as dead
+# code in the s269 strip -- implement the arm and add an x86_asm.h encoder instead.)
 #
 # Modes:
 #   (default)   informational baseline — prints the per-file punch list, ALWAYS exits 0.
@@ -15,7 +16,7 @@
 #               once the asm-assembly splice path lands).
 #
 # CARVE-OUT (RULES.md TEMPLATE-ONLY): bytes()/u8()/u32le()/u64le() are legal ONLY
-# inside bomb_bytes / bb_emit_asm_result in emit_str.cpp — NOT scanned here (this
+# inside bb_emit_asm_result in emit_str.cpp — NOT scanned here (this
 # gate scans BB_templates/*.cpp only, where any such token is a BAD site).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

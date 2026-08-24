@@ -2,9 +2,6 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstring>
-#include <deque>
-extern "C" {
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string emit_fmt(const char * f, ...) {
     va_list ap; va_start(ap, f);
@@ -20,36 +17,6 @@ std::string u8(unsigned v) { char c = (char)(uint8_t)v; return std::string(&c, 1
 std::string u32le(uint32_t v) { char b[4] = { (char)(uint8_t)v, (char)(uint8_t)(v>>8), (char)(uint8_t)(v>>16), (char)(uint8_t)(v>>24) }; return std::string(b, 4); }
 std::string u64le(uint64_t v) { return u32le((uint32_t)v) + u32le((uint32_t)(v>>32)); }
 std::string bytes(size_t n, const char * lit) { return std::string(lit, n); }
-extern "C" void rt_bomb(const char * msg);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * bomb_intern(const char * msg) {
-    static std::deque<std::string> pool;
-    pool.emplace_back(msg ? msg : "(no message)");
-    return pool.back().c_str();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bomb_text(const char * msg) {
-    const char * m = msg ? msg : "(unimplemented arm)";
-    static int seq = 0;
-    int id = seq++;
-    return std::string("# BOMB: ") + m + "\n"
-         + ".intel_syntax noprefix\n"
-         + ".section .rodata\n"
-         + emit_fmt(".Lbomb_msg_%d:", id) + "\n"
-         + ".asciz " + "\"" + gas_escape_str(m) + "\"" + "\n"
-         + ".section .text\n"
-         + " lea " + emit_fmt("rdi, [rip + .Lbomb_msg_%d]", id) + "\n"
-         + " call rt_bomb@PLT\n"
-         + " ud2\n";
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bomb_bytes(const char * msg) {
-    const char * m   = bomb_intern(msg ? msg : "(unimplemented arm)");
-    return bytes(2, "\x48\xBF") + u64le((uint64_t)(uintptr_t)m)
-         + bytes(2, "\x48\xB8") + u64le((uint64_t)(uintptr_t)rt_bomb)
-         + bytes(2, "\xFF\xD0")
-         + bytes(2, "\x0F\x0B");
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string jvm_push_int2_str(long v) {
     if (v == -1) return "    iconst_m1\n";

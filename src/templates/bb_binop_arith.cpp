@@ -55,7 +55,6 @@ static inline const char * rtop_name(long long op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int rtop_is_dyn(long long op) { return rtop_addr(op) == (void*)rt_num_arith; }
 #define SCRIP_DEF_ARITH_FUSE 1
-#define SCRIP_DEF_I2D_MAGIC  0
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int fuse_on() { return SCRIP_DEF_ARITH_FUSE; }
 static inline int fuse_op_ok() { long long o = (long long)_.op_ival; return o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL; }
@@ -65,24 +64,7 @@ static inline std::string sse_op(const char * xd, const char * xs) {
     return x86(o == BINOP_SUB ? "subsd" : o == BINOP_MUL ? "mulsd" : "addsd", xd, xs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline std::string i2d(const char * xd, const char * src, int lb) {
-#if SCRIP_DEF_I2D_MAGIC
-    return x86("movabs", "rdx", (uint64_t)0xFFF0000000000000ULL)
-         + x86("test", src, "rdx")
-         + x86("jnz", L(lb))
-         + x86("movabs", "rdx", (uint64_t)0x4330000000000000ULL)
-         + x86("or", src, "rdx")
-         + x86("movq", xd, src)
-         + x86("movq", "xmm2", "rdx")
-         + x86("subsd", xd, "xmm2")
-         + x86("jmp", L(lb + 1))
-         + x86("def", L(lb))
-         + x86("cvtsi2sd", xd, src)
-         + x86("def", L(lb + 1));
-#else
-    (void)lb; return x86("cvtsi2sd", xd, src);
-#endif
-}
+static inline std::string i2d(const char * xd, const char * src, int lb) { (void)lb; return x86("cvtsi2sd", xd, src); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int inl_ok() { long long o = (long long)_.op_ival; return !_.op_num_real && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok) && (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL); }
 static inline int inl2_ok() { return fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok); }

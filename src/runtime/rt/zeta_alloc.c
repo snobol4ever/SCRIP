@@ -43,11 +43,7 @@ void *rt_zls_alloc(long bytes)
         flag = ZBF_WS;
     }
     if (!base) { fprintf(stderr, "[ZLS] activation alloc failed (%ld bytes)\n", ZLS_HDR + sz); abort(); }
-#if ZC_INIT == ZC_INIT_ZERO
     memset(base, 0, (size_t)(ZLS_HDR + sz));
-#elif ZC_POISON == ZC_POISON_FILL
-    memset(base, 0xAA, (size_t)(ZLS_HDR + sz));
-#endif
     ((void **)base)[0] = g_zls_cur;
     ((long *)base)[1] = sz | flag;
     g_zls_cur = (void *)(base + ZLS_HDR);

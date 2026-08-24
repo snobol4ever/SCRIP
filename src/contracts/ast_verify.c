@@ -93,30 +93,3 @@ int ir_verify_program(const CODE_t * prog, FILE * err) {
     }
     return vs.count;
 }
-#ifdef AST_VERIFY_TEST
-#include <stdlib.h>
-#include <assert.h>
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t * mk(tree_e k)                            { tree_t * e = calloc(1, sizeof *e); e->t = k; return e; }
-static void add_child(tree_t * parent, tree_t * child)  { parent->c = realloc(parent->c, (size_t)(parent->n + 1) * sizeof(tree_t *)); parent->c[parent->n++] = child; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int main(void) {
-    int failures = 0;
-    { tree_t *a=mk(TT_ASSIGN), *v=mk(TT_VAR), *n=mk(TT_ILIT); v->v.sval="x"; n->v.ival=1; add_child(a,v); add_child(a,n);
-      int e=ir_verify_node(a,"test1",stderr); if(e!=0){fprintf(stderr,"FAIL test1: got %d\n",e);failures++;}else fprintf(stderr,"PASS test1\n"); }
-    { tree_t *v=mk(TT_VAR);
-      int e=ir_verify_node(v,"test2",NULL); if(e!=1){fprintf(stderr,"FAIL test2: got %d\n",e);failures++;}else fprintf(stderr,"PASS test2\n"); }
-    { tree_t *a=mk(TT_ADD), *n=mk(TT_ILIT); add_child(a,n);
-      int e=ir_verify_node(a,"test3",NULL); if(e!=1){fprintf(stderr,"FAIL test3: got %d\n",e);failures++;}else fprintf(stderr,"PASS test3\n"); }
-    { tree_t *s=mk(TT_SEQ), *q1=mk(TT_QLIT), *q2=mk(TT_QLIT); q1->v.sval="hello"; q2->v.sval="world"; add_child(s,q1); add_child(s,q2);
-      int e=ir_verify_node(s,"test4",stderr); if(e!=0){fprintf(stderr,"FAIL test4: got %d\n",e);failures++;}else fprintf(stderr,"PASS test4\n"); }
-    { tree_t *q=mk(TT_QLIT);
-      int e=ir_verify_node(q,"test5",NULL); if(e!=1){fprintf(stderr,"FAIL test5: got %d\n",e);failures++;}else fprintf(stderr,"PASS test5\n"); }
-    { tree_t *a=mk(TT_ASSIGN), *lhs=mk(TT_VAR), *add=mk(TT_ADD), *one=mk(TT_ILIT), *two=mk(TT_ILIT);
-      lhs->v.sval="result"; one->v.ival=1; two->v.ival=2;
-      add_child(add,one); add_child(add,two); add_child(a,lhs); add_child(a,add);
-      int e=ir_verify_node(a,"test6",stderr); if(e!=0){fprintf(stderr,"FAIL test6: got %d\n",e);failures++;}else fprintf(stderr,"PASS test6\n"); }
-    fprintf(stderr, "\n%s — %d failure(s)\n", failures==0?"ALL PASS":"FAILURES PRESENT", failures);
-    return failures ? 1 : 0;
-}
-#endif

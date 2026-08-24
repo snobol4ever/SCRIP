@@ -764,8 +764,6 @@ std::string u8   (unsigned v);
 std::string u32le(uint32_t v);
 std::string u64le(uint64_t v);
 std::string bytes(size_t n, const char * lit);
-std::string bomb_text (const char * msg);
-std::string bomb_bytes(const char * msg);
 std::string jvm_push_int2_str(long v);
 std::string jvm_emit_ldc_string_str(const char * s);
 std::string js_escape_string_str(const char * s);
