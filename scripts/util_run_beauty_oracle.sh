@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_run_beauty_oracle.sh — run SPITBOL oracle on beauty.sno for a given input.
 #
-# Must be run from corpus/beauty/ so that -INCLUDE files resolve.
+# -INCLUDE files resolve from corpus/include (the canonical SNOBOL4 include home).
 # Outputs beautified SNOBOL4 to stdout.
 #
 # Usage:
@@ -44,7 +44,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -z "$BEAUTY_SRC" ]] && BEAUTY_SRC="$CORPUS/beauty/beauty.sno"
-BEAUTY_INC="$CORPUS/beauty"
+BEAUTY_INC="$CORPUS/include"
 
 if [[ ! -x "$ORACLE" ]]; then
     echo "SKIP oracle not found: $ORACLE" >&2; exit 1

@@ -11,7 +11,7 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 BEAUTY="$S4E/corpus/beauty/beauty.sno"
-INC="$S4E/corpus/beauty"
+INC="$S4E/corpus/include"
 BIN="${1:-/tmp/beauty_full_bin}"
 
 echo "=== Milestone 0: self-beautify smoke test ==="

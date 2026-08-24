@@ -35,7 +35,7 @@ NRM=re.compile(rb"^(?:iters|ms): [0-9]+\n", re.M)
 # the program and a change in them is a real behavioural change worth failing on.
 ENVN=re.compile(rb"^(?:execution time msec|memory used \(bytes\)|memory left \(bytes\))\s+[0-9]+\n", re.M)
 def norm(b): return ENVN.sub(b"", NRM.sub(b"", b))
-def libspec(su): return {"beauty_self":"beauty","patterns":"demo/inc","crosscheck":"demo/inc",
+def libspec(su): return {"beauty_self":"include","patterns":"demo/inc","crosscheck":"demo/inc",
     "feature_test":"CORPUS","gimpel":"SELFDIR:include"}.get(su,"SELFDIR")
 def libpath(spec,pd):
     out=[]

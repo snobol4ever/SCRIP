@@ -948,6 +948,8 @@ int main(int argc, char **argv)
                 struct stat st;
                 int hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode));
                 if (!hit) { snprintf(probe, sizeof probe, "%s/library", walk); hit = (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)); }
+                snprintf(probe, sizeof probe, "%s/include", walk);
+                if (stat(probe, &st) == 0 && S_ISDIR(st.st_mode)) { hit = 1; sno_add_include_dir(strdup(probe)); }
                 if (hit) sno_add_include_dir(strdup(walk));
                 p = strrchr(walk, '/');
             }
