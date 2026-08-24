@@ -725,8 +725,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
            which is what makes this immune to the old temp-var lowering's arm-length-convergence defect. SNOBOL4 has no
            generator concept, so unlike Icon's arms (which can push a real per-arm resume point), every arm's resume is
            dj itself -- failing an arm always falls through to dj's own next-arm dispatch, never anything finer-grained. */
-        static int g_vlist_alt = -1; if (g_vlist_alt < 0) { const char * e = getenv("SCRIP_VLIST_ALT"); g_vlist_alt = (e && *e != '0') ? 1 : 0; }
-        if (!g_vlist_alt || t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
+        if (t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
         IR_graph_t * g = cx->g;
         IR_t * dj = lc_build(g, IR_DISJUNCTION, γ, ω);
         int n = t->n; if (n > 64) n = 64;

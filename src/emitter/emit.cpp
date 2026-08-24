@@ -1224,7 +1224,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
-    case IR_DISJUNCTION: { if (nd->n_operands > 0) { bb_emit_x86(bb_disjunction()); return 0; }
+    case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_disjunction()); return 0; }
                                                   bb_emit_x86(bb_indirect_goto()); } return 0;
     case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             { long fck; if (fc_geom(nd, &fck) && getenv("SCRIP_ICN_FCCARVE")) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off + 16; if (g_emit.op_sa >= 0 && !getenv("SCRIP_NO_CM_CARVE")) g_emit.op_sa += (int)fck; } bb_emit_x86(bb_scan_tab()); }    return 0;
