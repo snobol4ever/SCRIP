@@ -490,10 +490,20 @@ case "$cmd" in
            row1="$(sed -n 1p "$PO/$ME/.last-row")"; rowst="$(sed -n 2p "$PO/$ME/.last-row" | cut -d' ' -f1)"
            rowmark_ts="$(sed -n 2p "$PO/$ME/.last-row" | cut -d' ' -f2-)"
          fi
-         # ⭐ SESSION-SCOPED WINDOW when we know it (banner-attributes-wrong-row-on-unclaim, s273): a flat
-         # 12h lookback is a calendar guess; the moment `unclaim`/`done` wrote the marker we read above IS
-         # this session's own close time, a tighter and more honest anchor -- use it when available.
-         since="${rowmark_ts:-12 hours ago}"
+         # ⭐ SESSION-SCOPED WINDOW, WIDEN-ONLY (banner-attributes-wrong-row-on-unclaim, s273 -- SELF-
+         # CORRECTED same session after this exact code produced a live false "NOTHING LANDED" on this
+         # seat's own board post). The marker records WHEN THE ROW CLOSED, not when the session started --
+         # using it as a `--since` floor NARROWS the window to "after I finished," which finds ZERO of the
+         # commits that led UP TO the close (measured: a session with 7 real attributable commits over the
+         # preceding hours read 0 the instant `since` was pinned to its own just-written close marker).
+         # So the marker may only WIDEN the window (for a session that ran longer than 12h), never narrow
+         # it below the flat default -- take whichever of the two is EARLIER.
+         since="12 hours ago"
+         if [ -n "$rowmark_ts" ]; then
+           m_epoch=$(date -u -d "$rowmark_ts" +%s 2>/dev/null || echo 0)
+           cut_epoch=$(date -u -d "12 hours ago" +%s 2>/dev/null || echo 0)
+           if [ "$m_epoch" -gt 0 ] 2>/dev/null && [ "$m_epoch" -lt "$cut_epoch" ] 2>/dev/null; then since="$rowmark_ts"; fi
+         fi
          cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
            n=$(git -C "$r" log --since="$since" -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
          # seat8 2026-08-22: every FINDING-*.md ever written (202/202 checked) names the seat the OLD,

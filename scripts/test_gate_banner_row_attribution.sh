@@ -57,11 +57,21 @@ fi
 REPO="$TMPHOME/fakerepo"; mkdir -p "$REPO"
 git -C "$REPO" init -q
 printf 'testseat\nRUNNING\n' > "$TMPPOST/claims/real-topic-b.claim"
-run unclaim real-topic-b "gate test release" >/dev/null 2>&1
-# commit lands AFTER the marker write above, and its message names ONLY the topic (not the seat) —
-# deliberately exercising the row1-must-be-correct-for-the-grep-to-hit path, not the seat-name path.
-git -C "$REPO" -c user.name=gatetest -c user.email=gatetest@test.invalid commit -q --allow-empty \
+# ⛔ ORDER MATTERS AND IS DELIBERATE (this is what a real session actually does): the commit lands
+# BEFORE the row closes, never after. An earlier draft of this gate committed AFTER `unclaim` and
+# missed a real regression as a result -- once `since` was (wrongly) anchored to the marker's own
+# close timestamp, a commit made BEFORE that timestamp read as outside the window, and THIS session's
+# own live board post said "NOTHING LANDED" for a row that had just landed 12 commits. Committing
+# first, closing second, is what actually reproduces that shape.
+# backdated 2 hours: a real session's commits land minutes-to-hours before it closes a row, and the
+# marker's timestamp has only MINUTE granularity -- a same-minute commit-then-close (no backdating)
+# is too fast to reproduce the bug this scenario exists to catch (it would pass even on the broken
+# code, since "since the start of THIS minute" still covers a commit seconds earlier in it).
+backdate="$(date -u -d '2 hours ago' +%s)@+0000"
+GIT_AUTHOR_DATE="$backdate" GIT_COMMITTER_DATE="$backdate" \
+  git -C "$REPO" -c user.name=gatetest -c user.email=gatetest@test.invalid commit -q --allow-empty \
     -m "real-topic-b: witness commit for the banner attribution gate"
+run unclaim real-topic-b "gate test release" >/dev/null 2>&1
 out_b="$(run banner 2>&1)"
 if printf '%s\n' "$out_b" | grep -qiE 'NOTHING LANDED|NOTHING ATTRIBUTABLE LANDED|0 commit\(s\)'; then
   echo "VIOLATION B: a session with a real, attributable commit reported zero / nothing landed"
