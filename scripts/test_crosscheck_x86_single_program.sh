@@ -9,8 +9,8 @@ TINY="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus/crosscheck/beauty}"
 SCRIP_CC="$TINY/scrip"
 RT="$TINY/src/runtime"
-INC="${INC:-$S4E/corpus/snobol4/demo/beauty}"
-BEAUTY="${BEAUTY:-$S4E/corpus/snobol4/demo/beauty/beauty.sno}"
+INC="${INC:-$S4E/corpus/beauty}"
+BEAUTY="${BEAUTY:-$S4E/corpus/beauty/beauty.sno}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 PASS=0; FAIL=0; SKIP=0

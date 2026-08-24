@@ -40,7 +40,7 @@ BASELINE_MD5="6bf2e9daa777f54f04c8f7160da435d1"
 BASELINE_BYTES="882524"
 M1_ORACLE_MD5="abfd19a7a834484a96e824851caee159"
 
-BEAUTY_SNO="$CORPUS/snobol4/demo/beauty/beauty.sno"
+BEAUTY_SNO="$CORPUS/beauty/beauty.sno"
 
 if [ ! -x "$SCRIP" ]; then
     echo "SKIP scrip not built at $SCRIP"
