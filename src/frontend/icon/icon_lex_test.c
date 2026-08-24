@@ -302,7 +302,7 @@ static void test_corpus_file(const char *path) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_rung1_corpus(void) {
     printf("--- rung1 corpus lex ---\n");
-    const char *corpus = "test/parser/icon/corpus/rung01_paper";
+    const char *corpus = "test/frontend/icon/corpus/rung01_paper";
     const char *files[] = {
         "t01_to5.icn", "t02_mult.icn", "t03_nested_to.icn",
         "t04_lt.icn",  "t05_compound.icn", "t06_paper_expr.icn",

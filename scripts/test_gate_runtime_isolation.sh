@@ -4,7 +4,7 @@
 # Companion gate to test_gate_lower_isolation.sh.  Where that gate protects
 # the parse->lower edge, this one protects the parse->runtime edge.
 #
-# Invariant: src/runtime/ must not reach into src/parser/ except through
+# Invariant: src/runtime/ must not reach into src/frontend/ except through
 # a small, explicit allowlist of headers that contain shared infrastructure
 # currently misfiled under parser/.  Every allowlist entry is a known
 # misfile with an owning relocation goal; the allowlist is a ratchet, not
@@ -35,10 +35,10 @@ ALLOW=(
     # representation, atom interning, unification scaffolding, broker
     # dispatch, and built-in predicate registry.  Their primary clients
     # are src/runtime/interp/pl_runtime.{c,h} (Prolog execution engine)
-    # but they currently live under src/parser/prolog/ alongside the
+    # but they currently live under src/frontend/prolog/ alongside the
     # Prolog lexer and parser.  This reflects historical bundling.
-    # Owning relocation goal: split src/parser/prolog/ into
-    # src/parser/prolog/ (lex/parse only) and src/runtime/interp/prolog/
+    # Owning relocation goal: split src/frontend/prolog/ into
+    # src/frontend/prolog/ (lex/parse only) and src/runtime/interp/prolog/
     # (Term, atoms, unify, broker, builtins).
     "parser/prolog/term.h"
     "parser/prolog/prolog_runtime.h"
@@ -87,9 +87,9 @@ if [ $violations -gt 0 ]; then
     echo ""
     echo "If the new include is legitimate, add the header to the ALLOW list in"
     echo "this script with a comment explaining why and the relocation plan."
-    echo "Prefer moving the header out of src/parser/ instead."
+    echo "Prefer moving the header out of src/frontend/ instead."
     exit 1
 fi
 
-echo "OK  runtime->frontend firewall: $present include(s) under src/runtime/ into src/parser/, all allowlisted"
+echo "OK  runtime->frontend firewall: $present include(s) under src/runtime/ into src/frontend/, all allowlisted"
 echo "    (allowlist size: ${#ALLOW[@]} entries — see top of script for relocation goals)"

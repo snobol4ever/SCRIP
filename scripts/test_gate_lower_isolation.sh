@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_lower_isolation.sh — parse->lower boundary firewall.
 #
-# Invariant: src/lower/ must not reach into src/parser/ except through a
+# Invariant: src/lower/ must not reach into src/frontend/ except through a
 # small, explicit allowlist of headers that contain shared infrastructure
 # currently misfiled under parser/.  Every allowlist entry is a known
 # misfile with an owning relocation goal; the allowlist is a ratchet, not
@@ -9,7 +9,7 @@
 #
 # A future commit may shrink the allowlist (by moving a header out of
 # parser/) but must never grow it.  CI will reject any new include
-# under src/lower/ that names src/parser/.
+# under src/lower/ that names src/frontend/.
 #
 # Run: bash scripts/test_gate_lower_isolation.sh
 set -euo pipefail
@@ -42,7 +42,7 @@ ALLOW=(
     #   entry removed.  The header is pure Icon Byrd-box generator runtime
     #   state (icn_to_state_t, icn_find_state_t, icn_bb_* function decls);
     #   it never belonged under parser/icon/ — no .c file under
-    #   src/parser/ ever included it.
+    #   src/frontend/ ever included it.
 
     # raku_driver.h: declares the raku runtime API (raku_match, raku_compile,
     #   raku_grep, raku_capture, raku_meth_register, raku_die, raku_exception,
@@ -66,7 +66,7 @@ ALLOW=(
 violations=0
 new_violations=()
 
-# Find every include directive under src/lower/ that points into src/parser/.
+# Find every include directive under src/lower/ that points into src/frontend/.
 while IFS= read -r line; do
     [ -z "$line" ] && continue
     # line is like: src/lower/lower.c:15:#include "../../parser/icon/icon_lex.h"
@@ -99,14 +99,14 @@ done < <(grep -rn "include.*parser/" src/lower/ 2>/dev/null || true)
 present=$(grep -rn "include.*parser/" src/lower/ 2>/dev/null | wc -l)
 
 if [ $violations -gt 0 ]; then
-    echo "FAIL parse->lower firewall: $violations new include(s) into src/parser/ not on allowlist:"
+    echo "FAIL parse->lower firewall: $violations new include(s) into src/frontend/ not on allowlist:"
     for v in "${new_violations[@]}"; do echo "  $v"; done
     echo ""
     echo "If the new include is legitimate, add the header to the ALLOW list in"
     echo "this script with a comment explaining why and the relocation plan."
-    echo "Prefer moving the header out of src/parser/ instead."
+    echo "Prefer moving the header out of src/frontend/ instead."
     exit 1
 fi
 
-echo "OK  parse->lower firewall: $present include(s) under src/lower/ into src/parser/, all allowlisted"
+echo "OK  parse->lower firewall: $present include(s) under src/lower/ into src/frontend/, all allowlisted"
 echo "    (allowlist size: ${#ALLOW[@]} entries — see top of script for relocation goals)"

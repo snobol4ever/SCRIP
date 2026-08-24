@@ -6,7 +6,7 @@
 #include "dtp.h"
 #include "core.h"
 #include "ast.h"
-#include "../parser/snobol4/scrip_cc.h"
+#include "../frontend/snobol4/scrip_cc.h"
 #include "sil_macros.h"
 #include "builtins/gen_runtime.h"
 #include "rt/gc_heap.h"

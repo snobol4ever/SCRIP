@@ -8,9 +8,9 @@
 #include "lower.h"
 #include "SM.h"
 #include "driver.h"
-#include "parser/snobol4/scrip_cc.h"
-#include "parser/prolog/term.h"
-#include "parser/prolog/prolog_atom.h"
+#include "frontend/snobol4/scrip_cc.h"
+#include "frontend/prolog/term.h"
+#include "frontend/prolog/prolog_atom.h"
 #ifdef WITH_CSNOBOL4
 typedef struct { char *name; char *val_str; } CsnNvPair;
 int  csnobol4_run_steps(const char *core_path, int step_limit,

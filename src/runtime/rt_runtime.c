@@ -3,11 +3,11 @@
 #include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
-#include "../../parser/prolog/term.h"
-#include "../../parser/prolog/prolog_runtime.h"
-#include "../../parser/prolog/prolog_atom.h"
+#include "../../frontend/prolog/term.h"
+#include "../../frontend/prolog/prolog_runtime.h"
+#include "../../frontend/prolog/prolog_atom.h"
 #include "../../runtime/builtins/resolution.h"
-#include "../../parser/raku/re.h"
+#include "../../frontend/raku/re.h"
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
@@ -16,9 +16,9 @@
 #include <limits.h>
 #include <ctype.h>
 #include <setjmp.h>
-#include "../../parser/prolog/pl_cell.h"
+#include "../../frontend/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) rt_ws_alloc(n)
-#include "../../parser/prolog/pl_cell_conv.h"
+#include "../../frontend/prolog/pl_cell_conv.h"
 #include "../include/dtp.h"
 extern const char *Σ;
 extern int         Δ;

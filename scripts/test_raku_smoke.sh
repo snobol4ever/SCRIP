@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_raku_smoke.sh — Rung 0-5 smoke tests for the Tiny-Raku frontend
-# Gate: all cases PASS before any commit touching src/parser/raku/
+# Gate: all cases PASS before any commit touching src/frontend/raku/
 # Self-contained. Idempotent. Safe to run multiple times.
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6

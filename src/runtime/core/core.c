@@ -3,7 +3,7 @@
 #include "../rt/rt_arena.h"
 #include "sil_macros.h"
 #include "utf8.h"
-#include "../../parser/snobol4/scrip_cc.h"
+#include "../../frontend/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
 #include "../snobol4_system_fns.h"
 extern int g_protected_pat_vars_armed;

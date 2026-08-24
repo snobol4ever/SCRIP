@@ -35,7 +35,7 @@ export CORPUS_REPO="$CORPUS"   # rung scripts use CORPUS_REPO; M-G-INV-FAST-X86-
 JASMIN="${JASMIN:-$ROOT/backends/jasmin.jar}"
 RT_CACHE="${RT_CACHE:-$ROOT/out/rt_cache}"
 RT="$ROOT/src/runtime"
-SCRIP_CC_INC="$ROOT/src/parser/snobol4"
+SCRIP_CC_INC="$ROOT/src/frontend/snobol4"
 TIMEOUT_X86="${TIMEOUT_X86:-5}"
 TIMEOUT_JVM="${TIMEOUT_JVM:-10}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
@@ -189,15 +189,15 @@ ensure_sno4_archive() {
 ensure_prolog_archive() {
   local out="$RT_CACHE/libsno4rt_pl.a"
   local stamp_file="$RT_CACHE/stamp_pl"
-  local cur_stamp; cur_stamp=$(md5sum "$ROOT/src/parser/prolog/prolog_atom.c" 2>/dev/null | cut -d' ' -f1 || echo "x")
+  local cur_stamp; cur_stamp=$(md5sum "$ROOT/src/frontend/prolog/prolog_atom.c" 2>/dev/null | cut -d' ' -f1 || echo "x")
   if [[ -f "$out" && -f "$stamp_file" && "$(cat "$stamp_file" 2>/dev/null)" == "$cur_stamp" ]]; then
     return 0  # cache hit
   fi
   echo -e "${YELLOW}  [cache] Building libsno4rt_pl.a...${RESET}"
   mkdir -p "$RT_CACHE" /tmp/rtbuild_pl_$$
-  gcc -O2 -c "$ROOT/src/parser/prolog/prolog_atom.c"    -I"$ROOT/src/parser/prolog" -w -o /tmp/rtbuild_pl_$$/atom.o    || return 1
-  gcc -O2 -c "$ROOT/src/parser/prolog/prolog_unify.c"   -I"$ROOT/src/parser/prolog" -w -o /tmp/rtbuild_pl_$$/unify.o   || return 1
-  gcc -O2 -c "$ROOT/src/parser/prolog/prolog_builtin.c" -I"$ROOT/src/parser/prolog" -w -o /tmp/rtbuild_pl_$$/builtin.o || return 1
+  gcc -O2 -c "$ROOT/src/frontend/prolog/prolog_atom.c"    -I"$ROOT/src/frontend/prolog" -w -o /tmp/rtbuild_pl_$$/atom.o    || return 1
+  gcc -O2 -c "$ROOT/src/frontend/prolog/prolog_unify.c"   -I"$ROOT/src/frontend/prolog" -w -o /tmp/rtbuild_pl_$$/unify.o   || return 1
+  gcc -O2 -c "$ROOT/src/frontend/prolog/prolog_builtin.c" -I"$ROOT/src/frontend/prolog" -w -o /tmp/rtbuild_pl_$$/builtin.o || return 1
   ar rcs "$out" /tmp/rtbuild_pl_$$/*.o
   echo "$cur_stamp" > "$stamp_file"
   rm -rf /tmp/rtbuild_pl_$$
@@ -539,7 +539,7 @@ _parse_rung_summary() {
 run_icon_x86() {
   local cell="icon_x86"
   local pass=0 fail=0
-  local ICN_INC="$ROOT/src/parser/icon"
+  local ICN_INC="$ROOT/src/frontend/icon"
   local RT_H="$ROOT/src/runtime"
   local ICN_CORPUS="${CORPUS}/icon"
   if [[ ! -x "$SCRIP_CC" || ! -d "$ICN_CORPUS" ]]; then

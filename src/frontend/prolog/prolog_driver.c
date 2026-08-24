@@ -1,7 +1,7 @@
 #include "prolog_driver.h"
 #include "prolog_parse.h"
 #include "prolog_lower.h"
-#include "../../parser/snobol4/scrip_cc.h"
+#include "../../frontend/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

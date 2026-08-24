@@ -6,7 +6,7 @@ set -e
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SCRIP_CC="${SCRIP_CC:-$ROOT/scrip}"
 RT="$ROOT/src/runtime"
-ICN_INC="$ROOT/src/parser/icon"
+ICN_INC="$ROOT/src/frontend/icon"
 icn="$1"
 base=$(mktemp /tmp/icon_x86_XXXXXX)
 "$SCRIP_CC" -icn "$icn" -o "${base}.s" 2>/dev/null

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "scrip_sm.h"
 #include "lower.h"
-#include "../parser/snobol4/scrip_cc.h"
+#include "../frontend/snobol4/scrip_cc.h"
 #include "IR.h"
 #include "bb_program.h"
 #include "../runtime/builtins/gen_runtime.h"

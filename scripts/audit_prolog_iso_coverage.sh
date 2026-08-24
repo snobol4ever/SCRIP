@@ -13,7 +13,7 @@
 #   1. src/runtime/by_name_dispatch.c  rt_pl_det_builtin_target()  — det builtins  (name, arity)
 #   2. src/lower/lower_prolog.c        pl_ensure_gen_builtin_pred() — GEN rail     (name, arity)
 #   3. src/lower/lower_prolog.c        goal() strcmp arms           — lowered arms (name[, arity])
-#   4. src/parser/prolog/prolog_lower.c pb_expand_goal() strcmp arms — AST expansion (name)
+#   4. src/frontend/prolog/prolog_lower.c pb_expand_goal() strcmp arms — AST expansion (name)
 #
 # Usage:  bash scripts/audit_prolog_iso_coverage.sh [--check]
 #   (no args)  regenerate the tracker
@@ -51,7 +51,7 @@ gp_all = set().union(*per_file.values()) if per_file else set()
 # ---- side B: SCRIP admitted set (four real admission sites) ------------------------------------
 bnd = rd(os.path.join(ROOT, 'src/runtime/by_name_dispatch.c'))
 low = rd(os.path.join(ROOT, 'src/lower/lower_prolog.c'))
-pbl = rd(os.path.join(ROOT, 'src/parser/prolog/prolog_lower.c'))
+pbl = rd(os.path.join(ROOT, 'src/frontend/prolog/prolog_lower.c'))
 def unesc(s): return s.replace('\\\\', '\\').replace('\\"', '"')
 i = bnd.find('rt_pl_det_builtin_target')
 det = set()

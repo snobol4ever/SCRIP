@@ -175,7 +175,7 @@ static IcnNode **parse_corpus_file(const char *path, int *count) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void test_rung1_parse(void) {
     printf("--- rung1 corpus parse ---\n");
-    const char *corpus = "test/parser/icon/corpus/rung01_paper";
+    const char *corpus = "test/frontend/icon/corpus/rung01_paper";
     struct { const char *file; IcnKind stmt_kind; IcnKind arg_kind; } cases[] = {
         {"t01_to5.icn",        ICN_EVERY, PROC_CALL},
         {"t02_mult.icn",       ICN_EVERY, PROC_CALL},

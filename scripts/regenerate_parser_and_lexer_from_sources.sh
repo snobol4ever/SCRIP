@@ -12,8 +12,8 @@
 set -euo pipefail
 
 SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SNO="$SCRIP/src/parser/snobol4"
-REBUS="$SCRIP/src/parser/rebus"
+SNO="$SCRIP/src/frontend/snobol4"
+REBUS="$SCRIP/src/frontend/rebus"
 
 # ── prerequisite check ───────────────────────────────────────────────────────
 for tool in bison flex; do
@@ -42,7 +42,7 @@ echo "OK  snobol4.lex.c"
 # LS-4.cn (session-#7) renamed snocone.y → snocone_parse.y for symmetry
 # with snocone_lex.{c,h}; generated artifacts also picked up the _parse
 # infix.
-SNOCONE="$SCRIP/src/parser/snocone"
+SNOCONE="$SCRIP/src/frontend/snocone"
 echo "GEN snocone_parse.tab.c from snocone_parse.y"
 cd "$SNOCONE"
 bison -d -o snocone_parse.tab.c snocone_parse.y
@@ -60,7 +60,7 @@ flex --noline -o lex.rebus.c rebus.l
 echo "OK  lex.rebus.c"
 
 # ── raku parser: raku.y → raku.tab.c + raku.tab.h ───────────────────────────
-RAKU="$SCRIP/src/parser/raku"
+RAKU="$SCRIP/src/frontend/raku"
 echo "GEN raku.tab.c from raku.y"
 cd "$RAKU"
 bison -d --warnings=none -Wno-yacc -o raku.tab.c raku.y
@@ -77,7 +77,7 @@ echo "DONE — commit .y/.l sources and generated .tab.c/.tab.h/.lex.c together"
 # (PB-0..PB-3, session 2026-06-02 — 7th frontend. Grammar adapted from the
 # MIT-licensed pascalp.y syntactic reference; case-sensitive lowercase-only P4
 # subset. One expected dangling-else shift/reduce conflict, same as pascalp.y.)
-PASCAL="$SCRIP/src/parser/pascal"
+PASCAL="$SCRIP/src/frontend/pascal"
 echo "GEN pascal.tab.c from pascal.y"
 cd "$PASCAL"
 bison -d -o pascal.tab.c pascal.y

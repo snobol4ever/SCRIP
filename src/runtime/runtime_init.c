@@ -3,7 +3,7 @@
 #include "core.h"
 #include "builtins/resolution.h"
 #include "bb_pool.h"
-#include "../parser/prolog/prolog_atom.h"
+#include "../frontend/prolog/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 static int     g_halt_rc  = 0;

@@ -33,11 +33,11 @@ nasm -f elf64 -I"$RT/x86/" "$WORK/beauty.s" -o "$WORK/beauty.o" 2>&1 || {
 }
 
 # Compile runtime
-gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$WORK/stmt_rt.o"
-gcc -O0 -g -c "$RT/x86/snobol4.c"            -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$WORK/snobol4.o"
-gcc -O0 -g -c "$RT/mock/mock_includes.c"          -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$WORK/mock_includes.o"
-gcc -O0 -g -c "$RT/x86/snobol4_pattern.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$WORK/snobol4_pattern.o"
-gcc -O0 -g -c "$RT/x86/engine.c"               -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$WORK/engine.o"
+gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/stmt_rt.o"
+gcc -O0 -g -c "$RT/x86/snobol4.c"            -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/snobol4.o"
+gcc -O0 -g -c "$RT/mock/mock_includes.c"          -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/mock_includes.o"
+gcc -O0 -g -c "$RT/x86/snobol4_pattern.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/snobol4_pattern.o"
+gcc -O0 -g -c "$RT/x86/engine.c"               -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/engine.o"
 
 # Link beauty_asm_bin
 gcc -no-pie "$WORK/beauty.o" \

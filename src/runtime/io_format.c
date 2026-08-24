@@ -1,7 +1,7 @@
 #include "rt/rt.h"
 #include "core.h"
 #include "builtins/resolution.h"
-#include "../parser/prolog/prolog_atom.h"
+#include "../frontend/prolog/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

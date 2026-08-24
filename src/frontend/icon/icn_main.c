@@ -103,7 +103,7 @@ int icn_main(int argc, char **argv) {
         snprintf(cmd, sizeof cmd,
             "nasm -f elf64 %s -o %s && "
             "gcc -nostdlib -no-pie -Wl,--no-warn-execstack %s "
-            "src/parser/icon/icon_runtime.c "
+            "src/frontend/icon/icon_runtime.c "
             "-o %s",
             output, obj, obj, bin);
         int r = system(cmd);

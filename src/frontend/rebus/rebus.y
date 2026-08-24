@@ -1,7 +1,7 @@
 %{
 #include "rebus.h"
 #include "../../ast/ast.h"
-#include "../../parser/snobol4/scrip_cc.h"
+#include "../../frontend/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

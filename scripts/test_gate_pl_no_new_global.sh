@@ -28,7 +28,7 @@ PL_FILES=$(ls \
   src/runtime/arithmetic.c \
   src/runtime/builtins/resolution.c \
   src/lower/lower_prolog.c \
-  src/parser/prolog/*.c \
+  src/frontend/prolog/*.c \
   src/templates/bb_cell_*.cpp \
   src/templates/bb_det_*.cpp \
   src/templates/bb_query_frame.cpp \
@@ -57,7 +57,7 @@ PL_FILES=$(ls \
 #                        survivor role (the one Prolog runtime spine); g_resolve_trail is kept only for the
 #                        legacy by-Term* helpers until PL-BB-DEMOLITION removes them. Not a value/control stack.
 # g_uinfix/_n/_cap       PARSE-TIME user-operator table (the `:- op(P,xfx|xfy|yfx,Name)` directive registry),
-#                        in src/parser/prolog/prolog_parse.c. Compile-time-only metadata read by find_binop
+#                        in src/frontend/prolog/prolog_parse.c. Compile-time-only metadata read by find_binop
 #                        during PARSING; never touched at runtime — like g_pl_nl_* it is not a §10 control/value
 #                        spine. Grows by realloc only while consuming op directives between clauses.
 # g_pl_env_area          PL-AREAS-3 ENVIRONMENT area (E / R15) — the mmap bump region rt_enter allocates callee frames

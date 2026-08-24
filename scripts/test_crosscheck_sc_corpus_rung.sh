@@ -72,11 +72,11 @@ fi
 if [[ $_need_rebuild -eq 1 ]]; then
   _objs=()
   _bld=$(mktemp -d); trap "rm -rf $_bld" EXIT
-  gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$_bld/stmt_rt.o"
-  gcc -O0 -g -c "$RT/x86/snobol4.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$_bld/snobol4.o"
-  gcc -O0 -g -c "$RT/mock/mock_includes.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$_bld/mock_includes.o"
-  gcc -O0 -g -c "$RT/x86/snobol4_pattern.c" -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$_bld/snobol4_pattern.o"
-  gcc -O0 -g -c "$RT/mock/mock_engine.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/parser/snobol4" -w -o "$_bld/mock_engine.o"
+  gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/stmt_rt.o"
+  gcc -O0 -g -c "$RT/x86/snobol4.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/snobol4.o"
+  gcc -O0 -g -c "$RT/mock/mock_includes.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/mock_includes.o"
+  gcc -O0 -g -c "$RT/x86/snobol4_pattern.c" -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/snobol4_pattern.o"
+  gcc -O0 -g -c "$RT/mock/mock_engine.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/mock_engine.o"
   gcc -O0 -g -c "$RT/x86/blk_alloc.c"           -I"$RT/x86"                                             -w -o "$_bld/blk_alloc.o"
   gcc -O0 -g -c "$RT/x86/blk_reloc.c"           -I"$RT/x86"                                             -w -o "$_bld/blk_reloc.o"
   ar rcs "$RT_ARCHIVE" "$_bld"/*.o

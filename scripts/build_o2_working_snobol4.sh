@@ -36,7 +36,7 @@ rm -rf "$D"; cp -r "out/rt_pic-$PURE" "$D"
 echo "2/3  forked the pure -O2 cache to $D, re-compiling the two known-bad files at -O0 there"
 for f in src/runtime/rt/rt.c src/runtime/pattern_match.c; do
   b="$(basename "${f%.*}").o"
-  inc="-I$ROOT/src -I$ROOT/src/include -I$ROOT/src/contracts -I$ROOT/src/lower -I$ROOT/src/machine -I$ROOT/src/emitter -I$ROOT/src/runtime/core -I$ROOT/src/runtime/builtins -I$ROOT/src/runtime -I$ROOT/src/runtime/rt -I$ROOT/src/parser/snobol4 -I$ROOT/src/parser/raku -I$ROOT/src/optimizer"
+  inc="-I$ROOT/src -I$ROOT/src/include -I$ROOT/src/contracts -I$ROOT/src/lower -I$ROOT/src/machine -I$ROOT/src/emitter -I$ROOT/src/runtime/core -I$ROOT/src/runtime/builtins -I$ROOT/src/runtime -I$ROOT/src/runtime/rt -I$ROOT/src/frontend/snobol4 -I$ROOT/src/frontend/raku -I$ROOT/src/optimizer"
   gcc $O0 -g -w -MMD -MP -fPIC $inc -DDYN_ENGINE_LINKED -DIR_DEFINE_NAMES -c "$f" -o "$D/$b" || { echo "⛔ failed on $f"; exit 1; }
   echo "     $f -> $D/$b  (-O0)"
 done

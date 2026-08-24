@@ -28,7 +28,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-ICN_SRC="$ROOT/src/parser/icon"
+ICN_SRC="$ROOT/src/frontend/icon"
 LEX="$ICN_SRC/icon_lex.c"
 fail=0
 
@@ -51,7 +51,7 @@ for f in "$ICN_SRC"/*.c "$ICN_SRC"/*.h; do
     mcount=$((mcount + h))
   fi
 done
-if [ "$mcount" -eq 0 ]; then echo "  LOCK 1 OK: zero newline-insertion machinery in src/parser/icon/."; else fail=1; fi
+if [ "$mcount" -eq 0 ]; then echo "  LOCK 1 OK: zero newline-insertion machinery in src/frontend/icon/."; else fail=1; fi
 
 # ---- LOCK 2: TK_SEMICOL minted only from the literal ';' -------------------------------------------
 mint=$(strip_comments "$LEX" | grep -cE 'make_tok\(\s*TK_SEMICOL' || true)

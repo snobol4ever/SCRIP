@@ -11,7 +11,7 @@ SRC="$ROOT/test/snobol4/pat_bb"
 OUT="$ROOT/out"
 INC=(-I "$ROOT/src" -I "$ROOT/src/include" -I "$ROOT/src/contracts" -I "$ROOT/src/lower" -I "$ROOT/src/machine" -I "$ROOT/src/interp"
      -I "$ROOT/src/emitter" -I "$ROOT/src/runtime/core" -I "$ROOT/src/runtime" -I "$ROOT/src/runtime/rt"
-     -I "$ROOT/src/parser/snobol4" -I "$ROOT/src/parser/raku")
+     -I "$ROOT/src/frontend/snobol4" -I "$ROOT/src/frontend/raku")
 PASS=0; FAIL=0
 run_probe() {
     local name="$1" expect="$2"

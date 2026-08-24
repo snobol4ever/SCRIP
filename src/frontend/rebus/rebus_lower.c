@@ -1,6 +1,6 @@
 #include "rebus.h"
 #include "rebus_lower.h"
-#include "../../parser/snobol4/scrip_cc.h"
+#include "../../frontend/snobol4/scrip_cc.h"
 #include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
