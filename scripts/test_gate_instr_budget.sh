@@ -72,7 +72,7 @@ SCRIP_BIN="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
 DEMO="$CORPUS_ROOT/demo"
-BEAUTY_DIR="$CORPUS_ROOT/beauty"
+BEAUTY_DIR="$CORPUS_ROOT/demo"
 BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 
 TOL_PCT="${TOL_PCT:-2}"

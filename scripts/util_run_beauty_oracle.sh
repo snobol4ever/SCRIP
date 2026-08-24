@@ -9,7 +9,7 @@
 #
 # Options:
 #   --input  FILE   SNOBOL4 source to beautify (required, or use stdin with -)
-#   --beauty PATH   path to beauty.sno (default: corpus/beauty/beauty.sno)
+#   --beauty PATH   path to beauty.sno (default: corpus/demo/beauty.sno)
 #   --corpus PATH   path to corpus root (default: /home/claude/corpus)
 #   --oracle PATH   path to sbl binary (default: /home/claude/x64/bin/sbl)
 #   --timeout N     seconds (default: 30)

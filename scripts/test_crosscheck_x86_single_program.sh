@@ -10,7 +10,7 @@ CORPUS="${CORPUS:-$S4E/corpus/crosscheck/beauty}"
 SCRIP_CC="$TINY/scrip"
 RT="$TINY/src/runtime"
 INC="${INC:-$S4E/corpus/include}"
-BEAUTY="${BEAUTY:-$S4E/corpus/beauty/beauty.sno}"
+BEAUTY="${BEAUTY:-$S4E/corpus/demo/beauty.sno}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 PASS=0; FAIL=0; SKIP=0

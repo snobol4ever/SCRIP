@@ -10,7 +10,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-BEAUTY="$S4E/corpus/beauty/beauty.sno"
+BEAUTY="$S4E/corpus/demo/beauty.sno"
 INC="$S4E/corpus/include"
 BIN="${1:-/tmp/beauty_full_bin}"
 

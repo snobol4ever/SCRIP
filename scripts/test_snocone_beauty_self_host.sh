@@ -13,7 +13,7 @@
 #
 # Options:
 #   --input FILE       SNOBOL4 source to beautify
-#                      (default: corpus/beauty/beauty.sno)
+#                      (default: corpus/demo/beauty.sno)
 #   --mode MODE        scrip mode: --run | --run | --run
 #                      (default: --run)
 #   --timeout N        seconds for scrip run (default: 30)
