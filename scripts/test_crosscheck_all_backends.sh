@@ -24,7 +24,7 @@ SCRIP="${SCRIP:-$ROOT/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 JASMIN="${JASMIN:-$ROOT/src/backends/jasmin.jar}"
 SPITBOL="${SPITBOL:-$S4A/x64/bin/sbl}"
-INC="${INC:-$CORPUS/demo/inc}"
+INC="${INC:-$CORPUS/snobol4/demo/inc}"
 TIMEOUT="${TIMEOUT:-15}"
 
 PASS=0; FAIL=0; SKIP=0

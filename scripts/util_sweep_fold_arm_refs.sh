@@ -2,7 +2,7 @@
 # util_sweep_fold_arm_refs.sh -- SWEEP EVERY `.ref` IN corpus/ FOR A PIN THAT CAN ONLY HAVE COME FROM THE
 # CASE-FOLDING ORACLE ARM (row `pre-s189-ref-sweep`, hq_C s265 FINDING: a `.ref` minted against `sbl -b`
 # instead of the mandated `sbl -bf` agrees with a case-folding bug FOREVER -- exactly what happened to
-# `corpus/demo/json.ref`, pinned `root=JOBJ` for a `DATATYPE()` bug that upper-cased
+# `corpus/snobol4/demo/json.ref`, pinned `root=JOBJ` for a `DATATYPE()` bug that upper-cased
 # programmer-defined type names, invisible to every grading pass because the WRONG oracle arm minted the
 # pin the RIGHT arm's own bug agreed with).
 #
@@ -61,7 +61,7 @@ while [ $# -gt 0 ]; do case "$1" in --dir) DIRS="$DIRS $2"; shift 2;; *) echo "u
 # share ONE family .input keyed by name PREFIX, a different convention the suffix-strip alone does not
 # cover: hq_C's catch #3, "without it those programs run on /dev/null" -- confirmed, this is exactly what
 # put calculator-1/-2/treebank-alloc in v1's other-diff bucket).
-DEMO="$CORPUS/demo"
+DEMO="$CORPUS/snobol4/demo"
 ref_stdin() {
   local p="$1" d n f; d="$(dirname "$p")"; n="$(basename "${p%.sno}")"
   [ -f "$d/$n.input" ] && { echo "$d/$n.input"; return; }
@@ -107,7 +107,7 @@ check_one() {
 # ---------------------------------------------------------------- POSITIVE CONTROL: prove this instrument can still detect the row's own historical defect before trusting anything it reports
 selftest() {
   local st witness win rc
-  st="$(mktemp -d)"; witness="$CORPUS/demo/json.sno"; win="$CORPUS/demo/json.input"
+  st="$(mktemp -d)"; witness="$CORPUS/snobol4/demo/json.sno"; win="$CORPUS/snobol4/demo/json.input"
   if [ ! -f "$witness" ] || [ ! -f "$win" ]; then echo "⛔ SELF-TEST SKIPPED: witness $witness or its .input is missing" >&2; rm -rf "$st"; return 2; fi
   ( cd "$(dirname "$witness")" && timeout "$T" "$SBL" $(sbl_lang_flags) -d512m -i64m "$(basename "$witness")" < "$win" ) > "$st/true.ref" 2>/dev/null
   [ -s "$st/true.ref" ] || { echo "⛔ SELF-TEST SKIPPED: could not derive a live baseline for $witness" >&2; rm -rf "$st"; return 2; }

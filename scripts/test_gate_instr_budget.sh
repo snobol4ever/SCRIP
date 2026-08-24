@@ -7,7 +7,7 @@
 # instruction-count regression into an immediate gate failure instead of something found three weeks later
 # under other drift.  s249 named the idiom "arith loop instruction budget" -- this gate generalises it.
 #
-# WORKLOADS.  (1) roman -- corpus/demo/roman.sno, fully self-contained (no external input
+# WORKLOADS.  (1) roman -- corpus/snobol4/demo/roman.sno, fully self-contained (no external input
 # file) -- DEFINE/recursion/REPLACE over ~345 roman-numeral conversions, chosen because it is RUNTIME-C-
 # dominated (pattern REPLACE + string building through libscrip_rt.so), the counterpart of the compiler-
 # emitted-dominated arith_loop s249 already budgets.  ⛔ porter.sno was the original choice but CANNOT BE
@@ -67,7 +67,7 @@ set -u
 SCRIP_BIN="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
-DEMO="$CORPUS_ROOT/demo"
+DEMO="$CORPUS_ROOT/snobol4/demo"
 BEAUTY_DIR="$DEMO/beauty"
 BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 

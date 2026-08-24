@@ -20,7 +20,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-DEMO="${DEMO:-$S4E/corpus/demo}"
+DEMO="${DEMO:-$S4E/corpus/snobol4/demo}"
 PROBE="${PROBE:-$S4E/corpus/probe/json_fence0_leak}"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }

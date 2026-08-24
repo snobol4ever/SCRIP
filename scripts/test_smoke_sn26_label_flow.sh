@@ -19,7 +19,7 @@ SBL="${SBL:-$S4A/x64/bin/sbl}"
 CSN="${CSN:-$S4A/csnobol4/snobol4}"
 SCRIP="${SCRIP:-$SCRIP/scrip}"
 MONITOR_DIR="${MONITOR_DIR:-$HERE/monitor}"
-PROBE="$CORPUS/demo/label_flow/probe_label.sno"
+PROBE="$CORPUS/snobol4/demo/label_flow/probe_label.sno"
 
 # --- preflight -----------------------------------------------------------
 if [ ! -f "$PROBE" ]; then

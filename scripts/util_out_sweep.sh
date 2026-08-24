@@ -55,7 +55,7 @@ T="$(mktemp)"; RAW="$(mktemp)"; FLP="$(mktemp)"; trap 'rm -f "$T" "$RAW" "$FLP"'
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
   { find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; find "$CORPUS/probe/cn" -name '*.sno'
     find "$CORPUS/probe/kw" -name '*.sno'; find "$CORPUS/probe/arbnostore" -name '*.sno'
-    find "$CORPUS/demo" -maxdepth 1 -name '*.sno'; } | sort > "$T"; fi
+    find "$CORPUS/snobol4/demo" -maxdepth 1 -name '*.sno'; } | sort > "$T"; fi
 run1() { local p="$1" d o rc; d="$(dirname "$p")"
   o="$(cd "$d" && SNO_LIB="$d" timeout "$TMO" "$SCRIP" --run "$p" </dev/null 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then printf 'RUN_RC_%s\t%s\n' "$rc" "$p"; return; fi
