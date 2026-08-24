@@ -722,7 +722,8 @@ long c_rt_dcap_step(DESCR_t nm)
 long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer)
 {
     extern void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-    long rc = c_rt_dcap_end_ok_open(mark, top, subj);
+    extern long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
+    long rc = rt_dcap_end_ok_open(mark, top, subj);
     { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace && rc) fprintf(stderr, "[DCAP] MATCH_END rc=%ld -> OMEGA (strict stub)\n", rc); }
     if (g_dcf_top > 0) g_dcf_top--;
     rt_match_ctx_restore(outer[0], outer[1], 0);
