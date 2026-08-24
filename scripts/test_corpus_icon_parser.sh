@@ -8,8 +8,8 @@ TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-PARSER_SRC="$REPO_ROOT/demo/scrip/icon_parser.icn"
-RECOG_SRC="$REPO_ROOT/demo/scrip/icon_recognizer.icn"
+PARSER_SRC="$REPO_ROOT/../corpus/scrip/icon_parser.icn"
+RECOG_SRC="$REPO_ROOT/../corpus/scrip/icon_recognizer.icn"
 
 TMP=$(mktemp -d)
 icont -s -o "$TMP/icon_parser"     "$PARSER_SRC"  2>/dev/null || { echo "ERROR: icon_parser compile failed"; exit 2; }

@@ -8,8 +8,8 @@ TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-PARSER_SRC="$REPO_ROOT/demo/scrip/prolog_parser.pro"
-RECOG_SRC="$REPO_ROOT/demo/scrip/prolog_recognizer.pro"
+PARSER_SRC="$REPO_ROOT/../corpus/scrip/prolog_parser.pro"
+RECOG_SRC="$REPO_ROOT/../corpus/scrip/prolog_recognizer.pro"
 
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then

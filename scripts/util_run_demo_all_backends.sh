@@ -2,7 +2,7 @@
 # run_demo.sh — run one SCRIP demo through all available backends
 #
 # Usage:
-#   bash demo/scrip/run_demo.sh DEMO_DIR [EXPECTED_FILE]
+#   bash ../corpus/scrip/run_demo.sh DEMO_DIR [EXPECTED_FILE]
 #
 # DEMO_DIR      path to a demoN/ directory containing *.md + *.expected
 # EXPECTED_FILE optional override (default: DEMO_DIR/*.expected)
