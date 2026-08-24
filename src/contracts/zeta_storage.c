@@ -582,7 +582,7 @@ int fc_geom(const IR_t * nd, long * k) {
       if (fc_arm_member(nd) && !(_ac && nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd))) return 0; }
     if (nd->op == IR_MATCH_ASSIGN_SAVE && fc_save_active(nd)) { if (k) *k = 16; return 1; }
     if ((nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR) && fc_vlit_active(nd) && (!zc_nofc() || fc_subj_member(nd))) { if (k) *k = 16; return 1; }
-    if (nd->op == IR_DISJUNCTION && fc_vdj_active(nd) && IR_LIT(nd).ival > 0 && nd->n_operands > 2 * (int)IR_LIT(nd).ival) { if (k) *k = 16; return 1; }
+    if (nd->op == IR_DISJUNCTION && fc_vdj_active(nd) && IR_LIT(nd).ival > 0 && nd->n_operands > 2 * (int)IR_LIT(nd).ival) { if (k) *k = 32; return 1; }
     if (nd->op == IR_MATCH_ARB)    { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_SPAN)   { if (k) *k = 16; return 1; }
     if (nd->op == IR_MATCH_TAB)    { if (k) *k = 16; return 1; }
