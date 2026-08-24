@@ -4,7 +4,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/prolog/rung31_bridge_catch
+CORPUS=$S4E/corpus/tests/prolog/rung31_bridge_catch
 PASS=0; FAIL=0
 echo "=== rung31_bridge_catch: catch/3 with goal-as-variable (PR-19a driver) ==="
 if [ ! -d "$CORPUS" ]; then

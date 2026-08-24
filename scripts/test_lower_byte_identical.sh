@@ -37,36 +37,36 @@ fi
 # ------------------------------------------------------------------
 declare -a PROGRAMS=(
     # SNOBOL4 (21 feat programs — all parse cleanly)
-    "sno_f01  --dump-sm  $CORPUS/snobol4/feat/f01_core_labels_goto.sno"
-    "sno_f02  --dump-sm  $CORPUS/snobol4/feat/f02_string_ops.sno"
-    "sno_f03  --dump-sm  $CORPUS/snobol4/feat/f03_numeric.sno"
-    "sno_f04  --dump-sm  $CORPUS/snobol4/feat/f04_pattern_primitives.sno"
-    "sno_f05  --dump-sm  $CORPUS/snobol4/feat/f05_capture.sno"
-    "sno_f06  --dump-sm  $CORPUS/snobol4/feat/f06_builtins_predicates.sno"
-    "sno_f07  --dump-sm  $CORPUS/snobol4/feat/f07_keywords.sno"
-    "sno_f08  --dump-sm  $CORPUS/snobol4/feat/f08_data_array_table.sno"
-    "sno_f09  --dump-sm  $CORPUS/snobol4/feat/f09_functions.sno"
-    "sno_f10  --dump-sm  $CORPUS/snobol4/feat/f10_io_basic.sno"
+    "sno_f01  --dump-sm  $CORPUS/tests/snobol4/feat/f01_core_labels_goto.sno"
+    "sno_f02  --dump-sm  $CORPUS/tests/snobol4/feat/f02_string_ops.sno"
+    "sno_f03  --dump-sm  $CORPUS/tests/snobol4/feat/f03_numeric.sno"
+    "sno_f04  --dump-sm  $CORPUS/tests/snobol4/feat/f04_pattern_primitives.sno"
+    "sno_f05  --dump-sm  $CORPUS/tests/snobol4/feat/f05_capture.sno"
+    "sno_f06  --dump-sm  $CORPUS/tests/snobol4/feat/f06_builtins_predicates.sno"
+    "sno_f07  --dump-sm  $CORPUS/tests/snobol4/feat/f07_keywords.sno"
+    "sno_f08  --dump-sm  $CORPUS/tests/snobol4/feat/f08_data_array_table.sno"
+    "sno_f09  --dump-sm  $CORPUS/tests/snobol4/feat/f09_functions.sno"
+    "sno_f10  --dump-sm  $CORPUS/tests/snobol4/feat/f10_io_basic.sno"
 
     # Icon
-    "icn_family    --dump-sm  $CORPUS/icon/demo/family_icon.icn"
-    "icn_parser    --dump-sm  $CORPUS/icon/demo/icon_parser.icn"
-    "icn_recog     --dump-sm  $CORPUS/icon/demo/icon_recognizer.icn"
+    "icn_family    --dump-sm  $CORPUS/tests/icon/demo/family_icon.icn"
+    "icn_parser    --dump-sm  $CORPUS/tests/icon/demo/icon_parser.icn"
+    "icn_recog     --dump-sm  $CORPUS/tests/icon/demo/icon_recognizer.icn"
 
     # Prolog
-    "pl_family     --dump-sm  $CORPUS/prolog/demo/family_prolog.pl"
-    "pl_parser     --dump-sm  $CORPUS/prolog/demo/prolog_parser.pl"
-    "pl_recog      --dump-sm  $CORPUS/prolog/demo/prolog_recognizer.pl"
+    "pl_family     --dump-sm  $CORPUS/tests/prolog/demo/family_prolog.pl"
+    "pl_parser     --dump-sm  $CORPUS/tests/prolog/demo/prolog_parser.pl"
+    "pl_recog      --dump-sm  $CORPUS/tests/prolog/demo/prolog_recognizer.pl"
 
     # Raku
-    "rk_arith_add  --dump-sm  $CORPUS/raku/parser/arith_add.raku"
-    "rk_arith_chain --dump-sm $CORPUS/raku/parser/arith_chain.raku"
-    "rk_arith_mul  --dump-sm  $CORPUS/raku/parser/arith_mul.raku"
-    "rk_arith_prec --dump-sm  $CORPUS/raku/parser/arith_prec.raku"
-    "rk_arr_get    --dump-sm  $CORPUS/raku/parser/arr_get.raku"
-    "rk_for_range  --dump-sm  $CORPUS/raku/parser/for_range.raku"
-    "rk_str_chars  --dump-sm  $CORPUS/raku/parser/str_chars.raku"
-    "rk_logic_or   --dump-sm  $CORPUS/raku/parser/logic_or.raku"
+    "rk_arith_add  --dump-sm  $CORPUS/tests/raku/parser/arith_add.raku"
+    "rk_arith_chain --dump-sm $CORPUS/tests/raku/parser/arith_chain.raku"
+    "rk_arith_mul  --dump-sm  $CORPUS/tests/raku/parser/arith_mul.raku"
+    "rk_arith_prec --dump-sm  $CORPUS/tests/raku/parser/arith_prec.raku"
+    "rk_arr_get    --dump-sm  $CORPUS/tests/raku/parser/arr_get.raku"
+    "rk_for_range  --dump-sm  $CORPUS/tests/raku/parser/for_range.raku"
+    "rk_str_chars  --dump-sm  $CORPUS/tests/raku/parser/str_chars.raku"
+    "rk_logic_or   --dump-sm  $CORPUS/tests/raku/parser/logic_or.raku"
 
     # Snocone
     "sc_literals   --dump-sm  $CORPUS/snocone/corpus/sc1_literals.sc"
@@ -76,7 +76,7 @@ declare -a PROGRAMS=(
     "sc_wordcount  --dump-sm  $CORPUS/snocone/corpus/sc10_wordcount.sc"
 
     # Rebus
-    "reb_btrees    --dump-sm  $CORPUS/rebus/binary_trees.reb"
+    "reb_btrees    --dump-sm  $CORPUS/tests/rebus/binary_trees.reb"
 )
 
 # ------------------------------------------------------------------

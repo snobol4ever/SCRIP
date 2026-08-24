@@ -26,7 +26,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 
 INPUT_FILE=""
-DRIVER="${CORPUS:-$S4E/corpus}/demo/beauty/beauty.sc"
+DRIVER="${CORPUS:-$S4E/corpus}/demo/snobol4/beauty/beauty.sc"
 MODE="--run"
 TIMEOUT=15
 COMPARE=0

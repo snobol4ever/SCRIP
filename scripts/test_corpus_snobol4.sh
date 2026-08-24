@@ -13,8 +13,8 @@ RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-10}"
 INC="${INC:-$CORPUS/include}"
-BEAUTY="${BEAUTY:-$CORPUS/snobol4/beauty_suite}"
-DEMO="${DEMO:-$CORPUS/demo}"
+BEAUTY="${BEAUTY:-$CORPUS/tests/snobol4/beauty_suite}"
+DEMO="${DEMO:-$CORPUS/demo/snobol4}"
 
 # ⛔⛔⛔ s272 hq_C (CEO audit correction 2) — A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT.
 # These two arms printed SKIP and exited 0, so a box with no compiler built, or no corpus cloned, reported
@@ -190,7 +190,7 @@ run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"      
 # ⭐ The denominator moves 361 -> 364. A skip is a silent subtraction from the denominator: these three were
 # green for hours and no board could say so, because the runner had been told once that they hang forever.
 # NOT gated -- each has a one-line reason, full repro in the FINDING above:
-#   demo/calculator/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
+#   demo/snobol4/calculator/calculator-2.sno                -- diverges from the live oracle almost immediately (not the match_ms line); real bug, not nondeterminism (no RANDOM/RAND in program or generator)
 #   demo/expression.sno                  -- -INCLUDEs 15 files (global.sno, ShiftReduce.sno, Gen.sno, ...) absent from this checkout; won't parse
 
 T_ALL=$((SECONDS-T0_ALL))

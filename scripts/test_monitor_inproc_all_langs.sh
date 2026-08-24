@@ -66,7 +66,7 @@ run_expect_agree "icon: hello" \
 
 # --- Snocone ---
 run_expect_agree "snocone: fence" \
-    "${CORPUS:-$S4E/corpus}/snocone/demo/beauty/test/fence.sc"
+    "${CORPUS:-$S4E/corpus}/snocone/demo/snobol4/beauty/test/fence.sc"
 
 # --- Prolog ---
 # SM does not yet support Prolog IR opcodes (AST_CHOICE, AST_UNIFY, etc.).

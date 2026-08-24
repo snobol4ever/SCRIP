@@ -44,7 +44,7 @@ NRM='/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d; /^exec
 # EDITORS -- routed as row `suite-table-one-authority`.  Until it lands, ANY edit to either table must be made to BOTH, in the same commit.
 SUITES=$(cat <<'EOF'
 beauty_self    SELF                                                -                          beauty
-beauty_suite   snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
+beauty_suite   tests/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR
 demos          demo                               -maxdepth 1 -name *.sno    SELFDIR
 benchmarks     benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR
 bb_probes      probe/bb                                            -name *.sno                SELFDIR
@@ -52,12 +52,12 @@ patterns       crosscheck/patterns                                 -maxdepth 1 -
 crosscheck     crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc
 feature_test   SCRIPTEST                                           -name *.sno                CORPUS
 probes_misc    probe                                               -name *.sno -not -path */bb/*  SELFDIR
-csnobol4_suite snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR
-gimpel         snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include
+csnobol4_suite packages/snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR
+gimpel         packages/snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include
 misc           MISC                                                -name *.sno                SELFDIR
 EOF
 )
-MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/dotnet snobol4/aisnobol"
+MISC_DIRS="tests/snobol4/feat tests/snobol4/parser tests/snobol4/smoke tests/snobol4/jvm_j3 tests/snobol4/linker packages/snobol4/dotnet packages/snobol4/aisnobol"
 stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"
   [ -f "$b.input" ] && { echo "$b.input"; return; }; [ -f "$b.in" ] && { echo "$b.in"; return; }
   case "$d" in "$DEMO") case "$n" in claws5*) echo "$DEMO/claws5/claws5.input";; treebank*) echo "$DEMO/treebank/treebank.input";; json*) echo "$DEMO/json/json.input";;

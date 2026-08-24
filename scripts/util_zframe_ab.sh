@@ -9,8 +9,8 @@ LABEL="$1"
 S=$S4E/SCRIP; C=$S4E/corpus
 export LD_LIBRARY_PATH=$S/out:${LD_LIBRARY_PATH:-}
 PROGS="
-$C/snobol4/feat/f04_pattern_primitives.sno
-$C/snobol4/parser/pat_arbno.sno
+$C/tests/snobol4/feat/f04_pattern_primitives.sno
+$C/tests/snobol4/parser/pat_arbno.sno
 $C/benchmarks/snobol4/pattern_bt.sno
 $C/benchmarks/snobol4/string_pattern.sno
 $C/benchmarks/snobol4/arith_loop.sno
@@ -27,10 +27,10 @@ $C/icon/rung36_jcon_string.icn
 $C/icon/rung36_jcon_sieve.icn
 $C/benchmarks/icon/concord.icn
 $C/benchmarks/icon/deal.icn
-$C/prolog/rung11_findall_findall_basic.pl
-$C/prolog/rung10_assert_assertz_basic.pl
+$C/tests/prolog/rung11_findall_findall_basic.pl
+$C/tests/prolog/rung10_assert_assertz_basic.pl
 $C/icon/rung36_jcon_cxprimes.icn
-$C/snobol4/feat/f01_hello.sno
+$C/tests/snobol4/feat/f01_hello.sno
 "
 ok=0; crash=0; miss=0
 for p in $PROGS; do

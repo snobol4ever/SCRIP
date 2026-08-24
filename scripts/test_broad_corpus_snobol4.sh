@@ -14,7 +14,7 @@ RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-10}"
 INC="$CORPUS/include"
-BEAUTY="$CORPUS/snobol4/beauty_suite"
+BEAUTY="$CORPUS/tests/snobol4/beauty_suite"
 DEMO="$CORPUS/demo"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi

@@ -40,7 +40,7 @@ echo "=== ζ frame-base predicate tripwire (ZETA-FB) ==="
 TOTAL=0
 PROGS=0
 HITFILES=""
-for f in $(ls "$CORPUS"/prolog/*.pl 2>/dev/null) \
+for f in $(ls "$CORPUS"/tests/prolog/*.pl 2>/dev/null) \
          $(find "$CORPUS/icon"    -name "*.icn" 2>/dev/null) \
          $(find "$CORPUS/snobol4" -name "*.sno" 2>/dev/null) \
          $(find "$CORPUS/snocone" -name "*.sc"  2>/dev/null); do

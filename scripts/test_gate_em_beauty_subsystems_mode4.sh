@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/test_gate_em_beauty_subsystems_mode4.sh — EM-7d-prep gate:
-# every *_driver.sno in corpus/snobol4/beauty_suite/, under
+# every *_driver.sno in corpus/tests/snobol4/beauty_suite/, under
 #   --compile    (mode 4: emit .s, link to libscrip_rt.so, run binary)
 # produces output byte-identical to the same driver under
 #   --run            (mode 2: proven SM interpreter)
@@ -21,7 +21,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_DIR="${RT_DIR:-$ROOT/out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-BEAUTY="$CORPUS/snobol4/beauty_suite"
+BEAUTY="$CORPUS/tests/snobol4/beauty_suite"
 TIMEOUT="${TIMEOUT:-30}"
 
 if [ ! -x "$SCRIP" ]; then

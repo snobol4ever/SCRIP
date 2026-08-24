@@ -29,7 +29,7 @@
 #       misses and was indistinguishable from a program that compiled perfectly.  Two of the 52 were
 #       in this state, one of them hiding the single LARGEST miss population in the corpus.
 #   (3) INCLUDES NEVER RESOLVED.  demo/expression.sno -INCLUDEs three files that live in
-#       snobol4/beauty_suite/.  The gate set no search path, so it silently took defect (2)
+#       tests/snobol4/beauty_suite/.  The gate set no search path, so it silently took defect (2)
 #       and scored 0.  With SNO_LIB seeded it compiles clean and reports 11,662 misses -- a
 #       population that was invisible for the whole life of the old gate.  (Note REPO-corpus.md
 #       documents an include dir demo/inc/ that does not exist in the tree; beauty_suite/ is real.)

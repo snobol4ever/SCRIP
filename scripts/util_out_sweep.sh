@@ -15,7 +15,7 @@
 #       (md5 fd95ab76); run under `xargs -P $(nproc)` they take TWO different md5s, match NEITHER serial value, and
 #       SWAP with each other between runs -- which reads exactly like cross-contamination and is not.  Root cause
 #       proven by diffing the text, not the hash: `match_ms=0` serial vs `match_ms=1` under load, stdout otherwise
-#       byte-identical.  demo/json/json.sno is the same shape (`match_ms=`, TIME() at :273/:275) and was likewise a
+#       byte-identical.  demo/snobol4/json/json.sno is the same shape (`match_ms=`, TIME() at :273/:275) and was likewise a
 #       FALSE mover in the s150 CN-8 A/B -- serially it is 8d262c4d on BOTH arms.
 # CURE, faces (a)+(b): rc is recorded and a failed run is labelled RUN_RC_<rc> (stable in both arms, never hashed);
 # and every elapsed-time field is normalised to a constant BEFORE hashing, which makes the sweep parallel-safe

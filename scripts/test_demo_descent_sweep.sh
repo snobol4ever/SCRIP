@@ -15,7 +15,7 @@ ROOT=$PWD
 OUT=${1:-/tmp/demo_sweep.txt}; : > "$OUT"
 . "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 : "${SWEEP_ORACLE:=$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- generates/verifies .ref, not timing
-: "${DEMO_DIRS:=$S4E/corpus/demo $S4E/corpus/snobol4/beauty_suite}"
+: "${DEMO_DIRS:=$S4E/corpus/demo $S4E/corpus/tests/snobol4/beauty_suite}"
 : "${DEMO_TIMEOUT:=60}"
 for src in $(find $DEMO_DIRS -name '*.sno' 2>/dev/null | sort); do
   d=$(dirname "$src"); b=${src%.sno}

@@ -22,8 +22,8 @@ d_demo()        { find "$CORPUS/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)
-d_beauty_total(){ find "$CORPUS/snobol4/beauty_suite" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
-d_beauty_drivers(){ find "$CORPUS/snobol4/beauty_suite" -maxdepth 1 -name "*.ref" 2>/dev/null | wc -l; }
+d_beauty_total(){ find "$CORPUS/tests/snobol4/beauty_suite" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
+d_beauty_drivers(){ find "$CORPUS/tests/snobol4/beauty_suite" -maxdepth 1 -name "*.ref" 2>/dev/null | wc -l; }
 d_earn0()       { find "$CORPUS/probe/earn0" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_broad336()    {
     # Mirrors test_broad_corpus_snobol4.sh's OWN LOGIC verbatim (crosscheck-with-ref via the exact same

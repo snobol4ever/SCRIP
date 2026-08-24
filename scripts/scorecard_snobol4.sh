@@ -43,7 +43,7 @@ DEMO="$CORPUS/demo"
 #           A filter that lists measurement lines BY NAME must be extended whenever the harness prints a new one.
 SUITES=$(cat <<'EOF'
 beauty_self    20 SELF                                                -                          include 90 -
-beauty_suite   15 snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
+beauty_suite   15 tests/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
 demos          15 demo                               -maxdepth 2 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
 bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
@@ -51,8 +51,8 @@ patterns       10 crosscheck/patterns                                 -maxdepth 
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
 probes_misc     5 probe                                               -name *.sno -not -path */bb/*  SELFDIR   20 ms
-csnobol4_suite  5 snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
-gimpel          5 snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
+csnobol4_suite  5 packages/snobol4/csnobol4_suite                             -maxdepth 1 -name *.sno    SELFDIR      20 -
+gimpel          5 packages/snobol4/gimpel                                     -name *_driver.sno         SELFDIR:include   20 -
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
@@ -64,7 +64,7 @@ EOF
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
 # ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
 case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
-MISC_DIRS="snobol4/feat snobol4/parser snobol4/smoke snobol4/jvm_j3 snobol4/linker snobol4/dotnet snobol4/aisnobol"
+MISC_DIRS="tests/snobol4/feat tests/snobol4/parser tests/snobol4/smoke tests/snobol4/jvm_j3 tests/snobol4/linker packages/snobol4/dotnet packages/snobol4/aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
   local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basename "$b")"

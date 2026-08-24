@@ -5,7 +5,7 @@
 #   bash scripts/util_ref_mint.sh <suite> <dir> [<dir>...] --apply    # mint a .ref beside every LIVE program
 #
 # ⛔ A SUITE THAT IS NEVER GRADED IS NOT A PASSING SUITE, IT IS AN UNOPENED ONE.  Grading is by `.ref` diff, so a program with no
-# `.ref` is invisible to every board -- corpus/snobol4/parser/ held 88 such programs and feat/ 19 more.  These are
+# `.ref` is invisible to every board -- corpus/tests/snobol4/parser/ held 88 such programs and feat/ 19 more.  These are
 # self-checking programs that print their own PASS/FAIL, so they were DESIGNED to be graded.
 # ⛔⛔ BUT A .ref MINTED FROM A BROKEN ORACLE RUN PINS A LIE, AND THERE ARE THREE WAYS TO PIN ONE, NOT ONE.  This tool mints ONLY
 # on `LIVE` and names every other class instead:

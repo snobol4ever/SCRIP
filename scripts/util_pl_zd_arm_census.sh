@@ -9,7 +9,7 @@
 #
 #   bash scripts/util_pl_zd_arm_census.sh [--arm default|cells|both] [--jobs N] [file.pl ...]
 #
-# Default corpus: corpus/prolog/*.pl + corpus/benchmarks/prolog/bench/*.pl.
+# Default corpus: corpus/tests/prolog/*.pl + corpus/benchmarks/prolog/bench/*.pl.
 # Read the table as CANDIDATES, not verdicts: a kind at the top of the refusal table is where the
 # next PZ rung goes.  ⛔ FALSIFY BY INJECTION before believing a zero (run one program you know
 # refuses and confirm it appears).  Compile-only sweep — programs are never executed.
@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 if [ ${#FILES[@]} -eq 0 ]; then
-    mapfile -t FILES < <(ls "$S4E"/corpus/prolog/*.pl "$S4E"/corpus/benchmarks/prolog/bench/*.pl 2>/dev/null)
+    mapfile -t FILES < <(ls "$S4E"/corpus/tests/prolog/*.pl "$S4E"/corpus/benchmarks/prolog/bench/*.pl 2>/dev/null)
 fi
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 census_arm() {

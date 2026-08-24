@@ -23,7 +23,7 @@ echo "  sno_interp_sweep done ($(wc -l < "$SNOSWEEP") files)"
 # pascal x5 interp
 PASSWEEP="$OUT/pas_interp_sweep.txt"; : > "$PASSWEEP"
 for p in boolchain boolassign alias m4wexpr sieve; do
-    f="$S4E/corpus/pascal/$p.pas"
+    f="$S4E/corpus/tests/pascal/$p.pas"
     [ -f "$f" ] || { echo "$p MISSING" >> "$PASSWEEP"; continue; }
     out=$(timeout 16 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); rc=$?
     printf '%s rc=%d md5=%s\n' "$p" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$PASSWEEP"

@@ -15,12 +15,12 @@
 #   bash scripts/run_parser_sync_monitor.sh <lang> <sample-input>
 #
 # Examples:
-#   bash scripts/run_parser_sync_monitor.sh snobol4  corpus/snobol4/parser/atom_id.sno
-#   bash scripts/run_parser_sync_monitor.sh rebus    corpus/rebus/parser/paren.reb
+#   bash scripts/run_parser_sync_monitor.sh snobol4  corpus/tests/snobol4/parser/atom_id.sno
+#   bash scripts/run_parser_sync_monitor.sh rebus    corpus/tests/rebus/parser/paren.reb
 #   bash scripts/run_parser_sync_monitor.sh snocone  corpus/snocone/corpus/sc1_literals.sc
-#   bash scripts/run_parser_sync_monitor.sh icon     corpus/icon/parser/fail_stmt.icn
-#   bash scripts/run_parser_sync_monitor.sh raku     corpus/raku/parser/str_chars.raku
-#   bash scripts/run_parser_sync_monitor.sh prolog   corpus/prolog/rung01_hello_hello.pl
+#   bash scripts/run_parser_sync_monitor.sh icon     corpus/tests/icon/parser/fail_stmt.icn
+#   bash scripts/run_parser_sync_monitor.sh raku     corpus/tests/raku/parser/str_chars.raku
+#   bash scripts/run_parser_sync_monitor.sh prolog   corpus/tests/prolog/rung01_hello_hello.pl
 #
 # Exit codes:
 #   0 — both runtimes agreed throughout

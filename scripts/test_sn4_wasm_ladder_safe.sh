@@ -95,9 +95,9 @@ run_one() {
 }
 
 echo "=== SNOBOL4 -> WASM ladder (safe) ==="
-for sno in "$CORPUS/snobol4/csnobol4_suite/"*.sno; do run_one "$sno"; done
+for sno in "$CORPUS/packages/snobol4/csnobol4_suite/"*.sno; do run_one "$sno"; done
 for sno in "$CORPUS/demo/"*.sno; do run_one "$sno"; done
-for sno in "$CORPUS/snobol4/feat/"*.sno; do run_one "$sno"; done
+for sno in "$CORPUS/tests/snobol4/feat/"*.sno; do run_one "$sno"; done
 
 TOTAL=$((PASS+FAIL+SKIP))
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP TOTAL=$TOTAL"
