@@ -3372,7 +3372,9 @@ extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_
     int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
     g_emit.flat_lex = (!dyn_scope && !is_lbl) ? 1 : 0;
     g_emit.flat_gen = (is_generator && emit_graph_has_suspend(g)) ? 1 : 0;
-    return emit_jmp_entry_arm_region(g);
+    int _r = emit_jmp_entry_arm_region(g);
+    if (getenv("SCRIP_FLOOR_DIAG")) { extern int g_flat_frame_floor; fprintf(stderr, "[ARM-REGION] pname=%s r=%d floor=%d frame_bytes=%d seed_off=%d layout_unknown=%d jcon_value_region=%d\n", pname ? pname : "(null)", _r, g_flat_frame_floor, g_emit.flat_frame_bytes, g_emit.flat_seed_off, g_emit.flat_layout_unknown, g ? g->jcon_value_region : -1); }
+    return _r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
