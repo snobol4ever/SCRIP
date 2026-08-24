@@ -86,7 +86,7 @@ FC_BASELINE=${FC_BASELINE:-0}
 KNOWN_TIMEOUT="beauty.sno"
 KNOWN_NOCODE="f13_eval_code.sno"
 [ -x "$SCRIP" ] || { echo "GATE FAIL: no $SCRIP (run: make scrip)"; exit 2; }
-export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:$S4E/corpus/lib${SNO_LIB:+:$SNO_LIB}"
+export SNO_LIB="$CORPUS/beauty_suite:$CORPUS/demo/inc:$S4E/corpus/library${SNO_LIB:+:$SNO_LIB}"
 tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp" "$tmp.f"' EXIT
 n=0

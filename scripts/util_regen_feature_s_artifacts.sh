@@ -32,7 +32,7 @@ SCRIP="${SCRIP:-$ROOT/scrip}"
 FEAT="${FEAT_DIR:-$ROOT/test/snobol4}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 # -include 'lib/*.sno' in test/snobol4/library/ resolves against the CORPUS root, not SCRIP; compiling from $ROOT made 4 artifacts EMIT-FAIL and silently freeze at s189 through every regen since.
-INCROOT="$([ -d "$CORPUS/lib" ] && echo "$CORPUS" || echo "$ROOT")"
+INCROOT="$([ -d "$CORPUS/library" ] && echo "$CORPUS" || echo "$ROOT")"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 if [ ! -d "$FEAT" ]; then echo "SKIP  feature test dir not found: $FEAT"; exit 0; fi
