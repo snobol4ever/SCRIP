@@ -20,6 +20,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 PROBE="$S4E/.github/probes/m1-bisect/check_m1_fixedpoint.sh"
 ARM="${1:-both}"
+case "$ARM" in m3|m4|both) ;; *) echo "⛔ GATE UNPROVEN(2): unrecognized ARM '$ARM' — expected m3, m4, or both"; exit 2;; esac
 if [ ! -x "$S4E/SCRIP/scrip" ]; then echo "⛔ FAIL: scrip is not built. A missing binary is a FAILURE, not a skip —"; echo "   a gate that goes green when its subject is absent is the false-green class this gate exists to end."; exit 1; fi
 [ -f "$PROBE" ] || { echo "⛔ FAIL: the M1 probe is missing at $PROBE"; exit 1; }
 echo "=== MILESTONE 1 — BEAUTY SELF-HOST FIXED POINT ==="
