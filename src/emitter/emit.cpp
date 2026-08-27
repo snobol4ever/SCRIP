@@ -3178,6 +3178,27 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _blob_wire = (!_wire_stub && g_emit.flat_jmp_entry && g_emit.flat_pat) ? 1 : 0;
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
+    if (xa_flat_class_c_pred()) {
+        /* s272 snocone-returns-codegen bug #3: a Snocone `function` body's own NRETURN (its SNO$NRET call node, built
+           directly by sno_build_graph -- see lower_snobol4.c -- rather than via sno_build_call_stub's classic-DEFINE
+           path) wires its success edge straight to IR_SUCCEED, never to a real RETURN(role 1)-kind node the way a
+           label-based `:(NRETURN)` inside main's own graph always does (confirmed via --dump-ir: main's construction
+           always pre-builds an unreached RETURN/FRETURN role-node pair alongside NRETURN's own, wired as its real γ/ω;
+           a Snocone function body's construction does not). The shared per-node exit resolution a few hundred lines up
+           (the `emit_floater_kind(gtgt)==0 && gtgt is the SNO$NRET call itself` case) still unconditionally redirects
+           to emit_floater_label(1) ("RETURN") regardless -- correct and necessary for the classic/main-graph shape,
+           where that label always gets a real body from _top_hoist's or bb_define's own machinery, but never
+           reachable here, since the CLASS-C-eligible graphs this fix touches are exactly the ones lacking it. Rather
+           than touch that shared resolution (tried once this session -- removing/redirecting it broke 21 unrelated
+           corpus tests: generators, pattern matching, indirect-name assignment, several classic DEFINE'd demos, all of
+           which DO rely on the redirect landing on a real RETURN body built the classic way), alias RETURN to this
+           graph's own plain success exit HERE, at the exact point lbl_γ's address is fixed -- CLASS-C's own NRETURN
+           has no distinct success behavior from an ordinary success exit (the by-name mark already ran in
+           bb_nreturn_mark before reaching here), so the alias is exact, not an approximation. Scoped to graphs that
+           actually use NRETURN so a Snocone function that never uses it never allocates or defines the label. */
+        int _has_nret = 0; for (int _ni = 0; _ni < n; _ni++) if (emit_floater_kind(nodes[_ni]) == 3) { _has_nret = 1; break; }
+        if (_has_nret) emit_label_define_bb(emit_floater_label(1));
+    }
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }
     else if (_blob_wire) {
         int _bfb = blob_frame_bytes();
