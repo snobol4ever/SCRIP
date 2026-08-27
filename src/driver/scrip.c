@@ -43,6 +43,32 @@ static void stmt_init(void) {}
 static IR_graph_t *g_ab_posthook_g = NULL; static int g_ab_posthook_gva = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int); if (g_ab_posthook_g) bb_ab_emit_nodes(g_ab_posthook_g, g_ab_posthook_gva); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* N-2 item 2 step 1 (hq_P): HOST-DETECTION PREDICATE, INERT -- emits nothing.  Answers two questions: (1) which graphs host a DIRECT
+   call to a generator proc, and (2) whether that callee is emitted LATER than its host -- the forward reference under which
+   proc_fb_buf[] reads 0 rather than erroring, sizing a host carve silently too small.
+   The host edge is IR_PROC_GEN, NOT a call op.  lower_icon.c:148 already resolves the callee and encodes the answer in the OPCODE
+   (`icn_proc_is_generator(name) ? IR_PROC_GEN : IR_CALL`), and :1374 rewrites the same way post-lower -- so the NODE KIND IS THE
+   PREDICATE and no is_generator lookup is needed.  The proc table is consulted only to resolve the callee INDEX for the
+   forward-reference test.  IR_CALL_VALUE is counted separately and never as a host edge: indirect dispatch is explicitly UNRULED
+   (ceo 2026-08-27) and must not enter this slice.  A callee absent from the proc table is reported as callee_idx=-1, never as 0.
+   ⛔ THE TEST IS EMISSION ORDER, NOT TABLE ORDER.  Every emit loop `continue`s on main and emits it separately afterwards, so a
+   main host is emitted LAST and can never forward-reference anything -- scoring it by table index reports a hazard that cannot
+   occur.  Emission position is therefore proc_count for main and the table index for every other proc. */
+static int n2_proc_index(const stage2_t *s2, const char *fn) { if (!s2 || !fn) return -1;
+    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; } return -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void n2_host_scan_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_HOST_DIAG")) return; int hosts = 0, fwd = 0, indirect = 0, edges = 0, unresolved = 0;
+    for (int hi = 0; hi < s2->proc_count; hi++) { const char *hn = s2->proc_table[hi].name; int gi = s2->proc_table[hi].bb_idx;
+        if (!hn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue; IR_graph_t *g = s2->bbp.table[gi]; int fired = 0;
+        for (int k = 0; k < g->n; k++) { IR_t *nd = g->all[k]; if (!nd) continue; if (nd->op == IR_CALL_VALUE) { indirect++; continue; }
+            if (nd->op != IR_PROC_GEN) continue; const char *fn = IR_LIT(nd).sval; int ci = n2_proc_index(s2, fn);
+            int hpos = !strcmp(hn, "main") ? s2->proc_count : hi; int cpos = (ci >= 0 && s2->proc_table[ci].name && !strcmp(s2->proc_table[ci].name, "main")) ? s2->proc_count : ci;
+            int is_fwd = (ci >= 0) && (cpos > hpos); fired = 1; edges++; if (is_fwd) fwd++; if (ci < 0) unresolved++;
+            fprintf(stderr, "[N2-HOST] host=%s host_idx=%d emit_pos=%d gen_callee=%s callee_idx=%d emit_pos=%d forward=%d\n", hn, hi, hpos, fn ? fn : "(null)", ci, cpos, is_fwd); }
+        if (fired) hosts++; }
+    fprintf(stderr, "[N2-HOST] SUMMARY procs=%d hosts=%d edges=%d forward_refs=%d unresolved_callees=%d indirect_call_nodes=%d\n", s2->proc_count, hosts, edges, fwd, unresolved, indirect); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1077,7 +1103,7 @@ int main(int argc, char **argv)
         extern void zls_dump(FILE * fp);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (dump_zeta && (is_icon || is_sno_bb)) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
@@ -1106,7 +1132,7 @@ int main(int argc, char **argv)
         extern const char * bb_src_of(const IR_t * nd);
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon || is_sno_bb || is_prolog) for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
@@ -1186,7 +1212,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
             if (is_icon) g_postfix_resume = 1;
-            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
@@ -1389,7 +1415,7 @@ int main(int argc, char **argv)
             extern int g_frame_active;
             extern void rt_proc_reset(void);
             extern void rt_proc_register(const char * name, const char ** pnames, int nparams);
-            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
@@ -1585,7 +1611,7 @@ int main(int argc, char **argv)
     if (mode_run) {
         extern int g_postfix_resume;
         if (is_icon) g_postfix_resume = 1;
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (is_icon || is_raku || is_sno_bb || is_prolog) {
