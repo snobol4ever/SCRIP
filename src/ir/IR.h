@@ -28,9 +28,9 @@ typedef enum {
     IR_CALL,
     IR_CALL_BUILTIN,
     IR_CALL_BUILTIN_GEN,
-    IR_CALL_BUILTIN_ICON,
-    IR_CALL_BUILTIN_PROLOG,
-    IR_CALL_BUILTIN_SNOBOL4,
+    IR_CALL_ICON,
+    IR_CALL_PROLOG,
+    IR_CALL_SNOBOL4,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
     IR_CMP_TEST,
@@ -61,11 +61,11 @@ typedef enum {
     IR_INDIRECT_GOTO,
     IR_INITIAL,
     IR_ITERATE,
-    IR_KEYWORD_ASSIGN,
-    IR_KEYWORD_ASSIGN_SNOBOL4,
-    IR_KEYWORD_ICON,
-    IR_KEYWORD_ICON_GEN,
-    IR_KEYWORD_SNOBOL4,
+    IR_KW_ASSIGN,
+    IR_KW_ASSIGN_SNOBOL4,
+    IR_KW_ICON,
+    IR_KW_ICON_GEN,
+    IR_KW_SNOBOL4,
     IR_LIMIT,
     IR_LIT_CHARSET,
     IR_LIT_INTEGER,
@@ -169,7 +169,7 @@ static inline int ir_is_matcher_element(int t) {
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) {
-    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_BUILTIN_ICON || t == IR_CALL_BUILTIN_SNOBOL4 || t == IR_CALL_BUILTIN_PROLOG || t == IR_CALL_VALUE;
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_PROLOG || t == IR_CALL_VALUE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }

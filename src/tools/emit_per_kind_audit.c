@@ -103,8 +103,8 @@ static const kind_entry_t g_kinds[] = {
     { IR_CSET_DIFF,       "IR_CSET_DIFF" },
     { IR_CSET_INTER,      "IR_CSET_INTER" },
     { IR_GEN_SCAN,        "IR_GEN_SCAN" },
-    { IR_KEYWORD_ICON,     "IR_KEYWORD_ICON" },
-    { IR_KEYWORD_SNOBOL4,  "IR_KEYWORD_SNOBOL4" },
+    { IR_KW_ICON,     "IR_KW_ICON" },
+    { IR_KW_SNOBOL4,  "IR_KW_SNOBOL4" },
     { IR_IDX,         "IR_IDX" },
     { IR_SECTION,     "IR_SECTION" },
     { IR_LIST_BANG,   "IR_LIST_BANG" },
@@ -297,8 +297,8 @@ static void prime_node_for_kind(IR_t *nd, IR_e kind) {
     case IR_UNIFY:
         nd->α = g_audit_child2[0]; nd->β = g_audit_child2[1];
         break;
-    case IR_KEYWORD_ICON:  nd->sval = "&pos"; break;
-    case IR_KEYWORD_SNOBOL4:  nd->sval = "&alphabet"; break;
+    case IR_KW_ICON:  nd->sval = "&pos"; break;
+    case IR_KW_SNOBOL4:  nd->sval = "&alphabet"; break;
     case IR_RECORD_DEF: nd->sval = "rec(a,b)"; break;
     case IR_FIELD_GET:
     case IR_FIELD_SET:

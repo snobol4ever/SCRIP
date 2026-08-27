@@ -934,9 +934,9 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
     if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
-    if (k == IR_CALL_BUILTIN_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (k == IR_CALL_BUILTIN_PROLOG && fn[0] && pl_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
+    if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
+    if (k == IR_CALL_PROLOG && fn[0] && pl_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (!strcmp(fn, "__rk_bool") && narg >= 1) return CALL_ROUTE_RK_BOOL_SLOT;
     if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
@@ -1028,7 +1028,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.x86_uid = g_flat_node_id++;
     g_emit.frame_region = g_emit_cfg ? ((32 + g_emit_cfg->jcon_value_region + 15) & ~15) : 0;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_VAR_FRAME || nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME
-                       || nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_ICON_GEN || nd->op == IR_KEYWORD_SNOBOL4 || nd->op == IR_KEYWORD_ASSIGN || nd->op == IR_KEYWORD_ASSIGN_SNOBOL4 || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
+                       || nd->op == IR_KW_ICON || nd->op == IR_KW_ICON_GEN || nd->op == IR_KW_SNOBOL4 || nd->op == IR_KW_ASSIGN || nd->op == IR_KW_ASSIGN_SNOBOL4 || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
                        || nd->op == IR_MATCH_ASSIGN_COND || nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ASSIGN_IMM || nd->op == IR_MATCH_LIT || nd->op == IR_MATCH_ANY || nd->op == IR_MATCH_NOTANY || nd->op == IR_MATCH_SPAN
                        || nd->op == IR_MATCH_BREAK || nd->op == IR_MATCH_BREAKX || nd->op == IR_MATCH_DEFER || nd->op == IR_MATCH_ATP || nd->op == IR_MATCH_REPLACE || nd->op == IR_GOTO_DEFERRED
                        || nd->op == IR_NULLTEST_VAR || nd->op == IR_PROC_GEN || nd->op == IR_PROC_VALUE || ir_norm_call_kind(nd->op) == IR_CALL)
@@ -1071,11 +1071,11 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_CHARSET:
     case IR_LIT_NAME:
     case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;
-    case IR_KEYWORD_ICON:
-    case IR_KEYWORD_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
-    case IR_KEYWORD_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
-    case IR_KEYWORD_ASSIGN:       bb_emit_x86(bb_keyword_assign());     return 0;
-    case IR_KEYWORD_ASSIGN_SNOBOL4: bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
+    case IR_KW_ICON:
+    case IR_KW_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
+    case IR_KW_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
+    case IR_KW_ASSIGN:       bb_emit_x86(bb_keyword_assign());     return 0;
+    case IR_KW_ASSIGN_SNOBOL4: bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
     case IR_VAR:                  { extern int is_global(const char *);
         const char * _vn = IR_LIT(nd).sval;
         int _vn_reassignable_builtin = _vn && (!strcmp(_vn, "write") || !strcmp(_vn, "writes"));
@@ -1254,7 +1254,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         else { g_emit.op_sb = -1; g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0; }
         bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG:
     case IR_PROC_GEN:
     case IR_CALL: {
         g_emit.op_call_route = bb_call_route_classify(nd);
@@ -1452,12 +1452,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_LIT_CHARSET:
     case IR_LIT_NAME:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_KEYWORD_ICON:
-    case IR_KEYWORD_ICON_GEN:
-    case IR_KEYWORD_SNOBOL4:
+    case IR_KW_ICON:
+    case IR_KW_ICON_GEN:
+    case IR_KW_SNOBOL4:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
-    case IR_KEYWORD_ASSIGN:
-    case IR_KEYWORD_ASSIGN_SNOBOL4:
+    case IR_KW_ASSIGN:
+    case IR_KW_ASSIGN_SNOBOL4:
         g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_VAR: {
         const char *vn = IR_LIT(nd).sval;
@@ -1522,7 +1522,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_ASSIGN_FRAME:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG: {
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
@@ -2106,15 +2106,15 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_DEFINE && !ir_define_sr_citizen(nd)) return 1;
     if (op == IR_DEFINE) { static int _sr = -1; if (_sr < 0) { const char * e = getenv("SCRIP_ZD_SR"); _sr = (e && *e == '0') ? 0 : 1; } return (_sr && zd_sr_role(nd) != 0) ? 1 : 0; }
     if (op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END) return 1;
-    if (op == IR_KEYWORD_ASSIGN_SNOBOL4) return 1;
-    if (op == IR_KEYWORD_SNOBOL4) return 1;
-    if (op == IR_KEYWORD_ICON) { static int _icnkw = -1; if (_icnkw < 0) { const char * e = getenv("SCRIP_ZD_ICN_KW"); _icnkw = (e && *e == '0') ? 0 : 1; } if (!(_icnkw && g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 0; { const char *_kw = IR_LIT(nd).sval; if (!_kw) return 0; const char *_k = (_kw[0] == '&') ? _kw + 1 : _kw; return (!strcmp(_k, "null") || !strcmp(_k, "pos") || !strcmp(_k, "subject")) ? 1 : 0; } }
+    if (op == IR_KW_ASSIGN_SNOBOL4) return 1;
+    if (op == IR_KW_SNOBOL4) return 1;
+    if (op == IR_KW_ICON) { static int _icnkw = -1; if (_icnkw < 0) { const char * e = getenv("SCRIP_ZD_ICN_KW"); _icnkw = (e && *e == '0') ? 0 : 1; } if (!(_icnkw && g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 0; { const char *_kw = IR_LIT(nd).sval; if (!_kw) return 0; const char *_k = (_kw[0] == '&') ? _kw + 1 : _kw; return (!strcmp(_k, "null") || !strcmp(_k, "pos") || !strcmp(_k, "subject")) ? 1 : 0; } }
     if (op == IR_COERCE_STRING || op == IR_COERCE_INTEGER) return 1;
     if (op == IR_DEREF || op == IR_ASSIGN_VAR) return 1;
     if (op == IR_FIELD_VAR) return 1;
     if (op == IR_SUBSCRIPT) return 1;
     if (op == IR_CALL) { extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *); const char * fn = IR_LIT(nd).sval; static int _zp = -1; if (_zp < 0) { const char *e = getenv("SCRIP_ZD_PROC"); _zp = (e && *e == '0') ? 0 : 1; } if (fn && rt_proc_is_registered(fn)) { if (!_zp) return 0; return (rt_proc_is_generator(fn)) ? 0 : 1; } return 1; }
-    if (op == IR_CALL_BUILTIN_ICON) { extern int icn_builtin_is_generator(const char *); extern int icn_builtin_is_known(const char *); const char * fn = IR_LIT(nd).sval; if (fn && icn_builtin_is_generator(fn)) return 0;  if (fn && icn_builtin_is_known(fn)) return 1; return 1; }
+    if (op == IR_CALL_ICON) { extern int icn_builtin_is_generator(const char *); extern int icn_builtin_is_known(const char *); const char * fn = IR_LIT(nd).sval; if (fn && icn_builtin_is_generator(fn)) return 0;  if (fn && icn_builtin_is_known(fn)) return 1; return 1; }
     if (op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE) return 1;
     { static int _za = -1; if (_za < 0) { const char * e = getenv("SCRIP_ZD_ALT"); _za = (e && *e == '0') ? 0 : 1; }
       if (_za && op == IR_MATCH_ALTERNATE) return 1; }
@@ -2137,7 +2137,7 @@ static int zd_wl_kind(IR_t * nd) {
       if (_zc && (op == IR_MATCH_ASSIGN_SAVE || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM)) return 1;
       if (_zc && op == IR_MATCH_VALUE) return 1; }
     if (op == IR_TO) return 1;
-    if (op == IR_CALL_BUILTIN_PROLOG) { static int _plcbp = -1; if (_plcbp < 0) { const char * e = getenv("SCRIP_ZD_PL_CBP"); _plcbp = (e && *e == '0') ? 0 : 1; } return (_plcbp && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
+    if (op == IR_CALL_PROLOG) { static int _plcbp = -1; if (_plcbp < 0) { const char * e = getenv("SCRIP_ZD_PL_CBP"); _plcbp = (e && *e == '0') ? 0 : 1; } return (_plcbp && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
     if (op == IR_VAR_REF) { static int _icnvr = -1; if (_icnvr < 0) { const char * e = getenv("SCRIP_ZD_ICN_VR"); _icnvr = (e && *e == '0') ? 0 : 1; } if (_icnvr && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) { const char * _vn = IR_LIT(nd).sval; extern int is_global(const char *); if (_vn && !is_global(_vn)) return 1; }    static int _plvr = -1; if (_plvr < 0) { const char * e = getenv("SCRIP_ZD_PL_VR"); _plvr = (e && *e == '0') ? 0 : 1; } return (_plvr && g_emit_cfg && g_emit_cfg->pl_cells_graph && emit_rec_pin() && emit_pl_gamma_retain()) ? 1 : 0; }
     if (op == IR_CALL_PROC_STAGED) { static int _plcps = -1; if (_plcps < 0) { const char * e = getenv("SCRIP_ZD_PL_CPS"); _plcps = (e && *e == '0') ? 0 : 1; } return (_plcps && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
     if (op == IR_SUSPEND) { static int _plsusp = -1; if (_plsusp < 0) { const char * e = getenv("SCRIP_ZD_PL_SUSP"); _plsusp = (e && *e == '0') ? 0 : 1; } return (_plsusp && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
@@ -2159,8 +2159,8 @@ static int zd_wl_kind(IR_t * nd) {
 static int zd_nops(IR_t * nd) { int op = (int)nd->op;
     if (op == IR_CALL_PROC_STAGED && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_SUSPEND && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
-    if (op == IR_KEYWORD_ASSIGN_SNOBOL4) return 1;
-    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_BUILTIN_ICON || op == IR_CALL_BUILTIN_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
+    if (op == IR_KW_ASSIGN_SNOBOL4) return 1;
+    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_ICON || op == IR_CALL_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_match_begin_stfh_k_raw(void) {
@@ -2678,7 +2678,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c)->op == IR_MOVE_LABEL && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_CREATE && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_SUSPEND && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
-        if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KEYWORD_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
+        if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KW_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE || (c)->op == IR_TO || (c)->op == IR_TO_BY) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_STATEMENT_BEGIN && (c)->ω.node) RPO_PUSH((c)->ω.node);  \
         if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
@@ -3288,7 +3288,7 @@ static int g_in_prebuild = 0;
 static int emit_chain_arity(const IR_t *n) {
     switch (n->op) {
     case IR_LIT_INTEGER: case IR_LIT_STRING: case IR_LIT_REAL:
-    case IR_VAR:   case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: return 0;
+    case IR_VAR:   case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: return 0;
     case IR_BINOP: case IR_TO: return 2;
     case IR_TO_BY: return 3;
     case IR_MAKE_LIST: return n->n_operands;
@@ -3297,7 +3297,7 @@ static int emit_chain_arity(const IR_t *n) {
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
-    case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: case IR_CALL_BUILTIN_PROLOG:
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_POS:
@@ -3322,7 +3322,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
             stkv[sv++] = c->ω.node;
         if (c->γ.node && sv < 8192) stkv[sv++] = c->γ.node;
@@ -3338,7 +3338,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         seen[ns++] = c; chain[nc++] = c;
         if ((c->op == IR_BINOP) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KEYWORD_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node && sv < 8192)
             stkv[sv++] = c->ω.node;
         if (ir_is_generator_kind(c->op) && c->ω.node && sv < 8192) stkv[sv++] = c->ω.node;
@@ -3392,7 +3392,7 @@ extern "C" int zop_audit_seen(void) { return g_emit.zop_seen; }
 extern "C" void zop_audit_seen_clear(void) { g_emit.zop_seen = 0; }
 extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_flat_frame_floor = 0; g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_deep_arrival = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; g_emit.flat_lcl_proc = 0; g_emit.zframe_graph = 0; }
 static int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
-static int emit_graph_has_deep_arrival(IR_graph_t *g) {    if (!g) return 1; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (!c) continue; switch (c->op) { case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KEYWORD_ICON_GEN: case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: return 1; case IR_MATCH_DEFER: return 1;    default: break; } } return 0; }
+static int emit_graph_has_deep_arrival(IR_graph_t *g) {    if (!g) return 1; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (!c) continue; switch (c->op) { case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN: case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: return 1; case IR_MATCH_DEFER: return 1;    default: break; } } return 0; }
 static IR_t * g_fbm_nd[8192]; static unsigned char g_fbm_bit[8192]; static int g_fbm_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int emit_fb_bit_of(IR_t * nd) { for (int i = 0; i < g_fbm_n; i++) if (g_fbm_nd[i] == nd) return g_fbm_bit[i]; return 1; }
@@ -3402,7 +3402,7 @@ static int emit_fb_stmt_scan(IR_graph_t * g) {
     g_fbm_n = 0; if (!g || g->n <= 0 || g->n > 8192) { if (fbdbg) fprintf(stderr, "[FB-STMT] bail size g=%p n=%d\n", (void *)g, g ? g->n : -1); return 0; }
     for (int i = 0; i < g->n; i++) { IR_t * c = g->all[i]; if (!c) continue; switch (c->op) {
         case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB:
-        case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KEYWORD_ICON_GEN:
+        case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN:
         case IR_MATCH_ABORT: case IR_MATCH_CALLOUT: { if (fbdbg) { extern const char * bb_op_name(IR_e); fprintf(stderr, "[FB-STMT] bail kind %s @%d n=%d\n", bb_op_name(c->op), i, g->n); } return 0; }
         default: break; } }
     for (int i = 0; i < g->n; i++) { IR_t * c = g->all[i]; g_fbm_nd[g_fbm_n] = c; g_fbm_bit[g_fbm_n] = (c && ir_is_matcher(c->op)) ? 1 : 0; g_fbm_n++; }

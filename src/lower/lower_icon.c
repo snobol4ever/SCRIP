@@ -314,7 +314,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_BUILTIN_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -329,7 +329,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
         if (cs) { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(cs); *res = nd; return nd; }
     }
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
-    IR_t * nd = build(cx, is_gen_kw ? IR_KEYWORD_ICON_GEN : IR_KEYWORD_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
+    IR_t * nd = build(cx, is_gen_kw ? IR_KW_ICON_GEN : IR_KW_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
     if (is_gen_kw) {
         cx->beta = nd; *res = nd; return nd;
     }
@@ -474,7 +474,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
-            IR_t * ka = build(cx, IR_KEYWORD_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
+            IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, ka, ω, &vr); ir_operand_push(ka, vr); *res = ka; return entry; }
         if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, asn, ω, &vr); ir_operand_push(asn, vr); *res = asn; return entry; }
@@ -772,16 +772,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
         int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
         if (kw_l && kw_r) {
-            IR_t * lv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(lv_old).sval = (char *) lt->v.sval;
-            IR_t * rv_old = build(cx, IR_KEYWORD_ICON, NULL, ω); IR_LIT(rv_old).sval = (char *) rt2->v.sval;
+            IR_t * lv_old = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(lv_old).sval = (char *) lt->v.sval;
+            IR_t * rv_old = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(rv_old).sval = (char *) rt2->v.sval;
             lc_γ_to(lv_old, rv_old);
-            IR_t * write_l = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_l).sval = (char *) lt->v.sval;  ir_operand_push(write_l, rv_old);
-            IR_t * write_r = build(cx, IR_KEYWORD_ASSIGN, γ,    ω); IR_LIT(write_r).sval = (char *) rt2->v.sval; ir_operand_push(write_r, lv_old);
+            IR_t * write_l = build(cx, IR_KW_ASSIGN, NULL, ω); IR_LIT(write_l).sval = (char *) lt->v.sval;  ir_operand_push(write_l, rv_old);
+            IR_t * write_r = build(cx, IR_KW_ASSIGN, γ,    ω); IR_LIT(write_r).sval = (char *) rt2->v.sval; ir_operand_push(write_r, lv_old);
             lc_γ_to(rv_old, write_l); lc_γ_to(write_l, write_r);
             *res = write_l; return lv_old;
         }
         if (kw_l || kw_r) {
-            IR_t * kv_old = build(cx, IR_KEYWORD_ICON, NULL, ω);
+            IR_t * kv_old = build(cx, IR_KW_ICON, NULL, ω);
             IR_t * pv_old = build(cx, IR_VAR, NULL, ω);
             const tree_t * kw_tree = kw_l ? lt : rt2;
             const tree_t * pl_tree = kw_l ? rt2 : lt;
@@ -789,13 +789,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_LIT(pv_old).sval = (char *) pl_tree->v.sval;
             lc_γ_to(kv_old, pv_old);
             if (kw_l) {
-                IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
+                IR_t * write_kw    = build(cx, IR_KW_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 IR_t * write_plain = build(cx, IR_ASSIGN,          γ,    ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
                 lc_γ_to(pv_old, write_kw); lc_γ_to(write_kw, write_plain);
                 *res = write_kw; return kv_old;
             } else {
                 IR_t * write_plain = build(cx, IR_ASSIGN,          NULL, ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
-                IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
+                IR_t * write_kw    = build(cx, IR_KW_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 lc_γ_to(pv_old, write_plain); lc_γ_to(write_plain, write_kw);
                 *res = write_plain; return kv_old;
             } }
@@ -1393,8 +1393,8 @@ void lower_icon_resolve_call_kinds(void) {
             int pi = icn_callable_proc_index(fn);
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
-            else if (icn_builtin_is_generator(fn)) nd->op = IR_CALL_BUILTIN_ICON;
-            else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_BUILTIN_ICON;
+            else if (icn_builtin_is_generator(fn)) nd->op = IR_CALL_ICON;
+            else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_ICON;
         }
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];

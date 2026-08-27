@@ -14,7 +14,7 @@ std::string bb_keyword_assign_snobol4() {
     const int kwi = _.op_sval ? rt_kw_index(_.op_sval) : -1;
     if (kwi < 0) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: keyword not named by the block");
     if (_.op_zres)
-        return x86("comment", "IR_KEYWORD_ASSIGN_SNOBOL4 zd [KW-3b static idx]")
+        return x86("comment", "IR_KW_ASSIGN_SNOBOL4 zd [KW-3b static idx]")
              + x86_alpha()
              + x86_ro_load_q("rdi", 0)
              + x86("mov",     "rsi", ZOPQ(0, 0))
@@ -28,7 +28,7 @@ std::string bb_keyword_assign_snobol4() {
              + x86_beta_trampoline()
              + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: no result slot");
-    return x86("comment", "IR_KEYWORD_ASSIGN_SNOBOL4 [KW-3b static idx]")
+    return x86("comment", "IR_KW_ASSIGN_SNOBOL4 [KW-3b static idx]")
          + x86_alpha()
          + x86_ro_load_q("rdi", 0)
          + x86("mov",     "rsi", FRQ(_.op_a_slot))

@@ -24,8 +24,8 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED",
     [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN",
     [IR_CALL_BUILTIN_GEN] = "IR_CALL_BUILTIN_GEN",
-    [IR_CALL_BUILTIN_ICON] = "IR_CALL_BUILTIN_ICON",
-    [IR_CALL_BUILTIN_SNOBOL4] = "IR_CALL_BUILTIN_SNOBOL4",
+    [IR_CALL_ICON] = "IR_CALL_ICON",
+    [IR_CALL_SNOBOL4] = "IR_CALL_SNOBOL4",
     [IR_FAIL] = "IR_FAIL",
     [IR_SUCCEED]   = "IR_SUCCEED",
     [IR_SUSPEND]   = "IR_SUSPEND",
@@ -34,11 +34,11 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_TO_BY] = "IR_TO_BY",
     [IR_PROC_GEN] = "IR_PROC_GEN",
     [IR_RANDOM] = "IR_RANDOM",
-    [IR_KEYWORD_ICON] = "IR_KEYWORD_ICON",
-    [IR_KEYWORD_ICON_GEN] = "IR_KEYWORD_ICON_GEN",
-    [IR_KEYWORD_SNOBOL4] = "IR_KEYWORD_SNOBOL4",
-    [IR_KEYWORD_ASSIGN] = "IR_KEYWORD_ASSIGN",
-    [IR_KEYWORD_ASSIGN_SNOBOL4] = "IR_KEYWORD_ASSIGN_SNOBOL4",
+    [IR_KW_ICON] = "IR_KW_ICON",
+    [IR_KW_ICON_GEN] = "IR_KW_ICON_GEN",
+    [IR_KW_SNOBOL4] = "IR_KW_SNOBOL4",
+    [IR_KW_ASSIGN] = "IR_KW_ASSIGN",
+    [IR_KW_ASSIGN_SNOBOL4] = "IR_KW_ASSIGN_SNOBOL4",
     [IR_LIT_CHARSET] = "IR_LIT_CHARSET",
     [IR_LIT_NAME] = "IR_LIT_NAME",
     [IR_FIELD_GET] = "IR_FIELD_GET",
@@ -129,7 +129,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC",
     [IR_COERCE_REAL] = "IR_COERCE_REAL",
     [IR_CMP_TEST] = "IR_CMP_TEST",
-    [IR_CALL_BUILTIN_PROLOG] = "IR_CALL_BUILTIN_PROLOG",
+    [IR_CALL_PROLOG] = "IR_CALL_PROLOG",
     [IR_CUT] = "IR_CUT",
     [IR_REF_INVARIANT] = "IR_REF_INVARIANT",
     [IR_PATTERN_CAT] = "IR_PATTERN_CAT",
@@ -243,7 +243,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
         || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION
-        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KEYWORD_ASSIGN || op == IR_KEYWORD_ASSIGN_SNOBOL4;
+        || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KW_ASSIGN || op == IR_KW_ASSIGN_SNOBOL4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drv_vslot_push(IR_graph_t * g, const char * name, int off) {
@@ -289,7 +289,7 @@ void ir_drive_slot_assign(IR_graph_t * g) {
         extern void zls_g_set_pl_trail_mark(const IR_graph_t *, int);
         for (int _i = 0; _i < g->n; _i++) {
             IR_t *_nd = g->all[_i];
-            if (_nd && _nd->op == IR_CALL_BUILTIN_PROLOG && IR_LIT(_nd).sval && strcmp(IR_LIT(_nd).sval, "$trail_mark") == 0) {
+            if (_nd && _nd->op == IR_CALL_PROLOG && IR_LIT(_nd).sval && strcmp(IR_LIT(_nd).sval, "$trail_mark") == 0) {
                 int _off = zls_off(_nd);
                 if (_off >= 0) zls_g_set_pl_trail_mark(g, _off);
                 if (_off > 0) g->pl_zf_trail_mark_off = _off;
@@ -348,11 +348,11 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
         case IR_LIT_CHARSET: case IR_LIT_NAME: fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_VAR: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_ASSIGN: fprintf(fp, " var=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
-        case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
+        case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: fprintf(fp, " kw=\"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, " binop=%lld", (long long)IR_LIT(bb).ival); break;
         case IR_SUCCEED: if (IR_LIT(bb).ival != 0) fprintf(fp, " stno=%d", (int)IR_LIT(bb).ival); break;
         case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
-        case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4:
+        case IR_CALL_ICON: case IR_CALL_SNOBOL4:
             fprintf(fp, " \"%s\"", IR_LIT(bb).sval ? IR_LIT(bb).sval : ""); break;
         default: break;
     }

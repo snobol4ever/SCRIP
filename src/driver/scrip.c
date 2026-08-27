@@ -136,7 +136,7 @@ static int keyword_supported(const char *kw) {
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
            t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT ||
-           t == IR_VAR || t == IR_KEYWORD_ICON || t == IR_KEYWORD_SNOBOL4 || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
+           t == IR_VAR || t == IR_KW_ICON || t == IR_KW_SNOBOL4 || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
         || t == IR_OP_COUNT || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -163,7 +163,7 @@ static int scan_fn_cset_arg(IR_t *nd) {
     if (scan_lit_entry(nd, IR_LIT_STRING) != (IR_t *)0) return 1;
     IR_graph_t **sblks = (IR_graph_t **)0;
     IR_t *ae = (sblks && (int)IR_LIT(nd).ival == 1 && sblks[0]) ? sblks[0]->entry : (IR_t *)0;
-    if (!ae || (ae->op != IR_KEYWORD_ICON && ae->op != IR_KEYWORD_SNOBOL4)) return 0;
+    if (!ae || (ae->op != IR_KW_ICON && ae->op != IR_KW_SNOBOL4)) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     return kw_cset_const_str(IR_LIT(ae).sval) != (const char *)0;
 }
@@ -204,7 +204,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             else if (!IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
         }
         if (nd->op == IR_ASSIGN) { if (!IR_LIT(nd).sval || is_global(IR_LIT(nd).sval)) return 0; }
-        if ((nd->op == IR_KEYWORD_ICON || nd->op == IR_KEYWORD_SNOBOL4) && !keyword_supported(IR_LIT(nd).sval)) return 0;
+        if ((nd->op == IR_KW_ICON || nd->op == IR_KW_SNOBOL4) && !keyword_supported(IR_LIT(nd).sval)) return 0;
         if (nd->op == IR_CALL || ir_is_scan_kind(nd->op)) {
             if (!IR_LIT(nd).sval) return 0;
             if (!strcmp(IR_LIT(nd).sval, "any")) { if (!(IR_LIT(nd).dval == 3.0 && (scan_fn_cset_arg(nd) || scan_any_cset_var_ok(s2, gi, g, nd)))) return 0; }
@@ -457,10 +457,10 @@ static void bbj_label(FILE * fp, const IR_t * bb) {
         case IR_LIT_REAL: fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval); break;
         case IR_LIT_STRING: case IR_LIT_CHARSET: case IR_LIT_NAME: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_VAR: case IR_ASSIGN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        case IR_KEYWORD_ICON: case IR_KEYWORD_ICON_GEN: case IR_KEYWORD_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, ",\"label\":\"op%lld\"", (long long) IR_LIT(bb).ival); break;
-        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_BUILTIN_ICON: case IR_CALL_BUILTIN_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
+        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_ICON: case IR_CALL_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
         default: break;
     }
 }

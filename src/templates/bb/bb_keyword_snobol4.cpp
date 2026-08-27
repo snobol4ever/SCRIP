@@ -16,7 +16,7 @@ std::string bb_keyword_snobol4() {
     int soff = 0; const void *cbase = (const void *)0;
     const char *csym = (kwi >= 0) ? rt_kw_direct_sym(kwi, &soff, &cbase) : (const char *)0;
     if (_.op_zres && csym)
-        return x86("comment", "IR_KEYWORD_SNOBOL4_read zd [KW-D direct cell]")
+        return x86("comment", "IR_KW_SNOBOL4_read zd [KW-D direct cell]")
              + x86_alpha()
              + x86_load_got("rcx", csym, (uint64_t)(uintptr_t)cbase)
              + (soff ? x86("add", "rcx", (long)soff) : std::string())
@@ -27,7 +27,7 @@ std::string bb_keyword_snobol4() {
              + x86_gamma()
              + x86_beta_trampoline();
     if (_.op_zres && kwi >= 0)
-        return x86("comment", "IR_KEYWORD_SNOBOL4_read zd [KW-3 static idx]")
+        return x86("comment", "IR_KW_SNOBOL4_read zd [KW-3 static idx]")
              + x86_alpha()
              + x86_ro_load_q("rdi", 0)
              + x86("call",    "rt_kw_read_idx", (uint64_t)(uintptr_t)(void *)rt_kw_read_idx)
@@ -37,7 +37,7 @@ std::string bb_keyword_snobol4() {
              + x86_beta_trampoline()
              + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
     if (_.op_zres)
-        return x86("comment", "IR_KEYWORD_SNOBOL4_read zd")
+        return x86("comment", "IR_KW_SNOBOL4_read zd")
              + x86_alpha()
              + x86("mov",     "rdi", ROQ(0))
              + x86("call",    "rt_keyword_read_snobol4", (uint64_t)(uintptr_t)(void *)rt_keyword_read_snobol4)
@@ -51,7 +51,7 @@ std::string bb_keyword_snobol4() {
              + x86(".string", _.op_sval);
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_snobol4: no slot");
     if (csym)
-        return x86("comment", "IR_KEYWORD_SNOBOL4_read [KW-D direct cell]")
+        return x86("comment", "IR_KW_SNOBOL4_read [KW-D direct cell]")
              + x86_alpha()
              + x86_load_got("rcx", csym, (uint64_t)(uintptr_t)cbase)
              + (soff ? x86("add", "rcx", (long)soff) : std::string())
@@ -62,7 +62,7 @@ std::string bb_keyword_snobol4() {
              + x86_gamma()
              + x86_beta_trampoline();
     if (kwi >= 0)
-        return x86("comment", "IR_KEYWORD_SNOBOL4_read [KW-3 static idx]")
+        return x86("comment", "IR_KW_SNOBOL4_read [KW-3 static idx]")
              + x86_alpha()
              + x86_ro_load_q("rdi", 0)
              + x86("call",    "rt_kw_read_idx", (uint64_t)(uintptr_t)(void *)rt_kw_read_idx)
@@ -71,7 +71,7 @@ std::string bb_keyword_snobol4() {
              + x86_gamma()
              + x86_beta_trampoline()
              + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
-    return x86("comment", "IR_KEYWORD_SNOBOL4_read")
+    return x86("comment", "IR_KW_SNOBOL4_read")
          + x86_alpha()
          + x86("mov",     "rdi", ROQ(0))
          + x86("call",    "rt_keyword_read_snobol4", (uint64_t)(uintptr_t)(void *)rt_keyword_read_snobol4)

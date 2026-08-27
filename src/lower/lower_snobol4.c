@@ -265,7 +265,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NUL:  { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
     case TT_VAR:  { sno_reg_var(t->v.sval); IR_t * nd = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; if (res) *res = nd; return nd; }
     case TT_KEYWORD: { if (t->v.sval) { char cb[130]; snprintf(cb, sizeof cb, "&%s", t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval); const tree_t * cv = sno_const_val(cb); if (cv) return sx_lower(cx, cv, γ, ω, res); }
-        IR_t * nd = lc_build(cx->g, IR_KEYWORD_SNOBOL4, γ, ω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : (char *) ""; if (res) *res = nd; return nd; }
+        IR_t * nd = lc_build(cx->g, IR_KW_SNOBOL4, γ, ω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : (char *) ""; if (res) *res = nd; return nd; }
     case TT_DEFER: {
         const char * bn = sno_expr_collect((t->n > 0) ? t->c[0] : NULL);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$MKEXPR";
@@ -645,7 +645,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
             IR_t * kv = NULL; IR_t * ke = sx_lower(cx, R, NULL, ω, &kv);
-            IR_t * kw = lc_build(cx->g, IR_KEYWORD_ASSIGN_SNOBOL4, γ, ω); IR_LIT(kw).sval = L->v.sval;
+            IR_t * kw = lc_build(cx->g, IR_KW_ASSIGN_SNOBOL4, γ, ω); IR_LIT(kw).sval = L->v.sval;
             lc_γ_to(kv, kw);
             ir_operand_push(kw, kv);
             if (res) *res = kw;
@@ -2286,7 +2286,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (subj->t == TT_KEYWORD && subj->v.sval && sno_kw_static_slot(subj->v.sval) >= 0) {
             IR_t * kv = NULL; IR_t * ke = sx_lower(&cx, repl, NULL, fA, &kv);
-            IR_t * kw = lc_build(g, IR_KEYWORD_ASSIGN_SNOBOL4, sJ, fA); IR_LIT(kw).sval = subj->v.sval;
+            IR_t * kw = lc_build(g, IR_KW_ASSIGN_SNOBOL4, sJ, fA); IR_LIT(kw).sval = subj->v.sval;
             lc_γ_to(kv, kw);
             ir_operand_push(kw, kv);
             lc_γ_to(anchor[i], ke);

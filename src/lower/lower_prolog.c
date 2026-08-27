@@ -25,7 +25,7 @@ static const char * pl_pi_name(const char * nm, int ar) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_existence_err(lcx_t * cx, const char * nm, int ar, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$existence_error";
+    IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$existence_error";
     IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = pl_pi_name(nm, ar);
     ir_operand_push(call, a);
     if (entry_out) *entry_out = a;
@@ -67,7 +67,7 @@ static int is_builtin_argw(const char * s) { return s && (!strcmp(s, "is") || !s
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
-    IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, cx->tω); IR_LIT(nd).sval = "$mkc";
+    IR_t * nd = build(cx, IR_CALL_PROLOG, NULL, cx->tω); IR_LIT(nd).sval = "$mkc";
     IR_t * fn = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(fn).sval = strdup(fname);
     ir_operand_push(nd, fn);
     IR_t * prev = fn; IR_t * first = fn;
@@ -146,7 +146,7 @@ static int pl_ix_key(const tree_t * h, long long * ki, const char ** ks) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * unify_lst_build(lcx_t * cx, IR_t * subj, IR_t * subj_entry, const tree_t * eh, const tree_t * et, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
-    IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify_lst";
+    IR_t * nd = build(cx, IR_CALL_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify_lst";
     IR_t * e1 = NULL; IR_t * a1 = term_lval_e(cx, eh, &e1);
     IR_t * e2 = NULL; IR_t * a2 = term_lval_e(cx, et, &e2);
     lc_γ_to(subj, e1 ? e1 : a1); lc_ω_to(subj, ω);
@@ -166,7 +166,7 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
     }
     if (!pl_no_ul() && pl_is_lstpat1(rt) && !pl_is_lstpat1(lt)) { IR_t * e0 = NULL; IR_t * a0 = term_lval_e(cx, lt, &e0); return unify_lst_build(cx, a0, e0, rt->c[0], rt->c[1], γ, ω, entry_out); }
     if (!pl_no_ul() && pl_is_lstpat1(lt) && !pl_is_lstpat1(rt)) { IR_t * e0 = NULL; IR_t * a0 = term_lval_e(cx, rt, &e0); return unify_lst_build(cx, a0, e0, lt->c[0], lt->c[1], γ, ω, entry_out); }
-    IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify";
+    IR_t * nd = build(cx, IR_CALL_PROLOG, γ, ω); IR_LIT(nd).sval = "$unify";
     IR_t * e0 = NULL; IR_t * e1 = NULL;
     IR_t * a0 = term_lval_e(cx, lt, &e0); IR_t * a1 = term_lval_e(cx, rt, &e1);
     lc_γ_to(a0, e1 ? e1 : a1); lc_ω_to(a0, ω);
@@ -272,13 +272,13 @@ static const char * pl_ax_suffix(const char * s, int ar) {
 static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t ** entry_out) {
     if (t && t->t == TT_QLIT && t->v.sval && pl_ax_suffix(t->v.sval, 0)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, 0));
-        IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
+        IR_t * nd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
         if (entry_out) *entry_out = nd;
         return nd;
     }
     if (t && t->t == TT_FNC && t->v.sval && (t->n == 1 || t->n == 2) && pl_ax_suffix(t->v.sval, t->n)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, t->n));
-        IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
+        IR_t * nd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
         IR_t * prev = NULL; IR_t * first = NULL;
         for (int i = 0; i < t->n; i++) {
             IR_t * ke = NULL; IR_t * k = lower_arith_val(cx, t->c[i], ωfail, &ke); IR_t * en = ke ? ke : k;
@@ -359,8 +359,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (!strcmp(nm, "catch") && t->n == 3) {
             IR_t * ce = NULL; IR_t * cnode = term_lval_e(cx, t->c[1], &ce);
-            IR_t * marknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(marknd).sval = "$trail_mark";
-            IR_t * checknd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(checknd).sval = "$catch_check";
+            IR_t * marknd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(marknd).sval = "$trail_mark";
+            IR_t * checknd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(checknd).sval = "$catch_check";
             ir_operand_push(checknd, marknd);
             ir_operand_push(checknd, cnode);
             IR_t * rentry = NULL;
@@ -430,12 +430,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 tmpl_ast = spec->c[0];
             }
             if (op) {
-                IR_t * hnew = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(hnew).sval = "$findall_new";
-                IR_t * res = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(res).sval = op;
+                IR_t * hnew = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(hnew).sval = "$findall_new";
+                IR_t * res = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(res).sval = op;
                 IR_t * res_e = NULL; IR_t * res_lv = term_lval_e(cx, res_ast, &res_e);
                 lc_γ_to(res_lv, res); lc_ω_to(res_lv, ωfail);
                 ir_operand_push(res, hnew); ir_operand_push(res, res_lv);
-                IR_t * addnd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(addnd).sval = "$findall_add";
+                IR_t * addnd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(addnd).sval = "$findall_add";
                 IR_t * tmpl_e = NULL; IR_t * tmpl_val;
                 if (tmpl_ast) tmpl_val = term_e(cx, tmpl_ast, &tmpl_e);
                 else { tmpl_val = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(tmpl_val).ival = 1; }
@@ -462,7 +462,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "write") && t->n == 1) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$write";
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$write";
             IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[0], &ae);
             lc_γ_to(a, call); lc_ω_to(a, ωfail);
             ir_operand_push(call, a);
@@ -476,7 +476,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return goal(cx, pl_synth_fnc2(",", pl_synth_fnc2("write", t->c[0], t->c[1]), pl_synth_fnc1("nl", t->c[0])), γnext, ωfail, entry_out);
         }
         if (!strcmp(nm, "write") && t->n == 2) {
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$write2";
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$write2";
             IR_t * se = NULL; IR_t * s = term_e(cx, t->c[0], &se);
             IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[1], &ae);
             lc_γ_to(s, ae ? ae : a); lc_ω_to(s, ωfail); lc_γ_to(a, nd); lc_ω_to(a, ωfail);
@@ -485,7 +485,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "nl") && t->n == 1) {
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$nl1";
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$nl1";
             IR_t * se = NULL; IR_t * s = term_e(cx, t->c[0], &se);
             lc_γ_to(s, nd); lc_ω_to(s, ωfail);
             ir_operand_push(nd, s);
@@ -493,7 +493,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "put_char") && t->n == 1) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$put_char";
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$put_char";
             IR_t * ae = NULL; IR_t * a = term_e(cx, t->c[0], &ae);
             lc_γ_to(a, call); lc_ω_to(a, ωfail);
             ir_operand_push(call, a);
@@ -501,7 +501,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return call;
         }
         if (!strcmp(nm, "tab") && t->n == 1) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$tab";
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$tab";
             IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[0], ωfail, &ve);
             lc_γ_to(v, call); lc_ω_to(v, ωfail);
             ir_operand_push(call, v);
@@ -509,7 +509,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return call;
         }
         if (!strcmp(nm, "is") && t->n == 2) {
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * xl = term_lval(cx, t->c[0]);
             IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[1], ωfail, &ve);
             lc_γ_to(xl, ve ? ve : v); lc_ω_to(xl, ωfail); lc_γ_to(v, nd); lc_ω_to(v, ωfail);
@@ -520,7 +520,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { const char * csuf = (t->n == 2) ? pl_cmp_op_suffix(nm) : NULL;
           if (csuf) {
             char nb[16]; snprintf(nb, sizeof nb, "$cmp_%s", csuf);
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
             IR_t * ea = NULL; IR_t * eb = NULL;
             IR_t * a = lower_arith_val(cx, t->c[0], ωfail, &ea); IR_t * b = lower_arith_val(cx, t->c[1], ωfail, &eb);
             lc_γ_to(a, eb ? eb : b); lc_ω_to(a, ωfail); lc_γ_to(b, nd); lc_ω_to(b, ωfail);
@@ -532,7 +532,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             || (!strcmp(nm, "atom_length") && t->n == 2) || (!strcmp(nm, "upcase_atom") && t->n == 2) || (!strcmp(nm, "downcase_atom") && t->n == 2)
             || (!strcmp(nm, "atom_concat") && t->n == 3) || (!strcmp(nm, "atom_chars") && t->n == 2) || (!strcmp(nm, "atom_codes") && t->n == 2)) {
             char nb[24]; snprintf(nb, sizeof nb, "$%s", nm);
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
             IR_t * prev = NULL; IR_t * first = NULL;
             for (int i = 0; i < t->n; i++) {
                 IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -546,15 +546,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (!strcmp(nm, "findall") && t->n == 3) {
             const tree_t * tmpl_ast = t->c[0]; const tree_t * goal_ast = t->c[1]; const tree_t * lst_ast = t->c[2];
-            IR_t * hnew = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(hnew).sval = "$findall_new";
-            IR_t * res = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(res).sval = "$findall_result";
+            IR_t * hnew = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(hnew).sval = "$findall_new";
+            IR_t * res = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(res).sval = "$findall_result";
             ir_operand_push(res, hnew);
-            IR_t * bindnd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(bindnd).sval = "$unify";
+            IR_t * bindnd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(bindnd).sval = "$unify";
             IR_t * lst_e = NULL; IR_t * lst_lv = term_lval_e(cx, lst_ast, &lst_e);
             lc_γ_to(res, lst_e ? lst_e : lst_lv); lc_ω_to(lst_lv, ωfail);
             lc_γ_to(lst_lv, bindnd); lc_ω_to(lst_lv, ωfail);
             ir_operand_push(bindnd, lst_lv); ir_operand_push(bindnd, res);
-            IR_t * addnd = build(cx, IR_CALL_BUILTIN_PROLOG, NULL, ωfail); IR_LIT(addnd).sval = "$findall_add";
+            IR_t * addnd = build(cx, IR_CALL_PROLOG, NULL, ωfail); IR_LIT(addnd).sval = "$findall_add";
             IR_t * tmpl_e = NULL; IR_t * tmpl_val = term_e(cx, tmpl_ast, &tmpl_e);
             IR_t * tmpl_entry = tmpl_e ? tmpl_e : tmpl_val;
             lc_γ_to(tmpl_val, addnd); lc_ω_to(tmpl_val, ωfail);
@@ -576,7 +576,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return hnew;
         }
         if (!strcmp(nm, "abolish") && t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "/") && t->c[0]->n == 2) {
-            IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$abolish";
+            IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = "$abolish";
             IR_t * prev = NULL; IR_t * first = NULL;
             for (int i = 0; i < 2; i++) {
                 IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[0]->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -591,7 +591,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { extern const char * rt_pl_det_builtin_target(const char * nm2, int ar2);
           const char * det_tgt = rt_pl_det_builtin_target(nm, t->n);
           if (det_tgt) {
-              IR_t * nd = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(nd).sval = det_tgt;
+              IR_t * nd = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(nd).sval = det_tgt;
               IR_t * prev = NULL; IR_t * first = NULL;
               for (int i = 0; i < t->n; i++) {
                   IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -643,14 +643,14 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "true"))  return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
         if (!strcmp(nm, "nl") && t->n == 0) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$nl0";
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$nl0";
             IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
             ir_operand_push(call, a);
             if (entry_out) *entry_out = a;
             return call;
         }
         if (!strcmp(nm, "flush_output") && t->n == 0) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$flush_output";
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = "$flush_output";
             IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
             ir_operand_push(call, a);
             if (entry_out) *entry_out = a;
@@ -659,13 +659,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { extern const char * rt_pl_det_builtin_target(const char * nm2, int ar2);
           const char * det_tgt0 = rt_pl_det_builtin_target(nm, 0);
           if (det_tgt0) {
-              IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = det_tgt0;
+              IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = det_tgt0;
               if (entry_out) *entry_out = call;
               return call;
           } }
         if (is_builtin_exec(nm)) return pl_existence_err(cx, nm, 0, γnext, ωfail, entry_out);
         if (!strcmp(nm, "$wot_begin") || !strcmp(nm, "$wot_abort")) {
-            IR_t * call = build(cx, IR_CALL_BUILTIN_PROLOG, γnext, ωfail); IR_LIT(call).sval = nm;
+            IR_t * call = build(cx, IR_CALL_PROLOG, γnext, ωfail); IR_LIT(call).sval = nm;
             IR_t * a = build(cx, IR_LIT_STRING, call, ωfail); IR_LIT(a).sval = "";
             ir_operand_push(call, a);
             if (entry_out) *entry_out = a;
@@ -727,7 +727,7 @@ static void lower_pl_clause_into(lcx_t * cx, const tree_t * clause, int arity, I
             unify_lst_build(cx, lhs, NULL, h->c[0], h->c[1], next, ωfail, NULL);
             next = lhs; continue;
         }
-        IR_t * u = build(cx, IR_CALL_BUILTIN_PROLOG, next, ωfail); IR_LIT(u).sval = "$unify";
+        IR_t * u = build(cx, IR_CALL_PROLOG, next, ωfail); IR_LIT(u).sval = "$unify";
         IR_t * lhs = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
         IR_t * he = NULL; IR_t * rhs = term_lval_e(cx, h, &he);
         lc_γ_to(lhs, he ? he : rhs); lc_ω_to(lhs, ωfail);
@@ -741,7 +741,7 @@ static void lower_pl_clause_into(lcx_t * cx, const tree_t * clause, int arity, I
 static int pl_goal_is_bounded(const IR_t * nd) {
     if (!nd) return 0;
     switch (nd->op) {
-    case IR_CALL_BUILTIN_PROLOG: { const char * fn = nd->sval; if (!fn || !fn[0]) return 0; if (!strcmp(fn, "$retract")) return 0; return 1; }
+    case IR_CALL_PROLOG: { const char * fn = nd->sval; if (!fn || !fn[0]) return 0; if (!strcmp(fn, "$retract")) return 0; return 1; }
     case IR_CUT: case IR_SUCCEED: case IR_FAIL: case IR_GOTO: case IR_MOVE_LABEL: return 1;
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL: case IR_VAR: case IR_VAR_REF: return 1;
     case IR_CALL_BUILTIN_GEN: case IR_DISJUNCTION: case IR_CALL_PROC_STAGED: case IR_CALL: return 0;
@@ -751,7 +751,7 @@ static int pl_goal_is_bounded(const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_bounded_dump(const IR_graph_t * g) {
     static int on = -1; if (on < 0) on = getenv("SCRIP_PL_BOUNDED_DUMP") ? 1 : 0; if (!on || !g) return;
-    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; const char * fn = (nd->op == IR_CALL_BUILTIN_PROLOG) ? nd->sval : (const char *) 0; fprintf(stderr, "PLBND op=%d bounded=%d sval=%s\n", (int) nd->op, pl_goal_is_bounded(nd), fn ? fn : "-"); }
+    for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; if (!nd) continue; const char * fn = (nd->op == IR_CALL_PROLOG) ? nd->sval : (const char *) 0; fprintf(stderr, "PLBND op=%d bounded=%d sval=%s\n", (int) nd->op, pl_goal_is_bounded(nd), fn ? fn : "-"); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_prolog_clause(const tree_t * clause) {
@@ -809,10 +809,10 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * dj = build(&cx, IR_DISJUNCTION, succeed, fail);
-    IR_t * mk = build(&cx, IR_CALL_BUILTIN_PROLOG, NULL, fail); IR_LIT(mk).sval = "$trail_mark";
+    IR_t * mk = build(&cx, IR_CALL_PROLOG, NULL, fail); IR_LIT(mk).sval = "$trail_mark";
     IR_t ** centry = (IR_t **) calloc((size_t) nc, sizeof(IR_t *));
     IR_t ** uw = (IR_t **) calloc((size_t)(nc + 1), sizeof(IR_t *));
-    IR_t * uwf = build(&cx, IR_CALL_BUILTIN_PROLOG, fail, fail); IR_LIT(uwf).sval = "$trail_unwind"; ir_operand_push(uwf, mk);
+    IR_t * uwf = build(&cx, IR_CALL_PROLOG, fail, fail); IR_LIT(uwf).sval = "$trail_unwind"; ir_operand_push(uwf, mk);
     uw[nc] = uwf;
     cx.cut_ω = uwf;
     int maxlocal = -1;
@@ -829,7 +829,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
         }
         if (arity > 0 && nc > 1 && !pl_no_ix() && (int) clauses[k]->v.dval >= 1) { long long ki = 0; const char * ks = 0; int kk = pl_ix_key(clauses[k]->c[0], &ki, &ks);
             if (kk) { IR_t * skp = (k < nc - 1) ? centry[k + 1] : uwf;
-                IR_t * gnode = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, skp); IR_LIT(gnode).sval = "$ix_g";
+                IR_t * gnode = build(&cx, IR_CALL_PROLOG, ce, skp); IR_LIT(gnode).sval = "$ix_g";
                 IR_t * glhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(glhs).sval = pl_param_name(0);
                 IR_t * gk1 = build(&cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(gk1).ival = (int64_t)((long long) kk | (((kk == 4) ? ki : 0) << 8));
                 IR_t * gk2; if (kk == 2 || kk == 4) { gk2 = build(&cx, IR_LIT_STRING, NULL, NULL); IR_LIT(gk2).sval = ks; } else { gk2 = build(&cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(gk2).ival = (kk == 1) ? (int64_t) ki : 0; }
@@ -837,7 +837,7 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
                 ir_operand_push(gnode, glhs); ir_operand_push(gnode, gk1); ir_operand_push(gnode, gk2);
                 ce = glhs; } }
         centry[k] = ce;
-        if (k > 0) { IR_t * u = build(&cx, IR_CALL_BUILTIN_PROLOG, ce, fail); IR_LIT(u).sval = "$unwind_nothrow"; ir_operand_push(u, mk); uw[k] = u; }
+        if (k > 0) { IR_t * u = build(&cx, IR_CALL_PROLOG, ce, fail); IR_LIT(u).sval = "$unwind_nothrow"; ir_operand_push(u, mk); uw[k] = u; }
         maxlocal = max_var_slot(clauses[k], maxlocal);
     }
     lc_γ_to(mk, centry[0]);
