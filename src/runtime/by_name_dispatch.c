@@ -5059,7 +5059,7 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
         long n=1; for(const char *p=s;*p;p++) if(*p=='\x01') n++;
         *out = INTVAL(n); return 1;
     }
-    long len = IS_CSET_fn(v) ? (long)strlen(s) : (v.slen > 0 ? v.slen : (long)strlen(s));
+    long len = v.slen > 0 ? v.slen : (long)strlen(s);
     *out = INTVAL(len); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
