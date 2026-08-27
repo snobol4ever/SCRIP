@@ -3,8 +3,8 @@
 #include "rt_coexpr.h"
 #include <unistd.h>
 #include <stddef.h>
-#include "../contracts/pin_va.h"
-#include "../contracts/ab_abi.h"
+#include "../ir/pin_va.h"
+#include "../ir/ab_abi.h"
 #include <alloca.h>
 #include "gc_heap.h"
 #include "core.h"

@@ -19,7 +19,7 @@
 #include "../../frontend/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) rt_ws_alloc(n)
 #include "../../frontend/prolog/pl_cell_conv.h"
-#include "../include/dtp.h"
+#include "../ir/dtp.h"
 extern const char *Σ;
 extern int         Δ;
 extern int         Ω;

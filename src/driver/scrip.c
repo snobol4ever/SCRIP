@@ -1,5 +1,5 @@
 #include "rt/rt_arena.h"
-#include "../contracts/pin_va.h"
+#include "../ir/pin_va.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +26,7 @@
 #include "../frontend/rebus/rebus_lower.h"
 #include "../runtime/builtins/gen.h"
 #include "../frontend/icon/icon_lex.h"
-#include "../include/bb_box.h"
+#include "../ir/bb_box.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern int pl_dyn_is_marked(const char *name, int arity);
@@ -73,7 +73,7 @@ extern int         Δ;
 #include "../runtime/builtins/resolution.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
-#include "../contracts/zeta_choices.h"
+#include "../ir/zeta_choices.h"
 #include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }

@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef STRING_OPS_H
 #define STRING_OPS_H
-#include "../contracts/descr.h"
+#include "../ir/descr.h"
 DESCR_t     str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t     c_str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t     str_concat_fracdigit_d(DESCR_t a, DESCR_t b);

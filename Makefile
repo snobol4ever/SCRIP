@@ -24,7 +24,7 @@
 ROOT    := $(shell pwd)
 SRC     := $(ROOT)/src
 RT      := $(SRC)/runtime
-BOXES   := $(SRC)/machine
+BOXES   := $(SRC)/ir
 CORPUS  ?= $(ROOT)/../corpus
 # PER-TREE objdir (s150): two checkouts NEVER share .o files — the HQ-27 ABI-mix class is structurally impossible. Override only deliberately. (Comment on own line: make keeps trailing spaces before an inline #.)
 OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
@@ -33,9 +33,9 @@ CXX     := g++
 WARN    := -w
 RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.S, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
 DEPFLAGS := -MMD -MP
-CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
+CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) $(ZCFLAGS)
+CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) $(ZCFLAGS)
 CRT     := $(CBASE) $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
@@ -143,7 +143,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/invocation.c \
     $(SRC)/runtime/aggregates.c \
     $(SRC)/runtime/string_builtins.c \
-    $(SRC)/machine/bb_pool.c \
+    $(SRC)/ir/bb_pool.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
     $(SRC)/templates/bb_glue_flat.cpp \
@@ -292,7 +292,7 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/dead_goto.c \
     $(SRC)/optimizer/optimizer.c \
     \
-    $(SRC)/machine/sm_prog.c \
+    $(SRC)/ir/sm_prog.c \
     $(SRC)/lower/lower_common.c \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
@@ -305,9 +305,9 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/unification.c \
     $(SRC)/runtime/builtins/resolution.c \
     $(SRC)/runtime/core/coerce.c \
-    $(SRC)/contracts/scrip_ir.c \
-    $(SRC)/contracts/zeta_storage.c \
-    $(SRC)/contracts/zeta_depth.c \
+    $(SRC)/ir/scrip_ir.c \
+    $(SRC)/ir/zeta_storage.c \
+    $(SRC)/ir/zeta_depth.c \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/driver/driver_globals.c \
     $(SRC)/driver/driver_label.c \
@@ -318,7 +318,7 @@ RT_PIC_SRCS := \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/polyglot.c \
-    $(SRC)/contracts/ast_print.c \
+    $(SRC)/ir/ast_print.c \
     $(SRC)/frontend/snobol4/snobol4.tab.c \
     $(SRC)/frontend/snobol4/snobol4.lex.c \
     $(SRC)/frontend/icon/icon_runtime.c \
@@ -366,7 +366,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb_var_frame_ref.cpp
 
 # ⛔ RT_OPT IS DEFINED ONCE, AT LINE 34. A SECOND `RT_OPT ?=` stood here carrying the RETIRED O0-DEV-O2-BENCH text (s179) — inert by `?=` but read as law by anyone who greps for the flag and lands on the wrong one, which is how a NO-O2-BUILDS violation gets written in good faith. Deleted hq_P s269; the s262 FACT RULE lives at :34 and nowhere else.
-RT_INCS := -I$(SRC) -I$(SRC)/include -I$(SRC)/contracts -I$(SRC)/lower -I$(SRC)/machine -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
+RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
     -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -I$(SRC)/optimizer
 # ⭐⭐ BUILD CACHE KEYED BY THE FLAGS THAT PRODUCED IT (Lon 2026-08-22 s258, in-chat: "can we enforce a
 # pure incremental build and keep these objects around longer ... That is killing us concerning optimized

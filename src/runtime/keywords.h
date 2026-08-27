@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef KEYWORDS_H
 #define KEYWORDS_H
-#include "../contracts/descr.h"
+#include "../ir/descr.h"
 extern long g_error;
 extern long g_trace;
 extern long g_dump;

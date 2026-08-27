@@ -4,7 +4,7 @@
 #include "builtins/resolution.h"
 #include "bb_pool.h"
 #include "../frontend/prolog/prolog_atom.h"
-#include "../contracts/IR.h"
+#include "../ir/IR.h"
 #include <stdio.h>
 #include <unistd.h>
 #include "../frontend/prolog/pl_cell.h"

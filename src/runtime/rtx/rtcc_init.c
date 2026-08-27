@@ -1,6 +1,6 @@
 #include "rtcc.h"
 #include "gc_heap.h"
-#include "../../contracts/pin_va.h"
+#include "../../ir/pin_va.h"
 #include <stdlib.h>
 #include <string.h>
 __attribute__((aligned(64))) uint64_t rtccb[32];
