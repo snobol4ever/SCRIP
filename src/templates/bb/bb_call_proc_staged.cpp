@@ -21,6 +21,7 @@ DESCR_t rt_proc_call_epilogue_named_γ(const char *name);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
+void    rt_ab_undef_fn_stub(void);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
@@ -266,7 +267,7 @@ static std::string bcps_det_arm() {
         uint64_t procfn_fp_z; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t epig_fp_z;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t epiw_fp_z;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t fail_fp_z;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t undef_fp_z;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t det_fp_z; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[64];
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
@@ -421,7 +422,7 @@ static std::string bcps_det_arm() {
                    + bcps_epi_named(1, epiw_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(1))
-                   + x86("call", "rt_faildescr", fail_fp_z))
+                   + x86("call", "rt_ab_undef_fn_stub", undef_fp_z))
                 : std::string(""))
              + x86("def", L(2))
              + x86_anchor_leave()
@@ -445,7 +446,7 @@ static std::string bcps_det_arm() {
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epir_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_ret; epir_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t undef_fp;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     uint64_t det_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp = (uint64_t)(uintptr_t)(void*)fp; }
     long det_idx = (!is_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
@@ -678,7 +679,7 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_ret", epir_fp)
             + x86("jmp", L(2)))
          + IF(!dc, x86("def", L(1))
-         + x86("call", "rt_faildescr", fail_fp))
+         + x86("call", "rt_ab_undef_fn_stub", undef_fp))
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
@@ -704,7 +705,7 @@ static std::string bcps_spine_gen_arm() {
     uint64_t procfn_fp; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t fail_fp;  { DESCR_t (*fp)(void) = rt_faildescr; fail_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t undef_fp;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
@@ -785,7 +786,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
          + x86("jmp", L(2))
          + x86("def", L(1))
-         + x86("call", "rt_faildescr", fail_fp)
+         + x86("call", "rt_ab_undef_fn_stub", undef_fp)
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
