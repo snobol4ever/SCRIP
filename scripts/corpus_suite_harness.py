@@ -63,6 +63,20 @@ BANNER_WIDTH = 80
 ONE_LINE_CAP = 200
 BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)$")
 
+# ============================================================ language configs ===
+# Per-language config for the format-(B)-ONLY (banner-block) conversion path -- convert_blocks
+# below. Format (A)'s one-line statement join stays SNOBOL4-specific (parse_statements /
+# join_one_line / _has_goto_field): a parser-ladder family never attempts it (format B is the
+# task spec's design for these families, not a join-failure fallback), so a new dialect only
+# needs its source extension, its comment syntax for the banner (open/close -- close is "" for a
+# line-comment language), and its grading mode. Verified end-to-end for "raku" only
+# (corpus-suites-consolidation, 2026-08-27); add an entry for another language only once you have
+# actually run --dump-ast (or whatever mode) against a real sample and confirmed the banner
+# round-trips -- do not add a config for a language nobody has exercised.
+LANG_CONFIGS = {
+    "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "ast"},
+}
+
 
 # ============================================================ paths / env ===
 def resolve_paths():
@@ -203,18 +217,27 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None):
     return classify(argv, timeout, expected_text, env=env)
 
 
+def run_ast(paths, src_path, expected_text, timeout=None):
+    """Grading mode for parser-ladder families: `scrip --dump-ast`, diffed as text -- same
+    classify() used by run_m3/run_m4, just a different argv. No compile/link step, so it is fast
+    and language-agnostic (dispatch is by src_path's own extension, same as scrip --run/--compile)."""
+    timeout = timeout or paths["timeout"]
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--dump-ast", str(src_path)])
+    return classify(argv, timeout, expected_text)
+
+
 # ============================================================= discovery ===
-def discover_pairs(family_dir):
-    """(.sno, .ref) pairs, sorted by filename. A .sno without a matching .ref is skipped (mirrors
-    test_corpus_snobol4.sh's own [ ! -f "$ref" ] && continue). Any file whose extension is not
-    .sno/.ref (dead-backend litter: .il/.j/.js/.wat/.s/.asm.ref etc) is never matched by this glob
-    pairing and is silently ignored, which is the point -- it is not a test."""
+def discover_pairs(family_dir, ext=".sno"):
+    """(src, .ref) pairs, sorted by filename. A src file without a matching .ref is skipped
+    (mirrors test_corpus_snobol4.sh's own [ ! -f "$ref" ] && continue). Any file whose extension
+    is not `ext`/.ref (dead-backend litter: .il/.j/.js/.wat/.s/.asm.ref etc) is never matched by
+    this glob pairing and is silently ignored, which is the point -- it is not a test."""
     family_dir = Path(family_dir)
     pairs = []
-    for sno in sorted(family_dir.glob("*.sno")):
-        ref = sno.with_suffix(".ref")
+    for src in sorted(family_dir.glob(f"*{ext}")):
+        ref = src.with_suffix(".ref")
         if ref.is_file():
-            pairs.append((sno, ref))
+            pairs.append((src, ref))
     return pairs
 
 
@@ -289,6 +312,23 @@ def make_banner(seq, name):
     return banner
 
 
+def make_banner_cfg(seq, name, comment_open, comment_close):
+    """Generalized make_banner() for LANG_CONFIGS dialects: comment_open="*"/comment_close=""
+    reproduces make_banner() exactly (verified: same dash_count formula, open+dashes+' '+suffix).
+    A non-empty comment_close (e.g. Snocone's " */") is pinned at the right margin, same as the
+    open side's dash-fill -- open + dashes + ' ' + suffix + close, total BANNER_WIDTH."""
+    suffix = f"{seq} {name}"
+    fixed = len(comment_open) + 1 + len(suffix) + len(comment_close)
+    dash_count = max(1, BANNER_WIDTH - fixed)
+    return comment_open + ("-" * dash_count) + " " + suffix + comment_close
+
+
+def banner_re_for(comment_open, comment_close):
+    close = comment_close.strip()
+    close_pat = (r"\s*" + re.escape(close)) if close else ""
+    return re.compile(r"^" + re.escape(comment_open) + r"-+ (?P<seq>\d+) (?P<name>\S+)" + close_pat + r"$")
+
+
 # ============================================================= conversion ===
 class Entry:
     def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines):
@@ -343,6 +383,8 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes):
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
             out["m4"] = run_m4(paths, sno_path, expected_text, Path(td))
+    if "ast" in modes:
+        out["ast"] = run_ast(paths, sno_path, expected_text)
     return out
 
 
@@ -360,6 +402,21 @@ def write_suite(entries, out_sno, out_ref):
             ref_lines.append(banner)
             ref_lines.extend(e.ref)
     Path(out_sno).write_text("\n".join(sno_lines) + "\n")
+    Path(out_ref).write_text("\n".join(ref_lines) + "\n")
+
+
+def write_block_suite(entries, out_src, out_ref, comment_open, comment_close):
+    """write_suite() for a format-(B)-ONLY family: every entry is ALWAYS a banner block (no
+    one-line join is ever attempted -- parser-ladder families are format-B by task-spec design,
+    not by join-failure fallback), and the banner uses the dialect's own comment syntax."""
+    src_lines, ref_lines = [], []
+    for e in entries:
+        banner = make_banner_cfg(e.seq, e.name, comment_open, comment_close)
+        src_lines.append(banner)
+        src_lines.extend(e.sno_lines)
+        ref_lines.append(banner)
+        ref_lines.extend(e.ref)
+    Path(out_src).write_text("\n".join(src_lines) + "\n")
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
 
 
@@ -455,9 +512,41 @@ def read_suite(sno_path, ref_path):
     return entries
 
 
-def run_suite_entry(paths, entry, tmp_root, modes):
+def read_block_suite(src_path, ref_path, banner_re):
+    """read_suite() for a format-(B)-ONLY family: every entry is a banner-delimited block, so
+    there is no one-line/block interleaving to detect (unlike read_suite() above, which also
+    carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
+    parameterizing read_suite() itself, to avoid coupling a second dialect's reading to
+    ONE_LINE_TAG_RE / _is_entry_start, which are SNOBOL4-format-A-specific and meaningless here."""
+    src_lines = Path(src_path).read_text().splitlines()
+    ref_lines = Path(ref_path).read_text().splitlines()
+    entries = []
+    si = ri = seq = 0
+    while si < len(src_lines):
+        m = banner_re.match(src_lines[si])
+        if not m:
+            raise ValueError(f"expected a banner at {src_path} line {si + 1}: {src_lines[si]!r}")
+        banner_line, name = src_lines[si], m.group("name")
+        si += 1
+        body = []
+        while si < len(src_lines) and not banner_re.match(src_lines[si]):
+            body.append(src_lines[si])
+            si += 1
+        if ri >= len(ref_lines) or ref_lines[ri] != banner_line:
+            got = ref_lines[ri] if ri < len(ref_lines) else None
+            raise ValueError(f"{ref_path} banner mismatch at seq {seq + 1} ({name}): sno={banner_line!r} ref={got!r}")
+        ri += 1
+        seg_start = ri
+        while ri < len(ref_lines) and not banner_re.match(ref_lines[ri]):
+            ri += 1
+        seq += 1
+        entries.append(Entry("block", seq, name, body, ref_lines[seg_start:ri]))
+    return entries
+
+
+def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno"):
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-        cand = Path(td) / f"{entry.name}.sno"
+        cand = Path(td) / f"{entry.name}{ext}"
         if entry.kind == "line":
             cand.write_text(entry.sno_lines[0] + "\n")
             expected = entry.ref
@@ -548,17 +637,113 @@ def cmd_convert(args):
     sys.exit(0)
 
 
+def cmd_convert_blocks(args):
+    """convert, but for a LANG_CONFIGS dialect and format-(B)-ONLY: never attempts a one-line
+    join (parser-ladder families are format-B by task-spec design, not by join-failure fallback).
+    Same byte-equal-or-no-delete law as cmd_convert: after --skip filtering, ANY remaining
+    original that is not green refuses the WHOLE run, nothing written/deleted -- deliberately NOT
+    an auto-skip-if-red behavior, so every excluded fixture is a named, reasoned --skip, same
+    discipline as the SNOBOL4 side's stdin-bearing-tests and Snocone-removed-syntax precedents."""
+    paths = resolve_paths()
+    check_scrip(paths)
+    if args.lang not in LANG_CONFIGS:
+        refuse(f"unknown --lang {args.lang!r} -- known: {sorted(LANG_CONFIGS)}")
+    cfg = LANG_CONFIGS[args.lang]
+    ext, comment_open, comment_close = cfg["ext"], cfg["comment_open"], cfg["comment_close"]
+    modes = (args.modes or cfg["modes"]).split(",")
+    family_dir = Path(args.family_dir)
+    pairs = discover_pairs(family_dir, ext=ext)
+    if not pairs:
+        refuse(f"no {ext}/.ref pairs discovered under {family_dir}")
+    print(f"discovered {len(pairs)} pairs in {family_dir}", file=sys.stderr)
+
+    skip_names = set(n for n in (args.skip.split(",") if args.skip else []) if n)
+    if skip_names:
+        skipped = [p for p in pairs if p[0].stem in skip_names]
+        pairs = [p for p in pairs if p[0].stem not in skip_names]
+        for src, ref in skipped:
+            print(f"⛔ SKIPPING (deliberate): {src.stem} -- {args.skip_reason or 'no reason given'}", file=sys.stderr)
+        unmatched = skip_names - {p[0].stem for p in skipped}
+        if unmatched:
+            refuse(f"--skip named stem(s) not found in {family_dir}: {sorted(unmatched)}")
+        if not pairs:
+            refuse(f"--skip excluded every discovered pair under {family_dir} -- nothing left to convert")
+
+    entries = []
+    failures = []
+    tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_"))
+    try:
+        for seq, (src, ref) in enumerate(pairs, start=1):
+            name = src.stem
+            expected_text = ref.read_text()
+            orig = run_all_modes(paths, src, expected_text, tmp_root, modes)
+            if any(v.kind != "PASS" for v in orig.values()):
+                failures.append((name, f"original file itself is not green: {orig}"))
+                print(f"[{seq}/{len(pairs)}] {name}: FAIL (original not green)", file=sys.stderr)
+                continue
+            body = src.read_text().splitlines()
+            ref_body = expected_text.rstrip("\n").splitlines()
+            entries.append(Entry("block", len(entries) + 1, name, body, ref_body))
+            print(f"[{seq}/{len(pairs)}] {name}: OK", file=sys.stderr)
+    finally:
+        import shutil
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    if failures:
+        print(f"⛔ {len(failures)} entries FAILED (original not green) -- NOTHING WRITTEN, NOTHING DELETED:", file=sys.stderr)
+        for name, reason in failures:
+            print(f"   {name}: {reason[:120]}", file=sys.stderr)
+        sys.exit(1)
+
+    write_block_suite(entries, args.out_src, args.out_ref, comment_open, comment_close)
+    print(f"✅ wrote {args.out_src} / {args.out_ref}: {len(entries)} entries", file=sys.stderr)
+
+    banner_re = banner_re_for(comment_open, comment_close)
+    reread = read_block_suite(args.out_src, args.out_ref, banner_re)
+    tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_verify_"))
+    mismatches = []
+    try:
+        for (src, ref), written in zip(pairs, reread):
+            orig_verdicts = run_all_modes(paths, src, ref.read_text(), tmp_root, modes)
+            suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, ext=ext)
+            if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
+                mismatches.append((src.stem, orig_verdicts, suite_verdicts))
+    finally:
+        import shutil
+        shutil.rmtree(tmp_root, ignore_errors=True)
+
+    if mismatches:
+        print(f"⛔ ON-DISK RE-VALIDATION FAILED for {len(mismatches)} entries -- the WRITTEN suite "
+              f"files diverge from a fresh re-read/re-run. DO NOT delete originals.", file=sys.stderr)
+        for name, o, s in mismatches:
+            print(f"   {name}: orig={o} suite={s}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"✅ ON-DISK RE-VALIDATION PASSED: all {len(entries)} entries byte-equal, both directions, "
+          f"modes={modes}. Safe to delete the {len(pairs) * 2} original files "
+          f"({len(failures)} left as loose, not green, not deleted).", file=sys.stderr)
+    sys.exit(0)
+
+
 def cmd_run(args):
     paths = resolve_paths()
     check_scrip(paths)
-    modes = args.modes.split(",")
-    entries = read_suite(args.sno, args.ref)
+    if args.lang:
+        cfg = LANG_CONFIGS[args.lang]
+        ext = cfg["ext"]
+        modes = (args.modes or cfg["modes"]).split(",")
+        banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
+        entries = read_block_suite(args.sno, args.ref, banner_re)
+    else:
+        ext = ".sno"
+        modes = (args.modes or "m3,m4").split(",")
+        entries = read_suite(args.sno, args.ref)
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     try:
         for e in entries:
-            verdicts = run_suite_entry(paths, e, tmp_root, modes)
+            verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext)
             for m in modes:
                 counts[m][verdicts[m].kind] += 1
                 if verdicts[m].kind != "PASS":
@@ -592,10 +777,21 @@ def main():
     c.add_argument("--skip-reason", default="", help="mandatory-in-spirit reason printed for every --skip name")
     c.set_defaults(func=cmd_convert)
 
-    r = sub.add_parser("run", help="run a suite .sno/.ref pair and print PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP counts")
+    b = sub.add_parser("convert-blocks", help="convert a format-(B)-only banner-block family for a LANG_CONFIGS dialect (non-SNOBOL4)")
+    b.add_argument("lang", choices=sorted(LANG_CONFIGS))
+    b.add_argument("family_dir")
+    b.add_argument("out_src")
+    b.add_argument("out_ref")
+    b.add_argument("--modes", default="", help="default: LANG_CONFIGS[lang]['modes']")
+    b.add_argument("--skip", default="", help="comma-separated stems to deliberately exclude from this run (left as loose files, never deleted)")
+    b.add_argument("--skip-reason", default="", help="mandatory-in-spirit reason printed for every --skip name")
+    b.set_defaults(func=cmd_convert_blocks)
+
+    r = sub.add_parser("run", help="run a suite .sno/.ref pair (or --lang dialect pair) and print PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP counts")
     r.add_argument("sno")
     r.add_argument("ref")
-    r.add_argument("--modes", default="m3,m4")
+    r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
+    r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.set_defaults(func=cmd_run)
 
     args = ap.parse_args()
