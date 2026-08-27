@@ -611,6 +611,27 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                   if (res) *res = asn;
                   return e1;
               } }
+            /*⭐ A CALL ON THE LEFT OF AN ASSIGNMENT IS THE NRETURN BY-NAME TARGET, AND THE STATEMENT PATH ALREADY LOWERED IT CORRECTLY (hq_C 2026-08-27).  SPITBOL manual p.133: a proc ending in
+             * NRETURN returns the NAME of a variable, and the documented use is `STORE() = 43` -- the call IS the assignment target, with NO `$` indirection.  Classic SNOBOL4 reaches this through the
+             * statement subject/replacement path (`:eq :subj (TT_FNC ...)`, ~:2236), which emits SNO$WANTNM BEFORE evaluating the call so the callee's nreturn keeps its DT_N result undereferenced.
+             * TT_ASSIGN -- the shape the Snocone front end builds -- fell through to the sno_fatal below, so `mkname() = 'stored'` was refused as "outside the landed subset" while the identical
+             * classic program worked.  This mirrors the proven sequence rather than inventing a second one.  ⛔ DELIBERATELY NOT DONE IN sx_nameval(): that is shared with the plain `$X` READ path, and
+             * setting the want-name flag there leaks it (rt_g_want_name has no auto-clear) into later unrelated calls -- measured by seat02 as a 4-program gate regression (213_indirect_name,
+             * assign_driver, ShiftReduce_driver, stack_driver).  Routing only TT_ASSIGN-with-TT_FNC-lhs touches no other shape. */
+            {
+                IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(wl).sval = (char *) "";
+                IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
+                lc_γ_to(wl, mk); ir_operand_push(mk, wl);
+                IR_t * cv = NULL; IR_t * e1 = sx_lower(cx, L, NULL, ω, &cv);
+                lc_γ_to(mk, e1);
+                IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
+                lc_γ_to(cv, e2);
+                IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, cv); ir_operand_push(asn, vv);
+                if (res) *res = asn;
+                return wl;
+            }
         }
         if (L->t == TT_KEYWORD && L->v.sval && sno_kw_static_slot(L->v.sval) >= 0) {
             IR_t * kv = NULL; IR_t * ke = sx_lower(cx, R, NULL, ω, &kv);
