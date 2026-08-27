@@ -323,41 +323,94 @@ def write_suite(entries, out_sno, out_ref):
 
 
 # ========================================================== suite reader ===
+ONE_LINE_TAG_RE = re.compile(r";\* (\S+)$")
+
+
+def _is_entry_start(line):
+    """True at a banner (block start) or a one-line entry (which always ends in the mandatory ;* tag --
+    format spec: 'the tag is standard on every line, not optional'). A block's own body lines are raw,
+    unjoined original statement text and do not end this way in practice, so this is what lets the block
+    reader below know when to STOP without needing a banner on the far side."""
+    if line[:1] == "*" and BANNER_RE.match(line):
+        return True
+    return bool(ONE_LINE_TAG_RE.search(line))
+
+
 def read_suite(sno_path, ref_path):
+    """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
+    the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
+    one or more one-line entries (no banner of their own, e.g. gc.sno's 210_gc_deep_nesting -> 211/212/213
+    one-liners -> 214's banner) had its .sno-side reader swallow those one-liners' raw text as more of the
+    block's body (fixed by stopping at _is_entry_start, not just a banner) -- but that alone still leaves
+    the .ref side ambiguous, because a one-liner's ref line carries no marker of its own (only the .sno
+    side tags it). So the .ref side is read in a SEPARATE pass once the .sno side has produced the
+    ordered, correctly-kinded item list: a block's ref segment runs from its banner to the next ref banner
+    (or EOF) exactly as before, but one ref line is peeled off the END of that segment for each consecutive
+    one-line item known (from the .sno pass) to follow it before the next block -- order preserved, since
+    the .ref file's line order for those trailing one-liners is unchanged from write_suite's -- and
+    whatever remains is the block's own output. A pure block-to-block or line-to-line run degenerates to
+    the original (correct) behaviour: zero trailing one-liners peeled, block gets the whole segment.
+    Verified against both existing suites: patterns.sno (all-block) and strings.sno (all ten one-liners
+    first, then all three blocks) never exercise the peel path and re-read byte-identically to before this
+    fix; gc.sno (the interleaved case) is what exposed it."""
     sno_lines = Path(sno_path).read_text().splitlines()
     ref_lines = Path(ref_path).read_text().splitlines()
-    entries = []
-    si = ri = 0
-    seq = 0
+
+    items = []
+    si = 0
     while si < len(sno_lines):
         line = sno_lines[si]
         m = BANNER_RE.match(line) if line[:1] == "*" else None
         if m:
-            seq += 1
-            name = m.group("name")
-            block_sno = []
+            banner_line, name = line, m.group("name")
             si += 1
-            while si < len(sno_lines) and not (sno_lines[si][:1] == "*" and BANNER_RE.match(sno_lines[si])):
-                block_sno.append(sno_lines[si])
+            body = []
+            while si < len(sno_lines) and not _is_entry_start(sno_lines[si]):
+                body.append(sno_lines[si])
                 si += 1
-            if ri >= len(ref_lines) or ref_lines[ri] != line:
-                raise ValueError(f"family.ref banner mismatch at seq {seq}: sno={line!r} ref={ref_lines[ri] if ri < len(ref_lines) else None!r}")
-            ri += 1
-            block_ref = []
-            while ri < len(ref_lines) and not (ref_lines[ri][:1] == "*" and BANNER_RE.match(ref_lines[ri])):
-                block_ref.append(ref_lines[ri])
-                ri += 1
-            entries.append(Entry("block", seq, name, block_sno, block_ref))
+            items.append(("block", name, banner_line, body))
         else:
-            seq += 1
-            tag_m = re.search(r";\* (\S+)$", line)
-            name = tag_m.group(1) if tag_m else f"seq{seq}"
-            if ri >= len(ref_lines):
-                raise ValueError(f"family.ref is shorter than family.sno at seq {seq}")
-            ref_text = ref_lines[ri].replace("\\n", "\n")
-            entries.append(Entry("line", seq, name, [line], ref_text))
-            ri += 1
+            tag_m = ONE_LINE_TAG_RE.search(line)
+            name = tag_m.group(1) if tag_m else f"seq{len(items) + 1}"
+            items.append(("line", name, line, None))
             si += 1
+
+    entries = []
+    ri = 0
+    seq = 0
+    i = 0
+    while i < len(items):
+        kind, name, a, b = items[i]
+        seq += 1
+        if kind == "line":
+            if ri >= len(ref_lines):
+                raise ValueError(f"family.ref is shorter than family.sno at seq {seq} ({name})")
+            entries.append(Entry("line", seq, name, [a], ref_lines[ri].replace("\\n", "\n")))
+            ri += 1
+            i += 1
+            continue
+        banner_line, block_sno = a, b
+        if ri >= len(ref_lines) or ref_lines[ri] != banner_line:
+            raise ValueError(f"family.ref banner mismatch at seq {seq}: sno={banner_line!r} ref={ref_lines[ri] if ri < len(ref_lines) else None!r}")
+        ri += 1
+        seg_start = ri
+        while ri < len(ref_lines) and not (ref_lines[ri][:1] == "*" and BANNER_RE.match(ref_lines[ri])):
+            ri += 1
+        seg = ref_lines[seg_start:ri]
+        trailing = 0
+        j = i + 1
+        while j < len(items) and items[j][0] == "line":
+            trailing += 1
+            j += 1
+        if trailing > len(seg):
+            raise ValueError(f"family.ref segment after seq {seq} ({name}) has {len(seg)} line(s), too short to hold {trailing} trailing one-line entrie(s)")
+        split = len(seg) - trailing
+        entries.append(Entry("block", seq, name, block_sno, seg[:split]))
+        for k, ref_line in enumerate(seg[split:]):
+            _, lname, lraw, _ = items[i + 1 + k]
+            seq += 1
+            entries.append(Entry("line", seq, lname, [lraw], ref_line.replace("\\n", "\n")))
+        i = j
     return entries
 
 
