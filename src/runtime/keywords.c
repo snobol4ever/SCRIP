@@ -25,6 +25,11 @@ long g_stcount = 0;
 long g_lastno  = 0;
 long g_line    = 0;
 long g_lastline = 0;
+/* ⭐ &FILE/&LASTFILE globals — Lon's grant, 2026-08-27 in-chat to CEO (relayed to kw-missing-4's
+   task LEDGER): "I already granted permission for those two globals... &FILE and &LASTFILE will be
+   implemented as global variables." Scope: exactly these two cells, parallel to g_line/g_lastline. */
+const char *g_file = NULL;
+const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
@@ -121,6 +126,8 @@ static KWB_ENT_t g_kwb[] = {
     { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 , "g_lastno" },
     { "LINE",     KWB_INT, KWB_PROT, (int64_t *)&g_line,     0, (const char *)0 , "g_line" },
     { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_lastline, 0, (const char *)0 , "g_lastline" },
+    { "FILE",     KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
+    { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
     { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 , "kw_fnclevel" },
     { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 },
     { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 },
@@ -172,6 +179,8 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(kw_rtntype); return 1; }
         if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
         if (!strcmp(e->name, "ALPHABET")) { extern char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
+        if (!strcmp(e->name, "FILE"))     { extern const char *g_file;     *out = STRVAL(g_file ? g_file : ""); return 1; }
+        if (!strcmp(e->name, "LASTFILE")) { extern const char *g_lastfile; *out = STRVAL(g_lastfile ? g_lastfile : ""); return 1; }
         *out = e->sval ? STRVAL(e->sval) : STRVAL(""); return 1;
     }
     *out = INTVAL(e->cell ? *e->cell : 0); return 1;
@@ -307,6 +316,10 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"line"))     return INTVAL(g_line);
       if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
     }
+    { extern const char *g_file, *g_lastfile;
+      if (!strcmp(kw,"file"))     return STRVAL(g_file ? g_file : "");
+      if (!strcmp(kw,"lastfile")) return STRVAL(g_lastfile ? g_lastfile : "");
+    }
     if (!strcmp(kw,"col"))     return INTVAL(0);
     if (!strcmp(kw,"row"))     return INTVAL(0);
     if (!strcmp(kw,"x"))       return INTVAL(0);
@@ -393,11 +406,21 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
       return NV_KW_GET_fn(ck); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ &FILE never changes mid-run (single-file execution, no -INCLUDE support in scope here) --
+   set ONCE by rt_stmt_file_init, below, not mirrored every statement the way g_line is. &LASTFILE
+   DOES need a per-statement mirror, but NOT g_line's unconditional one: verified against the live
+   oracle (/home/resources/x64/bin/sbl -bf) that &LASTFILE reads as the NULL STRING when queried
+   from the program's first statement (no previous statement exists yet), not as the current file --
+   g_stcount (already incremented past 0 by every statement after the first) is the exact signal
+   rt_stmt_enter already carries for "has a previous statement actually run". */
+void rt_stmt_file_init(const char *file) { g_file = file; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter(long stno, long line) {
     g_lastno = g_stno;
     g_stno = stno;
     g_lastline = g_line;
     g_line = line;
+    g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
     g_stcount++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

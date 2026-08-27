@@ -34,7 +34,7 @@ static int g_sno_uses_stmtkw = 0;
 static int sno_kw_is_stmt(const char * s) {
     if (!s) return 0; if (s[0] == '&') s++;
     char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
-    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline");
+    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_stmtkw(const tree_t * t) {
@@ -2330,6 +2330,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
     }
     if (g_sno_uses_stmtkw) {
+        int _stmtkw_first_hook = 1;
         for (int i = 0; i < nst; i++) {
             if (is_def && is_def[i]) continue;
             IR_t * body = anchor[i]->γ.node;
@@ -2338,6 +2339,20 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)lp_s_int(st[i], ":line");
             lc_γ_to(num, lnn);
             ir_operand_push(hook, num); ir_operand_push(hook, lnn);
+            /* ⭐ &FILE/&LASTFILE (Lon's grant, kw-missing-4, 2026-08-27): the source path is baked as a
+               THIRD, ONE-TIME-ONLY SNO$STMT operand on whichever statement is the first to actually get
+               a hook emitted (not hardcoded to i==0 -- a leading DEFINE can make i==0 skip via `continue`
+               above, and the file must still get set). Every other statement's call is untouched (still
+               2 operands) -- &FILE never changes mid-run (no -INCLUDE support in scope), so there is
+               nothing to re-bake. See rt_stmt_file_init/rt_stmt_enter in keywords.c for the runtime side. */
+            if (_stmtkw_first_hook) {
+                _stmtkw_first_hook = 0;
+                extern const char * stmt_src_get_file(void);
+                const char * _sf = stmt_src_get_file();
+                IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(fpn).sval = (char *) (_sf ? _sf : "");
+                lc_γ_to(lnn, fpn);
+                ir_operand_push(hook, fpn);
+            }
             lc_γ_to(anchor[i], num);
         }
     }

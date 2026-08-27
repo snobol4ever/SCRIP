@@ -6962,10 +6962,14 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         *out = rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR; return 1;
     }
     L_bidjmp_6534: ;
-    if ((_bid == BID_SNOx24STMT) && (nargs == 1 || nargs == 2)) {
+    if ((_bid == BID_SNOx24STMT) && (nargs == 1 || nargs == 2 || nargs == 3)) {
         extern void rt_stmt_enter(long stno, long line);
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
-        long ln = (nargs == 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+        long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+        /* 3rd arg is the source path, baked once at the program's first statement only (see
+           lower_snobol4.c's SNO$STMT emission) -- set &FILE's backing global before rt_stmt_enter
+           runs so its own g_stcount==0 check (first statement) still reads &LASTFILE as empty. */
+        if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }
         rt_stmt_enter(n, ln);
         *out = NULVCL; return 1;
     }
