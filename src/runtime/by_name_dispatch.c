@@ -6891,6 +6891,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6479: ;
     if ((_bid == BID_TABLE) && nargs <= 3) {
         TBBLK_t *tb = table_new_args(nargs >= 1 ? (int)to_int(args[0]) : 0, nargs >= 2 ? (int)to_int(args[1]) : 0);
+        if (nargs >= 3) tb->dflt = args[2];   /* manual v3.7 sec 4214: Arg3 is the value returned for a missing-key lookup */
         DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb;
         *out = d; return 1;
     }
