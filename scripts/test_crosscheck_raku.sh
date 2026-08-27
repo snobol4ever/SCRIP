@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_crosscheck_raku.sh — 3-mode crosscheck for RAKU (GOAL-LANG-RAKU)
+# test_crosscheck_raku.sh — 3-mode crosscheck for RAKU (GOAL-RAKU-100.md)
 #
 # Runs the raku test corpus through --run, --run, --run.
 # Run on every major push. Mode-consistency check, not regression.

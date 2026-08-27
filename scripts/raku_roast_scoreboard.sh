@@ -2,10 +2,10 @@
 # raku_roast_scoreboard.sh — RK-100-0b. THE coverage instrument for the RAKU-100 ladder.
 #
 # Runs every IN-TIER roast 6.c file under scrip and classifies the result. Coverage claims
-# for GOAL-RAKU-BB.md come ONLY from this script's stdout (the handoff_status.sh law applied
+# for GOAL-RAKU-100.md come ONLY from this script's stdout (the handoff_status.sh law applied
 # to coverage): never from prose, never from a hand estimate.
 #
-# Tier table (GOAL-RAKU-BB.md; PROPOSED, Lon ratifies before the denominator is frozen):
+# Tier table (GOAL-RAKU-100.md; PROPOSED, Lon ratifies before the denominator is frozen):
 #   EXCLUDED : S01 perl5-interop, S15 unicode/NFG, S26 pod, S22            (~100)
 #   TIER-C   : S17 concurrency, S24 testing                                 (~68)
 #   IN-TIER  : everything else                                              (~986)

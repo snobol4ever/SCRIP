@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_raku_mode4_rung.sh — RAKU-BB RK-BB-1 (GOAL-RAKU-BB)
+# test_raku_mode4_rung.sh — RAKU-BB RK-BB-1 (GOAL-RAKU-100.md)
 # Mode-4 Raku correctness gate. For each test/raku/*.raku that has a .expected,
 # compile via `scrip --compile --target=x86`, assemble, link, run, and diff
 # stdout against the .expected golden. Reports PASS=N FAIL=M SKIP=K.
