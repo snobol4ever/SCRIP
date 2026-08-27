@@ -31,8 +31,10 @@ report_exclusion() {
 
 report_exclusion "probe (witness ladders)"    "$CORPUS/probe"
 report_exclusion "Icon IPL reference archive" "$CORPUS/packages/icon/ipl"
-report_exclusion "jcon-compiler/ref"          "$CORPUS/packages/icon/jcon-compiler/ref"
-report_exclusion "oracle-unrunnable"          "$CORPUS/oracle-unrunnable"
+report_exclusion "jcon-ref (JCON BB-gen reference, was mis-transcribed as jcon-compiler/ref)" "$CORPUS/packages/icon/jcon-ref"
+# oracle-unrunnable: RETIRED (Lon s269, corpus 53831d2e8) -- category deleted, not reported as NOT FOUND.
+# Ruled by hq_P 2026-08-27 (settled via git log --diff-filter=A, not find): jcon-compiler/ref never existed
+# under that name; the material it meant is jcon-ref, continuously present since 6df19d6ad under 3 names.
 
 echo
 echo "DENOMINATOR = $TOTAL - $EXCLUDED = $((TOTAL - EXCLUDED))"
