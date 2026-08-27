@@ -47,6 +47,7 @@ std::string bb_match_capture();
 std::string bb_arith();
 std::string bb_conjunction();
 std::string bb_subscript();
+std::string bb_subscript2();
 std::string bb_deref();
 std::string bb_random();
 std::string bb_var_ref();

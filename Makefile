@@ -155,6 +155,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
     $(SRC)/templates/bb/bb_conjunction.cpp \
     $(SRC)/templates/bb/bb_subscript.cpp \
+    $(SRC)/templates/bb/bb_subscript2.cpp \
     $(SRC)/templates/bb/bb_deref.cpp \
     $(SRC)/templates/bb/bb_random.cpp \
     $(SRC)/templates/bb/bb_assign_var.cpp \

@@ -1332,6 +1332,35 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     return rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐ row `table-int-keys-and-nd-subscript` defect (2): a[i,j] on a plain 2-D array lowered to TWO chained single-index
+   dispatches (aggregates.c:59-73's array_get2/array_set2 row-major formula existed but nothing in codegen ever called
+   it). GUARD DELIBERATELY NARROW, the standard RTX shape: only a deref'd DT_A base with ndim==2 and both indices DT_I,
+   in-bounds, takes this path; anything else (tables, nested containers, wrong index type, out-of-range) falls through
+   to the exact pre-existing two-hop chain below, byte-identical to before this row. */
+static int rt_nd2_fast(DESCR_t base, DESCR_t idx1, DESCR_t idx2, DESCR_t *out) {
+    DESCR_t b = base; if (IS_VARREF_fn(b)) b = rt_deref(b);
+    if (b.v != DT_A || !b.arr || b.arr->ndim != 2 || idx1.v != DT_I || idx2.v != DT_I) return 0;
+    ARBLK_t *a = b.arr; int i = (int)idx1.i, j = (int)idx2.i, cols = a->hi2 - a->lo2 + 1, row = i - a->lo, col = j - a->lo2;
+    if (row < 0 || row >= (a->hi - a->lo + 1) || col < 0 || col >= cols) return 0;
+    int off = row * cols + col, total = (a->hi - a->lo + 1) * cols; if (off < 0 || off >= total) return 0;
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx2; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    *out = NAMETRAP(vc); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
+    DESCR_t out; if (rt_nd2_fast(base, idx1, idx2, &out)) return out;
+    DESCR_t hop1 = rt_subscript_var_container_only(base, idx1);
+    if (hop1.v == DT_FAIL) return FAILDESCR;
+    return rt_subscript_var_container_only(hop1, idx2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
+    DESCR_t out; if (rt_nd2_fast(base, idx1, idx2, &out)) return out;
+    DESCR_t hop1 = rt_subscript_var_container_only(base, idx1);
+    if (hop1.v == DT_FAIL) return FAILDESCR;
+    return rt_subscript_var(hop1, idx2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);

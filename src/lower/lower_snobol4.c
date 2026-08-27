@@ -409,14 +409,25 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n < 2) sno_fatal("subscript with no index", NULL);
         IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
         IR_t * cur = br;
-        for (int k = 1; k < t->n; k++) {
-            IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
-            lc_γ_to(cur, ie);
-            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
-            sx_sub_container_only(sub);
-            lc_γ_to(ir, sub);
-            ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+        if (t->n == 3) {
+            IR_t * i1 = NULL; IR_t * e1 = sx_lower(cx, t->c[1], NULL, ω, &i1);
+            lc_γ_to(cur, e1);
+            IR_t * i2 = NULL; IR_t * e2 = sx_lower(cx, t->c[2], NULL, ω, &i2);
+            lc_γ_to(i1, e2);
+            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω); IR_LIT(sub).sval = "nd2";
+            lc_γ_to(i2, sub);
+            ir_operand_push(sub, cur); ir_operand_push(sub, i1); ir_operand_push(sub, i2);
             cur = sub;
+        } else {
+            for (int k = 1; k < t->n; k++) {
+                IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
+                lc_γ_to(cur, ie);
+                IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+                sx_sub_container_only(sub);
+                lc_γ_to(ir, sub);
+                ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+                cur = sub;
+            }
         }
         IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
         lc_γ_to(cur, dr);
@@ -892,14 +903,25 @@ static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res) {
     IR_t * br = NULL; IR_t * entry = sx_lower(cx, base, NULL, ω, &br);
     IR_t * cur = br;
-    for (int k = 0; k < nidx; k++) {
-        IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[k], NULL, ω, &ir);
-        lc_γ_to(cur, ie);
-        IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
-        if (k < nidx - 1) sx_sub_container_only(sub);
-        lc_γ_to(ir, sub);
-        ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+    if (nidx == 2) {
+        IR_t * i1 = NULL; IR_t * e1 = sx_lower(cx, idxs[0], NULL, ω, &i1);
+        lc_γ_to(cur, e1);
+        IR_t * i2 = NULL; IR_t * e2 = sx_lower(cx, idxs[1], NULL, ω, &i2);
+        lc_γ_to(i1, e2);
+        IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω); IR_LIT(sub).sval = "nd2-lv";
+        lc_γ_to(i2, sub);
+        ir_operand_push(sub, cur); ir_operand_push(sub, i1); ir_operand_push(sub, i2);
         cur = sub;
+    } else {
+        for (int k = 0; k < nidx; k++) {
+            IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[k], NULL, ω, &ir);
+            lc_γ_to(cur, ie);
+            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+            if (k < nidx - 1) sx_sub_container_only(sub);
+            lc_γ_to(ir, sub);
+            ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+            cur = sub;
+        }
     }
     if (var_res) *var_res = cur;
     return entry;

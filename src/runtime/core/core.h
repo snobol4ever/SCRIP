@@ -388,6 +388,8 @@ DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);   /* the C of record; rtx_table.S owns the exported name and falls back here */
 DESCR_t c_rt_svco_miss_d(struct _TBBLK_t *tb);                          /* miss arm: the table default, else the null string */
+DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);      /* row `table-int-keys-and-nd-subscript`: one dispatch for a[i,j] rvalue */
+DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);   /* same, lvalue/assignable-nametrap fallback shape */
 DESCR_t rt_deref(DESCR_t d);
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
