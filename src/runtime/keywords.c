@@ -23,6 +23,8 @@ int  g_jcon   = 0;
 long g_stno    = 0;
 long g_stcount = 0;
 long g_lastno  = 0;
+long g_line    = 0;
+long g_lastline = 0;
 const char *g_sno_errtext = NULL;
 #define KW_CSET_MAX 16
 static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
@@ -117,6 +119,8 @@ static KWB_ENT_t g_kwb[] = {
     { "STCOUNT",  KWB_INT, KWB_PROT, (int64_t *)&g_stcount,  0, (const char *)0 , "g_stcount" },
     { "STNO",     KWB_INT, KWB_PROT, (int64_t *)&g_stno,     0, (const char *)0 , "g_stno" },
     { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 , "g_lastno" },
+    { "LINE",     KWB_INT, KWB_PROT, (int64_t *)&g_line,     0, (const char *)0 , "g_line" },
+    { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_lastline, 0, (const char *)0 , "g_lastline" },
     { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 , "kw_fnclevel" },
     { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 },
     { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 },
@@ -284,10 +288,12 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"fullscan")) return INTVAL(0);
       if (!strcmp(kw,"stlimit"))  return INTVAL(-1);
     }
-    { extern long g_stno, g_stcount, g_lastno;
+    { extern long g_stno, g_stcount, g_lastno, g_line, g_lastline;
       if (!strcmp(kw,"stno"))     return INTVAL(g_stno);
       if (!strcmp(kw,"stcount"))  return INTVAL(g_stcount);
       if (!strcmp(kw,"lastno"))   return INTVAL(g_lastno);
+      if (!strcmp(kw,"line"))     return INTVAL(g_line);
+      if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
     }
     if (!strcmp(kw,"col"))     return INTVAL(0);
     if (!strcmp(kw,"row"))     return INTVAL(0);
@@ -375,9 +381,11 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
       return NV_KW_GET_fn(ck); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_stmt_enter(long stno) {
+void rt_stmt_enter(long stno, long line) {
     g_lastno = g_stno;
     g_stno = stno;
+    g_lastline = g_line;
+    g_line = line;
     g_stcount++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

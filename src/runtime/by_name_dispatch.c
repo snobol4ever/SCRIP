@@ -6943,10 +6943,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         *out = rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR; return 1;
     }
     L_bidjmp_6534: ;
-    if ((_bid == BID_SNOx24STMT) && nargs == 1) {
-        extern void rt_stmt_enter(long stno);
+    if ((_bid == BID_SNOx24STMT) && (nargs == 1 || nargs == 2)) {
+        extern void rt_stmt_enter(long stno, long line);
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
-        rt_stmt_enter(n);
+        long ln = (nargs == 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+        rt_stmt_enter(n, ln);
         *out = NULVCL; return 1;
     }
     L_bidjmp_6540: ;

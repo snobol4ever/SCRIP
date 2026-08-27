@@ -34,7 +34,7 @@ static int g_sno_uses_stmtkw = 0;
 static int sno_kw_is_stmt(const char * s) {
     if (!s) return 0; if (s[0] == '&') s++;
     char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
-    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno");
+    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_stmtkw(const tree_t * t) {
@@ -2244,7 +2244,9 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * body = anchor[i]->γ.node;
             IR_t * hook = lc_build(g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
             IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)(i + 1);
-            ir_operand_push(hook, num);
+            IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)lp_s_int(st[i], ":line");
+            lc_γ_to(num, lnn);
+            ir_operand_push(hook, num); ir_operand_push(hook, lnn);
             lc_γ_to(anchor[i], num);
         }
     }
