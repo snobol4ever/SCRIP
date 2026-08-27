@@ -109,7 +109,26 @@ else
   if [ ! -x "$verifier" ]; then
     echo "  ⛔ $verifier missing/not executable — .s drift is UNVERIFIED this run."
   else
-    s_out="$(bash "$verifier" 2>&1)"; s_rc=$?
+    # ⛔⭐⭐ THIS WARN-ONLY CHECK MUST NOT RUN A DESTRUCTIVE BUILD (row `stop-hook-pristine`, hq_P s274; ceo CEO-30).
+    # Until now this line invoked the verifier with NO ARGUMENTS, so it defaulted to SKIP_PRISTINE=0 and ran a full
+    # `make pristine` in the LIVE checkout -- wiping ./scrip and out/ -- to feed a block whose own header three lines
+    # up says "WARN-ONLY, does not affect the verdict below". The most destructive operation in the whole chain was
+    # serving the one check that is explicitly non-binding.
+    # ⛔ AND IT FIRES FAR MORE OFTEN THAN "AT HANDOFF": the seat's `Stop` hook runs `s4e_msg.sh banner` -> here, and
+    # Stop fires every time the seat RESPONDS, not only at session end. So a seat that starts a long build and then
+    # answers a message destroys its own build, with no build of its own visibly running. That is why it read as a
+    # haunting rather than a race: MEASURED 4 binary losses across 3 roots in one day (hq_P x2, hq_C x2), each first
+    # reported as "the binary vanished and no make of mine was running". seat09 diagnosed it after 4 collisions in a
+    # single session and "waited 5 min for a clear window, found none" -- there is no window, because the thing
+    # closing it is the seat itself. Symptom: `ld: cannot find out/rt_pic-<hash>/*.o`, then collect2 error, Makefile:406.
+    # ⭐ LAW COVER, so nobody re-arms this citing HQ-27: HQ-27 owes a pristine build before a VERDICT, never before a
+    # BANNER. The hook OVER-APPLIED it; no law changed. A real gate/handoff verdict still gets its pristine.
+    # ⭐ SAFE BY CONSTRUCTION, NOT BY HOPE: under --skip-pristine the verifier REFUSES rc=2 if ./scrip is absent
+    # ("FATAL: scrip not built") -- so this can degrade to a REFUSAL, never to a false CLEAN.
+    # ✅ Opt back in deliberately with S_ARTIFACT_PRISTINE=1 when you actually want the pristine-verified drift check.
+    verifier_args=""
+    [ "${S_ARTIFACT_PRISTINE:-0}" = "1" ] || verifier_args="--skip-pristine"
+    s_out="$(bash "$verifier" $verifier_args 2>&1)"; s_rc=$?
     if [ "$s_rc" -eq 0 ]; then
       printf '%s\n' "$s_out" | grep '^S-ARTIFACTS-' | sed 's/^/  /'
       echo "  CLEAN — benchmark/demo/prolog_bench/icon_bench all current, all checks actually ran."
