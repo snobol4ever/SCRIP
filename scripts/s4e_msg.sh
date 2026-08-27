@@ -429,7 +429,12 @@ case "$cmd" in
          # An open question to HQ is HQ's backlog, never this seat's failure.
          s4e_mode_line
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
-         if [ -f "$hs" ]; then hout="$(timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
+         # ⛔ SKIP_S_ARTIFACT_CHECK=1 (ceo 2026-08-27, Lon's "go fix it" — the missing-banners defect, seat09/hq_P diagnosis):
+         # the .s-artifact verifier runs `make pristine` (minutes; races and WIPES live builds), so every banner that reached
+         # it blew the Stop hook's 100s timeout and Lon saw NO banner — precisely on SUCCESS. The check is WARN-ONLY by design
+         # (cannot flip the verdict), so skipping it here changes nothing the banner asserts. The FULL check still runs on a
+         # direct handoff_status.sh invocation — the real handoff verdict, where HQ-27 wants the pristine.
+         if [ -f "$hs" ]; then hout="$(SKIP_S_ARTIFACT_CHECK=1 timeout 300 bash "$hs" 2>&1)"; hrc=$?; else hout="handoff_status.sh NOT FOUND at $hs"; hrc=2; fi
          # ⭐ fix-dispatch-bus-two-failure-modes (s266, seat07's q-s4e-msg-banner-attribution-undercount):
          # `held` used to be "whichever of my OPEN claims sorts first ALPHABETICALLY" -- a seat holding two
          # open claims could run `done <topic>` to close ONE and have its OWN banner report the OTHER.
