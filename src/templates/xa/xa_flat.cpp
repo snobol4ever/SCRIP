@@ -284,7 +284,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
             s += x86("mov", "rdi", "rsp")
                + x86("mov32", "esi", (long)seed_off)
                + x86("mov32", "edx", (long)(kt - 32))
-               + x86("call", "rt_jmp_frame_lexprep2", _lex_fp);
+               /* call_bare, not call: this branch's callers can be reached with a live "wire" continuation
+                * still sitting in rcx (the retry/resume path stages it there before jumping back into this
+                * prologue). x86_rtcc_call's BINARY-medium reload half (x86_rtcc_rl_bin) uses rcx as its own
+                * scratch pointer into rtccb -- deliberately not rax, which would stomp the callee's return
+                * value, but rcx pays for that choice instead. Neither this function nor args_install below
+                * touches r8-r11, so the veneer buys nothing here and only costs the clobber. */
+               + x86("call_bare", "rt_jmp_frame_lexprep2", _lex_fp);
             if (np > 0) {
                 /* nlocals=0 always: rt_jmp_frame_lexprep2 already zeroed [0,region_bytes), which covers the
                  * locals region too -- this call exists only for its param-copy loop. The real local slot
@@ -294,7 +300,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
                 s += x86("mov", "rdi", "rsp")
                    + x86("mov32", "esi", (long)np)
                    + x86("mov32", "edx", 0L)
-                   + x86("call", "rt_icn_zframe_args_install", _args_fp);
+                   + x86("call_bare", "rt_icn_zframe_args_install", _args_fp);
             }
             if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
                 uint64_t _sw_fp;  { void (*_f)(void *, void *, void *) = rt_gen_save_wires;      _sw_fp  = (uint64_t)(uintptr_t)(void *)_f; }

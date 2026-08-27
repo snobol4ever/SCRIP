@@ -1663,6 +1663,14 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
         *(void **)((char *)fb + g_pl_zf_pending_cursor_off) = g_pl_zf_pending_cursor;
         *(long  *)((char *)fb + g_pl_zf_pending_tm_off)     = g_pl_zf_pending_tm_lo;
         *(long  *)((char *)fb + g_pl_zf_pending_tm_off + 8) = g_pl_zf_pending_tm_hi;
+        /* Every SUSPEND node's alpha-port checks a shared [fb+0]/[fb+8] "have I already suspended in this
+         * activation" pair (copied there, self-clearing, from the trail-mark slot) before deciding whether
+         * to re-run its clause or honor the resume slot above. A freshly zeroed frame reads as "never
+         * suspended", so a resumed call would silently re-run clause 1 instead of jumping to the retained
+         * cursor. Mirror the same copy the body's own first-time path makes, so re-entry looks the same
+         * whether the choicepoint was pushed by this activation or restored into a fresh one. */
+        *(long  *)((char *)fb + 0) = g_pl_zf_pending_tm_lo;
+        *(long  *)((char *)fb + 8) = g_pl_zf_pending_tm_hi;
         g_pl_zf_pending_cursor = (void *)0;
     }
 }
