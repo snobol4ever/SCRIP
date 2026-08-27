@@ -2615,21 +2615,6 @@ extern "C" void xa_flat_chain_epilogue(void);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ N-2 ITEM 2 STEP 2b (hq_P s278): THE HOST RESERVATION. Returns the bytes THIS graph must add to its own α carve to hold the activation frames of the suspend-generators it directly calls, or 0 when it reserves nothing. ⛔⭐ IT IS NOT THE SHARED-NODE CHANGE THE ROW'S BRIEF PREDICTED, AND THAT PREDICTION IS REFUTED BY MEASUREMENT, NOT BY ARGUMENT: the brief says "x86_main_prologue() RETURNS AN EMPTY STRING … the host in the canonical witness (main) has no frame machinery to extend … adding push rbp; mov rbp,rsp there is a SHARED-NODE change touching every frontend's glue/main path". Measured on the four-line witness at fcd981f4: `main` never reaches the glue path at all (g_glue_o_sup suppresses it for a graph without emit_rec_pin()); it reaches the flat_lcl_proc arm below and ALREADY carves a real per-graph frame — `sub rsp,144; mov rdi,rsp; call rt_icn_zframe_args_install`. So the host frame EXISTS and this step EXTENDS it. Blast radius is Icon-only by construction: the arm is gated on flat_lcl_proc and the reservation on icn_genframe2(), which is DEFAULT OFF, so SNOBOL4/Prolog/Snocone are byte-identical without relying on anyone reading this comment. ⭐ THE REGION GOES AT THE TOP OF THE FRAME, [old_frame_total, new_frame_total), and that is the whole reason no offset moves: every ζ slot in this graph is addressed BOTTOM-relative as [rsp + off] with off in [0, old_frame_total), so growing the carve upward leaves all of them spelled exactly as before — no op_zdepth threading, no constant-offset rebase, and nothing for the s272 shared-node class to bite. ⛔ A FORWARD REFERENCE RESERVES NOTHING AND SAYS SO OUT LOUD: step 1 measured that a host which is itself a proc calling a generator declared LATER is not yet registered, and emit_patzeta_frame_reserve() then answers "unknown". Reading that as 0 bytes would hand step 3 a carve silently too small — the silent-overflow class ceo refused worst-case reservation over — so the whole host is declined instead, loudly. ⛔ SUM, NOT MAX: two generators live at once in one host each need their own region. */
-static int icn_gen_host_reserve(const char * prefix) {
-    if (!icn_genframe2() || !g_emit_cfg) return 0;
-    int total = 0, forward = 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) {
-        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        { const char * cn = IR_LIT(hn).sval;
-          if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) total += (fb + 15) & ~15; else forward++; } }
-    }
-    if (forward) { fprintf(stderr, "[GENHOST] ⛔ host=%s RESERVES NOTHING: %d generator callee(s) not yet registered (forward reference). A partial carve would be silently too small.\n", prefix ? prefix : "<anon>", forward); return 0; }
-    return total;
-}
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;

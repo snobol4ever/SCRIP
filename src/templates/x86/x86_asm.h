@@ -865,6 +865,22 @@ inline int icn_gen_zeta_ft() {   /* ⭐⭐ N-2 ITEM 1 (hq_P s276): RE-HOME GENER
     return ft > 0 ? ft : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);   /* N-2 step 2b: defined in src/ir/zeta_storage.c over the EXISTING pz[] registry. Branch on the RETURN (1 = known, 0 = forward reference), never on the value. */
+extern "C" int rt_proc_is_registered(const char * name);
+extern "C" int rt_proc_is_generator(const char * name);
+inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 STEP 2b (hq_P s278): THE HOST RESERVATION -- bytes THIS graph must add to its own α carve to hold the activation frames of the suspend-generators it directly calls, or 0. ⛔⭐ IT LIVES IN THIS HEADER FOR THE SAME REASON icn_genframe2() DOES, AND I LEARNED IT THE HARD WAY: the α carve is emitted from the DRIVER (emit.cpp) while the γ/ω releases are emitted from a template into libscrip_rt.so -- TWO LINK UNITS. Defining it in emit.cpp linked clean for the driver and died `undefined reference to icn_gen_host_reserve(char const*)` when the RT tried to call it. ⛔⛔ THE CARVE AND THE RELEASE MUST DERIVE THIS FROM ONE FUNCTION: they were two copies of one formula and they DRIFTED -- measured on a proc host, armed carve 240 / release 144, with `jmp qword ptr [rsp]` then reading a wrong return address. Armed-only, so it never shipped broken, but it would have surfaced when items 3-4 armed the path and read as THEIR defect. ⭐ Pure function of g_emit_cfg + the gate, so both sides may call it and nothing is stored -- no new global. ⛔ A FORWARD REFERENCE RESERVES NOTHING AND SAYS SO: step 1 measured that a host which is itself a proc calling a generator declared LATER is not yet registered; reading that as 0 would hand step 3 a carve silently too small, the class ceo refused worst-case reservation over. `prefix` non-NULL announces that refusal; the epilogues pass NULL so one graph reports once. ⛔ SUM, NOT MAX: two generators live at once each need their own region. */
+    if (!icn_genframe2() || !g_emit_cfg) return 0;
+    int total = 0, forward = 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) {
+        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        { const char * cn = IR_LIT(hn).sval;
+          if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) total += (fb + 15) & ~15; else forward++; } }
+    }
+    if (forward) { if (prefix) fprintf(stderr, "[GENHOST] \u26d4 host=%s RESERVES NOTHING: %d generator callee(s) not yet registered (forward reference). A partial carve would be silently too small.\n", prefix, forward); return 0; }
+    return total;
+}
 inline int x86_zop_regime(int off) { if (x86_zstorage() == ZC_STORAGE_FRAME_R12) return 1; if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

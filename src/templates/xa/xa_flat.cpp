@@ -375,7 +375,7 @@ static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _ggw_fp; { void *(*_f)(void *) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
         return x86("comment", "ICN-FR-5 no-unwind epilogue-γ: r14=gen____; get γ-wire(r14)→r15; get caller____(r14)→___ (rsp stays at gen____); rdi:rsi=[r14+0/8]; rax=gen____; jmp r15")
@@ -447,7 +447,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
         uint64_t _gow_fp; { void *(*_f)(void *) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
         uint64_t _sw_fp;  { void  (*_f)(void *, void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
