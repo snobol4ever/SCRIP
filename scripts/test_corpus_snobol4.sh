@@ -128,7 +128,7 @@ SUITES="$CORPUS/tests/snobol4"
 # drifts from the filesystem silently and in the direction that looks like success. The durable cure is to DISCOVER the pairs (glob crosscheck/*.sno with
 # a sibling .ref) rather than name them; that is a behavioural change to the denominator and wants its own row + re-pin, so it is NOT done here.
 # ⛔ UNTIL THEN: adding a suite pair to corpus REQUIRES adding it here in the same change, and the count below must be re-pinned when it does.
-for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture crosscheck/output crosscheck/assign crosscheck/arith_new crosscheck/rung8 crosscheck/rung11 crosscheck/control_new crosscheck/data crosscheck/concat crosscheck/rung4 crosscheck/hello crosscheck/rungW04 crosscheck/rungW03 crosscheck/rungW02 crosscheck/rung3 crosscheck/comments crosscheck/rungW07 crosscheck/rungW05 crosscheck/rungW06 crosscheck/rungW01; do
+for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture crosscheck/output crosscheck/assign crosscheck/arith_new crosscheck/rung8 crosscheck/rung11 crosscheck/control_new crosscheck/data crosscheck/concat crosscheck/rung4 crosscheck/hello crosscheck/rungW04 crosscheck/rungW03 crosscheck/rungW02 crosscheck/rung3 crosscheck/comments crosscheck/rungW07 crosscheck/rungW05 crosscheck/rungW06 crosscheck/rungW01 crosscheck/beauty; do
     s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
     if [ ! -f "$HARNESS" ]; then
         echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
