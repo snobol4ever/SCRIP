@@ -1518,7 +1518,9 @@ int main(int argc, char **argv)
                     emit_textf("  mov esi, %d\n", pe->nformals);
                     emit_textf("  call rt_proc_set_nformals@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    emit_textf("  lea rsi, [rip + %s_\xce\xb1]\n", asm_sym_name(pe->name));
+                    /* ENTRY label is what codegen_flat_chain_body minted: FN__<name> for a non-bare "proc_" chain; <name>_alpha is a CLASS-C alias, undefined here. Mirrors emit_module_init_body(). */
+                    if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(pe->name + 5));
+                    else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(pe->name));
                     emit_textf("  call rt_proc_set_fn@PLT\n");
                     int _fidx = pe->bb_idx;
                     if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
