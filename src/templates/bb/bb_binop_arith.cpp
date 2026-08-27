@@ -69,16 +69,6 @@ static inline std::string i2d(const char * xd, const char * src, int lb) { (void
 static inline int inl_ok() { long long o = (long long)_.op_ival; return !_.op_num_real && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok) && (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL); }
 static inline int inl2_ok() { return fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline std::string fc_tail() {
-    return x86("mov", "rdi", ZTOS(16)) + x86("mov", "rsi", ZTOS(24)) + x86("mov", "rdx", ZTOS(0)) + x86("mov", "rcx", ZTOS(8))
-         + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-         + x86("rtcc_wb")
-         + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
-         + x86("rtcc_rl")
-         + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je")
-         + x86_zrelease(16) + x86("mov", ZTOS(0), "rax") + x86("mov", ZTOS(8), "rdx");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string inl_tail() {
     return x86("mov", "rdi", FRQ(_.op_sa)) + x86("mov", "rsi", FRQ(_.op_sa + 8)) + x86("mov", "rdx", FRQ(_.op_sb)) + x86("mov", "rcx", FRQ(_.op_sb + 8))
          + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
