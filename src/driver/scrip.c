@@ -69,6 +69,26 @@ static void n2_host_scan_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2
         if (fired) hosts++; }
     fprintf(stderr, "[N2-HOST] SUMMARY procs=%d hosts=%d edges=%d forward_refs=%d unresolved_callees=%d indirect_call_nodes=%d\n", s2->proc_count, hosts, edges, fwd, unresolved, indirect); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* N-2 item 2, THE FORWARD-REFERENCE GUARD (hq_P 2026-08-27).  Step 1 measured 3 genuine forward host->generator edges across bench_correct (geddump event->gedval,
+   gedload->gedwalk; tgrlink dumpcode->aseq) and warned they read proc_fb_buf[] as 0 rather than erroring, sizing a host carve silently too small.  MEASURED HERE:
+   THE ARRAY IS THE HAZARD, NOT THE INFORMATION.  proc_fb_buf[] is filled DURING the emission loop from g_last_flat_frame_bytes, so a host emitted before its callee
+   reads an unwritten slot -- but g_last_flat_frame_bytes is only g_emit_cfg->jcon_value_region (emit.cpp:3475), a PER-GRAPH field assigned exactly once at IR
+   finalization (scrip_ir.c:283, after zls_build) and never assigned again anywhere in src/.  So a callee generator's frame bytes are already knowable at host-alpha
+   time by reading the callee graph directly -- no table, no two-pass emission, and NO NEW GLOBAL, which the standing rule forbids without an in-chat grant.
+   ⛔ MEASURED CORRECTION, and it is why this probe exists rather than a bare assertion: the field is NOT live as soon as the stage2 table is built.  Probing it
+   at sm_preamble() time reads region=0 for nearly every proc (measured 427 of 429 comparisons mismatching, against post-emit values of 992/720/3616/...).  It is
+   assigned by drive_slots_all() -> ir_drive_slot_assign() -> scrip_ir.c:283, which runs per-language at scrip.c:1261/1439/1683/1805 -- still BEFORE every emission
+   loop, so the claim survives, but ONLY when read after that pass.  An item-2 carve sized from the field any earlier would have silently read 0 for every callee.
+   These two probes exist to PROVE that before item 2 relies on it, rather than to assert it: PREPASS prints every proc's region BEFORE any graph is emitted;
+   POSTEMIT prints the emission-time value the old array would have stored, on both the mode-4 and mode-3 loops; scripts/test_icn_n2_fb_prepass.sh REFUSES rc=2
+   unless they agree for every proc.  Read-only, getenv-gated, no emission change -- an inert step, landed and proven inert before anything is built on it. */
+static void n2_fb_prepass_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_FB_PREPASS")) return;
+    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+        if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
+        fprintf(stderr, "[N2-FB] PREPASS proc=%s idx=%d gen=%d region=%d\n", pn, i, s2->proc_table[i].is_generator, s2->bbp.table[gi]->jcon_value_region); }
+    fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1242,7 +1262,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2);
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1307,7 +1327,8 @@ int main(int argc, char **argv)
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes; }
+                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
+                  if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=4 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
                 { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_zstatic; }
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
                 proc_nparams_buf[n_procs] = np;
@@ -1419,7 +1440,7 @@ int main(int argc, char **argv)
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1663,7 +1684,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2);
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1701,6 +1722,8 @@ int main(int argc, char **argv)
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
+                { extern int g_last_flat_frame_bytes; if (getenv("SCRIP_N2_FB_PREPASS"))
+                  fprintf(stderr, "[N2-FB] POSTEMIT mode=3 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
                 if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
@@ -1783,7 +1806,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            drive_slots_all(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
