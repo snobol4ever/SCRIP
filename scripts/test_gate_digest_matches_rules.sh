@@ -47,6 +47,28 @@
 # "corrected"/"correction") on an otherwise-real hit now also correctly reports VIOLATION, isolating the
 # regex-tightening fix from the windowing fix. Full receipts in the task file's own LEDGER and a FINDING.
 #
+# ⛔ SECOND CORRECTION 2026-08-26 (hq_C, found while rewriting its own root's CLAUDE.md). The 2026-08-24
+# addendum above cured an EXEMPTION miss -- the gate SAW a hit and wrongly excused it. This is the
+# other half, and it is a RECALL miss: the gate NEVER SAW the hit at all. NO-O2-EVER's retired-text
+# pattern was the single literal phrase `used ONLY for benchmark`, so a PARAPHRASE walked straight
+# past it. PROVEN BY CONSTRUCTION: hq_C's own root carried "**`-O2` is reserved for benchmark and demo
+# runs**, passed explicitly: RT_OPT="-O2 ..." make" -- a live, uncorrected violation that also PRINTS
+# THE FORBIDDEN COMMAND -- and the gate reported PASS(0) on it, both alone and inside the full 38-check
+# run that was quoted as proof the fleet was clean. ⭐ THE TWO MISSES ARE NOT THE SAME BUG AND A TEST
+# FOR ONE DOES NOT COVER THE OTHER: an exemption miss is a wrong ANSWER on a real hit; a recall miss is
+# NO QUESTION ASKED. Both present identically to the reader -- as PASS(0). The 2026-08-24 note's own
+# line ("a gate needs a test for every way it can say NOTHING") named the class correctly and the fix
+# only covered the exemption path; the retired-text pattern was left as a single literal string, which
+# is the OTHER way this gate can say nothing. Fix: (1) retired_re gains `reserved for benchmark`,
+# `-O2 is (reserved|used only)`, and `RT_OPT=.?-O2` -- the last matters most because a digest printing
+# the forbidden BUILD COMMAND is instructing a violation no matter how the prose is worded; (2) the
+# signal list gains `never (pass|build|use|quote)` and `NO .?-O2. BUILDS` so a digest that names the
+# command in order to FORBID it is still correctly exempt. Negative-tested, five arms: paraphrase alone
+# -> VIOLATION; paraphrase + signal on the SAME line -> exempt; paraphrase + signal on a NEIGHBOURING
+# line -> VIOLATION (hq_P's requested assertion, the 2026-08-24 anchoring preserved); bare forbidden
+# RT_OPT command -> VIOLATION; hq_C's real repaired digest -> clean. Full 19-root run PASS(0) both
+# before and after, so this is pure recall gain: no root is newly flagged and no verdict moved.
+#
 # ⛔ READ-ONLY BY DEFAULT (task's own NEXT step 2) -- THIS SCRIPT NEVER WRITES TO ANY ROOT'S CLAUDE.md.
 # hq_P attempted a bulk cross-seat edit at s267 and was correctly blocked by the permission classifier
 # -- one bad regex would corrupt every seat's orientation file at once. This gate REPORTS; each seat
@@ -109,8 +131,8 @@ check_rule() {
 }
 
 check_rule "NO-O2-EVER" \
-    'used ONLY for benchmark' \
-    'retire|supersed|\bdead\b|corrected|used to (carry|stand)|do not follow' \
+    'used ONLY for benchmark|reserved for benchmark|-O2 is (reserved|used only)|RT_OPT=.?-O2' \
+    'retire|supersed|\bdead\b|corrected|used to (carry|stand)|do not follow|never (pass|build|use|quote)|NO .?-O2. BUILDS' \
     '.github/RULES.md FACT RULE "NO `-O2` BUILDS. EVER." (~line 148-149)'
 
 check_rule "SEGV-HANDLER-ATTRIBUTION" \
