@@ -683,9 +683,15 @@ case "$cmd" in
          # Read together they separate the two states; read alone, LOCK AGE reports a stalled row as a busy one,
          # which is precisely how two rows sat 115m and 83m with zero output while the fleet screen looked normal.
          # ⭐ The sub-head is part of the COLUMN, and every cell in it is exactly 10 display columns wide so the
-         # annotation sits under the field it annotates rather than drifting one column left of it. ⛔ NO EMOJI IN
-         # AN ALIGNED CELL: ⛔ occupies TWO terminal columns but ONE printf character, so `%-10.10s` pads it to nine
-         # visible columns and shifts every field to its right -- the same off-by-one already visible in TREE.
+         # annotation sits under the field it annotates rather than drifting one column left of it. ⛔⭐ NO EMOJI IN
+         # AN ALIGNED CELL, AND NO FIELD WIDTH CAN RESCUE ONE -- MEASURED, hq_C 2026-08-27, correcting this
+         # comment's own earlier mechanism. The cause is not padding, it is that bash truncates `%.Ns` by BYTES
+         # while the terminal aligns by COLUMNS, and "⛔" is 1 char / 3 bytes / 2 columns -- three different
+         # numbers, which is the whole trap. "⛔ 1 dirty 0 unpushed" is chars=20 bytes=22, so at %-20.20s it
+         # rendered "⛔ 1 dirty 0 unpush": a column SHORT (following fields slide LEFT) and a WORD CHOPPED.
+         # ⛔ Widening does NOT fix it, tested: %-21.21s still chops ("...unpushe"), and %-22.22s finally fits
+         # the text but still paints 21 columns, not 22, because the 3 bytes only ever buy 2 columns. The gap is
+         # unclosable by width -- DELETE THE EMOJI, which is what TREE now does (see its cell, fixed).
          printf '\n  SEAT     ROW (open claim)                LOCK AGE    COMMITS     TREE                  Q  MAIL      LAST BOARD LINE\n'
          printf '  %-8s %-30s  %-10s  %-10s  %s\n' "" "" "lock only" "real work" ""
          printf '  ──────── ──────────────────────────────  ──────────  ──────────  ────────────────────  ─  ────────  ─────────────────────\n'
@@ -721,7 +727,14 @@ case "$cmd" in
            if [ -z "$root" ]; then tree="(no root, retiring)"
            elif [ "$repos" -eq 0 ]; then tree="no clones"
            elif [ "$dirty" -eq 0 ] && [ "$unpushed" -eq 0 ]; then tree="clean"
-           else tree="⛔ ${dirty} dirty ${unpushed} unpushed"; fi
+           # ⛔ NO EMOJI IN A WIDTH-CONSTRAINED CELL (hq_P 2026-08-27, fixed here by hq_C). This cell prints through
+           # %-20.20s, and bash truncates by BYTES while a terminal aligns by COLUMNS. "⛔" is 1 char / 3 bytes /
+           # 2 columns, so the old text measured chars=20 bytes=22: the precision chopped it to "⛔ 1 dirty 0 unpush"
+           # -- ONE COLUMN SHORT (shifting Q/MAIL/BOARD left on exactly the rows that signal trouble) AND a
+           # truncated word. Both the alignment and the DATA were lost, on the rows a reader most needs to read.
+           # Plain ASCII here, matching the adjacent COMMITS cell's own "0 STALLED": the words are the signal.
+           # Emoji stay legal in the LAST column only (bl), which is %s and constrains no width.
+           else tree="${dirty} dirty ${unpushed} unpushed"; fi
            # a question can now be waiting in ANY HQ's inbox (hq is retiring, hq_C and hq_P own the two lanes),
            # so the count sums over the whole HQ set -- counting only legacy hq/ would read 0 the day it retires.
            q=0; for hb in $(s4e_hqboxes); do for f in "$PO/$hb"/inbox/*.msg; do [ -f "$f" ] || continue; case "$(basename "$f")" in *-"$seat"-q-*) q=$((q+1));; esac; done; done
