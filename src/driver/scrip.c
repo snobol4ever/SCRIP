@@ -815,9 +815,6 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb        = 1; argi++; }
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
-        else if (strncmp(argv[argi], "--zeta=", 7)     == 0) { fprintf(stderr, "scrip: --zeta= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
-        else if (strncmp(argv[argi], "--zeta-port=", 12) == 0) { fprintf(stderr, "scrip: --zeta-port= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
-        else if (strncmp(argv[argi], "--zeta-storage=", 15) == 0) { fprintf(stderr, "scrip: --zeta-storage= RETIRED s270 (strip wave 4): the four zeta configs are ONE (Lon, via CEO-11) -- there is nothing left to select. Storage is cell-stack, port is forth, zeta is zls2, always.\n"); return 2; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
         else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }

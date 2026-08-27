@@ -1549,7 +1549,6 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
 void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
 {
     extern void rt_bomb(const char *);
-#if ZC_COLLECTION == ZC_COL_MALLOC
     if (i + 1 > *cap_cell) {
         int nc = *cap_cell > 0 ? *cap_cell : 4;
         while (nc < i + 1) nc *= 2;
@@ -1559,19 +1558,6 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
         memset(np + (size_t)*cap_cell * (size_t)elem_sz, 0, (size_t)(nc - *cap_cell) * (size_t)elem_sz);
         *ptr_cell = np; *cap_cell = nc;
     }
-#elif ZC_COLLECTION == ZC_COL_ARENA
-    extern void * rt_zls_alloc(long bytes);
-    if (i + 1 > *cap_cell) {
-        int nc = *cap_cell > 0 ? *cap_cell : 4;
-        while (nc < i + 1) nc *= 2;
-        char * op = (char *)*ptr_cell;
-        char * np = (char *)rt_zls_alloc((long)nc * elem_sz);
-        if (op) memcpy(np, op, (size_t)*cap_cell * (size_t)elem_sz);
-        *ptr_cell = np; *cap_cell = nc;
-    }
-#else
-#error "rt_zcol_push: ZC_COLLECTION must be ZC_COL_MALLOC or ZC_COL_ARENA (ZC_COL_GC is the GC-4 rung)"
-#endif
     char * e = (char *)*ptr_cell + (size_t)i * (size_t)elem_sz;
     memset(e, 0, (size_t)elem_sz);
     return e;
