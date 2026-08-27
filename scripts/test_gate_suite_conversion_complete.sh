@@ -31,7 +31,24 @@ case "$LANG_DIR" in
   snocone) EXT='*.sc';;   rebus) EXT='*.reb';;  raku) EXT='*.raku';;  pascal) EXT='*.pas';;
   *) echo "REFUSES rc=2: unknown language '$LANG_DIR' -- add its extension deliberately rather than defaulting"; echo "   to a glob that might match nothing and read as success."; exit 2;;
 esac
-mapfile -t LOOSE < <(find "$TREE" -type f -name "$EXT" -not -path '*/crosscheck/*' 2>/dev/null | sort)
+# ⭐ A converted suite file is EXEMPT WHEREVER IT LIVES, not only under crosscheck/. Two destination conventions
+# are in live use -- tests/<lang>/crosscheck/<family>.<ext> (the SNOBOL4 shape) and tests/<lang>/<family>.<ext>
+# (the parser-family shape, e.g. tests/raku/parser.raku, tests/rebus/parser.reb) -- and the first draft of this
+# gate only knew the first. It therefore counted FINISHED SUITE OUTPUT as unconverted work: raku reported 104
+# undeclared on an ALREADY-CONVERTED row. Reported by seat01 2026-08-27; a false red, and the same class of
+# defect this gate exists to catch.
+# ⛔ The exemption is CONTENT-BASED, deliberately, not a second hand-maintained list of family names or paths:
+# a converted file opens with a numbered banner block (comment leader + rule + index + entry name), which the
+# harness emits for every language -- "#--- 1 arr_get", "*--- 1 038_pat_literal". Validated at write time to
+# match all three live conventions and none of the ordinary loose programs it was tested against.
+is_suite_output() {
+    head -1 "$1" 2>/dev/null | grep -qE '^[^A-Za-z0-9]*-{10,}[[:space:]]+[0-9]+[[:space:]]+[A-Za-z0-9_]'
+}
+mapfile -t ALLF < <(find "$TREE" -type f -name "$EXT" -not -path '*/crosscheck/*' 2>/dev/null | sort)
+LOOSE=(); SUITEOUT=0
+for _f in "${ALLF[@]}"; do
+    if is_suite_output "$_f"; then SUITEOUT=$((SUITEOUT+1)); else LOOSE+=("$_f"); fi
+done
 TOTAL_ANY=$(find "$TREE" -type f -name "$EXT" 2>/dev/null | wc -l)
 if [ "$TOTAL_ANY" -eq 0 ]; then
     echo "REFUSES rc=2: zero '$EXT' files anywhere under $TREE -- the extension or the tree moved, so this gate"
@@ -39,7 +56,7 @@ if [ "$TOTAL_ANY" -eq 0 ]; then
     exit 2
 fi
 echo "suite conversion completeness -- $LANG_DIR -- $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-echo "tree: $TREE   pattern: $EXT   total: $TOTAL_ANY   loose (outside crosscheck/): ${#LOOSE[@]}"
+echo "tree: $TREE   pattern: $EXT   total: $TOTAL_ANY   converted suite output: $SUITEOUT   loose: ${#LOOSE[@]}"
 [ "${#LOOSE[@]}" -eq 0 ] && { echo "GATE OK -- nothing loose; every $EXT file lives in the governed suite tree."; exit 0; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
 DECLARED=""
