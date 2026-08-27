@@ -15,15 +15,29 @@ typedef struct {
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
-static void γ_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
+/* Icon-lowering-local generator-kind check: ir_is_generator_kind (ir_query.c, shared by SNOBOL4/Prolog/Raku) has
+   no name-awareness, so an IR_CALL node can never be recognized there without a signature change touching every
+   frontend. tab/move are the one case that needs it: outside a ?-scan body op stays IR_CALL (bb_call_route_
+   classify's ungated fallback already routes them to bb_call_byname_str, which already has correct curmov
+   β-restore - ICN-BYNAME-CURSOR-RESTORE, bb_call.cpp); inside a ?-scan body with one arg, icn_retag_scan_body
+   (below) has already relabeled it IR_SCAN_TAB/IR_SCAN_MOVE by the time most wiring checks run. Neither form is
+   in ir_is_generator_kind's switch, so both need recognizing here - kept local to lower_icon.c's own wiring
+   helpers, never touching ir_query.c or any other frontend. */
+static int icn_gen_wiring(const IR_t * t) {
+    if (!t) return 0;
+    if (ir_is_generator_kind(t->op)) return 1;
+    if (t->op == IR_SCAN_TAB || t->op == IR_SCAN_MOVE) return 1;
+    return t->op == IR_CALL && IR_LIT(t).sval && (!strcmp(IR_LIT(t).sval, "tab") || !strcmp(IR_LIT(t).sval, "move"));
+}
+static void γ_to(IR_t * nd, IR_t * t) { if (t && icn_gen_wiring(t)) lc_γ_to_β(nd, t); else lc_γ_to(nd, t); }
 static void icn_mark_γ_fail_conduit(IR_t * nd) { if (nd) { memcpy(nd->γ.sz, "φ", 3); nd->γ.sz[3] = 0; } }
 static int icn_γ_is_fail_conduit(const IR_t * nd) { return nd && (unsigned char) nd->γ.sz[0] == 0xcf && (unsigned char) nd->γ.sz[1] == 0x86; }
-static void ω_to(IR_t * nd, IR_t * t) { if (t && ir_is_generator_kind(t->op)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
+static void ω_to(IR_t * nd, IR_t * t) { if (t && icn_gen_wiring(t)) lc_ω_to_β(nd, t); else lc_ω_to(nd, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     IR_t * nd = lc_build(cx->g, op, γ, ω);
-    if (γ && ir_is_generator_kind(γ->op)) lc_γ_to_β(nd, γ);
-    if (ω && ir_is_generator_kind(ω->op)) lc_ω_to_β(nd, ω);
+    if (γ && icn_gen_wiring(γ)) lc_γ_to_β(nd, γ);
+    if (ω && icn_gen_wiring(ω)) lc_ω_to_β(nd, ω);
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -145,10 +159,10 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     }
     int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
                    || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));
+    int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
-    int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
     IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω; IR_t * last_ar = NULL;
     for (int k = 0; k < nargs; k++) {
@@ -159,12 +173,18 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
-    if ((icn_proc_is_generator(name) || gb) && last_ar) lc_γ_to(last_ar, call);
+    /* tab/move keep op==IR_CALL (untouched: bb_call_route_classify's ungated fallback already sends them to
+       bb_call_byname_str, which already has correct curmov r14 save/restore in its β - ICN-BYNAME-CURSOR-RESTORE,
+       bb_call.cpp). The ONLY gap is that ir_is_generator_kind(IR_CALL)==0, so nothing routes INTO that β: this
+       node's own β/γ wiring below, is_cursor_mover joins gb exactly where icn_gen_wiring (γ_to/ω_to/build, top of
+       file) also recognizes it - so external wiring into this call (e.g. an enclosing write()'s ω_to(_, cx->beta))
+       resolves it as generator-kind too, without changing op, route, or retag (icn_retag_scan_body unaffected). */
+    if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
     int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
     int chain_live = (aω != ω);
     if (la_res || chain_live) ω_to(call, aω);
-    cx->beta = (icn_proc_is_generator(name) || gb) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));
+    cx->beta = (icn_proc_is_generator(name) || gb || is_cursor_mover) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -696,7 +716,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(enter, sr);
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
-        cx->beta = (bv && ir_is_generator_kind(bv->op)) ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
+        cx->beta = (bv && icn_gen_wiring(bv)) ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
         *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {

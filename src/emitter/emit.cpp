@@ -3051,7 +3051,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_SCAN) {
             IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;
             g_scan_body_beta = NULL;
-            if (bv && ir_is_generator_kind(bv->op)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
+            /* IR_SCAN_TAB/MOVE (icn_retag_scan_body's by-name-arity retag of a ?-scanned tab()/move() call) carry
+               tab/move's "reverses effects if resumed" β but are not in ir_is_generator_kind's switch (ir_query.c,
+               shared by SNOBOL4/Prolog/Raku) - same gap as the IR_SUSPEND dobody check just above, same local fix:
+               widen the check at this Icon-only IR_SCAN site rather than the shared classifier. */
+            if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];
