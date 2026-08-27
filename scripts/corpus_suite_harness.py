@@ -75,6 +75,7 @@ BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)$")
 # round-trips -- do not add a config for a language nobody has exercised.
 LANG_CONFIGS = {
     "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "ast"},
+    "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "ast"},
 }
 
 
