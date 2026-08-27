@@ -32,6 +32,8 @@ static inline int IS_REAL_fn(DESCR_t v)  { return v.v == DT_R; }
 static inline int IS_CSET_fn(DESCR_t v)  { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
 static inline int IS_DATA_fn(DESCR_t v)  { return v.v == DT_DATA; }
 char *VARVAL_fn(DESCR_t v);
+void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);   /* rtx_str.S owns this symbol; RTX_GATE tail-jumps to the C body below */
+void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 DESCR_t INVOKE_fn(const char *name, DESCR_t *args, int nargs);
 DESCR_t dat_field_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t ARGVAL_fn(DESCR_t d);

@@ -5101,6 +5101,14 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
    ⭐ EQUIVALENCE IS EXACT, NOT ARGUED FROM SHAPE.  VARVAL_fn is `cmp dil, DT_S / jne c_VARVAL_fn / test rsi,rsi / jz c_VARVAL_fn / mov rax,rsi / ret` (rtx_str.S:312) -- for DT_S with non-NULL .s it returns v.s unchanged and allocates nothing.  sv_len for DT_S with slen neither 0xFFFFFFFF nor 0 returns slen.  The guard below admits EXACTLY that intersection and every other descriptor -- other tags, NULL .s, the 0xFFFFFFFF sentinel, slen 0 -- falls through to the UNCHANGED pair.  It cannot answer differently, only sooner.
    KILLSWITCH SCRIP_REPL_PL=0 restores the call pair on the same binary. */
 static int repl_pl_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_REPL_PL"); v = (e && *e == '0') ? 1 : 0; } return v; }
+/* RTX PORT (row perf-replace-translate-loop-scalar-byte-copy): the translate loop below is a pure gather-scatter
+   with no branch and no call -- 31.90% of string_manip.sno's fixed-work kernel Ir at -O0 N=20000 (14,553,000 Ir) --
+   so it is extracted to its own symbol and ported to rtx_str.S under the existing STR family gate, same class of
+   cure as rtx_table.S's hot-path ports. This is the C of record; rt_translate_bytes (rtx_str.S) owns the exported
+   name and tail-jumps here when SCRIP_RTX_STR=0. */
+void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map) {
+    for (size_t i = 0; i < n; i++) dst[i] = map[(unsigned char)src[i]];
+}
 /* ⛔ THE KILLSWITCH READ IS HOISTED, AND THAT IS NOT A DETAIL: the first draft called repl_pl_off() INSIDE the macro, so a getenv-memo function ran three times per REPLACE -- 26,400 non-inlined calls -- and ate two thirds of the cure it was guarding (measured -0.92% where the line annotation predicted -2.6%).  At -O0 a `static int f(void){static int v;...}` is a real call every time; a control arm has to be read ONCE and carried in a local. */
 #define BN_PTRLEN(A, P, L, F) do { DESCR_t _a = (A); \
     if ((F) && _a.v == DT_S && _a.s && _a.slen != 0xFFFFFFFFu && _a.slen != 0u) { (P) = _a.s; (L) = (size_t)_a.slen; } \
@@ -5123,7 +5131,7 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
                memcpy(g_rm[s].f, fv, fl); memcpy(g_rm[s].t, tv, fl); g_rm[s].n = (unsigned char)fl; g_rm[s].v = 1; } }
     else { for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k]; }
     size_t n = sl; char *buf = (char *)rt_ws_alloc_c(n + 1);
-    for (size_t i = 0; i < n; i++) buf[i] = map[(unsigned char)sv[i]];
+    rt_translate_bytes(buf, sv, n, map);
     buf[n] = 0; *out = BSTRVAL(buf, n); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

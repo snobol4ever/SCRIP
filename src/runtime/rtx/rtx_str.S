@@ -319,5 +319,42 @@ RTX_FUNC(VARVAL_fn)
     ret
 RTX_ENDF(VARVAL_fn)
 
+/*-----------------------------------------------------------------------------
+ * void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map)
+ *   rdi = dst . rsi = src . rdx = n . rcx = map (256-byte lookup table)
+ *   No return value; no call, no branch, no allocation inside the loop.
+ *
+ * C of record: src/runtime/by_name_dispatch.c c_rt_translate_bytes, extracted
+ * from bn_replace's for-loop -- MEASURED (row perf-replace-translate-loop-
+ * scalar-byte-copy): 14,553,000 Ir, 31.90% of string_manip.sno's fixed-work
+ * kernel at -O0 N=20000, 15.75 Ir/byte for a two-load-one-store gather. At -O0
+ * gcc spills n/i/dst/src/map to the stack and reloads every iteration; this is
+ * the same cure as rtx_table.S -- the algorithm unchanged, the spills deleted.
+ * dst never aliases src (dst is always a fresh rt_ws_alloc_c buffer), so no
+ * overlap handling is needed; the loop walks both pointers directly (rsi/rdi,
+ * their documented string src/dst role) rather than indexing off a counter.
+ *
+ * 0(f-pre) SHAPE: zero branches, zero calls, zero early return in the C body
+ * -- entries are commits by construction, same as VARVAL_fn's ported arm above.
+ *
+ * KILLSWITCH: shares SCRIP_RTX_STR=0 with str_concat_d/VARVAL_fn -- one gate,
+ * one family, no new global.
+ */
+RTX_FUNC(rt_translate_bytes)
+    RTX_GATE(str, c_rt_translate_bytes)
+    test    rdx, rdx
+    je      .Ltrb_done
+.Ltrb_loop:
+    movzx   r8d, byte ptr [rsi]          /* src[i]                              */
+    movzx   r8d, byte ptr [rcx + r8]     /* map[src[i]]                         */
+    mov     [rdi], r8b                   /* dst[i] = map[src[i]]                */
+    inc     rsi
+    inc     rdi
+    dec     rdx
+    jnz     .Ltrb_loop
+.Ltrb_done:
+    ret
+RTX_ENDF(rt_translate_bytes)
+
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits
