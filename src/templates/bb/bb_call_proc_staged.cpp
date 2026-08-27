@@ -74,6 +74,27 @@ static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const cha
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross(int gid, int wid) { return icn_wire_stack_on() ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* bcps_spine_gen_arm's callee is always a zframe_graph prologue (xa_flat_zframe_prologue_str), which
+ * captures its wires UNCONDITIONALLY from rcx/rdx registers -- it has no stack-blob landing of its own.
+ * bb_glue_pass_wires_blob leaves rcx correctly loaded only as a side effect of using rcx as its lea
+ * scratch register for the LAST push (gid); it never touches rdx at all, so the omega wire arrives as
+ * whatever rt_proc_call_open_det/rt_arg_stage last left there. Gamma is masked by that coincidence;
+ * omega is not -- confirmed via gdb: a multi-clause predicate that runs its clause chain to exhaustion
+ * (any backtracking query) lands at its own omega port with [kt-16]=garbage and jmp's it -- measured as
+ * fact$2F1_ω reading 0 at [rsp+496] and jmp'ing to address 0 (fact(a).fact(b).fact(c). main :- fact(X),
+ * write(X), nl, fail ; true.). This is independent of SCRIP_PL_GAMMA_RETAIN -- both arms reach the same
+ * omega port. Icon's icn_cells_graph generators are unaffected: their own epilogue consumes the pushed
+ * pair directly off the stack (bb_glue_wire_γ/ω) rather than through this prologue's register capture,
+ * so adding the register load here is inert for that case and only fills in the previously-missing wire
+ * for the zframe_graph (Prolog) case that actually reads it. */
+static std::string bcps_wire_cross_gen(int gid, int wid) {
+    if (!icn_wire_stack_on()) return bb_glue_pass_wires(gid, wid);
+    return x86_lea_id("rcx", wid) + x86("push", "rcx")
+         + x86_lea_id("rcx", gid) + x86("push", "rcx")
+         + x86_lea_id("rdx", wid)
+         + x86_jmp_reg("rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_land(const char *fname) { return icn_wire_stack_on() ? IF(!bcps_wire_pair_consumed(fname), x86("add", "rsp", 16L)) : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_retfix(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RET_FIX"); v = (e && *e == '0') ? 0 : 1; } return v; }
@@ -715,7 +736,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-         + bcps_wire_cross(3, 4)
+         + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (icn_genframe2()
             ? /* N-2: L(3) is a SHARED landing -- the callee reaches it from BOTH ports, so the two arrivals must be told
@@ -826,7 +847,7 @@ static std::string bcps_spine_gen_arm() {
                      + x86_lea_id("r8", 7)
                      + x86("push", "r8")
                      + x86("comment", "PZ-4: the RETRY entry must use the SAME wire spelling as the first-call entry at :615.  It hardcoded the FLAT register pair (lea rcx,L3; lea rdx,L4) while the first-call path goes through bcps_wire_cross, which under icn_wire_stack_on() PUSHES the pair instead.  The callee reads its continuation from a FIXED [rsp+k] and the shared landings pop what the first-call entry pushed -- so with stack wires armed the retry entry arrived 16 bytes shallower, the landing over-popped, and the next continuation was read one slot off: a small integer (measured 17) used as a jump target, rip=0x11.  Route through the shared helper so the two entries CANNOT disagree; it emits its own jmp rax and is byte-identical to the old spelling when stack wires are OFF.")
-                     + bcps_wire_cross(3, 4)
+                     + bcps_wire_cross_gen(3, 4)
                      + x86("def", L(7))
                      + x86("add", "rsp", 8L)
                      + x86_anchor_leave()
