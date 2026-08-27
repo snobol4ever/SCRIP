@@ -283,13 +283,14 @@ static std::string xa_flat_sig_gq(int gk, int w) {
     return g_rtcc_on ? std::string(GVARQ(gk, w)) : std::string(ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out) {
+static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0) {
     if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
     int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
     int np = 0, nsave = 0, res_gk = -1;
     int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);
     if (!have || nsave <= 0 || nsave > 29) return 0;
     *nf_out = nf; *nsave_out = nsave;
+    if (res_gk_out) *res_gk_out = res_gk;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -343,10 +344,15 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
     if (!_cf) return std::string();
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
-    { int nf = 0, nsave = 0; int gk[29];
-      if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
+    { int nf = 0, nsave = 0, res_gk = -1; int gk[29];
+      if (xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk)) {
           int argkt = 16 * nsave;
-          pre = x86("comment", "CLASS-C sig-arg marshal-out (s272 snocone-returns-codegen): mirror image of the prologue's marshal-in -- restore every touched GVA slot's pre-call value from this activation's own argkt save area BEFORE releasing it, so an outer activation (recursion, or the same name used as an ordinary variable elsewhere) sees its own value again, not this call's leftovers. Must run, and fully unwind (add rsp,argkt), before the kt-relative sig-pointer reload directly below -- that reload's [kt-24] offset is only correct once this carve is gone. Must not touch rax:rdx (the live result, staged by whichever node reached this exit) or rcx (about to be reloaded fresh from [kt-24]).")
+          std::string reload = (is_gamma && res_gk >= 0)
+              ? (x86("comment", "nreturn-after-indirect-assign-wrong-value fix (2026-08-27): capture the live result BEFORE the marshal-out restore below overwrites res_gk's own GVA cell with its pre-call value. Cannot rely on rax:rdx already holding it -- that was only ever true by accident, when the return-slot assignment happens to be the last value-producing statement the body ran. Any later statement breaks it: e.g. beauty/match.inc's own `assign(name, expression)` idiom runs an indirect `$name = expression` AFTER `Fnc = .dummy` and BEFORE nreturn, leaving ITS value in rax:rdx instead, which the caller then received unchanged. Reading res_gk fresh here is correct on every gamma exit alike -- explicit `return`, `nreturn`, or an implicit fall-off-the-end success all mean the same thing, 'hand over whatever is in my own result cell' -- so no NRETURN-specific case is needed. Omega is untouched: freturn overrides any pending value unconditionally, so that arm keeps setting FAILDESCR outright.")
+                 + x86("note", gva_name(res_gk)) + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0)) + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
+              : std::string();
+          pre = reload
+              + x86("comment", "CLASS-C sig-arg marshal-out (s272 snocone-returns-codegen): mirror image of the prologue's marshal-in -- restore every touched GVA slot's pre-call value from this activation's own argkt save area BEFORE releasing it, so an outer activation (recursion, or the same name used as an ordinary variable elsewhere) sees its own value again, not this call's leftovers. Must run, and fully unwind (add rsp,argkt), before the kt-relative sig-pointer reload directly below -- that reload's [kt-24] offset is only correct once this carve is gone. rcx is about to be reloaded fresh from [kt-24]; rax:rdx (the live result, staged above on gamma) are never touched here -- this loop only ever writes gk[i]'s backing GVA memory, never those registers.")
               + FOR(0, nsave, [&](int i) {
                     return x86("note", gva_name(gk[i]))
                          + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
@@ -356,7 +362,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
       }
     }
     return pre + x86("comment", is_gamma
-                   ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx already carry the typed result; whichever node's template reached this exit staged it, this epilogue only owns the return-through-signature. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
+                   ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx carry the typed result -- reloaded from res_gk just above (nreturn-after-indirect-assign-wrong-value fix) whenever this graph's signature info is known, otherwise still whatever the last node to reach this exit staged. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
                    : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
          + x86("mov", "rcx", RDQ("rsp", kt - 24))
          + x86("mov", "rcx", RDQ("rcx", is_gamma ? 8 : 16))
