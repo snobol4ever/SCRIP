@@ -1113,6 +1113,13 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     (void) γ;
     const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
+    /* A non-resumable E collapses gen_beta to the SAME node as ω (no distinct resume port). Driving the loop
+       would then wire E's own γ directly onto that shared node, indistinguishable by identity from a real
+       arm-level success report - in a DISJUNCTION/SEQUENCE arm, lower_alt/icn_scan_seq_nary's tagging pass
+       (per-node, keyed on ->node==dj) would then mistag E's success as the WHOLE every-expression succeeding.
+       A private GOTO(ω,ω) trampoline keeps E's γ off the shared node while still reaching ω either way; the
+       trampoline's own both-ports-same-target shape is the existing φ (fail-conduit) special case, never σ. */
+    if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
