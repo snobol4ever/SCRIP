@@ -128,9 +128,10 @@ SUITES="$CORPUS/tests/snobol4"
 # now discovered from the tree and nothing can be forgotten when a new one lands.
 # ⛔ Scoped to crosscheck/ specifically, not all of $SUITES: beauty_suite/ already has its own driver-pair loop
 # a few lines below and would be DOUBLE-COUNTED by a wider glob (its *_driver.sno/.ref pairs match the identical
-# by-basename rule); feat/parser/smoke/jvm_j3/linker are separately-owned corpora already consumed by other
-# scripts (scorecard_snobol4.sh's MISC_DIRS, test_lower_byte_identical.sh, the JS/WASM ladders) and carry no
-# suite-format .ref of their own to grade here.
+# by-basename rule). A separate top-level-misc block further below (after the probe block) covers families born
+# directly at $SUITES/*.sno (e.g. feat.sno) with its own independent floor -- deliberately NOT folded into this
+# loop or its floor, so a crosscheck-only regression and a top-level-misc regression are never conflated into one
+# number. parser/smoke/jvm_j3/linker are NOT suite-format families at all (see that block's own comment).
 # ⛔ DISCOVERY ALONE CANNOT SEE A FAMILY THAT WENT MISSING (fewer names discovered looks identical to fewer names
 # that exist) -- covers the ADDITION direction (a new pair needs no registration, and
 # test_gate_crosscheck_family_list_autodiscovers.sh proves that direction hermetically) but not the DELETION
@@ -204,6 +205,51 @@ while IFS= read -r family; do
 done < <(find "$SUITES/probe" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
     b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/probe/}"
 done)
+
+# ── Suite families (top-level misc, e.g. feat) ───────────────────────────────────
+# ⭐ Same discovered-not-hand-maintained mechanism as crosscheck/probe above, generalized to a third
+# source: $SUITES itself at maxdepth 1 -- a family born directly as tests/snobol4/<name>.sno (not nested
+# under crosscheck/ or probe/), reading with an UNPREFIXED name. maxdepth 1 structurally cannot reach
+# beauty_suite/'s contents (one directory down, see beauty_suite/KEEP.md for why it never converts at
+# all) or crosscheck's/probe's own contents (also one directory down), so no separate exclusion is
+# needed. parser/smoke/jvm_j3 have zero .ref siblings today -- they are graded LIVE against the oracle by
+# scorecard_snobol4.sh's MISC_DIRS, a different grading model this harness does not implement; linker/
+# tests cross-file IMPORT/EXPORT linking, which the suite format's one-file-per-entry model cannot
+# represent. None of those four are discovered here (task tests-consolidate-snobol4-loose's ledger has
+# the full disposition). First tenant: tests/snobol4/feat.sno (16 of feat/'s 19 pairable programs; 3 left
+# loose as documented pre-existing reds, 2 for having no .ref at all).
+# ⭐ FLOOR, same shape and same reasoning as crosscheck's above -- own counter, own floor, deliberately not
+# merged with crosscheck's suite_found/SUITE_FAMILY_FLOOR so the two regressions are never conflated.
+MISC_SUITE_FAMILY_FLOOR="${MISC_SUITE_FAMILY_FLOOR:-1}"
+misc_suite_found=0
+while IFS= read -r family; do
+    s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
+    if [ ! -f "$HARNESS" ]; then
+        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
+    fi
+    if [ ! -f "$s_ref" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no oracle ref at ${s_ref}\n"; continue
+    fi
+    misc_suite_found=$((misc_suite_found+1))
+    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
+    if [ -z "$board" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: harness produced no SUITE_BOARD line\n"; continue
+    fi
+    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
+    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
+    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
+    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
+done < <(find "$SUITES" -maxdepth 1 -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
+    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/}"
+done)
+if [ "$misc_suite_found" -lt "$MISC_SUITE_FAMILY_FLOOR" ]; then
+    misc_shortfall=$((MISC_SUITE_FAMILY_FLOOR-misc_suite_found))
+    MISSING=$((MISSING+misc_shortfall))
+    MISSING_LIST="${MISSING_LIST}  misc-suite-family-count: discovered ${misc_suite_found} pairs directly under corpus/tests/snobol4, pinned floor is ${MISC_SUITE_FAMILY_FLOOR} (short by ${misc_shortfall}) -- a family vanished from the tree, or this checkout is behind origin\n"
+fi
 
 # ── Beauty library drivers ─────────────────────────────────────────────────────
 for sno in "$BEAUTY"/*_driver.sno; do

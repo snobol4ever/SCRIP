@@ -83,6 +83,16 @@ case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite tabl
 # via SCORECARD_PRINT_SUITES=1, which prints it (post lon-guard, so a corrupted table refuses here too)
 # and exits before touching a corpus, an oracle, or a compiled scrip.  Requires no argument and no $1.
 if [ "${SCORECARD_PRINT_SUITES:-0}" = "1" ]; then printf '%s\n' "$SUITES"; exit 0; fi
+# ⚠️ task tests-consolidate-snobol4-loose (seat14, 2026-08-27): `feat`'s live program count here DROPPED from
+# 21 to 5 on purpose -- 16 converted to corpus-suites-consolidation suite format (tests/snobol4/feat.sno/.ref,
+# graded instead by test_corpus_snobol4.sh's suite-family loop), 3 left loose as documented pre-existing reds
+# (.github FINDING-2026-08-27-seat14-feat-family-three-pre-existing-reds-invisible-to-any-gate.md), 2 left
+# loose for having no .ref at all (f15_trace_dump, f18_error_handling, pre-existing gap). A smaller `find`
+# count under this MISC bucket for `feat` from here on is EXPECTED, not a regression -- this comment is the
+# record so nobody re-derives alarm from it. parser/smoke/jvm_j3/linker are UNCHANGED by that task (parser/
+# smoke/jvm_j3 have no .ref siblings -- live-oracle-graded only, exactly the model this MISC bucket already
+# is; linker/ tests cross-file IMPORT/EXPORT linking, incompatible with the suite format's one-file-per-entry
+# model) -- their counts here are still the full, real denominator.
 MISC_DIRS="tests/snobol4/feat tests/snobol4/parser tests/snobol4/smoke tests/snobol4/jvm_j3 tests/snobol4/linker packages/snobol4/dotnet packages/snobol4/aisnobol"
 # ---------------------------------------------------------------- stdin mapping (family conventions from the board scripts)
 stdin_for() {  # $1 = program path -> input file or /dev/null
