@@ -1669,7 +1669,8 @@ int main(int argc, char **argv)
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }
                 { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
-                bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, "proc_flat");
+                char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+                bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
@@ -1796,7 +1797,8 @@ int main(int argc, char **argv)
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; int _floor_hit = (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG-B] pname=%s entry_op=%d hit=%d\n", pname ? pname : "(null)", _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG-B] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
                 { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
-                bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, "proc_flat");
+                char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+                bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, _m3pfx);
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }

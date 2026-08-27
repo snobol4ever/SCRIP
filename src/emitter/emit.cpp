@@ -2842,7 +2842,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
-    if (lbl_α_orig_p) emit_label_define_bb(lbl_α_orig_p);
+    /* name_α is the entry CLASS-C's sig-blob callers (bcps_fnsig()/rt_tiny_record_enter) jump to directly, skipping
+       whatever args-install preamble ran above -- correct ONLY for a callee that actually GETS the sig-jmp epilogue,
+       which is xa_flat_class_c_pred() && !g_rt_fragment_emit (the exact condition guarding xa_flat_chain_epilogue_sig
+       below -- EVAL's runtime-JIT'd fragments are CLASS-C-eligible by the same frame heuristic but keep the plain
+       call/ret epilogue, so aliasing them here made rt_call_proc_descr jmp into a body whose RET expects a real return
+       address, not a sig-blob rcx -- SNOBOL4 corpus regression, treebank's EVAL-invoked init_list/push_list, mode-3
+       only).  A lcl_proc/zframe/pat/gen callee's preamble is the args-install code just emitted; jumping past it into
+       a stale frame is the SAME failure mode from the non-CLASS-C side.  Mirrors mode-4's WEAK f_α: unresolved -> NULL
+       -> rt_proc_seal_alpha no-ops -- same selectivity, C-level equivalent here since mode-3 has no linker. */
+    if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12")));

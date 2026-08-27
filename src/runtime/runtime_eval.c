@@ -185,7 +185,8 @@ static void eval_thunks_emit_from(int pc0)
         { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
           int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
           if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }
-        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, "proc_flat");
+        char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+        eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
         if (pfn) rt_proc_set_fn(pname, pfn);
         { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }
         if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
