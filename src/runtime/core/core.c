@@ -2864,6 +2864,12 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
             return STRVAL(rt_ws_strdup_c(e->locals[idx - 1]));
         }
     }
+    { extern int rt_proc_nparams(const char *); extern int rt_proc_nformals(const char *); extern const char *rt_proc_pname(const char *, int);
+      int total = rt_proc_nparams(fname); int nf = rt_proc_nformals(fname); int nl = (total >= 0 && nf >= 0 && total >= nf) ? total - nf : -1;
+      if (nl > 0 && idx >= 1 && idx <= (int64_t)nl) {
+          const char *ln = rt_proc_pname(fname, nf + (int)(idx - 1));
+          if (ln) return STRVAL(rt_ws_strdup_c(ln));
+      } }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
