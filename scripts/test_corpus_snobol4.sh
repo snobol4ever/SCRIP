@@ -119,7 +119,7 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 # MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
 HARNESS="$HERE/corpus_suite_harness.py"
 SUITES="$CORPUS/tests/snobol4"
-for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture; do
+for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture crosscheck/output crosscheck/assign crosscheck/arith_new crosscheck/rung8 crosscheck/rung11 crosscheck/control_new crosscheck/data crosscheck/concat crosscheck/rung4 crosscheck/hello crosscheck/rungW04 crosscheck/rungW03 crosscheck/rungW02 crosscheck/rung3 crosscheck/comments crosscheck/rungW07 crosscheck/rungW05 crosscheck/rungW06 crosscheck/rungW01; do
     s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
     if [ ! -f "$HARNESS" ]; then
         echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
