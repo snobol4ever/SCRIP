@@ -119,6 +119,15 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 # MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
 HARNESS="$HERE/corpus_suite_harness.py"
 SUITES="$CORPUS/tests/snobol4"
+# ⛔⭐⭐ THIS LIST IS THE BOARD'S DENOMINATOR AND IT IS HAND-MAINTAINED -- A SUITE PAIR ON DISK THAT IS NOT NAMED HERE IS SILENTLY OFF THE BOARD (hq_P s277).
+# MEASURED: corpus 0e75bfdbc ("crosscheck: consolidate 19 families into suite pairs") converted 19 families and did NOT add them here, so 98 entries
+# vanished from the board -- m3/m4 totals fell 365 -> 267, EXACTLY 98, while the gate still printed "GATE OK ... MISSING=0". ⛔ NEITHER EXISTING GUARD
+# CAN SEE THIS: MISSING only fires for a family that IS in this list whose files are absent, and the fossil-path refusal only catches a hardcoded path
+# that no longer RESOLVES. A family that was never registered resolves nothing and is absent from nothing -- it is invisible to both, and the board goes
+# GREEN while smaller. ⭐ THE SHAPE, and it is this project's recurring one: a hand-maintained list is a SECOND SOURCE OF TRUTH about what exists, and it
+# drifts from the filesystem silently and in the direction that looks like success. The durable cure is to DISCOVER the pairs (glob crosscheck/*.sno with
+# a sibling .ref) rather than name them; that is a behavioural change to the denominator and wants its own row + re-pin, so it is NOT done here.
+# ⛔ UNTIL THEN: adding a suite pair to corpus REQUIRES adding it here in the same change, and the count below must be re-pinned when it does.
 for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture crosscheck/output crosscheck/assign crosscheck/arith_new crosscheck/rung8 crosscheck/rung11 crosscheck/control_new crosscheck/data crosscheck/concat crosscheck/rung4 crosscheck/hello crosscheck/rungW04 crosscheck/rungW03 crosscheck/rungW02 crosscheck/rung3 crosscheck/comments crosscheck/rungW07 crosscheck/rungW05 crosscheck/rungW06 crosscheck/rungW01; do
     s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
     if [ ! -f "$HARNESS" ]; then
