@@ -758,7 +758,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * write_l = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_l).sval = (char *) lt->v.sval;  ir_operand_push(write_l, rv_old);
             IR_t * write_r = build(cx, IR_KEYWORD_ASSIGN, γ,    ω); IR_LIT(write_r).sval = (char *) rt2->v.sval; ir_operand_push(write_r, lv_old);
             lc_γ_to(rv_old, write_l); lc_γ_to(write_l, write_r);
-            *res = write_r; return lv_old;
+            *res = write_l; return lv_old;
         }
         if (kw_l || kw_r) {
             IR_t * kv_old = build(cx, IR_KEYWORD_ICON, NULL, ω);
@@ -772,12 +772,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 IR_t * write_plain = build(cx, IR_ASSIGN,          γ,    ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
                 lc_γ_to(pv_old, write_kw); lc_γ_to(write_kw, write_plain);
-                *res = write_plain; return kv_old;
+                *res = write_kw; return kv_old;
             } else {
                 IR_t * write_plain = build(cx, IR_ASSIGN,          NULL, ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
                 IR_t * write_kw    = build(cx, IR_KEYWORD_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
                 lc_γ_to(pv_old, write_plain); lc_γ_to(write_plain, write_kw);
-                *res = write_kw; return kv_old;
+                *res = write_plain; return kv_old;
             } }
         if (!(plain_l && plain_r)) {
             IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);

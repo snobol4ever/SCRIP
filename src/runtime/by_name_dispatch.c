@@ -5769,18 +5769,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
         char *buf = rt_ws_alloc(256);
         if (av.v == DT_SNUL)     { *out = STRVAL("&null"); return 1; }
-        if (IS_CSET_fn(av)) {
-            const char *cs = av.s ? av.s : "";
-            const char *kname = kw_cset_name(cs);
-            if (kname) { *out = STRVAL(kname); return 1; }
-            int clen = (int)strlen(cs);
-            char *outs = rt_ws_alloc(clen + 3);
-            outs[0] = '\'';
-            memcpy(outs+1, cs, clen);
-            outs[1+clen] = '\'';
-            outs[2+clen] = '\0';
-            *out = STRVAL(outs); return 1;
-        }
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";
@@ -5830,7 +5818,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             for (int i = 0; i < cslen; i++) {
                 unsigned char c = (unsigned char)cs[i];
                 if (c == '\'') { outs[o++] = '\\'; outs[o++] = '\''; }
-                else if (c < 0x20 || c == 0x7f) { o += snprintf(outs+o, 5, "\\x%02x", c); }
+                else if (c < 0x20 || c >= 0x7f) { o += snprintf(outs+o, 5, "\\x%02x", c); }
                 else outs[o++] = (char)c;
             }
             outs[o++] = '\'';
