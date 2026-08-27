@@ -2712,6 +2712,7 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int UNLOAD_fn(const char *name) {
+    extern int rt_proc_unregister(const char *name);
     _func_init();
     if (!name || !*name) return -1;
     unsigned h = _func_hash(name);
@@ -2719,10 +2720,11 @@ int UNLOAD_fn(const char *name) {
     for (FNCBLK_t *e = _func_buckets[h]; e; prev = e, e = (FNCBLK_t *)e->next) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
+        /* a name can carry BOTH a _func_buckets metadata entry (from a runtime DEFINE(...) call re-executing over an already statically-compiled proc) AND a real g_rt_gen_procs entry (from the compiler's static registration) -- clearing only the former leaves the name fully callable through bb_call_proc_staged's rt_proc_call_open/rt_proc_fn path, so both tables must be invalidated together. */
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
+        rt_proc_unregister(name);
         return 1;
     }
-    extern int rt_proc_unregister(const char *name);
     rt_proc_unregister(name);
     return 1;
 }
