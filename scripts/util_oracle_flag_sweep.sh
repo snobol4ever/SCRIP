@@ -74,7 +74,21 @@ stdin_for() { local p="$1" b d n; b="${p%.sno}"; d="$(dirname "$p")"; n="$(basen
     calculator*) echo "$DEMO/calculator/calculator.input";; porter*) echo "$DEMO/porter/porter.input";; *) echo /dev/null;; esac; return;; esac; echo /dev/null; }
 sc_libpath() { local spec="$1" pd="$2" e out="" oi="$IFS"; IFS=':'; for e in $spec; do case "$e" in SELFDIR) e="$pd";; CORPUS) e="$CORPUS";; *) e="$CORPUS/$e";; esac; out="${out:+$out:}$e"; done; IFS="$oi"; echo "$out"; }
 libspec_for() { case "$1" in beauty_self) echo include;; patterns|crosscheck) echo demo/inc;; feature_test) echo CORPUS;; gimpel) echo SELFDIR:include;; *) echo SELFDIR;; esac; }
-lon_guard() { case "$1" in */programs/lon/*) echo "REFUSED off-limits lon path: $1" >&2; return 1;; esac; return 0; }
+# ⛔⭐ THIS GUARD IS DEFENCE-IN-DEPTH BEHIND A DOOR THAT IS ALREADY SHUT -- READ WHY BEFORE JUDGING ITS VALUE (hq_P s274).
+# It names the tree as spelled TODAY. Its old pattern was */programs/lon/*, which stopped matching when the s272 re-grid
+# renamed lon/ -> lon_cherryholmes/, so it had been silently inert. ⛔ A guard keyed on a NAME is not a guard, it is a
+# coincidence -- and a dead guard is indistinguishable from an absent one in the output.
+# ⭐ BUT MEASURE BEFORE YOU CALL A DEAD GUARD AN EXPOSURE, WHICH IS THE MISTAKE I MADE AND CORRECTED: this sweep does NOT
+# walk the corpus. It enumerates from the scorecard's SUITES table (SCORECARD_PRINT_SUITES=1) plus MISC_DIRS, and NOT ONE
+# of those roots is under corpus/programs/ -- verified by execution s274. lon_cherryholmes was therefore never reachable
+# here even while the guard was inert, because the scorecard row for it is DELETED STRUCTURALLY rather than filtered.
+# ⛔ CONTRAST WITH test_gate_argnote_sweep.sh, where the identical dead pattern WAS load-bearing: that gate roots at the
+# CORPUS ROOT and finds every .sno, so 99 files really did start flowing when its prune died. Two guards, both dead, only
+# one of them ever doing anything. Do not generalise one measurement to the other -- I did, and was wrong.
+# ⭐ IT STILL EARNS ITS PLACE: this sweep EXECUTES programs (it runs the live oracle, three arms, 60s each), and Lon ruled
+# 2026-08-27 that lon_cherryholmes is for PARSER tests only, never runtime. If anyone ever adds a suite root under
+# programs/, this is the second lock that stops a runtime run -- which is exactly the job the scorecard comment assigns it.
+lon_guard() { case "$1" in */programs/lon_cherryholmes/*|*/programs/lon/*) echo "REFUSED: lon_cherryholmes is PARSER-TESTS-ONLY, never runtime (Lon 2026-08-27); this sweep EXECUTES the oracle. Path: $1" >&2; return 1;; esac; return 0; }
 one_prog() {
   local name="$1" lib="$2" prog="$3" d in L W r1 r2 rf m1 m2 mf tag
   lon_guard "$prog" || return
@@ -104,7 +118,7 @@ cmd_sweep() {
       MISC)      : > "$list"; for m in $MISC_DIRS; do find "$CORPUS/$m" $fargs 2>/dev/null; done | sort >> "$list";;
       *)         find "$CORPUS/$root" $fargs 2>/dev/null | sort > "$list";;
     esac
-    grep -v '/programs/lon/' "$list" > "$list.safe" && mv "$list.safe" "$list"
+    grep -v -e '/programs/lon/' -e '/programs/lon_cherryholmes/' "$list" > "$list.safe" && mv "$list.safe" "$list"
     echo "== $name: $(wc -l < "$list") programs  $(date +%H:%M:%S)" >&2
     xargs -a "$list" -P "$jobs" -I{} bash -c 'one_prog "$0" "$1" "$2"' "$name" "$lib" {} >> "$out/arms.tsv" 2>>"$out/noise.log"
   done
