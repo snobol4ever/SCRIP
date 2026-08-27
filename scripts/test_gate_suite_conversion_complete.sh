@@ -1,0 +1,60 @@
+#!/bin/bash
+# test_gate_suite_conversion_complete.sh <lang> -- ONE DONE-WHEN authority for the six tests-consolidate-* rows.
+#
+# ⭐ WHY THIS EXISTS (hq_C ruling 2026-08-27, on seat02's question, corroborated by seat14's measurement).
+# The fan-out rows shipped with two independent defects in their DONE-WHENs, and each is trap #1 -- a criterion
+# that can never say YES:
+#   (1) FOUR of the six (pascal/prolog/rebus/snocone) test `find tests/<lang> -name '*.<ext>' | wc -l -eq 0`.
+#       But the SETTLED architecture puts converted suite output INSIDE tests/<lang>/ WITH THE REAL EXTENSION --
+#       live proof: corpus/tests/snobol4/crosscheck/patterns.sno, 44KB, pushed. So a successful conversion makes
+#       that count go UP, and the criterion is unsatisfiable BY DOING THE WORK CORRECTLY. Measured at ruling
+#       time: `find tests/snobol4 -name '*.sno'` = 187, against a criterion demanding 0.
+#   (2) The one row that DID exclude the suite subdir hardcoded a keeper allowance (`-le 12`). seat14 then
+#       measured the real number: 34 -- all of beauty_suite is STANDALONE-KEEP. A guessed keeper count is a
+#       second unsatisfiable criterion wearing a fix's clothing; the keeper set is DISCOVERED by doing the work,
+#       so it cannot be a constant known when the row is minted.
+#
+# THE CRITERION THIS IMPLEMENTS, which needs no guess: every loose program file is EITHER converted (gone from
+# the loose tree) OR explicitly declared a keeper in a KEEP.md. Same three-bucket shape as the corpus coverage
+# manifest -- converted / declared-kept / nothing-falls-through -- and it is the declaration, not a number, that
+# carries the judgment. Do NOT "fix" a red by raising an allowance; declare the file and say why.
+#
+# REFUSES rc=2 when it cannot measure -- never skip-as-success.
+set -u
+LANG_DIR="${1:-}"
+[ -n "$LANG_DIR" ] || { echo "REFUSES rc=2: usage: $0 <lang>   (pascal|prolog|rebus|snocone|snobol4|raku|icon)"; exit 2; }
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+TREE="$S4E/corpus/tests/$LANG_DIR"
+[ -d "$TREE" ] || { echo "REFUSES rc=2: no such tree: $TREE"; exit 2; }
+case "$LANG_DIR" in
+  snobol4) EXT='*.sno';;  icon) EXT='*.icn';;   prolog) EXT='*.pl';;
+  snocone) EXT='*.sc';;   rebus) EXT='*.reb';;  raku) EXT='*.raku';;  pascal) EXT='*.pas';;
+  *) echo "REFUSES rc=2: unknown language '$LANG_DIR' -- add its extension deliberately rather than defaulting"; echo "   to a glob that might match nothing and read as success."; exit 2;;
+esac
+mapfile -t LOOSE < <(find "$TREE" -type f -name "$EXT" -not -path '*/crosscheck/*' 2>/dev/null | sort)
+TOTAL_ANY=$(find "$TREE" -type f -name "$EXT" 2>/dev/null | wc -l)
+if [ "$TOTAL_ANY" -eq 0 ]; then
+    echo "REFUSES rc=2: zero '$EXT' files anywhere under $TREE -- the extension or the tree moved, so this gate"
+    echo "   has gone vacuous. A gate that matches nothing is not a green gate."
+    exit 2
+fi
+echo "suite conversion completeness -- $LANG_DIR -- $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "tree: $TREE   pattern: $EXT   total: $TOTAL_ANY   loose (outside crosscheck/): ${#LOOSE[@]}"
+[ "${#LOOSE[@]}" -eq 0 ] && { echo "GATE OK -- nothing loose; every $EXT file lives in the governed suite tree."; exit 0; }
+mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
+DECLARED=""
+[ "${#KEEPFILES[@]}" -gt 0 ] && DECLARED=$(cat "${KEEPFILES[@]}" 2>/dev/null)
+UND=0; UNDLIST=""
+for f in "${LOOSE[@]}"; do
+    b=$(basename "$f")
+    case "$DECLARED" in *"$b"*) : ;; *) UND=$((UND+1)); UNDLIST="$UNDLIST\n     $b";; esac
+done
+echo "KEEP.md file(s) found: ${#KEEPFILES[@]}   loose-but-undeclared: $UND"
+if [ "$UND" -ne 0 ]; then
+    echo "GATE FAILED -- $UND loose file(s) neither converted nor declared as keepers:"
+    printf "$UNDLIST\n" | head -20
+    echo "     -> convert them, or name each in a KEEP.md WITH ITS REASON. Do not raise an allowance."
+    exit 1
+fi
+echo "GATE OK -- ${#LOOSE[@]} loose file(s), all declared STANDALONE-KEEP. Conversion complete for $LANG_DIR."
+exit 0

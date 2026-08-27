@@ -76,6 +76,7 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	bash scripts/test_corpus_snobol4.sh
 	bash scripts/test_gate_emit_no_lang.sh
 	bash scripts/test_gate_template_medium_invisible.sh
+	bash scripts/test_gate_corpus_coverage_classified.sh
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip

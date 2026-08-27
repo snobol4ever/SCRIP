@@ -42,7 +42,10 @@ SUBTREE	benchmarks/pascal	ROWD	pas-display-revival
 SUBTREE	crosscheck/strings	GATED	test_corpus_snobol4.sh
 SUBTREE	demo/prolog	GATED	test_lower_byte_identical.sh
 SUBTREE	demo/icon	GATED	test_lower_byte_identical.sh
-SUBTREE	crosscheck/beauty	GATED	test_corpus_snobol4.sh
+# crosscheck/beauty RETIRED 2026-08-27: seat08's crosscheck-finish (corpus 96283343) converted its two loose
+# .sno into tests/snobol4/crosscheck/beauty.{sno,ref}. The directory survives but holds ZERO program files now --
+# only .input/.ref fixtures -- so it is no longer a live subtree. The gate caught this drift within hours of the
+# conversion landing, which is exactly what a manifest checked against the live tree is for.
 SUBTREE	crosscheck/arith	GATED	test_corpus_snobol4.sh
 SUBTREE	crosscheck/coverage	GATED	test_corpus_snobol4.sh
 SUBTREE	crosscheck/control	GATED	test_corpus_snobol4.sh
