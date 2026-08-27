@@ -1242,6 +1242,15 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         for (int i = 0; i < sz; i++) copy->data[i] = v.arr->data[i];
         return ARRAY_VAL(copy);
     }
+    if (IS_TBL(v)) {
+        if (!v.tbl) return v;
+        TBBLK_t *tcopy = table_new_args(v.tbl->init, v.tbl->inc);
+        tcopy->dflt = v.tbl->dflt;
+        tcopy->is_set = v.tbl->is_set;
+        TBPAIR_t *e;
+        TBL_FOREACH(v.tbl, e) table_set_descr_d(tcopy, (e->key_descr.v != DT_SNUL) ? e->key_descr : STRVAL(tbl_pair_key(e)), e->val);
+        return TABLE_VAL(tcopy);
+    }
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
