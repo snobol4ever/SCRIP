@@ -104,10 +104,37 @@ fi
 VIOLATIONS=0
 EXAMINED=0
 
-# check_rule <rule_id> <retired_text_grep_-E_pattern> <corrective_signal_grep_-E_pattern> <citation>
+# check_rule <rule_id> <retired_text_grep_-E_pattern> <corrective_signal_grep_-E_pattern> <citation> <canary_line>
+#
+# ⭐⭐ THE CANARY (5th arg) IS NOT OPTIONAL AND IT IS THE POINT OF THIS FUNCTION'S THIRD REVISION.
+# hq_P, 2026-08-26: "You cannot fix a recall problem by improving recall, because the failure is
+# silent BY CONSTRUCTION -- you have made the next miss less likely without making it any louder."
+# Correct, and it is the argument against the 2026-08-26 fix on its own terms: broadening retired_re
+# to catch a paraphrase is still A PATTERN, and every pattern shares the property that killed the
+# original one -- WHEN IT STOPS MATCHING, NOTHING HAPPENS. So each rule now carries a known-violating
+# line that MUST be caught. If the canary goes quiet -- someone "tidies" the regex, a grep flag
+# changes, the alternation is broken by an unescaped char -- the gate REFUSES (rc=2) instead of
+# printing the PASS(0) it would otherwise print, unchanged, forever. That converts recall from a
+# hope into a tested property. ⛔ The canary must ALSO be checked against signal_re: a canary that
+# the exemption path would swallow tests nothing, and would itself go quiet silently.
 check_rule() {
-    local rule_id="$1" retired_re="$2" signal_re="$3" citation="$4"
+    local rule_id="$1" retired_re="$2" signal_re="$3" citation="$4" canary="$5"
     local f lineno rest
+    if [ -z "$canary" ]; then
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: rule $rule_id has no canary -- recall is untested and a silent miss is indistinguishable from a clean root"
+        exit 2
+    fi
+    if ! printf '%s\n' "$canary" | grep -qiE "$retired_re"; then
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: CANARY DEAD for rule $rule_id -- its known-violating line is no longer matched by retired_re"
+        echo "    canary: $canary"
+        echo "    This gate can no longer detect the thing it exists to detect. Fix retired_re; never quiet the canary."
+        exit 2
+    fi
+    if printf '%s\n' "$canary" | grep -qiE "$signal_re"; then
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: CANARY SELF-EXEMPTS for rule $rule_id -- signal_re matches the canary, so it would be excused, not caught"
+        echo "    canary: $canary"
+        exit 2
+    fi
     for f in "${ROOTS[@]}"; do
         EXAMINED=$((EXAMINED + 1))
         if [ ! -r "$f" ]; then
@@ -133,12 +160,14 @@ check_rule() {
 check_rule "NO-O2-EVER" \
     'used ONLY for benchmark|reserved for benchmark|-O2 is (reserved|used only)|RT_OPT=.?-O2' \
     'retire|supersed|\bdead\b|corrected|used to (carry|stand)|do not follow|never (pass|build|use|quote)|NO .?-O2. BUILDS' \
-    '.github/RULES.md FACT RULE "NO `-O2` BUILDS. EVER." (~line 148-149)'
+    '.github/RULES.md FACT RULE "NO `-O2` BUILDS. EVER." (~line 148-149)' \
+    '**`-O2` is reserved for benchmark and demo runs**, passed explicitly: RT_OPT="-O2 -g" make'
 
 check_rule "SEGV-HANDLER-ATTRIBUTION" \
     'CSN_NO_SEGV_HANDLER|SCRIP_NO_SEGV_HANDLER' \
     'not SCRIP|NEVER.{0,15}SCRIP|csnobol4[ -]?oracle|no getenv|corrected|correction|WRONG|never was|externally.clone' \
-    '.github/RULES.md ASM-DIFF-FIRST correction, landed 2026-08-24 (~line 47)'
+    '.github/RULES.md ASM-DIFF-FIRST correction, landed 2026-08-24 (~line 47)' \
+    'run gdb with CSN_NO_SEGV_HANDLER=1 to get a clean backtrace'
 
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
 gate_verdict "$VIOLATIONS" "root digest(s) asserting retired FACT RULE text uncorrected"
