@@ -1055,6 +1055,10 @@ int64_t rt_time_ns(void) {
 static DESCR_t _TIME_(DESCR_t *a, int n) { (void)a; (void)n; return INTVAL(rt_time_ns()); }
 static DESCR_t _INPUT_(DESCR_t *a, int n);
 static DESCR_t _OUTPUT_(DESCR_t *a, int n);
+static DESCR_t _BACKSPACE_(DESCR_t *a, int n);
+static DESCR_t _DETACH_(DESCR_t *a, int n);
+static DESCR_t _EJECT_(DESCR_t *a, int n);
+static DESCR_t _REWIND_(DESCR_t *a, int n);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ARRAY_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
@@ -1819,6 +1823,10 @@ void core_lib_init(void) {
     register_fn("LNE",      _LNE_,      2, 2);
     register_fn("HOST",     _HOST_,     1, 4);
     register_fn("ENDFILE",  _ENDFILE_,  1, 1);
+    register_fn("BACKSPACE", _BACKSPACE_, 1, 1);
+    register_fn("DETACH",   _DETACH_,   1, 1);
+    register_fn("EJECT",    _EJECT_,    1, 1);
+    register_fn("REWIND",   _REWIND_,   1, 1);
     register_fn("APPLY",    _APPLY_,    1, 9);
     register_fn("LPAD",     _LPAD_,     2, 3);
     register_fn("RPAD",     _RPAD_,     2, 3);
@@ -3001,6 +3009,48 @@ static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
             if (e && e > p + 2) { if (k == 'f') *fd = v; else *rlen = v; p = e - 1; }
         }
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* SPITBOL Ch.19 I/O quartet (row conform-io-four-functions-unimplemented, 2026-08-27): channel arg by number like ENDFILE; BACKSPACE also accepts the associated NAME per the manual. Witness-verified against sbl -bf. */
+static DESCR_t _REWIND_(DESCR_t *a, int n) {
+    if (n < 1) return NULVCL;
+    _io_chan_setup();
+    int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
+    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp) { rewind(_io_chan[ch].fp); clearerr(_io_chan[ch].fp); }
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _EJECT_(DESCR_t *a, int n) {
+    if (n < 1) return NULVCL;
+    _io_chan_setup();
+    int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
+    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp && _io_chan[ch].is_output) fputs("\f\n", _io_chan[ch].fp);
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _BACKSPACE_(DESCR_t *a, int n) {
+    if (n < 1) return NULVCL;
+    _io_chan_setup();
+    int ch = -1;
+    if (IS_INT(a[0])) ch = (int)a[0].i;
+    else { const char *vn = _io_varname(a[0]); if (vn) ch = _io_chan_find_by_var(vn); }
+    if (ch < 0 || ch >= IO_CHAN_MAX || !_io_chan[ch].fp) return NULVCL;
+    { FILE *fp = _io_chan[ch].fp;
+      long pos = ftell(fp);
+      if (pos <= 0) return NULVCL;
+      { long p = pos - 1;                                                                                  /* last consumed byte: the record's terminating newline, usually */
+        { int c; fseek(fp, p, SEEK_SET); c = fgetc(fp); if (c == '\n') p--; }
+        while (p >= 0) { int c; fseek(fp, p, SEEK_SET); c = fgetc(fp); if (c == '\n') break; p--; }
+        fseek(fp, p + 1, SEEK_SET); clearerr(fp); } }
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _DETACH_(DESCR_t *a, int n) {
+    if (n < 1) return NULVCL;
+    _io_chan_setup();
+    { const char *vn = _io_varname(a[0]);
+      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) _io_chan[ch].varname = NULL; } }            /* association cleared; the channel stays open for ENDFILE -- SPITBOL detach semantics */
+    return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
