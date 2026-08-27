@@ -17,7 +17,18 @@
 #                                Replays grade(): PASS iff output == pinned .ref OR == live arm (live counts
 #                                only when the oracle exited 0).  Reports m3 and m4 before -> after.
 #
-# ⛔ corpus/lon/ IS OFF LIMITS (RULES.md ABSOLUTE RULES; Lon s186).  TWO INDEPENDENT LOCKS: the
+# ⛔⭐ THE lon EXCLUSION HERE IS CORRECT, BUT ITS STATED REASON IS RETRACTED -- READ THIS BEFORE CITING THE LINE BELOW.
+# ⭐ WHAT LON ACTUALLY RULED, 2026-08-27, in-chat to CEO, verbatim in substance: "Do not use the lon_cherryholmes folder as runtime tests.  Use them for parser tests
+# all day long.  And in fact, all the corpus/programs need work and cannot be converted to tests currently."  Mechanically: PARSER TESTS unrestricted; RUNTIME AND
+# SCORED BOARDS no; the whole corpus/programs/ tree (EBNF, lon_cherryholmes, TZ) is not convertible to tests currently.  Reading, compiling, running BY HAND, citing
+# and measuring all stay free -- the restriction is solely about installing these programs AS TESTS.  Authority: RULES.md ABSOLUTE RULES, the lon_cherryholmes block.
+# ⭐ THIS SWEEP EXECUTES PROGRAMS: it runs the live oracle as `"$SBL" -b/-bf ... "$prog"` (three arms, 60s timeout each), so it is a RUNTIME harness, and runtime is
+# exactly what Lon closed.  The exclusion therefore STANDS on the 2026-08-27 ruling -- not on the s186 off-limits law, which Lon RETRACTED at s269 ("I retract all of
+# it").  ⛔ A compile-only sweep would be a PARSER test and unrestricted; this one is not.  Do not copy this guard into a compile-only harness by analogy.
+# ⚠️ KNOWN, NOT CURED HERE (hq_P 2026-08-27, comment-only commit): the guard's pattern is `*/programs/lon/*` and the tree was renamed to `programs/lon_cherryholmes/`
+# by the s272 re-grid, so IT NO LONGER MATCHES AND HAS BEEN SILENTLY INERT SINCE.  ⛔ A guard keyed on a NAME is not a guard, it is a coincidence.  Repairing it is a
+# BEHAVIOURAL change and this commit is comment-only by grant (hq_C, ceo) -- it needs its own attributed commit with measured, re-pinned totals.
+# ⛔ HISTORICAL, SUPERSEDED, KEPT FOR THE RECORD ONLY: corpus/lon/ IS OFF LIMITS (RULES.md ABSOLUTE RULES; Lon s186).  TWO INDEPENDENT LOCKS: the
 #    `lon` suite is not enumerated at all, AND every program path is re-checked before it is run.  This
 #    script is therefore usable where scorecard_snobol4.sh currently is not.
 # ⛔ ^iters:/^ms: lines are deleted from every arm before hashing (the scorecard's own norm=ms rule).

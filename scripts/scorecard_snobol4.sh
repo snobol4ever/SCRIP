@@ -56,13 +56,27 @@ gimpel          5 packages/snobol4/gimpel                                     -n
 misc            3 MISC                                                -name *.sno                SELFDIR      20 -
 EOF
 )
-# ⛔ LON IS EXCLUDED STRUCTURALLY, NOT SKIPPED AT RUN TIME (Lon in-chat 2026-08-20, via HQ; row `scorecard-drop-lon`, s189).  Lon ruled "We'll not run any lon
+# ⛔ lon_cherryholmes IS EXCLUDED STRUCTURALLY, NOT SKIPPED AT RUN TIME -- ⚠️ BUT THE REASON BELOW IS HISTORY, NOT LAW.  READ THE 2026-08-27 RULING FIRST.
+# ⭐ WHAT LON ACTUALLY RULED, 2026-08-27, in-chat to CEO, verbatim in substance: "Do not use the lon_cherryholmes folder as runtime tests.  Use them for parser tests
+# all day long.  And in fact, all the corpus/programs need work and cannot be converted to tests currently."  Mechanically: PARSER TESTS unrestricted; RUNTIME AND
+# SCORED BOARDS no; the whole corpus/programs/ tree (EBNF, lon_cherryholmes, TZ) is not convertible to tests currently.  Reading, compiling, running BY HAND, citing
+# and measuring all stay free -- the restriction is solely about installing these programs AS TESTS.  Authority: RULES.md ABSOLUTE RULES, the lon_cherryholmes block.
+# ⛔ THE OLD OFF-LIMITS LAW IS RETRACTED (Lon s269, RULES.md: "Remove all references to the lon folder being special.  I retract all of it.").  Do NOT re-derive an
+# access restriction from this guard's continued existence -- the guard survives on the SCORING ruling above, not on the retracted one below.  A harness that outlives
+# its stated reason is how a dead law keeps enforcing itself; this comment exists so the next reader cannot make that inference.
+# ⭐ THE MEASURED GROUND FOR KEEPING IT OUT (hq_P 2026-08-27): of the 99 .sno, mode-4 compile is ok=24 / FAIL=75, and 24 of those 75 name -INCLUDE files (Trace.sno x22,
+# host.sno x2) that EXIST NOWHERE IN corpus -- a permanent red floor no compiler work can ever clear.  Scoring it would move the board from FAIL=0 to +75 reds.
+# ⛔ HISTORICAL, SUPERSEDED, KEPT FOR THE s189 RECORD ONLY: (Lon in-chat 2026-08-20, via HQ; row `scorecard-drop-lon`, s189) Lon ruled "We'll not run any lon
 # programs" over ALL of corpus/lon/, and until s189 this script still executed that suite through run_one in BOTH engines and BOTH modes -- so RUNNING THE SNOBOL4
 # SCORECARD WAS ITSELF AN INSTANCE OF THE VIOLATION (found by seat1 s185, .github 93aca5c8).  The `lon 5 lon ...` row is DELETED from the table above rather than
 # filtered at run time, because a run-time skip is re-openable by anyone passing --suites lon; a deleted row is not.  The guard below closes the other door: no suite may
 # name that tree by ROOT or by LIB, so re-adding the row -- or quietly pointing some other suite's include path at it -- fails the script instead of running the programs.
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
-# ⛔ OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do not run, do not read into a transcript, do not scan, never delete).
+# ⭐ AND THE QUESTION IS NOW MOOT, NOT MERELY PENDING (Lon 2026-08-27): no scored row returns, so there are no lon points to place.  The 5 stay UNALLOCATED and the
+# declared total STAYS 113.  This reservation stands; re-opening it needs a NEW Lon ruling, never an inference from the s269 access retraction.
+# ⛔⭐ THE LINE THAT WAS HERE IS RETRACTED AND MUST NOT BE RESTORED: it read "OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do
+# not run, do not read into a transcript, do not scan, never delete)".  ⛔ THAT LAW IS VOID (Lon s269) AND THE PATH IN IT NEVER EXISTED HERE (the tree is
+# corpus/programs/lon_cherryholmes/).  Read it, scan it, quote it, compile it freely.  Only TESTS and SCORED BOARDS are closed.
 case "$SUITES" in *programs/lon*) echo "⛔ scorecard_snobol4.sh: the suite table names lon -- Lon ruled that tree is not to be run. Remove the entry; do not skip it at run time." >&2; exit 2;; esac
 # ⛔ SINGLE AUTHORITY (row `suite-table-one-authority`, s191/hq_C V2-2): this SUITES table is the ONLY
 # copy.  util_oracle_flag_sweep.sh no longer keeps its own -- it extracts this exact table at run time
