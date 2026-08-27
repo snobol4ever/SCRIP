@@ -101,6 +101,43 @@ s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;
     seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_C|hq_P|ceo) return 0;; *) return 1;; esac; }
+# ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
+# `donewhen-decorated-noop-evasion`; the gate `test_gate_baton_donewhen_runnable.sh` carries the identical
+# fix and the full rationale). Strips a trailing shell comment the way bash itself would -- quote-aware: a
+# `#` starts a comment only when it is outside any quoting and at the start of a word -- WITHOUT ever
+# executing its argument. Used so `done`'s blocklist judges `exit 0 # nothing to verify` by what it reduces
+# to (`exit 0`), not by its undigested text.
+s4e_strip_donewhen_comment() {
+    awk '
+    {
+        line = $0; out = ""; state = 0; n = length(line); i = 1
+        while (i <= n) {
+            c = substr(line, i, 1)
+            if (state == 1) {
+                out = out c
+                if (c == "\047") state = 0
+                i++; continue
+            }
+            if (state == 2) {
+                if (c == "\\" && i < n) { out = out c substr(line, i + 1, 1); i += 2; continue }
+                out = out c
+                if (c == "\"") state = 0
+                i++; continue
+            }
+            if (c == "\\" && i < n) { out = out c substr(line, i + 1, 1); i += 2; continue }
+            if (c == "\047") { state = 1; out = out c; i++; continue }
+            if (c == "\"") { state = 2; out = out c; i++; continue }
+            if (c == "#") {
+                prev = (i == 1) ? " " : substr(line, i - 1, 1)
+                if (prev == " " || prev == "\t") break
+                out = out c; i++; continue
+            }
+            out = out c; i++
+        }
+        sub(/[ \t]+$/, "", out)
+        print out
+    }'
+}
 # age in whole minutes of the oldest .msg in a mailbox; empty when the box is clear.
 s4e_oldest_min() { _old=""; for _f in "$PO/$1/inbox"/*.msg; do [ -f "$_f" ] || continue
     _m=$(( ( $(date +%s) - $(stat -c %Y "$_f" 2>/dev/null || echo 0) ) / 60 ))
@@ -285,6 +322,31 @@ case "$cmd" in
                     printf '⛔ REFUSED: the DONE-WHEN in %s is a shell no-op (%s). It certifies nothing.\n' "$tf" "$dw" >&2
                     printf '   A DONE-WHEN must be a command that EXAMINES the tree and can exit non-zero when the work is not done.\n' >&2
                     exit 1;; esac
+                # ⛔⭐ DECORATED NO-OP EVASION -- THE BLOCKLIST ABOVE ALONE IS NOT ENOUGH (found live, this session,
+                # row `donewhen-decorated-noop-evasion`, while proving out the companion fix in
+                # test_gate_baton_donewhen_runnable.sh). `tr -d '[:space:]'` then exact-match slides past a
+                # trailing comment or a decorative argument -- `exit 0 # nothing to verify` and `: ok, done` are
+                # NOT `exit0`/`:`. The VACUITY PROBE below independently catches those two specific witnesses
+                # (they contain neither `/` nor `$`, so the probe still runs on them) -- but the probe SKIPS
+                # itself whenever `dw` contains `/` or `$` (a path or a variable reference), which a decorated
+                # no-op can easily also contain. REPRODUCED LIVE in a scratch postoffice: `: ok, done # see
+                # /path/to/notes` and `exit 0 # nothing to verify, cf $HOME` both CLOSED THE ROW (exit 0, DONE
+                # appended) under the pre-fix code -- the vacuity probe's own skip condition was the opening.
+                # This check runs BEFORE the vacuity probe and does not depend on it: same comment-stripping,
+                # same args-tolerant true/:/only-slash-true family, same bare-`echo` refusal as the gate script.
+                dw_nc="$(printf '%s\n' "$dw" | s4e_strip_donewhen_comment)"
+                dw_norm="$(printf '%s' "$dw_nc" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')"
+                if ! printf '%s' "$dw_norm" | grep -qE '[;|&`]|\$\('; then
+                  _dw_first="$(printf '%s' "$dw_norm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')"
+                  _dw_noop=0
+                  case "$dw_norm" in ""|"exit 0"|exit0) _dw_noop=1 ;; esac
+                  case "$_dw_first" in true|:|/bin/true|/usr/bin/true|echo) _dw_noop=1 ;; esac
+                  if [ "$_dw_noop" = "1" ]; then
+                    printf '⛔ REFUSED: the DONE-WHEN in %s is a decorated shell no-op (%s -> reduces to: %s). It certifies nothing.\n' "$tf" "$dw" "$dw_norm" >&2
+                    printf '   A DONE-WHEN must be a command that EXAMINES the tree and can exit non-zero when the work is not done.\n' >&2
+                    exit 1
+                  fi
+                fi
                 # VACUITY PROBE, borrowed from hq_P V2-5: run it in an EMPTY scratch directory. A criterion that
                 # passes with nothing to examine is not examining anything. Skipped when the command names an
                 # absolute path, because those legitimately still resolve from anywhere.
