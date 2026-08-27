@@ -288,13 +288,35 @@ case "$cmd" in
                   # beginning with `cd` — a natural and common way to write one — died with "timeout: failed to run
                   # command 'cd'" and exit 127, making that row permanently uncloseable. My own certifier rejecting
                   # valid work. Found by running all 86 live criteria from the CWD `done` actually uses.
-                  if ( cd "$S4E" && timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >/dev/null 2>&1; then
+                  # ⭐⭐ THE OUTPUT IS CAPTURED, NOT DISCARDED (hq_C 2026-08-27, proposed to ceo and approved; CEO-30).
+                  # A MUTE CORRECT GATE IS ITS OWN DEFECT CLASS. This refusal used to print ONLY the exit code, so
+                  # "DONE-WHEN exited 2" meant "work unfinished" OR "scrip binary missing" OR "path wrong" OR "corpus
+                  # subtree moved" -- indistinguishable. MEASURED COST: hq_C's own row refused three times in one
+                  # session; two cycles went to a WRONG hypothesis (CWD anchoring, which seat10 had just legitimately
+                  # fixed elsewhere and was sitting in the BOARD as a ready-made plausible cause) before the real cause
+                  # turned out to be a vanished ./scrip binary -- itself the Stop-hook pristine race, diagnosed the
+                  # same day. hq_P hit the identical shape from the other side with a different wrong hypothesis.
+                  # ⛔ A MUTE GATE PLUS A PLAUSIBLE NEARBY CULPRIT DOES NOT MERELY FAIL TO NAME THE CAUSE -- IT POINTS
+                  # SOMEWHERE ELSE. The criterion's own stderr said "REFUSED TO GRADE: scrip not built at ..." the whole
+                  # time; nothing was broken except that nobody could see it. Changes no verdict, weakens no gate, and
+                  # has no false-green path: it only makes a correct refusal legible.
+                  _dwlog="$(mktemp)"
+                  if ( cd "$S4E" && timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >"$_dwlog" 2>&1; then
+                    rm -f "$_dwlog"
                     printf '  ✅ DONE-WHEN exited 0 — completion is COMPUTED, not claimed.\n'
                   else
                     rc=$?
                     printf '\n⛔⛔⛔ NOT DONE — the task DONE-WHEN exited %s. The claim is UNCHANGED and the row stays open.\n' "$rc" >&2
                     printf '    command : %s\n' "$dw" >&2
                     printf '    task    : %s\n' "$tf" >&2
+                    if [ -s "$_dwlog" ]; then
+                      printf '    ⭐ WHAT THE CRITERION ITSELF SAID (last 20 lines) -- read this BEFORE hypothesising:\n' >&2
+                      sed -e 's/^/    | /' "$_dwlog" | tail -20 >&2
+                    else
+                      printf '    ⚠ the criterion produced NO output at all -- that is itself a clue: a silent non-zero is\n' >&2
+                      printf '      usually a test that never ran (missing file, bad path, rc=127) rather than one that failed.\n' >&2
+                    fi
+                    rm -f "$_dwlog"
                     printf '    If the DONE-WHEN itself is WRONG, that is a real finding: fix it in the task file and say so\n' >&2
                     printf '    in the LEDGER, or re-run with S4E_DONE_OVERRIDE="why" which records the reason in the claim.\n' >&2
                     printf '    ⛔ Do NOT weaken a DONE-WHEN to make it pass -- that is the false-green trap this gate exists to stop.\n\n' >&2
