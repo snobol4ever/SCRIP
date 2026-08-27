@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_no_c_to_bb.sh — NCB-0 gate: enumerate every C→BB transfer outside the sanctioned MAIN sites.
-# CONVENTION (GOAL-SNOBOL4-BB.md Phase 1 / ARCH-ZETA-LOCAL-STORAGE.md §7c, Lon s22): mode 3 has exactly ONE
+# CONVENTION (GOAL-SNOBOL4-100.md Phase 1 / ARCH-ENGINE.md § ζ Local Storage, Lon s22): mode 3 has exactly ONE
 # C→BB transfer — the driver MAIN branch; C runtime helpers are STRICT LEAVES (BB calls C, C returns, C never
 # calls/jmps a BB); mode 4 entry is main = the emitted graph. SANCTIONED SITES (excluded below):
 #   src/driver/scrip.c        function main            — TWO mutually-exclusive MAIN branches per run

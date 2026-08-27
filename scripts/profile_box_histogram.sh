@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # profile_box_histogram.sh — THE STANDARD PER-BOX WALL-COST HISTOGRAM (s143).
-# Full method + interpretation guide: .github/ARCH-PROFILE-BOX-HISTOGRAM.md
+# Full method + interpretation guide: .github/ARCH-ENGINE.md
 #
 # Compiles a .sno to mode-4, runs callgrind at INSTRUCTION granularity with
 # cache+branch sims, joins instruction addresses against the binary's nm t/T
