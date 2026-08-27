@@ -2597,6 +2597,7 @@ extern "C" void xa_flat_chain_epilogue(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
+    bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
     int _top_hoist = 0;
     int _flt_hoisted[4] = {0, 0, 0, 0};
     int _flt_uid_burn[4] = {0, 0, 0, 0};
@@ -2609,7 +2610,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_res,     "%s_res",     fam);
     int bare = g_emit.flat_bare_chain;
     if (strncmp(prefix, "proc_LBL__", 10) == 0) emit_label_initf(&lbl_α, "%s", prefix + 5);
-    else if (strncmp(prefix, "proc_", 5) == 0 && !bare) emit_label_initf(&lbl_α, "FN__%s", prefix + 5);
+    else if (strncmp(prefix, "proc_", 5) == 0 && !bare) {
+        emit_label_initf(&lbl_α, "FN__%s", prefix + 5);
+        /* the FN__ rename above drops the plain "%s_α" identity that bb_ab_seal_entry_cells (mode-3, via the global g_label_pool)
+           and the linked text-mode call/tiny-shim sites both still address by that exact name -- keep it alive as an alias,
+           heap-registered (not a stack bb_label_t) so emit_label_lookup_offset's g_label_pool scan can find it. */
+        lbl_α_orig_p = emit_label_alloc("%s_α", prefix + 5);
+    }
     int fn_face_dead = bare && strncmp(prefix, "proc_", 5) == 0 && strncmp(prefix, "proc_LBL__", 10) != 0;
     if (bare) { emit_label_initf(&lbl_γ, "main_\xcf\x89"); emit_label_initf(&lbl_ω, "main_\xcf\x89"); emit_label_initf(&lbl_β, "main_\xcf\x89"); emit_label_initf(&lbl_res, "main_\xcf\x89"); }
     int text_externalise = g_is_text ? 1 : 0;
@@ -2833,6 +2840,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
+    if (lbl_α_orig_p) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12")));
