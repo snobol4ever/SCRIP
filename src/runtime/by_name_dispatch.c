@@ -5317,6 +5317,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
        function directly.  Scoped to the fourteen names whose _bid the switch below ALREADY re-checks explicitly
        (SIZE..DIFFER) -- the relop family (EQ/NE/LT/LE/GT/GE/LGT/LLT/LGE/LLE/LEQ/LNE) has NO builtin_ids.h entry at
        all (grepped, zero hits), so bid_of() bakes 0 for them and they fall through unchanged to the hash-path cache.
+       ⭐ EXTENDED TO SNO$NAME (perf-dispatch-fastpath-name-indirect, s276).  SNO$NAME (BID_SNOx24NAME) is bid-eligible
+       but MONADIC, not niladic, and unlike the fourteen above it NEVER gets a g_dtax_bid cache write at all (its own
+       case arm in the _fl>=2&&_fl<=8 switch below calls bn_sno_name directly with no dtx4/dtx5 call) -- every
+       $-indirection call was paying this whole cache-probe machinery for a slot that can never hit. STEP 1 verified:
+       (a) bn_sno_name -> rt_sno_indirect_name CAN reach core_runtime_error (core.c, via kwb_error(239,...) when the
+       indirect operand is not a name) -> longjmp(g_core_errjmp_stk[...]) under Icon &error trapping, the SAME hazard
+       class as bn_remdr above; safe for the identical reason -- this fast path never leaves
+       try_call_builtin_by_name_bl, itself reached only from inside rt_call_arr_bl's setjmp-protected region, so the
+       longjmp still targets THIS call's own frame. (b) runs after the SAME DT_DATA block above, unchanged. ⛔ UNLIKE
+       the other fourteen this arm KEEPS an explicit nargs==1 guard: the pre-existing slow-path arms for SNO$NAME (the
+       _fl-switch case below, and L_bidjmp_6468) both check nargs==1 before calling bn_sno_name and fall through to
+       "unhandled" otherwise -- preserved here rather than assumed unreachable.
        ⛔ ORDER MATTERS, TWICE: (a) runs AFTER the DT_DATA field-precedence block above -- a record field literally
        named SIZE/TRIM/... still wins, unchanged; (b) this function is reached ONLY from rt_call_arr_impl, itself
        reached ONLY from inside rt_call_arr_bl's setjmp-protected region (no other caller in the tree) -- so a
@@ -5350,6 +5362,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (_fb == BID_TIME)    return bn_time(args, nargs, out);
         if (_fb == BID_IDENT)   return bn_identdiffer(args, nargs, out, 1);
         if (_fb == BID_DIFFER)  return bn_identdiffer(args, nargs, out, 0);
+        if (_fb == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out);
     }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
