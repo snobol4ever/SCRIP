@@ -334,7 +334,21 @@ case "$cmd" in
                   # time; nothing was broken except that nobody could see it. Changes no verdict, weakens no gate, and
                   # has no false-green path: it only makes a correct refusal legible.
                   _dwlog="$(mktemp)"
-                  if ( cd "$S4E" && timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >"$_dwlog" 2>&1; then
+                  # ⛔⭐ S4E_HOME IS EXPORTED INTO THE CRITERION, AND WITHOUT THIS 11 LIVE ROWS COULD NEVER CLOSE
+                  # (hq_C 2026-08-27, found closing srcreorg-ladder). `S4E` is derived here as "${S4E_HOME:-<from $0>}"
+                  # -- an INPUT variable, never exported -- so a DONE-WHEN written as `cd "$S4E_HOME/SCRIP" && ...`,
+                  # which 11 task files use and which reads as the obviously-correct portable idiom, expanded to the
+                  # EMPTY STRING and ran `cd /SCRIP`. ⛔ THE REAL DEFECT IS NOT THAT IT FAILED, IT IS THAT IT FAILED
+                  # CONDITIONALLY: a seat whose shell happened to export S4E_HOME graded its own tree and closed the
+                  # row, and a seat without it got "No such file or directory" on the identical criterion and identical
+                  # tree. rtx29-standdown closed exactly that way. A verdict that depends on the grader's environment
+                  # is not a verdict, and it is invisible from either side -- the seat that closes sees nothing wrong,
+                  # and the seat that is refused blames its own work. Exported, every criterion resolves against the
+                  # LOCKING SEAT'S OWN ROOT, deterministically, for everyone. ⛔ Deliberately NOT exported into the
+                  # vacuity probe above: that one must run starved in an empty dir, and handing it a real root is
+                  # precisely what would let a vacuous criterion find something to pass on. (Moot today -- the probe
+                  # skips anything containing '$' -- but the reason it stays that way belongs written down.)
+                  if ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >"$_dwlog" 2>&1; then
                     rm -f "$_dwlog"
                     printf '  ✅ DONE-WHEN exited 0 — completion is COMPUTED, not claimed.\n'
                   else
