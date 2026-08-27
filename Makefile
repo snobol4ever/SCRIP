@@ -159,6 +159,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_deref.cpp \
     $(SRC)/templates/bb/bb_random.cpp \
     $(SRC)/templates/bb/bb_assign_var.cpp \
+    $(SRC)/templates/bb/bb_assign_var_sub.cpp \
     $(SRC)/templates/bb/bb_rev_assign_var.cpp \
     $(SRC)/templates/bb/bb_var_ref.cpp \
     $(SRC)/templates/bb/bb_goto.cpp \

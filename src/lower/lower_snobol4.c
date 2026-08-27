@@ -136,6 +136,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sx_sub_container_only(IR_t * sub) { const char * e = getenv("SCRIP_SUB_AGG"); if (!(e && *e == '0')) IR_LIT(sub).sval = "container-only"; }
 static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res);
+static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res, IR_t ** fuse_base, IR_t ** fuse_idx);
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -574,12 +575,21 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return e1;
         }
         if (L->t == TT_IDX && L->n >= 2) {
-            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(cx, L->c[0], (const tree_t * const *) &L->c[1], L->n - 1, ω, &vr);
+            IR_t * vr = NULL, * fb = NULL, * fi = NULL;
+            IR_t * e1 = sx_subscript_lv_fused(cx, L->c[0], (const tree_t * const *) &L->c[1], L->n - 1, ω, &vr, &fb, &fi);
             IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
-            lc_γ_to(vr, e2);
-            IR_t * asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
-            lc_γ_to(vv, asn);
-            ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            IR_t * asn;
+            if (fb) {
+                lc_γ_to(fi, e2);
+                asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
+            } else {
+                lc_γ_to(vr, e2);
+                asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            }
             if (res) *res = asn;
             return e1;
         }
@@ -945,6 +955,28 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
         }
     }
     if (var_res) *var_res = cur;
+    return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐ row perf-table-subscript-fastpath lever 2 (seat12, 2026-08-27): T[I]=v's single-index lvalue shape only -- see
+   c_rt_subscript_assign_var (pattern_match.c) for what this buys and why it is safe. Deliberately narrow: nidx==1 is
+   the ONLY shape handled here (matches table_access.sno/array_sum.sno exactly, and is the common case generally);
+   nidx==2 (a[i,j]) and nidx>1 (nested a[i][j]) fall straight through to the unchanged sx_subscript_lv, unfused,
+   byte-identical to before this row -- same call, same return, nothing about their codegen moves. When fusion
+   applies, *var_res is left NULL (the caller's signal that no mint box was built) and *fuse_base/*fuse_idx carry the
+   base/index value nodes directly -- the same two nodes sx_subscript_lv's own IR_SUBSCRIPT would have operand-pushed,
+   here left for the caller to push onto a 3-operand IR_ASSIGN_VAR instead. No IR_SUBSCRIPT node is built or wired in
+   this arm -- not built-then-discarded, never allocated at all -- so there is no orphaned node and nothing to unwire.
+   Killswitch SCRIP_SUBASSIGN_FUSE, default on, same getenv-at-lower-time idiom as sx_sub_container_only above (no new
+   global -- read fresh, cached nowhere). */
+static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res, IR_t ** fuse_base, IR_t ** fuse_idx) {
+    const char * e = getenv("SCRIP_SUBASSIGN_FUSE");
+    if (nidx != 1 || (e && *e == '0')) return sx_subscript_lv(cx, base, idxs, nidx, ω, var_res);
+    IR_t * br = NULL; IR_t * entry = sx_lower(cx, base, NULL, ω, &br);
+    IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[0], NULL, ω, &ir);
+    lc_γ_to(br, ie);
+    *fuse_base = br; *fuse_idx = ir;
+    if (var_res) *var_res = NULL;
     return entry;
 }
 extern int ir_is_generator_kind(IR_e t);
@@ -2205,12 +2237,21 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             continue;
         }
         if (subj->t == TT_IDX && subj->n >= 2) {
-            IR_t * vr = NULL; IR_t * e1 = sx_subscript_lv(&cx, subj->c[0], (const tree_t * const *) &subj->c[1], subj->n - 1, fA, &vr);
+            IR_t * vr = NULL, * fb = NULL, * fi = NULL;
+            IR_t * e1 = sx_subscript_lv_fused(&cx, subj->c[0], (const tree_t * const *) &subj->c[1], subj->n - 1, fA, &vr, &fb, &fi);
             IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
-            lc_γ_to(vr, e2);
-            IR_t * asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
-            lc_γ_to(vv, asn);
-            ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            IR_t * asn;
+            if (fb) {
+                lc_γ_to(fi, e2);
+                asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
+            } else {
+                lc_γ_to(vr, e2);
+                asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
+                lc_γ_to(vv, asn);
+                ir_operand_push(asn, vr); ir_operand_push(asn, vv);
+            }
             lc_γ_to(anchor[i], e1);
             continue;
         }

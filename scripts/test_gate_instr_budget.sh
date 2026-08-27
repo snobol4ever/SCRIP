@@ -130,7 +130,9 @@ ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
 BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1897159187}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
-TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-12986443}"
+# TABLE_ACCESS re-pinned 2026-08-27 (seat12, row perf-table-subscript-fastpath lever 2, post subscript+assign fusion
+# for T[I]=v -- bb_assign_var_sub.cpp/c_rt_table_assign_fast): 12986443 -> 11879659.  Reproduced twice, identical.
+TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-11879659}"
 ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-10912565}"
 
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }

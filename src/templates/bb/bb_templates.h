@@ -52,6 +52,7 @@ std::string bb_deref();
 std::string bb_random();
 std::string bb_var_ref();
 std::string bb_assign_var();
+std::string bb_assign_var_sub();
 std::string bb_rev_assign_var();
 std::string bb_goto();
 std::string bb_bound();

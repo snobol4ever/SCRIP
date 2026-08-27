@@ -1209,7 +1209,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                              : bb_section()); return 0;
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
-    case IR_ASSIGN_VAR:           bb_emit_x86(bb_assign_var());     return 0;
+    case IR_ASSIGN_VAR:           bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var());     return 0;
     case IR_REV_ASSIGN:                bb_emit_x86(bb_rev_assign());          return 0;
     case IR_REV_SWAP:                  bb_emit_x86(bb_rev_swap());            return 0;
     case IR_REV_ASSIGN_VAR:            bb_emit_x86(bb_rev_assign_var()); return 0;
@@ -1814,6 +1814,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN_VAR: {
+        if (nd->n_operands == 3) {
+            IR_t * b = nd->operands[0]; IR_t * ix = nd->operands[1]; IR_t * v = nd->operands[2];
+            int sb2 = b ? drive_value_slot(b) : -1; int si = ix ? drive_value_slot(ix) : -1; int sv = v ? drive_value_slot(v) : -1;
+            if (sb2 < 0 || si < 0 || sv < 0) { drive_unowned(nd); break; }
+            g_emit.op_a_slot = sb2; g_emit.op_sa = si; g_emit.op_sb = sv; g_emit.op_off = drive_value_slot(nd);
+            DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+        }
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
         IR_t * r = nd->n_operands > 1 ? nd->operands[1] : NULL;
         int sa = v ? drive_value_slot(v) : -1; int sb = r ? drive_value_slot(r) : -1;
@@ -2145,7 +2152,7 @@ static int zd_nops(IR_t * nd) { int op = (int)nd->op;
     if (op == IR_CALL_PROC_STAGED && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_SUSPEND && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_KEYWORD_ASSIGN_SNOBOL4) return 1;
-    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_ASSIGN_VAR || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_BUILTIN_ICON || op == IR_CALL_BUILTIN_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
+    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_BUILTIN_ICON || op == IR_CALL_BUILTIN_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_match_begin_stfh_k_raw(void) {

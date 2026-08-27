@@ -1332,6 +1332,37 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     return rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*⭐ row perf-table-subscript-fastpath lever 2 (seat12, 2026-08-27): T[I]=v (SNOBOL4 shape, base already deref'd) fuses the mint+store
+   round trip. RTX-31/RTX-NEW-ICNVAR (2026-08-24, this row's own lever 1) already proved that for a DT_T base the mint
+   (rt_subscript_var) does NO lookup -- it is seven VCELL field stores, cellp=0/tbl=tb/key_d=idx -- and rt_assign_var's own
+   .Lav_table_store arm immediately unpacks exactly those two fields back out and calls table_set_descr_d(tbl,key_d,val)
+   UNCHANGED. So for this one shape the heap-allocated VCELL and both call/ret boundaries around it are pure overhead: this
+   function calls table_set_descr_d directly with no allocation and no intermediate descriptor.
+   PRECONDITION, ENFORCED BY THE CALLER, NOT RE-CHECKED HERE (bb_assign_var_sub.cpp): base.v==DT_T and base.tbl!=0 -- the
+   template tests both INLINE (cmp dil,DT_T / test rsi,rsi) before ever calling this function, so every other base shape
+   (array, DATA, string substring, a VARREF base, a null table) never reaches here at all -- it calls rt_subscript_var then
+   rt_assign_var directly from the template instead (see that file's own header for why: an earlier version of this
+   function did that fallback itself, which added a third wrapper call frame around the same two calls for every non-table
+   write and regressed array_sum.sno's Ir count, caught by test_gate_instr_budget.sh). The one thing this function still
+   checks at runtime is g_gc_pending -- the same provably-safe window rt_assign_var's own asm entry gates its fast arms on
+   (rtx_icnvar.S:72-75): a pending collection could relocate base/idx/val before table_set_descr_d runs, and that window is
+   cheap to fall back out of (base is already known to be a table, so the two-call chain below is doing real, needed work,
+   not wrapper overhead). rt_sxt_break is replicated for a DT_S val because every other assignment path (aggregates.c:425,
+   pattern_match.c c_rt_assign_var_body:1518, core.c twice) calls it unconditionally before the store -- it is a general
+   pre-assignment hook, not something specific to the nametrap/cellp road this function bypasses. Killswitch
+   SCRIP_SUBASSIGN_FUSE (default on) lives in the lowerer (lower_snobol4.c), which is what decides whether IR_ASSIGN_VAR
+   ever carries 3 operands at all -- when it is off, this function is simply dead code, never called. */
+DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
+    extern int g_gc_pending;
+    if (g_gc_pending) {
+        DESCR_t ref = rt_subscript_var(base, idx);
+        if (ref.v == DT_FAIL) return ref;
+        return rt_assign_var(ref, val);
+    }
+    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
+    table_set_descr_d(base.tbl, idx, val); return val;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*⭐ row `table-int-keys-and-nd-subscript` defect (2): a[i,j] on a plain 2-D array lowered to TWO chained single-index
    dispatches (aggregates.c:59-73's array_get2/array_set2 row-major formula existed but nothing in codegen ever called
    it). GUARD DELIBERATELY NARROW, the standard RTX shape: only a deref'd DT_A base with ndim==2 and both indices DT_I,

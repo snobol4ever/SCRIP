@@ -1,0 +1,95 @@
+#include <string>
+#include <stdint.h>
+#include "emit.h"
+extern "C" {
+#include "bb_template_common.h"
+#include "descr.h"
+extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
+extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+}
+#include "x86_asm.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* IR_ASSIGN_VAR, 3-operand fused arm (row perf-table-subscript-fastpath lever 2): base/idx/val wired directly, no
+   intermediate IR_SUBSCRIPT box. base's tag is checked INLINE (cmp dil,DT_T / test rsi,rsi -- the same DT_T-plus-
+   non-null precondition RTX-31 already relies on) so the choice between the two arms costs 4 cheap register-only
+   instructions, not a function call: the DT_T arm calls c_rt_table_assign_fast (one call, no allocation -- see that
+   function, pattern_match.c, for what it does and why it is safe); every other base (array, DATA, string
+   substring, a VARREF base, a null table) falls to rt_subscript_var then rt_assign_var called DIRECTLY from this
+   template -- the exact same two asm entries bb_subscript()+bb_assign_var() call today, inline in THIS box instead
+   of two chained boxes, so a non-table write pays the same two calls it always paid, not a third wrapper frame
+   around them (measured: an earlier version of this box always called one dispatch function that internally
+   re-chained rt_subscript_var+rt_assign_var on the fallback, which added exactly that wrapper frame and regressed
+   array_sum.sno's Ir count -- test_gate_instr_budget.sh caught it). L(0)/L(1) are internal labels, not ports. */
+std::string bb_assign_var_sub() {
+    x86_begin();
+    if (_.op_zres)
+        return x86("comment", "IR_ASSIGN_VAR T[i]=v fused zd")
+             + x86_alpha()
+             + x86("note", ZOPN(0)) + x86("mov",     "rdi", ZOPQ(0, 0))
+             + x86("note", ZOPN(0)) + x86("mov",     "rsi", ZOPQ(0, 8))
+             + x86("note", ZOPN(1)) + x86("mov",     "rdx", ZOPQ(1, 0))
+             + x86("note", ZOPN(1)) + x86("mov",     "rcx", ZOPQ(1, 8))
+             + x86("cmp",     "dil", (long)DT_T)
+             + x86("jne", L(0))
+             + x86("test",    "rsi", "rsi")
+             + x86("je", L(0))
+             + x86("note", ZOPN(2)) + x86("mov",     "r8",  ZOPQ(2, 0))
+             + x86("note", ZOPN(2)) + x86("mov",     "r9",  ZOPQ(2, 8))
+             + x86("call",    "c_rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)c_rt_table_assign_fast)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86_gamma()
+             + x86("def", L(0))
+             + x86("call",    "rt_subscript_var", (uint64_t)(uintptr_t)(void *)rt_subscript_var)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",     "rdi", "rax")
+             + x86("mov",     "rsi", "rdx")
+             + x86("note", ZOPN(2)) + x86("mov",     "rdx", ZOPQ(2, 0))
+             + x86("note", ZOPN(2)) + x86("mov",     "rcx", ZOPQ(2, 8))
+             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86_gamma()
+             + x86_beta_trampoline();
+    return IF(_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0, x86_alpha() + x86_bomb("bb_assign_var_sub: needs own slot + base/idx/value operand slots"))
+         + IF(_.op_off >= 0 && _.op_a_slot >= 0 && _.op_sa >= 0 && _.op_sb >= 0,
+               x86("comment", "IR_ASSIGN_VAR T[i]=v fused")
+             + x86_alpha()
+             + x86("mov",     "rdi", FRQ(_.op_a_slot))
+             + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
+             + x86("mov",     "rdx", FRQ(_.op_sa))
+             + x86("mov",     "rcx", FRQ(_.op_sa + 8))
+             + x86("cmp",     "dil", (long)DT_T)
+             + x86("jne", L(0))
+             + x86("test",    "rsi", "rsi")
+             + x86("je", L(0))
+             + x86("mov",     "r8",  FRQ(_.op_sb))
+             + x86("mov",     "r9",  FRQ(_.op_sb + 8))
+             + x86("call",    "c_rt_table_assign_fast", (uint64_t)(uintptr_t)(void *)c_rt_table_assign_fast)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_gamma()
+             + x86("def", L(0))
+             + x86("call",    "rt_subscript_var", (uint64_t)(uintptr_t)(void *)rt_subscript_var)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",     "rdi", "rax")
+             + x86("mov",     "rsi", "rdx")
+             + x86("mov",     "rdx", FRQ(_.op_sb))
+             + x86("mov",     "rcx", FRQ(_.op_sb + 8))
+             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_gamma()
+             + x86_beta_trampoline());
+}
