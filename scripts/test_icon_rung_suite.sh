@@ -112,15 +112,18 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0 BADEXIT=0
+    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0 BADEXIT=0 MISSING=0
     MODE_FAIL=0
     local icn base name exp got want errf rc want_rc
     errf="$WORK/err.txt"
     for icn in "${FILES[@]}"; do
         exp="${icn%.icn}.expected"
-        [ -f "$exp" ] || continue
         base="${icn%.icn}"
         name=$(basename "$icn" .icn)
+        if [ ! -f "$exp" ]; then
+            [ "$VERBOSE" = 1 ] && echo "MISSING $name (no .expected oracle)"
+            MISSING=$((MISSING+1)); MODE_FAIL=1; continue
+        fi
         if [ -f "${base}.xfail" ]; then
             [ "$VERBOSE" = 1 ] && echo "XFAIL $name"
             XFAIL=$((XFAIL+1)); continue
@@ -173,6 +176,7 @@ run_corpus() {
     if [ "$BADEXIT" -gt 0 ]; then line="$line BADEXIT=$BADEXIT"; total=$((total+BADEXIT)); fi
     line="$line XFAIL=$XFAIL"
     if [ "$REFUSED" -gt 0 ]; then line="$line REFUSED=$REFUSED"; total=$((total+REFUSED)); fi
+    if [ "$MISSING" -gt 0 ]; then line="$line MISSING=$MISSING"; fi
     echo "--- Icon ($mode): $line TOTAL=$total ---"
 }
 

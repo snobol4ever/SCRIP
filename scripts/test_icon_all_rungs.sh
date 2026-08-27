@@ -42,7 +42,7 @@ if [ ! -d "$CORPUS" ]; then
     exit 0
 fi
 
-PASS=0; FAIL=0; XFAIL=0; BADEXIT=0
+PASS=0; FAIL=0; XFAIL=0; BADEXIT=0; MISSING=0
 
 # rung36 per-category tally (sidecar map at corpus/rung36_categories.txt)
 declare -A R36_CAT_P R36_CAT_F R36_CAT_X
@@ -78,10 +78,14 @@ run_one() {
     local icn="$1"
     local tmo="${2:-8}"
     local exp="${icn%.icn}.expected"
-    [ -f "$exp" ] || return 0
     local base="${icn%.icn}"
     local name
     name=$(basename "$icn" .icn)
+    if [ ! -f "$exp" ]; then
+        echo "MISSING $name (no .expected oracle)"
+        MISSING=$((MISSING+1))
+        return 0
+    fi
     if [ -f "${base}.xfail" ]; then
         echo "XFAIL $name"
         XFAIL=$((XFAIL+1))
@@ -159,10 +163,15 @@ echo "--- rung36 by category ---"
     printf "  rung36_%-12s  total=%2d  PASS=%2d  FAIL=%2d  XFAIL=%2d\n" "$cat" "$total" "$p" "$f" "$x"
 done
 
-echo "--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAIL TOTAL=$((PASS+FAIL+BADEXIT+XFAIL)) ---"
+echo "--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAIL MISSING=$MISSING TOTAL=$((PASS+FAIL+BADEXIT+XFAIL)) ---"
 if [ "$BADEXIT" -gt 0 ]; then
     echo "--- BADEXIT = stdout matched .expected but the process exit status did not. Before hq_P s272 these"
     echo "--- counted as PASS (rc was discarded), which is why this board previously read PASS=$((PASS+BADEXIT))."
     echo "--- This is NOT a regression: it is the same tree, graded on exit status for the first time."
 fi
-[ "$FAIL" -eq 0 ] && [ "$BADEXIT" -eq 0 ]
+if [ "$MISSING" -gt 0 ]; then
+    echo "--- MISSING = a .icn with no .expected oracle at all -- previously invisible (counted in nothing,"
+    echo "--- board stayed green). Give it an oracle or an .xfail marker; see FINDING/mail"
+    echo "--- ruling-xfail-stays-loose-and-your-2-files-are-a-runner-defect."
+fi
+[ "$FAIL" -eq 0 ] && [ "$BADEXIT" -eq 0 ] && [ "$MISSING" -eq 0 ]
