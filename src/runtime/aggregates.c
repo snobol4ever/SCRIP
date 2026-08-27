@@ -422,7 +422,10 @@ static void _tbl_rehash(TBBLK_t *tbl) {
   subscripted never builds a single key string. */
 void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (!tbl) return;
-    { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
+    /*⭐ always_inline fast path, row perf-sxt-break-unconditional-call-tax precedent (gc_heap.h) -- same
+      global (g_sxt_owner), same no-allocation body, safety re-derived, not assumed: see FINDING and
+      this row's LEDGER. Was an unconditional real-symbol PLT call on every string-valued table write. */
+    if (val.v == DT_S) rt_sxt_break_fast(val.s);
     unsigned long long h = _tbl_hkey(k);
     unsigned bi = TBL_BUCKET_OF(tbl, h);
     TBBUCK_t *b = tbl->buckets[bi];
