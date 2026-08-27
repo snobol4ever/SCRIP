@@ -554,10 +554,28 @@ int rt_proc_unregister(const char *name)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* name has no g_rt_gen_procs entry of its own -- it may be an OPSYN/DEFINE alias resolved only through
+   _func_buckets (register_fn_alias). Redirect through its entry_label, mirroring _usercall_hook's own
+   retry, instead of duplicating alias state into g_rt_gen_procs (that duplication is what caused a
+   SIGSEGV in a prior, reverted attempt at this fix -- see FINDING-2026-08-27-seat06-opsyn-rebind-two-
+   dispatch-paths-disagree-attempted-fix-reverted.md). Shared by every compiled-code accessor that reads
+   g_rt_gen_procs by name for an actual call (rt_proc_call_open/rt_proc_fn/rt_proc_jmp_entry always fire
+   together at a by-name call site, per bb_call_proc_staged.cpp) so none of them can disagree with the
+   others about whether/where an alias resolves. */
+static rt_proc_t *rt_proc_find_alias(const char *name)
+{
+    extern int FNCEX_fn(const char *name);
+    extern const char *FUNC_ENTRY_fn(const char *fname);
+    if (!FNCEX_fn(name)) return (rt_proc_t *)0;
+    const char *ent = FUNC_ENTRY_fn(name);
+    return (ent && strcmp(ent, name) != 0) ? rt_proc_find(ent) : (rt_proc_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_jmp_entry(const char *name)
 {
     if (!name) return 0;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].jmp_entry; }
+    { rt_proc_t *p = rt_proc_find_alias(name); if (p) return p->jmp_entry; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -565,6 +583,7 @@ void *rt_proc_fn(const char *name)
 {
     if (!name) return (void *)0;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
+    { rt_proc_t *p = rt_proc_find_alias(name); if (p) return (void *)p->fn; }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1274,7 +1293,11 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
 {
     rt_k_level--;
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p && name) p = rt_proc_find_alias(name);
     if (!p) return failed ? FAILDESCR : NULVCL;
+    /* rname/p->name is the REAL target's own name (e.g. "twice"), not the alias the call site used
+       ("double") -- load-bearing: SNOBOL4's return convention reads the variable named after the
+       procedure itself, which the callee body set under its OWN name, never the alias. */
     const char *rname = p->result_name ? p->result_name : p->name;
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
@@ -1533,6 +1556,7 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 long rt_proc_call_open(const char *name, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p && name) p = rt_proc_find_alias(name);
     if (!p || !p->fn) return 0;
     int wn = rt_g_want_name; rt_g_want_name = 0;
     if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);

@@ -1758,6 +1758,11 @@ void core_lib_init(void) {
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
+    /* mode-4 standalone binaries have no scrip.c main() to wire this -- without it, any by-name dispatch
+       that misses g_rt_gen_procs (OPSYN aliases resolved only through _func_buckets) silently returns
+       NULVCL instead of reaching _usercall_hook's alias retry. Guarded so scrip.c's own explicit wiring
+       (driver/mode-3) is untouched. */
+    if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs); g_user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -2785,8 +2790,12 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->nlocals = old_entry->nlocals;
         fe->locals  = old_entry->locals;
     } else {
+        /* oldname has no _func_buckets entry of its own (e.g. a statically-compiled proc that was never
+           also runtime-DEFINE()'d) -- entry_label must still name the REAL target so a by-name retry
+           (rt_proc_call_open's fallback, _usercall_hook) can resolve it via g_rt_gen_procs. Pointing it
+           at fe->name (newname) instead was self-referential and made every such retry a no-op. */
         fe->spec = rt_ws_strdup(newname); fe->fn = NULL;
-        fe->entry_label = fe->name;
+        fe->entry_label = on;
         fe->nparams = 0; fe->params = NULL;
         fe->nlocals = 0; fe->locals = NULL;
     }
