@@ -3473,6 +3473,9 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
       if (g_emit.flat_stmt_frame && _stfj) { g_emit.flat_frame_bytes = 48; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_cap_n = 0; }
       { static int _sd2 = -1; if (_sd2 < 0) { const char * e = getenv("SCRIP_STF_DEBUG"); _sd2 = (e && *e == '1') ? 1 : 0; } if (_sd2 && _stf) fprintf(stderr, "[STF] choke stf=%d jmp=%d pat=%d gen=%d gp=%d rc=%d np=%d deep=%d floor=%d c2=%d stfj=%d -> live=%d g=%p entry=%p\n", _stf, g_emit.flat_jmp_entry, g_emit.flat_pat, g_emit.flat_gen, g_gen_proc_active, (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0, g_emit.flat_outer_nparams, g_emit.flat_deep_arrival, g_flat_frame_floor, _c2g, _stfj, g_emit.flat_stmt_frame, (void*)g_emit_cfg, (void*)entry); } }
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
+    { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;
+        fprintf(stderr, "[N2-FT] EMIT gen=%d region=%d ffb=%d np=%d nl=%d ft=%d predft=%d\n", g_emit.flat_gen ? 1 : 0, _rg, g_emit.flat_frame_bytes, _np, _nl,
+                g_emit.flat_frame_bytes + (_np + _nl) * 16, ((48 + _rg + 15) & ~15) + (_np + _nl) * 16); } }
     g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;
     g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? zls_g_fp_total(g_emit_cfg) : 0;
     g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
