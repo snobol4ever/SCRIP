@@ -645,7 +645,7 @@ static const IR_t * fcab[512]; static int fcab_n = 0;
 void fc_arbno_member_register(const IR_t * nd) { if (nd && fcab_n < 512) fcab[fcab_n++] = nd; }
 int fc_arbno_member(const IR_t * nd) { for (int i = 0; i < fcab_n; i++) if (fcab[i] == nd) return 1; return 0; }
 int fc_seq_active(const IR_t * nd) { (void)nd; return 0; }
-static const IR_t * fvl[256]; static int fvl_n = 0;
+static const IR_t * fvl[2048]; static int fvl_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Value-disjunctions whose CONSUMERS read the arm result from the ζ-spine, declared by whoever lowered them. The
    structural shape (3N operands past 2N port pairs, ival>0) is NOT sufficient to grant a flat cell: it is true of
@@ -671,28 +671,28 @@ static const IR_t * fvdj[256]; static int fvdj_n = 0;
 void fc_vdj_register(const IR_t * nd) { if (!nd) return; if (fvdj_n >= 256) { fc_reg_full("vdj", 256); return; } fvdj[fvdj_n++] = nd; fc_reg_hw("vdj", fvdj_n); }
 int fc_vdj_active(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvdj_n; i++) if (fvdj[i] == nd) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vlit_register(const IR_t * nd) { if (!nd) return; if (fvl_n >= 256) { fc_reg_full("vlit", 256); return; } fvl[fvl_n++] = nd; fc_reg_hw("vlit", fvl_n); }
+void fc_vlit_register(const IR_t * nd) { if (!nd) return; if (fvl_n >= 2048) { fc_reg_full("vlit", 2048); return; } fvl[fvl_n++] = nd; fc_reg_hw("vlit", fvl_n); }
 static const IR_t * fvs[64]; static int fvs_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_subj_register(const IR_t * nd) { if (!nd) return; if (fvs_n >= 64) { fc_reg_full("subj", 64); return; } fvs[fvs_n++] = nd; fc_reg_hw("subj", fvs_n); }
 int fc_subj_member(const IR_t * nd) { if (!nd) return 0; for (int i = 0; i < fvs_n; i++) if (fvs[i] == nd) return 1; return 0; }
 int fc_vlit_active(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd || !(nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR)) return 0; for (int i = 0; i < fvl_n; i++) if (fvl[i] == nd) return 1; return 0; }
-static struct { const IR_t * nd; int fp; } fvr[256]; static int fvr_n = 0;
+static struct { const IR_t * nd; int fp; } fvr[1024]; static int fvr_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; if (fvr_n >= 256) { fc_reg_full("vread", 256); return; } fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; fc_reg_hw("vread", fvr_n); }
+void fc_vread_register(const IR_t * nd, int fp) { if (!nd || fp < 0) return; if (fvr_n >= 1024) { fc_reg_full("vread", 1024); return; } fvr[fvr_n].nd = nd; fvr[fvr_n].fp = fp; fvr_n++; fc_reg_hw("vread", fvr_n); }
 int fc_vread_fp(const IR_t * nd) { for (int i = 0; i < fvr_n; i++) if (fvr[i].nd == nd) return fvr[i].fp; return -1; }
-static const IR_t * fvb[256]; static int fvb_n = 0;
+static const IR_t * fvb[512]; static int fvb_n = 0;
 static const IR_t * fvcl[64]; static int fvcl_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_call_register(const IR_t * nd) { if (!nd || fvcl_n >= 64) return; fvcl[fvcl_n++] = nd; }
 int fc_call_active(const IR_t * nd) { if (!nd || !fc_cells_on()) return 0; for (int i = 0; i < fvcl_n; i++) if (fvcl[i] == nd) return 1; return 0; }
-void fc_vbinop_register(const IR_t * nd) { if (!nd) return; if (fvb_n >= 256) { fc_reg_full("vbinop", 256); return; } fvb[fvb_n++] = nd; fc_reg_hw("vbinop", fvb_n); }
+void fc_vbinop_register(const IR_t * nd) { if (!nd) return; if (fvb_n >= 512) { fc_reg_full("vbinop", 512); return; } fvb[fvb_n++] = nd; fc_reg_hw("vbinop", fvb_n); }
 int fc_vbinop_active(const IR_t * nd) { if (!nd || (nd->op != IR_BINOP && nd->op != IR_UNOP)) return 0; for (int i = 0; i < fvb_n; i++) if (fvb[i] == nd) return 1; return 0; }
 static struct { const IR_t * nd; long w; } fvw[512]; static int fvw_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_vwpop_register(const IR_t * nd, long w) { if (!nd || w <= 0) return; if (fvw_n >= 512) { fc_reg_full("vwpop", 512); return; } fvw[fvw_n].nd = nd; fvw[fvw_n].w = w; fvw_n++; fc_reg_hw("vwpop", fvw_n); }
 long fc_vwpop(const IR_t * nd) { if (!fc_cells_on()) return 0; for (int i = 0; i < fvw_n; i++) if (fvw[i].nd == nd) return fvw[i].w; return 0; }
-int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 256 && fvr_n + nr <= 256 && fvb_n + nb <= 256 && fvw_n + nw <= 512; }
+int fc_vcap(int nl, int nr, int nb, int nw) { return fvl_n + nl <= 2048 && fvr_n + nr <= 1024 && fvb_n + nb <= 512 && fvw_n + nw <= 512; }
 static const IR_t * fcv[256];
 static int fcv_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
