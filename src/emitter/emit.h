@@ -513,6 +513,7 @@ typedef struct {
     struct bb_label_t *          flat_main_body_p;
     struct bb_label_t *          flat_main_ω_p;
     struct bb_label_t *          flat_dc_body_p;
+    const char *                 flat_fam;
     const char **                xa_label_names;
     int *                        xa_label_pcs;
     int                          xa_label_count;

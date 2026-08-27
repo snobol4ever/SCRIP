@@ -2637,6 +2637,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _flt_hoisted[4] = {0, 0, 0, 0};
     int _flt_uid_burn[4] = {0, 0, 0, 0};
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
+    g_emit.flat_fam = fam;
     emit_label_initf(&lbl_α,      "%s_α",      fam);
     emit_label_initf(&lbl_α_body, "%s_α_body", fam);
     emit_label_initf(&lbl_γ,       "%s_γ",      fam);

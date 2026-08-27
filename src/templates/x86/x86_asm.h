@@ -546,7 +546,7 @@ inline std::string x86_zdp_probe_at(int port);
 inline std::string x86_zdp_rbp_at(int port);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel(int port) {
-    std::string s = MEDIUM_BINARY ? x86_Drec(port) : x86_reclbl(x86_portname(port)) + "\n";
+    std::string s = MEDIUM_BINARY ? x86_Drec(port) : (std::string(1, '\x01') + (char)('0' + port) + x86_reclbl(x86_portname(port)) + "\n");
     return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2233,8 +2233,41 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_ir_digit(char c) { return c >= '0' && c <= '9'; }
+inline long x86_ir_num(const std::string & s, size_t & i) { long v = 0; size_t n = s.size(); while (i < n && x86_ir_digit(s[i])) v = v * 10 + (s[i++] - '0'); return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_internal_resolve(const std::string & s) {
+    static const char * const x86_greek[4] = { "\xce\xb1", "\xce\xb2", "\xce\xb3", "\xcf\x89" };
+    const char * fam = _.flat_fam ? _.flat_fam : "anon";
+    int portof[X86_INTERNAL_MAX]; for (int k = 0; k < X86_INTERNAL_MAX; k++) portof[k] = -1;
+    int cur = X86P_ALPHA; size_t n = s.size();
+    for (size_t i = 0; i < n; ) {
+        if (s[i] == '\x01' && i + 1 < n) { cur = s[i + 1] - '0'; i += 2; continue; }
+        if (i + 3 < n && s[i] == '.' && s[i + 1] == 'L' && s[i + 2] == 'x' && x86_ir_digit(s[i + 3])) {
+            size_t j = i + 3; x86_ir_num(s, j);
+            if (j < n && s[j] == '_' && j + 1 < n && x86_ir_digit(s[j + 1])) {
+                size_t k = j + 1; long ln = x86_ir_num(s, k); if (ln < X86_INTERNAL_MAX && portof[ln] < 0) portof[ln] = cur; i = k; continue;
+            }
+        }
+        i++;
+    }
+    std::string out; out.reserve(n + 32); cur = X86P_ALPHA;
+    for (size_t i = 0; i < n; ) {
+        if (s[i] == '\x01' && i + 1 < n) { cur = s[i + 1] - '0'; i += 2; continue; }
+        if (i + 3 < n && s[i] == '.' && s[i + 1] == 'L' && s[i + 2] == 'x' && x86_ir_digit(s[i + 3])) {
+            size_t j = i + 3; long uid = x86_ir_num(s, j);
+            if (j < n && s[j] == '_' && j + 1 < n && x86_ir_digit(s[j + 1])) {
+                size_t k = j + 1; long ln = x86_ir_num(s, k); int p = (ln < X86_INTERNAL_MAX && portof[ln] >= 0) ? portof[ln] : X86P_ALPHA;
+                out += ".L"; out += fam; out += "_"; out += x86_greek[p]; out += "_"; out += std::to_string(uid); out += "_"; out += std::to_string(ln); i = k; continue;
+            }
+        }
+        out += s[i++];
+    }
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void bb_emit_x86(const std::string & s) {
-    if (!MEDIUM_BINARY) { if (!s.empty()) emit_text_n(s.data(), s.size()); return; }
+    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); emit_text_n(r.data(), r.size()); } return; }
     bb_label_t internal[X86_INTERNAL_MAX];
     for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name[0] = '\0'; }
     size_t i = 0, n = s.size();
