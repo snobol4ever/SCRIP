@@ -8,9 +8,12 @@
 #   * the suite's wall cost is bounded by construction (budget x programs x engines);
 #   * a resolution-starved reading ("10 ms") cannot happen -- the elapsed window
 #     is always ~BUDGET ms regardless of how fast the engine is.
-# CORRECTNESS is still gated: every program's phase-1 "check:" line is
-# deterministic and is diffed against the sibling .ref.  Only the measurement
-# lines (iters:/ms:) are stripped before the diff.
+# CORRECTNESS is gated here by CROSS-ENGINE AGREEMENT on the phase-1 "check:" line (sbl anchors it
+# when sbl is among $ENGINES -- an absolute grade per RULES.md); a missing .ref is reported (/NO-REF)
+# but its CONTENT is not diffed here. Only the measurement lines (iters:/ms:) are stripped before
+# any comparison. STALE-COMMENT FIX (row bench-triangulation-3angle item 5, seat09 2026-08-27): this
+# used to say ".ref diffed" -- true pre-s265, false since. The .ref itself is minted/graded
+# separately by scripts/util_mint_bench_refs.sh (see this file's own :171 note for why).
 # ⛔ row bench-external-cpu-and-elapsed-clock: sbl/s, m3/s, m4/s are the ITERATION COUNT divided by
 # tools/bench_rusage's EXTERNAL cpu(user+sys) time for the winning rep, not the engine's own
 # self-reported "ms:" line -- self-timing is never again the cross-engine authority (FINDING-2026-08-22-s253).
