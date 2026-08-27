@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_crosscheck_snocone.sh — 3-mode crosscheck for SNOCONE (GOAL-LANG-SNOCONE)
+# test_crosscheck_snocone.sh — 3-mode crosscheck for SNOCONE (GOAL-SNOCONE-100)
 #
 # Runs the snocone test corpus through --run, --run, --run.
 # Run on every major push. Mode-consistency check, not regression.
