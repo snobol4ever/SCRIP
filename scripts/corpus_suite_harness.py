@@ -7,6 +7,25 @@ files, keeping a PASS/FAIL/CRASH/HANG/UNPROVEN/SKIP verdict ladder distinct thro
 CRASH-collapsed-into-DIVERGE lesson from SCRIP 5ad95ab1 -- see
 .github/FINDING-2026-08-24-hq_P-icon-bench-0-of-8-is-one-defect-suspend-procedures-get-no-activation-frame.md).
 
+⛔⭐ A SUITE FILE IS NEVER RUN WHOLE. IT IS NOT A PROGRAM -- IT IS A CONTAINER OF PROGRAMS.
+Every entry is extracted and run ALONE, in its own fresh temp dir, by run_suite_entry(). Under format
+(B) each block is an independently complete program carrying its OWN `END` statement, and entries
+freely reuse label names (`e001`, `e002`, ...) because they never share a namespace. So compiling
+`family.sno` directly -- `./scrip family.sno`, or `sbl -bf family.sno` -- is a CATEGORY ERROR, and it
+fails in two ways that look exactly like real defects:
+    * scrip  -> a pile of "duplicate label" parse errors (entries' labels collide)
+    * sbl -bf -> runs the FIRST entry only, then stops at its embedded `END`, so a 34-line .ref
+                 appears to "mismatch" a 1-line oracle result
+⛔ BOTH ARE ARTIFACTS OF THE WRONG INVOCATION, NOT FINDINGS. Measured 2026-08-27 (hq_C): I read
+exactly those two symptoms as a broken consolidation and escalated it as a live coverage regression,
+telling the seat converting the family to stop work. It cost them a session interruption and cost me
+two false reports. ⭐ THE CHECK THAT WOULD HAVE CAUGHT ME IN ONE COMMAND is the one that seat08 ran
+and I did not -- A CONTROL ARM: run the SAME whole-file compile on `patterns.sno`, the pilot family
+that has been green for days. It produces the IDENTICAL failure shape. A symptom that reproduces on
+a known-good sibling is a property of the format, never a defect in the file under suspicion.
+To grade a suite for real, use the mechanism the board uses:
+    python3 scripts/corpus_suite_harness.py run <family>.sno <family>.ref --modes m3,m4
+
 Format spec: .github postoffice task corpus-suites-consolidation.task.md.
   (A) ONE-LINE entry:  "<stmt1>;<stmt2>;...;* <name>"            family.sno line N
                         "<expected, \\n-escaped if multi-line>"    family.ref line N
