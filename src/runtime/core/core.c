@@ -2878,15 +2878,15 @@ static DESCR_t _FIELD_(DESCR_t *a, int n) {
     const char *fname = VARVAL_fn(a[0]);
     if (!fname) return FAILDESCR;
     int64_t idx = to_int(a[1]);
-    _func_init();
-    unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
-        if (strcmp(e->name, fname) == 0) {
-            if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
-            return STRVAL(rt_ws_strdup_c(e->params[idx - 1]));
-        }
-    }
-    return FAILDESCR;
+    extern void *dat_find_type(const char *name);
+    extern int dat_nfields_byref(void *t);
+    extern const char *dat_field_name_byref(void *t, int i);
+    void *t = dat_find_type(fname);
+    if (!t) return FAILDESCR;
+    if (idx < 1 || idx > (int64_t)dat_nfields_byref(t)) return FAILDESCR;
+    const char *fld = dat_field_name_byref(t, (int)(idx - 1));
+    if (!fld) return FAILDESCR;
+    return STRVAL(rt_ws_strdup_c(fld));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int FNCEX_fn(const char *name) {

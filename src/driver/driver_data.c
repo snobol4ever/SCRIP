@@ -14,6 +14,7 @@ unsigned rt_dtax_gen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_nfields_byref(void *t) { return t ? ((DatType *)t)->nfields : 0; }
 DESCR_t dat_construct_byref(void *t, DESCR_t *args, int nargs) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); return dat_construct((DatType *)t, args, nargs); }
+const char *dat_field_name_byref(void *t, int i) { DatType *dt = (DatType *)t; return (dt && i >= 0 && i < dt->nfields) ? dt->fields[i] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_register(const char *spec) {
     if (dat_ntypes >= SC_DAT_MAX_TYPES) { fprintf(stderr, "[REC-REG-CAP] FATAL: record/type registry saturated (%d >= %d) registering '%s' -- constructors past the cap resolve as Error 5; raise SC_DAT_MAX_TYPES\n", dat_ntypes, SC_DAT_MAX_TYPES, spec ? spec : "?"); return NULL; }
