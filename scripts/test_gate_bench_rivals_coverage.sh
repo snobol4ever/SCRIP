@@ -30,11 +30,20 @@ if [ ! -d "$DIR" ]; then
 fi
 
 # Identify kernels by basename (matches the flat pascal/raku layout and bench_triangulate_snobol4.sh's own
-# TSV `kernel` column convention). Recursive find, not a top-level glob: prolog's corpus is bench/+vanroy/.
+# TSV `kernel` column convention). Recursive find, not a top-level glob -- but two subdir NAMES are always
+# PRUNED regardless of language, per corpus/benchmarks/prolog/README.md's own documented convention:
+#   src/    -- "pristine ... reference only -- never run by the SCRIP gate" (verbatim, that README).
+#   vanroy/ -- NOT a second kernel set: SCRIP/README.md:958 calls it "loop drivers", and
+#              bench_prolog_vanroy.sh's own header confirms it is a REGENERATED, checked-in DERIVED
+#              ARTIFACT of bench/'s kernels (a loop-wrapped timing form of the same program), exactly
+#              analogous to a bench/<name>.s sitting beside bench/<name>.pl -- never counted as its own
+#              correctness unit. Counting src/+vanroy/ alongside bench/ is what produced the "102 files,
+#              28 collisions" false denominator (bench-rivals-prolog task LEDGER, seat15 2026-08-27) --
+#              it was counting the SAME kernel 2-4 times under different names, not finding new kernels.
 raw=()
 while IFS= read -r -d '' f; do
     raw+=("$(basename "$f" ".$ext")")
-done < <(find "$DIR" -name "*.$ext" -print0)
+done < <(find "$DIR" \( -type d \( -name src -o -name vanroy \) -prune \) -o -name "*.$ext" -print0)
 
 mapfile -t kernels < <(printf '%s\n' "${raw[@]}" | sort -u)
 total=${#kernels[@]}
