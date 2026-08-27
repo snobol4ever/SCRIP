@@ -119,16 +119,18 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 # MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
 HARNESS="$HERE/corpus_suite_harness.py"
 SUITES="$CORPUS/tests/snobol4"
-# ⛔⭐⭐ THIS LIST IS THE BOARD'S DENOMINATOR AND IT IS HAND-MAINTAINED -- A SUITE PAIR ON DISK THAT IS NOT NAMED HERE IS SILENTLY OFF THE BOARD (hq_P s277).
-# MEASURED: corpus 0e75bfdbc ("crosscheck: consolidate 19 families into suite pairs") converted 19 families and did NOT add them here, so 98 entries
-# vanished from the board -- m3/m4 totals fell 365 -> 267, EXACTLY 98, while the gate still printed "GATE OK ... MISSING=0". ⛔ NEITHER EXISTING GUARD
-# CAN SEE THIS: MISSING only fires for a family that IS in this list whose files are absent, and the fossil-path refusal only catches a hardcoded path
-# that no longer RESOLVES. A family that was never registered resolves nothing and is absent from nothing -- it is invisible to both, and the board goes
-# GREEN while smaller. ⭐ THE SHAPE, and it is this project's recurring one: a hand-maintained list is a SECOND SOURCE OF TRUTH about what exists, and it
-# drifts from the filesystem silently and in the direction that looks like success. The durable cure is to DISCOVER the pairs (glob crosscheck/*.sno with
-# a sibling .ref) rather than name them; that is a behavioural change to the denominator and wants its own row + re-pin, so it is NOT done here.
-# ⛔ UNTIL THEN: adding a suite pair to corpus REQUIRES adding it here in the same change, and the count below must be re-pinned when it does.
-for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/rung10 crosscheck/keywords crosscheck/functions crosscheck/rung9 crosscheck/rung2 crosscheck/capture crosscheck/output crosscheck/assign crosscheck/arith_new crosscheck/rung8 crosscheck/rung11 crosscheck/control_new crosscheck/data crosscheck/concat crosscheck/rung4 crosscheck/hello crosscheck/rungW04 crosscheck/rungW03 crosscheck/rungW02 crosscheck/rung3 crosscheck/comments crosscheck/rungW07 crosscheck/rungW05 crosscheck/rungW06 crosscheck/rungW01 crosscheck/beauty; do
+# ⭐ DISCOVERED, NOT HAND-MAINTAINED (row corpus-suite-family-list-should-autodiscover, cures hq_P s277's incident:
+# corpus 0e75bfdbc converted 19 crosscheck families into suite pairs and the hand-maintained list here was not
+# updated in the same breath, so 98 entries silently left the board -- not FAIL, not MISSING, simply never iterated
+# -- while the gate kept printing "GATE OK ... MISSING=0". A hand-maintained list is a second source of truth that
+# drifts from the filesystem silently, in the direction that looks like success.) Family names are DISCOVERED by
+# globbing $SUITES/crosscheck for every <name>.sno with a sibling <name>.ref -- the filesystem is the single source
+# of truth, no separate registration step exists. ⛔ Scoped to crosscheck/ specifically, not all of $SUITES:
+# beauty_suite/ already has its own driver-pair loop a few lines below and would be DOUBLE-COUNTED by a wider glob
+# (its *_driver.sno/.ref pairs match the identical by-basename rule); feat/parser/smoke/jvm_j3/linker are
+# separately-owned corpora already consumed by other scripts (scorecard_snobol4.sh's MISC_DIRS,
+# test_lower_byte_identical.sh, the JS/WASM ladders) and carry no suite-format .ref of their own to grade here.
+while IFS= read -r family; do
     s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
     if [ ! -f "$HARNESS" ]; then
         echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
@@ -147,7 +149,9 @@ for family in crosscheck/patterns crosscheck/strings crosscheck/gc crosscheck/ru
     PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
     [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
     [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
-done
+done < <(find "$SUITES/crosscheck" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
+    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/}"
+done)
 
 # ── Beauty library drivers ─────────────────────────────────────────────────────
 for sno in "$BEAUTY"/*_driver.sno; do
