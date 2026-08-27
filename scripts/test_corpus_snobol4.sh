@@ -121,7 +121,7 @@ HARNESS="$HERE/corpus_suite_harness.py"
 SUITES="$CORPUS/tests/snobol4"
 # ⭐⭐ FAMILIES ARE DISCOVERED FROM THE TREE, NEVER HAND-MAINTAINED (two seats converged on this the same day --
 # rows crosscheck-families-filesystem-truth + corpus-suite-family-list-should-autodiscover -- both curing hq_P's
-# s277 measurement: a hand-typed `for family in ...` list here let 98 entries -- 19 converted families -- vanish
+# s277 measurement: a hand-typed for-loop enumeration here let 98 entries -- 19 converted families -- vanish
 # from the board silently, GATE OK, while m3/m4 totals fell 365 -> 267. A typed list is a SECOND SOURCE OF TRUTH
 # about what exists on disk and it drifts silently in the direction that looks like success. THE CURE: every
 # *.sno with a sibling *.ref directly under $SUITES/crosscheck IS a family -- nothing is named, so families are
