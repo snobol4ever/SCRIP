@@ -1393,37 +1393,8 @@ static void icn_gen_stk_grow(void) {
     g_icn_gen_stk = nb; g_icn_gen_stk_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐ N-2 ACTIVATION-RECORD ALLOCATOR (hq_P s272).  Layout the emitter agrees to, and it is why the R-4(b) PORT protocol transfers unchanged even though its STORAGE could not: [base+0]=caller rbp  [base+8]=γ  [base+16]=ω  [base+24...]=ζ.  ⛔⭐ RETRACTED hq_P s275 -- THE SENTENCE THAT STOOD HERE WAS THE LOAD-BEARING PREMISE OF THIS WHOLE ALLOCATOR AND IT IS MEASURED FALSE. It claimed the re-homed accessors "address through RDQ(\"rbp\", off), so pointing rbp at this record instead of at the stack redirects every ζ reference with NO change to a single template". ⛔ `ZOPQ`/`ZRES` (x86_asm.h:888-895) are TERNARIES: they take the rbp arm only when `op_zread_xf`/`op_xf_off` != -1, which emit.cpp:1014 sets from `xop_frame_slot` -> `xop_frame_member` (emit.cpp:2231), whose first gate is `sn4_pt_opframe()` -- the SNOBOL4 PATTERN opframe regime. No Icon `flat_gen` graph enters it, so the ternary takes `x86_zref` = `[rsp# + off]` EVERY TIME. Census of the armed four-line suspend witness (`--compile`, body `FN__gen:`..`gen_ω:`): 9 of 9 ζ references emit `[rsp+off]`, 0 go through rbp; the only 3 rbp reads are the port pair in γ. ⭐ Pointing rbp at this record would therefore redirect ZERO ζ references. ⛔ THAT IS WHY THIS ALLOCATOR HAS NO CALL SITES -- intended staging, but the next step is not the small wire the baton describes: generator ζ must FIRST be re-homed from the RSP spine to an RBP activation frame, which is rung N-2's own stated goal and is UNBUILT. The storage below is early, not wrong. Evidence: .github/FINDING-2026-08-27-hq_P-n2-item-a-is-unimplementable-generator-zeta-is-rsp-relative-not-rbp.md. ⭐ WHAT STILL STANDS: the layout, and `[rbp+8]`/`[rbp+16]` really do mean γ/ω -- the armed α-prologue already relies on that, and those three reads are the ones that work.
-  ⛔ REGISTERED AS A GC ROOT RANGE, and the registration has a second effect that is deliberate, not incidental: `rt_gc_root_range_add` bumps `g_gc_rrng_n` WITHOUT bumping `g_gc_rrng_ss`, and `gc_heap.c:619` computes the precise-zeta fast path as `pz = (... && g_gc_rrng_n == g_gc_rrng_ss)`.  So registering a live generator's record automatically FORCES the conservative scan for as long as that generator is suspended, which is the arm that also scans the island.  The record cannot be precise-path-skipped while it is live; correctness is structural rather than a promise, and the cost is paid only while a suspension is outstanding. */
-void *rt_icn_gen_frame_alloc(void *gen_fb, long bytes)
-{
-    extern void *rt_ws_alloc(size_t);
-    extern void  rt_gc_root_range_add(const char *lo, const char *hi);
-    if (bytes < 0) bytes = 0;
-    { long need = (bytes + 24 + 15) & ~15L;
-      for (int i = g_icn_gen_stk_top - 1; i >= 0; i--) {                                                   /* FREE LIST: a retired entry keeps its record and clears gen_fb.  Reuse needs the */
-          icn_gen_state_t *e = &g_icn_gen_stk[i];                                                          /* stored span to cover `need`, which is why cap rides the record's own word -1.   */
-          if (!e->gen_fb && e->frame && ((long *)e->frame)[-1] >= need) {
-              e->gen_fb = gen_fb; e->cont = (void *)0; e->gwire = (void *)0; e->owire = (void *)0;
-              memset(e->frame, 0, (size_t)need); return e->frame; } }
-      { char *blk = (char *)rt_ws_alloc((size_t)need + 16);
-        if (!blk) return (void *)0;
-        { char *rec = blk + 16; ((long *)rec)[-1] = need;                                                  /* word -1 is the record's own capacity; word -2 is padding kept for 16B alignment */
-          memset(rec, 0, (size_t)need);
-          rt_gc_root_range_add(rec, rec + need);
-          icn_gen_stk_grow();
-          if (g_icn_gen_stk_top >= g_icn_gen_stk_cap) return (void *)0;
-          g_icn_gen_stk[g_icn_gen_stk_top++] = (icn_gen_state_t){ gen_fb, (void *)0, (void *)rec, (void *)0, (void *)0 };
-          return rec; } } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⛔ RETIRE, NOT FREE -- and the distinction is the whole point.  The record STAYS registered as a GC root range and stays allocated; only its `gen_fb` binding is cleared so the next activation can reuse it.  Un-registering would mean removing an entry from `g_gc_rrng`, which has no removal API (`gc_heap.c:484` only appends) and would silently invalidate the `g_gc_rrng_ss` accounting that `pz` is computed from.  A retired record is zeroed on REUSE rather than here, so a stale suspension that resumes after ω -- which is a bug, but a bug we would rather see as its own value than as a wild pointer -- reads zeros. */
-void rt_icn_gen_frame_retire(void *gen_fb)
-{
-    icn_gen_state_t *e = icn_gen_find(gen_fb);
-    if (!e) return;
-    e->gen_fb = (void *)0; e->cont = (void *)0; e->gwire = (void *)0; e->owire = (void *)0;
-}
+/* (island allocator comment block deleted with its functions — see the tombstone below; history in git) */
+/* rt_icn_gen_frame_alloc DELETED (Lon 2026-08-27, in-chat to CEO: the island frame store is dead — suspend-surviving frames carve in the ENCLOSING graph's RBP activation frame; genuine escapers are HEAP values like strings; RULES.md § the frame-placement criterion's storage answer). It had zero call sites — s272 staging never wired (hq_P s275 measured why: the accessors it assumed were rsp-relative). */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gen_save_wires(void *gen_fb, void *gw, void *ww) {
     if (!gw) {
