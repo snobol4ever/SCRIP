@@ -1,5 +1,12 @@
 # PLG-STACKLESS-AUDIT-2026-05-30.md — PLG-0 value-stack / snapshot inventory
 
+> ⚠️ **TERMINOLOGY NOTE (added 2026-08-27, stackless-eradication row):** "Stackless" is retired as a
+> design term (Lon, in-chat, RULES.md's NO-SOFTWARE-VALUE-STACK / ONE-FRAME DISCIPLINE law) — all
+> three ζ storage classes live on the machine stack; the rule bans a *software* value stack
+> (`g_vstack`/`rt_push`/`rt_pop`/r12-as-TOS), not stack residence. This audit is left unreworded as
+> dated historical record of its 2026-05-30 findings; read "stackless" throughout as "no software
+> value stack."
+
 **Rung:** PLG-0 (GOAL-PROLOG-BB.md → PLG ladder). Doc-only, no code touched.
 **Author:** Claude Opus 4.8, 2026-05-31 (dated -05-30 per the rung's filename contract).
 **SCRIP HEAD at audit:** `cf6b7f6` (post Ground-Zero `lower.c` regrow + SMX excision).
