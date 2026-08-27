@@ -857,6 +857,24 @@ def cmd_run(args):
     sys.exit(0 if not fails else 1)
 
 
+def cmd_extract(args):
+    """Materialize ONE suite entry back into a standalone .sno (+ optional .ref) file. For consumers that
+    need per-witness standalone access a shared suite file cannot give them directly -- e.g. a gate script
+    compiling one named witness under several env-var arms with custom stdout/stderr handling. Reuses
+    read_suite() (ONE AUTHORITY for the suite grammar) rather than re-parsing the format a second time."""
+    entries = read_suite(args.sno, args.ref)
+    for e in entries:
+        if e.name != args.name:
+            continue
+        text = e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)
+        Path(args.out_sno).write_text(text + "\n")
+        if args.out_ref:
+            ref_text = e.ref if e.kind == "line" else "\n".join(e.ref)
+            Path(args.out_ref).write_text(ref_text + "\n")
+        return
+    refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -892,6 +910,14 @@ def main():
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.set_defaults(func=cmd_run)
+
+    e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref) file")
+    e.add_argument("sno")
+    e.add_argument("ref")
+    e.add_argument("name")
+    e.add_argument("out_sno")
+    e.add_argument("--out-ref", default="", dest="out_ref")
+    e.set_defaults(func=cmd_extract)
 
     args = ap.parse_args()
     args.func(args)
