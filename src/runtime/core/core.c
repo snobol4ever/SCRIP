@@ -446,6 +446,13 @@ static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ row perf-nv-set-capture-pump: the SAME predicate NV_SET_fn's own fast path (below) already gates its
+   comm_var call with, exposed so a caller outside this TU (rt_dcap_pump) can skip the call entirely rather
+   than pay comm_var's own unconditional mon_synth_name cost -- see comm_var's first lines: the &TRACE/monitor
+   early-return happens AFTER mon_synth_name runs, not before, so "tracing is off" does not make comm_var free.
+   No new global: reads the two statics just above and the existing extern monitor_fd. */
+int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;

@@ -11,6 +11,7 @@
 #include "builtins/gen_runtime.h"
 #include "rt/gc_heap.h"
 #include "rt/rt_arena.h"
+#include "rt/rt_protected.h"
 #include "zeta_choices.h"
 #include "snobol4_system_fns.h"
 #define STACKLESS_ABORT(fn) \
@@ -661,11 +662,47 @@ _Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.S RTX-8 slice 8 hardcode
 _Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.S RTX-8 slice 8 hardcodes subj at +16");
 _Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.S RTX-8 slice 8 hardcodes pending at +24");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S RTX-8 slice 8 stores pending as v/slen qword + s qword");
+/* ⛔⛔⛔ NEW GLOBAL VARIABLES, GRANTED BY LON IN-CHAT 2026-08-27 (seat10, row perf-nv-set-capture-pump) against
+   the banner ask required by RULES.md's NO-NEW-GLOBALS fact rule. Two parallel arrays, the exact shape that
+   rule names explicitly. Registers and the stack cannot carry them: this must survive across ~183,602 separate
+   rt_dcap_pump() calls over one roman.sno benchmark run (FINDING-2026-08-24-seat11, perf-onedend-dcap-ceremony's
+   LEDGER) -- each a fresh, unrelated C call, so only static/global storage outlives the gaps between them.
+   ⭐ CALLER-SIDE CURE, MIRRORING rt_defer_cell_read's ALREADY-CLOSED READ-SIDE SHAPE (same file, ~line 1206):
+   don't make NV_SET_fn cheaper to call, stop calling it by name at all on a repeat. A capture site's varname is
+   a compile-time rodata literal baked once per site (bb_match_capture.cpp COND phase, `lea rcx, [rip+label]`),
+   and NV_PTR_fn's answer for a given name is stable for the life of the program (NV_t is bump-allocated off
+   rt_ws_alloc, entries only ever prepended, never freed or moved -- see NV_SET_fn's own memo comment above).
+   So a pointer-identity hit can skip NV_PTR_fn's hash+strcmp AND the whole NV_SET_fn call -- the pump writes
+   the cell directly. ⛔ VALIDATION IS POINTER-IDENTITY ONLY, NO GENERATION COUNTER -- deliberately mirroring
+   rt_defer_cell_read's accepted shape rather than g_nv_memo's stricter one (that memo must also survive a
+   later SHADOWING insert with the same name; this cache does not defend against that either, matching the
+   read side's already-shipped precedent, not a stronger guarantee invented here). A collision or a genuinely
+   stale entry just MISSES (falls through to NV_PTR_fn) -- it can reuse this array for a different site, it
+   still validates the incoming varname pointer before ever trusting the cached cell. Direct-mapped, 16 slots:
+   deliberate headroom for "a handful of distinct capture-target names," not a measured minimum -- roman.sno's
+   own captures use very few, but a program with more distinct targets than slots degrades to occasional
+   misses (correct, just cold), never a wrong answer. ⛔ EXCLUDED, same reasons the read side excludes them:
+   '*'-led indirect/NRETURN targets (handled entirely by the branch above this arm, never reach here) and any
+   name for which NV_PTR_fn itself returns NULL (the reserved I/O/control keywords -- INPUT, OUTPUT, STLIMIT,
+   ANCHOR, ... -- fall through to the real NV_SET_fn unchanged, exactly as today). */
+#define RT_DCAP_NVCACHE_N 16
+static const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
+static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name)
+{
+    unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 11)) & (RT_DCAP_NVCACHE_N - 1));
+    if (g_dcap_nv_key[i] == name) return g_dcap_nv_cell[i];
+    DESCR_t *cell = NV_PTR_fn(name);
+    if (cell) { g_dcap_nv_key[i] = name; g_dcap_nv_cell[i] = cell; }
+    return cell;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
+    extern int g_protected_pat_vars_armed;
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     long rc = 0;
@@ -719,7 +756,29 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             continue;
         }
             }
-        if (e->varname && e->varname[0]) NV_SET_fn(e->varname, d);
+        if (e->varname && e->varname[0]) {
+            /* ⭐ row perf-nv-set-capture-pump: caller-side elimination, see the grant/design comment above
+               rt_dcap_nv_cell. Protected-pattern-variable guard checked FIRST, same order and same predicate
+               NV_SET_fn itself uses (rt_protected.h) -- falling through to the real NV_SET_fn there so its
+               core_runtime_error(42, ...) path fires unchanged; the fast path below is never reached for a
+               protected name. */
+            if (g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
+                NV_SET_fn(e->varname, d);
+            } else {
+                DESCR_t *cell = rt_dcap_nv_cell(e->varname);
+                if (cell) {
+                    if (d.v == DT_S) rt_sxt_break_fast(d.s);
+                    *cell = d;
+                    /* ⛔ comm_var is NOT free to call-and-let-it-no-op: it runs mon_synth_name unconditionally
+                       before its own &TRACE/monitor check (measured: ~19M Ir/183,601 calls on roman.sno when
+                       called unconditionally here -- most of this row's gain). comm_var_active() is the exact
+                       predicate NV_SET_fn's own fast path already gates on (core.c); mirror it, not skip it. */
+                    if (comm_var_active()) comm_var(e->varname, d);
+                } else {
+                    NV_SET_fn(e->varname, d);   /* NV_PTR_fn refused (a reserved keyword name) -- unchanged slow path */
+                }
+            }
+        }
     }
     return rc;
 }
