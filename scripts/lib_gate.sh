@@ -56,6 +56,43 @@ gate_floor() {
         exit 2
     fi
 }
+# gate_oracle_stdout_match <oracle-stdout-file> <actual-stdout-file> <actual-stderr-file> <actual-rc>
+#
+# ERROR-IDENTITY NORMALIZER (row conform-unload-noop, hq_C ruling 2026-08-27). x64/bin/sbl prints a full
+# abnormal-termination trailer to STDOUT on every uncaught runtime error -- file/line/statement/stmts-
+# executed/"memory used (bytes)"/"memory left (bytes)" -- and the memory figures are SPITBOL-internal
+# accounting that differs per program (measured: 11880/1036688 on f15_unload vs a different pair on
+# f12_load), so no reimplementation can ever reproduce them byte-for-byte. The oracle's own exit code is
+# ALSO 0 on this whole class of error (SCRIP's core_runtime_error always exit(1)), and SCRIP reports its
+# error on STDERR where the oracle reports on STDOUT. A byte-exact-stdout-plus-exact-rc instrument can
+# therefore never pass for a witness the oracle halts on -- a DONE-WHEN shape that cannot mechanically
+# succeed, the same defect family as a gate that can never say FAIL, wearing the opposite mask.
+#
+# RULING: a witness the oracle completed NORMALLY on (no trailer) is graded exactly as before -- byte-
+# exact stdout, matched rc -- so this changes nothing for the hundreds of already-passing witnesses. A
+# witness the oracle HALTED on is graded on ERROR IDENTITY (the numeric `ERROR nnn` code, wherever each
+# side reports it) plus termination status (actual rc != 0), with the genuine pre-error program output
+# compared after the oracle's trailer -- and the blank-line padding SPITBOL prints immediately before it
+# -- is stripped; command substitution's trailing-newline trim absorbs that padding on both sides.
+#
+# Returns 0 (match) or 1 (mismatch); prints nothing, same silent contract as the `cmp -s` it replaces.
+gate_oracle_stdout_match() {
+    local ora="$1" act_out="$2" act_err="$3" act_rc="$4"
+    local ora_code
+    ora_code="$(sed -n 's/^.*: ERROR \([0-9][0-9]*\) -- .*$/\1/p' "$ora" | head -1)"
+    if [ -z "$ora_code" ]; then
+        [ "$act_rc" -eq 0 ] && cmp -s "$ora" "$act_out"
+        return $?
+    fi
+    local ora_pre act_pre act_code
+    ora_pre="$(sed -n '/: ERROR [0-9][0-9]* -- /q; p' "$ora")"
+    act_pre="$(cat "$act_out")"
+    [ "$ora_pre" = "$act_pre" ] || return 1
+    [ "$act_rc" -ne 0 ] || return 1
+    act_code="$(sed -n 's/^\*\* Error \([0-9][0-9]*\) in statement.*$/\1/p' "$act_err" | head -1)"
+    [ -n "$act_code" ] || return 1
+    [ "$((10#$ora_code))" -eq "$((10#$act_code))" ]
+}
 # gate_verdict <violation-count> <what-was-violated> -- the computed verdict.  Never declared.
 gate_verdict() {
     if [ "${1:-0}" -ne 0 ] 2>/dev/null; then
