@@ -42,8 +42,23 @@ n = int(mode.split('-')[1]) if mode.startswith('FLEET-') else 0
 active = set(f"seat{i:02d}" for i in range(1, n + 1)) | {'hq_C', 'hq_P', 'ceo'}
 A2 = sorted(t for t, r in rows.items() if r['state'] == 'FREE' and t in claims and claims[t]['done'])
 B  = sorted(t for t, c in claims.items() if not c['done'] and c['holder'].startswith('seat') and c['holder'] not in active)
-Cx = sorted(tasks - set(rows) - set(done_rows) - {t for t in tasks if t.startswith('RETIRED')})
-E  = sorted(t for t in tasks if 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
+# ⭐ A TOMBSTONE IS NOT LOST WORK (hq_C 2026-08-27, from triaging this census's own first C! list).  A baton
+# whose header says SUPERSEDED or RENAMED is a deliberate REDIRECT that deliberately has no row -- it exists so
+# the next reader is sent to the live topic.  The RETIRED- prefix was already excluded for exactly this reason;
+# these are the same thing spelled in the header instead of the filename.  ⛔ Counting them made 4 of the first
+# 6 C! findings false, and 1 of 1 E findings false (a rename stub needs no DONE-WHEN) -- and a census that
+# re-reports correctly-retired work every run trains its readers to skim it, which costs more than the misses
+# it was built to catch.  Measured on the first list: icon-r0-bisect (RENAMED by an hq_C ruling),
+# raku-print-say-local-arg-marshal-bomb, rebus-raku-loop-condition-hang-family and
+# scrip-crashes-not-cleanly-on-unrunnable-input (all three SUPERSEDED, each naming its live successor).
+def _head(t):
+    try: return open(os.path.join(tasks_dir, t + '.task.md')).readline()
+    except OSError: return ''
+def _tombstone(t):
+    h = _head(t).upper()
+    return t.startswith('RETIRED') or 'SUPERSEDED' in h or 'RENAMED' in h
+Cx = sorted(tasks - set(rows) - set(done_rows) - {t for t in tasks if _tombstone(t)})
+E  = sorted(t for t in tasks if not _tombstone(t) and 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
 F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] == 'BLOCKED') and r['owner'] == 'unassigned')
 findings = 0
 for name, lst, note in (("A2 FREE-behind-DONE-claim", A2, "verify each DONE, then release"),
