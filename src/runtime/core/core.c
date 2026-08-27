@@ -1298,9 +1298,21 @@ extern DESCR_t rsort_fn(DESCR_t t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define CLEAR_MAX_EXCEPT 64
 static DESCR_t _CLEAR_(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    NV_CLEAR_fn();
+    const char *raw = (n > 0) ? VARVAL_fn(a[0]) : NULL;
+    if (!raw || !*raw) { NV_CLEAR_fn(NULL, 0); return NULVCL; }
+    char *tmp = rt_ws_strdup(raw);
+    const char *except[CLEAR_MAX_EXCEPT]; int nexcept = 0;
+    char *tok = strtok(tmp, ",");
+    while (tok && nexcept < CLEAR_MAX_EXCEPT) {
+        while (*tok == ' ') tok++;
+        char *end = tok + strlen(tok) - 1;
+        while (end > tok && *end == ' ') *end-- = '\0';
+        except[nexcept++] = tok;
+        tok = strtok(NULL, ",");
+    }
+    NV_CLEAR_fn(except, nexcept);
     return NULVCL;
 }
 static char _setexit_label[256];
@@ -1867,7 +1879,7 @@ void core_lib_init(void) {
     register_fn("DATE",     _DATE_,        0, 0);
     register_fn("TIME",     _TIME_,        0, 0);
     register_fn("RSORT",    _RSORT_,       1, 1);
-    register_fn("CLEAR",    _CLEAR_,       0, 0);
+    register_fn("CLEAR",    _CLEAR_,       0, 1);
     register_fn("SETEXIT",  _SETEXIT_,     0, 1);
     register_fn("FUNCTION", _FUNCTION_,    1, 1);
     register_fn("LABEL",    _LABEL_,       1, 1);
@@ -2459,11 +2471,16 @@ const char *NV_name_from_ptr(const DESCR_t *ptr) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void NV_CLEAR_fn(void) {
+void NV_CLEAR_fn(const char **except, int nexcept) {
     _var_init();
     for (int _i = 0; _i < VAR_BUCKETS; _i++) {
-        for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next)
-            if (!_e->is_const && !is_protected_pat_name(_e->name)) { if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL; }
+        for (NV_t *_e = _var_buckets[_i]; _e; _e = _e->next) {
+            if (_e->is_const || is_protected_pat_name(_e->name)) continue;
+            int _excluded = 0;
+            for (int _k = 0; _k < nexcept; _k++) if (!strcmp(_e->name, except[_k])) { _excluded = 1; break; }
+            if (_excluded) continue;
+            if (_e->is_gva) *_e->cell = NULVCL; else _e->val = NULVCL;
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

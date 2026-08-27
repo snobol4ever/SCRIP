@@ -214,7 +214,7 @@ void    FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
 void   FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
 DESCR_t  NV_GET_fn(const char *name);
 DESCR_t  NV_SET_fn(const char *name, DESCR_t val);
-void    NV_CLEAR_fn(void);
+void    NV_CLEAR_fn(const char **except, int nexcept);
 typedef struct { const char *name; DESCR_t val; } NvPair;
 int     nv_snapshot(NvPair **out);
 void    nv_restore(const NvPair *pairs, int n);
