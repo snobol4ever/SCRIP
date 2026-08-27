@@ -559,6 +559,13 @@ case "$cmd" in
          # on ONE question -- did the work land and get pushed (handoff_status.sh rc, the only sanctioned source).
          # An open question to HQ is HQ's backlog, never this seat's failure.
          s4e_mode_line
+         # ⭐ ceo-only, WARN-only (Lon trust-audit 2026-08-28: health checks must be HARNESS-FIRED, not remembered —
+         # the same defect class as the old hand-fired banner). Fast (<1s), reads the postoffice, never flips the
+         # verdict; rc=2 from the census prints as its own refusal line rather than a silent green.
+         if [ "$ME" = "ceo" ] && [ -x "$S4E/SCRIP/scripts/util_queue_visibility_census.py" ]; then
+             _cns="$(python3 "$S4E/SCRIP/scripts/util_queue_visibility_census.py" 2>&1 | tail -1)"
+             printf 'QUEUE CENSUS (computed): %s\n' "$_cns"
+         fi
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          # ⛔ SKIP_S_ARTIFACT_CHECK=1 (ceo 2026-08-27, Lon's "go fix it" — the missing-banners defect, seat09/hq_P diagnosis):
          # the .s-artifact verifier runs `make pristine` (minutes; races and WIPES live builds), so every banner that reached
