@@ -467,12 +467,6 @@ static std::string bb_define_sr() {
                             + x86_deflabel_id(41 + i); })
                  + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
                  + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-                 + IF(fnrbp() == 1, x86("comment", "s63 RBP-FUNCTION WRITER (see the s58 arm's full comment — unchanged under SIG)")
-                             + x86("sub", "rsp", (long)8)
-                             + x86("push", "rax")
-                             + x86("push", "rcx")
-                             + x86("push", "rbp")
-                             + x86("mov", "rbp", "rsp"))
                  + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "rax")
                              + x86("push", "rcx"))
@@ -521,12 +515,6 @@ static std::string bb_define_sr() {
                         + x86_deflabel_id(41 + i); })
              + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
              + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-             + IF(fnrbp() == 1, x86("comment", "s63 RBP-FUNCTION WRITER (Lon: ONE frame, FUNCTION linkage): pin the return point.  Frame [rbp+0]=enclosing rbp (recursion chain, LIFO)  [rbp+8]=gamma  [rbp+16]=omega  [rbp+24]=pad (reserved: RESULT base).  32B keeps C-call 16-alignment parity for the whole body.  rbp is SysV callee-saved: survives every C crossing; the ONLY other rbp writers product-wide are nested instances of this same bracket.  Readers: the RETURN/FRETURN/NRETURN floaters — mov rsp,rbp restores the UNKNOWN body depth to alpha-end depth P, pops the frame, jmps the banked landing; gamma/omega are pure functions of rsp==P (RESTORE4 rederives rcx=K and r8 from rsp).  Interior carves stay SILENT-NO-WHACK: nothing between here and the floater releases anything, the frame pop discards it wholesale.")
-                         + x86("sub", "rsp", (long)8)
-                         + x86("push", "rax")
-                         + x86("push", "rcx")
-                         + x86("push", "rbp")
-                         + x86("mov", "rbp", "rsp"))
              + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
                          + x86("push", "rax")
                          + x86("push", "rcx"))
@@ -552,16 +540,6 @@ static std::string bb_define_sr() {
              + IF(!inl5, x86_gamma());
     }
     if (role == 1 || role == 2 || role == -1 ) {
-        if (fnrbp() == 1)
-            return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s63: pop the RBP frame, land on gamma)" :
-                                   role == 2 ? "IR_DEFINE FRETURN floater (s63: pop the RBP frame, land on omega)" :
-                                               "IR_DEFINE NRETURN floater (s63: pop the RBP frame, land on gamma — by-name result)")
-                 + x86_alpha()
-                 + x86("mov", "rsp", "rbp")
-                 + x86("pop", "rbp")
-                 + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx") + x86("add", "rsp", (long)8)
-                              : x86("pop", "rcx") + x86("add", "rsp", (long)16))
-                 + x86("jmp", "rcx");
         if (fnrbp() == 2)
             return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
