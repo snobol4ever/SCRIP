@@ -8,8 +8,16 @@ TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-PARSER_SRC="$REPO_ROOT/../corpus/scrip/prolog_parser.pro"
-RECOG_SRC="$REPO_ROOT/../corpus/scrip/prolog_recognizer.pro"
+# ⛔ FIXED (row prolog-parser-corpus-vacuous-gate-422-files, 2026-08-27): both bugs the task diagnosed, confirmed
+# by direct check before fixing, not guessed. (1) EXTENSION: the two tool files were never named .pro anywhere in
+# this tree's git history (checked -- zero hits) -- they are, and always were, prolog_parser.pl/prolog_recognizer.pl
+# (the .pl files' own header comments say "% prolog_parser.pro", a stale comment from whenever the extension was
+# last touched, not evidence a .pro file ever existed on disk). (2) PATH: $REPO_ROOT already correctly resolves to
+# the sibling root (same computation $S4E performs above it) -- the old "$REPO_ROOT/../corpus/..." had one extra
+# ".." that escaped the sibling root entirely, so PARSER_SRC/RECOG_SRC pointed nowhere real regardless of extension.
+# Using $S4E directly (already computed, same value) instead of re-deriving REPO_ROOT for this.
+PARSER_SRC="$S4E/corpus/demo/prolog/prolog_parser.pl"
+RECOG_SRC="$S4E/corpus/demo/prolog/prolog_recognizer.pl"
 
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then

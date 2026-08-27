@@ -199,6 +199,24 @@ sc_sampler() {  # $1 = out dir  $2 = owner pid -- appends `epoch load1 runnable 
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
   local d n in ref_pin ref_live have_pin=0 have_live=0 W st3 st4 t0 t3 t4 rc out note=""
+  # ⛔ SUITE-FILE GUARD (row probe-suite-grading-path, 2026-08-27). A corpus-suites-consolidation suite .sno file
+  # (format A one-liners or format B banner-blocks) is a CONTAINER of independently-complete programs, never one
+  # program -- running it whole through the ordinary m3/m4 grade below is a category error, per
+  # corpus_suite_harness.py's own top-of-file warning (it fails two ways that both LOOK like real defects, never
+  # loudly enough to be caught as "wrong instrument" instead of "broken program"). REFUSE here rather than grade
+  # it wrong or silently skip it: detected by an END-statement count >=2 (a lone program has exactly one terminal
+  # END; a suite file has one per contained entry -- format-agnostic, doesn't depend on the tag/banner spelling)
+  # OR the first line matching either format's own marker (harness's ONE_LINE_TAG_RE `;\* name$` / BANNER_RE
+  # `^\*-+ N name$`). Any probe/ family already converted lives under tests/snobol4/probe/ instead (a disjoint
+  # path this suite's own `find $CORPUS/probe ...` glob never reaches), so this guard is a safety net against a
+  # FUTURE oversight, not something today's clean corpus/probe/ tree is expected to trip.
+  local _endc _first
+  _endc=$(grep -cE '(^|;)[[:space:]]*END([[:space:]]*;.*)?$' "$prog" 2>/dev/null)
+  _first=$(head -1 "$prog" 2>/dev/null)
+  if [ "${_endc:-0}" -ge 2 ] || [[ "$_first" =~ \;\*[[:space:]][^[:space:]]+$ ]] || [[ "$_first" =~ ^\*-+[[:space:]][0-9]+[[:space:]][^[:space:]]+$ ]]; then
+    echo -e "$suite\t${prog#$CORPUS/}\tSUITE_FILE_REFUSED\tSUITE_FILE_REFUSED\t0\t0\tsuite-format file (END count=$_endc), not a standalone program -- grade via corpus_suite_harness.py / test_corpus_snobol4.sh's suite loop, not this scorecard"
+    return
+  fi
   d="$(dirname "$prog")"; n="$(basename "$prog" .sno)"; in="$(stdin_for "$prog")"
   lib="$(sc_libpath "$lib" "$d")"
   W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
@@ -309,6 +327,19 @@ cmd_run() {
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
     xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
   done
+  # ⛔ SUITE-FILE GUARD, overall verdict (row probe-suite-grading-path): run_one's own per-program guard above
+  # refuses to grade a suite-format file wrong, but a per-row REFUSED status buried in results.tsv is exactly the
+  # kind of silent-shrink signal RULES.md warns against if nothing surfaces it at the command's own exit code.
+  # This is checked here, not inside run_one, because run_one runs under xargs -P (its own exit status doesn't
+  # propagate to this shell) and the DONE-WHEN this guard exists for is about the WHOLE invocation's rc, not one
+  # program's row.
+  if grep -q "SUITE_FILE_REFUSED" "$out/results.tsv" 2>/dev/null; then
+    kill "$samp" 2>/dev/null; trap - EXIT INT TERM; sc_board_release
+    echo "⛔ REFUSED: $(grep -c "SUITE_FILE_REFUSED" "$out/results.tsv") suite-format file(s) found where a standalone program was expected:" >&2
+    grep "SUITE_FILE_REFUSED" "$out/results.tsv" | cut -f2 | sed 's/^/    /' >&2
+    echo "   A suite .sno/.ref pair needs its own grading path (test_corpus_snobol4.sh's suite-family loop), not this scorecard's whole-program runner." >&2
+    exit 2
+  fi
   kill "$samp" 2>/dev/null; trap - EXIT INT TERM; sc_board_release
   local en agg; en="$(date +%s)"
   sc_prov "$prov" end_epoch "$en"; sc_prov "$prov" end_iso "$(date +%Y-%m-%dT%H:%M:%S)"; sc_prov "$prov" duration_s "$((en-st))"
