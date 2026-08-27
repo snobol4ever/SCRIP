@@ -76,6 +76,7 @@ BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)$")
 LANG_CONFIGS = {
     "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "ast"},
     "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "ast"},
+    "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4"},
 }
 
 
