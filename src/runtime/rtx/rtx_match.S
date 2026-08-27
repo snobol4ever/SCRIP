@@ -721,9 +721,16 @@ RTX_ENDF(rt_dcap_end_ok_close)
  *          is a straight-line 2-store body, zero arms of its own, so duplicating it here at this one call
  *          site pays only its own 4 instructions instead of a call+ret to reach them -- SLICE 4 itself is
  *          untouched and still serves its other call site, bb_match_begin.cpp, as a real call). rc is
- *          threaded through in a stack slot, never a register, across the one remaining call -- the
- *          callee does not promise to preserve a caller-saved register, and SLICE 8's own body uses
- *          rax/rcx/rdx as scratch, so rc cannot ride any of them.
+ *          PASS 3: left sitting in rax, never spilled. rt_dcap_end_ok_open's hot path is an unconditional
+ *          tail-jump into rt_dcap_pump (`long rt_dcap_pump(void)`, pattern_match.c) -- its own `ret` is
+ *          what actually returns to us, and every one of its cold arms (A/B/C, all tail-jumping to the
+ *          ordinary C function c_rt_dcap_end_ok_open, `long`-returning) hits the same SysV rule: a
+ *          long-returning C function places its result in rax on every path, no exceptions, by
+ *          construction of the ABI itself -- so rax already carries rc the instant the call instruction
+ *          below returns, regardless of which of the four internal arms actually fired. Nothing after
+ *          that point touches rax: not the g_dcf_top cmp/dec (memory-destination, no register operand),
+ *          not the inlined ctx_restore body (rdi/rsi/r10 only, verified by re-reading it, not assumed).
+ *          So the push-rax/pop-rax pair a first pass used to survive that gap is provable dead weight.
  * BAIL-BEFORE-MUTATE: ARM A is checked before this function's own first write (the pop's decrement);
  * rt_dcap_end_ok_open (SLICE 8) is independently bail-before-mutate already; the pop mirrors SLICE 7's
  * own test-then-decrement, unchanged; the inlined ctx_restore body has no arm to bail from (SLICE 4
@@ -741,11 +748,12 @@ RTX_ENDF(rt_dcap_end_ok_close)
  * STACK: outer[0]/outer[1] are read out of the caller's memory ONCE, immediately, into r8/r9, then
  * pushed onto THIS function's own frame -- NOT left addressed through rcx, because rt_dcap_end_ok_open's
  * own body (SLICE 8) clobbers rcx as scratch (`mov ecx, [rip+g_dcf_top]`), so the POINTER would not
- * survive the first call even though the memory it addresses (the caller's frame) would. Depth is
- * exactly 3 qwords (len, sig, rc) at every call site, chosen so the SysV 16-byte-call alignment holds:
- * entry rsp = 8 (mod 16, standard post-`call` convention, ARCH section 3); two pushes + one pad reach 0
- * (mod 16) for the first call; pad drops and rc is pushed for the second, landing on 0 (mod 16) again by
- * construction (3 live qwords is odd, which is what flips 8-mod-16 to 0-mod-16).
+ * survive the first call even though the memory it addresses (the caller's frame) would. Depth is 2
+ * live qwords (len, sig) plus one alignment pad across the ONE call in this function -- entry rsp = 8
+ * (mod 16, standard post-`call` convention, ARCH section 3); two pushes + one pad reach 0 (mod 16) for
+ * the call, which is the only alignment constraint that exists here (PASS 3 dropped the earlier 3rd
+ * push -- rc -- so there is no second call left to align for; the pad drops after the call and depth
+ * stays at 2 qwords, untouched, until the single `add rsp,16` at the end restores entry rsp).
  *
  * ⛔ NO SPEED NUMBER IS CLAIMED HERE UNTIL IT IS MEASURED ON A REAL BUILD (same discipline as every
  * slice above -- the ceiling is computed, the number is measured, and the two are never conflated).
@@ -756,15 +764,15 @@ RTX_ENDF(rt_dcap_end_ok_close)
  * contributes any call/ret tax of its own, having been inlined rather than called (see ARM HOT above).
  * MEASURED, pass 1 (call+call, both legs real, roman.sno N=20000 -O0 mode-4, check:1102 both engines):
  * 354,390,638 -- 2,939,045 Ir recovered (40.5% of the residue), short of the legacy ceiling by 4,312,515.
- * MEASURED, pass 2 (call+inline, THIS is what ships -- ctx_restore inlined per ARM HOT above): 353,472,633
- * -- a further 918,005 Ir from the inline alone, 3,857,050 Ir / 53.2% of the residue cumulative, still
- * 3,394,510 Ir short of the legacy ceiling (350,078,123). DONE-WHEN THEREFORE STILL FALSE -- this slice is
- * real, gate-clean, measured progress, not a close. A pass 3 (thread rc through rax instead of a stack
- * push/pop, since nothing between the open call and `ret` touches rax once ctx_restore is inlined) was
- * drafted and reasoned through but NOT measured this session (build environment blocker) and is NOT in
- * this diff -- see the task file's LEDGER/NEXT for the exact instruction-level plan, not re-derived here.
- * Whoever picks this up next: re-apply that cut, pristine-build, re-run the killswitch gate and the DONE-
- * WHEN command below before trusting any number, including any number that looks like it's already here.
+ * MEASURED, pass 2 (call+inline, ctx_restore inlined per ARM HOT above): 353,472,633 -- a further 918,005
+ * Ir from the inline alone, 3,857,050 Ir / 53.2% of the residue cumulative, still 3,394,510 Ir short of the
+ * legacy ceiling (350,078,123). DONE-WHEN still false at pass 2.
+ * PASS 3, THIS IS WHAT SHIPS (seat04, 2026-08-27) -- rc threaded through rax instead of a stack push/pop
+ * (see ARM HOT and STACK above for the re-derived, not assumed, reasoning: rt_dcap_end_ok_open's hot path
+ * tail-jumps into the ordinary C function rt_dcap_pump, whose `long` return lands in rax by the SysV ABI
+ * itself, on every one of its cold arms too). Two instructions removed (push rax / pop rax), two immediate
+ * offsets shifted (sig/len move from [rsp+8]/[rsp+16] to [rsp+0]/[rsp+8] once rc no longer occupies
+ * [rsp+0]). See LEDGER for the measured number and the killswitch/gate/DONE-WHEN receipts.
  *===================================================================================================================*/
 RTX_FUNC(rt_match_end_all)
     RTX_GATE(match, c_rt_match_end_all)
@@ -775,15 +783,14 @@ RTX_FUNC(rt_match_end_all)
     push    r9                                             /* depth 1 : [rsp]=len                                        */
     push    r8                                             /* depth 2 : [rsp]=sig [rsp+8]=len                            */
     sub     rsp, 8                                         /* depth 3 (pad) : 16-byte aligned for the call below         */
-    call    rt_dcap_end_ok_open                             /* rdi/rsi/rdx = mark/top/subj, unchanged since entry         */
-    add     rsp, 8                                         /* drop pad : back to depth 2                                 */
-    push    rax                                            /* depth 3 : [rsp]=rc [rsp+8]=sig [rsp+16]=len -- 16B aligned */
+    call    rt_dcap_end_ok_open                             /* rdi/rsi/rdx = mark/top/subj, unchanged since entry; rc->rax, PASS 3: left there, never spilled */
+    add     rsp, 8                                         /* drop pad : back to depth 2, [rsp]=sig [rsp+8]=len          */
     cmp     dword ptr [rip + g_dcf_top], 0                 /* the pop, inlined -- byte-for-byte SLICE 7's own body       */
     jle     .Lmea_skip_pop
     dec     dword ptr [rip + g_dcf_top]
 .Lmea_skip_pop:
-    mov     rdi, qword ptr [rsp + 8]                       /* sig  */
-    mov     rsi, qword ptr [rsp + 16]                      /* len  */
+    mov     rdi, qword ptr [rsp + 0]                       /* sig  */
+    mov     rsi, qword ptr [rsp + 8]                       /* len  */
     mov     r10, qword ptr [rip + Σ@GOTPCREL]               /* SLICE 4 INLINED, not called: its own header (line 340)     */
     mov     qword ptr [r10], rdi                            /* says plainly a perfect port saves ~10 -O0 instructions and */
     mov     r10, qword ptr [rip + Σlen@GOTPCREL]            /* is graded on correctness, never the clock -- duplicating   */
@@ -795,8 +802,7 @@ RTX_FUNC(rt_match_end_all)
                                                              /* choosing to inline, not a rewrite of the shared function. */
                                                              /* capgen arg dropped too: SLICE 4 has not read rdx since    */
                                                              /* CAPGEN-ERAD (line 390) deleted the g_cap_gen store.       */
-    pop     rax                                            /* rc back into rax : depth 2                                 */
-    add     rsp, 16                                        /* drop sig,len : depth 0, rsp restored to entry value        */
+    add     rsp, 16                                        /* drop sig,len : depth 0, rsp restored to entry value; rc still in rax, untouched since the call */
     ret
 RTX_ENDF(rt_match_end_all)
 
