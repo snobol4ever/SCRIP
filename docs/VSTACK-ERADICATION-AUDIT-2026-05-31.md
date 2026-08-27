@@ -1,5 +1,12 @@
 # VSTACK-ERADICATION AUDIT (Opus 4.8, 2026-05-31)
 
+> ⚠️ **TERMINOLOGY NOTE (added 2026-08-27, stackless-eradication row):** "Stackless"/`STACKLESS_ABORT`
+> below are dated/historical usage — see RULES.md's NO-SOFTWARE-VALUE-STACK / ONE-FRAME DISCIPLINE law
+> (Lon, 2026-08-27): all three ζ storage classes live on the machine stack; the rule bans a *software*
+> value stack, not stack residence. This audit is left unreworded as dated historical record of its
+> 2026-05-31 findings; `STACKLESS_ABORT` also still names a real macro in `src/runtime/rt/rt.c` etc.,
+> unaffected by the naming ruling since it was never a claim about stack residence.
+
 **Directive (Lon, 2026-05-31):** SCRIP has no value stack. SNOBOL4, Icon, Prolog all use Byrd Boxes for
 everything. `g_vstack` and its entire apparatus must not exist — DELETE it. TOP PRIORITY.
 
