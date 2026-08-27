@@ -2722,6 +2722,8 @@ int UNLOAD_fn(const char *name) {
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
         return 1;
     }
+    extern int rt_proc_unregister(const char *name);
+    rt_proc_unregister(name);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

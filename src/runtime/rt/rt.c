@@ -544,6 +544,16 @@ int rt_proc_is_registered(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* UNLOAD support. g_proc_hsl is open-addressed with no tombstone, so clearing its slot would break the linear-probe chain for every later insert that collided into it; sizeof(rt_proc_t)==128 is asm-baked (see the _Static_assert block above this struct), so adding a removed flag field is not safe either. Instead retarget the record's own key to a sentinel no real DEFINE name can ever match -- rt_proc_hash_lookup(name) then walks straight past this slot (non-zero, so probing continues) and correctly reports the original name unregistered, with zero changes needed at any of its many call sites. */
+int rt_proc_unregister(const char *name)
+{
+    if (!name) return 0;
+    int i = rt_proc_hash_lookup(name);
+    if (i < 0) return 0;
+    g_rt_gen_procs[i].name = "\x01<unloaded>";
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_jmp_entry(const char *name)
 {
     if (!name) return 0;
