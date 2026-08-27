@@ -65,9 +65,53 @@ for fam in $SUITE_FAMILIES; do
     SUITE_PASS=$((SUITE_PASS+p)); SUITE_FAIL=$((SUITE_FAIL+bad))
 done
 
+# --- INTERIM WITNESS-PAIR CHECK over corpus/benchmarks/pascal (hq_C 2026-08-27, ceo-endorsed) -------------------
+# WHY: benchmarks/pascal carries 9 .pas/.ref witness pairs that NO gate reached, so `pascal-uplevel-nested-proc-hang`
+# could close DONE+landed and silently un-land with nothing able to say NO. Interim: retires when
+# `pascal-refs-regen-from-fpc-oracle` (rank 0) puts this directory on the graded board.
+# ⛔ Discovered BY A FILE IT MUST CONTAIN, never `-d` on the container -- the s274 lesson: the container survives a
+# re-grid while the contents re-nest, so a `-d` guard passes over an empty/moved corpus and reads as a clean pass.
+# ⛔ m3 ONLY, deliberately: 5 of these 9 SIGSEGV in m4 under the already-tracked `pascal-m4-registered-dispatch-segv`
+# / `pascal-m4-intermittent-segv-pb30-sieve` rows. Wiring m4 here would re-report those rows as this gate's failure.
+# ⛔ 7 of the 9 open with `readln(reps)`; feeding /dev/null yields reps=0, an empty loop and a PLAUSIBLE all-zero
+# board that is pure instrument error (measured, hq_C 2026-08-27). The `1` below is load-bearing -- do not remove it.
+WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
+WITNESS_XFAIL="${WITNESS_XFAIL:-quick}"   # quick: SCRIP biggest=10414, fpc 3.2.2 oracle + .ref = 15505. WRONG ANSWER, row pascal-bench-quick-wrong-biggest.
+W_PASS=0; W_FAIL=0; W_EXAMINED=0; W_STALE=0
+if [ -f "$WCORPUS/uplevel2.pas" ]; then
+    for wpas in "$WCORPUS"/*.pas; do
+        wname=$(basename "$wpas" .pas); wref="$WCORPUS/$wname.ref"
+        [ -f "$wref" ] || continue
+        W_EXAMINED=$((W_EXAMINED+1))
+        wout=$(printf '1\n' | timeout 120s "$SCRIP" --run "$wpas" 2>/dev/null); wrc=$?
+        if [ $wrc -eq 0 ] && [ "$wout" = "$(cat "$wref")" ]; then wok=1; else wok=0; fi
+        case " $WITNESS_XFAIL " in
+            *" $wname "*)
+                # ⛔ An exception list that only permits FAILING lets a cure rot unnoticed. A listed witness that
+                # PASSES is a RED here: the entry is stale and must be deleted in the same commit as the cure.
+                if [ $wok -eq 1 ]; then
+                    echo -e "witness:$wname\tXFAIL_STALE\t" >> "$RESULTS"
+                    W_STALE=$((W_STALE+1)); FAIL=$((FAIL+1))
+                else
+                    echo -e "witness:$wname\tXFAIL\t" >> "$RESULTS"
+                    XFAIL=$((XFAIL+1))
+                fi ;;
+            *)
+                if [ $wok -eq 1 ]; then
+                    echo -e "witness:$wname\tPASS\t" >> "$RESULTS"
+                    W_PASS=$((W_PASS+1)); PASS=$((PASS+1))
+                else
+                    echo -e "witness:$wname\tWRONG_rc$wrc\t" >> "$RESULTS"
+                    W_FAIL=$((W_FAIL+1)); FAIL=$((FAIL+1))
+                fi ;;
+        esac
+    done
+fi
+
 echo "M3: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (suites: $SUITE_EXAMINED families, $SUITE_PASS pass / $SUITE_FAIL fail)"
-if [ $EXAMINED -eq 0 ] && [ $SUITE_EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 .pas files and 0 suite families examined under $CORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
+echo "M3 witnesses (benchmarks/pascal): EXAMINED=$W_EXAMINED PASS=$W_PASS FAIL=$W_FAIL XFAIL_STALE=$W_STALE"
+if [ $EXAMINED -eq 0 ] && [ $SUITE_EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 .pas files, 0 suite families and 0 benchmark witnesses examined under $CORPUS / $WCORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
     exit 2
 fi
 [ $FAIL -eq 0 ]
