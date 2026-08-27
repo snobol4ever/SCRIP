@@ -188,7 +188,25 @@ case "$cmd" in
              s4e_is_hq "$ME" || { echo "⛔ $topic is claimed by $own, not you — a lock is released by its holder or by an HQ"; exit 1; }
              why="${3:-released by HQ}"; why="$why (forced by $ME over $own's claim)"
          fi
-         grep -q '^DONE$' "$c" && { echo "⛔ $topic is DONE — that claim is a receipt, not a lock. Leave it."; exit 1; }
+         # ⛔⭐ A COMPUTED DONE AND AN OVERRIDE DONE ARE NOT THE SAME THING, AND UNTIL 2026-08-27 THIS LINE COULD NOT
+         # TELL THEM APART (hq_C, as queue custodian, on a ceo audit ask). `done` at :288 appends the SAME bare `DONE`
+         # token on BOTH paths -- the DONE-WHEN-passed path and the S4E_DONE_OVERRIDE path -- so a seat who overrode
+         # with the reason "Session-boundary pause, not task completion" left a claim indistinguishable from a genuine
+         # computed receipt. This refusal then made it PERMANENT: corpus-suites-consolidation, a genuinely open row,
+         # was invisible to the picker from 2026-08-24 to 2026-08-27 because the only tool that could free it refused
+         # on a token that did not mean what it read as. ⭐ SAME SHAPE AS THE OTHER INSTRUMENTS THIS WEEK: two distinct
+         # states collapsing into one indistinguishable output (PASS(0) = "checked, clean" or "never asked"; rc=2 =
+         # "work unfinished" or "binary missing"). ⛔ THE RATIONALE IN THE HEADER IS "that is a RECEIPT, not a lock" --
+         # and an OVERRIDE done is precisely NOT a receipt: nothing was computed, a human asserted it. So it is
+         # releasable, loudly and with a trace. A bare computed DONE still refuses, unchanged.
+         if grep -q '^DONE$' "$c"; then
+           if grep -q '^OVERRIDE-BY ' "$c"; then
+             echo "⚠ $topic is DONE by OVERRIDE, not by a computed DONE-WHEN — releasing (an override is an assertion, not a receipt)."
+             sed -n 's/^OVERRIDE-BY /    original override: /p' "$c" | head -1 | cut -c1-200
+           else
+             echo "⛔ $topic is DONE — that claim is a receipt, not a lock. Leave it."; exit 1
+           fi
+         fi
          why="${why:-${3:-released unworked}}"
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
