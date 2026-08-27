@@ -3002,6 +3002,11 @@ static const char *_io_extract_fname(const char *opts_str, char *buf, size_t buf
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_varname(DESCR_t d) {
+    if (d.v == DT_N) {                                                                                     /* the .name argument arrives as a NAME descriptor (DT_N) -- decode mirrors _APPLY_; this arm was
+                                                                                                              MISSING and every INPUT()/OUTPUT() association silently bound varname=NULL (row conform-io-*, 2026-08-27) */
+        if (d.slen == 0 && d.s && *d.s) return d.s;
+        if (d.slen == 1 && d.ptr) return NV_name_from_ptr((const DESCR_t *)d.ptr);
+    }
     if (IS_STR(d)) return d.s;
     return NULL;
 }

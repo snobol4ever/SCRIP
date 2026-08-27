@@ -1246,6 +1246,7 @@ int main(int argc, char **argv)
             g_frame_active = 1;
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             gva_collect_reset();
+            { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
             gva_collect_icon_globals();
             int n_gva_icn = gva_count();
             g_gva_active = (n_gva_icn > 0) ? 1 : 0;
@@ -1537,7 +1538,7 @@ int main(int argc, char **argv)
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
-            if (!is_pascal) { gva_collect_reset(); gva_collect_graph(sbbg); }
+            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset(); gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
             if (n_gva > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1600,6 +1601,7 @@ int main(int argc, char **argv)
             {
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
                 gva_collect_reset();
+                { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
                 int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
