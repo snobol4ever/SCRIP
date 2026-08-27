@@ -171,6 +171,40 @@ if [ "$suite_found" -lt "$SUITE_FAMILY_FLOOR" ]; then
     MISSING_LIST="${MISSING_LIST}  suite-family-count: discovered ${suite_found} pairs under corpus/tests/snobol4/crosscheck, pinned floor is ${SUITE_FAMILY_FLOOR} (short by ${suite_family_shortfall}) -- a family vanished from the tree, or this checkout is behind origin\n"
 fi
 
+# ── Suite families (probe/ house-cleaning fan-out) ──────────────────────────────
+# ⭐ Same discovered-not-hand-maintained mechanism as the crosscheck block above, generalized to a
+# second source directory: $SUITES/probe. The 2026-08-28 house-cleaning fan-out
+# (corpus-suites-consolidation's probe-consolidate-* rows) converts probe/<family> loose-file trees
+# into suite pairs under tests/snobol4/probe/<family>.{sno,ref}; this loop discovers them the same
+# filesystem-is-truth way, so no sibling fan-out row needs its own hand-registration step here -- the
+# exact landmine hq_C raised to rank 0 (row corpus-suite-family-list-should-autodiscover) after corpus
+# 0e75bfdb's 98-entry silent-invisibility incident, generalized before a SECOND fan-out (~2,300 files,
+# 11 concurrent rows) repeats it. First tenant: tests/snobol4/probe/conformance (probe-consolidate-
+# conformance, 92 of 147 probe/conformance witnesses; the other 55 stay loose, see that directory's
+# own KEEP.md -- 17 still diverge from the live oracle, 38 are cited by name in an existing task file).
+while IFS= read -r family; do
+    s_sno="$SUITES/probe/${family}.sno"; s_ref="$SUITES/probe/${family}.ref"
+    if [ ! -f "$HARNESS" ]; then
+        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
+    fi
+    if [ ! -f "$s_sno" ] || [ ! -f "$s_ref" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:probe/${family}: no suite file at ${s_sno}\n"; continue
+    fi
+    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
+    if [ -z "$board" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:probe/${family}: harness produced no SUITE_BOARD line\n"; continue
+    fi
+    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
+    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
+    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
+    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
+done < <(find "$SUITES/probe" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
+    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/probe/}"
+done)
+
 # ── Beauty library drivers ─────────────────────────────────────────────────────
 for sno in "$BEAUTY"/*_driver.sno; do
     [ ! -f "$sno" ] && continue

@@ -112,6 +112,36 @@ def check_scrip(paths):
         refuse(f"scrip is not built/executable at {paths['scrip_bin']}")
 
 
+def resolve_oracle_bin(paths):
+    """Resolve the correctness oracle's binary+flags via lib_oracle_flags.sh -- the ONE authority
+    (RULES.md Oracles section): never hand-assemble an oracle path/flag pair in a second copy.
+    Shells out to the real bash accessors (sbl_correctness_bin, sbl_lang_flags) so a future change
+    to the shared oracle's location or capability check is picked up automatically, same as every
+    bash caller gets. Used only by cmd_capture_oracle_refs -- no other command in this file talks
+    to SPITBOL at all, since every other family already ships a committed .ref."""
+    lib = paths["scrip_root"] / "scripts" / "lib_oracle_flags.sh"
+    if not lib.is_file():
+        refuse(f"lib_oracle_flags.sh missing at {lib} -- the ONE oracle-flag authority (RULES.md)")
+    r = subprocess.run(["bash", "-c", f". '{lib}' && sbl_correctness_bin && sbl_lang_flags"],
+                        capture_output=True, text=True)
+    if r.returncode != 0:
+        refuse(f"lib_oracle_flags.sh refused (sbl_correctness_bin/sbl_lang_flags): {r.stderr.strip()}")
+    lines = r.stdout.strip("\n").splitlines()
+    if len(lines) != 2 or not lines[0] or not lines[1]:
+        refuse(f"unexpected output from sbl_correctness_bin/sbl_lang_flags: {r.stdout!r}")
+    return lines[0], lines[1]  # oracle binary path, language flags (e.g. "-bf")
+
+
+def run_oracle(oracle_bin, flags, sno_path, timeout):
+    """One live oracle invocation, `< /dev/null` like every other scrip/oracle call in this file
+    and in test_one_witness.sh (whose exact contract this mirrors: stdout text AND returncode both
+    matter -- a witness testing a deliberate error exit is not 'wrong' for exiting non-zero, it is
+    wrong only if scrip's rc/text pair disagrees with the oracle's)."""
+    argv = [oracle_bin] + flags.split() + [str(sno_path)]
+    kind, out, _err, rc = _run_raw(argv, timeout)
+    return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
+
+
 # ==================================================================== exec ===
 class Verdict:
     __slots__ = ("kind", "stdout", "stderr", "returncode", "detail")
@@ -557,6 +587,66 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno"):
 
 
 # ================================================================== CLI ===
+def cmd_capture_oracle_refs(args):
+    """For a family with NO committed .ref files at all (oracle-graded loose files, e.g.
+    probe/conformance -- see corpus-suites-consolidation task, probe-consolidate-conformance):
+    synthesizes a .ref for every .sno whose CURRENT m3 AND m4 output+returncode both agree with a
+    FRESH live run of the correctness oracle (sbl -bf), mirroring test_one_witness.sh's exact
+    contract. Writes nothing for a stem that disagrees, that already has a .ref (unless --force),
+    or where the oracle itself doesn't run cleanly -- those stay exactly as they are on disk, never
+    touched. This is a ONE-TIME bootstrap step: once a .ref exists, the family behaves exactly like
+    every other SNOBOL4 suite family (cmd_convert reads a static .ref, same as always) -- grading
+    never re-invokes the oracle after this point, matching how every other family's .ref is a frozen
+    snapshot, not a live re-check on every run."""
+    paths = resolve_paths()
+    check_scrip(paths)
+    oracle_bin, flags = resolve_oracle_bin(paths)
+    print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
+    modes = args.modes.split(",")
+    family_dir = Path(args.family_dir)
+    srcs = sorted(family_dir.glob("*.sno"))
+    if not srcs:
+        refuse(f"no .sno files found under {family_dir}")
+
+    green, red = [], []
+    for i, src in enumerate(srcs, 1):
+        ref_path = src.with_suffix(".ref")
+        if ref_path.is_file() and not args.force:
+            print(f"[{i}/{len(srcs)}] {src.stem}: SKIP (already has a .ref)", file=sys.stderr)
+            continue
+        ora_text, ora_rc, ora_kind = run_oracle(oracle_bin, flags, src, paths["timeout"])
+        if ora_kind != "RAN":
+            red.append((src.stem, f"oracle itself {ora_kind}"))
+            print(f"[{i}/{len(srcs)}] {src.stem}: RED (oracle {ora_kind})", file=sys.stderr)
+            continue
+        agreements = []
+        all_agree = True
+        for m in modes:
+            if m == "m3":
+                v = run_m3(paths, src, ora_text)
+            elif m == "m4":
+                with tempfile.TemporaryDirectory() as td:
+                    v = run_m4(paths, src, ora_text, Path(td))
+            else:
+                refuse(f"unknown mode {m!r} (this command supports m3/m4 only, never ast)")
+            agree = (v.kind == "PASS") and (v.returncode == ora_rc)
+            agreements.append(f"{m}={'AGREE' if agree else f'{v.kind}(rc={v.returncode} vs oracle {ora_rc})'}")
+            all_agree = all_agree and agree
+        if all_agree:
+            ref_path.write_text(ora_text + "\n")
+            green.append(src.stem)
+            print(f"[{i}/{len(srcs)}] {src.stem}: GREEN ({' '.join(agreements)}) -- .ref written", file=sys.stderr)
+        else:
+            red.append((src.stem, " ".join(agreements)))
+            print(f"[{i}/{len(srcs)}] {src.stem}: RED ({' '.join(agreements)})", file=sys.stderr)
+
+    print(f"\n{len(green)} green (.ref written, ready for `convert`) -- {len(red)} red (untouched, no .ref):",
+          file=sys.stderr)
+    for name, reason in red:
+        print(f"   RED {name}: {reason}", file=sys.stderr)
+    sys.exit(0)
+
+
 def cmd_convert(args):
     paths = resolve_paths()
     check_scrip(paths)
@@ -767,6 +857,12 @@ def cmd_run(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    o = sub.add_parser("capture-oracle-refs", help="bootstrap missing .ref files for an oracle-graded, no-.ref family from a live SPITBOL run (m3+m4 must both agree, rc and text)")
+    o.add_argument("family_dir")
+    o.add_argument("--modes", default="m3,m4")
+    o.add_argument("--force", action="store_true", help="re-capture even stems that already have a .ref (default: leave them alone)")
+    o.set_defaults(func=cmd_capture_oracle_refs)
 
     c = sub.add_parser("convert", help="convert a loose-file family into suite .sno/.ref, validating byte-equal before writing")
     c.add_argument("family_dir")
