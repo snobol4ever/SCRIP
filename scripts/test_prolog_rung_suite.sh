@@ -13,6 +13,15 @@
 # and its per-file loop is skipped (no point running 100+ aborts); it auto-resumes the moment the mode regrows.
 # Pass --mode interp|run|compile to run a single mode. GATE-3 source of truth for the Prolog rung ladder.
 #
+# SUITE-FORMAT DELEGATION (tests-consolidate-prolog, 2026-08-27): a family converted by
+# corpus_suite_harness.py loses its loose rungNN[_slug]/*.pl directory and becomes one
+# <family>.pl+.ref pair. Globbing loose files directly would silently lose that family the
+# moment its loose originals are removed (empty-glob false-green — the exact bug this same
+# task found and fixed in 7 other per-rung scripts). collect_files() also gathers converted
+# families into SUITE_FILES; run_corpus() delegates those to `corpus_suite_harness.py run`
+# for interp/run modes ONLY. compile mode does NOT get suite delegation — m4/Prolog grading
+# is untested/premature per this task's own ledger; adding it needs a separate check first.
+#
 # Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7 · Claude Sonnet
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
@@ -69,11 +78,21 @@ mode_is_refused() {
     printf '%s' "$out" | grep -qE "$SMX_SIG"
 }
 
-# collect the corpus file list into the FILES array
+# collect the corpus file list into the FILES array (loose) and SUITE_FILES (converted families).
+# Discriminator for a converted family .pl: has a .ref sibling AND no same-stem .expected sibling
+# (the OLD dual-extension individual files, e.g. rung05/29/30's per-entry .pl, always carry BOTH —
+# that is what tells a suite family apart from those, since both use the .pl extension).
 collect_files() {
     FILES=()
+    SUITE_FILES=()
     if [ -n "$RUNG" ]; then
         for pl in "$CORPUS"/${RUNG}_*.pl; do [ -f "$pl" ] && FILES+=("$pl"); done
+        for pl in "$CORPUS"/${RUNG}.pl "$CORPUS"/${RUNG}_*.pl; do
+            [ -f "$pl" ] || continue
+            [ -f "${pl%.pl}.ref" ] || continue
+            [ -f "${pl%.pl}.expected" ] && continue
+            SUITE_FILES+=("$pl")
+        done
     else
         for pl in "$CORPUS"/rung0[1-9]_*.pl \
                   "$CORPUS"/rung1[0-9]_*.pl \
@@ -85,6 +104,12 @@ collect_files() {
                   "$CORPUS"/rung7[0-9]_*.pl \
                   "$CORPUS"/rung8[0-9]_*.pl; do
             [ -f "$pl" ] && FILES+=("$pl")
+        done
+        for pl in "$CORPUS"/rung[0-9][0-9]*.pl; do
+            [ -f "$pl" ] || continue
+            [ -f "${pl%.pl}.ref" ] || continue
+            [ -f "${pl%.pl}.expected" ] && continue
+            SUITE_FILES+=("$pl")
         done
     fi
 }
@@ -131,6 +156,29 @@ run_corpus() {
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
     done
+    # suite-format families (see header note): interp/run delegate to the harness, one family at a
+    # time, folding its per-entry board into these same totals. compile does NOT get this — see header.
+    if [ "$mode" != compile ]; then
+        local sf sfname board spass sfail scrash shang sunproven sbad
+        for sf in "${SUITE_FILES[@]}"; do
+            sfname=$(basename "$sf" .pl)
+            board=$(python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.pl}.ref" --lang prolog --modes m3 2>&1 | grep '^SUITE_BOARD')
+            spass=$(echo "$board" | grep -oP 'm3_pass=\K[0-9]+')
+            if [ -z "$spass" ]; then
+                echo "SUITE-RUN-ERROR $sfname (harness produced no SUITE_BOARD line)" >&2
+                FAIL=$((FAIL+1)); MODE_FAIL=1
+                continue
+            fi
+            sfail=$(echo "$board" | grep -oP 'm3_fail=\K[0-9]+')
+            scrash=$(echo "$board" | grep -oP 'm3_crash=\K[0-9]+')
+            shang=$(echo "$board" | grep -oP 'm3_hang=\K[0-9]+')
+            sunproven=$(echo "$board" | grep -oP 'm3_unproven=\K[0-9]+')
+            sbad=$((sfail+scrash+shang+sunproven))
+            [ "$VERBOSE" = 1 ] && echo "SUITE $sfname: pass=$spass bad=$sbad"
+            PASS=$((PASS+spass)); FAIL=$((FAIL+sbad))
+            [ "$sbad" -gt 0 ] && MODE_FAIL=1
+        done
+    fi
     if [ "$REFUSED" -gt 0 ]; then
         echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$((PASS+FAIL+XFAIL+REFUSED)) ---"
     else
