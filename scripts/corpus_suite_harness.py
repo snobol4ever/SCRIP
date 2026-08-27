@@ -69,14 +69,15 @@ BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)$")
 # join_one_line / _has_goto_field): a parser-ladder family never attempts it (format B is the
 # task spec's design for these families, not a join-failure fallback), so a new dialect only
 # needs its source extension, its comment syntax for the banner (open/close -- close is "" for a
-# line-comment language), and its grading mode. Verified end-to-end for "raku" only
-# (corpus-suites-consolidation, 2026-08-27); add an entry for another language only once you have
+# line-comment language), and its grading mode. Add an entry for a language only once you have
 # actually run --dump-ast (or whatever mode) against a real sample and confirmed the banner
-# round-trips -- do not add a config for a language nobody has exercised.
+# round-trips -- do not add a config for a language nobody has exercised. Snocone remains
+# unconfigured as of this comment (suite-harness-lang-configs' remaining scope).
 LANG_CONFIGS = {
     "raku": {"ext": ".raku", "comment_open": "#", "comment_close": "", "modes": "ast"},
     "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "ast"},
     "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4"},
+    "prolog": {"ext": ".pl", "comment_open": "%", "comment_close": "", "modes": "ast"},
 }
 
 
