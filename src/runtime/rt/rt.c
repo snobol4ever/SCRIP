@@ -1969,13 +1969,6 @@ extern int     subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 extern int     subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
 #include "SM.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((weak)) DESCR_t sm_eval_subexpr(int entry_pc)
-{
-    fprintf(stderr,
-        "libscrip_rt: sm_eval_subexpr(%d) called — DT_E EVAL dispatch "
-        "not yet wired in EM-6.  Add to EM-10 scope.\n", entry_pc);
-    abort();
-}
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>

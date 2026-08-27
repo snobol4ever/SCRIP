@@ -91,7 +91,6 @@ int     scope_get(Scope *sc, const char *name);
 void    scope_patch(Scope *sc, tree_t *e);
 int     static_get(tree_t *proc, const char *name, DESCR_t *out);
 void    static_set(tree_t *proc, const char *name, DESCR_t val);
-DESCR_t sm_call_proc(int entry_pc, int nparams, DESCR_t *args, int nargs);
 DESCR_t proc_table_call(int pi, DESCR_t *args, int nargs);
 int       is_suspendable(tree_t *e);
 void      init_save_frame(void);

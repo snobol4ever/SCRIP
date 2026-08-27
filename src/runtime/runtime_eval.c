@@ -430,11 +430,6 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             NV_SET_fn(EVAL_TMP, saved);
             return result;
         }
-        if (expr_d.slen == 1) {
-            extern DESCR_t sm_eval_subexpr(int entry_pc);
-            int entry_pc = (int)expr_d.i;
-            return sm_eval_subexpr(entry_pc);
-        }
         if (expr_d.slen == 2) {
             fprintf(stderr, "[SMX] FATAL: eval_code DT_E thunk path used the global value stack, "
                             "which is removed. This SM-era code path is not on Byrd Boxes. "
