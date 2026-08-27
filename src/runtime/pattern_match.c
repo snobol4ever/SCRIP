@@ -491,6 +491,32 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t sort_fn(DESCR_t arr) {
+    /*⭐ DIRECT-ARRAY OVERLOAD (conform-rsort-sort-array-noop): a table argument falls through to the
+      key/value path below; an array argument has no keys, so it is sorted on a COPY of its values using
+      the same comparator and same string-encoding (tbl_key_str) the table path already uses for its keys
+      -- one comparator, two shapes in, matching SPITBOL: SORT ascending, RSORT (via the reverse below) descending. */
+    if (arr.v == DT_A) {
+        ARBLK_t *src = arr.arr;
+        if (!src) return arr;
+        int n = src->hi - src->lo + 1;
+        if (n <= 0) return arr;
+        DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
+        const char **strs = rt_ws_alloc(n * sizeof(char *));
+        char *bufblk = rt_ws_alloc((size_t)n * 64);
+        for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
+        for (int i = 1; i < n; i++) {
+            DESCR_t tv = vals[i]; const char *ts = strs[i];
+            int j = i - 1;
+            while (j >= 0 && _sort_cmp_descr(vals[j], tv, strs[j], ts) > 0) {
+                vals[j+1] = vals[j]; strs[j+1] = strs[j]; j--;
+            }
+            vals[j+1] = tv; strs[j+1] = ts;
+        }
+        ARBLK_t *a = array_new(src->lo, src->hi);
+        for (int i = 0; i < n; i++) a->data[i] = vals[i];
+        DESCR_t result = {0}; result.v = DT_A; result.arr = a;
+        return result;
+    }
     if (arr.v != DT_T) return arr;
     TBBLK_t *tbl = arr.tbl;
     if (!tbl) return FAILDESCR;
