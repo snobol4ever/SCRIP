@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_rtcc_callee_class.sh — RTCC CALLEE-CLASS GATE (GOAL-RBP-EARN, Lon directive s65).
 #
-# x86_rtcc_clob() in src/templates/x86_asm.h claims, PER SYMBOL, which of the CLAIMED registers
+# x86_rtcc_clob() in src/templates/x86/x86_asm.h claims, PER SYMBOL, which of the CLAIMED registers
 # {r8,r9,r10,r11} a callee may disturb.  The emitter trusts that claim to SKIP writeback/reload
 # slots — so if the claim ever stops matching the assembly, the veneer stops preserving a live VM
 # global and the failure mode is a WILD JUMP, not a wrong answer (rtcc_init.c's own words).  The
@@ -34,7 +34,7 @@ ROOT=${ROOT:-$S4E/SCRIP}
 python3 - "$ROOT" <<'PY'
 import re, sys, glob, os
 root = sys.argv[1]
-hdr  = os.path.join(root, 'src/templates/x86_asm.h')
+hdr  = os.path.join(root, 'src/templates/x86/x86_asm.h')
 
 # ---- 1. parse the claim table out of x86_rtcc_clob() -------------------------------------------
 src = open(hdr, encoding='utf-8').read()

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_rtcc_noclob_injection.sh -- INJECTION TEST for the rtcc-veneer-strip-pure-asm mechanism
-# (GOAL-RTCC.md, Lon s200 in-chat).  x86_rtcc_clob()'s LEAF[] table (src/templates/x86_asm.h) is the
+# (GOAL-RTCC.md, Lon s200 in-chat).  x86_rtcc_clob()'s LEAF[] table (src/templates/x86/x86_asm.h) is the
 # ONE authority licensing a callee to skip the RTCC veneer; scripts/test_gate_rtcc_callee_class.sh is
 # what makes that authority trustworthy -- it re-derives the claim from the actual assembly and fails
 # the moment a claim stops matching the source.  This script proves the verifier itself has teeth: it
@@ -31,7 +31,7 @@ RTX_FUNC(rt_test_false_leaf)
     ret
 RTX_ENDF(rt_test_false_leaf)
 ASM
-cat > "$TMP/src/templates/x86_asm.h" <<'HDR'
+cat > "$TMP/src/templates/x86/x86_asm.h" <<'HDR'
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
 static inline unsigned x86_rtcc_clob(const char * sym) {

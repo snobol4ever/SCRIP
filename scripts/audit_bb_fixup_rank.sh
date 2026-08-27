@@ -16,7 +16,7 @@ total_files=0
 total_dirty=0
 total_clean=0
 grand_violations=0
-for f in src/templates/bb_*.cpp src/templates/xa_*.cpp; do
+for f in src/templates/bb/bb_*.cpp src/templates/xa/xa_*.cpp; do
     [ -f "$f" ] || continue
     name="$(basename "$f")"
     total_files=$((total_files + 1))

@@ -28,7 +28,7 @@ strict=0
 # lea-r10 cursor-mirror, historically outside this glob (RENAME 2026-06-07 bb_pat_*->bb_match_* widened it). (bb_capture
 # and bb_arbno no longer exist — capture folded away, ARBNO is bb_match_arb — so they are not listed; a glob is
 # used so the set tracks the directory rather than a stale hand-list.)
-FAMILY=$(ls src/templates/bb_match_*.cpp src/templates/bb_lit.cpp 2>/dev/null | grep -v 'bb_match_begin\.cpp\|bb_match_retry\.cpp\|bb_match_advance\.cpp')
+FAMILY=$(ls src/templates/bb/bb_match_*.cpp src/templates/bb/bb_lit.cpp 2>/dev/null | grep -v 'bb_match_begin\.cpp\|bb_match_retry\.cpp\|bb_match_advance\.cpp')
 
 # strip_comments FILE — code only (so a comment naming a token does not count as a live reference).
 strip_comments() { sed -E 's://.*$::' "$1" | perl -0777 -pe 's{/\*.*?\*/}{}gs'; }

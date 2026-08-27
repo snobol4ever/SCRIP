@@ -18,7 +18,7 @@
 # reproduces EXACTLY at bce9a4b0 — but it is NOT the whole surface.  r10d/r11d/r10b/r11b name the SAME PHYSICAL
 # REGISTERS and are invisible to a "r10"-shaped grep.  That blind spot is not theoretical: it is how the ONE
 # pre-existing r10 claim in the product hid from the design's census —
-#     src/templates/bb_define.cpp:25-26
+#     src/templates/bb/bb_define.cpp:25-26
 #       #define AB_TC_REG   ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10"  : "r9")
 #       #define AB_TC_REG_D ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? "r10d" : "r9d")
 # — the AB return type-code register, moved r9 -> r10 by the s8 RTCC-safety fix precisely BECAUSE r10 was, in
@@ -91,7 +91,7 @@ occ_total=0; wl_occ=0
 drift=0
 listed=""; wl_listed=""
 
-for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h; do
+for f in src/templates/{bb,xa}/*.cpp src/templates/{bb,xa,x86}/*.h src/emitter/*.cpp src/emitter/*.h; do
   [ -e "$f" ] || continue
   n=$(strip_comments "$f" | grep -cE "$REGPAT")
   [ "$n" -gt 0 ] || continue
@@ -157,7 +157,7 @@ echo
 # added r10/r11 scratch and the burn-down silently grew.  Quoted full-register spellings only, which is what
 # the design counted -- deliberately the SAME narrow pattern, so the two numbers stay comparable.
 quoted=0
-for f in src/templates/*.cpp src/templates/*.h src/emitter/*.cpp src/emitter/*.h; do
+for f in src/templates/{bb,xa}/*.cpp src/templates/{bb,xa,x86}/*.h src/emitter/*.cpp src/emitter/*.h; do
   [ -e "$f" ] || continue
   n=$(strip_comments "$f" | grep -coE '"r1[01]"')   # -c: LINE count, same unit as the design's 178
   quoted=$((quoted + n))

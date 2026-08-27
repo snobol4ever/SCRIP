@@ -29,10 +29,10 @@ PL_FILES=$(ls \
   src/runtime/builtins/resolution.c \
   src/lower/lower_prolog.c \
   src/frontend/prolog/*.c \
-  src/templates/bb_cell_*.cpp \
-  src/templates/bb_det_*.cpp \
-  src/templates/bb_query_frame.cpp \
-  src/templates/bb_callee_frame.cpp \
+  src/templates/bb/bb_cell_*.cpp \
+  src/templates/bb/bb_det_*.cpp \
+  src/templates/bb/bb_query_frame.cpp \
+  src/templates/bb/bb_callee_frame.cpp \
   2>/dev/null)
 
 # ---- TIER 1: SANCTIONED — frozen, legal forever (the 4 survivors + compile-time-only state) ------

@@ -32,7 +32,7 @@ C=$(scan_one 'rt_(proc_is_|builtin_is_)[a-z_]+[[:space:]]*\('); C=${C:-0}
 HARD=$((A + B))
 # ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
 . "$(dirname "$0")/lib_gate.sh"
-gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/*.cpp 2>/dev/null | wc -l)" 100 "emitter/template source files"
+gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/{bb,xa}/*.cpp 2>/dev/null | wc -l)" 100 "emitter/template source files"
 echo "-------------------------------------------"
 echo "A op-writes=$A   B field-writes=$B   ->  HARD TOTAL = $HARD   (target 0)"
 echo "[C informational] emit-time runtime-query refs in emit.cpp = $C (review per IRM-4)"

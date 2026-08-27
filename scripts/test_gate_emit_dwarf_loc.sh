@@ -15,7 +15,7 @@ DEMO="${DEMO:-$ROOT/../corpus/demo/snobol4/roman/roman.sno}"
 fail() { echo "⛔ FAIL: $*" >&2; exit 1; }
 [ -x "$SCRIP" ] || fail "no scrip binary at $SCRIP -- build first"
 [ -f "$DEMO" ] || fail "demo program not found: $DEMO"
-grep -q '!strcmp(mnem, "loc")' "$ROOT/src/templates/x86_asm.h" || fail "x86(\"loc\",...) encoder not found in x86_asm.h"
+grep -q '!strcmp(mnem, "loc")' "$ROOT/src/templates/x86/x86_asm.h" || fail "x86(\"loc\",...) encoder not found in x86_asm.h"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 SCRIP_DWARF_LOC=1 "$SCRIP" --compile "$DEMO" > "$W/on.s" 2>"$W/on.err" || fail "compile with SCRIP_DWARF_LOC=1 failed: $(cat "$W/on.err")"
 "$SCRIP" --compile "$DEMO" > "$W/off.s" 2>"$W/off.err" || fail "compile without the flag failed: $(cat "$W/off.err")"

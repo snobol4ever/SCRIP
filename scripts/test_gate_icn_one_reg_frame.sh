@@ -25,7 +25,7 @@
 # and the CLASS-C chain prologue — the pre-wire-stack crossing that rung N-1 deletes.
 # ⛔ RATCHET, LOWERED MANUALLY IN THE LANDING COMMIT, NEVER AUTO (parallel seats; RULES.md CONCURRENCY).
 # Target 0: reached when N-1 retires the wire header and N-2/N-4 route marshalling through ZOPQ.
-# Surface is src/templates/*.cpp with COMMENTS STRIPPED (the medium-invisible gate's idiom — spelling-
+# Surface is src/templates/{bb,xa}/*.cpp with COMMENTS STRIPPED (the medium-invisible gate's idiom — spelling-
 # independent).  x86_asm.h is EXEMPT BY CONSTRUCTION: it is the encoder, the sanctioned sole producer of
 # these strings.  `strstr(t, "[rsp")` is a search NEEDLE, not an emission, and is excluded by name.
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Sonnet · Claude Fable  DATE: 2026-05-30 (relaid 2026-08-21)

@@ -7,7 +7,7 @@
 # Informational WIP baseline; --strict enforces zero.
 cd "$(dirname "$0")/.." || exit 2
 total=0; hits=""
-for f in src/templates/*.cpp; do
+for f in src/templates/{bb,xa}/*.cpp; do
   code=$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$f")
   m=$(printf '%s' "$code" | grep -cE 'x86_Lrec|x86_Jrec|x86_Drec|x86_b1\(|x86_b2\(|x86_b3\(|\bbytes\(|\bu8\(|\bu32le|\bu64le|IF\(MEDIUM_BINARY|IF\(MEDIUM_MACRO_DEF')
   if [ "$m" -gt 0 ]; then total=$((total+m)); hits="$hits $(basename $f)($m)"; fi
@@ -25,7 +25,7 @@ fi
 # =====================================================================================================
 # BOTH-MEDIUM RATCHET (RULES.md "NO MEDIUM_* IN TEMPLATES") — added s169 (seat1, queue row gates-dead-paths).
 # RULES.md carried the ratchet as a TYPED NUMBER (29) next to a DIFFERENT command (`grep -rn 'MEDIUM_'
-# src/templates/bb_*.cpp`, which yields 38). A ratchet whose number and whose command disagree cannot be
+# src/templates/bb/bb_*.cpp`, which yields 38). A ratchet whose number and whose command disagree cannot be
 # enforced: the next seat runs the documented command, sees 38, and reads a 9-site regression that never
 # happened. The 29 is the GUARD-SITE count -- `if (MEDIUM_` plus `IF(MEDIUM_` -- and guard sites are what
 # the rule actually forbids ("any function gating output on MEDIUM_TEXT/MEDIUM_BINARY is a violation").
@@ -45,13 +45,13 @@ fi
 # but a live invariant: a single MEDIUM_* token in any bb_*.cpp fails this gate.
 MEDIUM_RATCHET="${MEDIUM_RATCHET:-0}"
 sites=0
-for f in src/templates/bb_*.cpp; do
+for f in src/templates/bb/bb_*.cpp; do
   code=$(perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$f")
   n=$(printf '%s' "$code" | grep -o 'MEDIUM_[A-Z_]*' | wc -l)
   [ "$n" -gt 0 ] && { sites=$((sites+n)); echo "  MEDIUM_ code sites: $(basename $f) ($n)"; }
 done
-guards=$(grep -hoE 'if \(MEDIUM_|IF\(MEDIUM_' src/templates/bb_*.cpp 2>/dev/null | wc -l)
-echo "BOTH-MEDIUM code sites in src/templates/bb_*.cpp: $sites  (ratchet ceiling $MEDIUM_RATCHET, target 0; of these, $guards are if/IF guard sites)"
+guards=$(grep -hoE 'if \(MEDIUM_|IF\(MEDIUM_' src/templates/bb/bb_*.cpp 2>/dev/null | wc -l)
+echo "BOTH-MEDIUM code sites in src/templates/bb/bb_*.cpp: $sites  (ratchet ceiling $MEDIUM_RATCHET, target 0; of these, $guards are if/IF guard sites)"
 if [ "$sites" -gt "$MEDIUM_RATCHET" ]; then
   echo "RATCHET FAIL: $sites MEDIUM_* code site(s) > ceiling $MEDIUM_RATCHET — the known-red count MAY NOT GROW."
   rc=1

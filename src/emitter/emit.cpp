@@ -2,8 +2,8 @@
 #include "emit.h"
 #include "zeta_choices.h"
 #include "ir_index.h"
-#include "templates/x86_asm.h"
-#include "templates/bb_templates.h"
+#include "templates/x86/x86_asm.h"
+#include "templates/bb/bb_templates.h"
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -11,8 +11,8 @@ extern "C" {
 #include "driver/scrip_sm.h"
 #include <string>
 #include "stage2.h"
-#include "templates/bb_templates.h"
-#include "templates/xa_templates.h"
+#include "templates/bb/bb_templates.h"
+#include "templates/xa/xa_templates.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -478,7 +478,7 @@ void xa_emit_csettab_rodata(void)
     csettab_reset();
 }
 int bb_slot_get(IR_t *nd);
-#include "templates/bb_templates.h"
+#include "templates/bb/bb_templates.h"
 #include "emit_ir.h"
 #include "XA.h"
 #include "../runtime/builtins/gen.h"

@@ -35,7 +35,7 @@ RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐
 DEPFLAGS := -MMD -MP
 CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
-CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT) $(ZCFLAGS)
+CXXRT   := -O0 -g $(WARN) $(DEPFLAGS) -std=c++17 -finput-charset=UTF-8 -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86 -I$(RT) $(ZCFLAGS)
 CRT     := $(CBASE) $(ZCFLAGS)
 LIBS    := -lm -lpthread
 
@@ -146,140 +146,140 @@ RT_PIC_SRCS := \
     $(SRC)/ir/bb_pool.c \
     $(SRC)/emitter/emit.cpp \
     $(SRC)/emitter/emit_str.cpp \
-    $(SRC)/templates/bb_glue_flat.cpp \
-    $(SRC)/templates/bb_main.cpp \
-    $(SRC)/templates/bb_glue_framed.cpp \
-    $(SRC)/templates/bb_lit.cpp \
-    $(SRC)/templates/bb_keyword_assign_snobol4.cpp \
-    $(SRC)/templates/bb_define.cpp \
+    $(SRC)/templates/bb/bb_glue_flat.cpp \
+    $(SRC)/templates/bb/bb_main.cpp \
+    $(SRC)/templates/bb/bb_glue_framed.cpp \
+    $(SRC)/templates/bb/bb_lit.cpp \
+    $(SRC)/templates/bb/bb_keyword_assign_snobol4.cpp \
+    $(SRC)/templates/bb/bb_define.cpp \
     $(SRC)/runtime/rt/bb_pat_build.cpp \
-    $(SRC)/templates/bb_conjunction.cpp \
-    $(SRC)/templates/bb_subscript.cpp \
-    $(SRC)/templates/bb_deref.cpp \
-    $(SRC)/templates/bb_random.cpp \
-    $(SRC)/templates/bb_assign_var.cpp \
-    $(SRC)/templates/bb_rev_assign_var.cpp \
-    $(SRC)/templates/bb_var_ref.cpp \
-    $(SRC)/templates/bb_goto.cpp \
-    $(SRC)/templates/bb_bound.cpp \
-    $(SRC)/templates/bb_statement.cpp \
-    $(SRC)/templates/bb_disjunction.cpp \
-    $(SRC)/templates/bb_goto_deferred.cpp \
-    $(SRC)/templates/bb_fail.cpp \
-    $(SRC)/templates/bb_cut.cpp \
-    $(SRC)/templates/bb_lit_scalar.cpp \
-    $(SRC)/templates/bb_var.cpp \
-    $(SRC)/templates/bb_var_global.cpp \
-    $(SRC)/templates/bb_return.cpp \
-    $(SRC)/templates/bb_keyword_icon.cpp \
-    $(SRC)/templates/bb_keyword_snobol4.cpp \
-    $(SRC)/templates/bb_keyword_assign.cpp \
-    $(SRC)/templates/bb_unop.cpp \
-    $(SRC)/templates/bb_succeed.cpp \
-    $(SRC)/templates/bb_every.cpp \
-    $(SRC)/templates/bb_to.cpp \
-    $(SRC)/templates/bb_match_len.cpp \
-    $(SRC)/templates/bb_match_lit.cpp \
-    $(SRC)/templates/bb_match_any.cpp \
-    $(SRC)/templates/bb_match_notany.cpp \
-    $(SRC)/templates/bb_match_span.cpp \
-    $(SRC)/templates/bb_match_break.cpp \
-    $(SRC)/templates/bb_match_breakx.cpp \
-    $(SRC)/templates/bb_match_tab.cpp \
-    $(SRC)/templates/bb_coerce_string.cpp \
-    $(SRC)/templates/bb_coerce_numeric.cpp \
-    $(SRC)/templates/bb_cmp_test.cpp \
-    $(SRC)/templates/bb_ident.cpp \
-    $(SRC)/templates/bb_differ.cpp \
-    $(SRC)/templates/bb_coerce_integer.cpp \
-    $(SRC)/templates/bb_coerce_real.cpp \
-    $(SRC)/templates/bb_match_rtab.cpp \
-    $(SRC)/templates/bb_match_pos.cpp \
-    $(SRC)/templates/bb_match_rpos.cpp \
-    $(SRC)/templates/bb_match_rem.cpp \
-    $(SRC)/templates/bb_match_atp.cpp \
-    $(SRC)/templates/bb_match_arb.cpp \
-    $(SRC)/templates/bb_match_arbno.cpp \
-    $(SRC)/templates/bb_match_bal.cpp \
-    $(SRC)/templates/bb_match_fence0.cpp \
-    $(SRC)/templates/bb_match_fence1.cpp \
-    $(SRC)/templates/bb_match_abort.cpp \
-    $(SRC)/templates/bb_zdp_anchor.cpp \
-    $(SRC)/templates/bb_match_begin.cpp \
-    $(SRC)/templates/bb_match_end.cpp \
-    $(SRC)/templates/bb_match_replace.cpp \
-    $(SRC)/templates/bb_match_capture.cpp \
-    $(SRC)/templates/bb_match_alternate.cpp \
-    $(SRC)/templates/bb_match_defer.cpp \
-    $(SRC)/templates/bb_match_value.cpp \
-    $(SRC)/templates/bb_to_by.cpp \
-    $(SRC)/templates/bb_make_list.cpp \
-    $(SRC)/templates/bb_activate.cpp \
-    $(SRC)/templates/bb_create.cpp \
-    $(SRC)/templates/bb_coret.cpp \
-    $(SRC)/templates/bb_cofail.cpp \
-    $(SRC)/templates/bb_move_label.cpp \
-    $(SRC)/templates/bb_indirect_goto.cpp \
-    $(SRC)/templates/xa_coexpr_entry.cpp \
-    $(SRC)/templates/bb_call.cpp \
-    $(SRC)/templates/bb_call_proc_staged.cpp \
-    $(SRC)/templates/bb_call_write_slot.cpp \
-    $(SRC)/templates/bb_call_bool.cpp \
-    $(SRC)/templates/bb_call_fn.cpp \
-    $(SRC)/templates/bb_binop_relop.cpp \
-    $(SRC)/templates/bb_binop_relop_val.cpp \
-    $(SRC)/templates/bb_binop_arith.cpp \
-    $(SRC)/templates/bb_binop_concat_slot.cpp \
-    $(SRC)/templates/bb_binop_xrep_slot.cpp \
-    $(SRC)/templates/bb_assign_local.cpp \
-    $(SRC)/templates/bb_assign_global.cpp \
-    $(SRC)/templates/bb_field_get.cpp \
-    $(SRC)/templates/bb_suspend.cpp \
-    $(SRC)/templates/bb_iterate.cpp \
-    $(SRC)/templates/bb_repalt.cpp \
-    $(SRC)/templates/bb_limit.cpp \
-    $(SRC)/templates/bb_section.cpp \
-    $(SRC)/templates/bb_rev_assign.cpp \
-    $(SRC)/templates/bb_rev_swap.cpp \
-    $(SRC)/templates/bb_swap.cpp \
-    $(SRC)/templates/bb_swap_var.cpp \
-    $(SRC)/templates/bb_proc_value.cpp \
-    $(SRC)/templates/bb_call_value.cpp \
-    $(SRC)/templates/bb_enter_init.cpp \
-    $(SRC)/templates/bb_gen_scan.cpp \
-    $(SRC)/templates/bb_scan_tab.cpp \
-    $(SRC)/templates/bb_scan_move.cpp \
-    $(SRC)/templates/bb_scan_upto.cpp \
-    $(SRC)/templates/bb_scan_any.cpp \
-    $(SRC)/templates/bb_scan_many.cpp \
-    $(SRC)/templates/bb_scan_find.cpp \
-    $(SRC)/templates/bb_scan_match.cpp \
-    $(SRC)/templates/bb_scan_pos.cpp \
-    $(SRC)/templates/bb_scan_bal.cpp \
-    $(SRC)/templates/bb_scan_sequence.cpp \
-    $(SRC)/templates/bb_scan_alternate.cpp \
-    $(SRC)/templates/bb_glit.cpp \
-    $(SRC)/templates/bb_gcc.cpp \
-    $(SRC)/templates/bb_galt.cpp \
+    $(SRC)/templates/bb/bb_conjunction.cpp \
+    $(SRC)/templates/bb/bb_subscript.cpp \
+    $(SRC)/templates/bb/bb_deref.cpp \
+    $(SRC)/templates/bb/bb_random.cpp \
+    $(SRC)/templates/bb/bb_assign_var.cpp \
+    $(SRC)/templates/bb/bb_rev_assign_var.cpp \
+    $(SRC)/templates/bb/bb_var_ref.cpp \
+    $(SRC)/templates/bb/bb_goto.cpp \
+    $(SRC)/templates/bb/bb_bound.cpp \
+    $(SRC)/templates/bb/bb_statement.cpp \
+    $(SRC)/templates/bb/bb_disjunction.cpp \
+    $(SRC)/templates/bb/bb_goto_deferred.cpp \
+    $(SRC)/templates/bb/bb_fail.cpp \
+    $(SRC)/templates/bb/bb_cut.cpp \
+    $(SRC)/templates/bb/bb_lit_scalar.cpp \
+    $(SRC)/templates/bb/bb_var.cpp \
+    $(SRC)/templates/bb/bb_var_global.cpp \
+    $(SRC)/templates/bb/bb_return.cpp \
+    $(SRC)/templates/bb/bb_keyword_icon.cpp \
+    $(SRC)/templates/bb/bb_keyword_snobol4.cpp \
+    $(SRC)/templates/bb/bb_keyword_assign.cpp \
+    $(SRC)/templates/bb/bb_unop.cpp \
+    $(SRC)/templates/bb/bb_succeed.cpp \
+    $(SRC)/templates/bb/bb_every.cpp \
+    $(SRC)/templates/bb/bb_to.cpp \
+    $(SRC)/templates/bb/bb_match_len.cpp \
+    $(SRC)/templates/bb/bb_match_lit.cpp \
+    $(SRC)/templates/bb/bb_match_any.cpp \
+    $(SRC)/templates/bb/bb_match_notany.cpp \
+    $(SRC)/templates/bb/bb_match_span.cpp \
+    $(SRC)/templates/bb/bb_match_break.cpp \
+    $(SRC)/templates/bb/bb_match_breakx.cpp \
+    $(SRC)/templates/bb/bb_match_tab.cpp \
+    $(SRC)/templates/bb/bb_coerce_string.cpp \
+    $(SRC)/templates/bb/bb_coerce_numeric.cpp \
+    $(SRC)/templates/bb/bb_cmp_test.cpp \
+    $(SRC)/templates/bb/bb_ident.cpp \
+    $(SRC)/templates/bb/bb_differ.cpp \
+    $(SRC)/templates/bb/bb_coerce_integer.cpp \
+    $(SRC)/templates/bb/bb_coerce_real.cpp \
+    $(SRC)/templates/bb/bb_match_rtab.cpp \
+    $(SRC)/templates/bb/bb_match_pos.cpp \
+    $(SRC)/templates/bb/bb_match_rpos.cpp \
+    $(SRC)/templates/bb/bb_match_rem.cpp \
+    $(SRC)/templates/bb/bb_match_atp.cpp \
+    $(SRC)/templates/bb/bb_match_arb.cpp \
+    $(SRC)/templates/bb/bb_match_arbno.cpp \
+    $(SRC)/templates/bb/bb_match_bal.cpp \
+    $(SRC)/templates/bb/bb_match_fence0.cpp \
+    $(SRC)/templates/bb/bb_match_fence1.cpp \
+    $(SRC)/templates/bb/bb_match_abort.cpp \
+    $(SRC)/templates/bb/bb_zdp_anchor.cpp \
+    $(SRC)/templates/bb/bb_match_begin.cpp \
+    $(SRC)/templates/bb/bb_match_end.cpp \
+    $(SRC)/templates/bb/bb_match_replace.cpp \
+    $(SRC)/templates/bb/bb_match_capture.cpp \
+    $(SRC)/templates/bb/bb_match_alternate.cpp \
+    $(SRC)/templates/bb/bb_match_defer.cpp \
+    $(SRC)/templates/bb/bb_match_value.cpp \
+    $(SRC)/templates/bb/bb_to_by.cpp \
+    $(SRC)/templates/bb/bb_make_list.cpp \
+    $(SRC)/templates/bb/bb_activate.cpp \
+    $(SRC)/templates/bb/bb_create.cpp \
+    $(SRC)/templates/bb/bb_coret.cpp \
+    $(SRC)/templates/bb/bb_cofail.cpp \
+    $(SRC)/templates/bb/bb_move_label.cpp \
+    $(SRC)/templates/bb/bb_indirect_goto.cpp \
+    $(SRC)/templates/xa/xa_coexpr_entry.cpp \
+    $(SRC)/templates/bb/bb_call.cpp \
+    $(SRC)/templates/bb/bb_call_proc_staged.cpp \
+    $(SRC)/templates/bb/bb_call_write_slot.cpp \
+    $(SRC)/templates/bb/bb_call_bool.cpp \
+    $(SRC)/templates/bb/bb_call_fn.cpp \
+    $(SRC)/templates/bb/bb_binop_relop.cpp \
+    $(SRC)/templates/bb/bb_binop_relop_val.cpp \
+    $(SRC)/templates/bb/bb_binop_arith.cpp \
+    $(SRC)/templates/bb/bb_binop_concat_slot.cpp \
+    $(SRC)/templates/bb/bb_binop_xrep_slot.cpp \
+    $(SRC)/templates/bb/bb_assign_local.cpp \
+    $(SRC)/templates/bb/bb_assign_global.cpp \
+    $(SRC)/templates/bb/bb_field_get.cpp \
+    $(SRC)/templates/bb/bb_suspend.cpp \
+    $(SRC)/templates/bb/bb_iterate.cpp \
+    $(SRC)/templates/bb/bb_repalt.cpp \
+    $(SRC)/templates/bb/bb_limit.cpp \
+    $(SRC)/templates/bb/bb_section.cpp \
+    $(SRC)/templates/bb/bb_rev_assign.cpp \
+    $(SRC)/templates/bb/bb_rev_swap.cpp \
+    $(SRC)/templates/bb/bb_swap.cpp \
+    $(SRC)/templates/bb/bb_swap_var.cpp \
+    $(SRC)/templates/bb/bb_proc_value.cpp \
+    $(SRC)/templates/bb/bb_call_value.cpp \
+    $(SRC)/templates/bb/bb_enter_init.cpp \
+    $(SRC)/templates/bb/bb_gen_scan.cpp \
+    $(SRC)/templates/bb/bb_scan_tab.cpp \
+    $(SRC)/templates/bb/bb_scan_move.cpp \
+    $(SRC)/templates/bb/bb_scan_upto.cpp \
+    $(SRC)/templates/bb/bb_scan_any.cpp \
+    $(SRC)/templates/bb/bb_scan_many.cpp \
+    $(SRC)/templates/bb/bb_scan_find.cpp \
+    $(SRC)/templates/bb/bb_scan_match.cpp \
+    $(SRC)/templates/bb/bb_scan_pos.cpp \
+    $(SRC)/templates/bb/bb_scan_bal.cpp \
+    $(SRC)/templates/bb/bb_scan_sequence.cpp \
+    $(SRC)/templates/bb/bb_scan_alternate.cpp \
+    $(SRC)/templates/bb/bb_glit.cpp \
+    $(SRC)/templates/bb/bb_gcc.cpp \
+    $(SRC)/templates/bb/bb_galt.cpp \
     $(SRC)/runtime/rt_gram_trampoline.S \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \
-    $(SRC)/templates/xa_stubs.cpp \
-    $(SRC)/templates/xa_macro_library.cpp \
-    $(SRC)/templates/xa_bb_macro_library.cpp \
-    $(SRC)/templates/xa_exec_stmt_blob.cpp \
-    $(SRC)/templates/xa_file_header.cpp \
-    $(SRC)/templates/xa_bb_ptr_slot.cpp \
-    $(SRC)/templates/xa_flat.cpp \
-    $(SRC)/templates/xa_prologue.cpp \
-    $(SRC)/templates/xa_epilogue.cpp \
-    $(SRC)/templates/xa_wasm_main.cpp \
-    $(SRC)/templates/xa_js_label_register.cpp \
-    $(SRC)/templates/xa_expression_registry.cpp \
-    $(SRC)/templates/xa_strtab_rodata.cpp \
-    $(SRC)/templates/xa_csettab_rodata.cpp \
-    $(SRC)/templates/xa_cap_fixup.cpp \
-    $(SRC)/templates/xa_pattern_blobs.cpp \
+    $(SRC)/templates/xa/xa_stubs.cpp \
+    $(SRC)/templates/xa/xa_macro_library.cpp \
+    $(SRC)/templates/xa/xa_bb_macro_library.cpp \
+    $(SRC)/templates/xa/xa_exec_stmt_blob.cpp \
+    $(SRC)/templates/xa/xa_file_header.cpp \
+    $(SRC)/templates/xa/xa_bb_ptr_slot.cpp \
+    $(SRC)/templates/xa/xa_flat.cpp \
+    $(SRC)/templates/xa/xa_prologue.cpp \
+    $(SRC)/templates/xa/xa_epilogue.cpp \
+    $(SRC)/templates/xa/xa_wasm_main.cpp \
+    $(SRC)/templates/xa/xa_js_label_register.cpp \
+    $(SRC)/templates/xa/xa_expression_registry.cpp \
+    $(SRC)/templates/xa/xa_strtab_rodata.cpp \
+    $(SRC)/templates/xa/xa_csettab_rodata.cpp \
+    $(SRC)/templates/xa/xa_cap_fixup.cpp \
+    $(SRC)/templates/xa/xa_pattern_blobs.cpp \
     $(SRC)/optimizer/gva_collect.c \
     $(SRC)/optimizer/proc_collect.c \
     $(SRC)/optimizer/ir_query.c \
@@ -345,29 +345,29 @@ RT_PIC_SRCS := \
     $(SRC)/frontend/pascal/pascal.tab.c \
     $(SRC)/frontend/pascal/pascal.lex.c \
     $(SRC)/frontend/pascal/pascal_driver.c \
-    $(SRC)/templates/bb_arith.cpp \
-    $(SRC)/templates/bb_binop_gvar_arith.cpp \
-    $(SRC)/templates/bb_binop_gvar_arith_slot.cpp \
-    $(SRC)/templates/bb_call_define.cpp \
-    $(SRC)/templates/bb_case_arm.cpp \
-    $(SRC)/templates/bb_cell_cut.cpp \
-    $(SRC)/templates/bb_cell_ite.cpp \
-    $(SRC)/templates/bb_det_nl.cpp \
-    $(SRC)/templates/bb_idx_get.cpp \
-    $(SRC)/templates/bb_idx_set.cpp \
-    $(SRC)/templates/bb_indirect_assign_lit_s.cpp \
-    $(SRC)/templates/bb_indirect_assign_var.cpp \
-    $(SRC)/templates/bb_initial.cpp \
-    $(SRC)/templates/bb_key_gen.cpp \
-    $(SRC)/templates/bb_ref_invariant.cpp \
-    $(SRC)/templates/bb_subject.cpp \
-    $(SRC)/templates/bb_unop_gvar_slot.cpp \
-    $(SRC)/templates/bb_var_frame.cpp \
-    $(SRC)/templates/bb_var_frame_ref.cpp
+    $(SRC)/templates/bb/bb_arith.cpp \
+    $(SRC)/templates/bb/bb_binop_gvar_arith.cpp \
+    $(SRC)/templates/bb/bb_binop_gvar_arith_slot.cpp \
+    $(SRC)/templates/bb/bb_call_define.cpp \
+    $(SRC)/templates/bb/bb_case_arm.cpp \
+    $(SRC)/templates/bb/bb_cell_cut.cpp \
+    $(SRC)/templates/bb/bb_cell_ite.cpp \
+    $(SRC)/templates/bb/bb_det_nl.cpp \
+    $(SRC)/templates/bb/bb_idx_get.cpp \
+    $(SRC)/templates/bb/bb_idx_set.cpp \
+    $(SRC)/templates/bb/bb_indirect_assign_lit_s.cpp \
+    $(SRC)/templates/bb/bb_indirect_assign_var.cpp \
+    $(SRC)/templates/bb/bb_initial.cpp \
+    $(SRC)/templates/bb/bb_key_gen.cpp \
+    $(SRC)/templates/bb/bb_ref_invariant.cpp \
+    $(SRC)/templates/bb/bb_subject.cpp \
+    $(SRC)/templates/bb/bb_unop_gvar_slot.cpp \
+    $(SRC)/templates/bb/bb_var_frame.cpp \
+    $(SRC)/templates/bb/bb_var_frame_ref.cpp
 
 # ⛔ RT_OPT IS DEFINED ONCE, AT LINE 34. A SECOND `RT_OPT ?=` stood here carrying the RETIRED O0-DEV-O2-BENCH text (s179) — inert by `?=` but read as law by anyone who greps for the flag and lands on the wrong one, which is how a NO-O2-BUILDS violation gets written in good faith. Deleted hq_P s269; the s262 FACT RULE lives at :34 and nowhere else.
 RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
-    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -I$(SRC)/optimizer
+    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -I$(SRC)/optimizer -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86
 # ⭐⭐ BUILD CACHE KEYED BY THE FLAGS THAT PRODUCED IT (Lon 2026-08-22 s258, in-chat: "can we enforce a
 # pure incremental build and keep these objects around longer ... That is killing us concerning optimized
 # tests"). MEASURED CAUSE, and it is NOT header fan-out (that was the hypothesis; transitive-include census

@@ -8,8 +8,8 @@
 # rbx is TENANT-FREE until REG-4 re-tenants it as the GC workspace bump top.
 #
 # SANCTIONED rbx MENTIONS (register-NAME table entries and generic save/restore, not GVA addressing):
-#   src/templates/x86_asm.h        — the x86_rnum / x86_is_reg register-name tables ("rbx" as a name literal)
-#   src/templates/bb_create.cpp    — the coexpr thread-contract register save (generic contract carry;
+#   src/templates/x86/x86_asm.h        — the x86_rnum / x86_is_reg register-name tables ("rbx" as a name literal)
+#   src/templates/bb/bb_create.cpp    — the coexpr thread-contract register save (generic contract carry;
 #                                    becomes the GC-top carry at REG-4)
 #
 # Usage: bash scripts/test_gate_rbx_quarantine.sh

@@ -4,7 +4,7 @@
 # in corpus/benchmarks/snobol4/, and commit ONLY the artifacts whose bytes actually changed.
 #
 # Run before handoff on any session that touches codegen, i.e. any of:
-#   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/templates/*.cpp,
+#   src/emitter/emit_bb.c, src/emitter/emit_core.c, src/templates/{bb,xa}/*.cpp,
 #   src/emitter/x86_asm.h, src/lower/lower_snobol4.c, or the runtime sinks they call.
 #
 # The .s is the honest current compiler output: a benchmark whose codegen still

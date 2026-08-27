@@ -31,10 +31,10 @@ for f in $(grep -rlE "$banned_fns" src/ --include="*.c" --include="*.cpp" --incl
 done
 
 # 2) No Prolog box template may touch the g_vstack value-stack ops (code only).
-pl_boxes="src/templates/bb_arith.cpp \
-          src/templates/bb_cut.cpp \
-          src/templates/bb_succeed.cpp \
-          src/templates/bb_fail.cpp"
+pl_boxes="src/templates/bb/bb_arith.cpp \
+          src/templates/bb/bb_cut.cpp \
+          src/templates/bb/bb_succeed.cpp \
+          src/templates/bb/bb_fail.cpp"
 vstack_ops='rt_push_int|rt_push_str|rt_pop_|vstack_push|vstack_pop|g_vstack'
 for f in $pl_boxes; do
   [ -f "$f" ] || continue

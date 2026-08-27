@@ -21,7 +21,7 @@
 set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 [ -n "$ROOT" ] || { echo "GATE: FAIL — not inside a git worktree; refusing to grade an unknown tree"; exit 1; }
-ASM="$ROOT/src/templates/x86_asm.h"
+ASM="$ROOT/src/templates/x86/x86_asm.h"
 INIT="$ROOT/src/runtime/rtx/rtcc_init.c"
 RTCC="$ROOT/src/runtime/rtx/rtcc.h"
 for f in "$ASM" "$INIT" "$RTCC"; do [ -r "$f" ] || { echo "GATE: FAIL — missing $f"; exit 1; }; done
