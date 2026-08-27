@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include "emit.h"
 #include "x86_asm.h"
+#include "pin_va.h"
 extern "C" {
 #include "xa_template_common.h"
 #include "../emitter/emit.h"
@@ -15,6 +16,9 @@ extern "C" void rt_main_args_fetch(void);
 extern "C" void rt_gen_save_wires(void *gen_fb, void *gw, void *ww);
 extern "C" void *rt_gen_get_gamma_wire(void *gen_fb);
 extern "C" void *rt_gen_get_omega_wire(void *gen_fb);
+extern "C" int rt_proc_nformals(const char *name);
+extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
+extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -342,18 +346,54 @@ static int xa_flat_class_c(void) {
     { int _r = (g_emit.flat_frame_bytes >= 48) ? 1 : 0; if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d PASS frame_bytes=%d -> %d\n", g_emit.nid, g_emit.flat_frame_bytes, _r); return _r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_chain_prologue_str(void) {
+static std::string xa_flat_sig_gq(int gk, int w) {
+    return g_rtcc_on ? std::string(GVARQ(gk, w)) : std::string(ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out) {
+    if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
+    int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
+    int np = 0, nsave = 0, res_gk = -1;
+    int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);
+    if (!have || nsave <= 0 || nsave > 29) return 0;
+    *nf_out = nf; *nsave_out = nsave;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
     if (!_cf) return std::string();
     { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
     int kt = g_emit.flat_frame_bytes;
     if (kt & 15) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", kt); abort(); }
-    return x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
+    std::string s = x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp");
+    int nf = 0, nsave = 0; int gk[29];
+    if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
+        int argkt = 16 * nsave;
+        s += x86("comment", "CLASS-C sig-arg marshal-in (s272 snocone-returns-codegen): the caller's .Lsig blob (nargs at +0, per-arg caller-frame offsets from +24 -- rcx above only COPIED the blob pointer, never clobbered it, so it is still the original here) is the only channel carrying argument VALUES; nothing previously read it, so a callee's formal params/locals/own-result-cell (all GVA slots, same addressing classic DEFINE's procs already use correctly) kept whatever a prior activation or the program's static default left there. Own a SEPARATE argkt-byte carve ABOVE the kt carve -- never reinterpret kt's own internal layout, which jcon_value_region may already be using -- purely to stash each touched GVA slot's PRE-CALL value for restore at exit. One-way copy only: read the caller's argument, never write back through it -- unlike bb_define.cpp's SIG shim, CLASS-C's caller-side offsets point into the caller's own still-live zeta storage, not a call-scoped throwaway, so writing through them is not safe to assume. Formal params (index < nf) get the caller's value when the call actually supplied one (nargs>i), else DT_SNUL/blank, matching SNOBOL4's default-to-null-string convention; any name at index >= nf (declared locals, or the function's own result cell when distinct from every param) always starts blank once per activation, mirroring bb_define.cpp's xt-loop. Mirrored at exit by the epilogue-sig's restore, which must run, and fully release argkt, before its own kt-relative sig-pointer reload.")
+             + x86("sub", "rsp", (long)argkt)
+             + x86("mov", "rdx", "[rcx + 0]")
+             + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
+             + FOR(0, nsave, [&](int i) {
+                   std::string sv = x86("note", gva_name(gk[i]))
+                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0)) + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
+                        + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8)) + x86("mov", "[rsp + " + std::to_string(16 * i + 8) + "]", "r10");
+                   if (i >= nf) return sv + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL) + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0);
+                   return sv + x86("cmp", "rdx", (long)i) + x86_jcc_id("jbe", 1 + i)
+                        + x86("mov", "r10", "[rcx + " + std::to_string(24 + 8 * i) + "]") + x86("add", "r10", "r8")
+                        + x86("mov", "r11", "[r10 + 0]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r11")
+                        + x86("mov", "r11", "[r10 + 8]") + x86("mov", xa_flat_sig_gq(gk[i], 8), "r11")
+                        + x86_jmp_id(40 + i)
+                        + x86_deflabel_id(1 + i)
+                        + x86("mov", xa_flat_sig_gq(gk[i], 0), (long)DT_SNUL) + x86("mov", xa_flat_sig_gq(gk[i], 8), (long)0)
+                        + x86_deflabel_id(40 + i); });
+    }
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_str(void) {
@@ -364,12 +404,25 @@ static std::string xa_flat_chain_epilogue_str(void) {
          + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_chain_epilogue_sig_str(int is_gamma) {
+static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fname) {
     if (!xa_flat_class_c()) return std::string();
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
     if (!_cf) return std::string();
     int kt = g_emit.flat_frame_bytes;
-    return x86("comment", is_gamma
+    std::string pre;
+    { int nf = 0, nsave = 0; int gk[29];
+      if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
+          int argkt = 16 * nsave;
+          pre = x86("comment", "CLASS-C sig-arg marshal-out (s272 snocone-returns-codegen): mirror image of the prologue's marshal-in -- restore every touched GVA slot's pre-call value from this activation's own argkt save area BEFORE releasing it, so an outer activation (recursion, or the same name used as an ordinary variable elsewhere) sees its own value again, not this call's leftovers. Must run, and fully unwind (add rsp,argkt), before the kt-relative sig-pointer reload directly below -- that reload's [kt-24] offset is only correct once this carve is gone. Must not touch rax:rdx (the live result, staged by whichever node reached this exit) or rcx (about to be reloaded fresh from [kt-24]).")
+              + FOR(0, nsave, [&](int i) {
+                    return x86("note", gva_name(gk[i]))
+                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
+                         + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]") + x86("mov", xa_flat_sig_gq(gk[i], 8), "r10"); })
+              + x86("add", "rsp", (long)argkt);
+          (void)nf;
+      }
+    }
+    return pre + x86("comment", is_gamma
                    ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx already carry the typed result; whichever node's template reached this exit staged it, this epilogue only owns the return-through-signature. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
                    : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
          + x86("mov", "rcx", RDQ("rsp", kt - 24))
@@ -472,9 +525,9 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
-extern "C" void xa_flat_chain_prologue(void) { bb_emit_x86(xa_flat_chain_prologue_str()); }
+extern "C" void xa_flat_chain_prologue(const char * fname) { bb_emit_x86(xa_flat_chain_prologue_str(fname)); }
 extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }
 extern "C" void xa_flat_chain_epilogue(void) { bb_emit_x86(xa_flat_chain_epilogue_str()); }
-extern "C" void xa_flat_chain_epilogue_sig(int is_gamma) { bb_emit_x86(xa_flat_chain_epilogue_sig_str(is_gamma)); }
+extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname) { bb_emit_x86(xa_flat_chain_epilogue_sig_str(is_gamma, fname)); }
 extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
 extern "C" void xa_flat_zframe_epilogue_ω(void) { bb_emit_x86(xa_flat_zframe_epilogue_ω_str()); }

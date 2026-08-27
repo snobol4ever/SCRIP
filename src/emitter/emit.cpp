@@ -2592,9 +2592,9 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     }
 }
 extern "C" int xa_flat_class_c_pred(void);
-extern "C" void xa_flat_chain_prologue(void);
+extern "C" void xa_flat_chain_prologue(const char * fname);
 extern "C" void xa_flat_chain_epilogue(void);
-extern "C" void xa_flat_chain_epilogue_sig(int is_gamma);
+extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
@@ -2853,7 +2853,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
        -> rt_proc_seal_alpha no-ops -- same selectivity, C-level equivalent here since mode-3 has no linker. */
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
-    if (xa_flat_class_c_pred()) xa_flat_chain_prologue();
+    if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12")));
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
@@ -3193,7 +3193,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("comment", "⛔ SET THE PORT TAG LAST AND NEVER OMIT IT: the caller's landing is SHARED by this port and the retiring one, and it tells them apart by al. Leaving eax alone here does not mean 'no tag' -- it means the tag is whatever the body last computed, so the landing takes the RETIRE arm at random and unwinds a frame that is still live. bb_glue_outer_gamma set DT_S for the same reason; the record build clobbers rax, so it goes after the push, not before.")
                   + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
-    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1); }
+    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ()); }
     }
     if (!bare && !_top_hoist) {
@@ -3208,7 +3208,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(x86("comment", "N-2 GENERATOR RETIRE: exhaustion is the ONE exit that owns the release -- mov rsp,rbp;pop rbp puts the stack back at entry depth, exactly where the caller's PUSHed pair sits. ⭐ The RETURN CONTRACT IS THEN LEFT BYTE-IDENTICAL TO THE PRE-FRAME EMITTER: ret through the [rsp+0] slot carrying DT_FAIL in eax, which is what bb_glue_outer_omega already did and what the caller's landing already expects. Only the release is new, so this arm cannot move the caller's arithmetic. ⛔ gamma must never do this: a suspend leaves a live resume record below, and releasing there would eat the frame the caller is about to re-enter.")
                   + x86("mov", "rsp", "rbp") + x86("pop", "rbp") + x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
     }
-    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(0); }
+    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(0, fam); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {
