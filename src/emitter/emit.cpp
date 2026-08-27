@@ -2681,7 +2681,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
 #define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
 #define RPO_MARK(p)    ir_pset_add(&seenset, (const IR_t *)(p))
 #define RPO_TAG_EMIT   ((IR_t *)1)
-#define RPO_PUSH(p)    do { if ((p) && (p)->op != IR_SUCCEED && (p)->op != IR_FAIL && !emit_floater_member(p) && !(_stmt_seed && (p)->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(p) && qt < Q_MAX) queue[qt++] = (IR_t *)(p); } while (0)
+#define RPO_PUSH(p)    do { IR_t *_rpp = (IR_t *)(p); int _rppg = 0; while (_rpp && _rpp->op == IR_SUCCEED && _rpp->γ.node && _rppg++ < 4096) _rpp = _rpp->γ.node; if (_rpp && _rpp->op != IR_SUCCEED && _rpp->op != IR_FAIL && !emit_floater_member(_rpp) && !(_stmt_seed && _rpp->op == IR_STATEMENT_BEGIN) && !RPO_VISITED(_rpp) && qt < Q_MAX) queue[qt++] = _rpp; } while (0)
 #define RPO_PUSH_SUCCS(c) \
          \
         RPO_PUSH((c)->γ.node); \
@@ -2999,6 +2999,18 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_is_phi  = (nodes[i]->ω.sz[0] == (char)0xcf && (unsigned char)nodes[i]->ω.sz[1] == 0x86);
         { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gamma_is_beta) gamma_is_beta = port_sz_beta(_g->γ.sz); if (!gamma_is_sig) gamma_is_sig = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x83); if (!gamma_is_phi) gamma_is_phi = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); gtgt = _g->γ.node; _g = gtgt; } }
         { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = port_sz_beta(_o->γ.sz); if (!omega_is_phi) omega_is_phi = (_o->γ.sz[0] == (char)0xcf && (unsigned char)_o->γ.sz[1] == 0x86); otgt = _o->γ.node; _o = otgt; } }
+        /* a bare mid-chain SUCCEED is a join point -- e.g. RETURN's own γ is threaded through the enclosing
+           block's "next statement" continuation by every lowerer (lower_rblock and peers), sharing the SAME
+           SUCCEED node as a sibling branch's real continuation (RPO_PUSH above schedules that shared node's
+           downstream now) -- so chase through to what it actually leads to before deciding this port is
+           terminal. EXCEPT for the always-exits family (RETURN/SUSPEND/CORET/COFAIL, grouped the same way
+           at this file's other stack-reset site): their own templates unconditionally jump to whatever this
+           resolves to and must always mean "proc exit", never "whatever the shared join happens to reach" --
+           chasing for them would silently redirect a return/suspend/coret/cofail into a sibling statement's
+           code. A genuinely terminal SUCCEED has no γ.node and the loop is a no-op either way. */
+        { int _op0 = (int)nodes[i]->op; int _always_exits = (_op0 == IR_RETURN || _op0 == IR_SUSPEND || _op0 == IR_CORET || _op0 == IR_COFAIL);
+          if (!_always_exits) { int _sg = 0; while (gtgt && gtgt->op == IR_SUCCEED && gtgt->γ.node && _sg++ < 4096) gtgt = gtgt->γ.node; }
+          if (!_always_exits) { int _sg = 0; while (otgt && otgt->op == IR_SUCCEED && otgt->γ.node && _sg++ < 4096) otgt = otgt->γ.node; } }
         int omega_is_retry = omega_is_beta && !beta_is_stmt_land(otgt);
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = (gamma_is_phi && na_f[k]) ? na_f[k] : (gamma_is_sig && na_s[k]) ? na_s[k] : gamma_is_beta ? betas[k] : lbls[k];
@@ -3014,8 +3026,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         { int _flk = emit_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
         { if (gtgt && gtgt->op == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
-        if (nodes[i]->γ.node == NULL || nodes[i]->γ.node->op == IR_SUCCEED) node_γ = &lbl_γ;
-        if (nodes[i]->γ.node && nodes[i]->γ.node->op == IR_FAIL) node_γ = &lbl_ω;
+        if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
+        if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
         for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
         { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
