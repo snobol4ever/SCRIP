@@ -16,7 +16,7 @@
 # stdout against expected output grades SCRIP's correct answer against an ORACLE ERROR MESSAGE — a false RED on
 # every single rung, including the trivial one-line one (FINDING-2026-08-23-hq_P-the-m1-board-grades-beauty-
 # against-an-oracle-that-refuses-it.md; independently cross-validated FINDING-2026-08-23-seat15-m1-board-judge-
-# is-a-refusing-oracle.md).  Root cause is a known, tracked language-support gap (ARCH-SN4-CONSTANTS.md "Oracle
+# is-a-refusing-oracle.md).  Root cause is a known, tracked language-support gap (ARCH-LANGUAGES.md "Oracle
 # amplification"; GOAL-SCRIP-HQ.md D-12/D-13, the `sbl-x`/`csnobol4-x` amplified-oracle pair, READY/queued) —
 # this board works around it two ways, permanently, not just until D-12 lands:
 #   THE FULL-FILE RUNG *is* MILESTONE 1 (Lon ruling s117): the checked-in beauty.sno is its OWN oracle.  Judge =
