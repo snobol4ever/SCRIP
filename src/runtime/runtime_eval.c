@@ -354,7 +354,8 @@ void *rt_goto_resolve(const char *name)
         eval_chain_fn fn = (eval_chain_fn)rt_proc_get_fn(lname);
         if (fn) return (void *)fn;
     }
-    fprintf(stderr, "[SNO] transfer to undefined label: %s\n", name); exit(1);
+    { extern void core_runtime_error(int code, const char *msg); char eb[288]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); }
+    return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_transfer(const char *name)
