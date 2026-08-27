@@ -779,7 +779,7 @@ run_snocone_x86() {
   if [[ -z "$CORPUS" || ! -d "$CORPUS/crosscheck/snocone" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
-  local SC_RUNNER="$ROOT/test/crosscheck/run_sc_corpus_rung.sh"
+  local SC_RUNNER="$ROOT/scripts/test_crosscheck_sc_corpus_rung.sh"
   if [[ ! -f "$SC_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -795,8 +795,10 @@ run_snocone_x86() {
   local raw stripped
   raw=$(SCRIP_CC="$SCRIP_CC" bash "$SC_RUNNER" "${dir_args[@]}" 2>/dev/null) || true
   stripped=$(echo "$raw" | sed 's/\x1b\[[0-9;]*m//g')
-  pass=$(echo "$stripped" | grep -c '^PASS' 2>/dev/null | tr -d '[:space:]'); pass=${pass:-0}
-  fail=$(echo "$stripped" | grep -c '^FAIL' 2>/dev/null | tr -d '[:space:]'); fail=${fail:-0}
+  # trailing space in the anchor matters: the runner's own summary trailer line
+  # ("FAILURES", no per-test name after it) otherwise collides with '^FAIL'.
+  pass=$(echo "$stripped" | grep -c '^PASS ' 2>/dev/null | tr -d '[:space:]'); pass=${pass:-0}
+  fail=$(echo "$stripped" | grep -c '^FAIL ' 2>/dev/null | tr -d '[:space:]'); fail=${fail:-0}
   # propagate individual FAIL lines for visibility
   echo "$stripped" | grep '^FAIL' | while IFS= read -r ln; do
     echo "  FAIL $cell ${ln#FAIL }"

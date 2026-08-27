@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# run_sc_corpus_rung.sh — SC corpus ladder driver (-sc -x86 pipeline)
+# run_sc_corpus_rung.sh — SC corpus ladder driver (--compile --target=x86 pipeline)
 #
-# Compiles each .sc in a given directory via scrip -sc -x86, assembles,
-# links against stmt_rt + snobol4 runtime, runs, diffs vs .ref oracle.
+# Compiles each .sc in a given directory via scrip --compile --target=x86, assembles
+# with gcc/as, links against out/libscrip_rt.so, runs, diffs vs .ref oracle.
 #
 # Usage:
 #   bash test/crosscheck/run_sc_corpus_rung.sh <dir> [dir2 ...]
@@ -20,9 +20,9 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TINY="$(cd "$SCRIPT_DIR/../.." && pwd)"
+TINY="$(cd "$SCRIPT_DIR/.." && pwd)"
 SCRIP_CC="${SCRIP_CC:-$TINY/scrip}"
-RT="$TINY/src/runtime"
+RT_OUT="$TINY/out"
 STOP_ON_FAIL="${STOP_ON_FAIL:-0}"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
@@ -33,63 +33,25 @@ if [[ $# -eq 0 ]]; then
     exit 1
 fi
 
+# ⛔ missing prerequisite is a refusal (rc=2), never a silent FAIL/SKIP — see test_corpus_snobol4.sh.
 if [[ ! -x "$SCRIP_CC" ]]; then
-    echo "ERROR: scrip not found at $SCRIP_CC"
-    exit 1
+    echo "⛔ REFUSED TO GRADE: scrip not found at $SCRIP_CC"
+    exit 2
 fi
 
-# ── Persistent runtime archive cache ─────────────────────────────────────────
-# Build snocone_rt.a once per session (or when sources change) into
-# $TINY/out/rt_cache/.  A stamp file records the mtimes of the 7 source files;
-# if the stamp is current the archive is reused as-is — skipping ~4-5s of gcc
-# per rung invocation (7 compilations × 21 rungs ≈ 100s saved).
+if [[ ! -f "$RT_OUT/libscrip_rt.so" ]]; then
+    echo "⛔ REFUSED TO GRADE: out/libscrip_rt.so not found at $RT_OUT — build scrip first"
+    exit 2
+fi
+
 WORK=$(mktemp -d); trap "rm -rf $WORK" EXIT
 
-RT_CACHE_DIR="$TINY/out/rt_cache"
-mkdir -p "$RT_CACHE_DIR"
-
-RT_SRCS=(
-  "$RT/x86/snobol4_stmt_rt.c"
-  "$RT/x86/snobol4.c"
-  "$RT/mock/mock_includes.c"
-  "$RT/x86/snobol4_pattern.c"
-  "$RT/mock/mock_engine.c"
-  "$RT/x86/blk_alloc.c"
-  "$RT/x86/blk_reloc.c"
-)
-RT_ARCHIVE="$RT_CACHE_DIR/snocone_rt.a"
-RT_STAMP="$RT_CACHE_DIR/snocone_rt.stamp"
-
-# Compute stamp: mtime of each source file
-_stamp=$(stat -c '%n:%Y' "${RT_SRCS[@]}" 2>/dev/null | md5sum | cut -c1-16)
-
-_need_rebuild=1
-if [[ -f "$RT_STAMP" && -f "$RT_ARCHIVE" ]]; then
-  _cached=$(cat "$RT_STAMP" 2>/dev/null)
-  [[ "$_cached" == "$_stamp" ]] && _need_rebuild=0
-fi
-
-if [[ $_need_rebuild -eq 1 ]]; then
-  _objs=()
-  _bld=$(mktemp -d); trap "rm -rf $_bld" EXIT
-  gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/stmt_rt.o"
-  gcc -O0 -g -c "$RT/x86/snobol4.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/snobol4.o"
-  gcc -O0 -g -c "$RT/mock/mock_includes.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/mock_includes.o"
-  gcc -O0 -g -c "$RT/x86/snobol4_pattern.c" -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/snobol4_pattern.o"
-  gcc -O0 -g -c "$RT/mock/mock_engine.c"         -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$_bld/mock_engine.o"
-  gcc -O0 -g -c "$RT/x86/blk_alloc.c"           -I"$RT/x86"                                             -w -o "$_bld/blk_alloc.o"
-  gcc -O0 -g -c "$RT/x86/blk_reloc.c"           -I"$RT/x86"                                             -w -o "$_bld/blk_reloc.o"
-  ar rcs "$RT_ARCHIVE" "$_bld"/*.o
-  echo "$_stamp" > "$RT_STAMP"
-fi
-
-LINK_OBJS="$RT_ARCHIVE"
-
 # ── Per-test binary cache ──────────────────────────────────────────────────────
-# Key: md5 of (.sc content + runtime stamp).  On cache hit: skip scrip,
-# nasm, and link entirely — just run the cached binary.  Cuts warm-run cost
-# from ~220ms/test to ~10ms/test (run only).
-BIN_CACHE_DIR="$RT_CACHE_DIR/bins"
+# Key: md5 of (.sc content + scrip binary mtime + libscrip_rt.so mtime). On cache
+# hit: skip scrip, gcc assemble, and link entirely — just run the cached binary.
+# Cuts warm-run cost from ~220ms/test to ~10ms/test (run only).
+_stamp=$(stat -c '%Y' "$SCRIP_CC" "$RT_OUT/libscrip_rt.so" 2>/dev/null | md5sum | cut -c1-16)
+BIN_CACHE_DIR="$TINY/out/rt_cache/bins"
 mkdir -p "$BIN_CACHE_DIR"
 
 run_test() {
@@ -122,8 +84,8 @@ run_test() {
         local o_file="$WORK/${base}.o"
         bin="$WORK/${base}_bin"
 
-        # scrip -sc -x86 (timeout guards against hangs on unimplemented constructs)
-        if ! timeout 15 "$SCRIP_CC" -sc -x86 "$sc" -o "$s_file" 2>"$WORK/${base}.scrip_err"; then
+        # scrip --compile --target=x86 (timeout guards against hangs on unimplemented constructs)
+        if ! timeout 15 "$SCRIP_CC" --compile --target=x86 "$sc" -o "$s_file" 2>"$WORK/${base}.scrip_err"; then
             echo -e "${RED}FAIL${RESET} $base  [scrip error/timeout]"
             cat "$WORK/${base}.scrip_err" | head -3
             FAIL=$((FAIL+1))
@@ -131,17 +93,17 @@ run_test() {
             return 0
         fi
 
-        # nasm
-        if ! nasm -f elf64 -I"$RT/x86/" "$s_file" -o "$o_file" 2>"$WORK/${base}.nasm_err"; then
-            echo -e "${RED}FAIL${RESET} $base  [nasm error]"
-            head -5 "$WORK/${base}.nasm_err"
+        # assemble (GAS .intel_syntax noprefix output — via gcc driver, NOT nasm)
+        if ! gcc -c "$s_file" -o "$o_file" 2>"$WORK/${base}.gcc_err"; then
+            echo -e "${RED}FAIL${RESET} $base  [assemble error]"
+            head -5 "$WORK/${base}.gcc_err"
             FAIL=$((FAIL+1))
             [[ "$STOP_ON_FAIL" == "1" ]] && exit 1
             return 0
         fi
 
-        # link
-        if ! gcc -no-pie "$o_file" $LINK_OBJS -lm -w -no-pie -o "$bin" 2>"$WORK/${base}.link_err"; then
+        # link against the shared unified runtime
+        if ! gcc "$o_file" -L"$RT_OUT" -lscrip_rt -lm -Wl,-rpath,"$RT_OUT" -o "$bin" 2>"$WORK/${base}.link_err"; then
             echo -e "${RED}FAIL${RESET} $base  [link error]"
             head -3 "$WORK/${base}.link_err"
             FAIL=$((FAIL+1))
