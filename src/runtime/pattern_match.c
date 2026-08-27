@@ -691,7 +691,7 @@ static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name)
 {
-    unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 11)) & (RT_DCAP_NVCACHE_N - 1));
+    unsigned i = (unsigned)((((uintptr_t)name * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
     if (g_dcap_nv_key[i] == name) return g_dcap_nv_cell[i];
     DESCR_t *cell = NV_PTR_fn(name);
     if (cell) { g_dcap_nv_key[i] = name; g_dcap_nv_cell[i] = cell; }
@@ -762,10 +762,13 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                NV_SET_fn itself uses (rt_protected.h) -- falling through to the real NV_SET_fn there so its
                core_runtime_error(42, ...) path fires unchanged; the fast path below is never reached for a
                protected name. */
-            if (g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
+            DESCR_t *cell0;
+            { unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
+              cell0 = (g_dcap_nv_key[_i] == e->varname) ? g_dcap_nv_cell[_i] : (DESCR_t *)0; }
+            if (!cell0 && g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
                 NV_SET_fn(e->varname, d);
             } else {
-                DESCR_t *cell = rt_dcap_nv_cell(e->varname);
+                DESCR_t *cell = cell0 ? cell0 : rt_dcap_nv_cell(e->varname);
                 if (cell) {
                     if (d.v == DT_S) rt_sxt_break_fast(d.s);
                     *cell = d;
@@ -1284,6 +1287,7 @@ rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
     if (_merge && varname && varname[0] != '*') {
         int ok = 0; DESCR_t cv = rt_defer_cell_read(varname, site, &ok);
         if (ok && cv.v != DT_P && cv.v != DT_X) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
+        if (ok && cv.v == DT_P && cv.p) { dtp_fn_of(cv.p); void *fn = *(void **)cv.p; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)cv.p; return r; } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
     }
     if (!_merge || !varname || varname[0] == '*') {
         void *dtp = rt_defer_get_pat_dtp(varname, 0);
