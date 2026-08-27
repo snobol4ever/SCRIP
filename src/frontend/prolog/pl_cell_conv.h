@@ -4,7 +4,8 @@
 #include "term.h"
 #ifndef PL_CELL_ALLOC
 #include <stdlib.h>
-#define PL_CELL_ALLOC(nbytes) malloc(nbytes)
+extern void *rt_plj_alloc(size_t);
+#define PL_CELL_ALLOC(nbytes) rt_plj_alloc(nbytes)
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Term *pl_cell_to_term(pl_cell_t *c) {

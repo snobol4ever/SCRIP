@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+extern void *rt_plj_alloc(size_t);
 #define MAX_VARS 256
 typedef struct {
     char *name;
@@ -248,7 +249,7 @@ static Term *parse_list(Parser *p) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int parse_args(Parser *p, Term ***args_out) {
     int cap = 8, n = 0;
-    Term **args = malloc(cap * sizeof(Term *));
+    Term **args = rt_plj_alloc(cap * sizeof(Term *));
     Token pk0 = lexer_peek(&p->lx);
     if (pk0.kind == TK_RPAREN) {
         *args_out = args;
@@ -256,7 +257,7 @@ static int parse_args(Parser *p, Term ***args_out) {
     }
     p->in_args++;
     for (;;) {
-        if (n >= cap) { cap *= 2; args = realloc(args, cap * sizeof(Term *)); }
+        if (n >= cap) { int newcap = cap * 2; Term **grown = rt_plj_alloc((size_t)newcap * sizeof(Term *)); memcpy(grown, args, (size_t)n * sizeof(Term *)); args = grown; cap = newcap; }
         Term *t = parse_term(p, 1200);
         if (!t) break;
         args[n++] = t;
@@ -299,7 +300,6 @@ static Term *parse_primary(Parser *p) {
                 else perror_at(p, rp.line, "expected ) after args");
                 int fid = prolog_atom_intern(tk.text);
                 Term *t = term_new_compound(fid, nargs, args);
-                free(args);
                 return t;
             }
             if (strcmp(tk.text, "dynamic") == 0 ||
@@ -357,7 +357,6 @@ static Term *parse_primary(Parser *p) {
                 else perror_at(p, rp.line, "expected ) after args");
                 int fid = prolog_atom_intern(opname);
                 Term *t = term_new_compound(fid, nargs, args);
-                free(args);
                 return t;
             }
             perror_at(p, tk.line, "unexpected token in term");
@@ -411,7 +410,6 @@ static Term *parse_primary(Parser *p) {
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                     else perror_at(p, rp.line, "expected ) after args");
                     Term *t = term_new_compound(id, nargs, args);
-                    free(args);
                     return t;
                 }
                 const OpEntry *pre_o = find_prefix(tk.text);
@@ -821,7 +819,7 @@ static Term *dcg_append_tail(Term *list, Term *tail) {
         return tail;
     if (list->tag == TERM_COMPOUND && list->compound.arity == 2) {
         Term *new_tail = dcg_append_tail(list->compound.args[1], tail);
-        Term **args = malloc(2 * sizeof(Term *));
+        Term **args = rt_plj_alloc(2 * sizeof(Term *));
         args[0] = list->compound.args[0];
         args[1] = new_tail;
         return term_new_compound(list->compound.functor, 2, args);
@@ -831,7 +829,7 @@ static Term *dcg_append_tail(Term *list, Term *tail) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *dcg_make_unify(Term *a, Term *b) {
     int eq_id = prolog_atom_intern("=");
-    Term **args = malloc(2 * sizeof(Term *));
+    Term **args = rt_plj_alloc(2 * sizeof(Term *));
     args[0] = a; args[1] = b;
     return term_new_compound(eq_id, 2, args);
 }
@@ -839,12 +837,12 @@ static Term *dcg_make_unify(Term *a, Term *b) {
 static Term *dcg_call_nt(Term *nt, Term *s_in, Term *s_out) {
     nt = term_deref(nt);
     if (nt->tag == TERM_ATOM) {
-        Term **args = malloc(2 * sizeof(Term *));
+        Term **args = rt_plj_alloc(2 * sizeof(Term *));
         args[0] = s_in; args[1] = s_out;
         return term_new_compound(nt->atom_id, 2, args);
     } else if (nt->tag == TERM_COMPOUND) {
         int new_arity = nt->compound.arity + 2;
-        Term **args = malloc(new_arity * sizeof(Term *));
+        Term **args = rt_plj_alloc((size_t)new_arity * sizeof(Term *));
         for (int i = 0; i < nt->compound.arity; i++)
             args[i] = nt->compound.args[i];
         args[new_arity-2] = s_in;
@@ -870,10 +868,9 @@ static int dcg_expand_body(Term *body, Term *s_in, Term *s_out,
             && body->compound.arity == 1) {
         int n = dcg_count_conj(body->compound.args[0]);
         int old = idx;
-        Term **tmp = malloc((n+1) * sizeof(Term *));
+        Term **tmp = rt_plj_alloc((size_t)(n+1) * sizeof(Term *));
         int nn = dcg_flatten_conj(body->compound.args[0], tmp, 0);
         for (int i = 0; i < nn; i++) buf[idx++] = tmp[i];
-        free(tmp);
         (void)old;
         buf[idx++] = dcg_make_unify(s_in, s_out);
         return idx;
@@ -902,17 +899,17 @@ static int dcg_expand_body(Term *body, Term *s_in, Term *s_out,
         nb = dcg_expand_body(body->compound.args[1], s_in, s_out, sc, buf_b, 0);
         Term *conj_a = buf_a[0];
         for (int i = 1; i < na; i++) {
-            Term **ca = malloc(2 * sizeof(Term *));
+            Term **ca = rt_plj_alloc(2 * sizeof(Term *));
             ca[0] = conj_a; ca[1] = buf_a[i];
             conj_a = term_new_compound(comma_id, 2, ca);
         }
         Term *conj_b = buf_b[0];
         for (int i = 1; i < nb; i++) {
-            Term **cb = malloc(2 * sizeof(Term *));
+            Term **cb = rt_plj_alloc(2 * sizeof(Term *));
             cb[0] = conj_b; cb[1] = buf_b[i];
             conj_b = term_new_compound(comma_id, 2, cb);
         }
-        Term **sargs = malloc(2 * sizeof(Term *));
+        Term **sargs = rt_plj_alloc(2 * sizeof(Term *));
         sargs[0] = conj_a; sargs[1] = conj_b;
         buf[idx++] = term_new_compound(semi_id, 2, sargs);
         return idx;
@@ -936,12 +933,12 @@ static void dcg_expand_clause(PlClause *cl, Term *dcg_body, Term *pushback, VarS
     Term *s  = dcg_fresh_var(sc);
     Term *head = term_deref(cl->head);
     if (head->tag == TERM_ATOM) {
-        Term **args = malloc(2 * sizeof(Term *));
+        Term **args = rt_plj_alloc(2 * sizeof(Term *));
         args[0] = s0; args[1] = s;
         cl->head = term_new_compound(head->atom_id, 2, args);
     } else if (head->tag == TERM_COMPOUND) {
         int new_arity = head->compound.arity + 2;
-        Term **args = malloc(new_arity * sizeof(Term *));
+        Term **args = rt_plj_alloc((size_t)new_arity * sizeof(Term *));
         for (int i = 0; i < head->compound.arity; i++)
             args[i] = head->compound.args[i];
         args[new_arity-2] = s0;
@@ -958,7 +955,7 @@ static void dcg_expand_clause(PlClause *cl, Term *dcg_body, Term *pushback, VarS
     } else {
         n = dcg_expand_body(dcg_body, s0, s, sc, buf, 0);
     }
-    cl->body  = malloc(n * sizeof(Term *));
+    cl->body  = rt_plj_alloc((size_t)n * sizeof(Term *));
     cl->nbody = n;
     for (int i = 0; i < n; i++) cl->body[i] = buf[i];
 }
@@ -1138,8 +1135,8 @@ static PlClause *parse_clause(Parser *p) {
             perror_at(p, dot.line, "expected . at end of DCG clause");
         if (p->sc.count > 0) {
             cl->nvar      = p->sc.count;
-            cl->var_names = malloc((size_t)p->sc.count * sizeof(char *));
-            cl->var_terms = malloc((size_t)p->sc.count * sizeof(Term *));
+            cl->var_names = rt_plj_alloc((size_t)p->sc.count * sizeof(char *));
+            cl->var_terms = rt_plj_alloc((size_t)p->sc.count * sizeof(Term *));
             for (int _vi = 0; _vi < p->sc.count; _vi++) {
                 cl->var_names[_vi] = p->sc.entries[_vi].name;
                 cl->var_terms[_vi] = p->sc.entries[_vi].term;
@@ -1331,7 +1328,6 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
             continue;
         }
         if (!if_currently_active(&p)) {
-            if (cl->body) free(cl->body);
             free(cl);
             continue;
         }

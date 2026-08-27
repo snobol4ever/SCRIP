@@ -18,7 +18,7 @@ int main(void) {
     CHECK(tc && tc->tag == TERM_COMPOUND && tc->compound.functor == 77 && tc->compound.arity == 2, "compound cell -> Term f/2");
     CHECK(tc->compound.args[0]->tag == TERM_INT && tc->compound.args[0]->ival == 1, "compound arg0 = int 1");
     CHECK(tc->compound.args[1]->tag == TERM_ATOM && tc->compound.args[1]->atom_id == 2, "compound arg1 = atom 2");
-    Term *src = term_new_compound(77, 2, (Term **)malloc(2 * sizeof(Term *)));
+    Term *src = term_new_compound(77, 2, (Term **)rt_plj_alloc(2 * sizeof(Term *)));
     src->compound.args[0] = term_new_int(5);
     src->compound.args[1] = term_new_atom(6);
     pl_cell_t dst; pl_init_var(&dst, 0);
