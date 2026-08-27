@@ -209,7 +209,44 @@ printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
 if [ "$MISSING" -gt 0 ]; then
     echo "⛔ GATE REFUSES: $MISSING hardcoded corpus path(s) no longer resolve -- the board is SMALLER than it looks:"
     printf "$MISSING_LIST"
-    echo "   Repoint them; do NOT read the shrunken total as a pass. FAIL=0 over a shrunken denominator is not green."
+    # ⛔⭐⭐ WHY THIS BLOCK NOW DIAGNOSES BEFORE IT ADVISES (hq_P 2026-08-27 s276, after THREE seats in ONE DAY).
+    # This refusal used to end with the flat instruction "Repoint them". ⛔ THAT NAMED THE WRONG REMEDY FOR THE
+    # DOMINANT CAUSE, AND THE WRONG REMEDY IS THE IRREVERSIBLE ONE. A suite family lands as a CROSS-REPO change --
+    # the corpus commit carrying <family>.{sno,ref} and the SCRIP commit adding it to the family list -- and there
+    # is no atomic commit across two repos, so for a window any checkout that pulled one and not the other sees
+    # paths that "do not resolve". The correct action there is `git pull` in corpus. REPOINTING OR RETIRING THE
+    # ENTRY INSTEAD PERMANENTLY SHRINKS THE BOARD, and the gate was the thing telling seats to do it: seat12
+    # proposed retiring two live families, seat11 proposed repointing seven, and a third report reached seat08
+    # secondhand as a phantom regression -- all in one day, all steered by this message.
+    # ⭐ THE FIX IS TO ASK THE QUESTION THE SEAT CANNOT: does the path exist at origin? If yes the checkout is
+    # STALE; if no it is genuinely gone. Same file, same symptom, opposite cures -- so the gate must not guess.
+    # ⛔ AND IT MUST DEGRADE TO "UNDETERMINED", NEVER TO THE DESTRUCTIVE ADVICE: with no origin, no network, or a
+    # failed fetch we print both possibilities and recommend NOTHING. An instrument that cannot measure refuses.
+    _stale=0; _gone=0; _undet=0
+    if [ -d "$CORPUS/.git" ] && git -C "$CORPUS" rev-parse --verify -q origin/main >/dev/null 2>&1; then
+        timeout 20s git -C "$CORPUS" fetch -q origin 2>/dev/null || true
+        for _p in $(printf "$MISSING_LIST" | grep -oE "$CORPUS/[^ ]+" | sort -u); do
+            _rel="${_p#$CORPUS/}"
+            if git -C "$CORPUS" cat-file -e "origin/main:$_rel" 2>/dev/null; then _stale=$((_stale+1)); else _gone=$((_gone+1)); fi
+        done
+    else _undet=1; fi
+    _behind="$(git -C "$CORPUS" rev-list --count HEAD..origin/main 2>/dev/null || echo '?')"
+    if [ "$_stale" -gt 0 ]; then
+        echo "   ⛔⭐ DIAGNOSIS: YOUR CORPUS CHECKOUT IS STALE -- $_stale of the unresolved path(s) EXIST at origin/main"
+        echo "      (corpus is $_behind commit(s) behind origin). ⛔ DO NOT REPOINT AND DO NOT RETIRE THESE ENTRIES:"
+        echo "      they are live files and the entries are correct. Repointing would shrink the board permanently."
+        echo "      ✅ FIX:  git -C $CORPUS pull --ff-only     then re-run this gate."
+        [ "$_gone" -gt 0 ] && echo "      ⚠ $_gone other path(s) are absent at origin too -- treat those separately, see below."
+    fi
+    if [ "$_gone" -gt 0 ] && [ "$_stale" -eq 0 ]; then
+        echo "   DIAGNOSIS: $_gone path(s) are absent at origin/main too, so this is NOT a stale checkout."
+        echo "      Repoint or retire those family entries; do NOT read the shrunken total as a pass."
+    fi
+    if [ "$_undet" -eq 1 ]; then
+        echo "   ⚠ UNDETERMINED: no corpus origin/main to compare against, so this gate CANNOT tell a stale checkout"
+        echo "      from a genuinely retired suite. ⛔ Recommending nothing -- establish which it is before changing anything."
+    fi
+    echo "   FAIL=0 over a shrunken denominator is not green."
     exit 2
 fi
 if [ "$FAIL4" -gt 0 ]; then echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 (mode-3 FAIL=$FAIL3, informational)"; exit 1; fi
