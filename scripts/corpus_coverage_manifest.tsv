@@ -51,3 +51,5 @@ SUBTREE	crosscheck/coverage	GATED	test_corpus_snobol4.sh
 SUBTREE	crosscheck/control	GATED	test_corpus_snobol4.sh
 SUBTREE	scrip	ROWD	scrip-demo-harness-unwired
 SUBTREE	scrip/family_net	ROWD	scrip-demo-harness-unwired
+EXCLUDE	archive	EXCLUDED	archived bisection scratch and retired probes, provenance in corpus/archive/*/README -- not gradeable, not test material; archived rather than deleted so a regressed cure can bisect against them
+EXCLUDE	packages/pascal	EXCLUDED	third-party Pascal-P4 reference compiler (pcom.pas/pint.pas/ppp.pas + grammar), ETH Zurich 1976, Free Pascal/Delphi port by Christophe Staiesse 2013; provenance in packages/pascal/README.md -- imported upstream, never converted/graded
