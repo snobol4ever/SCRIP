@@ -191,6 +191,18 @@ void rt_kw_publish_error(int code, const char *msg) {
     g_sno_errtext = msg ? rt_ws_strdup_c(msg) : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_set_rtntype(int which) {
+    static const char *names[3] = { "RETURN", "FRETURN", "NRETURN" };
+    const char *s = (which >= 0 && which <= 2) ? names[which] : "";
+    size_t n = strlen(s); if (n > sizeof(kw_rtntype) - 1) n = sizeof(kw_rtntype) - 1;
+    memcpy(kw_rtntype, s, n); kw_rtntype[n] = '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_set_rtntype_role(int role) {
+    extern int rt_g_ret_by_name;
+    rt_kw_set_rtntype(role == 2 ? 1 : (rt_g_ret_by_name ? 2 : 0));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
     if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_ws_strdup_c(s ? s : ""); return 1; }

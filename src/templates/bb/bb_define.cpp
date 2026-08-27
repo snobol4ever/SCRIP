@@ -12,6 +12,7 @@ extern int64_t kw_fnclevel;
 extern int g_monitor_bin;
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
+void rt_kw_set_rtntype_role(int);
 extern int * const rt_k_level_p;
 extern char g_pl_trail[];
 #define PL_TRAIL_TOP_OFF 32
@@ -540,11 +541,14 @@ static std::string bb_define_sr() {
              + IF(!inl5, x86_gamma());
     }
     if (role == 1 || role == 2 || role == -1 ) {
+        uint64_t _rtn_fp; { void (*_f)(int) = rt_kw_set_rtntype_role; _rtn_fp = (uint64_t)(uintptr_t)(void *)_f; }
+        std::string rtn_set = x86("mov", "edi", (long)role) + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
         if (fnrbp() == 2)
             return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
                                                "IR_DEFINE NRETURN floater (s64 RSP-ONLY: pop gamma — by-name result)")
                  + x86_alpha()
+                 + rtn_set
                  + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx")
                               : x86("pop", "rcx") + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
