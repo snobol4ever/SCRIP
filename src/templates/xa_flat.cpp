@@ -285,6 +285,17 @@ static std::string xa_flat_zframe_prologue_str(void) {
                + x86("mov32", "esi", (long)seed_off)
                + x86("mov32", "edx", (long)(kt - 32))
                + x86("call", "rt_jmp_frame_lexprep2", _lex_fp);
+            if (np > 0) {
+                /* nlocals=0 always: rt_jmp_frame_lexprep2 already zeroed [0,region_bytes), which covers the
+                 * locals region too -- this call exists only for its param-copy loop. The real local slot
+                 * count here is NOT contiguous with params (resume_off/zeta_mark sit in between), so passing
+                 * the true nlocals would re-zero the resume/trail-mark slots lexprep2 just restored. */
+                uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
+                s += x86("mov", "rdi", "rsp")
+                   + x86("mov32", "esi", (long)np)
+                   + x86("mov32", "edx", 0L)
+                   + x86("call", "rt_icn_zframe_args_install", _args_fp);
+            }
             if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
                 uint64_t _sw_fp;  { void (*_f)(void *, void *, void *) = rt_gen_save_wires;      _sw_fp  = (uint64_t)(uintptr_t)(void *)_f; }
                                 s += x86("mov", "rdi", "rsp")

@@ -1647,7 +1647,14 @@ extern int     g_pl_zf_target_pcall_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
 {
-    (void)fb; (void)suffix_off; (void)region_bytes;
+    (void)suffix_off;
+    memset(fb, 0, (size_t)region_bytes);
+    if (g_pl_zf_pending_cursor) {
+        *(void **)((char *)fb + g_pl_zf_pending_cursor_off) = g_pl_zf_pending_cursor;
+        *(long  *)((char *)fb + g_pl_zf_pending_tm_off)     = g_pl_zf_pending_tm_lo;
+        *(long  *)((char *)fb + g_pl_zf_pending_tm_off + 8) = g_pl_zf_pending_tm_hi;
+        g_pl_zf_pending_cursor = (void *)0;
+    }
 }
 __attribute__((visibility("default"))) void **g_pl_retry;
 __attribute__((visibility("default"))) int    g_pl_retry_top;
