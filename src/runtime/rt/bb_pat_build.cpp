@@ -1,7 +1,7 @@
 extern "C" {
-#include "contracts/IR.h"
-#include "contracts/ast.h"
-#include "machine/bb_pool.h"
+#include "IR.h"
+#include "ast.h"
+#include "bb_pool.h"
 }
 #include "emit.h"
 extern "C" void fc_tables_reset(void);
