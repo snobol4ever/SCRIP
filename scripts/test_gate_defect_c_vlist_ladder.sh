@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# ⭐⭐ DEFECT-C ACCEPTANCE GATE — the vlist_select ladder, graded so a LUCKY DRAW CANNOT PASS IT.
+# Row `defect-c-zop-flat-regime-depth-compensate` (hq_P). Written hq_P 2026-08-27 s276.
+#
+# ⛔⭐ WHY THIS SCRIPT EXISTS AT ALL — THE CRITERION IT REPLACES COULD BE PASSED BY A BUILD THAT FIXED NOTHING.
+# The row's DONE-WHEN was PROSE: "all PASS in both modes under at least two process environment sizes".
+# Read literally as one run per size, that bar is a COIN FLIP: seat03 found, and hq_P independently
+# reproduced on a different tree, that v04_listappend_growth SIGSEGVs under `env -i` at ~27% and NEVER
+# ambient (hq_P measured 8/30 minimal, 0/30 ambient; seat03 8/29 minimal, 0/21 ambient). One run per
+# environment therefore passes ~73% of the time against a null fix. A criterion that green-lights a
+# do-nothing build three times in four is not a weak criterion, it is a VACUOUS one.
+#
+# ⭐⭐ THE MEASURED CURE, AND IT IS THE PRODUCT OF TWO THINGS, NOT EITHER ONE:
+#     bare + ambient   -> 0/30  flagged   (the defect never manifests; a green run here means nothing)
+#     bare + `env -i`  -> 8/30  flagged   (~27% -- real, but a coin flip per run)
+#     valgrind + ambient -> 0/5 flagged   (⛔ VALGRIND ALONE CATCHES NOTHING -- it exits 0 and is silent)
+#     valgrind + `env -i` -> 8/8 flagged  (✅ 100% DETERMINISTIC, with "Invalid write of size 8 ...
+#                                          Address ... is not stack'd, malloc'd or (recently) free'd")
+# ⛔ So "just run it under valgrind" is NOT the fix -- ambient valgrind is as blind as an ambient bare run.
+# The environment is not incidental to this defect: it positions the out-of-bounds write, and only under
+# the minimal environment does valgrind's stricter address-space bookkeeping see it every single time.
+# THE GATE THEREFORE GRADES `env -i` + valgrind AS THE PRIMARY DETECTOR and keeps N-rep bare sampling as
+# an independent backstop, because a cure that merely moved the write would silence one and not the other.
+#
+# ⛔ REFUSES rc=2 RATHER THAN SKIPPING: no ./scrip, no valgrind, no witness, no .ref => rc=2, never rc=0.
+#    A test that cannot measure must never report success (RULES.md; the `make test` .PHONY trap).
+# ⛔ EXPECTED TO FAIL TODAY. The cure is NOT landed, so this gate SHOULD exit 1 on the current tree --
+#    that is its own negative test, and the reason it was written before the cure rather than after.
+set -u
+REPS="${REPS:-20}"
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SELF_DIR/.." && pwd)"
+CORPUS="$(cd "$ROOT/../corpus" 2>/dev/null && pwd)" || { echo "⛔ REFUSES (rc=2): no sibling corpus/ beside $ROOT"; exit 2; }
+PROBE="$CORPUS/probe/vlist_select"
+SCRIP="$ROOT/scrip"; RT="$ROOT/out"
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+[ -x "$SCRIP" ]                 || { echo "⛔ REFUSES (rc=2): $SCRIP not built. Run make first -- this is NOT a pass."; exit 2; }
+command -v valgrind >/dev/null  || { echo "⛔ REFUSES (rc=2): valgrind absent; the deterministic arm cannot run, so no verdict is possible."; exit 2; }
+[ -d "$PROBE" ]                 || { echo "⛔ REFUSES (rc=2): witness dir $PROBE does not resolve."; exit 2; }
+NAMES="$(cd "$PROBE" && ls *.sno 2>/dev/null | sed 's/\.sno$//' | sort)"
+[ -n "$NAMES" ]                 || { echo "⛔ REFUSES (rc=2): zero witnesses in $PROBE -- an empty ladder is not a green one."; exit 2; }
+for n in $NAMES; do [ -f "$PROBE/$n.ref" ] || { echo "⛔ REFUSES (rc=2): $n has no .ref oracle -- cannot grade it."; exit 2; }; done
+echo "=== DEFECT-C vlist_select LADDER — env -i + valgrind is the primary detector (REPS=$REPS bare backstop) ==="
+echo "    tree: $(git -C "$ROOT" log --oneline -1 2>/dev/null | cut -c1-12)   corpus: $(git -C "$CORPUS" log --oneline -1 2>/dev/null | cut -c1-12)   valgrind: $(valgrind --version)"
+printf '  %-34s %-8s %-9s %-14s %-10s\n' WITNESS M3 M4-AMB "M4-MIN(bare)" VALGRIND
+fail=0
+for n in $NAMES; do
+    ref="$PROBE/$n.ref"
+    m3="?"; if timeout 60s "$SCRIP" "$PROBE/$n.sno" < /dev/null > "$W/m3.out" 2>/dev/null; then
+        cmp -s "$W/m3.out" "$ref" && m3=PASS || m3=WRONG; else m3=CRASH; fi
+    amb="?"; minr="?"; vg="?"
+    if timeout 60s "$SCRIP" --compile -o "$W/$n.s" "$PROBE/$n.sno" < /dev/null >/dev/null 2>&1 \
+       && gcc -no-pie "$W/$n.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$n.bin" 2>/dev/null; then
+        if bash -c 'timeout 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/a.out" 2>/dev/null; then cmp -s "$W/a.out" "$ref" && amb=PASS || amb=WRONG; else amb=CRASH; fi
+        bad=0; for i in $(seq "$REPS"); do
+            if bash -c 'env -i timeout 60s "$0" < /dev/null > "$1" 2>/dev/null' "$W/$n.bin" "$W/m.out" 2>/dev/null; then cmp -s "$W/m.out" "$ref" || bad=$((bad+1)); else bad=$((bad+1)); fi
+        done
+        [ "$bad" -eq 0 ] && minr="PASS $REPS/$REPS" || minr="FAIL $bad/$REPS"
+        bash -c 'env -i timeout 300s valgrind -q --error-exitcode=99 "$0" < /dev/null > /dev/null 2> "$1"' "$W/$n.bin" "$W/vg.txt" 2>/dev/null; vrc=$?
+        verr=$(grep -cE 'Invalid (read|write)|Access not within|uninitialised' "$W/vg.txt" 2>/dev/null)
+        if [ "$vrc" -ge 128 ]; then vg="CRASH"; elif [ "${verr:-0}" -gt 0 ]; then vg="ERR($verr)"; elif [ "$vrc" -eq 99 ]; then vg="ERR"; else vg=CLEAN; fi
+    else amb=CERR; minr=CERR; vg=CERR; fi
+    printf '  %-34s %-8s %-9s %-14s %-10s\n' "$n" "$m3" "$amb" "$minr" "$vg"
+    case "$m3$amb$minr$vg" in *WRONG*|*CRASH*|*CERR*|*FAIL*|*ERR*) fail=$((fail+1));; esac
+done
+echo "------------------------------------------------------------"
+if [ "$fail" -eq 0 ]; then echo "✅ GATE OK — full ladder clean in both modes, both environments, and valgrind-clean under env -i."; exit 0; fi
+echo "⛔ GATE FAILS — $fail witness(es) not clean. ⭐ EXPECTED until the Defect C cure lands; this is the gate's own negative test."
+echo "   ⛔ Do NOT weaken this gate to make it pass, and do NOT re-grade on a single ambient run: ambient is blind to this defect"
+echo "      (0/30 bare, 0/5 valgrind) while env -i+valgrind catches it 8/8. A green ambient run is not evidence."
+exit 1
