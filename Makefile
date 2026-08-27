@@ -365,6 +365,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_ref_invariant.cpp \
     $(SRC)/templates/bb/bb_subject.cpp \
     $(SRC)/templates/bb/bb_unop_gvar_slot.cpp \
+    $(SRC)/templates/bb/bb_assign_frame.cpp \
     $(SRC)/templates/bb/bb_var_frame.cpp \
     $(SRC)/templates/bb/bb_var_frame_ref.cpp
 

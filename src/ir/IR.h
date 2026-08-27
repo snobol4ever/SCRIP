@@ -148,6 +148,8 @@ typedef enum {
     IR_UNOP_TEST,
     IR_VAR,
     IR_VAR_REF,
+    IR_VAR_FRAME,
+    IR_ASSIGN_FRAME,
     IR_OP_COUNT
 } IR_e;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -211,6 +213,7 @@ struct IR_graph_t {
     int            n_vslots;
     int            resume_slot;
     int            resumable_callable;
+    int            decl_level;
     int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;

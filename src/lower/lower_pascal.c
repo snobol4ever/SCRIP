@@ -25,24 +25,6 @@ static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
 static int g_pas_has_nesting = 0;
 #define PAS_PROC(i)   LC_AT(&g_pas_proc_list, const tree_t *, (i))
 #define PAS_PARENT(i) LC_AT(&g_pas_proc_parent, const tree_t *, (i))
-#define PAS_MAX_CAPTURED 256
-typedef struct { const char * proc; const char * var; } pas_cap_t;
-static pas_cap_t g_pas_captured[PAS_MAX_CAPTURED]; static int g_pas_captured_n = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pas_cap_find(const char * proc, const char * var) {
-    for (int i = 0; i < g_pas_captured_n; i++) if (g_pas_captured[i].proc && g_pas_captured[i].var && proc && var && !strcmp(g_pas_captured[i].proc, proc) && !strcmp(g_pas_captured[i].var, var)) return 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_cap_add(const char * proc, const char * var) {
-    if (!proc || !var || pas_cap_find(proc, var) || g_pas_captured_n >= PAS_MAX_CAPTURED) return;
-    g_pas_captured[g_pas_captured_n].proc = proc; g_pas_captured[g_pas_captured_n].var = var; g_pas_captured_n++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pas_cap_mangle(const char * proc, const char * var) {
-    char buf[128]; snprintf(buf, sizeof buf, "__up_%s_%s", proc ? proc : "", var ? var : "");
-    return lp_strdup(buf);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
@@ -77,28 +59,37 @@ static int pas_name_is_byref(pcx_t * cx, const char * name) {
 }
 extern int pas_is_agg_local(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pas_resolve_name(pcx_t * cx, const char * name, int * slot_out) {
+typedef struct { int slot; int uplevel; int owner_level; const char * owner_proc; } pas_res_t;
+static int pas_resolve2(pcx_t * cx, const char * name, pas_res_t * r) {
+    r->slot = -1; r->uplevel = 0; r->owner_level = 0; r->owner_proc = NULL;
     const pas_scope_t * found_sc = NULL;
-    int slot = -1;
-    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) { slot = sl; found_sc = s; break; } }
-    if (slot_out) *slot_out = slot;
-    if (slot >= 0 && found_sc && found_sc->proc_name && pas_cap_find(found_sc->proc_name, name)) { if (slot_out) *slot_out = -1; const char * m = pas_cap_mangle(found_sc->proc_name, name); pas_reg_var(m); return m; }
-    return name;
+    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) { r->slot = sl; found_sc = s; break; } }
+    if (found_sc && found_sc != &cx->sc && found_sc->proc_name) { int lvl = 0; for (const pas_scope_t * s2 = found_sc; s2; s2 = s2->outer) lvl++; r->uplevel = 1; r->owner_level = lvl; r->owner_proc = found_sc->proc_name; }
+    return r->slot >= 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_frame_node(pcx_t * cx, IR_e op, const char * name, const pas_res_t * r, IR_t * γ, IR_t * ω) {
+    IR_t * nd = build(cx, op, γ, ω); IR_LIT(nd).sval = name; nd->seal = r->owner_level;
+    IR_t * own = IR_node_alloc(cx->g, IR_LIT_NAME); IR_LIT(own).sval = r->owner_proc;
+    ir_operand_push(nd, own);
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pas_read_node(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
+    pas_res_t r; pas_resolve2(cx, name, &r);
+    if (r.uplevel) return pas_frame_node(cx, IR_VAR_FRAME, name, &r, γ, ω);
+    if (r.slot < 0 && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
+    IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = name; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
-    int slot = -1;
-    const char * rn = pas_resolve_name(cx, name, &slot);
-    if (slot < 0 && rn == name && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
-    IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = rn; return nd;
+    return pas_read_node(cx, name, γ, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (pas_name_is_byref(cx, name)) {
-        int slot = -1;
-        const char * rn = pas_resolve_name(cx, name, &slot);
         IR_t * dr = build(cx, IR_DEREF, γ, ω);
-        IR_t * v = build(cx, IR_VAR, dr, ω); IR_LIT(v).sval = rn;
+        IR_t * v = pas_read_node(cx, name, dr, ω);
         ir_operand_push(dr, v);
         if (res) *res = dr;
         return v;
@@ -109,10 +100,10 @@ static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, I
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
-    int slot = -1;
-    const char * rn = pas_resolve_name(cx, name, &slot);
-    if (slot < 0 && rn == name && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
-    IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = rn; return nd;
+    pas_res_t r; pas_resolve2(cx, name, &r);
+    if (r.uplevel) return pas_frame_node(cx, IR_ASSIGN_FRAME, name, &r, γ, ω);
+    if (r.slot < 0 && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
+    IR_t * nd = build(cx, IR_ASSIGN, γ, ω); IR_LIT(nd).sval = name; return nd;
 }
 static IR_t * pas_cond(pcx_t * cx, const tree_t * t, IR_t * T, IR_t * F, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -232,8 +223,8 @@ static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tre
     for (int k = 0; k < nargs; k++) {
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
-            int _brslot = -1; const char * _brn = pas_resolve_name(cx, args[k]->v.sval, &_brslot);
-            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = _brn;
+            /* byref-of-UPLEVEL is not display-reached yet (needs IR_VAR_FRAME_REF): lowers by plain name, known-red class (nested_vp_writeback) */
+            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
             IR_t * vr = build(cx, IR_VAR, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
@@ -299,9 +290,8 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
         }
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         if (bname && pas_name_is_byref(cx, bname)) {
-            int _sl = -1; const char * _rn = pas_resolve_name(cx, bname, &_sl);
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * vr = build(cx, IR_VAR, NULL, ω); IR_LIT(vr).sval = _rn;
+            IR_t * vr = pas_read_node(cx, bname, NULL, ω);
             IR_t * call = build(cx, IR_CALL, asn, ω); IR_LIT(call).sval = "arr_set_pure";
             IR_t * e;
             {
@@ -335,9 +325,8 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     if (lhs && lhs->t == TT_VAR) vname = lhs->v.sval;
     else if (lhs && lhs->t == TT_FNC && lhs->n > 0 && lhs->c[0]) vname = lhs->c[0]->v.sval;
     if (vname && pas_name_is_byref(cx, vname)) {
-        int _sl = -1; const char * _rn = pas_resolve_name(cx, vname, &_sl);
         IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-        IR_t * vr = build(cx, IR_VAR, NULL, ω); IR_LIT(vr).sval = _rn;
+        IR_t * vr = pas_read_node(cx, vname, NULL, ω);
         IR_t * rr = NULL; IR_t * re;
         if (is_condish(rhs)) { re = pas_mat_rv(cx, rhs, asn, ω, &rr); }
         else re = lower(cx, rhs, asn, ω, &rr);
@@ -655,29 +644,6 @@ static pas_scope_t * build_scope_chain(const tree_t * pd) {
     return sc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_cap_scan_tree(const tree_t * t, pas_scope_t * own) {
-    if (!t) return;
-    if (t->t == TT_PROC_DECL) return;
-    if (t->t == TT_VAR && t->v.sval) {
-        const pas_scope_t * found_sc = NULL; int slot = -1;
-        for (const pas_scope_t * s = own; s; s = s->outer) { int sl = scope_slot(s, t->v.sval); if (sl >= 0) { slot = sl; found_sc = s; break; } }
-        if (slot >= 0 && found_sc && found_sc != own && found_sc->proc_name) pas_cap_add(found_sc->proc_name, t->v.sval);
-    }
-    for (int i = 0; i < t->n; i++) pas_cap_scan_tree(t->c[i], own);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pas_cap_prepass(void) {
-    g_pas_captured_n = 0;
-    for (int i = 0; i < g_pas_proc_list.n; i++) {
-        const tree_t * pd = PAS_PROC(i);
-        if (!pd || pd->t != TT_PROC_DECL) continue;
-        pas_scope_t * sc = build_scope_chain(pd);
-        if (!sc || !sc->outer) continue;
-        const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
-        pas_cap_scan_tree(body, sc);
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192); pcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
     scan_labels(&cx, pd, NULL);
@@ -690,37 +656,8 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     IR_t * top = succ;
     if (is_func) { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * rv = build(&cx, IR_VAR, ret, fail); IR_LIT(rv).sval = pd->v.sval; ir_operand_push(ret, rv); top = rv; }
     IR_t * body_gamma = top;
-    if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
-        if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
-        const char * vn = g_pas_captured[ci].var;
-        const char * mg = pas_cap_mangle(cx.sc.proc_name, vn); pas_reg_var(mg);
-        char * sv = (char *) malloc(64); snprintf(sv, 64, "__upsv_%s_%s", cx.sc.proc_name, vn);
-        IR_t * ra = build(&cx, IR_ASSIGN, body_gamma, fail); IR_LIT(ra).sval = mg;
-        IR_t * rs = build(&cx, IR_VAR, ra, fail); IR_LIT(rs).sval = sv;
-        ir_operand_push(ra, rs);
-        body_gamma = rs;
-    }
     IR_t * entry = lower(&cx, body, body_gamma, fail, NULL);
     if (!entry) entry = build(&cx, IR_GOTO, body_gamma, body_gamma);
-    if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
-        if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
-        const char * vn = g_pas_captured[ci].var;
-        const char * mg = pas_cap_mangle(cx.sc.proc_name, vn); pas_reg_var(mg);
-        IR_t * ga = build(&cx, IR_ASSIGN, entry, fail); IR_LIT(ga).sval = mg;
-        IR_t * pv = build(&cx, IR_VAR, ga, fail); IR_LIT(pv).sval = vn;
-        ir_operand_push(ga, pv);
-        entry = pv;
-    }
-    if (cx.sc.proc_name) for (int ci = 0; ci < g_pas_captured_n; ci++) {
-        if (!g_pas_captured[ci].proc || strcmp(g_pas_captured[ci].proc, cx.sc.proc_name)) continue;
-        const char * vn = g_pas_captured[ci].var;
-        const char * mg = pas_cap_mangle(cx.sc.proc_name, vn);
-        char * sv = (char *) malloc(64); snprintf(sv, 64, "__upsv_%s_%s", cx.sc.proc_name, vn);
-        IR_t * sa = build(&cx, IR_ASSIGN, entry, fail); IR_LIT(sa).sval = sv;
-        IR_t * gv = build(&cx, IR_VAR, sa, fail); IR_LIT(gv).sval = mg;
-        ir_operand_push(sa, gv);
-        entry = gv;
-    }
     g->entry = entry; return g;
 }
 #include "stage2.h"
@@ -787,7 +724,6 @@ static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
 stage2_t *lower_pascal_stage2(const tree_t *prog) {
     pascal_register_program(&g_stage2, prog);
     lower_pascal_enum(prog, NULL, 0);
-    pas_cap_prepass();
     g_pas_has_nesting = 0;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -800,6 +736,7 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
         int bb_idx = lower_pascal_body(prog, proc);
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
+            g_stage2.bbp.table[bb_idx]->decl_level = (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) ? 0 : proc_decl_level(proc);
             g_stage2.proc_table[pi].proc_entry_node = g_stage2.bbp.table[bb_idx]->entry;
             const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
             g_stage2.proc_table[pi].nparams = plist ? plist->n : 0;

@@ -49,3 +49,15 @@ int stage2_proc_grow(stage2_t *s2)
     s2->proc_table[idx].proc_entry_node = NULL;
     return idx;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int stage2_owner_varslot(const char * proc, const char * var) {
+    extern int ir_varslot_of(const IR_graph_t * g, const char * name);
+    if (!proc || !var) return -1;
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, proc)) continue;
+        int b = g_stage2.proc_table[i].bb_idx;
+        if (b < 0 || b >= g_stage2.bbp.count || !g_stage2.bbp.table[b]) return -1;
+        return ir_varslot_of(g_stage2.bbp.table[b], var);
+    }
+    return -1;
+}

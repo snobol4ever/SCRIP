@@ -254,6 +254,25 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_PL_ZANCHOR_POISON"); on = (e && *e == '1') ? 1 : 0; } return on; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zf_display_level(void) {
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph) return 0;
+    int dl = g_emit_cfg->decl_level;
+    return (dl >= 1 && dl <= 3) ? dl : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zf_pas_nest_graph(void) {
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph) return 0;
+    return g_emit_cfg->decl_level >= 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string zf_display_restore(int kt) {
+    int dl = zf_display_level();
+    if (!dl) return std::string();
+    const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
+    return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
+         + x86("mov", dr, FRQ(kt - 40));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -330,6 +349,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
                + x86("call", "rt_icn_zframe_args_install", _args_fp);
         }
     }
+    { int _dl = zf_display_level();
+      if (_dl) { const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
+          s += x86("comment", "PAS-DISPLAY-1: save caller display[L] into [kt-40]; display[L] = this frame")
+             + x86("mov", FRQ(kt - 40), _dr)
+             + x86("mov", _dr, "rsp"); } }
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -487,10 +511,20 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rsi", "rdx")
              + x86("add", "rsp", (long)kt)
              + bb_glue_wire_γ();
+    if (zf_pas_nest_graph())
+        return x86("comment", "PAS-NEST epilogue-γ: bcps callers PUSH the wire pair and assume the callee consumes it (bcps_wire_pair_consumed=1); the [kt-24] arm left the pair seated and skewed every frame-relative caller access by 16 — the whole nest* rc=139 class. Consume: pop γ-landing, discard ω, jmp")
+             + x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + zf_display_restore(kt)
+             + x86("add", "rsp", (long)kt)
+             + x86("pop", "rcx")
+             + x86("add", "rsp", 8L)
+             + x86("jmp", "rcx");
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24]; unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
+         + zf_display_restore(kt)
          + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
@@ -517,8 +551,16 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
              + x86("add", "rsp", (long)kt)
              + bb_glue_wire_ω();
+    if (zf_pas_nest_graph())
+        return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
+             + zf_display_restore(kt)
+             + x86("add", "rsp", (long)kt)
+             + x86("add", "rsp", 8L)
+             + x86("pop", "rcx")
+             + x86("jmp", "rcx");
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
+         + zf_display_restore(kt)
          + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");

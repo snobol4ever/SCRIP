@@ -25,6 +25,8 @@ static const kind_entry_t g_kinds[] = {
     { IR_LIT_REAL,           "IR_LIT_REAL" },
     { IR_LIT_NUL,         "IR_LIT_NUL" },
     { IR_VAR,             "IR_VAR" },
+    { IR_VAR_FRAME,       "IR_VAR_FRAME" },
+    { IR_ASSIGN_FRAME,    "IR_ASSIGN_FRAME" },
     { IR_ASSIGN,          "IR_ASSIGN" },
     { IR_AUGOP,           "IR_AUGOP" },
     { IR_BINOP,           "IR_BINOP" },
