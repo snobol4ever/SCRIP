@@ -74,6 +74,8 @@ tree_t *stmt_to_ast(const STMT_t *s)
         tree_t *node = sa_new(TT_END);
         if (s->label && s->label[0])
             sa_add(node, attr_leaf(":lbl",  s->label));
+        if (s->subject && s->subject->t == TT_VAR && s->subject->v.sval)
+            sa_add(node, attr_leaf(":entry", s->subject->v.sval));
         sa_add(node, attr_int(":line", s->lineno));
         sa_add(node, attr_int(":stno", s->stno));
         return node;

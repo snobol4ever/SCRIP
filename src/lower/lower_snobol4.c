@@ -2496,7 +2496,15 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         else sno_fatal("too many DEFINEs in one program", d.fname);
         if (n_stmt_bind < SNO_DEF_MAX) stmt_bind_fname[n_stmt_bind++] = d.fname;
     }
-    IR_graph_t * g = sno_build_graph(st, nst, 0, is_def, NULL);
+    int main_entry_idx = 0;
+    for (int i = 0; i < prog->n; i++) {
+        if (!prog->c[i] || prog->c[i]->t != TT_END) continue;
+        const char * end_entry = sfind_str(prog->c[i], ":entry");
+        if (!end_entry || !end_entry[0]) break;
+        for (int k = 0; k < nst; k++) { const char * klbl = sfind_str(st[k], ":lbl"); if (klbl && !strcmp(klbl, end_entry)) { main_entry_idx = k; break; } }
+        break;
+    }
+    IR_graph_t * g = sno_build_graph(st, nst, main_entry_idx, is_def, NULL);
     {
         IR_t * prelude_head = NULL; IR_t * prelude_tail = NULL;
         for (int di = 0; di < ndefs; di++) {
