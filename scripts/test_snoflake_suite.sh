@@ -39,6 +39,11 @@ if [ "$ARM_SBL" = "1" ]; then
 fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 GIMPEL="$SUITE/gimpel"
+# ⛔ ALL ARMS RUN WITH cwd IN SCRATCH, never in a repo tree: OUTPUT unit-I/O associations create
+# files named by their third argument (SPITBOL dialect: a FILE SPEC, e.g. '(121A1)') in the cwd,
+# which dirties whatever tree the runner happened to be launched from. Symlinked INCs keep the
+# gimpel includes resolvable for the sbl arm, whose include search is cwd-relative.
+RUN="$W/run"; mkdir -p "$RUN"; ln -s "$GIMPEL"/*.INC "$GIMPEL"/*.IN "$RUN"/ 2>/dev/null || true
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0
@@ -87,9 +92,9 @@ compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
 run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     local inp=/dev/null; [ "$HASINP" = 1 ] && inp="$W/inp"
     case "$1" in
-        m3)  GOT="$(SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run "$2" < "$inp" 2>&1)"; RC=$?;;
-        m4)  GOT="$(SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
-        sbl) GOT="$(cd "$GIMPEL" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$2" < "$inp" 2>&1)"; RC=$?;;
+        m3)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run "$2" < "$inp" 2>&1)"; RC=$?;;
+        m4)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
+        sbl) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
