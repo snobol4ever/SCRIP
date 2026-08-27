@@ -68,21 +68,24 @@ static std::string sink_unb(const char * reg, int lyes, int lno) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_trailpush(const char * creg, int lslow) {
+    /* rdi holds the marshalled args-array base that the caller's slow-path fallback (label lslow) still needs
+     * for its `call usym` -- this helper must not touch it. Use rcx (free at both call sites) for the trail
+     * base/entry pointer instead, so a bail to lslow (trail unallocated or full) leaves rdi untouched. */
     return x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail")
-         + x86("mov", "rdi", "[r12 + 0]")
-         + x86("test", "rdi", "rdi")   + x86_jcc_id("je", lslow)
+         + x86("mov", "rcx", "[r12 + 0]")
+         + x86("test", "rcx", "rcx")   + x86_jcc_id("je", lslow)
          + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("mov32", "esi", (long)24)
          + x86("imul", "rsi", "rax")
          + x86("mov", "rax", "[r12 + 24]")
          + x86("sub", "rax", (long)24)
          + x86("cmp", "rsi", "rax")    + x86_jcc_id("ja", lslow)
-         + x86("add", "rdi", "rsi")
-         + x86("mov", "[rdi + 0]", creg)
+         + x86("add", "rcx", "rsi")
+         + x86("mov", "[rcx + 0]", creg)
          + x86("mov", "rax", (std::string("[") + creg + " + 0]").c_str())
-         + x86("mov", "[rdi + 8]", "rax")
+         + x86("mov", "[rcx + 8]", "rax")
          + x86("mov", "rax", (std::string("[") + creg + " + 8]").c_str())
-         + x86("mov", "[rdi + 16]", "rax")
+         + x86("mov", "[rcx + 16]", "rax")
          + x86("mov", "eax", "dword ptr [r12 + 32]")
          + x86("add", "eax", (long)1)
          + x86("mov", "dword ptr [r12 + 32]", "eax");
