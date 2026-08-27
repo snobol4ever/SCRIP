@@ -1232,6 +1232,7 @@ inline std::string x86_load_mem64(const char * dst, const char * basebr) {
     int g = x86_rnum(dst), m = x86_rnum(rb);
     uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)((0 << 6) | ((g & 7) << 3) | (m & 7));
+    if ((m & 7) == 4) code += (char)0x24;
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", qword ptr [" + rb + "]\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
