@@ -119,25 +119,40 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
 # MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
 HARNESS="$HERE/corpus_suite_harness.py"
 SUITES="$CORPUS/tests/snobol4"
-# ⭐ DISCOVERED, NOT HAND-MAINTAINED (row corpus-suite-family-list-should-autodiscover, cures hq_P s277's incident:
-# corpus 0e75bfdbc converted 19 crosscheck families into suite pairs and the hand-maintained list here was not
-# updated in the same breath, so 98 entries silently left the board -- not FAIL, not MISSING, simply never iterated
-# -- while the gate kept printing "GATE OK ... MISSING=0". A hand-maintained list is a second source of truth that
-# drifts from the filesystem silently, in the direction that looks like success.) Family names are DISCOVERED by
-# globbing $SUITES/crosscheck for every <name>.sno with a sibling <name>.ref -- the filesystem is the single source
-# of truth, no separate registration step exists. ⛔ Scoped to crosscheck/ specifically, not all of $SUITES:
-# beauty_suite/ already has its own driver-pair loop a few lines below and would be DOUBLE-COUNTED by a wider glob
-# (its *_driver.sno/.ref pairs match the identical by-basename rule); feat/parser/smoke/jvm_j3/linker are
-# separately-owned corpora already consumed by other scripts (scorecard_snobol4.sh's MISC_DIRS,
-# test_lower_byte_identical.sh, the JS/WASM ladders) and carry no suite-format .ref of their own to grade here.
-while IFS= read -r family; do
-    s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
+# ⭐⭐ FAMILIES ARE DISCOVERED FROM THE TREE, NEVER HAND-MAINTAINED (two seats converged on this the same day --
+# rows crosscheck-families-filesystem-truth + corpus-suite-family-list-should-autodiscover -- both curing hq_P's
+# s277 measurement: a hand-typed `for family in ...` list here let 98 entries -- 19 converted families -- vanish
+# from the board silently, GATE OK, while m3/m4 totals fell 365 -> 267. A typed list is a SECOND SOURCE OF TRUTH
+# about what exists on disk and it drifts silently in the direction that looks like success. THE CURE: every
+# *.sno with a sibling *.ref directly under $SUITES/crosscheck IS a family -- nothing is named, so families are
+# now discovered from the tree and nothing can be forgotten when a new one lands.
+# ⛔ Scoped to crosscheck/ specifically, not all of $SUITES: beauty_suite/ already has its own driver-pair loop
+# a few lines below and would be DOUBLE-COUNTED by a wider glob (its *_driver.sno/.ref pairs match the identical
+# by-basename rule); feat/parser/smoke/jvm_j3/linker are separately-owned corpora already consumed by other
+# scripts (scorecard_snobol4.sh's MISC_DIRS, test_lower_byte_identical.sh, the JS/WASM ladders) and carry no
+# suite-format .ref of their own to grade here.
+# ⛔ DISCOVERY ALONE CANNOT SEE A FAMILY THAT WENT MISSING (fewer names discovered looks identical to fewer names
+# that exist) -- covers the ADDITION direction (a new pair needs no registration, and
+# test_gate_crosscheck_family_list_autodiscovers.sh proves that direction hermetically) but not the DELETION
+# direction, so a FLOOR stands guard below: a discovered count under it SHRINK-REFUSES through the same
+# MISSING/stale-vs-gone diagnosis this script already runs for a stale hardcoded demo path, rather than
+# reporting a smaller total as green (TWO-PART PROOF, RULES.md -- the criterion must be able to say NO both ways).
+# FLOOR PROVENANCE: 29 pairs, counted directly off $SUITES/crosscheck this commit. This is a FLOOR, not a
+# pinned total (RULES.md: a probe never asserts a denominator) -- growth needs no re-pin, ever. Only a
+# genuine, intentional retirement may lower this number, in the SAME commit that removes the pair -- exactly
+# what the old list required of an ADDITION, now required only of a REMOVAL.
+SUITE_FAMILY_FLOOR="${SUITE_FAMILY_FLOOR:-29}"
+suite_found=0
+while IFS= read -r s_sno; do
+    family="crosscheck/$(basename "$s_sno" .sno)"
+    s_ref="${s_sno%.sno}.ref"
     if [ ! -f "$HARNESS" ]; then
         echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
     fi
-    if [ ! -f "$s_sno" ] || [ ! -f "$s_ref" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no suite file at ${s_sno}\n"; continue
+    if [ ! -f "$s_ref" ]; then
+        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no oracle ref at ${s_ref}\n"; continue
     fi
+    suite_found=$((suite_found+1))
     board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
     if [ -z "$board" ]; then
         MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: harness produced no SUITE_BOARD line\n"; continue
@@ -149,9 +164,12 @@ while IFS= read -r family; do
     PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
     [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
     [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
-done < <(find "$SUITES/crosscheck" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
-    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/}"
-done)
+done < <(find "$SUITES/crosscheck" -maxdepth 1 -name "*.sno" 2>/dev/null | sort)
+if [ "$suite_found" -lt "$SUITE_FAMILY_FLOOR" ]; then
+    suite_family_shortfall=$((SUITE_FAMILY_FLOOR-suite_found))
+    MISSING=$((MISSING+suite_family_shortfall))
+    MISSING_LIST="${MISSING_LIST}  suite-family-count: discovered ${suite_found} pairs under corpus/tests/snobol4/crosscheck, pinned floor is ${SUITE_FAMILY_FLOOR} (short by ${suite_family_shortfall}) -- a family vanished from the tree, or this checkout is behind origin\n"
+fi
 
 # ── Beauty library drivers ─────────────────────────────────────────────────────
 for sno in "$BEAUTY"/*_driver.sno; do
