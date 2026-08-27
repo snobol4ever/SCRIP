@@ -2468,10 +2468,13 @@ int emit_match_begin_frame_extra(const IR_t * match_begin_nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return emit_arbno_rbp() ? 32 : 16;    if (op == IR_TO) return 32;    if (op == IR_DISJUNCTION && nd->n_operands > 0) return 32;    return (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||    op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_MOVE_LABEL || op == IR_GLIT || op == IR_GCC || op == IR_GALT || op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) || (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (nodes[k]->op == IR_CMP_TEST && zd_chase(nodes[k]->ω.node) == t) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
     extern const char * bb_src_of(const IR_t *);
-    static int _zd = -1, _dg = -1; static const char * _zo; static const char * _zs;
+    static int _zd = -1, _dg = -1, _zoh = -1, _zbe = -1; static const char * _zo; static const char * _zs;
     if (_zd < 0) { const char * e = getenv("SCRIP_ZD"); _zd = (e && *e == '0') ? 0 : 1; const char * d = getenv("SCRIP_ZD_DIAG"); _dg = (d && *d == '1') ? 1 : 0; _zo = getenv("SCRIP_ZD_ONLY"); _zs = getenv("SCRIP_ZD_SKIP"); }
+    if (_zoh < 0) { const char * oh = getenv("SCRIP_ZD_OMEGA_HEAD"); _zoh = (oh && *oh == '0') ? 0 : 1; const char * be = getenv("SCRIP_ZD_BACKEDGE"); _zbe = (be && *be == '0') ? 0 : 1; }
     for (int i = 0; i < n; i++) { zon[i] = 0; zout[i] = -1; zgpop[i] = 0; zwpop[i] = 0; if (zarm) zarm[i] = -1; }
     { static int _lp=-1; if(_lp<0){const char*e=getenv("SCRIP_ZDLOCAL");_lp=(e&&*e=='1')?1:0;} if(_lp){ extern int is_global(const char *); for (int i=0;i<n;i++){ int o=(int)nodes[i]->op; if(o==IR_VAR||o==IR_ASSIGN){ const char*vn=IR_LIT(nodes[i]).sval; int gl = (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)); if(!gl) fprintf(stderr,"[ZDLOCAL] %s name=%s pinned=%d fbdata=%d\n", bb_op_name(nodes[i]->op), vn?vn:"<null>", x86_fb_pinned(), x86_fb_data()); } } } }
     {
@@ -2480,8 +2483,10 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     int * claim = (int *)alloca(sizeof(int) * (size_t)n); int * run = (int *)alloca(sizeof(int) * (size_t)n); int * rpos = (int *)alloca(sizeof(int) * (size_t)n); unsigned char * aent = (unsigned char *)alloca((size_t)n);
     unsigned char * cm = (unsigned char *)alloca((size_t)n); int * wl = (int *)alloca(sizeof(int) * (size_t)n);
     for (int i = 0; i < n; i++) { claim[i] = -1; rpos[i] = -1; }
+    for (int pass = 0; pass < 2; pass++) {
     for (int hi = 0; hi < n; hi++) {
-        if (!(hi == 0 || bb_src_of(nodes[hi]))) continue;
+        if (pass == 0) { if (!(hi == 0 || bb_src_of(nodes[hi]))) continue; }
+        else { if (!_zoh || claim[hi] >= 0 || !zd_omega_head(nodes, n, nodes[hi])) continue; }
         if (claim[hi] >= 0) continue;
         int rl = 0; IR_t * cur = nodes[hi]; int guard = 0;
         static int _z5b = -1; if (_z5b < 0) { const char * e = getenv("SCRIP_ZD_5B"); _z5b = (e && *e == '0') ? 0 : 1; }
@@ -2535,19 +2540,23 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (zarm && zarm[i] >= 0) { if (aent[i]) arm_zd = zout[zarm[i]] - zd_k(nodes[zarm[i]]); zon[i] = 1; zout[i] = arm_zd + K; arm_zd = arm_zd + K; }
                 else { zon[i] = 1; zout[i] = zd + K - REL; zd = zd + K - REL; }
                 IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node);
-                int gin = 0; int oin = 0;
+                int gin = 0; int oin = 0; int gback = -1; int oback = -1;
                 int gib = port_sz_beta(nodes[i]->γ.sz); { int _gg = 0; IR_t * _g = nodes[i]->γ.node; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz); _g = _g->γ.node; } } gib = gib && !beta_is_stmt_land(gt);
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { if (nodes[k] == gt) gin = 1; if (nodes[k] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; } }
                 else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
+                if (_zbe && gt) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == gt && zon[tk]) { gback = tk; break; } }
+                if (_zbe && ot) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == ot && zon[tk]) { oback = tk; break; } }
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
                 { (void)0; }
                 { int oib = port_sz_beta(nodes[i]->ω.sz); if (!oin && oib && K == 0 && !beta_is_stmt_land(ot)) oin = 1; }
                 { if (!oin && K == 0) { int _io = !ot; if (!_io) { for (int _ik = 0; _ik <= r; _ik++) { if (nodes[run[_ik]] == ot) { _io = 1; break; } } } if (_io) oin = 1; } }
                                 { long kc = 0;
                 int _wzdepth = (zarm && zarm[i] >= 0) ? zout[i] : (int)zd;
+                int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
+                int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
                 {
-                if (!gin) zgpop[i] = ((zdh_match >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zdh_match + emit_match_begin_stfh_k() : _wzdepth) + (int)kc;
-                if (!oin) zwpop[i] = _wzdepth - K + (int)kc; } }
+                if (!gin) zgpop[i] = (gback >= 0) ? (_wzdepth - _gbpre) : (((zdh_match >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zdh_match + emit_match_begin_stfh_k() : _wzdepth) + (int)kc);
+                if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) : (_wzdepth - K + (int)kc); } }
                 if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
             }
         }
@@ -2557,6 +2566,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                { static int _gp = -1; if (_gp < 0) { const char * _e = getenv("SCRIP_ZD_GAP"); _gp = (_e && _e[0] == '1') ? 1 : 0; } if (_gp && rl > 0) { for (int _r = 0; _r < rl; _r++) { IR_t * _n = nodes[run[_r]]; const char * _nm = bb_op_name(_n->op); { int _o = (int)_n->op; int _ic = (_o == (int)IR_CALL || (_o != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_o))); const char * _cs = (_ic && IR_LIT(_n).sval) ? IR_LIT(_n).sval : "-"; fprintf(stderr, "[ZD-GAP] r=%d op=%s(%d) admit=%d nops=%d callee=%s\n", _r, _nm ? _nm : "<unnamed>", _o, zd_wl_kind(_n) ? 1 : 0, (int)_n->n_operands, _cs); } } } }
                { static int _cd = -1; if (_cd < 0) { const char *_e = getenv("SCRIP_CALL_DIAG"); _cd = (_e && _e[0] == '1') ? 1 : 0; }
                  if (_cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op; int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop))); const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0; fprintf(stderr, "[CALL-DIAG] REFUSE blocker op=%s(%d) callee=%s rl=%d badi=%d narg=%d\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-", rl, badi, _is_call ? (int)_bn->n_operands : -1); } } }
+    }
     }
 }
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
