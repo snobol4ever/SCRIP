@@ -2916,16 +2916,15 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { resume_init_lbl = betas[_si]; break; }
     }
     if (resume_init_lbl) {
+        /* ⭐⭐ N-2 ITEM 1b (hq_P s277): THE alpha RESUME-SLOT SEED NOW ADDRESSES THROUGH THE ζ ACCESSOR, LIKE ITS READER. ⛔ IT USED TO HAND-BUILD THE OPERAND -- `[%s + %d]` from emit_rec_fb()/emit_rec_fb_num() in TEXT and a hand-encoded ModRM in BINARY -- WHICH BROKE TWO LAWS AT ONCE AND BOTH BIT. (1) BOTH-MEDIUM: emit_rec_fb() returns "rsp" in BOTH its arms while emit_rec_fb_num() returns 5 (rbp) or 4, so for every graph with emit_rec_pin() && !emit_rec_rsp_arm() -- i.e. every Icon GENERATOR, lcl_proc, zframe graph and Prolog resumable -- TEXT emitted `mov [rsp+N], rax` and BINARY emitted `mov [rbp+N], rax`. MEASURED on the four-line witness: text_base=rsp bin_regnum=5 slot=32, in both arms, i.e. m3 stored the resume continuation 96 bytes ABOVE where m4 stored it, inside the CALLER's frame. That is the m3 != m4 design invariant broken on the default build, not only the armed one. (2) It bypassed the ζ accessor entirely, so icn_gen_zeta_ft() -- which returns the correct 96 here, MEASURED, refuting this rung's standing "ft is 0 at seed time" hypothesis -- could not rebase it, leaving the seed on rsp while its own reader (bb_suspend.cpp:49, x86("mov", FRQ(_.op_sb), "rax")) had already moved to rbp. ONE CELL, TWO BASES. ⭐ THE CURE IS TO STOP SPELLING THE ADDRESS AND ASK FOR IT: FRQ(g_suspend_resume_slot) is the SAME accessor the reader uses, so the store and the load cannot pick different base registers by construction -- which is exactly the invariant the comment deleted from emit.h by the RBP-ERADICATION wave (708c22c1) had spelled out: "all four refs read it, so the store and the load cannot pick different base registers -- the s158 land mine this file convicts over and over." That eradication rewrote the TEXT spelling to rsp and left the BINARY encoder at 5; this restores agreement at the store. ⛔ THE lea IS DELIBERATELY LEFT PER-MEDIUM: it is rip-relative and needs bb_emit_patch_rel32's label fixup in BINARY, which x86() has no vehicle for here (x86_lea_tgt is template-context only, keyed on _.lbl_t0/_.lbl_t1). It carries no ζ base and so cannot diverge. */
         if (g_is_text) {
             char _init[256];
-            snprintf(_init, sizeof _init,
-                "lea rax, [rip + %s]\nmov qword ptr [%s + %d], rax\n",
-                resume_init_lbl->name, emit_rec_rsp_arm() ? "rsp" : emit_rec_fb(), g_suspend_resume_slot);
+            snprintf(_init, sizeof _init, "lea rax, [rip + %s]\n", resume_init_lbl->name);
             emit_text_n(_init, strlen(_init));
         } else {
             ef_b3(0x48, 0x8D, 0x05); bb_emit_patch_rel32(resume_init_lbl);
-            { int z = emit_rec_rsp_arm() ? 4 : emit_rec_fb_num(), lo = z & 7; ef_b2((uint8_t)(0x48 | (z >= 8 ? 0x01 : 0x00)), 0x89); if (lo == 4) ef_b2(0x84, 0x24); else ef_b1((uint8_t)(0x80 | lo)); bb_emit_u32((uint32_t)(unsigned)g_suspend_resume_slot); }
         }
+        bb_emit_x86(x86("mov", FRQ(g_suspend_resume_slot), "rax"));
     }
     for (int _li = 0; _li < n; _li++) if (nodes[_li]->op == IR_LIMIT) {
         g_emit.op_off = drive_value_slot(nodes[_li]);
