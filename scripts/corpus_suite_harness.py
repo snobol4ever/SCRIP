@@ -219,10 +219,32 @@ def discover_pairs(family_dir):
 
 
 # ============================================================= statement parse ===
+def _has_goto_field(raw):
+    """Does this statement's text already carry a :S()/:F()/bare :() goto field? A bare-colon
+    continuation line may only merge into a statement that has NONE -- merging onto one that
+    already has its own conditional goto (e.g. 'GT(N, 5) :S(DONE)' followed by a fall-through-only
+    ':(LOOP)') produces a single statement with two conflicting goto specs, not the original's
+    real semantics (test-then-conditional-jump, THEN a separate unconditional-jump statement for
+    the fall-through path). Ignores colons inside quoted string literals."""
+    in_str = None
+    for ch in raw:
+        if in_str:
+            if ch == in_str:
+                in_str = None
+        elif ch in "'\"":
+            in_str = ch
+        elif ch == ":":
+            return True
+    return False
+
+
 def parse_statements(sno_text):
     """Original source -> list of {"labeled": bool, "raw": text} statements. Drops column-1 '*'
     comments and blank lines; merges a bare goto-only continuation line (e.g. a lone ':(END)')
-    into the immediately preceding statement instead of treating it as its own entry."""
+    into the immediately preceding statement instead of treating it as its own entry -- but only
+    when that statement has no goto field of its own (see _has_goto_field); otherwise the bare
+    goto is a genuine separate statement (the fall-through path after a failed conditional test)
+    and must stay its own entry."""
     statements = []
     for line in sno_text.splitlines():
         if not line.strip():
@@ -230,7 +252,7 @@ def parse_statements(sno_text):
         if line[:1] == "*":
             continue
         stripped = line.strip()
-        if stripped.startswith(":") and statements:
+        if stripped.startswith(":") and statements and not _has_goto_field(statements[-1]["raw"]):
             statements[-1]["raw"] = statements[-1]["raw"] + " " + stripped
             continue
         labeled = not line[:1].isspace()
