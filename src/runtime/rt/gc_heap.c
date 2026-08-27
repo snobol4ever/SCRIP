@@ -152,7 +152,7 @@ static void rt_alloc_hist_report(void)
     for (int i = 0; i < 4096; i++) if (g_ah_ra[i].n) fprintf(stderr, "[AH] R %p %d %ld %ld\n", g_ah_ra[i].ra, (int)g_ah_ra[i].type, g_ah_ra[i].n, g_ah_ra[i].b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_alloc_hist_on(void)
+static inline __attribute__((always_inline)) int rt_alloc_hist_on(void)
 {
     if (g_ah_on < 0) { const char *e = getenv("SCRIP_ALLOC_HIST"); g_ah_on = (e && *e && *e != '0') ? 1 : 0; if (g_ah_on && !g_ah_reg) { g_ah_reg = 1; atexit(rt_alloc_hist_report); } }
     return g_ah_on;
