@@ -139,7 +139,7 @@ expr6      : expr6 T_2PLUS   expr7                                              
            | expr6 T_2MINUS expr7                                                            { $$=expr_binary(TT_SUB,             $1,$3); }
            | expr7                                                                                 { $$=$1; }
            ;
-expr7      : expr7 T_2POUND      expr8                                                             { $$=expr_binary(TT_MUL,             $1,$3); }
+expr7      : expr7 T_2POUND      expr8                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("#"); $$=_e; }
            | expr8                                                                                 { $$=$1; }
            ;
 expr8      : expr8 T_2SLASH   expr9                                                             { $$=expr_binary(TT_DIV,             $1,$3); }
@@ -148,7 +148,7 @@ expr8      : expr8 T_2SLASH   expr9                                             
 expr9      : expr9 T_2STAR expr10                                                        { $$=expr_binary(TT_MUL,             $1,$3); }
            | expr10                                                                                { $$=$1; }
            ;
-expr10     : expr10 T_2PERCENT   expr11                                                            { $$=expr_binary(TT_DIV,             $1,$3); }
+expr10     : expr10 T_2PERCENT   expr11                                                            { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("%"); $$=_e; }
            | expr11                                                                                { $$=$1; }
            ;
 expr11     : expr12 T_2CARET expr11                                                       { $$=expr_binary(TT_POW,             $1,$3); }
@@ -170,11 +170,11 @@ expr14     : T_1AT      expr14                                                  
            | T_1STAR     expr14                                                             { $$=expr_unary(TT_DEFER,           $2); }
            | T_1DOLLAR  expr14                                                             { $$=expr_unary(TT_INDIRECT,        $2); }
            | T_1DOT       expr14                                                             { $$=expr_unary(TT_NAME,            $2); }
-           | T_1BANG  expr14                                                             { $$=expr_unary(TT_POW,             $2); }
-           | T_1PERCENT      expr14                                                             { $$=expr_unary(TT_DIV,             $2); }
-           | T_1SLASH        expr14                                                             { $$=expr_unary(TT_DIV,             $2); }
-           | T_1POUND        expr14                                                             { $$=expr_unary(TT_MUL,             $2); }
-           | T_1EQUAL        expr14                                                             { $$=expr_unary(TT_ASSIGN,          $2); }
+           | T_1BANG  expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("!"); $$=_e; }
+           | T_1PERCENT      expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("%"); $$=_e; }
+           | T_1SLASH        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("/"); $$=_e; }
+           | T_1POUND        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("#"); $$=_e; }
+           | T_1EQUAL        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("="); $$=_e; }
            | T_1PIPE expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("|"); $$=_e; }
            | expr15                                                                                { $$=$1; }
            ;

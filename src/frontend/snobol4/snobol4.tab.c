@@ -1702,7 +1702,7 @@ yyreduce:
 
   case 60: /* expr7: expr7 T_2POUND expr8  */
 #line 146 "src/frontend/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=expr_binary(TT_MUL,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("#"); (yyval.expr)=_e; }
 #line 1707 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
@@ -1738,7 +1738,7 @@ yyreduce:
 
   case 66: /* expr10: expr10 T_2PERCENT expr11  */
 #line 155 "src/frontend/snobol4/snobol4.y"
-                                                                                                   { (yyval.expr)=expr_binary(TT_DIV,             (yyvsp[-2].expr),(yyvsp[0].expr)); }
+                                                                                                   { tree_t*_e=expr_binary(TT_OPSYN,(yyvsp[-2].expr),(yyvsp[0].expr)); _e->v.sval=strdup("%"); (yyval.expr)=_e; }
 #line 1743 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
@@ -1846,31 +1846,31 @@ yyreduce:
 
   case 84: /* expr14: T_1BANG expr14  */
 #line 177 "src/frontend/snobol4/snobol4.y"
-                                                                                         { (yyval.expr)=expr_unary(TT_POW,             (yyvsp[0].expr)); }
+                                                                                         { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("!"); (yyval.expr)=_e; }
 #line 1851 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
   case 85: /* expr14: T_1PERCENT expr14  */
 #line 178 "src/frontend/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("%"); (yyval.expr)=_e; }
 #line 1857 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
   case 86: /* expr14: T_1SLASH expr14  */
 #line 179 "src/frontend/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_DIV,             (yyvsp[0].expr)); }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("/"); (yyval.expr)=_e; }
 #line 1863 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
   case 87: /* expr14: T_1POUND expr14  */
 #line 180 "src/frontend/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_MUL,             (yyvsp[0].expr)); }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("#"); (yyval.expr)=_e; }
 #line 1869 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
   case 88: /* expr14: T_1EQUAL expr14  */
 #line 181 "src/frontend/snobol4/snobol4.y"
-                                                                                                { (yyval.expr)=expr_unary(TT_ASSIGN,          (yyvsp[0].expr)); }
+                                                                                                { tree_t*_e=expr_unary(TT_OPSYN,(yyvsp[0].expr)); _e->v.sval=strdup("="); (yyval.expr)=_e; }
 #line 1875 "src/frontend/snobol4/snobol4.tab.c"
     break;
 
