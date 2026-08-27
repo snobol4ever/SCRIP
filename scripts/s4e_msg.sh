@@ -105,6 +105,12 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|ceo) return 0;; *) return 1;; esac; }
 s4e_oldest_min() { _old=""; for _f in "$PO/$1/inbox"/*.msg; do [ -f "$_f" ] || continue
     _m=$(( ( $(date +%s) - $(stat -c %Y "$_f" 2>/dev/null || echo 0) ) / 60 ))
     [ -z "$_old" ] && _old=$_m; [ "$_m" -gt "$_old" ] && _old=$_m; done; echo "$_old"; }
+# ⭐ compact age for a MTIME, in the units a reader actually compares ("7m", "3h12m", "2d01h"). Empty in -> "-".
+s4e_age_compact() { [ -n "${1:-}" ] && [ "$1" -gt 0 ] 2>/dev/null || { echo "-"; return; }
+    _s=$(( $(date +%s) - $1 )); [ "$_s" -lt 0 ] && _s=0
+    if   [ "$_s" -lt 3600 ]; then printf '%dm\n' $(( _s / 60 ))
+    elif [ "$_s" -lt 86400 ]; then printf '%dh%02dm\n' $(( _s / 3600 )) $(( (_s % 3600) / 60 ))
+    else printf '%dd%02dh\n' $(( _s / 86400 )) $(( (_s % 86400) / 3600 )); fi; }
 # ⭐ banner-attributes-wrong-row-on-unclaim (s273): a SESSION-SCOPED receipt of the last row THIS seat
 # actually closed (released or done'd), written at the moment of the transition. banner's row1 fallback
 # (bare invocation, no $pref -- Stop hook, `board`) reads this instead of rescanning ALL historical claims
@@ -285,12 +291,25 @@ case "$cmd" in
                 case "$dw" in
                   */*|*'$'*) : ;;                       # names a path or expands a variable — probe would be meaningless
                   *) _vac="$(mktemp -d)"
-                     if ( cd "$_vac" && timeout 20 bash -c "$dw" ) >/dev/null 2>&1; then
-                       rm -rf "$_vac"
+                     ( cd "$_vac" && timeout 20 bash -c "$dw" ) >/dev/null 2>&1; _vrc=$?
+                     rm -rf "$_vac"
+                     # ⛔⭐ A TIMEOUT IS NOT AN ANSWER (hq_P 2026-08-27, source-read; hole was real and unreached).
+                     # The probe used to branch on the COMMAND SUCCEEDING, so EVERY non-zero exit counted as proof the
+                     # criterion examines the tree -- and `timeout` exits 124, non-zero, on a criterion that NEVER
+                     # FINISHED. The two answers this probe exists to separate -- "correctly refused with nothing to
+                     # examine" and "never ran to completion" -- shared one output, with no way to say which. That is
+                     # fail-OPEN, inside the one command whose whole job is certifying completion. Same shape as the
+                     # week's other mute instruments (mtime = lock-taken-not-work; PASS(0) = checked-or-never-asked).
+                     # An instrument that cannot measure REFUSES rc=2; it does not pass what it failed to read.
+                     if [ "$_vrc" -eq 124 ]; then
+                       printf '⛔ REFUSED (rc=2): the DONE-WHEN in %s did not FINISH within 20s in an empty directory, so the\n' "$tf" >&2
+                       printf '   vacuity probe could not measure it. This is NOT a pass -- a criterion that hangs when there is\n' >&2
+                       printf '   nothing to examine is not evidence that it examines anything.\n   command: %s\n' "$dw" >&2
+                       exit 2; fi
+                     if [ "$_vrc" -eq 0 ]; then
                        printf '⛔ REFUSED: the DONE-WHEN in %s passes in an EMPTY directory, so it is not examining this tree.\n' "$tf" >&2
                        printf '   command: %s\n   Make it name what it inspects. (hq_P V2-5 used the same probe to find 31 vacuous gates.)\n' "$dw" >&2
-                       exit 1; fi
-                     rm -rf "$_vac";; esac
+                       exit 1; fi;; esac
                 if [ -n "${S4E_DONE_OVERRIDE:-}" ]; then
                   # ω-class escape hatch: loud, recorded, and never silent. For the case where the DONE-WHEN itself
                   # is proven wrong -- which is a real event, and is why it must be auditable rather than forbidden.
@@ -639,8 +658,23 @@ case "$cmd" in
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
          # (that walks every repo, 9x over) -- it inspects each seat root's clones directly, which is the same
          # truth for the two things that matter: uncommitted work, and commits that never reached origin.
-         printf '\n  SEAT     ROW (open claim)                      TREE                  Q  MAIL      LAST BOARD LINE\n'
-         printf '  ──────── ──────────────────────────────────────  ────────────────────  ─  ────────  ─────────────────────\n'
+         # ⛔⭐ THE LOCK-AGE COLUMN IS ANNOTATED IN ITS OWN HEADER, NOT IN A NOTE BESIDE IT (hq_P, 2026-08-27).
+         # A caveat that lives next to a field is read by whoever already knows -- and the seat in a hurry, who is
+         # exactly who misreads it, never gets there. So the trap is spelled INSIDE the column name: this number is
+         # when the LOCK was taken. It is NOT a work signal. A seat that claimed a row and walked away and a seat
+         # mid-cure print the IDENTICAL number, and nothing in the field can tell you which you are looking at.
+         # ⭐ THE FIX FOR A FIELD THAT ANSWERS A NARROWER QUESTION IS A SECOND FIELD BESIDE IT, NOT A BETTER NAME
+         # FOR THE FIRST (hq_P's shape, adopted verbatim): COMMITS-SINCE sits immediately to its right and measures
+         # what LOCK AGE cannot -- work actually attributed to that seat or row since the moment it took the lock.
+         # Read together they separate the two states; read alone, LOCK AGE reports a stalled row as a busy one,
+         # which is precisely how two rows sat 115m and 83m with zero output while the fleet screen looked normal.
+         # ⭐ The sub-head is part of the COLUMN, and every cell in it is exactly 10 display columns wide so the
+         # annotation sits under the field it annotates rather than drifting one column left of it. ⛔ NO EMOJI IN
+         # AN ALIGNED CELL: ⛔ occupies TWO terminal columns but ONE printf character, so `%-10.10s` pads it to nine
+         # visible columns and shifts every field to its right -- the same off-by-one already visible in TREE.
+         printf '\n  SEAT     ROW (open claim)                LOCK AGE    COMMITS     TREE                  Q  MAIL      LAST BOARD LINE\n'
+         printf '  %-8s %-30s  %-10s  %-10s  %s\n' "" "" "lock only" "real work" ""
+         printf '  ──────── ──────────────────────────────  ──────────  ──────────  ────────────────────  ─  ────────  ─────────────────────\n'
          # ⛔ SEAT LIST IS DISCOVERED, NEVER TYPED (s255): a hand-typed list silently omits any seat Lon adds,
          # and a seat missing from the health screen is a seat nobody looks at. Numeric sort so 10 follows 9.
          # ⛔⭐ THE CENSUS ENUMERATES POSTOFFICE MAILBOXES, NOT /home/claude* GLOBS (LAW 6, V2-4). The glob it
@@ -650,13 +684,26 @@ case "$cmd" in
          # postoffice IS the fleet roster; the home directories are just where the clones happen to live.
          for seat in $(s4e_boxes | sort); do
            root="$(s4e_root "$seat")"
-           row="-"; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-             if [ "$(head -1 "$c")" = "$seat" ] && ! grep -q '^DONE$' "$c"; then row="$(basename "$c" .claim)"; break; fi; done
-           dirty=0; unpushed=0; repos=0
+           row="-"; lockep=0; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+             if [ "$(head -1 "$c")" = "$seat" ] && ! grep -q '^DONE$' "$c"; then row="$(basename "$c" .claim)"
+               # ⛔ THE CLAIM FILE'S MTIME IS THE LOCK-ACQUISITION INSTANT AND NOTHING ELSE. It is not touched by
+               # work, by commits, or by the seat running anything -- only by taking (or re-taking) the lock.
+               lockep=$(stat -c %Y "$c" 2>/dev/null || echo 0); break; fi; done
+           lockage="$(s4e_age_compact "$lockep")"
+           dirty=0; unpushed=0; repos=0; csince=0
            for r in "$root"/*/; do [ -n "$root" ] || continue; [ -d "$r/.git" ] || continue; repos=$((repos+1))
              d=$(git -C "$r" status --porcelain 2>/dev/null | wc -l); dirty=$((dirty+d))
              br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
-             u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0); unpushed=$((unpushed+${u:-0})); done
+             u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0); unpushed=$((unpushed+${u:-0}))
+             # ⭐ ATTRIBUTED, exactly as `banner` measures level-of-success: a bare `log --since` counts commits this
+             # clone merely PULLED and would credit an idle seat with the whole fleet's output. Commit messages here
+             # carry the seat id and the row topic, so attribution is the measurement. `seat8` and `seat08` are both
+             # matched -- every FINDING and many commits still name seats the pre-s255 unpadded way, and matching the
+             # padded form alone finds ZERO for every single-digit seat, silently.
+             if [ "$lockep" -gt 0 ]; then
+               salt="${seat/#seat0/seat}"
+               n=$(git -C "$r" log --since="@$lockep" -i --grep="$seat" --grep="$salt" --grep="$row" --oneline 2>/dev/null | wc -l)
+               csince=$((csince+${n:-0})); fi; done
            if [ -z "$root" ]; then tree="(no root, retiring)"
            elif [ "$repos" -eq 0 ]; then tree="no clones"
            elif [ "$dirty" -eq 0 ] && [ "$unpushed" -eq 0 ]; then tree="clean"
@@ -667,12 +714,23 @@ case "$cmd" in
            unread=0; for f in "$PO/$seat"/inbox/*.msg; do [ -f "$f" ] && unread=$((unread+1)); done
            if [ "$unread" -eq 0 ]; then mail="-"; else om="$(s4e_oldest_min "$seat")"; mail="$unread/${om:-0}m"; fi
            bl="$(grep -m1 "^$seat |" "$PO/BOARD.md" 2>/dev/null | cut -d'|' -f2- | cut -c1-40)"; [ -n "$bl" ] || bl="(never posted)"
-           printf '  %-8s %-38.38s  %-20.20s  %s  %-8.8s  %s\n' "$seat" "$row" "$tree" "$q" "$mail" "$bl"; done
+           # ⛔ A ROW LOCKED OVER AN HOUR WITH NOTHING ATTRIBUTED IS THE STATE THIS COLUMN EXISTS TO SURFACE, so it is
+           # marked rather than left for the reader to compute across two fields. Under an hour it stays quiet: a
+           # freshly-claimed row legitimately has no commits yet, and flagging that would train the eye to ignore it.
+           if [ "$lockep" -eq 0 ]; then csh="-"
+           elif [ "$csince" -eq 0 ] && [ "$(( $(date +%s) - lockep ))" -gt 3600 ]; then csh="0 STALLED"
+           else csh="$csince"; fi
+           printf '  %-8s %-30.30s  %-10.10s  %-10.10s  %-20.20s  %s  %-8.8s  %s\n' "$seat" "$row" "$lockage" "$csh" "$tree" "$q" "$mail" "$bl"; done
          free=0; tot=0
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            tot=$((tot+1)); [ -f "$PO/claims/$topic.claim" ] || free=$((free+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
          printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
          printf '  Q = questions from that seat waiting on ANY HQ.  MAIL = unread in its inbox / age of the oldest.\n'
+         printf '  ⛔ LOCK AGE = how long the CLAIM FILE has existed = when the lock was TAKEN. It is NOT a work signal:\n'
+         printf '     a seat that claimed a row and stalled prints the same number as a seat mid-cure. COMMITS SINCE LOCK\n'
+         printf '     is the field that measures work (attributed to the seat or its row, across that root every repo).\n'
+         printf '     Read the pair. "0 STALLED" = locked over an hour, nothing attributed -- a claimed row hides itself\n'
+         printf '     from the picker, so a stalled lock blocks that row for the WHOLE fleet until an HQ releases it.\n'
          printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
   sweep) # ⭐ LAW 4 — THE QUEUE IS A DISPATCH BUFFER, NOT A MEMORY. v1 reached 62% dead rows (112 of 181 DONE) because
          # nothing ever moved a landed row out, so the picker walked a graveyard and HQ re-dispatched finished work.
