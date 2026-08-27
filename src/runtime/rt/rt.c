@@ -770,6 +770,7 @@ long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
 void   *rt_proc_open_fn(void);
 DESCR_t rt_proc_enter(void *fn);
+DESCR_t rt_proc_enter_named(void *fn, const char *name);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
@@ -902,7 +903,18 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return rt_proc_call_epilogue_ret(fret);
     }
     rt_g_want_name = _wn_gen;
-    return rt_proc_enter(rt_dyn_alpha_fn_p(p, name, (void *)p->fn));
+    /* dyn_scope: rt_proc_call_open above already ran rt_proc_call_prologue's g_name_save shadow-push (it does
+       so unconditionally, not only on the !dyn_scope arm below), so a REAL, user-named proc's ":(RETURN)"
+       needs the NAMED epilogue to pop that shadow and read the result back by name -- rt_proc_enter's plain
+       epilogue_γ/ω never does (see rt_proc_enter_named's own comment). But a '$'-named proc is a compiler-
+       synthetic construct (e.g. pattern_match.c's embedded "EXPR$N" deferred-expression procs, reached here
+       directly with no compiled call site ever giving it a sealed alpha cell to begin with) -- its body
+       exits through its own γ/ω port directly, never through the shared SNOBOL4 ":(RETURN)" label, so it
+       needs the PLAIN rt_proc_enter (measured: demo_porter's "*EXPR$53" pattern regressed under the named
+       form -- rt_call_named_proc's own pre-existing fast-path already treats '$' names this way, at its
+       "!strchr(name, '$')" alpha-attempt guard). The alpha fast-path cell was already tried above and found
+       empty; p->fn is always a valid jmp_entry stub regardless of which epilogue it needs. */
+    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
@@ -1514,6 +1526,62 @@ __asm__(
 "  jmp rt_proc_call_epilogue_ω\n"
 );
 DESCR_t rt_proc_enter(void *fn);
+/* rt_proc_enter_named: same calling convention as rt_proc_enter above (push omega/gamma continuations, jmp
+   into fn -- the compiled body pushes into ":(RETURN)"'s shared pop-and-jmp), for the one case rt_proc_enter
+   itself cannot serve: a dyn_scope proc entered without the compiled call site that normally accompanies it.
+   A dyn_scope body returns through SNOBOL4's name convention -- rt_proc_call_prologue shadows the callee's own
+   name (e.g. "twice") onto a fresh per-call cell via g_name_save, the body writes its result under that name,
+   and unwinding it again is rt_proc_call_epilogue_named_{γ,ω}'s entire job (see rt_proc_epilogue_named) -- work
+   the plain epilogue_γ/ω never does. Confirmed by reading the working compiled call site's own emission
+   (bb_call_proc_staged.cpp): identical push/jmp shape, but its continuations call the _named forms with the
+   call's own name, never the plain ones. name is stashed in one extra pushed slot ahead of the usual five
+   registers, popped back into rdi at the continuation -- LBL__<name>'s body never reads this region; its own
+   frame is RT_AB_ANCHOR-relative, established by rt_proc_call_prologue, not rsp-relative to this caller. */
+__asm__(
+".text\n"
+".globl rt_proc_enter_named\n"
+"rt_proc_enter_named:\n"
+"  pushq %rsi\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  movq %rdi, %rax\n"
+"  leaq 2f(%rip), %rcx\n"
+"  leaq 3f(%rip), %rdx\n"
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 4f\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"4:\n"
+"  pushq %rdx\n"
+"  pushq %rcx\n"
+"  jmp *%rax\n"
+"2:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  popq %rdi\n"
+"  jmp rt_proc_call_epilogue_named_γ\n"
+"3:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  popq %rdi\n"
+"  jmp rt_proc_call_epilogue_named_ω\n"
+);
+DESCR_t rt_proc_enter_named(void *fn, const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_open_fn(void)
 {
@@ -1773,7 +1841,10 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
       if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
                  for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    return rt_proc_enter((void *)p->fn);
+    /* Same rt_proc_enter_named/'$' rule as rt_call_proc_descr (see its comment): rt_proc_call_prologue just
+       pushed the g_name_save shadow a REAL proc's ":(RETURN)" needs unwound by name; a '$'-named synthetic
+       proc's body exits its own γ/ω port directly and needs the plain epilogue instead. */
+    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
@@ -1784,7 +1855,9 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    return rt_proc_enter((void *)p->fn);
+    /* Same rt_proc_enter_named/'$' rule as rt_call_proc_descr (see its comment) -- rt_call_proc_direct has no
+       name of its own, p->name is it. */
+    return (p->name && strchr(p->name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, p->name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)
