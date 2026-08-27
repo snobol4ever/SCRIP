@@ -221,3 +221,20 @@ jcon_path_export() {
     fi
     printf 'export PATH="%s:$PATH"\n' "$d"
 }
+rakudo_bin() {
+    local local_r="/home/resources/rakudo-local/bin/raku" apt_r="/usr/bin/raku"
+    if [ -x "$local_r" ]; then printf '%s\n' "$local_r"; return 0; fi
+    if [ -x "$apt_r" ]; then printf '%s\n' "$apt_r"; return 0; fi
+    printf "⛔ THE RAKUDO RIVAL IS MISSING: neither %s nor %s exists.\n" "$local_r" "$apt_r" >&2
+    printf "   Do not fall back to a bare 'raku' on PATH -- build rakudo-local (task rakudo-build-current) or apt install rakudo, then re-run.\n" >&2
+    printf "   LABEL DUTY (FACT RULE): every grid quoting a rakudo arm names its version (rakudo-local 2026.x vs apt 2022.12).\n" >&2
+    return 1
+}
+fpc_bin() {
+    local c="/usr/bin/fpc"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE FPC (Free Pascal) RIVAL IS MISSING: %s (apt install fpc -- Lon-granted 2026-08-27, fpc 3.2.2 = current stable).\n" "$c" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
