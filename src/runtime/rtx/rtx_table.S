@@ -172,15 +172,22 @@ RTX_FUNC(table_find_pair_d)
  * ⛔⛔ THIS ARM AND aggregates.c:_tbl_h_str ARE ONE ALGORITHM IN TWO SPELLINGS.
  * SCRIP_RTX_TABLE=0 routes lookups to the C twin, so a table INSERTED through one
  * and READ through the other must agree bit for bit or entries simply vanish.
- * Edit them together; A/B any table-heavy program both ways and diff. */
+ * Edit them together; A/B any table-heavy program both ways and diff.
+ * ⛔ FIXED 2026-08-24 (seat08, row rtx29-standdown-residual-crashes-mindfa-recogn-genqueen): this arm excluded slen==0
+ * but not the CSETVAL sentinel slen==0xFFFFFFFF (core.h), so a cset used as a table key was hashed as a ~4GB string
+ * and walked off into unmapped memory -- SIGSEGV. Twin of the same-day _tbl_slen fix in aggregates.c; see that
+ * comment for the repro. Both spellings needed the identical guard per the "edit them together" rule above. */
 .Ltf_h_str:
     test    rdx, rdx
     je      .Ltf_str_n0                     /* s == NULL reads as "", n forced to 0  */
     mov     rcx, rsi
     shr     rcx, 32                         /* ecx = k.slen, the counted length      */
     test    ecx, ecx
-    jne     .Ltf_str_have
-    mov     r9, rdx                         /* slen unstamped: strlen fallback, so    */
+    je      .Ltf_str_unstamped              /* slen 0 => unknown length, strlen scan */
+    cmp     ecx, -1
+    jne     .Ltf_str_have                   /* slen ~0 => CSET sentinel, scan too    */
+.Ltf_str_unstamped:
+    mov     r9, rdx                         /* slen unstamped or CSET: strlen scan   */
 .Ltf_str_scan:                              /*   ASM and C lose the SAME distinction  */
     cmp     byte ptr [r9], 0
     je      .Ltf_str_scand
@@ -342,6 +349,14 @@ RTX_FUNC(table_find_pair_d)
  * A length mismatch rejects without touching a byte, and an equal length then
  * compares exactly that many bytes -- so an embedded CHAR(0) is just data. */
 .Ltf_eq_str:
+/* ⛔ FIXED 2026-08-24 (seat08, row rtx29-standdown-residual-crashes-mindfa-recogn-genqueen): BOTH length loads below
+ * had the same missing-sentinel bug as .Ltf_h_str above -- excluded slen==0 but not the CSETVAL sentinel
+ * slen==0xFFFFFFFF (core.h), so two cset keys with identical canonical content but different slen=-1 raw fields
+ * compared their SENTINELS equal (-1==-1) instead of their real lengths, then byte-compared into adjacent heap
+ * garbage past the true 2-or-so-byte content -- a silent wrong MISS, not a crash (the garbage bytes almost always
+ * differ within a few bytes, so .Ltf_scmp below rejects before it could walk far enough to fault). Confirmed via
+ * SCRIP_RTX_TABLE=0 A/B: the C twin (_tbl_eq_d) got this right already, so a cset-keyed table found its own
+ * just-inserted entry under C but not under this ASM path -- same key, same content, two different verdicts. */
     mov     rax, [r10 + TBPAIR_KEYD_VAL]    /* e->key_descr.s                        */
     test    rax, rax
     je      .Ltf_next
@@ -351,8 +366,11 @@ RTX_FUNC(table_find_pair_d)
     je      .Ltf_hit                        /* same bytes, trivially equal           */
     mov     edx, [r10 + TBPAIR_KEYD_SLEN]   /* e length                              */
     test    edx, edx
-    jne     .Ltf_eq_klen
-    mov     r8, rax                         /* unstamped: strlen fallback, as in C   */
+    je      .Ltf_eq_eunstamped
+    cmp     edx, -1
+    jne     .Ltf_eq_klen                    /* real length, not 0 or CSET sentinel   */
+.Ltf_eq_eunstamped:
+    mov     r8, rax                         /* unstamped or CSET: strlen fallback    */
 .Ltf_eq_escan:
     cmp     byte ptr [r8], 0
     je      .Ltf_eq_escand
@@ -365,7 +383,10 @@ RTX_FUNC(table_find_pair_d)
     mov     rcx, rsi
     shr     rcx, 32                         /* k length                              */
     test    ecx, ecx
-    jne     .Ltf_eq_cmplen
+    je      .Ltf_eq_kunstamped
+    cmp     ecx, -1
+    jne     .Ltf_eq_cmplen                  /* real length, not 0 or CSET sentinel   */
+.Ltf_eq_kunstamped:
     mov     r8, rdi
 .Ltf_eq_kscan:
     cmp     byte ptr [r8], 0

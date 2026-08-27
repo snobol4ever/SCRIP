@@ -192,8 +192,13 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(cons
   ⛔ THE slen == 0 FALLBACK IS THE CODEBASE'S BUG, NOT THIS FILE'S, AND IT IS DELIBERATELY LEFT VISIBLE.  `slen ? slen : strlen(s)` is the idiom everywhere in the
   runtime (rt_runtime.c:77, pattern_match.c:54, string_builtins.c:50, ...), so a descriptor that never got its length stamped still truncates here.  Hashing and
   equality use the SAME length, so the table stays self-consistent either way -- it can lose a distinction the descriptor already lost, never invent one.  The
-  real cure is that every DT_S descriptor carries slen; that is a runtime-wide sweep and it is routed to hq_C. */
-static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return k->slen ? k->slen : (k->s ? (unsigned)strlen(k->s) : 0u); }
+  real cure is that every DT_S descriptor carries slen; that is a runtime-wide sweep and it is routed to hq_C.
+  ⛔ FIXED 2026-08-24 (seat08, row rtx29-standdown-residual-crashes-mindfa-recogn-genqueen): this function was the ONE place in the runtime still missing the
+  `!= 0xFFFFFFFFu` exclusion that `sv_len`/io_format.c/string_builtins.c/pattern_match.c all already carry for CSETVAL's lazy-length sentinel (core.h:23) -- a
+  cset used as a table/set key (`t[cset(s)] := v`) reached this function with slen==0xFFFFFFFF, which was returned AS THE LENGTH, and the 8-byte hashing loop
+  below then walked ~4GB past the string into unmapped memory: SIGSEGV, not a wrong answer, for every program keying a table by a cset. Minimal repro:
+  `t := table(); t[cset("ab")] := "X"` crashes both m3 and m4; `t["ab"] := "X"` (no cset) survives -- isolates the sentinel, not string keys generally. */
+static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen && k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)strlen(k->s) : 0u); }
 /*⭐⭐ WORD-AT-A-TIME, NOT BYTE-AT-A-TIME (hq_P s264, measured on CLAWS5).  djb2 is one byte per iteration and the ASM twin compiled to ELEVEN instructions per byte
    (test/je/movzx/mov/shl/add/xor/mov/inc/dec/jmp), so hashing a 4-character tag cost ~50 Ir before a single bucket was touched.  MEASURED: table_find_pair_d was
    13.02% of the entire claws5 run at 92 Ir/call over 109,360 calls per parse, and the byte loop was the majority of it.  This reads EIGHT bytes per multiply.
