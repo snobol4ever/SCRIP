@@ -4,7 +4,9 @@
 # Runs `scrip --dump-ast` on every .sc in corpus/tests/snocone/parser-fixtures/
 # and diffs the output against the corresponding .ref oracle.
 #
-# Gate: PASS=67 FAIL=0  (all fixtures, byte-identical AST dump)
+# Gate: FAIL=0 over the printed PASS+FAIL+SKIP total (do not pin a specific PASS
+# number here -- the fixture count drifts; see FACT RULE "a probe never asserts
+# a denominator", RULES.md).
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
@@ -32,14 +34,14 @@ for sc in "$FIXTURES"/*.sc; do
         SKIP=$((SKIP+1))
         continue
     fi
-    actual=$(timeout 8 "$SCRIP" --dump-ast "$sc" 2>/dev/null)
+    actual=$(timeout 8 "$SCRIP" --dump-ast "$sc" 2>/dev/null) || true
     expected=$(cat "$ref")
     if [ "$actual" = "$expected" ]; then
         echo "  PASS $name"
         PASS=$((PASS+1))
     else
         echo "  FAIL $name"
-        diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | head -12
+        diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | head -12 || true
         FAIL=$((FAIL+1))
     fi
 done
