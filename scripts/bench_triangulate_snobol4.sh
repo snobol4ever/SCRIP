@@ -9,7 +9,10 @@
 # angle 2 (bench_snobol4_fixed_iter.sh -- fixed ITERATIONS, time measured) unmodified -- ONE
 # AUTHORITY per mechanism, this script does not re-implement either -- then, per kernel per engine
 # (sbl/m3/m4), compares the two independently-derived iters/s rates. AGREE if they land within
-# TOL_PCT of each other (default 10%, i.e. ratio in [0.90, 1.10]); DISAGREE otherwise. A DISAGREE
+# their per-row noise tolerance -- 3*sqrt(cv1^2+cv2^2) read from NOISE-FLOOR.tsv, floored at TOL_PCT
+# (default 10%) -- and DISAGREE otherwise. ⛔ TOL_PCT IS A FLOOR, NOT THE TOLERANCE: it was the flat
+# tolerance until s277, when it was measured to sit BELOW the noise it was judging (0.94 sigma for
+# pattern_bt/sbl => ~35% of rows DISAGREEing from noise alone). A DISAGREE
 # VOIDS that kernel's numbers for publication -- the run still completes and the raw readings still
 # land in the TSV (the never-redo record), but the verdict says loudly not to cite them.
 #
@@ -71,7 +74,7 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 if [ "$CHECK_SHAPE" -eq 1 ]; then OUT_TSV="${OUT_TSV:-$(mktemp)}"; else OUT_TSV="${OUT_TSV:-$B/triangulation-$TS.tsv}"; fi
 
 echo "THREE-ANGLE TRIANGULATION -- angle 1 (fixed time) vs angle 2 (fixed iters) vs disk telemetry"
-echo "tolerance: AGREE iff angle2/angle1 in [$(awk -v t="$TOL" 'BEGIN{printf "%.2f", (100-t)/100}'), $(awk -v t="$TOL" 'BEGIN{printf "%.2f", (100+t)/100}')]  (TOL_PCT=$TOL)"
+echo "tolerance: PER-ROW, = 3*sqrt(cv_angle1^2 + cv_angle2^2) from $([ -f "${FLOORTSV:-$B/NOISE-FLOOR.tsv}" ] && echo NOISE-FLOOR.tsv || echo '<UNBAKED -- flat floor only>'), floored at TOL_PCT=$TOL%; each row prints the tolerance it was judged against"
 [ "$CHECK_SHAPE" -eq 1 ] && echo "mode: --check-shape (kernel=$KERNEL, RUN_B=$RUN_B, OUT_TSV is scratch, not committed)"
 echo
 
@@ -102,9 +105,40 @@ while IFS=$'\t' read -r k e v; do A2["$k:$e"]="$v"; KSEEN["$k"]=1; done < <(prin
 while IFS=$'\t' read -r k c; do A1C["$k"]="$c"; done < <(printf '%s\n' "$A1_OUT" | parse_angle1_check)
 while IFS=$'\t' read -r k c; do A2C["$k"]="$c"; done < <(printf '%s\n' "$A2_OUT" | parse_angle2_check)
 checkok() { case "$1" in ok|ok\(x-eng\)) return 0 ;; *) return 1 ;; esac; }
+# ⭐⭐ THE AGREE TOLERANCE IS A PROPERTY OF THE MEASUREMENT, NOT A CONSTANT (hq_P s277, Lon in-chat: "I think it is
+# starting at much too low a milli-second value.  I think you have invalid all over the place." -- he was right, and
+# it is quantified below).  ⛔ THE DEFECT THIS REPLACES: TOL_PCT was a flat 10% applied to every (kernel, engine),
+# while NOISE-FLOOR.tsv -- baked beside this very corpus, by our own script, and carrying MEASURED per-row cv from
+# 0.2% to 34.6% -- sat unread.  For pattern_bt/sbl the two angles carry cv 10.4% (angle 1, a 500 ms budget) and 2.4%
+# (angle 2, a multi-second window); their RATIO therefore carries cv = sqrt(10.4^2 + 2.4^2) = 10.7%.  A 10% tolerance
+# on a 10.7%-cv quantity is 0.94 SIGMA, so ~35% of kernel-engine rows DISAGREE FROM NOISE ALONE -- and a DISAGREE
+# VOIDS the kernel for publication.  The instrument was manufacturing its own refusals and reporting them as findings:
+# the observed pattern_bt/sbl "DISAGREE 1.1724x" is 1.61 sigma, entirely unremarkable, and it VOIDED a kernel that was
+# fine.  ⭐ THIS IS THE PROJECT'S OWN NAMED CLASS FROM THE OTHER SIDE: CLAUDE.md already warns that "a bound tuned to a
+# job's measured duration is not tight, it is flaky" about `timeout N`; a TOLERANCE set BELOW its quantity's noise is
+# the same error inverted, and it fails the same way -- intermittently, on good data, while looking like a real signal.
+# ⛔ A DISAGREE MUST MEAN "THESE TWO MECHANISMS DISAGREE", NEVER "THE BOX WAS BUSY".
+# ⭐ CURE: tolerance = 3 * sqrt(cv_angle1^2 + cv_angle2^2), per (kernel, engine), read from the BAKED floor -- 3 sigma
+# to match NOISE-FLOOR.tsv's own "min-det = 3*cv" convention -- floored at TOL_PCT so it can only ever widen, never
+# narrow, past the caller's intent.  ⛔ NEVER SILENTLY: a row with no baked floor keeps the flat TOL and is LABELLED
+# (UNBAKED) in the printed verdict, because an unlabelled fallback is how this defect survived in the first place.
+FLOORTSV="${FLOORTSV:-$B/NOISE-FLOOR.tsv}"
+declare -A CVROW
+if [ -f "$FLOORTSV" ]; then
+  while IFS=$'\t' read -r fk fe _thp _reps _rate fcv _rest; do
+    case "$fk" in \#*|"") continue ;; esac
+    [ -n "$fe" ] && CVROW["$fk:$fe"]="$fcv"
+  done < "$FLOORTSV"
+fi
+# angle 1 rows are keyed by the bare engine name, angle 2 rows by "<engine>-fixed" (as baked).
+tol_for() {
+  local k="$1" e="$2" c1="${CVROW["$1:$2"]:-}" c2="${CVROW["$1:$2-fixed"]:-}"
+  if [ -z "$c1" ] || [ -z "$c2" ]; then printf '%s\tUNBAKED' "$TOL"; return; fi
+  awk -v a="$c1" -v b="$c2" -v floor="$TOL" 'BEGIN{ t=3*sqrt(a*a+b*b); if (t<floor) t=floor; printf "%.1f\tBAKED", t }'
+}
 
 {
-  echo -e "# triangulation TSV -- $TS -- TOL_PCT=$TOL -- never hand-edit, regenerate via bench_triangulate_snobol4.sh"
+  echo -e "# triangulation TSV -- $TS -- TOL_PCT=$TOL (FLOOR only; the live per-row tolerance is 3*sqrt(cv1^2+cv2^2) from NOISE-FLOOR.tsv) -- never hand-edit, regenerate via bench_triangulate_snobol4.sh"
   echo -e "kernel\tengine\tangle1_rate\tangle2_rate\tratio\tverdict\tdisk_inblock\tdisk_oublock"
 } > "$OUT_TSV"
 
@@ -141,10 +175,12 @@ for k in $kernels; do
     r1=$(dehuman "$r1h"); r2=$(dehuman "$r2h")
     if [ -n "$r1" ] && [ -n "$r2" ] && [ "$r1" != "0" ]; then
       k_measured=1
-      verdict=$(awk -v a="$r1" -v b="$r2" -v t="$TOL" 'BEGIN{ ratio=b/a; lo=(100-t)/100; hi=(100+t)/100; print (ratio>=lo && ratio<=hi) ? "AGREE" : "DISAGREE" }')
+      IFS=$'\t' read -r etol etolsrc <<<"$(tol_for "$k" "$eng")"
+      verdict=$(awk -v a="$r1" -v b="$r2" -v t="$etol" 'BEGIN{ ratio=b/a; lo=(100-t)/100; hi=(100+t)/100; print (ratio>=lo && ratio<=hi) ? "AGREE" : "DISAGREE" }')
       ratio=$(awk -v a="$r1" -v b="$r2" 'BEGIN{printf "%.4f", b/a}')
       [ "$verdict" = DISAGREE ] && k_disagree=1
-      row_bits="$row_bits $eng=$verdict(${ratio}x)"
+      tlbl="${etol}%"; [ "$etolsrc" = UNBAKED ] && tlbl="${etol}%UNBAKED"
+      row_bits="$row_bits $eng=$verdict(${ratio}x,tol=${tlbl})"
       printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$k" "$eng" "$r1" "$r2" "$ratio" "$verdict" "$ib" "$ob" >> "$OUT_TSV"
     else
       row_bits="$row_bits $eng=UNPROVEN"
@@ -175,5 +211,5 @@ if [ "$any_disagree" -eq 1 ]; then
   echo "⛔ DISAGREE or CHECK-FAIL present -- VOID: do not publish or cite those kernels' numbers until re-measured (or their correctness fixed)."
   exit 1
 fi
-echo "all measured kernels AGREE (within ${TOL}%)."
+echo "all measured kernels AGREE (each within its OWN baked noise tolerance -- see the per-row tol= values above, not a flat ${TOL}%)."
 exit 0
