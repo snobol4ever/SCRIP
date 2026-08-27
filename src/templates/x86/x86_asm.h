@@ -857,14 +857,27 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
     return x86_rec("sub") + reg + ", dword ptr " + x86_frame_text_mem(off) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline const char * RDQ(const char * base, int off);
+inline const char * RDD(const char * base, int off);
+inline int icn_genframe2();
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_gen_zeta_ft() {   /* ⭐⭐ N-2 ITEM 1 (hq_P s276): RE-HOME GENERATOR ζ FROM THE RSP SPINE TO THE RBP ACTIVATION FRAME. Returns the α carve size (frame_total) when this graph is an ARMED Icon suspend-generator, else 0. ⭐ WHY A PURE REBASE IS SOUND AND EXACT: the N-2 α carve is `push rbp; mov rbp,rsp; sub rsp,frame_total` and rsp does NOT move again between α and γ (measured on the four-line witness: zero pushes in the body), so `[rsp + off]` and `[rbp + off - frame_total]` are THE SAME ADDRESS. This change therefore alters addressing ONLY -- it must be behaviourally invisible, which is exactly what makes it gradeable: the D2 witness set must not move and SNOBOL4 must stay 365/365. ⛔ IT IS NOT THE CURE AND MUST NOT BE READ AS ONE: the frame still lives on the shared stack below the point the caller resumes to, so bb_call_proc_staged.cpp:733's `lea rsp,[rax+32]` still discards it. This is the PREREQUISITE that makes item 2 (re-point rbp at the heap island `e->frame`) a one-line change instead of an emitter-wide one -- once every ζ reference is rbp-relative, moving the frame is moving one register. ⛔⭐ SHARED-NODE VERDICT SCOPE, THE s272 LESSON (47 Icon programs lost to a language-blind widening): this deliberately does NOT touch the SNOBOL4 pattern re-homing (xop_frame_member / frame_slot_scan / op_xf_off), which the rung's own NEXT proposed extending. Keying a grant on a SNOBOL4-pattern predicate is precisely the shape that regressed. Instead the rebase is keyed on the CONSUMING ζ REGIME -- icn_genframe2() && flat_gen -- two conditions that no SNOBOL4 or Prolog graph can satisfy, and the first of which is DEFAULT OFF, so an unarmed build is byte-identical by construction. */
+    if (!icn_genframe2() || !_.flat_gen) return 0;
+    int ft = _.flat_frame_bytes + (g_emit_cfg ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
+    return ft > 0 ? ft : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zop_regime(int off) { if (x86_zstorage() == ZC_STORAGE_FRAME_R12) return 1; if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_zop(int off, int q, int bump) {
-    static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r);
-    if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump); snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off - _.op_fc_base + bump); }
-    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", x86_frame_off(off) + bump);
-    else { snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump)); }
+inline const char * x86_zop(int off, int q, int bump) {   /* ⭐ THE FR (FRAME) ζ FAMILY. ⛔ MEASURED hq_P s276, AND IT CORRECTS THIS RUNG'S ORDERED WORK: generator ζ is split across TWO addressing families that are INDISTINGUISHABLE in the emitted .s (both print `qword ptr [rsp + N]`), which is why the s275 .s-grep read "9 of 9 ζ refs are rsp-relative" as ONE homogeneous problem. It is two. This function is the FR family (FRQ/FR, XK_FR*) and it had NO rbp arm anywhere; ZRES/ZOPQ are the SPINE family (rsp#, XK_RSP*) and already had one via op_xf_off. ⛔⭐ THE HALF THAT HOLDS THE YIELDED VALUE IS THIS ONE: on the four-line witness the literal's result descriptor lands at [rsp+16]/[rsp+24] through bb_lit_scalar.cpp:19's FRQ(_.op_off + w) arm -- proven by elimination, since ZRES's base is 0 and could not produce 16 -- so re-homing ONLY ZOPQ/ZRES, as this rung's NEXT instructed, would have re-homed the half that does NOT carry the value, and split the frame across two bases for item 2 to trip over. */
+    static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
+    if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump); eff = off - _.op_fc_base + bump; spine = 1; }
+    else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
+    else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
+    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
+    if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
+    else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -877,8 +890,9 @@ inline const char * x86_ztos(int off, int q) {
 inline const char * ZTOS(int off)  { return x86_ztos(off, 1); }
 inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_zref(int off, int q) {
+inline const char * x86_zref(int off, int q) {   /* ⭐ THE SPINE ζ FAMILY (rsp#, XK_RSP*) -- ZRES/ZRESD/ZOPQ/ZOPD/ZLOC all bottom out here when op_xf_off/op_zread_xf say -1, which for an Icon generator graph is ALWAYS (xop_frame_member is gated on sn4_pt_opframe(), a SNOBOL4-pattern predicate no flat_gen graph enters). Rebasing HERE rather than by granting generators membership in the SNOBOL4 slot allocator is the whole point: one leaf function, no frame_slot_scan, no MATCH_BEGIN anchoring, and zero blast radius into pattern machinery. See icn_gen_zeta_ft() for why the rebase is exact. */
     static char b[16][48]; static int i; i = (i + 1) & 15;
+    { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", off - ft) : RDD("rbp", off - ft); }
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }
