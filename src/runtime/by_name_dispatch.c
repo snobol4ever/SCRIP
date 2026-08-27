@@ -5035,6 +5035,15 @@ static __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DE
     *out = (ident ? same : !same) ? NULVCL : FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ v.v==DT_I / DT_R / (DT_S && slen==0xFFFFFFFFu) are IS_INT_fn/IS_REAL_fn/IS_CSET_fn's bodies (core.h),
+   duplicated literally rather than called: at -O0 `static inline` is a real call/ret (FACT RULE, no -O2),
+   and this leaf is the row's own measured 2.38%-of-kernel cost on string_manip.sno. NOT `always_inline` --
+   that was TESTED AND REVERTED s264 (GOAL-HQ-PERFORM.md:157), it forces the DESCR_t out of memory into a
+   register across a call boundary the GC's conservative stack scanner needs to see, breaking deferred
+   capture (058/059/060). Plain duplication forces no residency -- -O0 still spills/reloads exactly as
+   around a call -- so the s264 mechanism does not apply here; empirically re-proven safe by 067's ARBNO
+   witness (bn_size reached via *SIZE(...) inside a deferred pattern element, under active backtracking).
+   Row perf-core-tag-predicate-o0-call-tax; do not relax core.h's own declarations, only this call site. */
 static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return -1;
     DESCR_t v = args[0];
@@ -5047,9 +5056,9 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
             *out = INTVAL((int)FIELD_GET_fn(v,"frame_size").i); return 1;
         }
     }
-    if (IS_INT_fn(v)) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
-    if (IS_REAL_fn(v)) { *out = INTVAL(0); return 1; }
-    if (IS_CSET_fn(v)) {
+    if (v.v == DT_I) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
+    if (v.v == DT_R) { *out = INTVAL(0); return 1; }
+    if (v.v == DT_S && v.slen == 0xFFFFFFFFu) {
         int klen = kw_cset_len(v.s);
         *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0));
         return 1;
