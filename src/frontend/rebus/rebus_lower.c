@@ -51,6 +51,15 @@ static tree_t *make_fnc(const char *name, int n, ...) {
     va_end(ap);
     return f;
 }
+static tree_t *rebus_tree_copy(const tree_t *e) {
+    if (!e) return NULL;
+    tree_t *n = ast_node_new(e->t);
+    if (e->v.sval) n->v.sval = strdup(e->v.sval);
+    n->v.ival = e->v.ival;
+    for (int i = 0; i < e->n; i++) expr_add_child(n, rebus_tree_copy(e->c[i]));
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_tree_expr(RebLow *L, tree_t *e);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
@@ -89,9 +98,7 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
     case TT_AUGOP: {
         tree_t *lhs  = lower_tree_expr(L, e->c[0]);
         tree_t *rhs  = lower_tree_expr(L, e->c[1]);
-        tree_t *lhs2 = ast_node_new(lhs->t);
-        if (lhs->v.sval) lhs2->v.sval = strdup(lhs->v.sval);
-        lhs2->v.ival = lhs->v.ival;
+        tree_t *lhs2 = rebus_tree_copy(lhs);                                                               /* the duplicate was CHILDLESS — count[word] +:= 1 produced a subscript with no index; DEEP copy, never share: two parents over one subtree corrupts the arena (measured: malloc_consolidate abort) */
         tree_t *op_node;
         switch ((int)e->v.ival) {
         case AUGOP_ADD:    op_node = expr_binary(TT_ADD, lhs2, rhs); break;
@@ -126,6 +133,8 @@ static tree_t *lower_tree_expr(RebLow *L, tree_t *e) {
             expr_add_child(idx, lower_tree_expr(L, e->c[i]));
         return idx;
     }
+    case TT_SCAN:                                                                                          /* a match in expression position (word_count's `s ? p` form): pass through with lowered children — the SPITBOL binary ? expression downstream */
+        return expr_binary(TT_SCAN, lower_tree_expr(L, e->c[0]), lower_tree_expr(L, e->c[1]));
     default:
         fprintf(stderr, "rebus_lower: lower_tree_expr unhandled TT_%d\n", e->t);
         L->nerrors++;

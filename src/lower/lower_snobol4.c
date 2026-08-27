@@ -2097,7 +2097,14 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
         int has_eq = sfind(s, ":eq") != NULL;
-        if (pat) sno_fatal("statement has a separate :pat field (stored-pattern form) — SN4-PAT-2 handles TT_SCAN match subjects only", NULL);
+        if (pat) {                                                                                         /* stored-pattern statement form (:subj + :pat attrs) normalized into the modern TT_SCAN subject the branch below owns — Rebus and any legacy STMT_t producer arrive this way; mainline SNOBOL4 never mints :pat (row rebus-corpus-100pct-broken, 2026-08-28) */
+            extern tree_t *ast_stmt_new(tree_e kind);
+            tree_t * sc = ast_stmt_new(TT_SCAN);
+            if (subj) ast_push(sc, (tree_t *) subj);
+            else { tree_t * es = ast_stmt_new(TT_QLIT); es->v.sval = lp_strdup(""); ast_push(sc, es); }
+            ast_push(sc, pat);
+            subj = sc;
+        }
         if (subj && subj->t == TT_SCAN) {
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
             if (!sno_pat_supported(ptt)) {
