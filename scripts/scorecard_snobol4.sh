@@ -381,6 +381,14 @@ cmd_report() {
   local nu; nu="$(awk -F'\t' '$3=="ORACLE_FAIL"' "$out/results.tsv" | wc -l)"
   if [ "$nu" -gt 0 ]; then
     echo "UNSCR ROWS — oracle could not run it AND no pin; excluded from every number above; all $nu named:"
+    # ⭐ beauty_self ruling (hq_P, 2026-08-26, RE r-snobol4-full-board-census): its UNSCR-ness is BY DESIGN, not a
+    # failure -- name the reason here or it reads as a broken suite (an UNSCR row with no printed reason is
+    # indistinguishable from one).  M1's ground truth is the self-host fixed-point property (SCRIP's own output
+    # byte-identical to the beauty.sno INPUT FILE), not an sbl diff -- scoring it 0 would drag META down ~20
+    # weight for a suite that is not failing, it is not-of-that-kind.
+    if awk -F'\t' '$3=="ORACLE_FAIL"{print $1}' "$out/results.tsv" | grep -qx beauty_self; then
+      echo "  ⭐ beauty_self is UNSCR BY DESIGN, not broken: M1's ground truth is the self-host fixed-point property (output byte-identical to the beauty.sno INPUT FILE), not an oracle diff -- see RULES.md / GOAL-SNOBOL4-100.md M1. Ruling: hq_P, 2026-08-26."
+    fi
     awk -F'\t' '$3=="ORACLE_FAIL"{printf "  %-15s %-60s %s\n",$1,$2,$7}' "$out/results.tsv" | sort
   fi
   # A row whose oracle died but which HAS a pin does not become UNSCR -- it is still scored, against the pin alone.  That is correct,
