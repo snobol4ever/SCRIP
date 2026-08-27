@@ -599,12 +599,22 @@ static std::string bb_define_sr() {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ rax IS SAVED/RESTORED AROUND THE ADDRESS COMPUTATION (nreturn-by-name-value-broken, 2026-08-27): rax:rdx is the live DESCR_t result register
+ * pair, and a value-returning NRETURN already has its result parked there by whatever assignment ran just before (e.g. `mkname = .dummy`). Classic
+ * DEFINE never noticed this mark clobbering rax because ITS OWN RETURN path re-reads the result explicitly from the proc's named NV-cell -- but
+ * CLASS-C's exit path (Snocone functions, since snocone-returns-codegen bug #3's RETURN-alias fix gave them a real RETURN body to fall into) has no
+ * such re-read and trusts rax:rdx to survive untouched from here through to RETURN. Proven via gdb, not inferred: on a minimal
+ * `mkname(){mkname=.dummy;nreturn;}` witness, rax=0x28 (DT_N, correct) right after the assignment, then a GOT-relocated pointer (whose low byte,
+ * 0x20, IS exactly DT_C -- a coincidence of address bytes, not a real datatype) by the time RETURN read it -- rdx, which this function's two mov
+ * instructions never touch, survived correctly throughout. Only rax needs saving. */
 std::string bb_nreturn_mark() {
     extern int rt_g_ret_by_name;
     return x86_alpha()
          + x86("comment", "NRETURN floater: by-name mark (manual p.133); rt_nret_fix in the call epilogue reads+clears it; depth-agnostic — zero [rsp+K], zero calls; glue continues at RETURN")
+         + x86("push", "rax")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", RDD("rax", 0), (long)1)
+         + x86("pop", "rax")
          + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
