@@ -103,7 +103,12 @@ run_test() {
         fi
 
         # link against the shared unified runtime
-        if ! gcc "$o_file" -L"$RT_OUT" -lscrip_rt -lm -Wl,-rpath,"$RT_OUT" -o "$bin" 2>"$WORK/${base}.link_err"; then
+        # ⛔ -no-pie required: SCRIP mode-4 codegen embeds absolute (non-PIC) addresses — the same
+        # convention every other m4 link site in scripts/ already follows (see e.g. board_sno_apps.sh,
+        # bench_pt0_3way.sh). Without it, a PIE build can pick up a DT_TEXTREL relocation into .text
+        # that the loader mis-applies under ASLR, producing a silent-empty-output SIGSEGV unrelated to
+        # program correctness (found via B03_for_continue, confirmed independent of that codegen path).
+        if ! gcc -no-pie "$o_file" -L"$RT_OUT" -lscrip_rt -lm -Wl,-rpath,"$RT_OUT" -o "$bin" 2>"$WORK/${base}.link_err"; then
             echo -e "${RED}FAIL${RESET} $base  [link error]"
             head -3 "$WORK/${base}.link_err"
             FAIL=$((FAIL+1))
