@@ -37,18 +37,17 @@ __attribute__((visibility("hidden"))) long  g_wsi_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
-typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
+/* rt_sxt_fr_t / g_sxt_fr / g_sxt_owner now declared+defined via gc_heap.h (perf-sxt-break-unconditional-call-tax) -- the type and the extern must live where hot callers can see them too. */
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.S bakes g_sxt_fr.owner @0");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.S bakes g_sxt_fr.len @8");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.S bakes g_sxt_fr.gva_n @16");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.S bakes g_sxt_fr.off @20");
-#define g_sxt_owner (g_sxt_fr.owner)
 #define g_sxt_len   (g_sxt_fr.len)
 #define g_sxt_gva_n (g_sxt_fr.gva_n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
-void rt_sxt_break(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
+void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }   /* real symbol kept for rtx_icnvar.S's `call rt_sxt_break@PLT`; logic lives once, in gc_heap.h */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_note(char *s, long len)
 {

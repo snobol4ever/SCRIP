@@ -28,8 +28,19 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void  rt_gcheap_warmup(void);
 char *rt_str_alloc(long n);
 char *rt_str_dup(const char *s);
+typedef struct { char *owner; long len; int gva_n; int off; } rt_sxt_fr_t;
+extern rt_sxt_fr_t g_sxt_fr;
+#define g_sxt_owner (g_sxt_fr.owner)
 void  rt_sxt_gva_count(int n);
 void  rt_sxt_break(const char *s);
+/* ⭐ inline fast path for hot callers (row perf-sxt-break-unconditional-call-tax), same precedent
+   shape as rt_protected.h's is_protected_pat_lead: static inline is a promise -O0 does not keep,
+   always_inline is honoured. NOT the s264 tag-predicate/DESCR_t-by-value hazard (GOAL-HQ-PERFORM.md
+   :177) -- g_sxt_owner is a plain GLOBAL, not stack/register state a conservative GC scan depends
+   on, and this body allocates nothing, so there is no GC-triggering point inside it for a value to
+   go missing across. rt_sxt_break itself is untouched and stays the real symbol rtx_icnvar.S calls
+   (`call rt_sxt_break@PLT`) -- it now just delegates here, one logic definition either way. */
+static inline __attribute__((always_inline)) void rt_sxt_break_fast(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
 void  rt_sxt_note(char *s, long len);
 long  rt_sxt_match(const char *s);
 char *rt_sxt_extend(char *s, long al, long bl);
