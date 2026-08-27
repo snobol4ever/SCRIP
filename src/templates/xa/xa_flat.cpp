@@ -358,6 +358,21 @@ static std::string xa_flat_chain_epilogue_str(void) {
          + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_chain_epilogue_sig_str(int is_gamma) {
+    if (!xa_flat_class_c()) return std::string();
+    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
+    if (!_cf) return std::string();
+    int kt = g_emit.flat_frame_bytes;
+    return x86("comment", is_gamma
+                   ? "CLASS-C chain epilogue-γ, det-arm signature form (s272 snocone-returns-codegen): the α carve parked the caller's det-arm signature pointer at [kt-24] (bcps_det_arm's .Lsig blob: nargs, γ-cont at +8, ω-cont at +16, arg offsets) but this exit used to just release the frame and fall through to the bare/wire epilogue, which pops garbage -- reload the pointer, follow it to the γ continuation, THEN release, THEN jmp. rax:rdx already carry the typed result; whichever node's template reached this exit staged it, this epilogue only owns the return-through-signature. Must NOT clobber rax:rdx -- the call site's own landing tells success from failure by reading al, and only DT_FAIL (0x68) reads as failure, so a live result's low byte must survive untouched. ⛔ ONLY valid when this chain was actually entered via bcps_det_arm's jmp-with-signature convention (guarded by !g_rt_fragment_emit at the call site) -- EVAL's runtime-compiled fragments reach this SAME class-C prologue but are invoked by a normal C call/ret (rt_proc_call_open_det* calling a real function pointer), so for them the plain xa_flat_chain_epilogue (release-only, fall through to ret) is the correct and only exit; reading [rsp+kt-24] as a signature pointer for an eval fragment reads whatever garbage sat in rcx at entry and segfaults (measured: corpus/crosscheck/rung10/1019_eval_string.sno SIGSEGV before this guard was added)."
+                   : "CLASS-C chain epilogue-ω, det-arm signature form (s272 snocone-returns-codegen): same signature reload as epilogue-γ, but the ω continuation lives at sig+16, not sig+8 (confirmed against a working DEFINE'd proc's own epilogue-ω: genuinely different offsets, not a symmetric pair) -- and unlike γ this exit MUST overwrite rax:rdx with FAILDESCR, because the call site's landing (shared with γ when the two continuations coincide, per bcps_det_arm) tells the two apart only by `cmp al, DT_FAIL`. Same eval-fragment caveat as epilogue-γ applies -- see its comment.")
+         + x86("mov", "rcx", RDQ("rsp", kt - 24))
+         + x86("mov", "rcx", RDQ("rcx", is_gamma ? 8 : 16))
+         + (is_gamma ? std::string() : (x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")))
+         + x86("add", "rsp", (long)kt)
+         + x86_jmp_reg("rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
@@ -454,5 +469,6 @@ extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prolo
 extern "C" void xa_flat_chain_prologue(void) { bb_emit_x86(xa_flat_chain_prologue_str()); }
 extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }
 extern "C" void xa_flat_chain_epilogue(void) { bb_emit_x86(xa_flat_chain_epilogue_str()); }
+extern "C" void xa_flat_chain_epilogue_sig(int is_gamma) { bb_emit_x86(xa_flat_chain_epilogue_sig_str(is_gamma)); }
 extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
 extern "C" void xa_flat_zframe_epilogue_ω(void) { bb_emit_x86(xa_flat_zframe_epilogue_ω_str()); }

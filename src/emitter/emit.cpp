@@ -2594,6 +2594,8 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
 extern "C" int xa_flat_class_c_pred(void);
 extern "C" void xa_flat_chain_prologue(void);
 extern "C" void xa_flat_chain_epilogue(void);
+extern "C" void xa_flat_chain_epilogue_sig(int is_gamma);
+extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
@@ -3182,6 +3184,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("comment", "⛔ SET THE PORT TAG LAST AND NEVER OMIT IT: the caller's landing is SHARED by this port and the retiring one, and it tells them apart by al. Leaving eax alone here does not mean 'no tag' -- it means the tag is whatever the body last computed, so the landing takes the RETIRE arm at random and unwinds a frame that is still live. bb_glue_outer_gamma set DT_S for the same reason; the record build clobbers rax, so it goes after the push, not before.")
                   + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
+    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ()); }
     }
     if (!bare && !_top_hoist) {
@@ -3196,6 +3199,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(x86("comment", "N-2 GENERATOR RETIRE: exhaustion is the ONE exit that owns the release -- mov rsp,rbp;pop rbp puts the stack back at entry depth, exactly where the caller's PUSHed pair sits. ⭐ The RETURN CONTRACT IS THEN LEFT BYTE-IDENTICAL TO THE PRE-FRAME EMITTER: ret through the [rsp+0] slot carrying DT_FAIL in eax, which is what bb_glue_outer_omega already did and what the caller's landing already expects. Only the release is new, so this arm cannot move the caller's arithmetic. ⛔ gamma must never do this: a suspend leaves a live resume record below, and releasing there would eat the frame the caller is about to re-enter.")
                   + x86("mov", "rsp", "rbp") + x86("pop", "rbp") + x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
     }
+    else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(0); }
     else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {
