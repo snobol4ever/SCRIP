@@ -48,5 +48,4 @@ std::string bb_subscript() {
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
          + x86_gamma()
          + x86_beta_trampoline();
-    return std::string();
 }
