@@ -13,7 +13,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ICONT=$(icont_bin) || { echo "ERROR: Icon oracle unresolvable -- refusing rather than printing a false all-crash table"; exit 2; }
 
 # ⛔ RESOLVE BY SEARCH, REFUSE ON UNRESOLVABLE. These two sources moved to corpus/demo/icon/demo/ in the
-# 2026-08-24 corpus re-grid; the old hardcoded corpus/scrip/ path had additionally been resolving through
+# 2026-08-24 corpus re-grid; the old hardcoded corpus/demo/scrip/ path had additionally been resolving through
 # $REPO_ROOT/.. = /home (one level above the seat root), so it could never have matched even before the move.
 icn_src() {                                                             # $1 = basename to find under the corpus
     local hit; hit=$(find "$S4E/corpus" -name "$1" -type f 2>/dev/null | sort | head -1)

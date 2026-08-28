@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_scrip_demo_harness_wired.sh -- DONE-WHEN for scrip-demo-harness-unwired.
-# scripts/test_scrip_demos.sh (sweeps corpus/scrip/demo*/*.scrip against .expected) exists but
+# scripts/test_scrip_demos.sh (sweeps corpus/demo/scrip/demo*/*.scrip against .expected) exists but
 # is referenced by NOTHING -- not the Makefile, not any board_*.sh/scorecard_*.sh aggregator --
 # so its 8/10 FAIL (2026-08-27: 3 SEGFAULT + 5 Icon-semicolon-parse-error, see the two sibling
 # rows this same pass minted) has never been visible to anyone who didn't think to run it by

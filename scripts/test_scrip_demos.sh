@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 CORPUS="$(cd "$ROOT/.." && pwd)/corpus"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-DEMO_DIR="$CORPUS/scrip"
+DEMO_DIR="$CORPUS/demo/scrip"
 TIMEOUT=8
 PASS=0; FAIL=0; SKIP=0
 
