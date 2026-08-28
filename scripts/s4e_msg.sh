@@ -327,13 +327,24 @@ case "$cmd" in
          for f in "$d"/*.msg; do [ -f "$f" ] || continue; basename "$f" >> "$lc"; echo "--- $(basename "$f")"; cat "$f"; done;;
   clear) d="$PO/$ME/inbox"; lc="$PO/$ME/.last-check"
          [ -f "$lc" ] || { echo "⛔ REFUSED: nothing has been read in this seat. Run 'check' first -- clear only removes what check displayed." >&2; exit 2; }
-         _cl=0; _kept=0
+         _cl=0; _kept=0; _fail=0
          for f in "$d"/*.msg; do [ -f "$f" ] || continue; _b="$(basename "$f")"
-           if grep -qxF "$_b" "$lc" 2>/dev/null; then rm -f "$f"; _cl=$((_cl+1))
+           if grep -qxF "$_b" "$lc" 2>/dev/null; then
+             # ⛔⭐⭐ ARCHIVE, NEVER DESTROY (hq_P 2026-08-28, seat06's witness, ceo-granted).  `.last-check` is written by
+             # check's ITERATION LOOP -- one basename per file, unconditionally -- so it records what check ITERATED, never
+             # what the reader actually SAW.  This line used to be `rm -f "$f"`, so ANY truncation between check's `cat` and
+             # the reader (a pipe through head/tail, a pager, a context clip) destroyed the body permanently while the seat
+             # believed it had read its mail.  MEASURED, not hypothetical: it destroyed a message from hq_P to seat06, and
+             # one of ceo's the same morning.  ⭐ Note the ORTHOGONAL axis was already guarded -- clear refuses to delete
+             # post-check arrivals (KEPT UNREAD below) -- so the arrival race was thought about; this is the other axis.
+             # ⛔ AND A FAILED ARCHIVE KEEPS THE MAIL: falling back to rm would reinstate the exact defect being cured.
+             if mkdir -p "$PO/$ME/archive" 2>/dev/null && mv -f "$f" "$PO/$ME/archive/$_b" 2>/dev/null; then _cl=$((_cl+1))
+             else _fail=$((_fail+1)); echo "⛔ COULD NOT ARCHIVE -- MESSAGE KEPT, NOT DESTROYED: $_b"; fi
            else _kept=$((_kept+1)); echo "⛔ KEPT UNREAD (arrived after your last check): $_b"; fi; done
          rm -f "$lc"
-         if [ "$_kept" -gt 0 ]; then echo "[$ME] cleared $_cl, KEPT $_kept UNREAD -- run 'check' again before you stop"; exit 1
-         else echo "[$ME] inbox cleared ($_cl)"; fi;;
+         if [ "$_fail" -gt 0 ]; then echo "[$ME] archived $_cl, KEPT $_kept UNREAD, ⛔ $_fail COULD NOT BE ARCHIVED (still in your inbox)"; exit 1
+         elif [ "$_kept" -gt 0 ]; then echo "[$ME] archived $_cl, KEPT $_kept UNREAD -- run 'check' again before you stop"; exit 1
+         else echo "[$ME] inbox cleared ($_cl archived to $ME/archive/ -- a truncated read is now recoverable, not lost)"; fi;;
   # ⭐ CREATION IS A DELIBERATE ACT WITH A NAME (V2-4). LAW 6 forbids mailboxes appearing as a side effect of a
   # typo, not mailboxes existing -- Lon adds seats, and a fleet that cannot enrol one is not operable. So the
   # capability survives as ONE explicit subcommand that says what it did, and every implicit mkdir is gone.
