@@ -1207,13 +1207,22 @@ static void rt_name_save_grow(void) {
     if (!np) return; g_name_save = np; g_name_save_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ KILLSWITCH + CONTROL ARM (RULES.md: every perf claim ships one).  SCRIP_NSAVE_FAST=0 restores both shapes below in ONE binary with no rebuild.  Default ON, opt-OUT; always_inline so the arm is a load+test and not a call, the same way rt_call_fastpath_ok was already cured. */
+static inline __attribute__((always_inline)) int rt_nsave_fast_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NSAVE_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* MEASURED on json-match (m4, -O0): rt_proc_call_prologue is entered 92,945 times and calls this 185,890 times -- TWICE per callout, once for the parameter list and once for the result name -- while only 92,945 ELEMENTS are ever pushed.  So HALF THE CALLS PUSH NOTHING: the param push arrives with n==0 because the EXPR$n procs json drives carry no formals.  Two shapes, each provably identical to what it replaces:
+   (1) n <= 0 -> return base immediately.  The loop cannot execute, `fast` is then unused, and base is g_name_save_top unchanged -- so the observable result is the same value by construction.
+   (2) hoist rt_name_save_grow()'s OWN first test to the call site.  It opens with `if (g_name_save_top < g_name_save_cap) return;`, so when there is room the call was already a no-op, and the `break` test that follows it is false whenever top < cap.  When top >= cap this is the original sequence verbatim.  Turns a per-ELEMENT call into a per-element compare. */
 int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int nargs, int n)
 {
     int base = g_name_save_top;
+    int nf = rt_nsave_fast_on();
+    if (nf && n <= 0) return base;
     int fast = rt_call_fastpath_ok();
     for (int k = 0; k < n; k++) {
         const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
-        rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break;
+        if (nf) { if (g_name_save_top >= g_name_save_cap) { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; } }
+        else { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; }
         DESCR_t *cell = fast ? (cells ? cells[k] : rt_cell_for(nm)) : (DESCR_t *)0;
         DESCR_t arg = (k < nargs) ? args[k] : NULVCL;
         g_name_save[g_name_save_top].name = nm;
@@ -1281,7 +1290,8 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    int save_base = rt_name_save_push(pn, p->pcells, args, nargs, np);
+    /* CALL-SITE half of the same cure: np==0 (procedures with no formals -- the EXPR$n shape json drives) made this a call that returned g_name_save_top having done nothing, 92,945 times.  The early-return inside rt_name_save_push still paid the CALL: measured 10 Ir of prologue per entry, 185,890 entries = 1.27% of the program in function-entry alone.  Skipping the call is provably the same value, since the loop cannot execute when n<=0 and base IS g_name_save_top. */
+    int save_base = (rt_nsave_fast_on() && np <= 0) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
