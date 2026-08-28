@@ -718,6 +718,18 @@ static std::string bcps_spine_gen_arm() {
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    /* N2-STEP3-DBG (seat01, 2026-08-28): getenv-gated, stderr only, zero emission effect. VERIFIES two premises step 3's
+     * call-site wiring depends on before any real code is written against them: (1) _.node -- the pointer this template
+     * already uses for arg-slot lookups -- is pointer-IDENTICAL to what icn_gen_host_reserve_offset()'s scan of
+     * g_emit_cfg->all[] finds, so the offset/base it returns actually describes THIS call. MEASURED true on
+     * suspend_single (off=0 base=144) and same_gen_twice (off=0/96, base=240 both calls, matching the selftest exactly).
+     * (2) g_emit.flat_lcl_proc is true for every host in the four flat_lcl_proc-hosted D2 shapes -- but FALSE for
+     * suspend_nested's outer()->inner() call, because outer() is itself flat_gen and icn_genframe2()'s flat_gen prologue
+     * arm (emit.cpp ~2832) never calls icn_gen_host_reserve() -- confirmed by grep, zero hits in that arm's span.
+     * ⛔ THIS IS A REAL GAP, NOT AN IMPLEMENTATION DETAIL: a generator calling another generator has no reservation
+     * mechanism at all yet. Extending icn_gen_host_reserve() to the flat_gen arm is its own piece of work, not step 3's.
+     * See .github/FINDING-2026-08-28-seat01-n2-step3-flat-gen-host-has-no-reservation-mechanism.md before scoping step 3. */
+    if (getenv("SEAT01_N2_STEP3_DBG")) { int _dbgbase = -1; int _dbgoff = icn_gen_host_reserve_offset(0, _.node, &_dbgbase); fprintf(stderr, "[N2-STEP3-DBG] node=%p callee=%s host_flat_lcl_proc=%d off=%d base=%d\n", (void*)_.node, _.op_sval ? _.op_sval : "?", g_emit.flat_lcl_proc, _dbgoff, _dbgbase); }
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
