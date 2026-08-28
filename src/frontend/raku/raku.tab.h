@@ -62,9 +62,8 @@ typedef struct ExprList {
     int      count;
     int      cap;
 } ExprList;
-/*--------------------------------------------------------------------------------------------------------------------*/
 
-#line 68 "raku.tab.h"
+#line 67 "raku.tab.h"
 
 /* Token kinds.  */
 #ifndef RAKU_YYTOKENTYPE
@@ -192,7 +191,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 352 "raku.y"
+#line 311 "raku.y"
 
     long      ival;
     double    dval;
@@ -200,7 +199,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 204 "raku.tab.h"
+#line 203 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

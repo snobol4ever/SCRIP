@@ -197,6 +197,7 @@ WS       [ \t\r]
 "@"{ALPHA}{ALNUM}*"[*]"  { char *s = strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
+"\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
 {ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
 "\""            { raku_strpos = 0; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
