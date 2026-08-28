@@ -35,11 +35,38 @@ DEMOS="roman wordcount claws5 treebank \
        claws5-match claws5-match-fence \
        json json-match json-match-fence \
        treebank-match treebank-match-fence"
-echo "Emitting + verifying demo .s (graceful-skip)..."
+# ⛔⭐⭐ RESOLVE EACH NAME TO ITS PATH -- THE FLAT `$f.sno` LOOKUP THIS REPLACED HAD BEEN SILENTLY
+# REGENERATING NOTHING SINCE THE s272 CORPUS RE-GRID (hq_P, 2026-08-27).  The re-grid moved demos from
+# corpus/demo/<name>.sno to corpus/demo/snobol4/<family>/<name>.sno.  This loop cd'd to corpus/demo and
+# tested `[ -f "$f.sno" ]`, so after the move EVERY one of the 21 sanctioned names failed that test, took
+# the `continue`, and the script then printed "No changes -- demo artifacts already current."
+# ⛔ THAT IS A FALSE GREEN, NOT A GAP: the script reported SUCCESS while doing NOTHING, so the handoff rule
+# "if the session touched codegen, regenerate the .s artifacts" has been a no-op for every seat since the
+# re-grid, and the committed demo .s files silently froze while the compiler moved underneath them -- the
+# exact hello.s fossil this script's own header was written to prevent, reintroduced by a path change.
+# MEASURED at the time of the fix: a fresh --compile of calculator-1-match differs from its committed .s
+# by 1,749 diff lines, none of them from tonight's cure (it is another seat's label-prefix change).
+# ⭐ THE CLASS, and it is the third instance this month: A GUARD OR A LOOKUP KEYED ON A PATH IS NOT KEYED
+# ON THE THING, IT IS KEYED ON A COINCIDENCE THAT A REORGANISATION CAN END -- same shape as the inert
+# */programs/lon/* guards in util_oracle_flag_sweep.sh and test_gate_argnote_sweep.sh.  Resolving by SEARCH
+# and REFUSING on an unresolvable member ties the script to the FILE rather than to its address.
+# ⛔ AND THE SKIP IS NOW A REFUSAL, per RULES.md: a tool that cannot do its job exits non-zero rather than
+# reporting success.  These 21 names are the SANCTIONED SET -- a member that does not resolve is a real
+# error (a renamed or deleted demo), never something to pass over quietly.
+echo "Emitting + verifying demo .s (resolve-by-search; refuses on an unresolvable sanctioned name)..."
+RESOLVE_RC=0
 for f in $DEMOS; do
-    [ -f "$f.sno" ] || { echo "  SKIP  $f — no .sno"; continue; }
+    hits="$(find "$DEMO" -name "$f.sno" -type f | sort)"
+    n="$(printf '%s\n' "$hits" | grep -c . || true)"
+    if [ "$n" -eq 0 ]; then
+        echo "  ⛔ REFUSE  $f — no $f.sno anywhere under $DEMO (sanctioned set member unresolvable; the corpus moved or the demo was renamed/deleted)"; RESOLVE_RC=2; continue
+    fi
+    if [ "$n" -gt 1 ]; then
+        echo "  ⛔ REFUSE  $f — $n files named $f.sno under $DEMO; ambiguous, not guessing:"; printf '      %s\n' $hits; RESOLVE_RC=2; continue
+    fi
+    src="$hits"; dst="${src%.sno}.s"
     tmp="$TMPD/demo_$f.s"
-    if ! timeout 90 "$SCRIP" --compile "$f.sno" > "$tmp" 2>/dev/null; then
+    if ! timeout 90 "$SCRIP" --compile "$src" > "$tmp" 2>/dev/null; then
         echo "  SKIP  $f.s — --compile failed (committed .s untouched)"; continue
     fi
     if [ ! -s "$tmp" ]; then
@@ -48,16 +75,20 @@ for f in $DEMOS; do
     if ! gcc -c "$tmp" -o "$TMPD/demo_$f.o" 2>"$TMPD/demo_as_err.txt"; then
         echo "  SKIP  $f.s — assembler-rejected (committed .s untouched)"; continue
     fi
-    if [ -f "$f.s" ] && cmp -s "$tmp" "$f.s"; then
-        echo "  same  $f.s"
+    if [ -f "$dst" ] && cmp -s "$tmp" "$dst"; then
+        echo "  same  ${dst#$CORPUS/}"
     else
-        mv "$tmp" "$f.s"; echo "  upd   $f.s"
+        mv "$tmp" "$dst"; echo "  upd   ${dst#$CORPUS/}"
     fi
 done
+[ "$RESOLVE_RC" -eq 0 ] || { echo "⛔ GATE REFUSES: one or more sanctioned demo names did not resolve (see above). NOT reporting artifacts current -- that is the false green this refusal exists to stop."; exit "$RESOLVE_RC"; }
 
 echo "Committing to corpus..."
 cd "$CORPUS"
-for f in $DEMOS; do git add "demo/$f.s" 2>/dev/null || true; done
+for f in $DEMOS; do
+    d="$(find "$DEMO" -name "$f.s" -type f | sort | head -1)"
+    [ -n "$d" ] && git add "${d#$CORPUS/}" 2>/dev/null || true
+done
 if git diff --cached --quiet; then
     echo "  No changes — demo artifacts already current."
 else
