@@ -46,11 +46,12 @@ compile_mode4() {
     local tmp; tmp="$(mktemp -d)"
     SNO_LIB="$INC" "$SCRIP" --compile "$sno" > "$tmp/p.s" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     (cd "$HERE/.." && gcc -c "$tmp/p.s" -o "$tmp/p.o" 2>/dev/null) || { rm -rf "$tmp"; return 1; }
-    # ⛔ -no-pie is NOT applied here, deliberately -- see the long banner in corpus_suite_harness.py's compile_m4().
-    # It makes crashing programs' signals deterministic (real, measured) but ALSO flips 2 fuzz witnesses from a
-    # deterministic PASS to a deterministic SIGSEGV, which the "codegen embeds absolute addresses" rationale does
-    # not explain (that reason predicts PIE would be the broken arm; PIE is the passing one). Blocked on row
-    # `m4-pie-vs-no-pie-changes-behaviour-not-just-signal`. Do not add the flag until that rules.
+    # ⛔ -no-pie is NOT applied here, deliberately -- RULED, not blocked: row
+    # `m4-pie-vs-no-pie-changes-behaviour-not-just-signal` (seat10 2026-08-28), full analysis in
+    # .github/ARCH-ENGINE.md § "Mode-4 Link Mode". gdb on the faulting RSP showed -no-pie is the broken arm, not
+    # a measurement artifact: fz_red_m2a_fence_cap_gen / fz_segv_10 are .ref="match" (not crash-expected), PIE
+    # runs them clean 20/20, -no-pie SIGSEGVs them 20/20 with RSP==0x0 at fault -- a normal stack address at the
+    # identical point under PIE. See corpus_suite_harness.py's compile_m4() for the mirrored banner.
     gcc "$tmp/p.o" -L"$RT_DIR" -lscrip_rt -lm \
         -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$tmp"; return 1; }
     rm -rf "$tmp"
