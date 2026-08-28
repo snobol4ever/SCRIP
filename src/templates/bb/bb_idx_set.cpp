@@ -15,7 +15,9 @@ std::string bb_idx_set() {
     x86_begin();
     return x86_alpha()
          + x86("comment", "IR_IDX_SET: base/key/value from [ζ+off]; inline DT_A+int fast path, else subscript_set")
-         + IF(g_monitor_bin, x86("comment", "s112 MON-CAP: under MONITOR_BIN the inline DT_A+int fast path is SKIPPED so every subscripted store routes through subscript_set, which owns the <lval> VALUE tap. Emit-time gate — with the monitor dark the fast path emits verbatim, so default bytes are unchanged. Tables never took the fast path; arrays did, and would otherwise stay blind to the monitor exactly where beauty.sno's UTF/table class was."))
+         + IF(g_monitor_bin, x86("comment", "s112 MON-CAP: under MONITOR_BIN the inline DT_A+int fast path is SKIPPED so every subscripted store routes through subscript_set, "
+                                             "which owns the <lval> VALUE tap. Emit-time gate — with the monitor dark the fast path emits verbatim, so default bytes are unchanged. "
+                                             "Tables never took the fast path; arrays did, and would otherwise stay blind to the monitor exactly where beauty.sno's UTF/table class was."))
          + IF(g_monitor_bin, x86("jmp", L(0)))
          + x86("mov", "rax", FRQ(_.op_a_slot))
          + x86("cmp", "al", (long)DT_A)
