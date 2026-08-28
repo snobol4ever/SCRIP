@@ -9,25 +9,43 @@ extern "C" void *rt_zls2_mark(void);
 extern "C" void  rt_zls2_release_to(void *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fence_whack_on() { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_FENCE_WHACK"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
-static int fence_u2_frame(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_U2_FENCE"); v = (e && e[0] == '0') ? 0 : 1; } return v && x86_port_cstack() && _.op_ival != 2; }
+static int fence_u2_frame(void) {
+    static int v = -1;
+    if (v < 0)
+        { const char * e = getenv("SCRIP_U2_FENCE"); v = (e && e[0] == '0') ? 0 : 1; }
+    return v && x86_port_cstack() && _.op_ival != 2;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_mark_save(int off) {
     if (x86_port_cstack() && _.op_fence_frame_off != -1) return x86("mov", FFCQ(0), "rsp");
-    if (x86_port_cstack() && fence_u2_frame()) return x86("mov", FRQ(off), "rsp") + x86("mov", FRQ(off+32), "rsp");
+    if (x86_port_cstack() && fence_u2_frame())
+        return x86("mov", FRQ(off), "rsp")
+             + x86("mov", FRQ(off+32), "rsp");
     if (x86_port_cstack()) return x86("mov", FRQ(off), "rsp");
-    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED) return x86_zls2_cur_lea("rdi") + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", FRQ(off), "rax");
+    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
+        return x86_zls2_cur_lea("rdi")
+             + x86("mov", "rax", RDQ("rdi", 0))
+             + x86("mov", FRQ(off), "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
-    return x86_align_enter() + x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark) + x86_align_leave() + x86("mov", FRQ(off), "rax");
+    return x86_align_enter()
+         + x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark)
+         + x86_align_leave()
+         + x86("mov", FRQ(off), "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_release(int off, int kk = 0) {
     if (x86_port_cstack() && _.op_fence_frame_off != -1) return x86("mov", "rsp", FFCQ(0));
     if (x86_port_cstack() && fence_u2_frame()) return x86("mov", "rsp", FRQ(off+32+kk));
     if (x86_port_cstack()) return x86("mov", "rsp", FRQ(off+kk));
-    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED) return x86_zls2_cur_lea("rdi") + x86("mov", "rax", FRQ(off)) + x86("mov", RDQ("rdi", 0), "rax");
+    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
+        return x86_zls2_cur_lea("rdi")
+             + x86("mov", "rax", FRQ(off))
+             + x86("mov", RDQ("rdi", 0), "rax");
     if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
-    return x86_align_enter() + x86("mov", "rdi", FRQ(off)) + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to) + x86_align_leave();
+    return x86_align_enter()
+         + x86("mov", "rdi", FRQ(off))
+         + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to)
+         + x86_align_leave();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_whack_commit(int off) {
@@ -51,7 +69,12 @@ std::string bb_match_fence1() {
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
          + IF(fence_u2_frame(), bb_glue_framed_leave())
-         + IF(emit_arbno_rbp_unwind() && x86_port_cstack(), x86_arbno_rbp_unwind_at(_.op_fence_frame_off != -1 ? FFCQ(0) : fence_u2_frame() ? FRQ(_.op_off+32+_.op_fence_body_kk) : FRQ(_.op_off+_.op_fence_body_kk), 11, 12))
+         + IF(emit_arbno_rbp_unwind() && x86_port_cstack(),
+              x86_arbno_rbp_unwind_at(
+                  _.op_fence_frame_off != -1 ? FFCQ(0)
+                : fence_u2_frame()           ? FRQ(_.op_off+32+_.op_fence_body_kk)
+                                              : FRQ(_.op_off+_.op_fence_body_kk),
+                  11, 12))
          + fence_whack_commit(_.op_off)
          + x86_gamma()
          + x86("def", PAIR(3))
