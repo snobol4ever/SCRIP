@@ -174,10 +174,14 @@ class Verdict:
         return f"Verdict({self.kind}, rc={self.returncode}, detail={self.detail!r})"
 
 
-def _run_raw(argv, timeout, cwd=None, env=None):
+def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
     try:
-        r = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
-                            timeout=timeout, cwd=cwd, env=env)
+        if stdin_text is None:
+            r = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
+                                timeout=timeout, cwd=cwd, env=env)
+        else:
+            r = subprocess.run(argv, input=stdin_text.encode(), capture_output=True,
+                                timeout=timeout, cwd=cwd, env=env)
     except subprocess.TimeoutExpired as e:
         return "HANG", (e.stdout or b""), (e.stderr or b""), None
     except FileNotFoundError as e:
@@ -185,8 +189,8 @@ def _run_raw(argv, timeout, cwd=None, env=None):
     return "RAN", r.stdout, r.stderr, r.returncode
 
 
-def classify(argv, timeout, expected_text, cwd=None, env=None):
-    kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env)
+def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None):
+    kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
     if kind == "HANG":
         return Verdict("HANG", out, err, None, detail=f"exceeded {timeout}s")
     if kind == "UNPROVEN":
@@ -206,11 +210,11 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None):
     timeout = timeout or paths["timeout"]
     argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", str(sno_path)])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
-    return classify(argv, timeout, expected_text, env=env)
+    return classify(argv, timeout, expected_text, env=env, stdin_text=stdin_text)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir):
@@ -237,7 +241,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -247,7 +251,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None):
         return skip
     argv = stdbuf_wrap(paths, [str(out_bin)])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
-    return classify(argv, timeout, expected_text, env=env)
+    return classify(argv, timeout, expected_text, env=env, stdin_text=stdin_text)
 
 
 def run_ast(paths, src_path, expected_text, timeout=None):
@@ -364,12 +368,13 @@ def banner_re_for(comment_open, comment_close):
 
 # ============================================================= conversion ===
 class Entry:
-    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines):
+    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None):
         self.kind = kind          # "line" or "block"
         self.seq = seq
         self.name = name
         self.sno_lines = sno_lines        # list[str]: 1 line for "line", N for "block"
         self.ref = ref_text_or_lines      # str for "line" (unescaped), list[str] for "block"
+        self.stdin = stdin                # str fed to the entry's stdin, or None = /dev/null (see STDIN below)
 
 
 def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
@@ -409,14 +414,16 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
                                           f"one-line={cand_verdicts} orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None):
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td))
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text)
     if "ast" in modes:
+        # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
+        # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
         out["ast"] = run_ast(paths, sno_path, expected_text)
     return out
 
@@ -438,7 +445,7 @@ def write_suite(entries, out_sno, out_ref):
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
 
 
-def write_block_suite(entries, out_src, out_ref, comment_open, comment_close):
+def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None):
     """write_suite() for a format-(B)-ONLY family: every entry is ALWAYS a banner block (no
     one-line join is ever attempted -- parser-ladder families are format-B by task-spec design,
     not by join-failure fallback), and the banner uses the dialect's own comment syntax."""
@@ -451,6 +458,80 @@ def write_block_suite(entries, out_src, out_ref, comment_open, comment_close):
         ref_lines.extend(e.ref)
     Path(out_src).write_text("\n".join(src_lines) + "\n")
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
+    if out_in is not None:
+        write_stdin_sidecar(entries, out_in, comment_open, comment_close)
+
+
+# =========================================================== stdin sidecar ===
+# ⭐ STDIN IS CARRIED OUT-OF-BAND, IN A THIRD PARALLEL FILE (family.in), NEVER IN THE PROGRAM TEXT.
+# The suite format already runs on parallel files keyed by an identical banner line (family.sno /
+# family.ref); stdin is simply the third rail of that same design, and an entry with no stdin gets
+# no banner in the .in file at all (absent = /dev/null, which is exactly the pre-stdin behaviour,
+# so every existing suite keeps its current verdicts byte-for-byte).
+# ⛔ THE ALTERNATIVE -- an in-band "*<<<STDIN" marker inside the source block -- WAS REJECTED ON
+# MEASURED GROUNDS, not taste. In-band signalling over a channel that does not reserve its signal
+# byte is fragile by construction: SCRIP a01fe9f6 prepended a port marker to label lines, and
+# x86_internal_resolve then ate two bytes of any Pascal record descriptor that legitimately carried
+# that byte in its own .string data -- silent, m4-only, and it read as an output mismatch rather
+# than a crash (hq_C 2026-08-28, cure 840d05f7). A test program's stdin is ARBITRARY USER BYTES;
+# reserving any line shape inside it would recreate that exact class here. Out-of-band cannot collide.
+# ⛔ BLOCK ENTRIES ONLY. A format-(A) one-line entry cannot carry stdin -- write it as a block.
+# The writer REFUSES such an entry rather than dropping it silently ("a test that cannot measure
+# REFUSES; never skip-as-success").
+def sidecar_in_path(src_path):
+    """The stdin sidecar for a suite is ALWAYS <family>.in beside <family>.sno/.ref -- discovered,
+    never passed as a flag. ⭐ That is deliberate: every existing consumer (boards, gates, runners)
+    then picks stdin up with ZERO changes to its own argv, so a converted stdin-bearing family
+    cannot silently run without its input just because one caller was not updated. Absent file ->
+    None -> /dev/null, identical to pre-stdin behaviour."""
+    cand = Path(src_path).with_suffix(".in")
+    return str(cand) if cand.is_file() else None
+
+
+def read_stdin_sidecar(in_path, banner_re, entries):
+    """Attach .in blocks to entries BY NAME. Absent file, or an entry with no block, leaves
+    entry.stdin as None (= /dev/null). Refuses on a block naming no entry -- the shape a rename or
+    a half-finished conversion produces -- because silence there would run the entry with the WRONG
+    stdin (none) and score the result as a genuine FAIL."""
+    if in_path is None or not Path(in_path).is_file():
+        return
+    lines = Path(in_path).read_text().splitlines()
+    by_name, i = {}, 0
+    while i < len(lines):
+        m = banner_re.match(lines[i])
+        if not m:
+            raise ValueError(f"expected a banner at {in_path} line {i + 1}: {lines[i]!r}")
+        name = m.group("name")
+        if name in by_name:
+            raise ValueError(f"{in_path}: duplicate stdin block for entry {name!r}")
+        i += 1
+        seg = []
+        while i < len(lines) and not banner_re.match(lines[i]):
+            seg.append(lines[i]); i += 1
+        by_name[name] = ("\n".join(seg) + "\n") if seg else ""
+    unknown = sorted(set(by_name) - {e.name for e in entries})
+    if unknown:
+        raise ValueError(f"{in_path}: stdin blocks with no matching entry: {unknown}")
+    for e in entries:
+        if e.name in by_name:
+            e.stdin = by_name[e.name]
+
+
+def write_stdin_sidecar(entries, out_in, comment_open, comment_close):
+    """Write family.in iff at least one entry carries stdin. Returns True if written."""
+    withio = [e for e in entries if e.stdin is not None]
+    if not withio:
+        return False
+    bad = [e.name for e in withio if e.kind == "line"]
+    if bad:
+        raise ValueError(f"stdin is block-entries-only; convert these to blocks first: {bad}")
+    out = []
+    for e in withio:
+        out.append(make_banner_cfg(e.seq, e.name, comment_open, comment_close))
+        if e.stdin:
+            out.extend(e.stdin.splitlines())
+    Path(out_in).write_text("\n".join(out) + "\n")
+    return True
 
 
 # ========================================================== suite reader ===
@@ -467,7 +548,7 @@ def _is_entry_start(line):
     return bool(ONE_LINE_TAG_RE.search(line))
 
 
-def read_suite(sno_path, ref_path):
+def read_suite(sno_path, ref_path, in_path=None):
     """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
     the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
     one or more one-line entries (no banner of their own, e.g. gc.sno's 210_gc_deep_nesting -> 211/212/213
@@ -542,10 +623,11 @@ def read_suite(sno_path, ref_path):
             seq += 1
             entries.append(Entry("line", seq, lname, [lraw], ref_line.replace("\\n", "\n")))
         i = j
+    read_stdin_sidecar(in_path, BANNER_RE, entries)
     return entries
 
 
-def read_block_suite(src_path, ref_path, banner_re):
+def read_block_suite(src_path, ref_path, banner_re, in_path=None):
     """read_suite() for a format-(B)-ONLY family: every entry is a banner-delimited block, so
     there is no one-line/block interleaving to detect (unlike read_suite() above, which also
     carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
@@ -574,6 +656,7 @@ def read_block_suite(src_path, ref_path, banner_re):
             ri += 1
         seq += 1
         entries.append(Entry("block", seq, name, body, ref_lines[seg_start:ri]))
+    read_stdin_sidecar(in_path, banner_re, entries)
     return entries
 
 
@@ -586,7 +669,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno"):
         else:
             cand.write_text("\n".join(entry.sno_lines) + "\n")
             expected = "\n".join(entry.ref)
-        return run_all_modes(paths, cand, expected, Path(td), modes)
+        return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin)
 
 
 # ================================================================== CLI ===
@@ -826,11 +909,11 @@ def cmd_run(args):
         ext = cfg["ext"]
         modes = (args.modes or cfg["modes"]).split(",")
         banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
-        entries = read_block_suite(args.sno, args.ref, banner_re)
+        entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno))
     else:
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
-        entries = read_suite(args.sno, args.ref)
+        entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno))
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
