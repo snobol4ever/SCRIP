@@ -18,18 +18,72 @@ static long sp_gu() { return _.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL |
 static long sp_rangep() { return _.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE; }
 static unsigned char sp_rlo[128], sp_rhi[128]; static long sp_rn;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sp_ranges() { unsigned char in[256]; memset(in, 0, 256); for (const unsigned char * p = (const unsigned char *)(_.op_sval ? _.op_sval : ""); *p; p++) in[*p] = 1; sp_rn = 0; for (int b = 0; b < 256; b++) if (in[b]) { if (sp_rn && sp_rhi[sp_rn - 1] == b - 1) sp_rhi[sp_rn - 1] = (unsigned char)b; else { sp_rlo[sp_rn] = sp_rhi[sp_rn] = (unsigned char)b; sp_rn++; } } }
-static std::string sp_rtest(long u, long i) { return sp_rlo[i] == sp_rhi[i] ? x86("cmp", "esi", (long)sp_rlo[i]) + x86("je", L(10 + u)) : x86("mov", "eax", "esi") + x86("sub", "eax", (long)sp_rlo[i]) + x86("cmp", "eax", (long)(sp_rhi[i] - sp_rlo[i])) + x86("jbe", L(10 + u)); }
-static std::string sp_rmemb(long u, long i) { return i >= sp_rn ? x86("jmp", L(1)) + x86("def", L(10 + u)) : sp_rtest(u, i) + sp_rmemb(u, i + 1); }
+static void sp_ranges() { unsigned char in[256]; memset(in, 0, 256);
+    for (const unsigned char * p = (const unsigned char *)(_.op_sval ? _.op_sval : ""); *p; p++) in[*p] = 1;
+    sp_rn = 0;
+    for (int b = 0; b < 256; b++)
+        if (in[b]) {
+            if (sp_rn && sp_rhi[sp_rn - 1] == b - 1) sp_rhi[sp_rn - 1] = (unsigned char)b;
+            else { sp_rlo[sp_rn] = sp_rhi[sp_rn] = (unsigned char)b; sp_rn++; }
+        }
+}
+static std::string sp_rtest(long u, long i) {
+    return sp_rlo[i] == sp_rhi[i]
+         ? x86("cmp", "esi", (long)sp_rlo[i])
+         + x86("je",  L(10 + u))
+         : x86("mov", "eax", "esi")
+         + x86("sub", "eax", (long)sp_rlo[i])
+         + x86("cmp", "eax", (long)(sp_rhi[i] - sp_rlo[i]))
+         + x86("jbe", L(10 + u));
+}
+static std::string sp_rmemb(long u, long i) {
+    return i >= sp_rn
+         ? x86("jmp", L(1))
+         + x86("def", L(10 + u))
+         : sp_rtest(u, i) + sp_rmemb(u, i + 1);
+}
 static long sp_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
 static long sp_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string sp_ndl_r8()  { return _.op_sa >= 0 ? x86("mov", "r8",  XSAQ(8)) : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb); }
-static std::string sp_len_eax() { return _.op_sa >= 0 ? x86("mov", "eax", XSAD(4)) : x86("mov32", "eax", CSK()); }
-static std::string sp_ndl_rsi() { return _.op_sa >= 0 ? x86("mov", "rsi", XSAQ(8)) + x86("mov", "edx", XSAD(4)) : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) + x86("mov32", "edx", CSK()); }
+static std::string sp_ndl_r8() {
+    return _.op_sa >= 0
+         ? x86("mov", "r8", XSAQ(8))
+         : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb);
+}
+static std::string sp_len_eax() {
+    return _.op_sa >= 0
+         ? x86("mov", "eax", XSAD(4))
+         : x86("mov32", "eax", CSK());
+}
+static std::string sp_ndl_rsi() {
+    return _.op_sa >= 0
+         ? x86("mov", "rsi", XSAQ(8))
+         + x86("mov", "edx", XSAD(4))
+         : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb)
+         + x86("mov32", "edx", CSK());
+}
 static long sp_chainp() { return sp_gu() && !sp_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
 static long sp_tablep() { return sp_gu() && !sp_rangep() && !sp_chainp(); }
-static std::string sp_memb(long u, long i) { return i >= CSK() ? x86("jmp", L(1)) + x86("def", L(10 + u)) : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86("je", L(10 + u)) + sp_memb(u, i + 1); }
-static std::string sp_char(long u) { return x86("cmp", "ecx", "r15d") + x86("jge", L(1)) + x86("movzx", "esi", "[r13+rcx]") + (sp_rangep() ? sp_rmemb(u, 0) : sp_chainp() ? sp_memb(u, 0) : (sn4_cset32() ? x86("bt", "[rdi]", "esi") + x86("jnc", L(1)) : x86("cmpb0", "[rdi+rsi]", "0") + x86("je", L(1)))) + x86("add", "ecx", (long)1); }
+static std::string sp_memb(long u, long i) {
+    return i >= CSK()
+         ? x86("jmp", L(1))
+         + x86("def", L(10 + u))
+         : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i])
+         + x86("je",  L(10 + u))
+         + sp_memb(u, i + 1);
+}
+static std::string sp_char(long u) {
+    return x86("cmp",   "ecx", "r15d")
+         + x86("jge",   L(1))
+         + x86("movzx", "esi", "[r13+rcx]")
+         + (sp_rangep() ? sp_rmemb(u, 0)
+          : sp_chainp() ? sp_memb(u, 0)
+          : (sn4_cset32()
+             ? x86("bt",    "[rdi]", "esi")
+             + x86("jnc",   L(1))
+             : x86("cmpb0", "[rdi+rsi]", "0")
+             + x86("je",    L(1))))
+         + x86("add",   "ecx", (long)1);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_span() {
     x86_begin();
@@ -47,8 +101,10 @@ std::string bb_match_span() {
              + x86("jge",    L(1))
              + x86("movsxd", "rcx", "eax")
              + x86("movzx",  "edi", "[r13+rcx]")
-             + x86("note",   ZOPN(0)) + x86("mov", "rsi", ZOPQ(0, 8))
-             + x86("note",   ZOPN(0)) + x86("mov", "edx", ZOPD(0, 4))
+             + x86("note",   ZOPN(0))
+             + x86("mov",    "rsi", ZOPQ(0, 8))
+             + x86("note",   ZOPN(0))
+             + x86("mov",    "edx", ZOPD(0, 4))
              + x86("call",   "rt_sg_member", (uint64_t)(uintptr_t)(void *)rt_sg_member)
              + x86("test",   "eax", "eax")
              + x86("je",     L(1))
