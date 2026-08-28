@@ -52,6 +52,10 @@ REPS="${REPS:-3}"; [ "$REPS" -ge 1 ] 2>/dev/null || REPS=3
 PIN="${SWEEP_PIN:-$HERE/util_out_sweep.pins}"
 OUT="${1:?usage: util_out_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; RAW="$(mktemp)"; FLP="$(mktemp)"; trap 'rm -f "$T" "$RAW" "$FLP"' EXIT
+# probe/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
+# total conversion) -- the probe/bb find below now contributes 0 by construction. EXPECTED, not a
+# regression; pass LISTFILE to include tests/snobol4/probe/bb*.sno entries (materialize via
+# corpus_suite_harness.py extract first -- suite files are not standalone-runnable .sno programs).
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
   { find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; find "$CORPUS/probe/cn" -name '*.sno'
     find "$CORPUS/probe/kw" -name '*.sno'; find "$CORPUS/probe/arbnostore" -name '*.sno'

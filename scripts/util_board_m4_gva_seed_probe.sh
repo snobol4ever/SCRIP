@@ -17,15 +17,28 @@
 #    A probe with no gva_register (no user globals) cannot be an r9 victim: counted NOSEED.
 #
 # USAGE:  bash util_board_m4_gva_seed_probe.sh [DIR]
-#         DIR defaults to the 163-probe bb suite.
+#         DIR defaults to the bb_probes suite (tests/snobol4/probe/bb_probes.sno), materialized into a
+#         scratch dir for this run; pass an explicit DIR to point at a real directory of loose .sno/.ref instead.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 S="${SCRIP:-$S4E/SCRIP/scrip}"
 RTOUT="$(dirname "$S")/out"
-DIR="${1:-$S4E/corpus/probe/bb/probes}"
+DIR="${1:-}"
 [ -x "$S" ]   || { echo "no scrip at $S"; exit 2; }
-[ -d "$DIR" ] || { echo "no dir $DIR"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# conversion): the default subject no longer exists as loose files -- materialize every entry from
+# the suite into this run's own scratch dir (cleaned up by the trap above) instead.
+if [ -z "$DIR" ]; then
+    DIR="$W/bb_probes"; mkdir -p "$DIR"
+    SUITE_SNO="$S4E/corpus/tests/snobol4/probe/bb_probes.sno"
+    SUITE_REF="$S4E/corpus/tests/snobol4/probe/bb_probes.ref"
+    HARNESS="$(dirname "$S")/scripts/corpus_suite_harness.py"
+    for nm in $(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null); do
+        python3 "$HARNESS" extract "$SUITE_SNO" "$SUITE_REF" "$nm" "$DIR/$nm.sno" --out-ref "$DIR/$nm.ref" >/dev/null 2>&1
+    done
+fi
+[ -d "$DIR" ] || { echo "no dir $DIR"; exit 2; }
 
 cat > "$W/seed.py" <<'PYEOF'
 import sys

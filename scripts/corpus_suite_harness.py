@@ -875,6 +875,16 @@ def cmd_extract(args):
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
 
+def cmd_list(args):
+    """Print every entry name in a suite, one per line, in file order. For consumers that need to
+    enumerate a suite's members -- a board denominator, a tool that materializes every entry into a
+    scratch directory -- without re-deriving the suite grammar a second time (same rationale as
+    cmd_extract, ONE AUTHORITY: read_suite())."""
+    entries = read_suite(args.sno, args.ref)
+    for e in entries:
+        print(e.name)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -918,6 +928,11 @@ def main():
     e.add_argument("out_sno")
     e.add_argument("--out-ref", default="", dest="out_ref")
     e.set_defaults(func=cmd_extract)
+
+    l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")
+    l.add_argument("sno")
+    l.add_argument("ref")
+    l.set_defaults(func=cmd_list)
 
     args = ap.parse_args()
     args.func(args)

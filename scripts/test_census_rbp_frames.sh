@@ -65,6 +65,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
 CORPUS="${1:-$S4E/corpus}"
+# probe/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
+# total conversion) -- this DIR now contributes 0 by construction, same as `feat`'s drop under
+# tests-consolidate-snobol4-loose. EXPECTED, not a regression; override via EARN2_DIRS if the suite
+# entries (tests/snobol4/probe/bb*.sno) need to rejoin this census.
 DIRS="${EARN2_DIRS:-crosscheck/patterns probe/bb probe/earn0 demo benchmarks/snobol4}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi

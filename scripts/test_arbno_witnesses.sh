@@ -13,7 +13,15 @@ SBL="${SBL:-$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- witness set vs live ora
 TAG="${1:-run}"
 W=/tmp/arbw.$TAG; mkdir -p "$W"
 FILES="$CORPUS/probe/arb1.sno $CORPUS/crosscheck/patterns/181_pat_arbno_defer_tail_stressors.sno"
-for n in 22 23 24 25 26 27 28 29 30 31 32 33; do FILES="$FILES $CORPUS/probe/bb/probes/N$n.sno"; done
+# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# conversion) -- N22..N33 are materialized on demand via the harness's `extract`.
+BB_SUITE_SNO="$CORPUS/tests/snobol4/probe/bb_probes.sno"
+BB_SUITE_REF="$CORPUS/tests/snobol4/probe/bb_probes.ref"
+for n in 22 23 24 25 26 27 28 29 30 31 32 33; do
+    nf="$W/N$n.sno"
+    python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$BB_SUITE_SNO" "$BB_SUITE_REF" "N$n" "$nf" >/dev/null 2>&1
+    FILES="$FILES $nf"
+done
 FILES="$FILES $CORPUS/probe/earn0/earn0_disc_arbno_star_fence_positive.sno $CORPUS/probe/earn0/earn0_disc_arbno_star_fence_poisoned.sno"
 printf '%-46s %-8s %-8s\n' witness m3 m4
 for f in $FILES; do

@@ -190,11 +190,14 @@ sc_suite_fields() {  # $1 = suite name -> "root<TAB>fargs<TAB>lib<TAB>rto<TAB>no
 # column, never N/P3/P4/META. ⛔ "ORACLE_FAIL" is never used as a synthesized status: that literal string routes
 # a row OUT of the denominator entirely in cmd_report's awk (`next`) -- using it here would silently rebuild the
 # exact bug this function exists to cure.
-sc_suite_family_rows() {  # $1 = suite name  $2 = suite-pair source dir -> synthetic TSV rows on stdout (results.tsv format)
-  local sname="$1" srcdir="$2" harness="$HERE/corpus_suite_harness.py"
+sc_suite_family_rows() {  # $1 = suite name  $2 = suite-pair source dir  $3 = extra find-predicate (optional,
+                          # e.g. "-name bb*.sno" or "! -name bb*.sno" -- lets two rows PARTITION one shared
+                          # source dir without double-counting -- see bb_probes/probes_misc below) -> synthetic
+                          # TSV rows on stdout (results.tsv format)
+  local sname="$1" srcdir="$2" extra="${3:-}" harness="$HERE/corpus_suite_harness.py"
   local s_sno s_ref fam board
   [ -f "$harness" ] || { echo "⛔ sc_suite_family_rows: corpus_suite_harness.py missing at $harness" >&2; return 1; }
-  find "$srcdir" -maxdepth 1 -name '*.sno' 2>/dev/null | sort | while IFS= read -r s_sno; do
+  find "$srcdir" -maxdepth 1 -name '*.sno' $extra 2>/dev/null | sort | while IFS= read -r s_sno; do
     s_ref="${s_sno%.sno}.ref"; [ -f "$s_ref" ] || continue
     fam="$(basename "$s_sno" .sno)"
     board="$(python3 "$harness" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')"
@@ -381,12 +384,20 @@ cmd_run() {
     [ "$fargs" = "-" ] && true
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
     xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
-    # ⛔ SCOPED TO probes_misc DELIBERATELY (row scorecard-probes-misc-suite-awareness): it is the one row whose
-    # root (probe) has a live sibling suite-consolidation destination TODAY (tests/snobol4/probe/). A different
-    # suite growing the same sibling-directory shape needs its own named hook here, not a speculative generic one.
+    # ⛔ SCOPED TO probes_misc/bb_probes DELIBERATELY (row scorecard-probes-misc-suite-awareness, extended
+    # row probe-consolidate-bb 2026-08-28): these are the two rows whose root has a live sibling
+    # suite-consolidation destination TODAY (tests/snobol4/probe/), and they PARTITION that one shared
+    # directory by the bb*/non-bb* naming convention (mirrors bb_probes's own find-glob split three lines
+    # above: probe/bb has its OWN dedicated higher-weighted row, everything else is probes_misc) so neither
+    # double-counts the other's entries. A different suite growing the same sibling-directory shape needs
+    # its own named hook here, not a speculative generic one.
     if [ "$name" = probes_misc ] && [ -d "$CORPUS/tests/snobol4/probe" ]; then
-      echo "== $name: +suite-derived families under tests/snobol4/probe  $(date +%H:%M:%S)"
-      sc_suite_family_rows "$name" "$CORPUS/tests/snobol4/probe" >> "$out/results.tsv" 2>>"$out/noise.log"
+      echo "== $name: +suite-derived families under tests/snobol4/probe (excl. bb*)  $(date +%H:%M:%S)"
+      sc_suite_family_rows "$name" "$CORPUS/tests/snobol4/probe" '! -name bb*.sno' >> "$out/results.tsv" 2>>"$out/noise.log"
+    fi
+    if [ "$name" = bb_probes ] && [ -d "$CORPUS/tests/snobol4/probe" ]; then
+      echo "== $name: +suite-derived families under tests/snobol4/probe (bb* only)  $(date +%H:%M:%S)"
+      sc_suite_family_rows "$name" "$CORPUS/tests/snobol4/probe" '-name bb*.sno' >> "$out/results.tsv" 2>>"$out/noise.log"
     fi
   done
   # ⛔ SUITE-FILE GUARD, overall verdict (row probe-suite-grading-path): run_one's own per-program guard above

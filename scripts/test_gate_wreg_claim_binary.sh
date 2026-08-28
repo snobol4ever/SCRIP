@@ -26,7 +26,10 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE"
-PROBES=$S4E/corpus/probe/bb/probes
+# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# conversion) -- each SET member below is materialized on demand via the harness's `extract`.
+SUITE_SNO=$S4E/corpus/tests/snobol4/probe/bb_probes.sno
+SUITE_REF=$S4E/corpus/tests/snobol4/probe/bb_probes.ref
 SET=(D09 D10 D11 D12 D13 G19 G20 H21 H24 H25 N12 N17 X01 X02 X03 X04 X05 X06 X11)
 [ "${1:-}" = "--quick" ] && SET=(D09 D12 X02)
 command -v gdb >/dev/null || { echo "SETUP: gdb missing (apt-get install -y --no-install-recommends gdb)"; exit 2; }
@@ -57,7 +60,9 @@ ALLOW
 # ---------------------------------------------------------------------------------------------------------------
 fail=0; total_slabs=0; total_hits=0
 for p in "${SET[@]}"; do
-    sno="$PROBES/$p.sno"; [ -f "$sno" ] || { echo "SETUP: missing $sno"; exit 2; }
+    sno="$TMP/probes/$p.sno"; mkdir -p "$TMP/probes"
+    python3 "$HERE/scripts/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" "$p" "$sno" >/dev/null 2>&1
+    [ -f "$sno" ] || { echo "SETUP: missing $sno (extract failed for entry $p)"; exit 2; }
     d="$TMP/$p"; mkdir -p "$d"
     # gdb script: dump every seal with an incrementing convenience var
     cat > "$d/g.cmds" << GEOF

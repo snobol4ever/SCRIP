@@ -17,7 +17,10 @@ row() {
 }
 
 d_crosscheck()  { find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | wc -l; }
-d_probebb()     { find "$CORPUS/probe/bb/probes" -name "*.sno" 2>/dev/null | wc -l; }
+# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# conversion) -- counts its entries via the harness (ONE AUTHORITY for the suite grammar) instead
+# of a loose-file find, since the suite text file is no longer one file per test.
+d_probebb()     { python3 "$S4E/SCRIP/scripts/corpus_suite_harness.py" list "$CORPUS/tests/snobol4/probe/bb_probes.sno" "$CORPUS/tests/snobol4/probe/bb_probes.ref" 2>/dev/null | wc -l; }
 d_demo()        { find "$CORPUS/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
