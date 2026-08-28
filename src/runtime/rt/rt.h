@@ -167,6 +167,7 @@ void *  rt_cs_new    (const char *chars);
 void rt_cap_assign(const char *varname, const char *base, int len);
 long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
+long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);   /* past-the-guards entry: ONLY for callers that prove varname non-null, non-empty and not '*' at emit time (hq_C bucket A) */
 void rt_cap_finish(DESCR_t fret);
 void rt_cap_match_begin(void);
 void rt_cap_push(void *slot, int delta);

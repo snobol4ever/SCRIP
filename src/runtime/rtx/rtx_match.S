@@ -1218,6 +1218,21 @@ RTX_FUNC(rt_cap_open)
     /* BAIL: computed-name '*VAR' path -> C (ARM B; touches file-static g_capx / rt_cas_carve) */
     cmp     byte ptr [rdi], 42                           /* 42 = '*'                        */
     je      c_rt_cap_open
+    /* ⭐ SECOND ENTRY, PAST THE GUARDS -- rt_cap_open FALLS THROUGH INTO IT; callers that can prove the name
+     * plain at EMIT time call here and skip the three tests above (hq_C 2026-08-28, bucket A of hq_P's Arm A
+     * attribution: 7 Ir x 1,151,998 calls = 8,063,986 Ir = 0.96 pct of porter, re-testing a compile-time constant).
+     * ⛔ THIS IS A SPECIALIZED CALL, NOT A DELETED CHECK, AND THE DISTINCTION IS LOAD-BEARING.  The guards above
+     * stay, and rt_cap_open remains the correct entry for every caller that cannot prove the name: guard 2 is live
+     * because the emitter bakes "" when op_sval is null, and guard 3 is live at the SHIPPED DEFAULT because
+     * bb_match_capture.cpp only bombs a '*' name under !nret_cap_live(), which latches getenv(SCRIP_NRET_CAP)
+     * defaulting to 1 -- so a computed name reaches here and that cmp is the ONLY router to ARM B.  Entering here
+     * with a null, empty or '*' name is a WRONG ANSWER, not a crash.  No no-name caller may use this label.
+     * .globl WITHOUT RTX_FUNC's .align 16: alignment padding here would land in rt_cap_open's own fallthrough path.
+     * endbr64 is REQUIRED, not decorative -- BINARY medium reaches this by address, so it is an indirect target. */
+    .globl  rt_cap_open_plain
+    .type   rt_cap_open_plain,@function
+rt_cap_open_plain:
+    endbr64
     /* ARM A: plain-name fast path.  Nothing above this line writes memory (BAIL-BEFORE-MUTATE). */
     /* len = cur_delta - saved_delta; clamp to 0 if negative */
     mov     eax, edx                                     /* eax = cur_delta                 */
@@ -1283,6 +1298,7 @@ RTX_FUNC(rt_cap_open)
     xor     eax, eax                                     /* return 0 (no proc-call pending) */
     ret
 RTX_ENDF(rt_cap_open)
+    .size rt_cap_open_plain, .-rt_cap_open_plain
 
 .section .rodata
 .Ldfpf_empty: .byte 0                                   /* empty string for NULL varname   */

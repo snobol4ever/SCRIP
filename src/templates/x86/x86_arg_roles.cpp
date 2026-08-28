@@ -3,7 +3,7 @@
  *
  * WHY THIS FILE EXISTS: x86_arg_roles.h used to define this table `static const`, and every one
  * of the ~150 template TUs that include x86_asm.h (the mandated encoder header) got its own
- * private 6,832-byte copy — 122 entries x 7 pointers (callee + role[6]) = 854 R_X86_64_RELATIVE
+ * private 6,832-byte copy — 123 entries x 7 pointers (callee + role[6]) = 861 R_X86_64_RELATIVE
  * relocations PER COPY, all of them written at every process start regardless of which template
  * that TU ever actually emits. 150 copies = 128,100 relocations = 96.1% of the runtime's ENTIRE
  * relocation set and 93% of .data.rel.ro (measured: FINDING-2026-08-28-hq_P-one-static-table-in-a-
@@ -16,7 +16,7 @@
  * Content is verbatim from the table's original site in x86_arg_roles.h — data only, no renames.
  */
 #include "x86_arg_roles.h"
-const x86_argrole_t x86_argroles[122] = {
+const x86_argrole_t x86_argroles[123] = {
     { "NV_GET_fn", { "name", "", "", "", "", "" } },
     { "NV_SET_fn", { "name", "val", "val", "", "", "" } },
     { "POWER_fn", { "a", "a", "b", "b", "", "" } },
@@ -41,6 +41,7 @@ const x86_argrole_t x86_argroles[122] = {
     { "rt_call_value_spine_prep", { "callee", "callee", "argv", "n", "", "" } },
     { "rt_cap_finish", { "fret", "fret", "", "", "", "" } },
     { "rt_cap_open", { "varname", "saved_delta", "cur_delta", "is_imm", "", "" } },
+    { "rt_cap_open_plain", { "varname", "saved_delta", "cur_delta", "is_imm", "", "" } },
     { "rt_cap_pop", { "slot", "", "", "", "", "" } },
     { "rt_cap_push", { "slot", "delta", "", "", "", "" } },
     { "rt_cap_top", { "slot", "", "", "", "", "" } },

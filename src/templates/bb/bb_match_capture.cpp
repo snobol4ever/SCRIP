@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
+extern "C" long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);
 extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
@@ -13,6 +14,15 @@ extern "C" void rt_cap_finish(DESCR_t fret);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int havehome(void) { return _.op_zres || _.op_cap_anchor || _.op_off >= 0; }
+/* ⭐ BUCKET A (hq_P Arm A attribution): rt_cap_open re-tests null/empty/'*' on every call, 7 Ir x 1,151,998 on porter = 0.96 pct of program,
+ * and this template BAKES the name as a rodata literal -- so the answer is known HERE, at emit time.  Call past the guards only when all three
+ * are provably false; otherwise call the guarded entry unchanged.  ⛔ NOT a guard deletion: guard 2 is live because we bake "" for a null sval,
+ * and guard 3 is live at the shipped default because a '*' name only bombs under !nret_cap_live() (which defaults to 1), so computed names DO
+ * reach the callee and that cmp is their only router to ARM B.  Wrong answer, not a crash, if this predicate is ever loosened. */
+static inline int cap_name_plain(void) { const char * v = _.op_sval; return v && v[0] && v[0] != '*'; }
+static inline const char * cap_open_sym(void) { return cap_name_plain() ? "rt_cap_open_plain" : "rt_cap_open"; }
+static inline const void * cap_open_fp(void) { return cap_name_plain() ? (const void *)(long (*)(const char *, int, int, int))rt_cap_open_plain
+                                                                      : (const void *)(long (*)(const char *, int, int, int))rt_cap_open; }
 static inline int nret_cap_live(void) {
     static int v = -1;
     if (v < 0)
@@ -107,7 +117,7 @@ std::string bb_match_capture() {
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
-           + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + x86("call", cap_open_sym(), (uint64_t)(uintptr_t)cap_open_fp())
            + (cap_fail_retreat()
               ? (x86("cmp", "rax", (long)-1)
                + x86("je",  L(4)))
@@ -145,7 +155,7 @@ std::string bb_match_capture() {
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
-           + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
+           + x86("call", cap_open_sym(), (uint64_t)(uintptr_t)cap_open_fp())
            + (cap_fail_retreat()
               ? (x86("cmp", "rax", (long)-1)
                + x86("je",  L(4)))
