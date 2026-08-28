@@ -393,12 +393,19 @@ def make_banner(seq, name, xfail=False):
     return banner
 
 
-def make_banner_cfg(seq, name, comment_open, comment_close):
+def make_banner_cfg(seq, name, comment_open, comment_close, xfail=False):
     """Generalized make_banner() for LANG_CONFIGS dialects: comment_open="*"/comment_close=""
     reproduces make_banner() exactly (verified: same dash_count formula, open+dashes+' '+suffix).
     A non-empty comment_close (e.g. Snocone's " */") is pinned at the right margin, same as the
-    open side's dash-fill -- open + dashes + ' ' + suffix + close, total BANNER_WIDTH."""
-    suffix = f"{seq} {name}"
+    open side's dash-fill -- open + dashes + ' ' + suffix + close, total BANNER_WIDTH.
+    ⛔ THE `xfail` PARAMETER IS LOAD-BEARING AND WAS MISSING UNTIL 2026-08-28 (row
+    suite-harness-xfail-extract-round-trip). make_banner() had it from the start; this generalized
+    twin did not, so for EVERY LANG_CONFIGS dialect the flag was silently dropped on write and had
+    no group to be read back into -- an XFAIL block-suite entry round-tripped to a plain entry, and
+    the next `run` scored a documented, expected red as a genuine FAIL. ⭐ The two writers diverged
+    because the flag was added to one and the other was never asked to prove it agreed: a
+    generalization that quietly drops a parameter of the thing it generalizes."""
+    suffix = f"{seq} {name}" + (" XFAIL" if xfail else "")
     fixed = len(comment_open) + 1 + len(suffix) + len(comment_close)
     dash_count = max(1, BANNER_WIDTH - fixed)
     return comment_open + ("-" * dash_count) + " " + suffix + comment_close
@@ -407,12 +414,14 @@ def make_banner_cfg(seq, name, comment_open, comment_close):
 def banner_re_for(comment_open, comment_close):
     close = comment_close.strip()
     close_pat = (r"\s*" + re.escape(close)) if close else ""
-    return re.compile(r"^" + re.escape(comment_open) + r"-+ (?P<seq>\d+) (?P<name>\S+)" + close_pat + r"$")
+    return re.compile(r"^" + re.escape(comment_open) + r"-+ (?P<seq>\d+) (?P<name>\S+)"
+                      + r"(?P<xfail> XFAIL)?" + close_pat + r"$")
 
 
 # ============================================================= conversion ===
 class Entry:
-    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None, xfail=False):
+    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None, xfail=False,
+                 xfail_reason=None):
         self.kind = kind          # "line" or "block"
         self.seq = seq
         self.name = name
@@ -425,6 +434,10 @@ class Entry:
                                    # cmd_run buckets these as XFAIL/XPASS instead of FAIL, so a
                                    # pre-existing, documented-red witness doesn't poison a caller's
                                    # FAIL=0 gate. See corpus-suites-consolidation.task.md amendment log.
+        self.xfail_reason = xfail_reason  # str: WHY this entry is expected red, or None. Carried in the
+                                   # family.xfail sidecar, NEVER in the banner -- boolean and reason live in
+                                   # different layers (see the reason-sidecar section). ⛔ DOCUMENTATION ONLY:
+                                   # nothing in cmd_run reads it, so a reason can never change a verdict.
 
 
 def has_comment_lines(text):
@@ -557,13 +570,13 @@ def write_suite(entries, out_sno, out_ref):
                          f"wrote={[e.name for e in lines + blocks]!r} read={[e.name for e in back]!r}")
 
 
-def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None):
+def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None, out_x=None):
     """write_suite() for a format-(B)-ONLY family: every entry is ALWAYS a banner block (no
     one-line join is ever attempted -- parser-ladder families are format-B by task-spec design,
     not by join-failure fallback), and the banner uses the dialect's own comment syntax."""
     src_lines, ref_lines = [], []
     for e in entries:
-        banner = make_banner_cfg(e.seq, e.name, comment_open, comment_close)
+        banner = make_banner_cfg(e.seq, e.name, comment_open, comment_close, xfail=e.xfail)
         src_lines.append(banner)
         src_lines.extend(e.sno_lines)
         ref_lines.append(banner)
@@ -572,6 +585,8 @@ def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, ou
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
     if out_in is not None:
         write_stdin_sidecar(entries, out_in, comment_open, comment_close)
+    if out_x is not None:
+        write_xfail_sidecar(entries, out_x, comment_open, comment_close)
 
 
 # =========================================================== stdin sidecar ===
@@ -646,6 +661,87 @@ def write_stdin_sidecar(entries, out_in, comment_open, comment_close):
     return True
 
 
+
+# ========================================================== reason sidecar ===
+# ⭐ THE XFAIL *REASON* IS CARRIED OUT-OF-BAND, IN A FOURTH PARALLEL FILE (family.xfail), KEYED BY
+# ENTRY NAME EXACTLY LIKE family.in. The BOOLEAN stays in the banner (" XFAIL", seat08, SCRIP
+# 3987d9ba) and remains the sole grading signal; this file carries only the human-readable WHY.
+# ⛔ THE TWO LIVE IN DIFFERENT LAYERS ON PURPOSE, AND THE SPLIT IS THE WHOLE DESIGN. The banner
+# boolean is read by cmd_run to bucket a verdict; the reason is read by a PERSON deciding whether a
+# red is still expected. Fusing them -- a banner suffix carrying prose -- would put arbitrary text
+# into the one line every reader of the format must parse, and BANNER_RE's own (?P<name>\S+) would
+# then be one space away from swallowing it.
+# ⛔ WHY KEYED-BY-NAME AND NOT IN-BAND, measured rather than preferred: the loose-file convention
+# this replaces put the reason in a sidecar FILE (assign_014_...xfail, 126-164 bytes each), and the
+# one-line ";* <name>" tag is INDISTINGUISHABLE FROM PROGRAM TEXT once a one-liner is promoted to a
+# block -- the root of two of the three harness defects fixed on 2026-08-28. Entry metadata placed
+# inside the entry is the recurring bug here; family.in got this right and this is its third rail.
+# ⭐ ABSENT = NO REASON, NEVER AN ERROR. An XFAIL entry with no reason is legal (seat08's 154
+# comment-free witnesses converted that way and must keep converting that way), so every existing
+# suite keeps its current verdicts byte-for-byte. The refusals below are for the INCOHERENT cases
+# only: a reason naming no entry, and a reason on an entry that is not marked XFAIL.
+def sidecar_xfail_path(src_path):
+    """The reason sidecar for a suite is ALWAYS <family>.xfail beside <family>.sno/.ref --
+    discovered, never passed as a flag, identical to sidecar_in_path(). Absent -> None."""
+    cand = Path(src_path).with_suffix(".xfail")
+    return str(cand) if cand.is_file() else None
+
+
+def read_xfail_sidecar(x_path, banner_re, entries):
+    """Attach family.xfail blocks to entries BY NAME. Absent file, or an entry with no block, leaves
+    entry.xfail_reason as None. ⛔ REFUSES on a block naming no entry (the shape a rename or a
+    half-finished conversion produces) and on a reason attached to an entry NOT marked XFAIL. The
+    second refusal is the one that earns its keep: when an XPASS is promoted, the ' XFAIL' comes off
+    the banner, and a reason left behind would be a stale explanation for a red that no longer
+    exists -- documentation that lies is worse than none, and this makes the promotion prove it is
+    complete instead of merely looking complete."""
+    if x_path is None or not Path(x_path).is_file():
+        return
+    lines = Path(x_path).read_text().splitlines()
+    by_name, i = {}, 0
+    while i < len(lines):
+        m = banner_re.match(lines[i])
+        if not m:
+            raise ValueError(f"expected a banner at {x_path} line {i + 1}: {lines[i]!r}")
+        name = m.group("name")
+        if name in by_name:
+            raise ValueError(f"{x_path}: duplicate reason block for entry {name!r}")
+        i += 1
+        seg = []
+        while i < len(lines) and not banner_re.match(lines[i]):
+            seg.append(lines[i]); i += 1
+        by_name[name] = "\n".join(seg).strip()
+    by_entry = {e.name: e for e in entries}
+    unknown = sorted(set(by_name) - set(by_entry))
+    if unknown:
+        raise ValueError(f"{x_path}: reason blocks with no matching entry: {unknown}")
+    stale = sorted(n for n in by_name if not by_entry[n].xfail)
+    if stale:
+        raise ValueError(f"{x_path}: reason given for entries not marked XFAIL: {stale} -- either the "
+                         f"' XFAIL' banner suffix was dropped (restore it) or the entry was promoted "
+                         f"after an XPASS (delete its reason block in the same commit)")
+    for n, reason in by_name.items():
+        by_entry[n].xfail_reason = reason
+
+
+def write_xfail_sidecar(entries, out_x, comment_open, comment_close):
+    """Write family.xfail iff at least one entry carries a reason. Returns True if written.
+    ⛔ Refuses a reason on a non-XFAIL entry for the same cause read_xfail_sidecar() refuses it --
+    a writer that can emit a file its own reader rejects is not a round trip."""
+    withreason = [e for e in entries if e.xfail_reason]
+    if not withreason:
+        return False
+    bad = [e.name for e in withreason if not e.xfail]
+    if bad:
+        raise ValueError(f"reason given for entries not marked XFAIL: {bad}")
+    out = []
+    for e in withreason:
+        out.append(make_banner_cfg(e.seq, e.name, comment_open, comment_close, xfail=e.xfail))
+        out.extend(e.xfail_reason.splitlines())
+    Path(out_x).write_text("\n".join(out) + "\n")
+    return True
+
+
 # ========================================================== suite reader ===
 ONE_LINE_TAG_RE = re.compile(r";\* (\S+)$")
 
@@ -660,7 +756,7 @@ def _is_entry_start(line):
     return bool(ONE_LINE_TAG_RE.search(line))
 
 
-def read_suite(sno_path, ref_path, in_path=None):
+def read_suite(sno_path, ref_path, in_path=None, x_path=None):
     """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
     the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
     one or more one-line entries (no banner of their own, e.g. gc.sno's 210_gc_deep_nesting -> 211/212/213
@@ -749,10 +845,11 @@ def read_suite(sno_path, ref_path, in_path=None):
             entries.append(Entry("line", seq, lname, [lraw], ref_line.replace("\\n", "\n")))
         i = j
     read_stdin_sidecar(in_path, BANNER_RE, entries)
+    read_xfail_sidecar(x_path, BANNER_RE, entries)
     return entries
 
 
-def read_block_suite(src_path, ref_path, banner_re, in_path=None):
+def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None):
     """read_suite() for a format-(B)-ONLY family: every entry is a banner-delimited block, so
     there is no one-line/block interleaving to detect (unlike read_suite() above, which also
     carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
@@ -767,6 +864,7 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None):
         if not m:
             raise ValueError(f"expected a banner at {src_path} line {si + 1}: {src_lines[si]!r}")
         banner_line, name = src_lines[si], m.group("name")
+        xfail = bool(m.groupdict().get("xfail"))
         si += 1
         body = []
         while si < len(src_lines) and not banner_re.match(src_lines[si]):
@@ -780,8 +878,9 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None):
         while ri < len(ref_lines) and not banner_re.match(ref_lines[ri]):
             ri += 1
         seq += 1
-        entries.append(Entry("block", seq, name, body, ref_lines[seg_start:ri]))
+        entries.append(Entry("block", seq, name, body, ref_lines[seg_start:ri], xfail=xfail))
     read_stdin_sidecar(in_path, banner_re, entries)
+    read_xfail_sidecar(x_path, banner_re, entries)
     return entries
 
 
@@ -996,11 +1095,13 @@ def cmd_convert_blocks(args):
             print(f"   {name}: {reason[:120]}", file=sys.stderr)
         sys.exit(1)
 
-    write_block_suite(entries, args.out_src, args.out_ref, comment_open, comment_close)
+    write_block_suite(entries, args.out_src, args.out_ref, comment_open, comment_close,
+                      out_x=str(Path(args.out_src).with_suffix(".xfail")) if any(e.xfail_reason for e in entries) else None)
     print(f"✅ wrote {args.out_src} / {args.out_ref}: {len(entries)} entries", file=sys.stderr)
 
     banner_re = banner_re_for(comment_open, comment_close)
-    reread = read_block_suite(args.out_src, args.out_ref, banner_re)
+    reread = read_block_suite(args.out_src, args.out_ref, banner_re,
+                              x_path=sidecar_xfail_path(args.out_src))
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_verify_"))
     mismatches = []
     try:
@@ -1034,11 +1135,13 @@ def cmd_run(args):
         ext = cfg["ext"]
         modes = (args.modes or cfg["modes"]).split(",")
         banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
-        entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno))
+        entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno),
+                                   x_path=sidecar_xfail_path(args.sno))
     else:
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
-        entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno))
+        entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
+                             x_path=sidecar_xfail_path(args.sno))
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
