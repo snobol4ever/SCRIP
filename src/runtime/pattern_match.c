@@ -680,6 +680,14 @@ int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = g
    byte 0 turned "" into "Z" and manufactured 10 of the original 16 failures.  An instrument that answers a
    different question than the one you asked never says so -- it just prints a plausible board. */
 int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_POISON"); v = (e && *e && *e != '0') ? (int)(unsigned char)'Z' : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ THE SLICE-CAPTURE CONTROL ARM (RULES.md THE INSTRUMENT LAWS clause 1: a cure defaults ON and the FLAG IS THE
+   CONTROL ARM, never the other way round).  SCRIP_CAP_SLICE=0 restores the pre-cure alloc+memcpy path so the cure
+   can be re-measured at any time WITHOUT a source edit -- which is exactly the edit I had to make by hand twice
+   while grading it, once for the price and once for the lifetime axis, and each hand edit is a chance to measure
+   two different trees and call it an A/B.  ⛔ The polarity is not cosmetic: an off-by-default cure is a cure that
+   silently is not there, which is the flag-compiled-out class this law exists to close. */
+int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
@@ -802,7 +810,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
            the whole remainder of the subject.  The empty capture keeps the allocated path, where its terminator is
            real. */
         DESCR_t d;
-        if (len > 0 && c->subj) { rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
+        if (len > 0 && c->subj && rt_cap_slice_on()) { rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
         else {
             char *copy = rt_str_alloc(len);
             if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = (char)(len > 0 ? rt_cap_poison() : 0); }
