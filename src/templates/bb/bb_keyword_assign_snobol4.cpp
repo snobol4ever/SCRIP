@@ -22,8 +22,10 @@ std::string bb_keyword_assign_snobol4() {
              + x86("call",    "rt_kw_write_idx", (uint64_t)(uintptr_t)(void *)rt_kw_write_idx)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
-             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
-             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline()
              + x86_ro_seal_q(0, (uint64_t)(int64_t)kwi);
