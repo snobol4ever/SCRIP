@@ -706,7 +706,23 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     long rc = 0;
+    /* ⭐ THE MONITOR ARM IS READ ONCE PER PUMP, NOT ONCE PER CAPTURE (hq_P, slice (c) prologue of perf-pattern-defer-capture-layer-cure).
+       comm_var_active() lives in core.c and is DECLARED in core.h -- a cross-TU call, so at -O0 (the s262 number of record) it cannot be
+       inlined at all, and the loop below paid a full call/ret per captured field to re-read three globals that had not moved.  MEASURED on
+       string_pattern, m4 -O0, after slice (a): comm_var_active 2.94% of the whole program as its own symbol, plus its call site showing
+       1.23% inside rt_dcap_pump's annotation -- ~4.2% to answer the same question 8,000,000 times.  This is the fifth instance of the class
+       this file already names (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len, and slice (a)'s rt_defer_cell_ptr): a
+       control arm must be read ONCE into a local and carried, never re-consulted inside the code it guards.
+       ⛔ IT IS RE-READ, NOT JUST HOISTED, AND THAT IS THE WHOLE CORRECTNESS ARGUMENT.  The '*' indirect arm calls rt_call_proc_descr, which
+       runs USER SNOBOL CODE, and user code can execute &TRACE or attach a monitor -- so a value hoisted blindly out of this loop would go
+       stale exactly when a program turns tracing on mid-match.  _prev_star is set at the TOP of that arm, so it covers every one of the arm's
+       exits (its several `continue`s and `break`s alike) without restructuring them, and the next iteration re-reads before it can act on a
+       stale answer.  No other statement in this loop can reach user code: rt_str_alloc, memcpy, rt_sxt_break_fast, NV_SET_fn and comm_var
+       are all runtime-internal.  Cost on the hot path is one test of a register-resident local in place of a cross-TU call. */
+    int _cva = comm_var_active();
+    int _prev_star = 0;
     while (c->cur < c->top) {
+        if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         int len = (int)e->len; if (len < 0) len = 0;
         /* ⛔ THE CAPTURE MUST LIE INSIDE THE SUBJECT. Guarding len<0 was never enough: a 4-byte input of
@@ -731,6 +747,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
+            _prev_star = 1;   /* ⛔ set BEFORE the arm runs user code, so every exit path below is covered -- see the loop-head comment */
             const int strict = rt_cap_name_strict();
             extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
@@ -776,7 +793,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                        before its own &TRACE/monitor check (measured: ~19M Ir/183,601 calls on roman.sno when
                        called unconditionally here -- most of this row's gain). comm_var_active() is the exact
                        predicate NV_SET_fn's own fast path already gates on (core.c); mirror it, not skip it. */
-                    if (comm_var_active()) comm_var(e->varname, d);
+                    if (_cva) comm_var(e->varname, d);
                 } else {
                     NV_SET_fn(e->varname, d);   /* NV_PTR_fn refused (a reserved keyword name) -- unchanged slow path */
                 }
