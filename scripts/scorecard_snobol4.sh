@@ -74,6 +74,11 @@ EOF
 # ⛔ THE WEIGHTS ARE LON'S KNOB: lon's 5 points are NOT redistributed.  The declared total is 113, deliberately short of the old 118, and where those 5 go is Lon's call.
 # ⭐ AND THE QUESTION IS NOW MOOT, NOT MERELY PENDING (Lon 2026-08-27): no scored row returns, so there are no lon points to place.  The 5 stay UNALLOCATED and the
 # declared total STAYS 113.  This reservation stands; re-opening it needs a NEW Lon ruling, never an inference from the s269 access retraction.
+# ⭐ probes_misc (row 53 above) is SUITE-FORMAT AWARE as of row `scorecard-probes-misc-suite-awareness`: cmd_run also
+# folds in every corpus_suite_harness.py-graded family under tests/snobol4/probe/ (see sc_suite_family_rows below) --
+# 113's own weights are UNTOUCHED by this (probes_misc stays weight 5, per the knob rule above), only ITS OWN pass
+# rate/denominator moves.  See .github FINDING-2026-08-27-seat15-probe-conformance-already-shrank-probes-misc-fuzz-
+# stays-blocked.md for the 92-witness loss this cures, and test_gate_scorecard_suite_aware.sh for the proof.
 # ⛔⭐ THE LINE THAT WAS HERE IS RETRACTED AND MUST NOT BE RESTORED: it read "OFF LIMITS MEANS NOT RUN, NOT DESTROYED: corpus/lon/ stays exactly where it is (HQ-78: do
 # not run, do not read into a transcript, do not scan, never delete)".  ⛔ THAT LAW IS VOID (Lon s269) AND THE PATH IN IT NEVER EXISTED HERE (the tree is
 # corpus/programs/lon_cherryholmes/).  Read it, scan it, quote it, compile it freely.  Only TESTS and SCORED BOARDS are closed.
@@ -166,6 +171,46 @@ sc_suite_fields() {  # $1 = suite name -> "root<TAB>fargs<TAB>lib<TAB>rto<TAB>no
     printf '%s\t%s\t%s\t%s\t%s\n' "$root" "$fargs" "$lib" "$rto" "$norm"; return 0
   done <<< "$SUITES"
   return 1
+}
+# ---------------------------------------------------------------- suite-family awareness (row `scorecard-probes-misc-suite-awareness`, s278)
+# ⛔ A probe family that CONSOLIDATES (probe/<family> loose files -> tests/snobol4/probe/<family>.{sno,ref},
+# corpus-suites-consolidation's probe-consolidate-* rows) moves OUT of probes_misc's find root (`probe`) into a
+# SIBLING root this suite's glob never reaches -- SILENT, uncorrected loss (92 witnesses for `conformance` alone,
+# .github FINDING-2026-08-27-seat15-probe-conformance-already-shrank-probes-misc-fuzz-stays-blocked.md). A suite
+# .sno/.ref pair is also never gradeable as ONE program (run_one's own SUITE-FILE GUARD refuses it, correctly --
+# it is a container) -- so it cannot simply be added to probes_misc's find glob either; it needs its ENTRY count,
+# from the ONE authority on that count: corpus_suite_harness.py's `run` subcommand, invoked exactly the way
+# test_corpus_snobol4.sh's own probe-suite-family loop already does (same $HARNESS, same discovery-from-the-
+# filesystem, same SUITE_BOARD field parsing) -- mirrored here, not re-derived, per RULES.md "call it, never
+# re-implement suite parsing in bash beside it".
+# One SYNTHETIC results.tsv row per ENTRY (never one row per family): cmd_report's awk sums PASS by status
+# STRING only, never by row identity, so per-mode marginal counts (read straight off SUITE_BOARD's own fields)
+# are the entire scoring contract -- exact per-witness m3/m4 PAIRING is not preserved (the two status lists are
+# zipped positionally, not matched by entry name), which only softens the diagnostic "top failure classes"
+# column, never N/P3/P4/META. ⛔ "ORACLE_FAIL" is never used as a synthesized status: that literal string routes
+# a row OUT of the denominator entirely in cmd_report's awk (`next`) -- using it here would silently rebuild the
+# exact bug this function exists to cure.
+sc_suite_family_rows() {  # $1 = suite name  $2 = suite-pair source dir -> synthetic TSV rows on stdout (results.tsv format)
+  local sname="$1" srcdir="$2" harness="$HERE/corpus_suite_harness.py"
+  local s_sno s_ref fam board
+  [ -f "$harness" ] || { echo "⛔ sc_suite_family_rows: corpus_suite_harness.py missing at $harness" >&2; return 1; }
+  find "$srcdir" -maxdepth 1 -name '*.sno' 2>/dev/null | sort | while IFS= read -r s_sno; do
+    s_ref="${s_sno%.sno}.ref"; [ -f "$s_ref" ] || continue
+    fam="$(basename "$s_sno" .sno)"
+    board="$(python3 "$harness" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')"
+    if [ -z "$board" ]; then echo "⛔ sc_suite_family_rows: no SUITE_BOARD for suite:${sname}/${fam} ($s_sno) -- 0 entries counted, NOT skipped silently" >&2; continue; fi
+    local kv k n f3="" f4="" i
+    for kv in PASS:m3_pass DIFF:m3_fail SIG0:m3_crash TIMEOUT:m3_hang UNPROVEN:m3_unproven COMPILE_FAIL:m3_skip; do
+      k="${kv%%:*}"; n="$(echo "$board" | grep -oE "${kv##*:}=[0-9]+" | cut -d= -f2)"; n="${n:-0}"
+      for ((i=0;i<n;i++)); do f3="$f3$k"$'\n'; done
+    done
+    for kv in PASS:m4_pass DIFF:m4_fail SIG0:m4_crash TIMEOUT:m4_hang UNPROVEN:m4_unproven COMPILE_FAIL:m4_skip; do
+      k="${kv%%:*}"; n="$(echo "$board" | grep -oE "${kv##*:}=[0-9]+" | cut -d= -f2)"; n="${n:-0}"
+      for ((i=0;i<n;i++)); do f4="$f4$k"$'\n'; done
+    done
+    paste <(printf '%s' "$f3") <(printf '%s' "$f4") | awk -F'\t' -v s="$sname" -v fam="$fam" \
+      'NF==2{printf "%s\tsuite:%s#%d\t%s\t%s\t0\t0\tsuite-derived (corpus_suite_harness.py; entry pairing is positional, not by name)\n", s, fam, ++i, $1, $2}'
+  done
 }
 # ---------------------------------------------------------------- PROVENANCE + CONTENTION (row `scorecard-provenance`, s190)
 # ⛔ THIS BOARD IS TIMING-GRADED AND COULD BE SILENTLY CORRUPTED BY A CO-TENANT WITH NOTHING IN ITS OUTPUT SAYING SO.  grade()
@@ -336,6 +381,13 @@ cmd_run() {
     [ "$fargs" = "-" ] && true
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
     xargs -a "$list" -P "$jobs" -I{} bash -c 'run_one "$0" "$1" "$2" "$3" "$4"' "$name" "$lib" {} "$norm" "$rto" >> "$out/results.tsv" 2>>"$out/noise.log"
+    # ⛔ SCOPED TO probes_misc DELIBERATELY (row scorecard-probes-misc-suite-awareness): it is the one row whose
+    # root (probe) has a live sibling suite-consolidation destination TODAY (tests/snobol4/probe/). A different
+    # suite growing the same sibling-directory shape needs its own named hook here, not a speculative generic one.
+    if [ "$name" = probes_misc ] && [ -d "$CORPUS/tests/snobol4/probe" ]; then
+      echo "== $name: +suite-derived families under tests/snobol4/probe  $(date +%H:%M:%S)"
+      sc_suite_family_rows "$name" "$CORPUS/tests/snobol4/probe" >> "$out/results.tsv" 2>>"$out/noise.log"
+    fi
   done
   # ⛔ SUITE-FILE GUARD, overall verdict (row probe-suite-grading-path): run_one's own per-program guard above
   # refuses to grade a suite-format file wrong, but a per-row REFUSED status buried in results.tsv is exactly the
