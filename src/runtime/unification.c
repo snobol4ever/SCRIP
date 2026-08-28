@@ -827,6 +827,67 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
     if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_plain_list_extract(void *list_cell, Term **elems, int cap, int dot_id) {
+    Term *cur = term_deref(pl_cell_to_term((pl_cell_t *)list_cell));
+    int n = 0;
+    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < cap) { elems[n++] = cur->compound.args[0]; cur = term_deref(cur->compound.args[1]); }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_group_pairs_by_key_cell(void *list_cell, void *result_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
+    Term *elems[4096];
+    int n = pb_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    if (n < 0) return 0;
+    Term *groups[4096]; int ng = 0;
+    int i = 0;
+    while (i < n) {
+        Term *key = term_deref(elems[i]->compound.args[0]);
+        Term *vlist[4096]; int nv = 0; int j = i;
+        while (j < n && rt_pl_term_compare(term_deref(elems[j]->compound.args[0]), key) == 0 && nv < 4096) { vlist[nv++] = elems[j]->compound.args[1]; j++; }
+        Term *vals = term_new_atom(prolog_atom_intern("[]"));
+        for (int k = nv - 1; k >= 0; k--) { Term *vp[2]; vp[0] = vlist[k]; vp[1] = vals; vals = term_new_compound(dot_id, 2, vp); }
+        Term *grp[2]; grp[0] = key; grp[1] = vals; groups[ng++] = term_new_compound(dash_id, 2, grp);
+        i = j;
+    }
+    Term *result = term_new_atom(prolog_atom_intern("[]"));
+    for (int k = ng - 1; k >= 0; k--) { Term *gp[2]; gp[0] = groups[k]; gp[1] = result; result = term_new_compound(dot_id, 2, gp); }
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values_cell)
+{
+    extern pl_trail_t g_pl_trail;
+    int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
+    Term *pairs_t = term_deref(pl_cell_to_term((pl_cell_t *)pairs_cell));
+    int mark = pl_trail_mark(&g_pl_trail);
+    if (pairs_t && pairs_t->tag != TERM_VAR) {
+        Term *elems[4096]; int n = pb_pairs_extract(pairs_cell, elems, 4096, dot_id, dash_id);
+        if (n < 0) return 0;
+        Term *keys = term_new_atom(prolog_atom_intern("[]")); Term *vals = term_new_atom(prolog_atom_intern("[]"));
+        for (int i = n - 1; i >= 0; i--) {
+            Term *kp[2]; kp[0] = elems[i]->compound.args[0]; kp[1] = keys; keys = term_new_compound(dot_id, 2, kp);
+            Term *vp[2]; vp[0] = elems[i]->compound.args[1]; vp[1] = vals; vals = term_new_compound(dot_id, 2, vp);
+        }
+        if (!pl_unify_term_into_cell((pl_cell_t *)keys_cell, keys, &g_pl_trail) || !pl_unify_term_into_cell((pl_cell_t *)values_cell, vals, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        return 1;
+    }
+    Term *kelems[4096]; int nk = pl_plain_list_extract(keys_cell, kelems, 4096, dot_id);
+    Term *velems[4096]; int nv = pl_plain_list_extract(values_cell, velems, 4096, dot_id);
+    if (nk != nv) return 0;
+    Term *result = term_new_atom(prolog_atom_intern("[]"));
+    for (int i = nk - 1; i >= 0; i--) {
+        Term *pr[2]; pr[0] = kelems[i]; pr[1] = velems[i]; Term *pair_term = term_new_compound(dash_id, 2, pr);
+        Term *lp[2]; lp[0] = pair_term; lp[1] = result; result = term_new_compound(dot_id, 2, lp);
+    }
+    if (!pl_unify_term_into_cell((pl_cell_t *)pairs_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    return 1;
+}
 typedef struct { Term *rest; int mark; } pl_baggrp_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_bag_group_gen(DESCR_t *args, int nargs, int64_t *resume)

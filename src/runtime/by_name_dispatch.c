@@ -212,7 +212,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow") || !strcmp(name, "$existence_error")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
-    if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes") || !strcmp(name, "$name")) return 1;
+    if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes") || !strcmp(name, "$string_chars") || !strcmp(name, "$string_codes") || !strcmp(name, "$name")) return 1;
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
     if (!strcmp(name, "$write2") || !strcmp(name, "$nl1") || !strcmp(name, "$nl0")) return 1;
@@ -248,6 +248,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$sub_atom") || !strcmp(name, "$atom_to_term") || !strcmp(name, "$read") || !strcmp(name, "$read2")) return 1;
     if (!strcmp(name, "$read_term2") || !strcmp(name, "$read_term3")) return 1;
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
+    if (!strcmp(name, "$group_pairs_by_key") || !strcmp(name, "$pairs_keys_values")) return 1;
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
     if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
     if (!strcmp(name, "$current_op")) return 1;
@@ -1779,9 +1780,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         memcpy(o, a, na); memcpy(o + na, b, nb); o[na + nb] = 0; DESCR_t r = pl_mk_atom(o);
         if (plw_unify_vals(args[2], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
     }
-    if ((!strcmp(fn, "$atom_chars") || !strcmp(fn, "$atom_codes")) && nargs == 2) {
+    if ((!strcmp(fn, "$atom_chars") || !strcmp(fn, "$atom_codes") || !strcmp(fn, "$string_chars") || !strcmp(fn, "$string_codes")) && nargs == 2) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
-        int codes = !strcmp(fn, "$atom_codes");
+        int codes = !strcmp(fn, "$atom_codes") || !strcmp(fn, "$string_codes");
         DESCR_t a0 = rt_pl_deref_val(args[0]); const char *s = pl_atom_str(a0);
         if (s) {
             size_t n = strlen(s); DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
@@ -2325,6 +2326,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern int rt_pl_keysort_cell(void *, void *);
         DESCR_t t0 = args[0], t1 = args[1];
         int ok = rt_pl_keysort_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$group_pairs_by_key") && nargs == 2) {
+        extern int rt_pl_group_pairs_by_key_cell(void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1];
+        int ok = rt_pl_group_pairs_by_key_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1));
+        if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$pairs_keys_values") && nargs == 3) {
+        extern int rt_pl_pairs_keys_values_cell(void *, void *, void *);
+        DESCR_t t0 = args[0], t1 = args[1], t2 = args[2];
+        int ok = rt_pl_pairs_keys_values_cell((void *)plw_det_cell(&t0), (void *)plw_det_cell(&t1), (void *)plw_det_cell(&t2));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if (!strncmp(fn, "$atop_", 6) && nargs == 2) {
@@ -4263,6 +4276,7 @@ const char *rt_pl_cmp_suffix(const char *s) {
 const char *rt_pl_det_builtin_target(const char *nm, int ar) {
     static const struct { const char *nm; int ar; const char *tgt; } tab[] = {
         { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "keysort", 2, "$keysort" }, { "$bag_prep_b", 2, "$bag_prep_b" }, { "$bag_prep_s", 2, "$bag_prep_s" }, { "numbervars", 3, "$numbervars" }, { "numbervars", 1, "$numbervars" }, { "copy_term", 2, "$copy_term" }, { "acyclic_term", 1, "$acyclic_term" },
+        { "group_pairs_by_key", 2, "$group_pairs_by_key" }, { "pairs_keys_values", 3, "$pairs_keys_values" },
         { "get_print_stream", 1, "$get_print_stream" }, { "name_singleton_vars", 1, "$name_singleton_vars" }, { "name_query_vars", 2, "$name_query_vars" }, { "bind_variables", 2, "$bind_variables" },
         { "char_type", 2, "$char_type" }, { "lower_upper", 2, "$lower_upper" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_canonical", 1, "$write_canonical" },
         { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" },
@@ -4298,7 +4312,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "atom_to_term", 3, "$atom_to_term" }, { "char_code", 2, "$char_code" }, { "number_chars", 2, "$number_chars" }, { "number_codes", 2, "$number_codes" },
         { "read", 1, "$read" }, { "read", 2, "$read2" }, { "read_term", 2, "$read_term2" }, { "read_term", 3, "$read_term3" },
         { "succ", 2, "$succ" }, { "plus", 3, "$plus" }, { "atom_length", 2, "$atom_length" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" },
-        { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "name", 2, "$name" }, { "write", 1, "$write" },
+        { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "string_chars", 2, "$string_chars" }, { "string_codes", 2, "$string_codes" }, { "name", 2, "$name" }, { "write", 1, "$write" },
         { "put_char", 1, "$put_char" }, { "put_char", 2, "$put_char" }, { "tab", 1, "$tab" },
         { "at_end_of_stream", 0, "$at_end_of_stream" }, { "at_end_of_stream", 1, "$at_end_of_stream" },
         { "get_char", 1, "$get_char" }, { "get_char", 2, "$get_char" }, { "peek_char", 1, "$peek_char" }, { "peek_char", 2, "$peek_char" },
