@@ -48,5 +48,4 @@ std::string bb_differ() {
              + x86_gamma()
              + x86_beta_trampoline()
          : x86_bomb("bb_differ: needs two operand slots (op_sa/op_sb) + own value slot (op_off)");
-    return std::string();
 }
