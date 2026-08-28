@@ -1357,7 +1357,11 @@ int main(int argc, char **argv)
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
-            emit_textf("  sub rsp, 8\n");
+            /* see the sibling emission's comment (same file, ~line 1543): ZC_FRAME_RSP's activation-tier
+               offsets collide with the kernel-placed envp/argv block a few hundred bytes above entry rsp
+               without this guard (pascal-m4-intermittent-segv-layout-sensitive). +65536 matches the other
+               frame modes' own guard band a few lines down; 65544 keeps the same post-sub alignment. */
+            emit_textf("  sub rsp, 65544\n");
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
@@ -1540,7 +1544,17 @@ int main(int argc, char **argv)
             }
             int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
-            emit_textf("  .globl main\nmain:\n  sub rsp, 8\n  push rdi\n  push rsi\n");
+            /* ZC_FRAME_RSP's activation-tier slots are addressed at fixed positive offsets from this
+               entry rsp (up into the 100s-1000s of bytes for a nontrivial "main"), with no subsequent
+               reservation of that range -- on a real exec() stack that range collides with the kernel-
+               placed envp/argv block a few hundred bytes above entry rsp (pascal-m4-intermittent-segv-
+               layout-sensitive: boolmix's own literal-cell write landed on environ[]'s slot and flipped
+               a byte from NULL to a small tag, so glibc's getenv() walked off the end into unrelated
+               memory -- intermittent because it depends on ASLR-shifted stack contents past the array).
+               +65536 matches the guard band the non-RSP frame modes already reserve+zero a few lines
+               down for the identical reason; 65536 is 16-aligned so the residual "+8" keeps the original
+               post-sub alignment (entry rsp%16==8 from the call instruction, 0 after this sub). */
+            emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n  push rdi\n  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             if (n_procs > 0) emit_textf("  call main_init\n");
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
