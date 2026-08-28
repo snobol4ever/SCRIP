@@ -56,5 +56,10 @@ extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, 
          + x86("pop",  "rdi");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int x86_zdp_on_c(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); v = (e && *e == '1') ? 1 : 0; } return v; }
+extern "C" int x86_zdp_on_c(void) {
+    static int v = -1;
+    if (v < 0)
+        { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); v = (e && *e == '1') ? 1 : 0; }
+    return v;
+}
 extern "C" int zzone_on_c(void) { return zzone_on(); }
