@@ -283,6 +283,11 @@ run_test "demo_porter"              "$DEMO/porter/porter.sno"              "$DEM
 # line -- same class as demo_roman's "^ms:" filter above, just a different literal marker.
 run_test "demo_calculator_1"        "$DEMO/calculator/calculator-1.sno"        "$DEMO/calculator/calculator-1.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
 run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "$DEMO/calculator/calculator-2.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
+# OUTPUT() association to a '[-fn]' descriptor spec, routed by hq_P 2026-08-28: every write to the
+# associated variable was silently discarded in BOTH modes (rc=0, ordinary output intact), because
+# _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
+# than -f2 because this harness compares stdout; the defect was never fd2-specific.
+run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.sno"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.ref"        "" ""
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""

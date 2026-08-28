@@ -3143,7 +3143,34 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         return NULVCL;
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
-    if (!fname || !fname[0]) return FAILDESCR;
+    if (!fname || !fname[0]) {
+        /* ⛔ THE -fn FILE-DESCRIPTOR SPEC, WHICH THIS FUNCTION PARSED FOR NOBODY (routed by hq_P 2026-08-28).
+           OUTPUT(.E1, 3, '[-f2]') associated NOTHING and every write to E1 vanished: _io_extract_fname returns
+           NULL for a bracket-only spec (the bracket is at offset 0, so the name length is 0), and the old code
+           fell straight to `return FAILDESCR`. The failure was INVISIBLE because a bare OUTPUT() call with no
+           :F() branch just fails its statement and execution walks on -- rc=0, stdout correct, stderr empty.
+           ⭐ _io_parse_opts already understood -fn; _INPUT_ called it and _OUTPUT_ never did, so the spec was
+           parsed for the read side only. Measured against the clean oracle: -f1 and -f2 BOTH silently
+           discarded, i.e. this was never fd2-specific.
+           ⛔ dup() rather than reusing stderr/stdout directly: _io_chan_close() fcloses whatever it is handed,
+           so binding the real stream would let ENDFILE(3) close the process's stderr. The dup is ours to close.
+           ⛔ _IONBF because fdopen does NOT inherit stderr's unbuffered discipline -- a block-buffered
+           diagnostic stream reorders against stdout and loses its tail entirely if the program aborts, which
+           is precisely when a diagnostic matters most. */
+        extern int dup(int);
+        long fd = -1, rlen = 0;
+        _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        if (fd < 0 || ch < 0 || ch >= IO_CHAN_MAX) return FAILDESCR;
+        { FILE *nf = fdopen(dup((int)fd), "w");
+          if (!nf) return FAILDESCR;
+          setvbuf(nf, NULL, _IONBF, 0);
+          _io_chan_close(ch);
+          _io_chan[ch].fp = nf;
+          _io_chan[ch].is_output = 1;
+          { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
+            _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
+        return NULVCL;
+    }
     FILE *f = fopen(fname, "w");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
