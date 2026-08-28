@@ -27,7 +27,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SUITE="${SNOFLAKE_SUITE:-$ROOT/corpus/packages/snobol4/snoflake_suite}"
-SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8s}"; ARM_SBL="${ARM_SBL:-1}"
+SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8s}"; ARM_SBL="${ARM_SBL:-1}"; ARM_CSN="${ARM_CSN:-1}"
 [ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): suite dir missing: $SUITE — a missing corpus is not a green board"; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP — build first (make)"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
@@ -36,6 +36,11 @@ if [ "$ARM_SBL" = "1" ]; then
     . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable and ARM_SBL=1"; exit 2; }
     SBL="$(sbl_correctness_bin)"; SBL_FLAGS="$(sbl_lang_flags)"
     [ -x "$SBL" ] || { echo "⛔ REFUSE(rc=2): oracle absent: $SBL — set ARM_SBL=0 to survey without it"; exit 2; }
+fi
+CSN=""
+if [ "$ARM_CSN" = "1" ]; then
+    CSN="$SD/../csnobol4/snobol4"
+    [ -x "$CSN" ] || { echo "⛔ REFUSE(rc=2): csnobol4 absent: $CSN — set ARM_CSN=0 to survey without it (triangulation arm, Lon 2026-08-28)"; exit 2; }
 fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 GIMPEL="$SUITE/gimpel"
@@ -46,8 +51,8 @@ GIMPEL="$SUITE/gimpel"
 RUN="$W/run"; mkdir -p "$RUN"; ln -s "$GIMPEL"/*.INC "$GIMPEL"/*.IN "$RUN"/ 2>/dev/null || true
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
-P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0
-FL3=""; FL4=""; FLS=""; OPTS_LIST=""; TOTAL=0
+P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; PC=0; FC=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0; NCP=0; NCF=0
+FL3=""; FL4=""; FLS=""; FLC=""; OPTS_LIST=""; TOTAL=0
 parse_fixture() { # $1=sno -> writes $W/exp $W/inp; echoes "match ic nstd hasinp opts"
     local match=exact ic=0 nstd=0 hasinp=0 opts=0 inblock="" line payload rest
     : > "$W/exp"; : > "$W/inp"
@@ -95,6 +100,7 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         m3)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run "$2" < "$inp" 2>&1)"; RC=$?;;
         m4)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         sbl) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$2" < "$inp" 2>&1)"; RC=$?;;
+        csn) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
@@ -114,13 +120,20 @@ for sno in "$SUITE"/*.sno; do
         if grade "$GOT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1))
         else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; fi
     fi
+    if [ -n "$CSN" ]; then
+        run_one csn "$sno"
+        if grade "$GOT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NCP=$((NCP+1)) || PC=$((PC+1))
+        else [ "$NSTD" = 1 ] && NCF=$((NCF+1)) || { FC=$((FC+1)); FLC="$FLC $name"; }; fi
+    fi
 done
 echo "── snoflake_suite: $TOTAL fixtures · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout $TIMEOUT · graded vs EMBEDDED @expect (snoflake/CSNOBOL4 dialect, NOT SPITBOL refs)"
 echo "mode-3 (--run):     PASS=$P3 FAIL=$F3  NSTD $N3P/$((N3P+N3F))"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))"
 [ -n "$SBL" ] && echo "sbl -bf (dialect distance, informational): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
+[ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 [ -n "$FLS" ] && echo "FAIL-SBL:$FLS"
+[ -n "$FLC" ] && echo "FAIL-CSN:$FLC"
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]
