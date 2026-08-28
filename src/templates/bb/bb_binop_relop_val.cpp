@@ -128,5 +128,4 @@ std::string bb_binop_relop_val() {
              + x86_gamma()
              + x86_beta_trampoline()
          : x86_bomb("bb_binop_relop_val: shape mismatch");
-    return std::string();
 }
