@@ -15,7 +15,7 @@ echo "=== rung18: succ/plus (plus_xy_bound/plus_xz_bound/plus_yz_bound/succ_back
 # (corpus_suite_harness.py's own docstring) -- delegate to `run`, which extracts and runs each
 # entry alone in its own temp dir.
 if [ ! -f "$SNO" ] || [ ! -f "$REF" ]; then
-    echo "SKIP  $FAMILY suite not found (expected $SNO / $REF)"; exit 0
+    echo "REFUSE (rc=2): $FAMILY suite not found (expected $SNO / $REF) -- cannot measure, not a pass"; exit 2
 fi
 
 out=$(python3 "$HERE/corpus_suite_harness.py" run "$SNO" "$REF" --lang prolog --modes m3 2>&1)
