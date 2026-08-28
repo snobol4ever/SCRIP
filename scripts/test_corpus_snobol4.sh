@@ -282,6 +282,7 @@ run_test "demo_porter"              "$DEMO/porter/porter.sno"              "$DEM
 # calculator-1/-2 (full evaluators) print a trailing nondeterministic "match_ms=" timing
 # line -- same class as demo_roman's "^ms:" filter above, just a different literal marker.
 run_test "demo_calculator_1"        "$DEMO/calculator/calculator-1.sno"        "$DEMO/calculator/calculator-1.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
+run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "$DEMO/calculator/calculator-2.ref"        "$DEMO/calculator/calculator.input" "^match_ms="
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""

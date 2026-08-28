@@ -653,6 +653,20 @@ void rt_dcap_lazy_init(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ THE CAPTURE LENGTH-AUTHORITY INSTRUMENT (row perf-pattern-defer-capture-layer-cure, slice b).  Off by default;
+   SCRIP_CAP_POISON=1 writes a non-NUL byte where a capture's terminator would go, so any consumer that reads the
+   value past .slen answers about a longer string and produces a WRONG result instead of a silently-correct one.
+   ⭐ Why this exists as code and not as a grep: 'is DT_S length-authoritative' is a question about every consumer
+   the value can reach, and no grep of .s uses can answer it -- the 890-program board can, in one run.  Measured on
+   34aea2db: 16 board FAILs, of which 10 were the instrument's own artifact (see below) and the rest named the real
+   consumer class -- the numeric validators, now cured through rt_cstr_d (core.h).
+   ⛔ POISON ONLY AT len > 0, AND THAT BOUND IS LOAD-BEARING, NOT A TIDY-UP.  descr_slen() reads slen 0 as 'ask
+   strlen', so a zero-length value is length-authoritative by NOTHING and can never be slice-backed; poisoning its
+   byte 0 turned "" into "Z" and manufactured 10 of the original 16 failures.  An instrument that answers a
+   different question than the one you asked never says so -- it just prints a plausible board. */
+int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_POISON"); v = (e && *e && *e != '0') ? (int)(unsigned char)'Z' : 0; } return v; }
+
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
@@ -743,7 +757,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
               rc = 1;
               continue; } }
         char *copy = rt_str_alloc(len);
-        if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = '\0'; }
+        if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = (char)(len > 0 ? rt_cap_poison() : 0); }
         DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {

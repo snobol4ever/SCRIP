@@ -15,6 +15,27 @@ static inline size_t descr_slen(DESCR_t d) {
     }
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⛔ THE C-STRING BOUNDARY FOR SLICE-BACKED VALUES (row perf-pattern-defer-capture-layer-cure, slice b).  A capture
+   descriptor that points INTO its subject owns no terminator: the byte at .s[.slen] is the subject's NEXT character,
+   not '\0'.  Every consumer that hands .s to a C string function -- strtod, strtoll, printf %s, strcmp -- must fetch
+   its pointer through here first, or it reads past the value and answers about a longer string than it was given.
+   ⭐ The test is STRUCTURAL and costs no flag bit and no spare DESCR_t field (there is none to spare -- 16 bytes is a
+   SysV register-pair by static_assert): reading .s[.slen] is ALWAYS in bounds, because that byte is either the
+   value's own terminator or a byte of the parent block it slices.  An already-terminated value -- every string in
+   the tree today -- costs one load and one branch and is returned unchanged, so this is not a copy on the ordinary
+   path.  ⛔ .slen == 0 deliberately returns .s untouched: descr_slen() treats slen 0 as "ask strlen", so a
+   zero-length value is NEVER slice-backed and must not be materialized here (materializing it would mint "" and
+   throw away a legitimately strlen-measured string).  ⛔ THE 0xFFFFFFFF SENTINEL IS EXCLUDED FOR THE SAME REASON AND
+   IT IS NOT COSMETIC: descr_slen() reads that value as a THIRD spelling of "ask strlen", so it is a length that is
+   not a length.  Omitting it here indexed d.s[0xFFFFFFFF] and SIGSEGV'd rung36_jcon_coerce -- an Icon program, from
+   a change whose witnesses were all SNOBOL4.  Any predicate over .slen must answer for all three spellings (0,
+   0xFFFFFFFF, and a real count) or it is not a predicate over .slen at all. */
+const char *rt_cstr_materialize(DESCR_t d);
+static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
+    if (d.v != DT_S || !d.s || !d.slen || d.slen == 0xFFFFFFFFu) return d.s ? d.s : "";
+    return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
+}
 #define NULVCL    ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
 #define STRVAL(s_) ((DESCR_t){ .v = DT_S,  .slen = 0, .s = (s_) })
 #define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })

@@ -18,7 +18,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t coerce_numeric(DESCR_t v) {
     if (IS_STR(v)) {
-        const char *s = v.s ? v.s : "";
+        const char *s0 = rt_cstr_d(v), *s = s0;
         while (*s == ' ') s++;
         if (*s == '+' || *s == '-') s++;
         if (!*s) return INTVAL(0);
@@ -26,7 +26,7 @@ static DESCR_t coerce_numeric(DESCR_t v) {
         while (*p >= '0' && *p <= '9') p++;
         while (*p == ' ') p++;
         if (*p == '\0' && p > s)
-            return INTVAL((int64_t)strtoll(v.s ? v.s : "", NULL, 10));
+            return INTVAL((int64_t)strtoll(s0, NULL, 10));
     }
     return v;
 }

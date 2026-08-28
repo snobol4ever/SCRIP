@@ -579,7 +579,7 @@ char alphabet[257];
 int is_numeric_like(DESCR_t d) {
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
-        const char *s = d.s ? d.s : "";
+        const char *s = rt_cstr_d(d);
         while (*s == ' ' || *s == '\t') s++;
         if (!*s) return 1;
         if (rt_plain_int_str(s)) return 1;   /* ⭐ see rt_plain_int_str in core.h -- strtod was 8.81% of mixed_workload */
@@ -2127,13 +2127,28 @@ int core_icn_error(int code, DESCR_t val) {
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Slow arm of rt_cstr_d (core.h) -- reached only for a value whose .s[.slen] is not '\0', i.e. a slice-backed capture.
+   Copies out exactly .slen bytes and terminates, so the caller's C string function sees the value and nothing after it.
+   Allocation follows the same rule every other rt_str_alloc caller in this tree follows: the collector runs at explicit
+   safepoints, and only reclaims inside an allocation when the heap is genuinely exhausted (gc_heap.c:187). */
+const char *rt_cstr_materialize(DESCR_t d) {
+    extern char *rt_str_alloc(long n);
+    size_t n = (size_t)d.slen;
+    char *b = rt_str_alloc((long)n);
+    if (!b) return "";
+    memcpy(b, d.s, n);
+    b[n] = '\0';
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t to_int_slow(DESCR_t v) {
     switch (v.v) {
         case DT_I:  return v.i;
         case DT_R: return (int64_t)v.r;
         case DT_S:
         case DT_SNUL: {
-            const char *s = v.s ? v.s : "";
+            const char *s = rt_cstr_d(v);
             while (*s == ' ') s++;
             if (!*s) return 0;
             return (int64_t)strtoll(s, NULL, 10);
@@ -2152,7 +2167,7 @@ double to_real(DESCR_t v) {
         case DT_I:  return (double)v.i;
         case DT_S:
         case DT_SNUL: {
-            const char *s = v.s ? v.s : "";
+            const char *s = rt_cstr_d(v);
             return strtod(s, NULL);
         }
         case DT_K:
