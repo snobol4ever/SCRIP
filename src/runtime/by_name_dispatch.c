@@ -216,6 +216,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$findall_new") || !strcmp(name, "$findall_add") || !strcmp(name, "$findall_result")) return 1;
     if (!strcmp(name, "$write")) return 1;
     if (!strcmp(name, "$write2") || !strcmp(name, "$nl1") || !strcmp(name, "$nl0")) return 1;
+    if (!strcmp(name, "$halt0") || !strcmp(name, "$halt1")) return 1;
     if (!strcmp(name, "$writeq2") || !strcmp(name, "$write_canonical2") || !strcmp(name, "$write_term3") || !strcmp(name, "$format3")) return 1;
     if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
     if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code") || !strcmp(name, "$get_byte") || !strcmp(name, "$peek_byte") || !strcmp(name, "$put_byte")) return 1;
@@ -2111,6 +2112,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$nl0") && (nargs == 0 || nargs == 1)) {
         extern FILE *fh_cur_out_fp(void); fputc('\n', fh_cur_out_fp());
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
+    if (!strcmp(fn, "$halt0") && nargs == 0) { exit(0); }
+    if (!strcmp(fn, "$halt1") && nargs == 1) {
+        extern DESCR_t rt_pl_deref_val(DESCR_t);
+        DESCR_t v = rt_pl_deref_val(args[0]);
+        if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
+        if (v.v != DT_I) { rt_pl_iso_throw_type("integer", v); *out = FAILDESCR; return 1; }
+        exit((int)v.i);
     }
     if ((!strcmp(fn, "$writeq2") || !strcmp(fn, "$write_canonical2")) && nargs == 2) {
         extern int fh_current_output(void); extern void fh_set_output(int);
@@ -4308,7 +4317,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "flush_output", 1, "$flush_output1" },
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
-        { "write", 2, "$write2" }, { "nl", 1, "$nl1" },
+        { "write", 2, "$write2" }, { "nl", 1, "$nl1" }, { "halt", 0, "$halt0" }, { "halt", 1, "$halt1" },
         { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
         { "see", 1, "$see" }, { "seeing", 1, "$seeing" }, { "seen", 0, "$seen" },
         { "tell", 1, "$tell" }, { "telling", 1, "$telling" }, { "told", 0, "$told" },
