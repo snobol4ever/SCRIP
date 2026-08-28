@@ -29,8 +29,10 @@ std::string bb_make_list() {
         s += x86("mov32", "esi", (long)na);
         s += x86("call", "rt_make_list", (uint64_t)(uintptr_t)(void*)rt_make_list);
         if (na > 0) s += x86("add", "rsp", (long)(na * 16));
-        s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
-        s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        s += x86("note", ZRESN());
+        s += x86("mov", ZRES(0), "rax");
+        s += x86("note", ZRESN());
+        s += x86("mov", ZRES(8), "rdx");
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
