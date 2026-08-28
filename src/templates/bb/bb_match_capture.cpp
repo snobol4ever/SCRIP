@@ -13,7 +13,12 @@ extern "C" void rt_cap_finish(DESCR_t fret);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int havehome(void) { return _.op_zres || _.op_cap_anchor || _.op_off >= 0; }
-static inline int nret_cap_live(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; } return v; }
+static inline int nret_cap_live(void) {
+    static int v = -1;
+    if (v < 0)
+        { const char * e = getenv("SCRIP_NRET_CAP"); v = e ? (e[0] != '0') : 1; }
+    return v;
+}
 static inline const char * writehome(void) { return _.op_zres ? ZRESD(0) : FR(_.op_off); }
 static inline const char * readhome(void)  { return _.op_zres ? ZOPD(1, 0) : FR(_.op_off); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -103,7 +108,10 @@ std::string bb_match_capture() {
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
-           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())
+           + (cap_fail_retreat()
+              ? (x86("cmp", "rax", (long)-1)
+               + x86("je",  L(4)))
+              : std::string())
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
            + bb_glue_pass_wires(2, 3)
@@ -138,7 +146,10 @@ std::string bb_match_capture() {
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
            + x86("call", "rt_cap_open", (uint64_t)(uintptr_t)(void *)(long (*)(const char *, int, int, int))rt_cap_open)
-           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())
+           + (cap_fail_retreat()
+              ? (x86("cmp", "rax", (long)-1)
+               + x86("je",  L(4)))
+              : std::string())
            + x86("test", "rax", "rax")
            + x86("je",   L(1))
            + bb_glue_pass_wires(2, 3)
