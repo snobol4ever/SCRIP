@@ -1246,6 +1246,21 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     cx->pre[cx->npre].str = (t->t == TT_ANY || t->t == TT_NOTANY || t->t == TT_SPAN || t->t == TT_BREAK || t->t == TT_BREAKX);
     cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->pre[cx->npre].snapg = NULL; cx->npre++;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ THE PATTERN LAMBDAS, RECOGNISED BY NAME (row lang-lambda-pattern-primitives, Lon 2026-08-28).  Returns 1 for
+   the IMMEDIATE form and 2 for the CONDITIONAL form, 0 for any other call.  ⭐ RECOGNITION BELONGS HERE AND NOT IN
+   THE GRAMMAR, and that is measured rather than preferred: `lambda(N = 1)` ALREADY parses to
+   `(TT_FNC lambda (TT_ASSIGN (TT_VAR N) (TT_ILIT 1)))` -- `fnc_args` admits an assignment expression today -- so
+   the primitive costs no grammar change at all, and lower is the last place a language may still be named before
+   the LANG-neutral boundary downstream.  The Greek spellings are first-class per Lon and cost nothing extra: the
+   lexer already admits UTF-8 Greek in identifier position, so λ and Λ arrive here as ordinary distinct call names
+   and the case discrimination that separates lambda from LAMBDA separates them too. */
+static int sno_lambda_kind(const char * n, int nargs) {
+    if (!n || nargs != 1) return 0;
+    if (!strcmp(n, "LAMBDA") || !strcmp(n, "\xce\x9b")) return 1;
+    if (!strcmp(n, "lambda") || !strcmp(n, "\xce\xbb")) return 2;
+    return 0;
+}
 static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail);
 static int sno_in_arbno = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1792,6 +1807,21 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_FNC: {
         const char * name = t->v.sval; int argbase = 0;
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
+        { int lk = sno_lambda_kind(name, t->n - argbase);
+          if (lk) {
+            const tree_t * ex = (t->n > argbase) ? t->c[argbase] : NULL;
+            if (lk == 2) sno_fatal("lambda(expr), the CONDITIONAL pattern lambda, is not implemented yet -- the IMMEDIATE form LAMBDA(expr) is; the conditional form queues a thunk on the dcap frame and that arm is unlanded", NULL);
+            /* IMMEDIATE.  The expression's lowered subgraph is spliced into the chain AHEAD of the epsilon box and
+               wired: its gamma reaches the box (success -> match the null string, consume nothing), its omega
+               reaches the pattern's own failure continuation (SNOBOL4 failure of the expression fails the match at
+               this point).  ⛔ The element's ENTRY is the EXPRESSION's entry, not the box: control has to reach the
+               code before it can reach the port that reports on it. */
+            IR_t * box = lc_build(g, IR_MATCH_LAMBDA, succ, NULL);
+            sno_ω_to(box, fail);
+            IR_LIT(box).ival = 0;
+            { IR_t * val = NULL; IR_t * entry = sx_lower(cx, ex, NULL, fail, &val);
+              lc_γ_to(val, box);
+              return entry ? entry : box; } } }
         static const struct { const char * n; tree_e k; } pm[] = { {"ANY",TT_ANY},{"NOTANY",TT_NOTANY},{"SPAN",TT_SPAN},{"BREAK",TT_BREAK},{"BREAKX",TT_BREAKX},{"LEN",TT_LEN},{"POS",TT_POS},{"RPOS",TT_RPOS},{"TAB",TT_TAB},{"RTAB",TT_RTAB},{"ARB",TT_ARB},{"ARBNO",TT_ARBNO},{"REM",TT_REM},{"FAIL",TT_FAIL},{"SUCCEED",TT_SUCCEED},{"FENCE",TT_FENCE},{"ABORT",TT_ABORT},{"BAL",TT_BAL},{NULL,TT_VAR} };
         tree_e pk = TT_VAR;
         if (name) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }

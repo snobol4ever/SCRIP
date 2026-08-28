@@ -150,6 +150,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_glue_flat.cpp \
     $(SRC)/templates/bb/bb_main.cpp \
     $(SRC)/templates/bb/bb_glue_framed.cpp \
+    $(SRC)/templates/bb/bb_match_lambda.cpp \
     $(SRC)/templates/bb/bb_lit.cpp \
     $(SRC)/templates/bb/bb_keyword_assign_snobol4.cpp \
     $(SRC)/templates/bb/bb_define.cpp \

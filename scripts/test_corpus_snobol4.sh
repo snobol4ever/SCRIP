@@ -288,6 +288,14 @@ run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "
 # _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
 # than -f2 because this harness compares stdout; the defect was never fd2-specific.
 run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.sno"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.ref"        "" ""
+# k41: the IMMEDIATE pattern lambda, the arm that is LANDED (row lang-lambda-pattern-primitives).
+# ⛔ NOT k40. k40 is the row's INSTRUMENT, authored before the cure and RED ON PURPOSE until the
+# whole feature lands (conditional lambda, backtrack-unqueue, stored-pattern round trip are all
+# still unlanded) -- wiring THAT into the board would turn a deliberate measurement into a broken
+# gate. A red instrument cannot also be a regression guard, so k41 guards what works and k40 keeps
+# measuring the distance left. ⛔ SELF-PINNED, never sbl-graded: SPITBOL cannot even LEX the file --
+# sbl -bf dies at the Greek line with ERROR 230 "illegal character" -- so no oracle arm exists.
+run_test "k41_lambda_immediate"    "$CORPUS/probe/conformance/k41_lambda_immediate_landed.sno"    "$CORPUS/probe/conformance/k41_lambda_immediate_landed.ref"    "" ""
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""

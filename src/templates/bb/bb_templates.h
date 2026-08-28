@@ -15,6 +15,7 @@ std::string bb_match_rtab();
 std::string bb_match_span_var();
 std::string bb_indirect_assign_lit_s();
 std::string bb_indirect_assign_var();
+std::string bb_match_lambda();
 std::string bb_match_pos();
 std::string bb_match_rpos();
 std::string bb_match_tab();

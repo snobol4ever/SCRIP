@@ -92,6 +92,7 @@ typedef enum {
     IR_MATCH_END,
     IR_MATCH_FENCE0,
     IR_MATCH_FENCE1,
+    IR_MATCH_LAMBDA,
     IR_MATCH_LEN,
     IR_MATCH_LIT,
     IR_MATCH_NOTANY,
@@ -157,7 +158,7 @@ static inline int ir_is_matcher(int t) {
     switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:
     case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_ARB: case IR_MATCH_ARBNO: case IR_MATCH_REM: case IR_MATCH_BAL: case IR_MATCH_FENCE0:
     case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ALTERNATE: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ATP:
-    case IR_MATCH_CALLOUT: case IR_MATCH_DEFER: case IR_MATCH_VALUE: case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_REPLACE: case IR_MATCH_RETRY: return 1;
+    case IR_MATCH_CALLOUT: case IR_MATCH_DEFER: case IR_MATCH_LAMBDA: case IR_MATCH_VALUE: case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_REPLACE: case IR_MATCH_RETRY: return 1;
     default: return 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_matcher_element(int t) {
