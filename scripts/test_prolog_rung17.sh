@@ -1,15 +1,32 @@
 #!/usr/bin/env bash
+# test_prolog_rung17.sh — sort: msort_basic, msort_dupes, sort_already_sorted, sort_basic, sort_empty
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${HERE}/../scrip"
-CORPUS="$S4E/corpus/tests/prolog"
-PASS=0; FAIL=0
-[ -d "$CORPUS" ] || { echo "⛔ REFUSED-TO-GRADE: $CORPUS missing"; exit 2; }
-for f in "$CORPUS"/rung17_*.pl; do
-    ref="${f%.pl}.expected"; [ -f "$ref" ] || continue
-    actual=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
-    expected=$(cat "$ref")
-    if [ "$actual" = "$expected" ]; then echo "  PASS $(basename $f)"; PASS=$((PASS+1))
-    else echo "  FAIL $(basename $f)"; FAIL=$((FAIL+1)); fi
-done
-echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
+CORPUS=$S4E/corpus/tests/prolog
+FAMILY=rung17_sort
+SNO="$CORPUS/$FAMILY.pl"
+REF="$CORPUS/$FAMILY.ref"
+
+echo "=== rung17: sort (msort_basic/msort_dupes/sort_already_sorted/sort_basic/sort_empty) ==="
+
+# consolidated 2026-08-28 (tests-consolidate-prolog): the loose $CORPUS/$FAMILY_*.pl files
+# this script used to glob were replaced by one suite pair (all 5 entries deterministic, no
+# choice-point construct, none PZ-4-affected). A suite file is NEVER run whole
+# (corpus_suite_harness.py's own docstring) -- delegate to `run`, which extracts and runs each
+# entry alone in its own temp dir.
+if [ ! -f "$SNO" ] || [ ! -f "$REF" ]; then
+    echo "SKIP  $FAMILY suite not found (expected $SNO / $REF)"; exit 0
+fi
+
+out=$(python3 "$HERE/corpus_suite_harness.py" run "$SNO" "$REF" --lang prolog --modes m3 2>&1)
+echo "$out" | grep -v '^SUITE_BOARD'
+board=$(echo "$out" | grep '^SUITE_BOARD')
+pass=$(echo "$board" | grep -oP 'm3_pass=\K[0-9]+')
+fail=$(echo "$board" | grep -oP 'm3_fail=\K[0-9]+')
+crash=$(echo "$board" | grep -oP 'm3_crash=\K[0-9]+')
+hang=$(echo "$board" | grep -oP 'm3_hang=\K[0-9]+')
+unproven=$(echo "$board" | grep -oP 'm3_unproven=\K[0-9]+')
+BAD=$((fail+crash+hang+unproven))
+echo ""
+echo "PASS=$pass FAIL=$BAD"
+[ "$BAD" -eq 0 ]
