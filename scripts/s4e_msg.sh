@@ -78,6 +78,16 @@ ME="$(s4e_canon "$ME")"
 # glob (alphabetical) file order whenever a seat holds more than one claim.
 qrow()  { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" 2>/dev/null | head -1; }
 qrank() { local row; row="$(qrow "$1")"; [ -n "$row" ] && printf '%s' "$row" | cut -f1 || echo 999999; }
+# ⭐ picker-skips-blocked-rows (ceo, 2026-08-28) -- SHARED BY next()'s PASS 3. Is the topic named by a
+# BLOCKED-ON:/PARKED-AWAITING: state DONE? `done` only ever APPENDS the DONE marker (never deletes a
+# claim) and `park` only ever clears a LIVE non-done claim, so claims/*.claim is the durable record;
+# QUEUE.done.tsv is the DONE-WHEN's own belt-and-suspenders for a blocker whose claim some future law
+# ever does prune.
+s4e_blocker_done() {
+    local b="$1"; [ -n "$b" ] || return 1
+    [ -f "$PO/claims/$b.claim" ] && grep -q '^DONE$' "$PO/claims/$b.claim" && return 0
+    grep -qP "^[0-9]+\t\Q$b\E\t" "$PO/QUEUE.done.tsv" 2>/dev/null
+}
 cmd="${1:-check}"
 case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
@@ -276,6 +286,11 @@ case "$cmd" in
          # column was decorative — 94 of 94 rows read FREE and nothing consulted it. `park` writes it and PASS 3 now
          # obeys it, so a ruling recorded in a baton is finally enforced by the dispatcher instead of by a seat's
          # goodwill. Un-park with: park <topic> FREE.
+         # ⭐ picker-skips-blocked-rows: `park <topic> BLOCKED-ON:<other-topic>` (or PARKED-AWAITING:<other-topic>,
+         # the pre-existing spelling several rows already use) is not just cosmetic prose — next()'s PASS 3 parses
+         # it and un-parks the row back to FREE BY ITSELF the moment <other-topic>'s claim goes DONE (or it is
+         # swept into QUEUE.done.tsv). Recording a block this way, not as bare PARKED/BLOCKED text, is what makes
+         # it self-clearing instead of needing a human to remember to come back and re-park it.
          topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
          grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" || { echo "⛔ no QUEUE.tsv row named $topic"; exit 1; }
          # ⛔ s266 — PARK MUST NOT DESTROY ANOTHER SEAT'S RUNNING CLAIM. hq_C parked rung-E5-suspend-cache as
@@ -545,6 +560,19 @@ case "$cmd" in
            # which is how `161-o2-red` — PARKED BY LON at s258, and saying so in its own baton — kept being served as
            # the fleet's TOPMOST rank-0 row. A ruling that only a human enforces is not a ruling. Anything not FREE is
            # not work: PARKED, BLOCKED, DONE all skip here.
+           # ⭐ picker-skips-blocked-rows (ceo, 2026-08-28): a BLOCKED-ON:<topic>/PARKED-AWAITING:<topic> row used
+           # to skip HERE FOREVER, even the session AFTER its named blocker landed DONE, because nothing ever asked
+           # again — bench-rivals-raku-pascal sat encoded as plain "FREE" (nobody had even written the block down)
+           # through 9+ seats independently re-discovering the identical block, which is the OTHER half of this same
+           # defect: a block a human found but never RECORDED is invisible to a check that only reads the column.
+           # Self-heals: a resolved dependency lets next() skip past a stale BLOCKED-ON state instead of honoring
+           # it forever — re-ask whether the named blocker is done EVERY time this row is considered, and if so
+           # `park` the row back to FREE right here (ledger line included) before falling through to the check below.
+           case "$step" in
+             BLOCKED-ON:*|PARKED-AWAITING:*)
+               blk="${step#*:}"
+               if s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE; fi ;;
+           esac
            case "$step" in FREE|'') : ;; *) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] && continue
            if "$0" claim "$topic" >/dev/null 2>&1; then
