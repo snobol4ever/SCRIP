@@ -61,10 +61,19 @@ PY="$HERE/util_icn_rbp_census.py"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$BENCH" ] || { echo "⛔ REFUSED-TO-GRADE no Icon benchmark corpus at $BENCH"; exit 2; }
 [ -f "$PY" ]    || { echo "GATE FAIL: missing $PY"; exit 2; }
+# ⛔ GLOB MUST BE EXPANDED BEFORE IT IS TRUSTED -- with nullglob off (bash default) an EMPTY
+# BENCH makes "$BENCH"/*.icn pass the literal, unmatched string "*.icn" through to python as a
+# single bogus filename; the census then reports a silent all-zero row (RATCHET_C=0, exit 0),
+# indistinguishable from a genuinely met ratchet.  nullglob + a real count turns that into a
+# REFUSAL instead (FACT RULE: a missing prerequisite is rc=2, never a green exit).
+shopt -s nullglob
+ICN_FILES=("$BENCH"/*.icn)
+shopt -u nullglob
+[ "${#ICN_FILES[@]}" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE no .icn files found in $BENCH"; exit 2; }
 # ⛔ EXIT STATUS READ FROM python DIRECTLY, NEVER THROUGH A PIPE -- a `| tail` reports TAIL's
 # status and silently discards the verdict (the defect test_gate_fc_no_residual_rbp.sh records
 # as its own root cause).  Capture, then print, then test.
-OUT=$(SCRIP="$SCRIP" python3 "$PY" "$BENCH"/*.icn 2>&1); RC=$?
+OUT=$(SCRIP="$SCRIP" python3 "$PY" "${ICN_FILES[@]}" 2>&1); RC=$?
 printf '%s\n' "$OUT"
 C=$(printf '%s\n' "$OUT" | sed -n 's/^RATCHET_C=\([0-9]*\)$/\1/p' | tail -1)
 A=$(printf '%s\n' "$OUT" | sed -n 's/^CEREMONY_A=\([0-9]*\)$/\1/p' | tail -1)
