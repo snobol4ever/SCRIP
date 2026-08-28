@@ -121,6 +121,7 @@ G       ({WS}|{CONT})*
  /*--------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>[^ \t\n*!|;+.\-] {
     strbuf[0] = yytext[0]; strpos = 1;
+    g_stmt_lineno = lineno;
     BEGIN(LABEL);
 }
  /*--------------------------------------------------------------------------------------------------------------------*/
@@ -337,6 +338,7 @@ Token flex_lex_next(Lex *lx) {
         case T_LABEL:
             t.sval = intern(strbuf);
             t.ival = strcmp(strbuf,"END")==0 ? 1 : 0;
+            t.lineno = g_stmt_lineno;
             return t;
         case T_IDENT: case T_END: case T_KEYWORD:
         case T_FUNCTION:

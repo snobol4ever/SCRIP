@@ -1,6 +1,3 @@
-#line 2 "snobol4.lex.c"
-
-#line 4 "snobol4.lex.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -685,8 +682,6 @@ static const flex_int16_t yy_chk[781] =
 #define yymore() yymore_used_but_not_detected
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
-#line 1 "snobol4.l"
-#line 2 "snobol4.l"
 #include "scrip_cc.h"
 #include "snobol4.h"
 #include "snobol4.tab.h"
@@ -718,9 +713,6 @@ static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
     return t;
 }
-#line 722 "snobol4.lex.c"
-
-#line 724 "snobol4.lex.c"
 
 #define INITIAL 0
 #define LABEL 1
@@ -993,9 +985,6 @@ YY_DECL
 		}
 
 	{
-#line 46 "snobol4.l"
-
-#line 999 "snobol4.lex.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1051,28 +1040,23 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 /* rule 1 can match eol */
 YY_RULE_SETUP
-#line 47 "snobol4.l"
 { lineno++; return T_STMT_END; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 48 "snobol4.l"
 { BEGIN(SKIP); }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 49 "snobol4.l"
 { return T_STMT_END; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 50 "snobol4.l"
 { g_stmt_lineno = lineno; BEGIN(BODY_START); }
 	YY_BREAK
 case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
-#line 51 "snobol4.l"
 {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -1096,7 +1080,6 @@ YY_RULE_SETUP
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
-#line 70 "snobol4.l"
 {
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;
@@ -1121,7 +1104,6 @@ YY_RULE_SETUP
 case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
-#line 90 "snobol4.l"
 {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -1146,21 +1128,18 @@ YY_RULE_SETUP
 case 8:
 /* rule 8 can match eol */
 YY_RULE_SETUP
-#line 110 "snobol4.l"
 { lineno++; g_nofail_mode = 1; }
 	YY_BREAK
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 9:
 /* rule 9 can match eol */
 YY_RULE_SETUP
-#line 112 "snobol4.l"
 { lineno++; g_nofail_mode = 0; }
 	YY_BREAK
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 10:
 /* rule 10 can match eol */
 YY_RULE_SETUP
-#line 114 "snobol4.l"
 {
     lineno++;
 }
@@ -1168,7 +1147,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 11:
 YY_RULE_SETUP
-#line 118 "snobol4.l"
 {
     BEGIN(BODY_START);
 }
@@ -1176,16 +1154,15 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 12:
 YY_RULE_SETUP
-#line 122 "snobol4.l"
 {
     strbuf[0] = yytext[0]; strpos = 1;
+    g_stmt_lineno = lineno;
     BEGIN(LABEL);
 }
 	YY_BREAK
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 13:
 YY_RULE_SETUP
-#line 127 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
@@ -1195,7 +1172,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 14:
 YY_RULE_SETUP
-#line 133 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY_START);
@@ -1206,7 +1182,6 @@ YY_RULE_SETUP
 case 15:
 /* rule 15 can match eol */
 YY_RULE_SETUP
-#line 139 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     lineno++;
@@ -1217,32 +1192,26 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 16:
 YY_RULE_SETUP
-#line 146 "snobol4.l"
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 17:
 /* rule 17 can match eol */
 YY_RULE_SETUP
-#line 147 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 148 "snobol4.l"
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 149 "snobol4.l"
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case YY_STATE_EOF(LABEL_DONE):
-#line 150 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 151 "snobol4.l"
 {
     yyless(0);
     strbuf[strpos] = '\0';
@@ -1253,213 +1222,177 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 21:
 YY_RULE_SETUP
-#line 158 "snobol4.l"
 { }
 	YY_BREAK
 case 22:
 /* rule 22 can match eol */
 YY_RULE_SETUP
-#line 159 "snobol4.l"
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 160 "snobol4.l"
 { BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 161 "snobol4.l"
 { yyless(0); BEGIN(BODY); }
 	YY_BREAK
 case 25:
 /* rule 25 can match eol */
 YY_RULE_SETUP
-#line 162 "snobol4.l"
 { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 26:
 /* rule 26 can match eol */
 YY_RULE_SETUP
-#line 163 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 164 "snobol4.l"
 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 28:
 /* rule 28 can match eol */
 YY_RULE_SETUP
-#line 165 "snobol4.l"
 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 29:
 /* rule 29 can match eol */
 YY_RULE_SETUP
-#line 166 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; BEGIN(GT); }
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 167 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); return T_KEYWORD; }
 	YY_BREAK
 case 31:
 /* rule 31 can match eol */
 YY_RULE_SETUP
-#line 168 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 	YY_BREAK
 case 32:
 /* rule 32 can match eol */
 YY_RULE_SETUP
-#line 169 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 33:
 /* rule 33 can match eol */
 YY_RULE_SETUP
-#line 170 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 34:
 /* rule 34 can match eol */
 YY_RULE_SETUP
-#line 171 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 	YY_BREAK
 case 35:
 /* rule 35 can match eol */
 YY_RULE_SETUP
-#line 172 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PLUS;        }
 	YY_BREAK
 case 36:
 /* rule 36 can match eol */
 YY_RULE_SETUP
-#line 173 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2MINUS;     }
 	YY_BREAK
 case 37:
 /* rule 37 can match eol */
 YY_RULE_SETUP
-#line 174 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2STAR;  }
 	YY_BREAK
 case 38:
 /* rule 38 can match eol */
 YY_RULE_SETUP
-#line 175 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2SLASH;        }
 	YY_BREAK
 case 39:
 /* rule 39 can match eol */
 YY_RULE_SETUP
-#line 176 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2DOLLAR;}
 	YY_BREAK
 case 40:
 /* rule 40 can match eol */
 YY_RULE_SETUP
-#line 177 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2DOT;     }
 	YY_BREAK
 case 41:
 /* rule 41 can match eol */
 YY_RULE_SETUP
-#line 178 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PIPE;     }
 	YY_BREAK
 case 42:
 /* rule 42 can match eol */
 YY_RULE_SETUP
-#line 179 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2EQUAL;      }
 	YY_BREAK
 case 43:
 /* rule 43 can match eol */
 YY_RULE_SETUP
-#line 180 "snobol4.l"
 { return T_2EQUAL; }
 	YY_BREAK
 case 44:
 /* rule 44 can match eol */
 YY_RULE_SETUP
-#line 181 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2QUEST;           }
 	YY_BREAK
 case 45:
 /* rule 45 can match eol */
 YY_RULE_SETUP
-#line 182 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AMP;       }
 	YY_BREAK
 case 46:
 /* rule 46 can match eol */
 YY_RULE_SETUP
-#line 183 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AT;         }
 	YY_BREAK
 case 47:
 /* rule 47 can match eol */
 YY_RULE_SETUP
-#line 184 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2POUND;           }
 	YY_BREAK
 case 48:
 /* rule 48 can match eol */
 YY_RULE_SETUP
-#line 185 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PERCENT;         }
 	YY_BREAK
 case 49:
 /* rule 49 can match eol */
 YY_RULE_SETUP
-#line 186 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2TILDE;           }
 	YY_BREAK
 case 50:
 /* rule 50 can match eol */
 YY_RULE_SETUP
-#line 187 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LPAREN; }
 	YY_BREAK
 case 51:
 /* rule 51 can match eol */
 YY_RULE_SETUP
-#line 188 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_LBRACK; }
 	YY_BREAK
 case 52:
 /* rule 52 can match eol */
 YY_RULE_SETUP
-#line 189 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle) gt_angle++; return T_LANGLE; }
 	YY_BREAK
 case 53:
 /* rule 53 can match eol */
 YY_RULE_SETUP
-#line 190 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RPAREN; }
 	YY_BREAK
 case 54:
 /* rule 54 can match eol */
 YY_RULE_SETUP
-#line 191 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 	YY_BREAK
 case 55:
 /* rule 55 can match eol */
 YY_RULE_SETUP
-#line 192 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 	YY_BREAK
 case 56:
 /* rule 56 can match eol */
 YY_RULE_SETUP
-#line 193 "snobol4.l"
 { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
 	YY_BREAK
 case 57:
@@ -1467,129 +1400,103 @@ case 57:
 yyg->yy_c_buf_p = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 194 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_FUNCTION; }
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 195 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 	YY_BREAK
 case 59:
-#line 197 "snobol4.l"
 case 60:
 YY_RULE_SETUP
-#line 197 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_REAL; }
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
-#line 198 "snobol4.l"
 { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 199 "snobol4.l"
 { strpos=0; BEGIN(STR1); }
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 200 "snobol4.l"
 { strpos=0; BEGIN(STR2); }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 201 "snobol4.l"
 { return T_2CARET;  }
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 202 "snobol4.l"
 { return T_2CARET;  }
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 203 "snobol4.l"
 { return T_1PLUS;         }
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 204 "snobol4.l"
 { return T_1MINUS;        }
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-#line 205 "snobol4.l"
 { return T_1STAR;     }
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 206 "snobol4.l"
 { return T_1SLASH;        }
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 207 "snobol4.l"
 { return T_1PERCENT;      }
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 208 "snobol4.l"
 { return T_1AT;      }
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 209 "snobol4.l"
 { return T_1TILDE;        }
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 210 "snobol4.l"
 { return T_1DOLLAR;  }
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
-#line 211 "snobol4.l"
 { return T_1DOT;       }
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
-#line 212 "snobol4.l"
 { return T_1BANG;  }
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
-#line 213 "snobol4.l"
 { return T_1POUND;        }
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 214 "snobol4.l"
 { return T_1PIPE; }
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
-#line 215 "snobol4.l"
 { return T_1EQUAL;        }
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
-#line 216 "snobol4.l"
 { return T_1QUEST;}
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
-#line 217 "snobol4.l"
 { return T_1AMP;    }
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
-#line 218 "snobol4.l"
 { sno_error(lineno,"unexpected char '%s'",yytext); }
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
-#line 219 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
@@ -1599,7 +1506,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 83:
 YY_RULE_SETUP
-#line 225 "snobol4.l"
 {
     if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '\'';
 }
@@ -1607,7 +1513,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 84:
 YY_RULE_SETUP
-#line 229 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY);
@@ -1618,7 +1523,6 @@ YY_RULE_SETUP
 case 85:
 /* rule 85 can match eol */
 YY_RULE_SETUP
-#line 235 "snobol4.l"
 {
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
@@ -1626,7 +1530,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 86:
 YY_RULE_SETUP
-#line 239 "snobol4.l"
 {
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
@@ -1636,7 +1539,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 87:
 YY_RULE_SETUP
-#line 245 "snobol4.l"
 {
     if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '"';
 }
@@ -1644,7 +1546,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 88:
 YY_RULE_SETUP
-#line 249 "snobol4.l"
 {
     strbuf[strpos] = '\0';
     BEGIN(BODY);
@@ -1655,7 +1556,6 @@ YY_RULE_SETUP
 case 89:
 /* rule 89 can match eol */
 YY_RULE_SETUP
-#line 255 "snobol4.l"
 {
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
@@ -1663,7 +1563,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 90:
 YY_RULE_SETUP
-#line 259 "snobol4.l"
 { if (gt_depth > 0) return T_CONCAT; }
 	YY_BREAK
 case 91:
@@ -1671,7 +1570,6 @@ case 91:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 260 "snobol4.l"
 { return T_GOTO_S; }
 	YY_BREAK
 case 92:
@@ -1679,7 +1577,6 @@ case 92:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 261 "snobol4.l"
 { return T_GOTO_S; }
 	YY_BREAK
 case 93:
@@ -1687,7 +1584,6 @@ case 93:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 262 "snobol4.l"
 { return T_GOTO_F; }
 	YY_BREAK
 case 94:
@@ -1695,38 +1591,31 @@ case 94:
 yyg->yy_c_buf_p = yy_cp = yy_bp + 1;
 YY_DO_BEFORE_ACTION; /* set up yytext again */
 YY_RULE_SETUP
-#line 263 "snobol4.l"
 { return T_GOTO_F; }
 	YY_BREAK
 case 95:
 YY_RULE_SETUP
-#line 264 "snobol4.l"
 { gt_depth++; return T_GOTO_LPAREN; }
 	YY_BREAK
 case 96:
 YY_RULE_SETUP
-#line 265 "snobol4.l"
 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
 	YY_BREAK
 case 97:
 /* rule 97 can match eol */
 YY_RULE_SETUP
-#line 266 "snobol4.l"
 { if (gt_depth > 0) { yyless(1); gt_depth++; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
-#line 267 "snobol4.l"
 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
-#line 268 "snobol4.l"
 { return T_1DOLLAR; }
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
-#line 269 "snobol4.l"
 {
     strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1);
     return T_IDENT;
@@ -1735,7 +1624,6 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 101:
 YY_RULE_SETUP
-#line 274 "snobol4.l"
 {
     int len = yyleng - 2;
     if (len < 0) len = 0;
@@ -1747,29 +1635,24 @@ YY_RULE_SETUP
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 102:
 YY_RULE_SETUP
-#line 282 "snobol4.l"
 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 103:
 /* rule 103 can match eol */
 YY_RULE_SETUP
-#line 283 "snobol4.l"
 { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 104:
 YY_RULE_SETUP
-#line 284 "snobol4.l"
 { }
 	YY_BREAK
 case 105:
 YY_RULE_SETUP
-#line 285 "snobol4.l"
 { }
 	YY_BREAK
 case 106:
 /* rule 106 can match eol */
 YY_RULE_SETUP
-#line 286 "snobol4.l"
 { lineno++; BEGIN(INITIAL); }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
@@ -1781,7 +1664,6 @@ case YY_STATE_EOF(STR1):
 case YY_STATE_EOF(STR2):
 case YY_STATE_EOF(SKIP):
 case YY_STATE_EOF(INCL):
-#line 287 "snobol4.l"
 {
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);
     if (!YY_CURRENT_BUFFER) return T_EOF;
@@ -1790,10 +1672,8 @@ case YY_STATE_EOF(INCL):
 /*--------------------------------------------------------------------------------------------------------------------*/
 case 107:
 YY_RULE_SETUP
-#line 292 "snobol4.l"
 ECHO;
 	YY_BREAK
-#line 1797 "snobol4.lex.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -3002,8 +2882,6 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 292 "snobol4.l"
-
 /*--------------------------------------------------------------------------------------------------------------------*/
 void sno_error(int ln, const char *fmt, ...) {
     va_list ap;
@@ -3051,6 +2929,7 @@ Token flex_lex_next(Lex *lx) {
         case T_LABEL:
             t.sval = intern(strbuf);
             t.ival = strcmp(strbuf,"END")==0 ? 1 : 0;
+            t.lineno = g_stmt_lineno;
             return t;
         case T_IDENT: case T_END: case T_KEYWORD:
         case T_FUNCTION:
