@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+# Generate a REP-LOOP + BRACKETED variant of a -match demo. Aspect 2 of Lon's two-aspect law:
+# the program itself brackets the FIXTURE (the match), so the match phase is isolated from the
+# pattern-COMPILE phase that dominates these demos at their committed inputs.
+# ⛔ REFUSES rather than emitting a variant it cannot vouch for: exactly one fixture line, or nothing.
+import sys, re
+src_path, out_path, brk_path, reps = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+lines = open(src_path, encoding='utf-8', errors='surrogateescape').read().split('\n')
+# ⛔ THE FIXTURE IS FOUND BY ANCHORING ON THE SUBJECT, NOT ON A '?' -- SNOBOL4 HAS TWO MATCH SPELLINGS
+# and these demos use BOTH. calculator-1/treebank/claws5 write the EXPLICIT form `src ? C :F(error)`;
+# calculator-2 and json write the IMPLICIT juxtaposition form `src  C  :F(error)` with no '?' at all.
+# A detector keyed on '?' finds zero fixtures in the second group and, if it then fell back to a guess,
+# would silently bracket the wrong statement. So: locate `<subj> = INPUT`, then take the next
+# non-comment statement whose subject is that same variable and which is NOT an assignment.
+m = [(i, mm.group(1)) for i, l in enumerate(lines)
+     if not l.startswith('*') for mm in [re.match(r'^\s+(\w+)\s*=\s*INPUT\b', l)] if mm]
+if len(m) != 1:
+    sys.stderr.write("REFUSE: found %d `<subj> = INPUT` lines in %s (want exactly 1); not guessing\n" % (len(m), src_path))
+    sys.exit(2)
+read_at, subj = m[0]
+def stmt_part(l):
+    j = l.find(':')            # strip the goto field before testing for an assignment
+    return l if j < 0 else l[:j]
+fix = [i for i in range(read_at + 1, len(lines))
+       if not lines[i].startswith('*') and re.match(r'^\s+' + re.escape(subj) + r'\s+\S', lines[i])
+       and '=' not in stmt_part(lines[i])]
+if not fix:
+    sys.stderr.write("REFUSE: no match statement on subject '%s' after its INPUT read in %s\n" % (subj, src_path))
+    sys.exit(2)
+fix = [fix[0]]
+i = fix[0]
+stmt = lines[i].strip()
+pre = ["        OUTPUT(.rep_brk, 7, '%s')" % brk_path,
+       "        rep_count = %s" % reps,
+       "        rep_index = 0",
+       "        rep_t0 = TIME()"]
+post = ["        rep_index = LT(rep_index, rep_count) rep_index + 1              :S(rep_loop)",
+        "        rep_brk = 'BRACKET ns=' (TIME() - rep_t0) ' reps=' rep_count"]
+lines[i:i+1] = pre + ["rep_loop " + stmt] + post
+open(out_path, 'w', encoding='utf-8', errors='surrogateescape').write('\n'.join(lines))
+print("ok fixture_line=%d stmt=%s" % (i + 1, stmt))
