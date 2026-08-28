@@ -14,7 +14,6 @@ std::string bb_move_label() {
     if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_move_label: no shared-slot owner (op_off<0)");
     if (!_.lbl_t0) return x86_alpha() + x86_bomb("bb_move_label: resume-target label unresolved (lbl_t0 NULL)");
     if (_.op_zres && _.lbl_t1_p) {
-        uint64_t push_fp; { void (*fp)(void *) = rt_pl_retry_push; push_fp = (uint64_t)(uintptr_t)(void *)fp; }
         return x86("comment", "IR_MOVE_LABEL (ZD/cells: push alpha to retry stack)")
              + x86_alpha()
              + IF(_.op_sa >= 0 && _.op_sa != _.op_off,
@@ -23,7 +22,7 @@ std::string bb_move_label() {
                  + x86("mov", "rax", FRQ(_.op_sa + 8))
                  + x86("mov", FRQ(_.op_off + 8), "rax"))
              + x86_lea_tgt("rdi", X86T_TGT1)
-             + x86("call", "rt_pl_retry_push", push_fp)
+             + x86("call", "rt_pl_retry_push", (uint64_t)(uintptr_t)(void *)rt_pl_retry_push)
              + x86_gamma()
              + x86_beta_trampoline();
     }
