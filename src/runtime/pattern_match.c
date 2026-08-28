@@ -1265,18 +1265,24 @@ static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
    the array already exists for the DTP cache, and the DTP arm only allocates when ci >= 0 (a GVA-eligible name), which never fires for the PATV$ sites this arm serves.
    ⛔ NOT CACHED, and each for its own reason: an '&' name (rt_defer_nv_read has a keyword path NV_PTR_fn does not model), a NULL return (NV_PTR_fn refuses the reserved I/O and control names -- INPUT, OUTPUT,
    STLIMIT, ANCHOR, ...  whose value is COMPUTED, not stored), and site < 0 (the emitter had no slot to give). */
-static DESCR_t rt_defer_cell_read(const char *varname, long site, int *ok)
+/* ⛔ always_inline AND POINTER-RETURNING, and both halves are the -O0 fact rule biting (hq_P, slice (a) of perf-pattern-defer-capture-layer-cure).  This was a plain `static` returning a 16-byte DESCR_t through an
+   `int *ok` out-param.  At -O0 -- which the s262 NO-`-O2` fact rule makes THE number of record, so this is not a hypothetical about an optimiser we do not ship -- gcc emits a REAL CALL for it, and a real 16-byte
+   struct return, and a store through `ok`, all to deliver a value the caller immediately picks two fields out of.  MEASURED: rt_defer_cell_read was 10.5% of pattern_bt (ceo's attribution TSV
+   corpus/benchmarks/snobol4/perf-attribution-20260827T235331Z.tsv) for a body whose actual work on the hit path is ONE compare and ONE load.  ⭐ THE CLASS IS THE ONE THIS FILE ALREADY NAMES TWICE ABOVE
+   (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len): at -O0 `static inline` is a suggestion and always_inline is the instruction, so a hot helper that is cheap by inspection is not cheap by
+   measurement until it is forced inline.  Returning the CELL instead of a COPY OF THE CELL also deletes the struct return entirely -- the caller needs the live cell to read `.v` and `.p` out of, never a snapshot,
+   and NULL now carries exactly what `*ok = 0` carried.  ⛔ Behaviour is unchanged in every arm, including the three refusals ('&' keyword names, '*' indirect names, site out of range) and the NV_PTR_fn miss. */
+static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, long site)
 {
     extern DESCR_t *NV_PTR_fn(const char *name);
     extern uint64_t g_sno_defer_cells[4096];
-    *ok = 0;
-    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return NULVCL;
+    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return (DESCR_t *)0;
     uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
-    DESCR_t *cell;
-    if (slot[0] == (uint64_t)(uintptr_t)varname) cell = (DESCR_t *)(uintptr_t)slot[1];
-    else { cell = NV_PTR_fn(varname); if (!cell) return NULVCL; slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell; }
-    *ok = 1;
-    return *cell;
+    if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
+    DESCR_t *cell = NV_PTR_fn(varname);
+    if (!cell) return (DESCR_t *)0;
+    slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell;
+    return cell;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
@@ -1285,9 +1291,17 @@ rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
     rt_defer_pr_t r; r.fn = (void *)0; r.aux = 0;
     const int _merge = rt_defer_merge_on();
     if (_merge && varname && varname[0] != '*') {
-        int ok = 0; DESCR_t cv = rt_defer_cell_read(varname, site, &ok);
+        DESCR_t *cp = rt_defer_cell_ptr(varname, site); const int ok = cp != (DESCR_t *)0; DESCR_t cv = ok ? *cp : NULVCL;
         if (ok && cv.v != DT_P && cv.v != DT_X) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
-        if (ok && cv.v == DT_P && cv.p) { dtp_fn_of(cv.p); void *fn = *(void **)cv.p; if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)cv.p; return r; } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
+        /* ⭐ THE LAZY-COMPILE CALL IS PAID ONCE, NOT EVERY ITERATION (hq_P, slice (a) of perf-pattern-defer-capture-layer-cure).
+           dtp_fn_of is a NO-OP whenever the fn has already materialised -- its whole body is `if (!h->fn && h->rcp) { compile }; return h->fn`.
+           The old line called it unconditionally and then re-read the same field it had just returned, so on every iteration after the first
+           this was a full call (prologue, frame, ret) to reach a load we then did ourselves anyway.  MEASURED at fixed work on pattern_bt:
+           dtp_fn_of was 5.1% of the whole program (ceo's post-slice-1 attribution TSV, corpus/benchmarks/snobol4/perf-attribution-20260827T235331Z.tsv).
+           ⛔ THIS IS AN ORDERING CHANGE, NOT A CACHE -- fn is read out of the LIVE DTP every single time, never memoised beside it, so a
+           reassignment of the deferred variable cannot go stale here and there is no new global.  The fn-at-offset-0 read is the same one the
+           old line did and is held by the _Static_assert at the top of this file.  When fn is NULL we call dtp_fn_of exactly as before. */
+        if (ok && cv.v == DT_P && cv.p) { void *fn = *(void **)cv.p; if (!fn) { dtp_fn_of(cv.p); fn = *(void **)cv.p; } if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)cv.p; return r; } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
     }
     if (!_merge || !varname || varname[0] == '*') {
         void *dtp = rt_defer_get_pat_dtp(varname, 0);

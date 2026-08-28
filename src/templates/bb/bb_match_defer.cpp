@@ -39,6 +39,9 @@ static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+/* ⭐ KILLSWITCH + CONTROL ARM for the merged-defer inline cache below (RULES.md: every perf claim ships one).  SCRIP_DEFER_IC=0 removes the inline arm entirely and every site falls back to the unmodified
+   rt_defer_probe_run call, so the cure can be A/B'd in one binary without a rebuild.  Default ON, same polarity and same spelling as defer_xpat_on/rt_defer_merge_on. */
+static int defer_ic_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_IC"); v = (e && *e == '0') ? 0 : 1; } return v; }
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -177,6 +180,26 @@ std::string bb_match_defer() {
              + x86("mov",   "edx", -1L)
              + x86("jmp",   "L0")
              + x86("def",   L(30)))
+         + IF(merged && msite >= 0 && defer_ic_on(),
+               x86("comment", "⭐⭐ THE RESOLVED-fn INLINE CACHE (hq_P, slice (a) of perf-pattern-defer-capture-layer-cure).  The merged arm below already resolves ONCE instead of twice, and the runtime already remembers the site's NV cell in the g_sno_defer_cells pair -- but EVERY iteration still paid a full C call to be told a thing the pair could answer here: xfer_enter's three wire pushes, the argument marshalling, call/ret, rt_defer_probe_run's own prologue, the (now always_inline) slot compare, and the load of [dtp+0].  MEASURED at fixed work on pattern_bt, m4 -O0: rt_defer_probe_run 15.1% + rt_defer_cell_read 10.5% + dtp_fn_of 5.1% of the whole program, with the call ceremony itself inside n58_match_defer_a's 25.7%.  This arm answers the DT_P-with-materialised-fn case with ZERO calls and zero stack traffic, in the same register contract the call publishes: rax=fn, rdx=dtp.  ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER -- exactly the PT-3 argument the $V arm above already relies on.  Six conditions must ALL hold or we fall through to the unmodified call: the pair's key still equals THIS site's baked varname (pointer identity, so a collision or a re-resolution MISSES rather than lying), a non-null cell, cell->v == DT_P, a non-null payload, and a non-null [dtp+0].  fn is read out of the LIVE DTP every iteration and is never memoised beside the pair, so reassigning the deferred variable is seen immediately -- a new DTP has a different pointer and a different fn, and a non-pattern value fails the DT_P test.  ⭐ NO NEW GLOBAL: the pair is the EXISTING slot the runtime already writes; this arm only READS it, and it is the runtime's own write that arms it on the first iteration.  ⛔ The killswitch SCRIP_DEFER_MERGE=0 also disarms this for free -- with merging off the runtime never writes the pair, the key stays 0, and every probe misses.")
+             + x86("lea",  "rsi", "[rip + __]", pairadr, pairlbl)
+             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("mov",  "rcx", RDQ("rsi", 0))
+             + x86("cmp",  "rcx", "rdi")
+             + x86("jne",  L(22))
+             + x86("mov",  "rcx", RDQ("rsi", 8))
+             + x86("test", "rcx", "rcx")
+             + x86("je",   L(22))
+             + x86("mov",  "rax", RDQ("rcx", 0))
+             + x86("cmp",  "al", (long)DT_P)
+             + x86("jne",  L(22))
+             + x86("mov",  "rdx", RDQ("rcx", 8))
+             + x86("test", "rdx", "rdx")
+             + x86("je",   L(22))
+             + x86("mov",  "rax", RDQ("rdx", 0))
+             + x86("test", "rax", "rax")
+             + x86("jne",  L(23))
+             + x86("def",  L(22)))
          + IF(merged,
                x86("comment", "⭐ ONE RESOLUTION, NOT TWO (hq_P s260): this site used to call rt_defer_get_pat_dtp and then, on the not-a-pattern fall-through, rt_defer_run_all -- and BOTH opened by resolving the SAME baked literal through the global name table, back to back, with only a test and a jz between them.  Measured on roman.sno: rt_defer_nv_read'rt_defer_get_pat_dtp and rt_defer_nv_read'rt_defer_run_all at 594,060 Ir EACH -- identical counts -- pushing NV_GET_fn to 19.35% of the whole program with another 5.91% of __strcmp_avx2 under it.  rt_defer_probe_run resolves once and answers both questions in registers: rax=fn (0 => not a pattern, take L0), rdx=dtp when it IS a pattern and the new cursor when it is not.  The string half therefore needs no call at all -- L0 just moves edx into eax.  esi now carries cur_delta where it used to carry a constant-zero ival_flag, which is sound because this is the only arm that reaches here and it always passed 0.")
              + x86_xfer_enter()
@@ -187,6 +210,7 @@ std::string bb_match_defer() {
              + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int, long))rt_defer_probe_run)
              + x86_anchor_leave()
              + x86_xfer_leave())
+         + IF(merged && msite >= 0 && defer_ic_on(), x86("comment", "the inline cache's fast exit lands here: rax=fn, rdx=dtp, identical to what the call leaves") + x86("def", L(23)))
          + x86("test", "rax", "rax")
          + x86("jz",   "L0")
          + rspd_snap(&g_rspd_save, "g_rspd_save")
