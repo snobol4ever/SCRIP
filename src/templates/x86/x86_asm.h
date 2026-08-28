@@ -496,8 +496,8 @@ inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
 inline const char * x86_fb()         { return "rsp"; }
 inline int          x86_fb_num()     { return x86_fb_data() ? 5 : 4; }
-inline const char * x86_fr32_prefix() { return "dword ptr [rsp + "; }
-inline const char * x86_fr64_prefix() { return "qword ptr [rsp + "; }
+inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
+inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 extern "C" int rt_zeta_mode(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zeta_mode() { return rt_zeta_mode(); }
