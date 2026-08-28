@@ -10,6 +10,10 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/src"
+# A missing src/ must REFUSE, not silently score zero violations. LIVE() below runs `find "$SRC"
+# ...` with no `|| true` guard of its own -- find's "No such file or directory" goes to stderr and
+# the loop below it just sees zero lines, indistinguishable from a clean scan of a real tree.
+[ -d "$SRC" ] || { echo "UNPROVEN: $SRC missing"; exit 2; }
 strip() { sed -E ':a;s@/\*[^*]*\*+([^/*][^*]*\*+)*/@@;ta'; }
 LIVE() { find "$SRC" -name '*.c' -o -name '*.cpp' -o -name '*.h' | grep -v '/attic/'; }
 
