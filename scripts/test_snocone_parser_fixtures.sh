@@ -1,51 +1,35 @@
 #!/usr/bin/env bash
-# test_snocone_parser_fixtures.sh — SI-7 gate
+# test_snocone_parser_fixtures.sh
 #
-# Runs `scrip --dump-ast` on every .sc in corpus/tests/snocone/parser-fixtures/
-# and diffs the output against the corresponding .ref oracle.
+# Grades corpus/tests/snocone/parser.sc / .ref (corpus_suite_harness.py's format-B suite pair,
+# --lang snocone) via `scrip --dump-ast`, diffed per entry. Consolidated from 67 loose file pairs
+# 2026-08-28 (tests-consolidate-snocone, fan-out child of corpus-suites-consolidation, done as the
+# LANG_CONFIGS["snocone"] round-trip proof, on top of snocone-parser-fixture-ast-drift-ruling's
+# same-day .ref re-pin -- all 67 already-corrected fixtures converted with zero exclusions, 0 kept
+# loose). This script previously ran the pre-conversion per-file loop directly against
+# corpus/tests/snocone/parser-fixtures/*.sc; that tree is now retired (git rm'd, byte-equal
+# re-validated both directions before deletion, per corpus-suites-consolidation's method).
 #
-# Gate: FAIL=0 over the printed PASS+FAIL+SKIP total (do not pin a specific PASS
-# number here -- the fixture count drifts; see FACT RULE "a probe never asserts
-# a denominator", RULES.md).
+# Gate: FAIL=0 over the printed total (do not pin a specific total here -- the fixture count
+# drifts; a probe asserts FAIL=0/SKIP=0 over its own denominator, never a copied number -- RULES.md).
 #
-# AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
-S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 
-set -euo pipefail
+set -uo pipefail   # deliberately NOT -e: this script's own diagnostic must never mask a fail count
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${HERE}/../scrip"
-FIXTURES="$S4E/corpus/tests/snocone/parser-fixtures"
-PASS=0; FAIL=0; SKIP=0
+SNO="$S4E/corpus/tests/snocone/parser.sc"
+REF="$S4E/corpus/tests/snocone/parser.ref"
 
-echo "=== Snocone parser fixtures ==="
+echo "=== Snocone parser fixtures (suite) ==="
 
-if [ ! -d "$FIXTURES" ]; then
-    echo "SKIP corpus not found at $FIXTURES"
+if [ ! -f "$SNO" ] || [ ! -f "$REF" ]; then
+    echo "SKIP suite not found at $SNO / $REF"
     exit 0
 fi
 
-for sc in "$FIXTURES"/*.sc; do
-    ref="${sc%.sc}.ref"
-    name="$(basename "${sc%.sc}")"
-    if [ ! -f "$ref" ]; then
-        echo "  SKIP $name (no .ref)"
-        SKIP=$((SKIP+1))
-        continue
-    fi
-    actual=$(timeout 8 "$SCRIP" --dump-ast "$sc" 2>/dev/null) || true
-    expected=$(cat "$ref")
-    if [ "$actual" = "$expected" ]; then
-        echo "  PASS $name"
-        PASS=$((PASS+1))
-    else
-        echo "  FAIL $name"
-        diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | head -12 || true
-        FAIL=$((FAIL+1))
-    fi
-done
-
-echo ""
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
-[ "$FAIL" -eq 0 ]
+out=$(python3 "$HERE/corpus_suite_harness.py" run "$SNO" "$REF" --lang snocone 2>&1)
+rc=$?
+echo "$out"
+[ "$rc" -eq 0 ]
