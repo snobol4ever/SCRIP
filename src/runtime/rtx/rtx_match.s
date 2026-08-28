@@ -1206,6 +1206,32 @@ RTX_ENDF(rt_defer_get_pat_fn)
  * NO SPEED NUMBER CLAIMED — the 3-arm rail refuses this machine (s224 finding). Grade on kill-switch
  * byte-identity and correctness only.
  *===================================================================================================================*/
+/*=====================================================================================================================
+ * ARM-A NV_SET_fn SKIP (row perf-pattern-defer-capture-layer-cure, seat10 2026-08-28, LEDGER hq_P s282).
+ *
+ * .Lcap_nv below now tries NV_SET_fn's OWN fast path directly (NV_CELL_IF_FASTSET_fn + a straight
+ * cell write) instead of paying NV_SET_fn's call+prologue+epilogue on every immediate-$ capture, and
+ * falls back to the ORIGINAL, UNCHANGED NV_SET_fn call (.Lcap_slow) the instant any precondition does
+ * not hold. NV_SET_fn stays the single source of truth for every arm this skips — this is an
+ * optimization of the common case, never a re-specification of the semantics. Measured ceiling ~13.1%
+ * of porter, net ~11% after the guards below (hq_P, callgrind Ir, porter.dat/2000 lines).
+ *
+ * FOUR PRECONDITIONS (hq_P LEDGER s282), each cited against the C it mirrors:
+ *   (1) rt_sxt_break_fast, inlined below (gc_heap.h:51) — core.c:2410. val.v is always DT_S here.
+ *   (2) g_protected_pat_vars_armed && is_protected_pat_name(name) must still fall back — core.c:2411.
+ *   (3) the three-way observer check must still fire comm_var — core.c:2416. g_comm_dbg and
+ *       trace_set_n are core.c FILE-STATIC (core.c:41-42) and unreachable from a separate .S TU by
+ *       construction; comm_var_active() (core.c:454, externally linked) is the one correct accessor,
+ *       never a hand-rolled re-read of another TU's file-static state.
+ *   (4) SCRIP_EXPR_STORE_DBG (core.c:2408) is a debug-only stderr print gated on an EXPR$-prefixed
+ *       name. NOT mirrored here — same asymmetry class already accepted for SCRIP_CAP_POISON (see
+ *       this file's own header note above on rt_cap_poison()). An EXPR$ name reaching the fast path
+ *       loses only the diagnostic print, never a semantic guarantee: .Lcap_slow still runs the full
+ *       NV_SET_fn, including this check, on every name the fast path declines.
+ * ⛔ CLAUSE-9 NOTE (RULES.md INSTRUMENT LAWS #9): this is the immediate-$ twin ONLY. The deferred-.
+ * twin's own NV_SET_fn skip already landed separately (rt_dcap_pump, SCRIP aecbe2dc) — the two are
+ * additive cures of the two capture operators, not one cure re-graded twice on the same spelling.
+ *=====================================================================================================================*/
 RTX_FUNC(rt_cap_open)
     /* s196 (Lon in-chat): ONE IMPLEMENTATION TO MAINTAIN — the RTX_GATE is DELETED and this asm ARM A is the
      * SOLE spelling of the plain-name immediate-$ commit; c_rt_cap_open keeps ONLY the computed-name '*' arm
@@ -1285,8 +1311,109 @@ rt_cap_open_plain:
     lea     r8, [rip + .Lcap_empty]                     /* r8 = "" fallback                */
     mov     ecx, 0
 .Lcap_nv:
-    /* NV_SET_fn(varname, DESCR_t{.v=DT_S, .slen=len, .s=copy}) */
-    /* rsi = first eightbyte: DT_S | (len << 32); rdx = second eightbyte: .s pointer */
+    /* r11 = varname, r8 = copy, ecx = len at entry (unchanged contract). See the ARM-A NV_SET_fn SKIP
+     * header block above for the design and the four preconditions this mirrors. */
+
+    /* (1) rt_sxt_break_fast inline: if (s == g_sxt_owner) g_sxt_owner = NULL; -- gc_heap.h:51.
+     * g_sxt_owner is g_sxt_fr.owner at offset 0 (gc_heap.h:39-41, _Static_assert in gc_heap.c:42). */
+    mov     r9, qword ptr [rip + g_sxt_fr@GOTPCREL]      /* r9 = &g_sxt_fr == &g_sxt_fr.owner */
+    cmp     qword ptr [r9], r8
+    jne     .Lcap_sxt_skip
+    mov     qword ptr [r9], 0
+.Lcap_sxt_skip:
+
+    /* (2) protected-pattern-name guard: g_protected_pat_vars_armed && is_protected_pat_lead(name[0])
+     * && is_protected_pat_name(name) -- core.c:2411. Lead pre-filter inlined (rt_protected.h), the
+     * real name check is a PLT call only when the lead byte can possibly match. */
+    mov     r10, qword ptr [rip + g_protected_pat_vars_armed@GOTPCREL]
+    cmp     dword ptr [r10], 0
+    je      .Lcap_fast                                   /* not armed: never protected          */
+    movzx   eax, byte ptr [r11]                           /* name[0]                             */
+    cmp     al, 65                                         /* 'A' */
+    je      .Lcap_lead_hit
+    cmp     al, 66                                         /* 'B' */
+    je      .Lcap_lead_hit
+    cmp     al, 70                                         /* 'F' */
+    je      .Lcap_lead_hit
+    cmp     al, 82                                         /* 'R' */
+    je      .Lcap_lead_hit
+    cmp     al, 83                                         /* 'S' */
+    jne     .Lcap_fast                                    /* lead not in ABFRS: not protected     */
+.Lcap_lead_hit:
+    RTX_CALL_ALIGN
+    push    r11                                            /* save varname                        */
+    push    r8                                             /* save copy                           */
+    push    rcx                                            /* save len                            */
+    push    rcx                                            /* pad to 32B = maintain 16-alignment  */
+    mov     rdi, r11
+    call    is_protected_pat_name@PLT
+    pop     rcx                                            /* discard pad                         */
+    pop     rcx                                            /* rcx = len (restored)                */
+    pop     r8                                             /* r8 = copy (restored)                */
+    pop     r11                                            /* r11 = varname (restored)            */
+    RTX_CALL_UNALIGN
+    test    eax, eax
+    jnz     .Lcap_slow                                     /* protected: NV_SET_fn raises ERROR 42 */
+
+.Lcap_fast:
+    /* NV_CELL_IF_FASTSET_fn(varname) -- the same admission NV_SET_fn's own fast path takes (core.c:2399) */
+    RTX_CALL_ALIGN
+    push    r11
+    push    r8
+    push    rcx
+    push    rcx                                            /* pad */
+    mov     rdi, r11
+    call    NV_CELL_IF_FASTSET_fn@PLT
+    pop     rcx
+    pop     rcx
+    pop     r8
+    pop     r11
+    RTX_CALL_UNALIGN
+    test    rax, rax
+    jz      .Lcap_slow                                     /* no cached cell: NV_SET_fn's slow path owns this name */
+
+    /* *cell = DESCR_t{v=DT_S, mod_op=0, src_node=0, slen=len, .s=copy} -- IDENTICAL two-eightbyte
+     * construction to .Lcap_slow below, stored directly instead of passed to a call. */
+    mov     r9, rax                                        /* r9 = cell address (rax about to be rebuilt) */
+    mov     eax, 2                                          /* DT_S = 0x02, zeroes mod_op/src_node bytes  */
+    mov     rdx, rcx
+    shl     rdx, 32
+    or      rax, rdx                                        /* rax = DT_S | (len << 32)            */
+    mov     qword ptr [r9], rax
+    mov     qword ptr [r9 + 8], r8
+
+    /* (3) comm_var_active() -- the only correct way to read core.c's file-static observer state from
+     * this TU (see header note). Called only once the store has already landed, matching NV_SET_fn's
+     * own order (core.c:2416: *cell = val; then the three-way check). */
+    RTX_CALL_ALIGN
+    push    r11
+    push    r8
+    push    rcx
+    push    rcx
+    call    comm_var_active@PLT
+    pop     rcx
+    pop     rcx
+    pop     r8
+    pop     r11
+    RTX_CALL_UNALIGN
+    test    eax, eax
+    jz      .Lcap_fastret
+    RTX_CALL_ALIGN
+    mov     rdi, r11
+    mov     esi, 2
+    shl     rcx, 32
+    or      rsi, rcx
+    mov     rdx, r8
+    call    comm_var@PLT
+    RTX_CALL_UNALIGN
+.Lcap_fastret:
+    xor     eax, eax                                       /* return 0 (no proc-call pending)     */
+    ret
+
+.Lcap_slow:
+    /* UNCHANGED: NV_SET_fn(varname, DESCR_t{.v=DT_S, .slen=len, .s=copy}). Reached whenever the fast
+     * path above declines; r11/r8/ecx are restored to their .Lcap_nv-entry values on every path that
+     * jumps here. rsi = first eightbyte: DT_S | (len << 32); rdx = second eightbyte: .s pointer */
     RTX_CALL_ALIGN
     mov     rdi, r11                                     /* arg1 = varname                  */
     mov     esi, 2                                       /* DT_S = 0x02                     */
