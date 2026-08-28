@@ -39,15 +39,15 @@ static void gc_static_segs_init(void);
 int g_gc_pending;
 /* rt_sxt_fr_t / g_sxt_fr / g_sxt_owner now declared+defined via gc_heap.h (perf-sxt-break-unconditional-call-tax) -- the type and the extern must live where hot callers can see them too. */
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
-_Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.S bakes g_sxt_fr.owner @0");
-_Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.S bakes g_sxt_fr.len @8");
-_Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.S bakes g_sxt_fr.gva_n @16");
-_Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.S bakes g_sxt_fr.off @20");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.s bakes g_sxt_fr.owner @0");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.s bakes g_sxt_fr.len @8");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.s bakes g_sxt_fr.gva_n @16");
+_Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.s bakes g_sxt_fr.off @20");
 #define g_sxt_len   (g_sxt_fr.len)
 #define g_sxt_gva_n (g_sxt_fr.gva_n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
-void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }   /* real symbol kept for rtx_icnvar.S's `call rt_sxt_break@PLT`; logic lives once, in gc_heap.h */
+void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }   /* real symbol kept for rtx_icnvar.s's `call rt_sxt_break@PLT`; logic lives once, in gc_heap.h */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_note(char *s, long len)
 {
@@ -142,7 +142,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     return (void *)(h + 1); }
 }
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
-/* g_ah_on widened static->hidden (RTX step 0(c) precedent, matching g_wsi_base/ws/wss/blocks below): rtx_alloc.S's
+/* g_ah_on widened static->hidden (RTX step 0(c) precedent, matching g_wsi_base/ws/wss/blocks below): rtx_alloc.s's
    rt_ws_alloc fast path must skip to C whenever the alloc-histogram diagnostic is armed, so it needs to read this
    flag directly. Hidden (not exported) keeps [rip+sym] addressing and interposition-proofing identical to a static;
    only cross-TU linkability widens. Resolved once, before any RT call, by the rt_alloc_hist_init constructor below. */
@@ -237,7 +237,7 @@ static void *rt_ws_alloc_core(size_t n, uint16_t ty)
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rtx_alloc.S's RTX_FUNC(rt_ws_alloc) fast path jumps here (`jne/je/jb c_rt_ws_alloc`) with ONLY rdi=n staged —
+/* rtx_alloc.s's RTX_FUNC(rt_ws_alloc) fast path jumps here (`jne/je/jb c_rt_ws_alloc`) with ONLY rdi=n staged —
    this signature and its hardcoded HB_WS are the slow-path contract the asm veneer was written against, and
    may not gain a second argument. rt_ws_alloc_tag below is a SEPARATE entry point (no asm fast path of its
    own — ARBLK_t/DATINST_t headers are not hot enough to earn one) sharing the core carve via rt_ws_alloc_core. */

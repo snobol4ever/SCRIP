@@ -1,4 +1,4 @@
-/* rtx_icnsub.S — RTX-24-ICN. Contract: .github/ARCH-ICON-RTX.md. READ IT FIRST.
+/* rtx_icnsub.s — RTX-24-ICN. Contract: .github/ARCH-ICON-RTX.md. READ IT FIRST.
  *
  * SYMBOL: rt_subscript_var  (C of record: src/runtime/pattern_match.c c_rt_subscript_var)
  * GATE:   SCRIP_RTX_ICNSUB — the FOURTEENTH family gate. Icon-allocated by the ledger
@@ -42,7 +42,7 @@
  *         AGAIN inside rt_list_view), and ~20 spilled loads/stores around them.
  *   The two remaining callees are ALREADY ASM and are deliberately still called, not
  *   duplicated: to_int (LEAF, rt_asm_helpers.S) is bypassed entirely for DT_I because the
- *   value is already in a register; rt_agg_alloc (ALLOC, rtx_alloc.S) is CALLED, because it
+ *   value is already in a register; rt_agg_alloc (ALLOC, rtx_alloc.s) is CALLED, because it
  *   is itself a gated tail-fusion into rt_gcheap_alloc's bump and re-emitting that bump here
  *   would fork the allocator for a second owner. ⛔ THE HONEST CONSEQUENCE, STATED BEFORE
  *   MEASURING: the allocation is NOT removed, so this rung is the RTX-4/RTX-8d shape in
@@ -359,7 +359,7 @@ RTX_FUNC(rt_subscript_var)
      * STRINGIFIED key, and neither exists any more -- a bucket is a sorted contiguous array of
      * 48-byte entries and the hash is per-datatype.  A wrong-shape walk here would read arbitrary
      * memory and still assemble and still link, which is why this is a hard jump and not a comment.
-     * ⭐ The hashed lookup itself now lives in rtx_table.S (RTX-TBL), where it belongs. */
+     * ⭐ The hashed lookup itself now lives in rtx_table.s (RTX-TBL), where it belongs. */
     jmp     .Lsub_bail
     cmp     al, DT_T
     jne     .Lsub_bail

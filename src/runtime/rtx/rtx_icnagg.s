@@ -1,4 +1,4 @@
-/* rtx_icnagg.S -- RTX-8-ICN: the Icon aggregate family. rt_size_d + rt_list_bang_at.
+/* rtx_icnagg.s -- RTX-8-ICN: the Icon aggregate family. rt_size_d + rt_list_bang_at.
  *
  * CONTRACT: .github/ARCH-ICON-RTX.md. Ladder: .github/GOAL-ICON-RTX.md. Ledger: .github/RTX-CLAIMS.md.
  * Gate: SCRIP_RTX_ICNAGG (tenth family gate -- a ledger event).

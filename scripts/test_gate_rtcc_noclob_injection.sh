@@ -18,7 +18,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/src/templates" "$TMP/src/runtime/rtx"
-cat > "$TMP/src/runtime/rtx/rtx_inject_stub.S" <<'ASM'
+cat > "$TMP/src/runtime/rtx/rtx_inject_stub.s" <<'ASM'
 RTX_FUNC(rt_test_true_leaf)
     mov     eax, edi
     add     eax, esi

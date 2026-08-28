@@ -26,7 +26,7 @@
 # the rung will be graded on, and again after.
 #
 # The symbol list is DERIVED FROM THE TREE on every run (RTX_FUNC names in
-# src/runtime/rtx/*.S, intersected with the .so's dynamic table), never
+# src/runtime/rtx/*.s, intersected with the .so's dynamic table), never
 # hand-maintained — a checked-in list is the doc-rot class this ladder has paid
 # for six times (ARCH §7 step 0, the phantom family).
 #
@@ -57,7 +57,7 @@ compile_m4() {
 }
 # Derive the symbol set from the tree, then keep only what the .so really exports.
 nm -D --defined-only "$SO" | awk '$2=="T"{print $3}' | sort -u > "$TMP/dyn.txt"
-grep -rhoP 'RTX_FUNC\(\s*\K[A-Za-z0-9_]+' "$ROOT"/src/runtime/rtx/*.S | sort -u > "$TMP/asm.txt"
+grep -rhoP 'RTX_FUNC\(\s*\K[A-Za-z0-9_]+' "$ROOT"/src/runtime/rtx/*.s | sort -u > "$TMP/asm.txt"
 : > "$TMP/syms.txt"
 while read -r s; do
   grep -qx "$s" "$TMP/dyn.txt" || continue

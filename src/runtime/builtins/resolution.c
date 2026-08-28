@@ -22,7 +22,7 @@ int           g_resolve_cut_flag = 0;
 pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_value_trail_mark(void) { return g_pl_trail.top; }
-_Static_assert(__builtin_offsetof(pl_trail_t, top) == 32 && sizeof(pl_area_t) == 32, "rtx_plcall.S AND src/templates/bb_define.cpp (RTX-FUNC-1 alpha inline) both bake PL_TRAIL_TOP=32 to inline rt_value_trail_mark; pl_area_t grew or shrank -- the asm would stamp the vtmark from the WRONG WORD, which links fine and makes the epilogue landings tidy the wrong span of the value trail");
+_Static_assert(__builtin_offsetof(pl_trail_t, top) == 32 && sizeof(pl_area_t) == 32, "rtx_plcall.s AND src/templates/bb_define.cpp (RTX-FUNC-1 alpha inline) both bake PL_TRAIL_TOP=32 to inline rt_value_trail_mark; pl_area_t grew or shrank -- the asm would stamp the vtmark from the WRONG WORD, which links fine and makes the epilogue landings tidy the wrong span of the value trail");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper) {
     pl_trail_ent_t *ents = (pl_trail_ent_t *)g_pl_trail.area.base;

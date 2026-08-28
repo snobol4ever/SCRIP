@@ -10,7 +10,7 @@
 #
 # SURFACE DERIVATION (from the TREE, never a checked-in list — the phantom class):
 #   every T symbol defined by an object compiled from src/runtime/**.c,
-#   MINUS the already-ported RTX_FUNC names in src/runtime/rtx/*.S,
+#   MINUS the already-ported RTX_FUNC names in src/runtime/rtx/*.s,
 #   MINUS their c_* fallbacks,
 #   MINUS the rtx scaffolding itself.
 # What remains is exactly "C runtime code that could still be replaced by asm".
@@ -38,7 +38,7 @@ for o in $(find "$ROOT/out" -name '*.o' -newermt '1970-01-01' 2>/dev/null); do
 done
 sort -u "$TMP/rt_syms.txt" -o "$TMP/rt_syms.txt"
 # ---- 2. subtract what is already assembly ------------------------------------
-grep -rhoP 'RTX_FUNC\(\s*\K[A-Za-z0-9_]+' "$ROOT"/src/runtime/rtx/*.S 2>/dev/null | sort -u > "$TMP/ported.txt"
+grep -rhoP 'RTX_FUNC\(\s*\K[A-Za-z0-9_]+' "$ROOT"/src/runtime/rtx/*.s 2>/dev/null | sort -u > "$TMP/ported.txt"
 nm -D --defined-only "$SO" | awk '$2=="T"{print $3}' | sort -u > "$TMP/dyn.txt"
 : > "$TMP/cand.txt"
 while read -r s; do

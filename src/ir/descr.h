@@ -45,7 +45,7 @@ DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF))
 DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
                "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
-DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.S array+table share one subscript range guard");
+DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;

@@ -1,4 +1,4 @@
-/* rtx_table.S — RTX-TBL: the hashed TABLE lookup, in assembly.
+/* rtx_table.s — RTX-TBL: the hashed TABLE lookup, in assembly.
  *
  * THE CONTRACT IS .github/ARCH-SNOBOL4-RTX.md. READ IT BEFORE EDITING ANY .S FILE.
  * C of record: src/runtime/aggregates.c c_table_find_pair_d, and the eight
@@ -443,7 +443,7 @@ RTX_ENDF(table_find_pair_d)
  * table default and NULVCL are bought rather than copied.
  *
  * ⛔ TBPAIR_t.val AT 24 IS PINNED BY _Static_assert IN rtx_init.c (the same one
- * rtx_icnsub.S already relies on), so a core.h drift breaks the BUILD, not the
+ * rtx_icnsub.s already relies on), so a core.h drift breaks the BUILD, not the
  * lookup.  val is a DESCR_t: tag word at +24, value at +32.
  *
  * KILLSWITCH: shares SCRIP_RTX_TABLE=0 with the lookup -- one gate, one family.

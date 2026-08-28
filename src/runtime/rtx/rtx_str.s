@@ -1,4 +1,4 @@
-/* rtx_str.S — RTX family STR (rung RTX-3, s164).
+/* rtx_str.s — RTX family STR (rung RTX-3, s164).
  *
  * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
  *
@@ -291,7 +291,7 @@ RTX_ENDF(str_concat_d)
  * representation with a mandatory decimal point), A and T snprintf a prototype,
  * DATA reads the type name -- and DT_N and DT_K additionally RECURSE, through
  * rt_deref and NV_GET_fn respectively. Allocation and recursion both stay in C:
- * never replicate an allocation in asm (the rule rtx_match.S:471 already states).
+ * never replicate an allocation in asm (the rule rtx_match.s:471 already states).
  *
  * SO THE PORTED ARM IS A THREE-TEST STRAIGHT LINE WITH NO CALL AND NO ALLOCATION,
  * WHICH IS THE ARCH 0(f-pre) SHAPE WHOSE FALSIFIABILITY IS KNOWABLE IN ADVANCE:
@@ -300,8 +300,8 @@ RTX_ENDF(str_concat_d)
  *
  * 0(f) MEASURED BEFORE A LINE OF THIS WAS WRITTEN, AND IT FALSIFIED THE READING
  * THAT MOTIVATED THE RUNG. Reading the C suggested the surviving entries would be
- * biased toward the ALLOCATING arms, because prior rungs (rtx_match.S:822,
- * rtx_icnrel.S:92, rtx_icnagg.S:27) had already inlined this exact DT_S arm into
+ * biased toward the ALLOCATING arms, because prior rungs (rtx_match.s:822,
+ * rtx_icnrel.s:92, rtx_icnagg.s:27) had already inlined this exact DT_S arm into
  * their own hot paths and would therefore no longer reach it. An LD_PRELOAD tag
  * census says otherwise: DT_S with a non-NULL .s is 100.00% of entries on
  * string_manip (20,000,006), pattern_bt_deep and table_access -- and the count
@@ -329,7 +329,7 @@ RTX_ENDF(VARVAL_fn)
  * scalar-byte-copy): 14,553,000 Ir, 31.90% of string_manip.sno's fixed-work
  * kernel at -O0 N=20000, 15.75 Ir/byte for a two-load-one-store gather. At -O0
  * gcc spills n/i/dst/src/map to the stack and reloads every iteration; this is
- * the same cure as rtx_table.S -- the algorithm unchanged, the spills deleted.
+ * the same cure as rtx_table.s -- the algorithm unchanged, the spills deleted.
  * dst never aliases src (dst is always a fresh rt_ws_alloc_c buffer), so no
  * overlap handling is needed; the loop walks both pointers directly (rsi/rdi,
  * their documented string src/dst role) rather than indexing off a counter.

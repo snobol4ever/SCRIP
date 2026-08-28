@@ -1,4 +1,4 @@
-/* rtx_match.S — RTX family MATCH, slice 1: the CAP accessor leaves.
+/* rtx_match.s — RTX family MATCH, slice 1: the CAP accessor leaves.
  *
  * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
  *

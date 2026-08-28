@@ -1,4 +1,4 @@
-/* rtx_plunify.S — RTX family PLUNIFY.  RTX-2-PL: the Prolog general unification leaf.
+/* rtx_plunify.s — RTX family PLUNIFY.  RTX-2-PL: the Prolog general unification leaf.
  *
  * READ .github/ARCH-PROLOG-RTX.md BEFORE EDITING, AND ITS PARENT .github/ARCH-SNOBOL4-RTX.md §7
  * (the shared step-0 checklist; the Prolog contract deliberately does not restate it).

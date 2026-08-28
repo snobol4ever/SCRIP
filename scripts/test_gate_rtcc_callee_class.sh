@@ -18,7 +18,7 @@
 #   (3) MASK COVERS  — every destination-position write to r8/r9/r10/r11 anywhere in the reachable body
 #                      must appear in that symbol's mask.  Writes are counted through r8d/r8w/r8b too.
 #
-# Reachability follows local .L labels ACROSS RTX_FUNC boundaries (rtx_alloc.S really does share a tail:
+# Reachability follows local .L labels ACROSS RTX_FUNC boundaries (rtx_alloc.s really does share a tail:
 # rt_str_alloc falls into rt_agg_alloc's .Lga_armed).  A jump to a local label this script cannot find is
 # reported UNANALYZABLE and FAILS — the gate refuses to certify a body it could not read.
 #
@@ -68,7 +68,7 @@ if not claim:
 
 # ---- 2. index every RTX_FUNC block and every local label ---------------------------------------
 blocks, labels = {}, {}                                    # sym -> [lines] ; .Llabel -> sym
-for path in sorted(glob.glob(os.path.join(root, 'src/runtime/rtx/*.S'))):
+for path in sorted(glob.glob(os.path.join(root, 'src/runtime/rtx/*.s'))):
     cur = None
     for line in open(path, encoding='utf-8', errors='replace'):
         f = re.search(r'RTX_FUNC\(([^)]*)\)', line)
@@ -122,7 +122,7 @@ for sym, mask in sorted(claim.items()):
         fails.append((sym, "writes %s but mask says %s — VENEER WOULD DROP A LIVE SLOT"
                       % (",".join(sorted(extra)), ",".join(sorted(mask)) or "<none>")))
 
-print("=== RTCC CALLEE-CLASS GATE — %d classified symbols re-derived from src/runtime/rtx/*.S ===" % checked)
+print("=== RTCC CALLEE-CLASS GATE — %d classified symbols re-derived from src/runtime/rtx/*.s ===" % checked)
 for sym, why in fails: print("  FAIL  %-28s %s" % (sym, why))
 if fails:
     print("\n%d violation(s).  The mask table no longer matches the assembly." % len(fails))

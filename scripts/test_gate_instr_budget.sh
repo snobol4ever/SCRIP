@@ -37,8 +37,8 @@
 #
 # TABLE_ACCESS / ARRAY_SUM (added 2026-08-24, seat04, row `perf-table-array-runtime` NEXT step -- see
 # FINDING-2026-08-24-seat04-post-fix-table-array-callgrind-remeasurement.md; TABLE_ACCESS_IR_WATERMARK
-# RE-PINNED same day by seat01, row `perf-table-subscript-fastpath`, after RTX-31 (rtx_icnsub.S) +
-# RTX-NEW-ICNVAR (rtx_icnvar.S) closed two dead asm-fast-path gaps for SNOBOL4 table subscript/assign --
+# RE-PINNED same day by seat01, row `perf-table-subscript-fastpath`, after RTX-31 (rtx_icnsub.s) +
+# RTX-NEW-ICNVAR (rtx_icnvar.s) closed two dead asm-fast-path gaps for SNOBOL4 table subscript/assign --
 # see FINDING-2026-08-24-seat01-table-subscript-fastpath-rtx31-icnvar-table-store.md.  ARRAY_SUM_IR_WATERMARK
 # untouched: confirmed OK (not NOTE) post-fix, those arms never touch the DT_A array path.  Both are run STANDALONE
 # (no bench_wrap.sh fixed-iter twin, no fixed_n) exactly like roman/beauty above: table_access.sno's own
@@ -92,8 +92,8 @@ TOL_PCT="${TOL_PCT:-2}"
 #                                e3951bae -10.4%, cb743fe9 -6.7%, 69030b07 -6.3%, 083d106f -5.6%) -- the s262 ladder proper
 #   eca52780 10,217,267  flat    (seat04 measured table/array here and correctly left roman alone: not their row)
 #   1177e66e 10,224,491  flat    the pin -- emitted .s BYTE-IDENTICAL to eca52780 (md5 ac1f4619), so today's cures moved nothing here
-#   22971235 10,224,807  +0.003% RE-PROVEN after rebasing onto seat01's RTX-31/RTX-NEW-ICNVAR runtime work (rtx_icnsub.S,
-#                                rtx_icnvar.S).  A rebase is a NEW TREE and its gate must be re-proven, not assumed: those
+#   22971235 10,224,807  +0.003% RE-PROVEN after rebasing onto seat01's RTX-31/RTX-NEW-ICNVAR runtime work (rtx_icnsub.s,
+#                                rtx_icnvar.s).  A rebase is a NEW TREE and its gate must be re-proven, not assumed: those
 #                                are table-subscript fast paths and roman touches none of them, but that was MEASURED, not argued.
 # ⛔ FIXED WORK VERIFIED BEFORE BELIEVING ANY OF IT: demo/snobol4/roman/roman.sno is unchanged since 2026-08-18 and roman.ref since April
 # (345 conversions); only path moves touched either.  A shrunken workload is the way this measurement lies, and it did not.

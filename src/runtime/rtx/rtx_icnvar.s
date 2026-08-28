@@ -1,4 +1,4 @@
-/* rtx_icnvar.S — RTX family ICNVAR.  Icon variable assignment (RTX-1-ICN).
+/* rtx_icnvar.s — RTX family ICNVAR.  Icon variable assignment (RTX-1-ICN).
  *
  * READ .github/ARCH-ICON-RTX.md BEFORE EDITING.  Contract macros: rtx_abi.inc.
  *
@@ -134,7 +134,7 @@ RTX_FUNC(rt_assign_var)
      * to C.  This file's own header above calls table stores "volume, not speed" and
      * deliberately leaves them cold; that call was right for Icon's queens board (the
      * workload this port was measured against) and is WRONG for what changed it: the
-     * sibling fix in rtx_icnsub.S (RTX-31) now mints a (tbl,key_d) trap -- cellp==0,
+     * sibling fix in rtx_icnsub.s (RTX-31) now mints a (tbl,key_d) trap -- cellp==0,
      * tbl!=0 -- for EVERY SNOBOL4 table subscript-write, and table_access.sno alone
      * sends 10,500 of them here, ALL of which fell to c_rt_assign_var: the single
      * largest named C-side cost in the post-RTX-31 profile (8.93%). This is still not

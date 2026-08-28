@@ -4,7 +4,7 @@
 # GATE: no visibility("hidden") global in the runtime may be NAMED IN EMITTED PROGRAM TEXT.
 #
 # WHY THIS GATE EXISTS (s214, 2026-07-29). g_cap_gen was promoted static -> visibility("hidden") so
-# rtx_match.S could reach it. That is correct for a .S INSIDE libscrip_rt.so and WRONG for emitted
+# rtx_match.s could reach it. That is correct for a .S INSIDE libscrip_rt.so and WRONG for emitted
 # mode-4 code OUTSIDE it: a hidden symbol is absent from the dynamic table, so the separately-linked
 # mode-4 object cannot resolve it. 173 of 316 crosscheck programs failed to LINK. Mode 3 bakes the
 # address in-process and is STRUCTURALLY INCAPABLE of expressing the failure, so the defect survived

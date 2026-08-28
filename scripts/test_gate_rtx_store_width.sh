@@ -3,7 +3,7 @@
 #
 # Minted s219 (2026-07-30) to close the hazard s218 named and MIS-PRESCRIBED.
 #
-# THE HAZARD (s218, on rtx_match.S): g_cap_gen_next sits at +0x4, immediately
+# THE HAZARD (s218, on rtx_match.s): g_cap_gen_next sits at +0x4, immediately
 # after the 4-byte g_cap_gen, and it is the MONOTONIC CAPTURE-GENERATION WELL.
 # An 8-byte store to g_cap_gen therefore overwrites g_cap_gen_next with the high
 # half of a generation id, corrupting generation ALLOCATION downstream of every
@@ -22,7 +22,7 @@
 #
 # WHAT THIS GATE DOES: harvests every global's true size from the ELF symbol table
 # (ground truth, not prose -- ARCH section 7 0(c)'s own lesson about reading the
-# object), then walks src/runtime/rtx/*.S. Each `[rip + sym@GOTPCREL]` load taints
+# object), then walks src/runtime/rtx/*.s. Each `[rip + sym@GOTPCREL]` load taints
 # the destination register with sym's size; a store through that register wider
 # than the size is a VIOLATION. Registers are re-tainted on each load, so the
 # window is exact rather than line-count heuristic.
@@ -47,7 +47,7 @@ redef=re.compile(r'(?:mov|lea|xor|add|sub|pop|movzx|movsx)\s+(\w+)\s*,')
 newfn=re.compile(r'RTX_FUNC\(')
 store=re.compile(r'mov\s+(byte|word|dword|qword)\s+ptr\s*\[\s*(\w+)\s*(?:[+\-][^\]]*)?\]\s*,')
 viol=[];checked=0
-for f in sorted(glob.glob(os.path.join(root,'src/runtime/rtx/*.S'))):
+for f in sorted(glob.glob(os.path.join(root,'src/runtime/rtx/*.s'))):
     taint={}
     for n,raw in enumerate(open(f,encoding='utf-8',errors='replace'),1):
         line=raw.split('/*')[0]

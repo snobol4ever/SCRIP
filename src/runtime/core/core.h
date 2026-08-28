@@ -53,7 +53,7 @@ static inline int IS_REAL_fn(DESCR_t v)  { return v.v == DT_R; }
 static inline int IS_CSET_fn(DESCR_t v)  { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
 static inline int IS_DATA_fn(DESCR_t v)  { return v.v == DT_DATA; }
 char *VARVAL_fn(DESCR_t v);
-void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);   /* rtx_str.S owns this symbol; RTX_GATE tail-jumps to the C body below */
+void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);   /* rtx_str.s owns this symbol; RTX_GATE tail-jumps to the C body below */
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 DESCR_t INVOKE_fn(const char *name, DESCR_t *args, int nargs);
 DESCR_t dat_field_call(const char *name, DESCR_t *args, int nargs);
@@ -208,7 +208,7 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
    the encoding on FIRST demand and caches it in the entry.  ⛔ It ALLOCATES: never call it from the collector -- gc_heap.c
    tests the raw e->key field instead, and a null there simply means "never printed". */
 const char *tbl_pair_key(TBPAIR_t *e);
-TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);   /* rtx_table.S owns this symbol; RTX_GATE tail-jumps to the C body below */
+TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);   /* rtx_table.s owns this symbol; RTX_GATE tail-jumps to the C body below */
 TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
@@ -410,7 +410,7 @@ DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
-DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);   /* the C of record; rtx_table.S owns the exported name and falls back here */
+DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);   /* the C of record; rtx_table.s owns the exported name and falls back here */
 DESCR_t c_rt_svco_miss_d(struct _TBBLK_t *tb);                          /* miss arm: the table default, else the null string */
 DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);      /* row `table-int-keys-and-nd-subscript`: one dispatch for a[i,j] rvalue */
 DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);   /* same, lvalue/assignable-nametrap fallback shape */

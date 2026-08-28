@@ -44,7 +44,7 @@ ck('A/T adjacent', 'one subscript range guard', T['DT_T'] - T['DT_A'] == STRIDE)
 # actually USES it -- and that is where the TAG-3 renumber actually broke. Four defects shipped past a green
 # layout gate, every one of them an assembly file that had learned a tag number by heart:
 #   rt_asm_helpers.S  $9 / $99 / $6                      (AT&T; cannot include the Intel rtx_abi.inc)
-#   rtx_icnsub.S      mov rax,0x200000009  x5            (the tag FUSED inside a packed 64-bit literal)
+#   rtx_icnsub.s      mov rax,0x200000009  x5            (the tag FUSED inside a packed 64-bit literal)
 # The fused form is the reason a human reviewer and three greps all missed it: there is no "tag immediate"
 # to see, only a nibble. So the gate now reads the TREE, not just the layout.
 srcroot = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')

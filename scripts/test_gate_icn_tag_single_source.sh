@@ -4,7 +4,7 @@
 # THE CLASS (third recurrence, s237): a hand-written .S file carries its own `#define DT_x <lit>`.
 # It compiles, it links, the _Static_assert in rtx_init.c still passes (that assert guards descr.h
 # drift, NOT the .S hardcode), and the shipped .so ends up holding TWO DIFFERENT VALUES FOR ONE TAG.
-# Measured s237: rtx_icnagg.S/rtx_icnsub.S defined DT_DATA as 100 AFTER including rtx_abi.inc (which
+# Measured s237: rtx_icnagg.s/rtx_icnsub.s defined DT_DATA as 100 AFTER including rtx_abi.inc (which
 # has supplied the correct 0x70 via descr_tags.inc since s230), so dat_field_get shipped
 # `cmp $0x64,%esi` while every C site used `cmp $0x70`. The guard is a RANGE test (v < DT_DATA -> C)
 # and DT_FAIL is 0x68 = 104, so the stale boundary sat BELOW DT_FAIL and admitted a FAIL descriptor

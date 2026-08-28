@@ -1503,7 +1503,7 @@ static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
     (void)args; (void)nargs;
-    { extern void rt_bomb(const char *); rt_bomb("c_rt_pl_dop_unify: DELETED (s196 Lon one-to-maintain) — rt_pl_dop_unify in rtx_plunify.S is the sole spelling (zero bails, gate removed)"); }
+    { extern void rt_bomb(const char *); rt_bomb("c_rt_pl_dop_unify: DELETED (s196 Lon one-to-maintain) — rt_pl_dop_unify in rtx_plunify.s is the sole spelling (zero bails, gate removed)"); }
     return FAILDESCR;
 }
 
@@ -4657,7 +4657,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
     /* ⭐ INLINE-CHEAP-CHECK (perf-dispatch-gc-safepoint-necessity): rt_gc_point_arr's asm veneer pays an UNCONDITIONAL push/pop of all 6 callee-saved
        registers before rt_gc_point_arr_c ever reads g_gc_pending -- the overwhelming majority of calls (no collection due) pay that cost for nothing.
-       PRECEDENT: this exact shape is already landed and shipping at a sibling by-name-dispatch call site (rtx_plunify.S rt_pl_dop_unify, "absorbed
+       PRECEDENT: this exact shape is already landed and shipping at a sibling by-name-dispatch call site (rtx_plunify.s rt_pl_dop_unify, "absorbed
        rt_gc_point_arr" comment) -- check g_gc_pending BEFORE paying for the veneer, call the REAL, UNCHANGED veneer only when a collection is due.
        The cold (collecting) path below is byte-identical to today's unconditional call, so correctness when a collection actually runs is untouched
        (same register-parking, same g_gc_seam_sp/g_gc_shield_arr); only the zero-cost-today fast path changes. Matches g_gc_pending ONLY, same as the
@@ -5108,13 +5108,13 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐⭐ THE CEREMONY, NOT THE LOOP (hq_P s262).  MEASURED, roman.sno -O0 fixed work N=2000, callgrind line annotation: bn_replace is 480 Ir per call and the translate loop `buf[i] = map[sv[i]]` is 45 of them.  Of the other 435: three VARVAL_fn calls 48, three sv_len calls 81, the 4-slot map cache and its two memcmp PLT hops 101, rt_ws_alloc_c 60, result store 17.  ⭐ Ninety per cent of REPLACE was getting ready to translate five characters.
    ⛔ WHY THE CALLS EXIST AT ALL, AND WHY `static inline` DID NOT SAVE US: at -O0 gcc honours neither `inline` nor its own cost model, so every `static inline` helper in this file is a REAL CALL with a real prologue -- and DESCR_t is 16 bytes passed BY VALUE, so sv_len pays stack traffic on top.  Under the s262 NO-`-O2` fact rule -O0 is the number of record, so a hot leaf cannot delegate its field reads to a helper and hope the optimizer folds them; it has to read the fields itself.
-   ⭐ EQUIVALENCE IS EXACT, NOT ARGUED FROM SHAPE.  VARVAL_fn is `cmp dil, DT_S / jne c_VARVAL_fn / test rsi,rsi / jz c_VARVAL_fn / mov rax,rsi / ret` (rtx_str.S:312) -- for DT_S with non-NULL .s it returns v.s unchanged and allocates nothing.  sv_len for DT_S with slen neither 0xFFFFFFFF nor 0 returns slen.  The guard below admits EXACTLY that intersection and every other descriptor -- other tags, NULL .s, the 0xFFFFFFFF sentinel, slen 0 -- falls through to the UNCHANGED pair.  It cannot answer differently, only sooner.
+   ⭐ EQUIVALENCE IS EXACT, NOT ARGUED FROM SHAPE.  VARVAL_fn is `cmp dil, DT_S / jne c_VARVAL_fn / test rsi,rsi / jz c_VARVAL_fn / mov rax,rsi / ret` (rtx_str.s:312) -- for DT_S with non-NULL .s it returns v.s unchanged and allocates nothing.  sv_len for DT_S with slen neither 0xFFFFFFFF nor 0 returns slen.  The guard below admits EXACTLY that intersection and every other descriptor -- other tags, NULL .s, the 0xFFFFFFFF sentinel, slen 0 -- falls through to the UNCHANGED pair.  It cannot answer differently, only sooner.
    KILLSWITCH SCRIP_REPL_PL=0 restores the call pair on the same binary. */
 static int repl_pl_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_REPL_PL"); v = (e && *e == '0') ? 1 : 0; } return v; }
 /* RTX PORT (row perf-replace-translate-loop-scalar-byte-copy): the translate loop below is a pure gather-scatter
    with no branch and no call -- 31.90% of string_manip.sno's fixed-work kernel Ir at -O0 N=20000 (14,553,000 Ir) --
-   so it is extracted to its own symbol and ported to rtx_str.S under the existing STR family gate, same class of
-   cure as rtx_table.S's hot-path ports. This is the C of record; rt_translate_bytes (rtx_str.S) owns the exported
+   so it is extracted to its own symbol and ported to rtx_str.s under the existing STR family gate, same class of
+   cure as rtx_table.s's hot-path ports. This is the C of record; rt_translate_bytes (rtx_str.s) owns the exported
    name and tail-jumps here when SCRIP_RTX_STR=0. */
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map) {
     for (size_t i = 0; i < n; i++) dst[i] = map[(unsigned char)src[i]];

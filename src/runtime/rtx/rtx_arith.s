@@ -1,4 +1,4 @@
-/* rtx_arith.S — RTX family ARITH (RTX-6, s203).
+/* rtx_arith.s — RTX family ARITH (RTX-6, s203).
  *
  * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
  *

@@ -1,4 +1,4 @@
-/* rtx_icnrel.S -- RTX-6b-ICN: rt_jct_relop, the Icon relational/junction dispatcher.
+/* rtx_icnrel.s -- RTX-6b-ICN: rt_jct_relop, the Icon relational/junction dispatcher.
  *
  * CONTRACT: .github/ARCH-ICON-RTX.md. Ladder: .github/GOAL-ICON-RTX.md. Ledger: .github/RTX-CLAIMS.md.
  * Symbol checked out OUT:ICON-RTX:s212. Gate: SCRIP_RTX_ICNREL (ninth family gate -- a ledger event).
@@ -73,7 +73,7 @@ RTX_GATE_DEF(icnrel)
 #define OP_NEQV 23
 
 /* ⛔ TAG VALUES MUST MATCH src/contracts/descr.h (s229 renumber: DT_S descr.h:48 = 0x02, DT_I descr.h:49 = 0x03).
- * A _Static_assert cannot reach an asm #define (the rtx_icncall.S DT_E=11 lesson, ICN-ZFRAME s15) -- re-verify
+ * A _Static_assert cannot reach an asm #define (the rtx_icncall.s DT_E=11 lesson, ICN-ZFRAME s15) -- re-verify
  * against descr.h on every edit of this file. Stale tags here are SILENT: every fast arm simply never matches
  * (perf-only) EXCEPT rt_str_coerce, whose identity arm then returns csets UNCONVERTED (wrong answers). */
 /* ⛔ NO TAG LITERALS HERE: DT_S/DT_I arrive from descr_tags.inc via rtx_abi.inc. Local defines agreed with descr.h at s237 but are the same shadowing class that made dat_field_get compare 100 against a live 0x70; removed so the gate can be exception-free. */

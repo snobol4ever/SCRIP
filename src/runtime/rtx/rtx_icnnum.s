@@ -1,4 +1,4 @@
-/* rtx_icnnum.S -- RTX-6-ICN: rt_coerce_num2_d, with its static callee rt_parse_num_d ABSORBED.
+/* rtx_icnnum.s -- RTX-6-ICN: rt_coerce_num2_d, with its static callee rt_parse_num_d ABSORBED.
  *
  * CONTRACT: .github/ARCH-ICON-RTX.md. Ladder: .github/GOAL-ICON-RTX.md. Ledger: .github/RTX-CLAIMS.md.
  * Symbol checked out OUT:ICON-RTX:s211. Gate: SCRIP_RTX_ICNNUM (eighth family gate -- a ledger event).

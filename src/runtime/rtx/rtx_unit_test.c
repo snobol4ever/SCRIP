@@ -33,7 +33,7 @@ int main(void) {
     memset(&d,0,sizeof d); d.v=DT_S; d.s=s4;        chk("STR \"0x\"", d, 1);
     memset(&d,0,sizeof d); d.v=DT_P; d.s=s3;        chk("PAT-as-ptr", d, 1);
     memset(&d,0,sizeof d); d.v=DT_S; d.slen=7; d.s=s3; chk("STR slen!=0", d, 1);
-    /*⛔ STALE GOLDEN, not an asm defect (diagnosed 2026-08-23 s269, hq_C).  This compared all 16 bytes of the asm mint against the bare C FAILDESCR literal, which is UNSTAMPED.  rtx_misc.S:20 stamps mod_op = MOD_OP_RT_FAILDESCR (130) on purpose -- provenance naming which mint produced the descriptor, landed by row descr-stamp-asm-mints in 6ba28e5e, the same commit that cured Milestone 1.  So the memcmp reported a differential red for an INTENTIONAL feature, and stood red long enough to hide any real rtx regression behind it.  The golden now expects the stamp: payload compared semantically, provenance asserted separately.*/
+    /*⛔ STALE GOLDEN, not an asm defect (diagnosed 2026-08-23 s269, hq_C).  This compared all 16 bytes of the asm mint against the bare C FAILDESCR literal, which is UNSTAMPED.  rtx_misc.s:20 stamps mod_op = MOD_OP_RT_FAILDESCR (130) on purpose -- provenance naming which mint produced the descriptor, landed by row descr-stamp-asm-mints in 6ba28e5e, the same commit that cured Milestone 1.  So the memcmp reported a differential red for an INTENTIONAL feature, and stood red long enough to hide any real rtx regression behind it.  The golden now expects the stamp: payload compared semantically, provenance asserted separately.*/
     DESCR_t fa = rt_faildescr(), fg = FAILDESCR; n++;
     fg.mod_op = MOD_OP_RT_FAILDESCR;
     if (memcmp(&fa,&fg,sizeof fa)) { fails++;

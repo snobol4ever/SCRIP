@@ -31,7 +31,7 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
-RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.S, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
+RT_OPT  ?= -O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer  # ⛔⭐ NO -O2 BUILDS, EVER (Lon 2026-08-23 s262 FACT RULE, SUPERSEDES O0-DEV-O2-BENCH/s179 and O2-ALWAYS/s178): -O0 for development AND benchmarks AND demos. Never pass RT_OPT="-O2 ...", never build an -O2 RT_TAG, never quote an -O2 number as current state. Two reasons, the second stronger: (1) an -O2 template-touching rebuild is ~9m30 vs ~1m40, paid on every arm of a measure-and-cure loop; (2) it measures a compiler we are DELETING — the RT is moving to register-aware ASM (src/runtime/rtx/*.s, GOAL-RTCC.md), so an -O2 figure grades gcc's optimizer over code that will not exist. The LABELING duty survives: every perf number still names its RT_OPT, and it now reads -O0. Authority: .github/RULES.md § NO -O2 BUILDS.
 DEPFLAGS := -MMD -MP
 CBASE   := -O0 -g $(WARN) $(DEPFLAGS) -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(RT)
 ZCFLAGS ?=
@@ -101,21 +101,21 @@ libscrip_rt: out/libscrip_rt.so
 
 # EM-6 runtime objects (all compiled -fPIC so they can go into the .so)
 RT_PIC_SRCS := \
-    $(RT)/rtx/rtx_misc.S \
-    $(RT)/rtx/rtx_zdp.S \
-    $(RT)/rtx/rtx_alloc.S \
-    $(RT)/rtx/rtx_str.S \
-    $(RT)/rtx/rtx_arith.S \
-    $(RT)/rtx/rtx_icnvar.S \
-    $(RT)/rtx/rtx_icnnum.S \
-    $(RT)/rtx/rtx_icnrel.S \
-    $(RT)/rtx/rtx_icnagg.S \
-    $(RT)/rtx/rtx_match.S \
-    $(RT)/rtx/rtx_icngen.S \
-    $(RT)/rtx/rtx_icncall.S \
-    $(RT)/rtx/rtx_icnsub.S \
-    $(RT)/rtx/rtx_plunify.S \
-    $(RT)/rtx/rtx_table.S \
+    $(RT)/rtx/rtx_misc.s \
+    $(RT)/rtx/rtx_zdp.s \
+    $(RT)/rtx/rtx_alloc.s \
+    $(RT)/rtx/rtx_str.s \
+    $(RT)/rtx/rtx_arith.s \
+    $(RT)/rtx/rtx_icnvar.s \
+    $(RT)/rtx/rtx_icnnum.s \
+    $(RT)/rtx/rtx_icnrel.s \
+    $(RT)/rtx/rtx_icnagg.s \
+    $(RT)/rtx/rtx_match.s \
+    $(RT)/rtx/rtx_icngen.s \
+    $(RT)/rtx/rtx_icncall.s \
+    $(RT)/rtx/rtx_icnsub.s \
+    $(RT)/rtx/rtx_plunify.s \
+    $(RT)/rtx/rtx_table.s \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rtx/rtcc_init.c \
     $(RT)/rt/rt_slab.c \
@@ -401,6 +401,7 @@ RT_PIC_OBJS := $(addprefix $(RT_OBJDIR)/,$(addsuffix .o,$(basename $(notdir $(RT
 vpath %.c $(sort $(dir $(RT_PIC_SRCS)))
 vpath %.cpp $(sort $(dir $(RT_PIC_SRCS)))
 vpath %.S $(sort $(dir $(RT_PIC_SRCS)))
+vpath %.s $(sort $(dir $(RT_PIC_SRCS)))
 $(RT_OBJDIR):
 	@mkdir -p $(RT_OBJDIR)
 $(RT_OBJDIR)/%.o: %.c $(RT)/rt/rt.h | $(RT_OBJDIR)
@@ -409,6 +410,8 @@ $(RT_OBJDIR)/%.o: %.cpp $(RT)/rt/rt.h | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC -std=c++17 -finput-charset=UTF-8 $(RT_INCS) $(ZCFLAGS) -c $< -o $@
 $(RT_OBJDIR)/%.o: %.S | $(RT_OBJDIR)
 	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -c $< -o $@
+$(RT_OBJDIR)/%.o: %.s | $(RT_OBJDIR)
+	$(CC) $(RT_OPT) -g $(WARN) $(DEPFLAGS) -fPIC $(RT_INCS) $(ZCFLAGS) -x assembler-with-cpp -c $< -o $@
 $(RT_SO): $(RT_PIC_OBJS)
 	@mkdir -p out
 	$(CC) -shared $(RT_PIC_OBJS) -lm -lstdc++ -lpthread -o $@

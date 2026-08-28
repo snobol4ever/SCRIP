@@ -113,11 +113,11 @@ done
 #  WREG-0's claim gate must sweep RTX asm sources, not just src/templates/ -- raw-byte and hand-written asm
 #  do not grep as \"r10\"."
 # This region is ENTIRELY OUTSIDE the design's 178-site census, which counted quoted C-string spellings only.
-# It is also the HIGHEST-RISK region in the product for WREG: rtx_match.S runs DURING a match, which is
+# It is also the HIGHEST-RISK region in the product for WREG: rtx_match.s runs DURING a match, which is
 # exactly when the wires are live. Reported separately so the two burn-downs never get conflated -- a
 # template rename and an RTX asm rename are different work with different proofs.
 rtx_total=0; rtx_offenders=0; rtx_occ=0; rtx_listed=""
-for f in src/runtime/rtx/*.S; do
+for f in src/runtime/rtx/*.s; do
   [ -e "$f" ] || continue
   n=$(strip_comments "$f" | grep -cE "%?$REGPAT")
   [ "$n" -gt 0 ] || continue
@@ -150,7 +150,7 @@ if [ -n "$rtx_listed" ]; then printf "%b" "$rtx_listed" | sort -rn; else echo " 
 echo "  files remaining : $rtx_offenders"
 echo "  lines remaining : $rtx_total"
 echo "  OCCURRENCES     : $rtx_occ"
-echo "  ^ rtx_match.S is the sharpest edge: it executes DURING a match, i.e. while the wires are live."
+echo "  ^ rtx_match.s is the sharpest edge: it executes DURING a match, i.e. while the wires are live."
 echo
 
 # The design's own census, kept here as a DRIFT CHECK: if this number moves without a sweep commit, some seat

@@ -46,7 +46,7 @@ void  rt_sxt_break(const char *s);
    always_inline is honoured. NOT the s264 tag-predicate/DESCR_t-by-value hazard (GOAL-HQ-PERFORM.md
    :177) -- g_sxt_owner is a plain GLOBAL, not stack/register state a conservative GC scan depends
    on, and this body allocates nothing, so there is no GC-triggering point inside it for a value to
-   go missing across. rt_sxt_break itself is untouched and stays the real symbol rtx_icnvar.S calls
+   go missing across. rt_sxt_break itself is untouched and stays the real symbol rtx_icnvar.s calls
    (`call rt_sxt_break@PLT`) -- it now just delegates here, one logic definition either way. */
 static inline __attribute__((always_inline)) void rt_sxt_break_fast(const char *s) { if (s && s == g_sxt_owner) g_sxt_owner = (char *)0; }
 void  rt_sxt_note(char *s, long len);

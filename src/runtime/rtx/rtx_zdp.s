@@ -1,4 +1,4 @@
-/* rtx_zdp.S — LON'S ANCHOR CHECK (s135), RUNTIME HALF.  READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING.  Contract macros: rtx_abi.inc.
+/* rtx_zdp.s — LON'S ANCHOR CHECK (s135), RUNTIME HALF.  READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING.  Contract macros: rtx_abi.inc.
  *
  * THE MODEL (Lon in-chat s135): an anchor is a point where this graph's stack is TOTALLY EMPTY, so every anchor must observe ONE AND THE SAME rsp.
  * IR_STATEMENT_BEGIN and IR_MATCH_BEGIN are the anchors / re-basing points.  A disagreement is a box that carved and never released — at a

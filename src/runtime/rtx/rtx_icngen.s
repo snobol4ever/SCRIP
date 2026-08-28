@@ -1,4 +1,4 @@
-/* rtx_icngen.S -- ICON-RTX: the Icon generator-spine family. The &level counter trio.
+/* rtx_icngen.s -- ICON-RTX: the Icon generator-spine family. The &level counter trio.
  *
  * CONTRACT: .github/ARCH-ICON-RTX.md. Ladder: .github/GOAL-ICON-RTX.md. Ledger: .github/RTX-CLAIMS.md.
  * Gate: SCRIP_RTX_ICNGEN (eleventh family gate -- a ledger event, recorded in RTX-CLAIMS.md).

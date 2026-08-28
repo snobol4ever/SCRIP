@@ -1,4 +1,4 @@
-/* rtx_alloc.S — RTX family ALLOC (rung RTX-2, s163).
+/* rtx_alloc.s — RTX family ALLOC (rung RTX-2, s163).
  *
  * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
  *

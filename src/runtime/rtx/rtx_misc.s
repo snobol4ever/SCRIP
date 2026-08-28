@@ -1,4 +1,4 @@
-/* rtx_misc.S — RTX family MISC. First asm ports (RTX-1 scaffold, s162).
+/* rtx_misc.s — RTX family MISC. First asm ports (RTX-1 scaffold, s162).
  *
  * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
  *

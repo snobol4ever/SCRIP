@@ -3,7 +3,7 @@
 #
 # Minted s217 (2026-07-29).  Closes the scope gap named in GOAL-SNOBOL4-RTX.md:
 # util_rtx_arm_census.sh derives its symbol list from RTX_FUNC(...) names in
-# src/runtime/rtx/*.S, so it can only see symbols that are ALREADY ported — it
+# src/runtime/rtx/*.s, so it can only see symbols that are ALREADY ported — it
 # is the POST-port confirmation.  ARCH §7 step 0(d) has to run BEFORE any asm is
 # written, on a symbol that is still pure C and therefore invisible to that
 # tool.  This script takes the symbol names on the command line instead of

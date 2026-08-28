@@ -1,4 +1,4 @@
-/* rtx_icncall.S -- ICON-RTX: the Icon ICNCALL family. Procedure-value minting.
+/* rtx_icncall.s -- ICON-RTX: the Icon ICNCALL family. Procedure-value minting.
  *
  * CONTRACT: .github/ARCH-ICON-RTX.md. Ladder: .github/GOAL-ICON-RTX.md. Ledger: .github/RTX-CLAIMS.md.
  * Gate: SCRIP_RTX_ICNCALL (twelfth family gate -- a ledger event, recorded in RTX-CLAIMS.md).

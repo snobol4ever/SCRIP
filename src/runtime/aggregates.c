@@ -207,11 +207,11 @@ static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k
    unmapped page on a string that ends at a page boundary, which is a segfault that shows up once in ten thousand runs.  Never do that here.
    ⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263) IS PRESERVED EXACTLY: every load is driven by n and nothing inspects a byte for zero, so 'a' CHAR(0) 'b' and
    'a' CHAR(0) 'c' still hash apart.  The length itself is mixed in first, so keys that share a prefix cannot collide on length alone.
-   ⛔⛔ THIS FUNCTION AND rtx_table.S:.Ltf_h_str ARE ONE ALGORITHM IN TWO SPELLINGS AND MUST BE EDITED TOGETHER.  The RTX gate routes to whichever is enabled at
+   ⛔⛔ THIS FUNCTION AND rtx_table.s:.Ltf_h_str ARE ONE ALGORITHM IN TWO SPELLINGS AND MUST BE EDITED TOGETHER.  The RTX gate routes to whichever is enabled at
    run time (SCRIP_RTX_TABLE=0 selects this one), so a table INSERTED through one and LOOKED UP through the other must agree bit for bit or entries vanish.  The
    A/B that proves it: run any table-heavy program both ways and diff the output. */
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_str(const DESCR_t *k) {
-    const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;   /*⛔ s==NULL forces n=0, matching rtx_table.S .Ltf_str_n0 -- a NULL pointer with a stamped slen would otherwise word-load out of ""*/
+    const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;   /*⛔ s==NULL forces n=0, matching rtx_table.s .Ltf_str_n0 -- a NULL pointer with a stamped slen would otherwise word-load out of ""*/
     unsigned long long h = 5381ull ^ ((unsigned long long)n * 0x9E3779B97F4A7C15ull), w;
     while (m >= 8u) { h = (h ^ *(const unsigned long long *)p) * 0xFF51AFD7ED558CCDull; p += 8; m -= 8u; }
     if (m) { w = (m >= 4u) ? ((unsigned long long)*(const unsigned *)p | ((unsigned long long)*(const unsigned *)(p + m - 4u) << 32))
@@ -365,7 +365,7 @@ const char *tbl_pair_key(TBPAIR_t *e) {
     return e->key ? e->key : "";
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {   /*⭐ THE C OF RECORD.  rtx_table.S owns the exported symbol table_find_pair_d and tail-jumps here when its gate is clear or the key's datatype lazily assigns a serial id (DT_A/DT_T/DT_DATA -- file-static counters, and NO-NEW-GLOBALS forbids exporting them without a grant). */
+TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {   /*⭐ THE C OF RECORD.  rtx_table.s owns the exported symbol table_find_pair_d and tail-jumps here when its gate is clear or the key's datatype lazily assigns a serial id (DT_A/DT_T/DT_DATA -- file-static counters, and NO-NEW-GLOBALS forbids exporting them without a grant). */
     if (!tbl) return (TBPAIR_t *)0;
     unsigned long long h = _tbl_hkey(k);
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];

@@ -692,12 +692,12 @@ int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = gete
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
-_Static_assert(sizeof(rt_dcf_t) == 40, "rtx_match.S RTX-8 slice 8 hardcodes stride 40 for rt_dcf_t");
-_Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.S RTX-8 slice 8 hardcodes cur at +0");
-_Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.S RTX-8 slice 8 hardcodes top at +8");
-_Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.S RTX-8 slice 8 hardcodes subj at +16");
-_Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.S RTX-8 slice 8 hardcodes pending at +24");
-_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S RTX-8 slice 8 stores pending as v/slen qword + s qword");
+_Static_assert(sizeof(rt_dcf_t) == 40, "rtx_match.s RTX-8 slice 8 hardcodes stride 40 for rt_dcf_t");
+_Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.s RTX-8 slice 8 hardcodes cur at +0");
+_Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.s RTX-8 slice 8 hardcodes top at +8");
+_Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.s RTX-8 slice 8 hardcodes subj at +16");
+_Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.s RTX-8 slice 8 hardcodes pending at +24");
+_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s RTX-8 slice 8 stores pending as v/slen qword + s qword");
 /* ⛔⛔⛔ NEW GLOBAL VARIABLES, GRANTED BY LON IN-CHAT 2026-08-27 (seat10, row perf-nv-set-capture-pump) against
    the banner ask required by RULES.md's NO-NEW-GLOBALS fact rule. Two parallel arrays, the exact shape that
    rule names explicitly. Registers and the stack cannot carry them: this must survive across ~183,602 separate
@@ -911,10 +911,10 @@ void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: supers
 typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
 uint32_t g_cap_gen = 1;
 __attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.S hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.S hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.S hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
-_Static_assert(sizeof(uint32_t) == 4, "rtx_match.S scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.s hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.s hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");
+_Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.s hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
+_Static_assert(sizeof(uint32_t) == 4, "rtx_match.s scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_cap_push(void *slot, int delta)
 {
@@ -941,7 +941,7 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
-    if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.S is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
+    if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
@@ -1030,11 +1030,11 @@ typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
 __attribute__((visibility("hidden"))) rt_dfx_t *g_dfx;
 __attribute__((visibility("hidden"))) int g_dfx_top, g_dfx_cap;
-_Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.S strides g_dfx by 24");
-_Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.S reads val at +0");
-_Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.S reads failed at +16");
-_Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.S reads dtx_used at +20");
-_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S assumes the 16-byte DESCR pair");
+_Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.s strides g_dfx by 24");
+_Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.s reads val at +0");
+_Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.s reads failed at +16");
+_Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.s reads dtx_used at +20");
+_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s assumes the 16-byte DESCR pair");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_push(void) {
     if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
@@ -1203,7 +1203,7 @@ void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
         g_spk[g_spk_n].nm = varname; g_spk[g_spk_n].val = r; g_spk_n++;
         return NULL;
     }
-    rt_bomb("c_rt_defer_get_pat_fn: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_defer_get_pat_fn in rtx_match.S is the sole plain-name spelling (the asm bails here for star-vars ONLY)");
+    rt_bomb("c_rt_defer_get_pat_fn: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_defer_get_pat_fn in rtx_match.s is the sole plain-name spelling (the asm bails here for star-vars ONLY)");
     DESCR_t val = NV_GET_fn(varname ? varname : "");
     if (ival_flag) {
         if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s);
@@ -1316,7 +1316,7 @@ static inline __attribute__((always_inline)) int rt_defer_merge_on(void) { stati
 /* ⭐ THE dfx FRAME IS UNOBSERVABLE ON THIS PATH, SO IT IS NOT BUILT (hq_P s260).  rt_defer_run_all pushed a dfx frame, stored the resolved value into it, and had c_rt_defer_close pop it straight back off -- and
    between the push and the pop NOTHING RUNS: no call out, no emitted code, no assembly.  The value never leaves the C frame, so the g_dfx round trip is pure ceremony.  Measured on roman.sno it was not cheap
    ceremony: rt_dfx_push'rt_defer_probe_run 2,376,245 Ir (3.78% of the whole program) plus the pop, the 24-byte struct copy and the top-of-stack check inside c_rt_defer_close.  ⛔ ONLY this path may skip it --
-   every other caller of c_rt_defer_close can have emitted code or a procedure call between its push and its close, where the frame IS observable (rt_defer_step reads the top frame; rtx_match.S strides g_dfx by
+   every other caller of c_rt_defer_close can have emitted code or a procedure call between its push and its close, where the frame IS observable (rt_defer_step reads the top frame; rtx_match.s strides g_dfx by
    24), so c_rt_defer_close itself is untouched and the push/close balance elsewhere is exactly as it was.  ⭐ The llen==1 arm is the same argument one level down: a one-byte compare was calling __strncmp_avx2,
    1,069,308 Ir (1.70%), and a deferred single character is the common shape -- roman's deferred node is one digit. */
 static int rt_defer_close_v(int cur_delta, DESCR_t val)
@@ -1463,7 +1463,7 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐⭐ THE MISS ARM, KEPT IN C ON PURPOSE (hq_P s266).  rtx_table.S owns the exported rt_subscript_var_container_only and tail-jumps here when the hashed lookup misses.  It stays C
+/*⭐⭐ THE MISS ARM, KEPT IN C ON PURPOSE (hq_P s266).  rtx_table.s owns the exported rt_subscript_var_container_only and tail-jumps here when the hashed lookup misses.  It stays C
   because the two things it needs -- TBBLK_t.dflt's offset and the exact bit pattern of NULVCL (which is DT_SNUL plus a pointer to a "" literal, NOT a zero word) -- are the kind of
   constant that an .S file can only COPY, and a copied constant is a drift hazard with no build-time witness.  One call on the miss path buys both from the C of record. */
 DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) {
@@ -1510,7 +1510,7 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
    function did that fallback itself, which added a third wrapper call frame around the same two calls for every non-table
    write and regressed array_sum.sno's Ir count, caught by test_gate_instr_budget.sh). The one thing this function still
    checks at runtime is g_gc_pending -- the same provably-safe window rt_assign_var's own asm entry gates its fast arms on
-   (rtx_icnvar.S:72-75): a pending collection could relocate base/idx/val before table_set_descr_d runs, and that window is
+   (rtx_icnvar.s:72-75): a pending collection could relocate base/idx/val before table_set_descr_d runs, and that window is
    cheap to fall back out of (base is already known to be a table, so the two-call chain below is doing real, needed work,
    not wrapper overhead). rt_sxt_break is replicated for a DT_S val because every other assignment path (aggregates.c:425,
    pattern_match.c c_rt_assign_var_body:1518, core.c twice) calls it unconditionally before the store -- it is a general

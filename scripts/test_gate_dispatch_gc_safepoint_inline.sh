@@ -4,7 +4,7 @@
 # CLAIM UNDER TEST: rt_call_arr_impl (src/runtime/by_name_dispatch.c) inlines a check of g_gc_pending
 # BEFORE paying for the rt_gc_point_arr veneer's unconditional 6-register push/pop + @plt call, calling
 # the real (unchanged) veneer only when a collection is actually due -- same precedent-shape already
-# landed at rtx_plunify.S's rt_pl_dop_unify ("absorbed rt_gc_point_arr" comment). Killswitch
+# landed at rtx_plunify.s's rt_pl_dop_unify ("absorbed rt_gc_point_arr" comment). Killswitch
 # SCRIP_DISPATCH_GC_INLINE=0 restores the old unconditional call on the same binary.
 #
 # This gate proves the claim two ways, both COMPUTED, neither asserted:
