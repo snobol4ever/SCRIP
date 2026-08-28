@@ -56,5 +56,4 @@ std::string bb_ident() {
              + x86_gamma()
              + x86_beta_trampoline()
          : x86_bomb("bb_ident: needs two operand slots (op_sa/op_sb) + own value slot (op_off)");
-    return std::string();
 }
