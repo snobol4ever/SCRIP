@@ -851,6 +851,7 @@ int main(int argc, char **argv)
     const char * target_name = NULL;
     const char * output_path = NULL;
     int argi = 1;
+    for (;;) { int before_argi = argi;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
         if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
         else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
@@ -875,6 +876,7 @@ int main(int argc, char **argv)
         else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
         argi++;
     }
+    if (argi == before_argi) break; }
     for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
     if (mode_compile_x86 && mode_run) {
