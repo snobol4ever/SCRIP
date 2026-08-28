@@ -37,14 +37,45 @@ for a in "$@"; do [ "$a" = "--raw" ] && NORM=0; done
 [ -x "$SCRIP" ] || { echo "scoreboard: no scrip binary at $SCRIP (run: make scrip)"; exit 2; }
 [ -n "$LANG_ARG" ] || { echo "usage: scoreboard.sh {icon|snobol4|snocone|prolog|pascal|raku} [--raw]"; exit 2; }
 
+# ⛔ REFUSE IF THE TOOL'S OWN PREMISE IS GONE, NOT JUST IF A CORPUS PATH IS (2026-08-28,
+# scoreboard-all-language-paths-dead-total-zero). This tool's whole job is OLD (--dump-bb) vs NEW
+# (--dump-bb2) lowerer comparison for the LOWER REWRITE (GOAL-IR-REDESIGN.md). That rewrite reached
+# "PROMOTION COMPLETE" 2026-06-11 (SCRIP 662f249): the new lowerer became the ONLY lowerer, the old
+# machinery was deleted, and `--dump-bb2` is no longer a recognized driver flag (confirmed: it is not
+# in src/driver/scrip.c's arg table; `scrip --dump-bb2 anything` prints "cannot open '--dump-bb2'" --
+# the driver falls through to treating the unrecognized flag string as a filename). Every run since
+# then has scored 100% NEWFAIL for every file in every language -- not a regression signal, a dead
+# comparison silently misreported as one. Refusing here is the same "measure, don't report zero" duty
+# this task already applies to missing corpus directories, one level up: a harness whose SECOND ARM no
+# longer exists must refuse just as loudly as one whose corpus went missing.
+_bb2_probe="$("$SCRIP" --dump-bb2 /dev/null 2>&1 >/dev/null)"
+case "$_bb2_probe" in
+  *"cannot open '--dump-bb2'"*)
+    echo "scoreboard: REFUSE -- --dump-bb2 is not a recognized scrip flag (LOWER REWRITE promoted to production 2026-06-11, SCRIP 662f249; old lowerer deleted, no 'new' lowerer left to compare against). This tool's OLD-vs-NEW comparison has no second arm to run; every prior invocation since the promotion silently scored 100% NEWFAIL instead of refusing. See .github/GOAL-IR-REDESIGN.md and the scoreboard-all-language-paths-dead-total-zero task ledger for the full finding. Needs a ruling (retire this tool, or repurpose it) before it can produce a number again -- not something a path fix should paper over." >&2
+    exit 2 ;;
+esac
+
+# ⛔ A HARNESS THAT CANNOT MEASURE MUST REFUSE, NOT REPORT ZERO (2026-08-28, scoreboard-all-language-paths-dead-total-zero).
+# `find $missing_dir 2>/dev/null` is silent-nothing: a moved/renamed corpus path produces an empty file
+# list, not an error, and TOTAL=0 then reads as "scored and empty" instead of "could not measure". Every
+# arm below is existence-checked before its `find` runs; a missing arm refuses by name, rc=2.
+need_dir() { [ -d "$1" ] || { echo "scoreboard: REFUSE — $2 corpus directory not found: $1" >&2; exit 2; }; }
+
 files() {
   case "$1" in
-    icon)    find "$REPO/test/icon"    -name '*.icn' 2>/dev/null | sort ;;
-    snobol4) find "$REPO/test/snobol4" -name '*.sno' 2>/dev/null | sort ;;
-    snocone) { find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find "$CORPUS/crosscheck/snocone" -name '*.sc' 2>/dev/null; } | sort ;;
-    prolog)  find "$REPO/test/prolog"  -name '*.pl'  2>/dev/null | sort ;;
-    pascal)  find "$CORPUS/pascal" -name '*.pas' 2>/dev/null | sort ;;
-    raku)    find "$REPO/test/raku" \( -name '*.raku' -o -name '*.p6' -o -name '*.pl6' -o -name '*.rk' \) 2>/dev/null | sort ;;
+    icon)    need_dir "$CORPUS/tests/icon" icon
+             find "$CORPUS/tests/icon"    -name '*.icn' 2>/dev/null | sort ;;
+    snobol4) need_dir "$CORPUS/tests/snobol4" snobol4
+             find "$CORPUS/tests/snobol4" -name '*.sno' 2>/dev/null | sort ;;
+    snocone) need_dir "$CORPUS/tests/snocone" "snocone (tests)"
+             need_dir "$CORPUS/crosscheck/snocone" "snocone (crosscheck)"
+             { find "$CORPUS/tests/snocone" -name '*.sc' 2>/dev/null; find "$CORPUS/crosscheck/snocone" -name '*.sc' 2>/dev/null; } | sort ;;
+    prolog)  need_dir "$CORPUS/tests/prolog" prolog
+             find "$CORPUS/tests/prolog"  -name '*.pl'  2>/dev/null | sort ;;
+    pascal)  need_dir "$CORPUS/tests/pascal" pascal
+             find "$CORPUS/tests/pascal" -name '*.pas' 2>/dev/null | sort ;;
+    raku)    need_dir "$CORPUS/tests/raku" raku
+             find "$CORPUS/tests/raku" \( -name '*.raku' -o -name '*.p6' -o -name '*.pl6' -o -name '*.rk' \) 2>/dev/null | sort ;;
     *) echo "scoreboard: unknown LANG '$1'" >&2; exit 2 ;;
   esac
 }
