@@ -1036,7 +1036,7 @@ _Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.S reads fa
 _Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.S reads dtx_used at +20");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.S assumes the 16-byte DESCR pair");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static rt_dfx_t *rt_dfx_push(void) {
+static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_push(void) {
     if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
     if (g_dfx_top >= g_dfx_cap) { fprintf(stderr, "rt_cas: dfx overflow (%d) — raise RT_CAS_DFX_MAX\n", g_dfx_cap); abort(); }
     rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
