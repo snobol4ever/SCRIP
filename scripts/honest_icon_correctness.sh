@@ -125,4 +125,16 @@ for name in $progs; do
   else v="DIVERGE"; d="$(diff "$WORK/$name.orc.w" "$WORK/$name.scr.w" | head -2 | tr '\n' ' ' | cut -c1-40)"; fi
   printf "%-9s | %-9s | %-9s | %-9s | %s\n" "$name" "$ol" "$sl" "$v" "$d"
 done
+# ⛔⭐ REFUSE IF THE SCRATCH DIR DID NOT SURVIVE THE RUN. Measured 2026-08-28 (hq_C), injecting a mid-run
+# `rm -rf $WORK`: every remaining row classified EMITFAIL -- correct, it does NOT fabricate passes, because
+# rows are keyed per-witness so there is no previous iteration's file to grade stale -- but the script still
+# EXITED 0. A caller reading $? (scorecard_icon.sh consumes this board) reads green from a run that graded
+# nothing. Cannot-fabricate-a-pass and can-refuse are DIFFERENT properties; this had the first and not the
+# second. Sibling of hq_P's D2 harness, which had neither (FINDING-2026-08-28-hq_P-d2-witness-tallied-
+# iterations-that-never-ran-as-non-crashes) -- same family, opposite halves.
+if [ ! -d "$WORK" ]; then
+    echo "⛔ REFUSED rc=2: the scratch workdir ($WORK) did not survive the run -- every verdict above after it"
+    echo "   vanished is an artefact of missing files, not a measurement. Nothing here may be quoted." >&2
+    exit 2
+fi
 if [ "${ICN_KEEP_WORK:-0}" = "1" ]; then echo "workdir: $WORK (KEPT -- ICN_KEEP_WORK=1; delete it yourself)"; else echo "workdir: $WORK (removed on exit; ICN_KEEP_WORK=1 to keep it)"; fi
