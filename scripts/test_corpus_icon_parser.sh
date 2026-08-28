@@ -8,19 +8,30 @@ TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-PARSER_SRC="$REPO_ROOT/../corpus/scrip/icon_parser.icn"
-RECOG_SRC="$REPO_ROOT/../corpus/scrip/icon_recognizer.icn"
+# shellcheck source=lib_oracle_flags.sh
+. "$SCRIPT_DIR/lib_oracle_flags.sh"                                     # icont_bin(): the ONE authority for the Icon oracle path -- it is NOT on PATH, and bare `icont` reads as "no Icon oracle exists"
+ICONT=$(icont_bin) || { echo "ERROR: Icon oracle unresolvable -- refusing rather than printing a false all-crash table"; exit 2; }
+
+# ⛔ RESOLVE BY SEARCH, REFUSE ON UNRESOLVABLE. These two sources moved to corpus/demo/icon/demo/ in the
+# 2026-08-24 corpus re-grid; the old hardcoded corpus/scrip/ path had additionally been resolving through
+# $REPO_ROOT/.. = /home (one level above the seat root), so it could never have matched even before the move.
+icn_src() {                                                             # $1 = basename to find under the corpus
+    local hit; hit=$(find "$S4E/corpus" -name "$1" -type f 2>/dev/null | sort | head -1)
+    [ -n "$hit" ] || { printf "⛔ ICON SOURCE UNRESOLVABLE UNDER %s: %s\n" "$S4E/corpus" "$1" >&2; return 1; }
+    printf '%s\n' "$hit"
+}
+PARSER_SRC=$(icn_src icon_parser.icn)     || exit 2
+RECOG_SRC=$(icn_src icon_recognizer.icn)  || exit 2
 
 TMP=$(mktemp -d)
-icont -s -o "$TMP/icon_parser"     "$PARSER_SRC"  2>/dev/null || { echo "ERROR: icon_parser compile failed"; exit 2; }
-icont -s -o "$TMP/icon_recognizer" "$RECOG_SRC"   2>/dev/null || { echo "ERROR: icon_recognizer compile failed"; exit 2; }
+"$ICONT" -s -o "$TMP/icon_parser"     "$PARSER_SRC"  2>/dev/null || { echo "ERROR: icon_parser compile failed ($PARSER_SRC)"; exit 2; }
+"$ICONT" -s -o "$TMP/icon_recognizer" "$RECOG_SRC"   2>/dev/null || { echo "ERROR: icon_recognizer compile failed ($RECOG_SRC)"; exit 2; }
 
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
-  DIRS=(
-    "$REPO_ROOT/test/parser/icon"
-    $S4E/corpus/tests/icon
-  )
+  DIRS=()                                                               # ⛔ only directories that EXIST -- a dead path in this list silently shrinks the denominator (find's error is swallowed by 2>/dev/null)
+  for d in "$S4E/corpus/tests/icon" "$REPO_ROOT/test/parser/icon"; do [ -d "$d" ] && DIRS+=("$d"); done
+  [ ${#DIRS[@]} -gt 0 ] || { echo "ERROR: no Icon corpus directory resolved -- refusing"; exit 2; }
 fi
 
 mapfile -t FILES < <(find "${DIRS[@]}" -name "*.icn" 2>/dev/null | sort)
