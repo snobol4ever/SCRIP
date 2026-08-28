@@ -1864,7 +1864,7 @@ int rt_proc_index_of(const char *name)
 {
     if (!name) return -1;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0) return ci; }
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return ci; }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; } }
     return -1;
 }
@@ -1881,7 +1881,8 @@ static rt_proc_t * rt_proc_find(const char *name)
 {
     if (!name) return (rt_proc_t *)0;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0) return &g_rt_gen_procs[ci]; }
+    /* ⭐ HIT VALIDATION: POINTER FIRST, strcmp ONLY WHEN LITERALS DIFFER (ceo 2026-08-28, json-match dig — SECOND CUT, the first was measured WRONG the same hour): rt_proc_register stores the registration site's name pointer, and the PROBE arrives with the CALLSITE's literal — mode-4 emits these as SEPARATE rodata labels for the same string, so pointer-only validation MISSED EVERY CALL and degraded the whole cache to rt_proc_hash_lookup per call (measured: rt_proc_fnv+hash_lookup 16.3% of json-match, +2.7G insn — worse than the strcmp it replaced). This shape is never worse than the old strcmp-always (pointer test is ~free) and strictly better wherever literals dedupe. */
+    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return &g_rt_gen_procs[ci]; }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; } }
     return (rt_proc_t *)0;
 }
