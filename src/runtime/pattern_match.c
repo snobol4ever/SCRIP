@@ -727,9 +727,11 @@ static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name)
 {
+    extern int g_call_fastpath_off;
+    if (g_call_fastpath_off) return (DESCR_t *)0;   /* ⛔ NOT an optimisation guard: see NV_CELL_IF_FASTSET_fn in core.c -- once a variable is I/O-associated every store must reach NV_SET_fn's channel hook */
     unsigned i = (unsigned)((((uintptr_t)name * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
     if (g_dcap_nv_key[i] == name) return g_dcap_nv_cell[i];
-    DESCR_t *cell = NV_PTR_fn(name);
+    DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
     if (cell) { g_dcap_nv_key[i] = name; g_dcap_nv_cell[i] = cell; }
     return cell;
 }
@@ -851,8 +853,9 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                core_runtime_error(42, ...) path fires unchanged; the fast path below is never reached for a
                protected name. */
             DESCR_t *cell0;
-            { unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
-              cell0 = (g_dcap_nv_key[_i] == e->varname) ? g_dcap_nv_cell[_i] : (DESCR_t *)0; }
+            { extern int g_call_fastpath_off;
+              unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
+              cell0 = (!g_call_fastpath_off && g_dcap_nv_key[_i] == e->varname) ? g_dcap_nv_cell[_i] : (DESCR_t *)0; }
             if (!cell0 && g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
                 NV_SET_fn(e->varname, d);
             } else {
@@ -1364,7 +1367,8 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
 {
     extern DESCR_t *NV_PTR_fn(const char *name);
     extern uint64_t g_sno_defer_cells[4096];
-    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*') return (DESCR_t *)0;
+    extern int g_call_fastpath_off;
+    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*' || g_call_fastpath_off) return (DESCR_t *)0;   /* g_call_fastpath_off is the READ-side half of the same class the write side cures (NV_CELL_IF_FASTSET_fn, core.c): NV_GET_fn stops using its cell fast path the moment a variable is I/O-associated, because the read must then run getline on the channel.  No witness minted here -- an I/O-associated variable holding a PATTERN is exotic -- but the gate is one global read and it is NV_GET_fn's own condition, so declining to mirror it would be keeping a known divergence for no measured gain. */
     uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);

@@ -419,6 +419,7 @@ DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
+DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name);   /* the cell NV_SET_fn's own fast path would write, or NULL when the store must go through NV_SET_fn -- see the funnel comment in core.c */
 int NV_bind_gva(const char *name, DESCR_t *cell);
 int NV_EXISTS_fn(const char *name);
 DESCR_t NV_KW_GET_fn(const char *name);

@@ -2386,6 +2386,24 @@ DESCR_t NV_GET_fn(const char *name) {
 }
 int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔⛔ THE SINGLE ADMISSION FUNNEL FOR "MAY THIS NAME BE STORED BY A DIRECT CELL WRITE?" -- factored out of NV_SET_fn's own fast path, and NV_SET_fn now calls it, so a caller-side cure and the function it
+   short-circuits CANNOT DRIFT APART.  ⭐ MEASURED DEFECT THIS EXISTS TO CLOSE (hq_C 2026-08-28, row perf-pattern-defer-capture-layer-cure): rt_dcap_pump's landed caller-side cure keyed its cache on
+   NV_PTR_fn, reading it as "the cell NV_SET_fn would have written".  IT IS NOT THAT PREDICATE.  NV_PTR_fn ignores g_call_fastpath_off, ignores the '&' exclusion, CREATES a missing name rather than
+   declining it, and its reserved-name refusal list omits TERMINAL -- so it hands back a writable cell for names whose store NV_SET_fn routes to a SIDE-EFFECTING slow path.  Two witnesses, both oracle-graded
+   against x64/bin/sbl -bf: `OUTPUT(.CAP,2,'f') ; "hello world" ARB . CAP " "` writes "hello" to the file under SPITBOL and wrote NOTHING under SCRIP in both modes; `. TERMINAL` writes "hello" to stderr
+   under SPITBOL and wrote nothing here.  The immediate-$ twin passed only because rt_cap_open ARM A still calls NV_SET_fn -- the very call the next slice was briefed to delete, which would have propagated
+   this defect into the '$' path too.  ⭐ THE GENERAL FORM, and the reason this is a funnel and not a patch: a fast path is admissible only for inputs the slow path would have handled IDENTICALLY, so its
+   guard must be the slow path's OWN condition rather than a different function that merely looks equivalent -- NV_PTR_fn answers "where does this name live", which was read as "may I write it here".
+   ⛔ g_call_fastpath_off IS RE-READ ON EVERY CALL, NOT LATCHED: it flips 0->1 the moment any INPUT()/OUTPUT() associates a variable, which can happen long after a cell was cached.  It never flips back
+   (core.c sets only `= 1`), so a hit needs no generation counter -- but it does need this test, every time. */
+DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
+    if (!_var_init_done) _var_init();
+    if (g_call_fastpath_off || !name || name[0] == '&') return (DESCR_t *)0;
+    NV_t *e = _var_find_cached(name);
+    if (!e) return (DESCR_t *)0;
+    return e->is_gva ? e->cell : &e->val;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     { static int _xd = -1; if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0; if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') { extern int rt_g_ret_by_name, rt_g_want_name; fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name); } }
     if (!_var_init_done) _var_init();   /* ⭐ _var_init is `if (_var_init_done) return;` and nothing else on the hot path -- 17,600 cross-call hops in roman.sno to read one flag the caller can read itself.  Same file, same static; the call survives for the one time it does work. */
@@ -2395,23 +2413,23 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    if (!g_call_fastpath_off && name[0] != '&') { NV_t *e = _var_find_cached(name); if (e) { if (e->is_gva) *e->cell = val; else e->val = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
+    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
-        char *s = VARVAL_fn(val);
+        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);   /* ⛔ rt_cstr_d, NOT val.s: a captured value is a SLICE into the subject with no terminator of its own (pattern_match.c slice-b), so %s on .s prints the rest of the subject -- measured "hello world" where SPITBOL writes "hello" */
         fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
         return val;
     }
     if (strcmp(name, "OUTPUT") == 0) { output_val(val); return val; }
     if (strcmp(name, "TERMINAL") == 0) {
-        const char *s = IS_STR(val) ? val.s : "";
+        const char *s = IS_STR(val) ? rt_cstr_d(val) : "";   /* same slice-length authority as the io_chan arm above */
         fprintf(stderr, "%s\n", s);
         return val;
     }
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
-        const char *s = (val.v == DT_S) ? val.s : VARVAL_fn(val);
+        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);   /* rt_ws_strdup_c is strlen-based, so a slice would carry the subject's tail into &subject */
         scan_subj = s ? rt_ws_strdup_c(s) : ""; return val;
     }
     if (strcmp   (name, "&pos") == 0) {
