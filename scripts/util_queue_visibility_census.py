@@ -56,7 +56,10 @@ def _head(t):
     except OSError: return ''
 def _tombstone(t):
     h = _head(t).upper()
-    return t.startswith('RETIRED') or 'SUPERSEDED' in h or 'RENAMED' in h
+    # RESOLVED-BEFORE-CLAIM joined the tombstone family 2026-08-28 (ceo): a baton kept for PROVENANCE after
+    # its defect was independently fixed before anyone claimed it — deliberately de-indexed so it cannot be
+    # picked up (witness: conform-opsyn-alias-..., flagged as C! four census runs in a row before this line).
+    return t.startswith('RETIRED') or 'SUPERSEDED' in h or 'RENAMED' in h or 'RESOLVED' in h
 Cx = sorted(tasks - set(rows) - set(done_rows) - {t for t in tasks if _tombstone(t)})
 E  = sorted(t for t in tasks if not _tombstone(t) and 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
 F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] == 'BLOCKED') and r['owner'] == 'unassigned')
