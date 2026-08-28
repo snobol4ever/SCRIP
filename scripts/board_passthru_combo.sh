@@ -10,7 +10,7 @@
 # is JUST ANOTHER CONSUMER of that shared file now, the same relationship test_gate_udc.sh already has with
 # tests/snobol4/probe/cn.{sno,ref}, not a second copy of the witness text. one_shot() and the classifier/rollup
 # below are UNCHANGED from before the conversion; only the SOURCE of (name, .sno, .ref) triples changed, from a
-# directory glob to entries extracted from the suite via corpus_suite_harness.py's `names`+`extract` (the ONE
+# directory glob to entries extracted from the suite via corpus_suite_harness.py's `list`+`extract` (the ONE
 # parsing authority -- reused, never re-implemented in bash, per this file's own established precedent).
 # ⭐ 5 witnesses (ptw_min_arbno_alt_fence_L1, ptw_min_defer2_hang, ptw_min_rseal_arbno, ptw_min_rseal_commands,
 # ptw_min_rseal_unsealed_ctl) are pre-existing, documented reds (XFAIL in the suite -- see corpus_suite_harness.py's
@@ -29,7 +29,7 @@ TMO="${TMO:-8}"
 if [ ! -f "$SUITE_SNO" ] || [ ! -f "$SUITE_REF" ]; then echo "⛔ GATE REFUSES: suite file missing ($SUITE_SNO)"; exit 2; fi
 if ! command -v python3 >/dev/null 2>&1; then echo "⛔ GATE REFUSES: python3 not found"; exit 2; fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-mapfile -t NAMES < <(python3 "$HARNESS" names "$SUITE_SNO" "$SUITE_REF") || { echo "⛔ GATE REFUSES: could not list suite entries ($SUITE_SNO)"; exit 2; }
+mapfile -t NAMES < <(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF") || { echo "⛔ GATE REFUSES: could not list suite entries ($SUITE_SNO)"; exit 2; }
 [ "${#NAMES[@]}" -eq 0 ] && { echo "⛔ GATE REFUSES: suite file has zero entries ($SUITE_SNO)"; exit 2; }
 EX="$W/extracted"; mkdir -p "$EX"
 extract_fail=0

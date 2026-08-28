@@ -33,7 +33,7 @@ if [ ${#FILES[@]} -eq 0 ]; then
     if [ -f "$SUITE_SNO" ] && [ -f "$SUITE_REF" ]; then
         while IFS= read -r name; do
             case "$name" in ptc*) python3 "$HARNESS" extract "$SUITE_SNO" "$SUITE_REF" "$name" "$PTC_TMP/$name.sno" >/dev/null 2>&1 ;; esac
-        done < <(python3 "$HARNESS" names "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
+        done < <(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
     fi
     FILES=( "$PTC_TMP"/*.sno "$S4E"/corpus/probe/retry/*.sno )
 fi

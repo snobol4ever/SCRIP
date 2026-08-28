@@ -54,10 +54,10 @@ verdict as XFAIL (not FAIL) and a surprising PASS as XPASS (not PASS) in the SUI
 test_corpus_snobol4.sh's probe/ auto-discovery loop) is unaffected by a witness it was never told
 to expect green. XPASS is surfaced exactly as loudly as FAIL: the bug got fixed and nobody promoted
 the marker, which is exactly as actionable as a fresh failure, just in the opposite direction.
-`names <sno> <ref>` lists every entry name (one per line) for a bash gate that needs to enumerate a
+`list <sno> <ref>` lists every entry name (one per line) for a bash gate that needs to enumerate a
 suite's contents before extract()-ing each one -- same read_suite()-is-the-only-authority precedent
-as `extract`, now this file's established idiom for a gate script that needs standalone per-witness
-files with custom env-var arms or output handling (see test_gate_udc.sh).
+as `extract`, this file's established idiom for a gate script that needs standalone per-witness
+files with custom env-var arms or output handling (see test_gate_udc.sh, util_board_m4_gva_seed_probe.sh).
 
 ⭐ THE JOIN RULE (empirically derived+verified against scrip and the SPITBOL oracle -- SPITBOL manual
 "each semicolon ... behaves like a new column one for the statement which follows"): a label must be
@@ -1018,21 +1018,6 @@ def cmd_run(args):
     sys.exit(0 if not fails else 1)
 
 
-def cmd_names(args):
-    """Print every entry name in a suite, one per line, in seq order -- for a bash consumer (a gate
-    script) that needs to enumerate what's there before extract()-ing each one individually, same
-    precedent/reasoning as cmd_extract below (ONE AUTHORITY for the suite grammar, never a second
-    bash-side parse of the format)."""
-    if args.lang:
-        cfg = LANG_CONFIGS[args.lang]
-        banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
-        entries = read_block_suite(args.sno, args.ref, banner_re)
-    else:
-        entries = read_suite(args.sno, args.ref)
-    for e in entries:
-        print(e.name)
-
-
 def cmd_extract(args):
     """Materialize ONE suite entry back into a standalone .sno (+ optional .ref) file. For consumers that
     need per-witness standalone access a shared suite file cannot give them directly -- e.g. a gate script
@@ -1096,12 +1081,6 @@ def main():
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.set_defaults(func=cmd_run)
-
-    n = sub.add_parser("names", help="print every entry name in a suite, one per line, in seq order")
-    n.add_argument("sno")
-    n.add_argument("ref")
-    n.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
-    n.set_defaults(func=cmd_names)
 
     e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref) file")
     e.add_argument("sno")
