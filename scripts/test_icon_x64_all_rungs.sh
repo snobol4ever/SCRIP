@@ -18,7 +18,15 @@
 # write() is exactly the defect class the m3 stdout-only comparison hides. The dirt breakdown line
 # (EMIT/LINK/CRASH/TIMEOUT/OUTPUT/DIRTYPASS) is the discriminator for m3-vs-m4 deltas.
 #
-# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Fable 5
+# SUITE-FORMAT DELEGATION (tests-consolidate-icon, 2026-08-28): a family converted by
+# corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref
+# pair (discriminator: has a .ref sibling and NO .expected sibling). run_one()'s own `[ -f "$exp" ]
+# || return 0` guard means a suite file landing here would just vanish from the board silently
+# (no FAIL, but no PASS either -- the family's coverage disappears with no error printed). Converted
+# families are routed into SUITE_FILES instead and folded into PASS/FAIL via
+# `corpus_suite_harness.py run --modes m4` (this runner is compile/m4-only throughout).
+#
+# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Fable 5 · Claude Sonnet 5
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
@@ -56,6 +64,9 @@ fi
 
 PASS=0; FAIL=0; XFAIL=0
 D_EMIT=0; D_LINK=0; D_CRASH=0; D_TIMEOUT=0; D_OUTPUT=0; D_DIRTYPASS=0
+declare -a SUITE_FILES=()
+# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
 
 WORK="$(mktemp -d /tmp/icon_m4_rungs.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
@@ -151,8 +162,9 @@ run_one() {
 }
 
 if [ -n "$RUNG" ]; then
-    for icn in "$CORPUS"/${RUNG}_*.icn; do
+    for icn in "$CORPUS"/${RUNG}_*.icn "$CORPUS"/${RUNG}.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn"
     done
 else
@@ -161,17 +173,44 @@ else
                "$CORPUS"/rung2[0-9]_*.icn \
                "$CORPUS"/rung3[0-5]_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
     for icn in "$CORPUS"/rung36_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
     for icn in "$CORPUS"/rung37_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
 fi
+
+# suite-format families (see header note): fold each converted family's m4 board into the same
+# PASS/FAIL totals a loose-file run_one would have contributed.
+for icn in "${SUITE_FILES[@]}"; do
+    sfname=$(basename "$icn" .icn)
+    board=$(python3 "$HERE/corpus_suite_harness.py" run "$icn" "${icn%.icn}.ref" --lang icon --modes m4 2>&1 | grep '^SUITE_BOARD')
+    spass=$(echo "$board" | grep -oP 'm4_pass=\K[0-9]+')
+    if [ -z "$spass" ]; then
+        echo "SUITE-RUN-ERROR $sfname (harness produced no SUITE_BOARD line)"
+        FAIL=$((FAIL+1))
+        continue
+    fi
+    sfail=$(echo "$board" | grep -oP 'm4_fail=\K[0-9]+')
+    scrash=$(echo "$board" | grep -oP 'm4_crash=\K[0-9]+')
+    shang=$(echo "$board" | grep -oP 'm4_hang=\K[0-9]+')
+    sunproven=$(echo "$board" | grep -oP 'm4_unproven=\K[0-9]+')
+    sxfail=$(echo "$board" | grep -oP 'm4_xfail=\K[0-9]+')
+    sxpass=$(echo "$board" | grep -oP 'm4_xpass=\K[0-9]+')
+    # XPASS (a witness marked XFAIL that actually passed -- stale marker) is surfaced as loudly as
+    # FAIL, same rationale as the harness's own docstring: exactly as actionable, opposite sign.
+    sbad=$((sfail+scrash+shang+sunproven+sxpass))
+    echo "SUITE $sfname: pass=$spass xfail=$sxfail bad=$sbad"
+    PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail))
+done
 
 echo "--- rung36 by category ---"
 {

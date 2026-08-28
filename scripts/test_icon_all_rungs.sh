@@ -13,7 +13,21 @@
 # Replaces test_icon_all_rungs.sh (deleted, was --run-based and gated on
 # the now-amputated Icon AST walker). The reference path for Icon is --run.
 #
-# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7
+# SUITE-FORMAT DELEGATION (tests-consolidate-icon, 2026-08-28): a family converted by
+# corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref
+# pair (discriminator: has a .ref sibling and NO .expected sibling). Left in the raw per-file glob
+# it would either vanish silently (empty-glob false-green) or, since a suite file's name still
+# matches the glob, get misread as MISSING (this script counts a missing .expected as MISSING and
+# fails the gate on it -- see the MISSING branch below). Converted families are routed into
+# SUITE_FILES instead and folded into the same PASS/FAIL totals via `corpus_suite_harness.py run`
+# after the per-file loops. This script runs under `set -e`, unlike its interp/run/compile twin
+# test_icon_rung_suite.sh, so every command in that block is explicitly guarded (`|| true`) --
+# a real FAIL inside a converted family is an expected, must-not-abort-the-script outcome here.
+# ⚠️ Known gap, not fixed here: rung36's per-category tally (r36_tally, below) reads individual
+# per-file names and would go blind for any rung36 entries folded into a suite -- not a concern
+# today (rung36 is not a converted family), but worth remembering if it ever becomes one.
+#
+# Authors: LCherryholmes · Claude Sonnet 4.6 · Claude Opus 4.7 · Claude Sonnet 5
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -euo pipefail
@@ -43,6 +57,9 @@ if [ ! -d "$CORPUS" ]; then
 fi
 
 PASS=0; FAIL=0; XFAIL=0; BADEXIT=0; MISSING=0
+declare -a SUITE_FILES=()
+# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
 
 # rung36 per-category tally (sidecar map at corpus/rung36_categories.txt)
 declare -A R36_CAT_P R36_CAT_F R36_CAT_X
@@ -129,8 +146,9 @@ run_one() {
 }
 
 if [ -n "$RUNG" ]; then
-    for icn in "$CORPUS"/${RUNG}_*.icn; do
+    for icn in "$CORPUS"/${RUNG}_*.icn "$CORPUS"/${RUNG}.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn"
     done
 else
@@ -139,17 +157,45 @@ else
                "$CORPUS"/rung2[0-9]_*.icn \
                "$CORPUS"/rung3[0-5]_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
     for icn in "$CORPUS"/rung36_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
     for icn in "$CORPUS"/rung37_*.icn; do
         [ -f "$icn" ] || continue
+        if is_suite_file "$icn"; then SUITE_FILES+=("$icn"); continue; fi
         run_one "$icn" 8
     done
 fi
+
+# suite-format families (see header note): fold each converted family's m3 board into the same
+# PASS/FAIL totals a loose-file run_one would have contributed. Every command here is explicitly
+# guarded against this script's `set -e` -- a real FAIL inside the harness call must not abort.
+for icn in "${SUITE_FILES[@]}"; do
+    sfname=$(basename "$icn" .icn)
+    board=$(python3 "$HERE/corpus_suite_harness.py" run "$icn" "${icn%.icn}.ref" --lang icon --modes m3 2>&1 | grep '^SUITE_BOARD') || true
+    spass=$(echo "$board" | grep -oP 'm3_pass=\K[0-9]+') || true
+    if [ -z "$spass" ]; then
+        echo "SUITE-RUN-ERROR $sfname (harness produced no SUITE_BOARD line)"
+        FAIL=$((FAIL+1))
+        continue
+    fi
+    sfail=$(echo "$board" | grep -oP 'm3_fail=\K[0-9]+') || true
+    scrash=$(echo "$board" | grep -oP 'm3_crash=\K[0-9]+') || true
+    shang=$(echo "$board" | grep -oP 'm3_hang=\K[0-9]+') || true
+    sunproven=$(echo "$board" | grep -oP 'm3_unproven=\K[0-9]+') || true
+    sxfail=$(echo "$board" | grep -oP 'm3_xfail=\K[0-9]+') || true
+    sxpass=$(echo "$board" | grep -oP 'm3_xpass=\K[0-9]+') || true
+    # XPASS (a witness marked XFAIL that actually passed -- stale marker) is surfaced as loudly as
+    # FAIL, same rationale as the harness's own docstring: exactly as actionable, opposite sign.
+    sbad=$((sfail+scrash+shang+sunproven+sxpass))
+    echo "SUITE $sfname: pass=$spass xfail=$sxfail bad=$sbad"
+    PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail))
+done
 
 echo "--- rung36 by category ---"
 {

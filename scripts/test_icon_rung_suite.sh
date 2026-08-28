@@ -17,7 +17,22 @@
 # Pass --mode interp|run|compile to run a single mode. This is the THREE-MODE source of truth for the Icon
 # rung ladder (test_icon_all_rungs.sh remains the mode-2-only category-tally view).
 #
-# Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude Opus 4.8
+# SUITE-FORMAT DELEGATION (tests-consolidate-icon, 2026-08-28): a family converted by
+# corpus_suite_harness.py loses its loose rungNN_*.icn files and becomes one <family>.icn+.ref pair.
+# Globbing loose files directly would silently lose that family the moment its loose originals are
+# removed (empty-glob false-green -- the same class test_prolog_rung_suite.sh fixed for Prolog).
+# collect_files() also gathers converted families into SUITE_FILES (discriminator: has a .ref sibling
+# and NO .expected sibling -- loose files always carry both); run_corpus() delegates those to
+# `corpus_suite_harness.py run` for EVERY mode, unlike the Prolog twin which withholds compile --
+# Icon's m4 is proven live (tests-consolidate-icon ledger, seat01 2026-08-28: verified round-trip
+# before adding the LANG_CONFIGS entry), so there is no untested-grading caveat to withhold it for.
+# ⛔ A suite file's name still matches the raw rungNN_*.icn glob (e.g. rung04_string.icn matches
+# rung0[1-9]_*.icn) -- collect_files() MUST route it to SUITE_FILES, never FILES: unlike Prolog's
+# per-file loop (which just `continue`s past a missing .expected), THIS script's FILES loop counts
+# a missing .expected as MISSING and trips MODE_FAIL -- leaving a suite file in FILES would self-
+# inflict a false failure, not merely skip silently.
+#
+# Authors: LCherryholmes · Jeffrey Cooper M.D. · Claude Opus 4.8 · Claude Sonnet 5
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 set -uo pipefail
@@ -91,20 +106,27 @@ run_prog() {
 }
 
 declare -a FILES
+declare -a SUITE_FILES
+# converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
+is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
 collect_files() {
     FILES=()
+    SUITE_FILES=()
+    local f
     if [ -n "$RUNG" ]; then
-        local f
-        for f in "$CORPUS"/${RUNG}_*.icn; do [ -f "$f" ] && FILES+=("$f"); done
+        for f in "$CORPUS"/${RUNG}_*.icn "$CORPUS"/${RUNG}.icn; do
+            [ -f "$f" ] || continue
+            if is_suite_file "$f"; then SUITE_FILES+=("$f"); else FILES+=("$f"); fi
+        done
     else
-        local f
         for f in "$CORPUS"/rung0[1-9]_*.icn \
                  "$CORPUS"/rung1[0-9]_*.icn \
                  "$CORPUS"/rung2[0-9]_*.icn \
                  "$CORPUS"/rung3[0-5]_*.icn \
                  "$CORPUS"/rung36_*.icn \
                  "$CORPUS"/rung37_*.icn; do
-            [ -f "$f" ] && FILES+=("$f")
+            [ -f "$f" ] || continue
+            if is_suite_file "$f"; then SUITE_FILES+=("$f"); else FILES+=("$f"); fi
         done
     fi
 }
@@ -168,6 +190,33 @@ run_corpus() {
             fi
             FAIL=$((FAIL+1)); MODE_FAIL=1
         fi
+    done
+    # suite-format families (see header note): fold each converted family's board into these same
+    # totals -- m3 for interp/run, m4 for compile (both proven live for Icon, so unlike the Prolog
+    # twin no mode is withheld here).
+    local hmode; case "$mode" in interp|run) hmode=m3 ;; compile) hmode=m4 ;; esac
+    local sf sfname board spass sfail scrash shang sunproven sxfail sxpass sbad
+    for sf in "${SUITE_FILES[@]}"; do
+        sfname=$(basename "$sf" .icn)
+        board=$(python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.icn}.ref" --lang icon --modes "$hmode" 2>&1 | grep '^SUITE_BOARD')
+        spass=$(echo "$board" | grep -oP "${hmode}_pass=\K[0-9]+")
+        if [ -z "$spass" ]; then
+            echo "SUITE-RUN-ERROR $sfname ($mode) (harness produced no SUITE_BOARD line)" >&2
+            FAIL=$((FAIL+1)); MODE_FAIL=1
+            continue
+        fi
+        sfail=$(echo "$board" | grep -oP "${hmode}_fail=\K[0-9]+")
+        scrash=$(echo "$board" | grep -oP "${hmode}_crash=\K[0-9]+")
+        shang=$(echo "$board" | grep -oP "${hmode}_hang=\K[0-9]+")
+        sunproven=$(echo "$board" | grep -oP "${hmode}_unproven=\K[0-9]+")
+        sxfail=$(echo "$board" | grep -oP "${hmode}_xfail=\K[0-9]+")
+        sxpass=$(echo "$board" | grep -oP "${hmode}_xpass=\K[0-9]+")
+        # XPASS (a witness marked XFAIL that actually passed -- stale marker) is surfaced as loudly
+        # as FAIL, same rationale as the harness's own docstring: exactly as actionable, opposite sign.
+        sbad=$((sfail+scrash+shang+sunproven+sxpass))
+        [ "$VERBOSE" = 1 ] && echo "SUITE $sfname ($mode): pass=$spass xfail=$sxfail bad=$sbad"
+        PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail))
+        [ "$sbad" -gt 0 ] && MODE_FAIL=1
     done
     # ⭐ Byte-identical to the pre-BADEXIT summary whenever BADEXIT=0 (true for the whole corpus today) —
     # the field is inserted only when it has something to say, same convention this file already used for
