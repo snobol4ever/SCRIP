@@ -883,6 +883,17 @@ int main(int argc, char **argv)
     }
     if (!mode_run && !mode_compile)
         mode_run = 1;
+    /* SCRIP_PERF_MAP=1 (Lon 2026-08-28, "make the symbols accessible by the perf tools"): the emitter writes the
+     * perf jit-map at slab-seal time (emit.cpp, per sealed graph) so a mode-3 profile names graphs instead of [JIT].
+     * ⛔ The map is a MODE-3 artefact only -- mode-4 already carries real symbols in its own symbol table -- so say
+     * so plainly rather than let a --compile run leave the user waiting for a file that will never be written.
+     * ⛔ perf reads /tmp/perf-<pid>.map REGARDLESS of TMPDIR, and stale content is APPENDED to, not replaced: an
+     * old map from a previous run of the same recycled pid mis-names samples silently, which is worse than [JIT]
+     * because it is plausible. Name the path so the caller can delete it first. */
+    { const char *_pm = getenv("SCRIP_PERF_MAP");
+      if (_pm && *_pm && *_pm != '0')
+          fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
+                  mode_run ? "mode-3 graph names will be written to" : "⛔ NOT written: --compile is mode-4, which already has real symbols; expected", (int)getpid()); }
     if (argi >= argc) {
         fprintf(stderr,
             "usage: scrip [mode] [options] <file> [-- program-args...]\n"

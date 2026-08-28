@@ -492,6 +492,7 @@ int bb_slot_get(IR_t *nd);
 #include "../optimizer/ir_query.h"
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -3550,6 +3551,13 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         bb_free(buf, FLAT_BUF_MAX); return NULL;
     }
     bb_seal(buf, (size_t)nbytes);
+    /* SCRIP_PERF_MAP=1 (Lon 2026-08-28, "make the symbols accessible by the perf tools"): mode-3 seals its chains into an anonymous mmap slab, so perf resolves every sample in them to [JIT] and a mode-3 profile can name nothing.  Writing the perf jit-map convention (/tmp/perf-<pid>.map, "addr size symbol") at seal time makes perf name the same graphs mode-4 names.  ⛔ PRINT-ONLY: not one emitted byte changes, and the map is written AFTER the seal so it can never affect codegen.  ⛔ NO NEW GLOBALS (no cached static, no held FILE*) -- getenv and fopen(append) per seal, which is once per graph and never on a hot path.  ⚠️ GRANULARITY IS PER-GRAPH, NOT PER-BOX: the seal site knows the chain prefix, not each box's offset; per-box naming needs the emitter to record box offsets and is a named follow-up, not something this arm claims. */
+    { const char *_pm = getenv("SCRIP_PERF_MAP");
+      if (_pm && *_pm && *_pm != '0') {
+          char _pmp[64]; snprintf(_pmp, sizeof _pmp, "/tmp/perf-%d.map", (int)getpid());
+          FILE *_pmf = fopen(_pmp, "a");
+          if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
+                              (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
     bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
