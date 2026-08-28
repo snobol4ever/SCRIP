@@ -110,9 +110,16 @@ worst() { local a="$1" b="$2"
     case "$a" in WRONG) printf 'WRONG'; return;; esac
     printf '%s' "$b"; }
 # run_reps <label> <expected> <n> <cmd...> -> worst verdict over n runs, plus a "k/n" crash tally in $REP_TALLY
+# ⛔⭐ AN ITERATION THAT NEVER RAN MUST NEVER BE TALLIED (hq_P 2026-08-28). A failed output redirect makes bash return rc=1 -- BELOW the 124 crash floor -- so
+# classify() then graded the PREVIOUS iteration's stale file and returned WRONG-or-CORRECT, never CRASH. MEASURED: when the scratch dir vanished mid-run, a row
+# whose true rate is 20/20 SIGSEGV (reproduced in isolation) printed as "crash 2/20" -- an UNDER-count, in the reassuring direction, on the acceptance instrument
+# for a rank-0 row. ⭐ The repeat loop exists precisely to catch an intermittent fatality; an unwritable scratch dir made it manufacture the intermittency it
+# was built to detect. So prove the output file is creatable on EVERY iteration and refuse loudly rather than grade a run that did not happen.
 run_reps() { local exp="$1" n="$2" outf="$3"; shift 3
     local v="CORRECT" i rc ncrash=0
     for i in $(seq 1 "$n"); do
+        rm -f "$outf" 2>/dev/null
+        : >"$outf" 2>/dev/null || { REP_TALLY="-"; printf 'NOWRITE'; return 2; }
         ( "$@" </dev/null >"$outf" 2>/dev/null ); rc=$?
         [ "$rc" -ge 124 ] && ncrash=$((ncrash+1))
         v="$(worst "$v" "$(classify "$exp" "$outf" "$rc")")"
@@ -122,17 +129,20 @@ FAIL=0; REFUSED=0; ROWS=""
 for w in $WITNESSES; do
     src="$WORK/$w.icn"
     ( cd "$WORK" && "$ICONT" -s -o "$w.oracle" "$w.icn" ) >/dev/null 2>&1
+    [ -d "$WORK" ] && [ -w "$WORK" ] || { echo "⛔ REFUSE rc=2: the scratch dir '$WORK' is gone or unwritable before witness '$w'. ⭐ CHECKED BEFORE THE ORACLE ON PURPOSE: this condition used to surface as the oracle-compile refusal below, which names two causes -- malformed witness, broken oracle -- and the true cause is NEITHER."; REFUSED=1; break; }
     [ -x "$WORK/$w.oracle" ] || { echo "⛔ REFUSE rc=2: the ORACLE would not compile witness '$w' -- the witness is malformed, or the oracle is broken. Either way this harness cannot grade and will not guess."; REFUSED=1; break; }
     ( cd "$WORK" && timeout 10s "./$w.oracle" </dev/null >"$w.oracle.out" 2>/dev/null ); orc=$?
     [ "$orc" -lt 124 ] || { echo "⛔ REFUSE rc=2: the ORACLE itself crashed/hung on witness '$w' (rc=$orc). There is no expected output to grade against."; REFUSED=1; break; }
     m3="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m3.out" timeout 10s "$ROOT/scrip" "$w.icn"; printf ' %s' "$REP_TALLY")"
     t3="${m3##* }"; m3="${m3%% *}"
+    case "$m3" in NOWRITE) echo "⛔ REFUSE rc=2: the harness could not create its own output file for witness '$w' (mode 3) -- scratch dir '$WORK' gone or unwritable mid-run. Runs that never executed are NOT gradeable and are NOT non-crashes."; REFUSED=1; break;; esac
     m4="REFUSED"; t4="-"   # ⛔ do NOT reset t3 here -- it was already computed by the m3 run_reps above, and clobbering it printed "CRASH (crash 0/10)", a row that contradicts itself.
     if ( cd "$WORK" && timeout 10s "$ROOT/scrip" --compile -o "$w.s" "$w.icn" </dev/null ) >/dev/null 2>&1 \
        && ( cd "$WORK" && as -o "$w.o" "$w.s" ) >/dev/null 2>&1 \
        && ( cd "$WORK" && gcc -o "$w.bin" "$w.o" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" ) >/dev/null 2>&1; then
         m4="$(cd "$WORK" && run_reps "$WORK/$w.oracle.out" "$REPS" "$w.m4.out" timeout 10s "./$w.bin"; printf ' %s' "$REP_TALLY")"
         t4="${m4##* }"; m4="${m4%% *}"
+        case "$m4" in NOWRITE) echo "⛔ REFUSE rc=2: the harness could not create its own output file for witness '$w' (mode 4) -- scratch dir '$WORK' gone or unwritable mid-run. Runs that never executed are NOT gradeable and are NOT non-crashes."; REFUSED=1; break;; esac
     else
         # ⛔ A witness that will not compile/assemble/link is NOT a skip and NOT a pass -- it is a state this harness cannot grade.
         m4="NOBUILD"
