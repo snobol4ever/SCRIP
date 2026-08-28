@@ -638,6 +638,20 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
 }
 #define RT_DCAP_ISLAND_BYTES ((size_t)64u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
+/* ⭐⭐ THE C.A.S. EXPRESSION-THUNK ENTRY KIND (row lang-lambda-pattern-primitives; Lon 2026-08-28: "C.A.S. is the
+   vehicle -- ++ at cursor-pass, -- on backtrack, pump at success").  A second KIND of entry sharing the capture
+   entry's queue, its push, its unwind and its pump, exactly as instructed -- no second queue.
+   ⛔ IT MUST FIT INSIDE 24 BYTES AND THAT IS NOT A PREFERENCE.  The stride is baked into EMITTED CODE:
+   bb_match_capture.cpp writes [r12+0]/[r12+8]/[r12+16] and then `add r12, 24`, with the matching `sub r12, 24`
+   as the backtrack pop, in two separate arms.  Widening rt_dcap_e would silently desynchronise every already
+   emitted push from the pump that reads it, so the discriminant is carried IN the existing fields.
+   ⭐ THE TAG LIVES IN `len`, AND IT IS A MACRO, NOT A GLOBAL.  A sentinel object would have been the obvious
+   discriminant and it would have cost a new global variable -- which needs Lon's explicit in-chat permission by
+   RULES.md, and spending that grant on a tag would be absurd.  `len` is a capture SPAN: it is never negative in
+   practice, and the pump has always clamped a negative to 0, so all-ones is unreachable for a real capture and
+   unambiguous as a tag.  For a thunk entry: `len` = RT_DCAP_E_THUNK, `saved_delta` = the thunk's code address,
+   `varname` = the thunk's name or NULL (diagnostics only -- never assigned to). */
+#define RT_DCAP_E_THUNK  (~(uint64_t)0)
 const char *g_dcap_base = 0;
 #include "pin_va.h"
 #define g_dcap_top (*(const char **)RT_DCAP_TOP)
@@ -738,6 +752,17 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     while (c->cur < c->top) {
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
+        /* ⛔ THE THUNK ARM IS TESTED BEFORE THE CAPTURE-SPAN GUARD BELOW, AND THE ORDER IS LOAD-BEARING.  That
+           guard interprets saved_delta/len as an offset and a length into the subject and refuses the entry when
+           they exceed it -- for a thunk entry those fields are a CODE ADDRESS and a tag, so the guard would
+           "refuse" every thunk with a corruption diagnostic naming a subject overrun that never happened.  A
+           correct guard reading the wrong entry kind is indistinguishable from a real defect in its own log. */
+        if (e->len == RT_DCAP_E_THUNK) {
+            void (*thunk)(void) = (void (*)(void))(uintptr_t)e->saved_delta;
+            c->cur += sizeof(rt_dcap_e);
+            if (thunk) thunk();
+            continue;
+        }
         int len = (int)e->len; if (len < 0) len = 0;
         /* ⛔ THE CAPTURE MUST LIE INSIDE THE SUBJECT. Guarding len<0 was never enough: a 4-byte input of
            "\t" reached here with len=480251808 after a deferred *F() re-entered and pushed a second dcf
