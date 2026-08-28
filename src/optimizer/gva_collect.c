@@ -35,8 +35,15 @@ void gva_io_refuse_scan_graph(struct IR_graph_t *g) {
         { const char *fn = IR_LIT(nd).sval;
           if (!fn || (strcmp(fn, "INPUT") != 0 && strcmp(fn, "OUTPUT") != 0)) continue; }
         if (nd->n_operands < 1 || !nd->operands[0]) continue;
+        /* ⛔ BOTH DOCUMENTED SPELLINGS OF THE NAME ARGUMENT, NOT JUST THE DOTTED ONE.  The SPITBOL manual gives OUTPUT('variable', channel, 'file') and OUTPUT(.variable, ...) as equals (v3.7 p.2436-2437), and they
+           lower to DIFFERENT IR: LIT_NAME for `.FOUT`, LIT_STRING for `'FOUT'`.  Refusing only LIT_NAME admitted the quoted form to the GVA island, where its stores become direct cell writes that never call
+           NV_SET_fn -- so the io_chan association hook never ran and every write to the associated variable was silently dropped.  ⭐ MEASURED (hq_C 2026-08-28): corpus/tests/snobol4/feat/f10_io_basic.sno and
+           f11_io_file.sno, both held LOOSE and RED since 2026-08-27 as "a real pre-existing correctness bug" (their KEEP.md + FINDING-2026-08-27-seat14), print FAIL for exactly this reason and pass once the
+           quoted spelling is refused here -- the file was never written at all, so the read-back could not match.  This is the same class the comment at the head of this file already names, reached by a second
+           spelling: a name-keyed guard that a fast path bypasses.  ⭐ THE TRANSFERABLE PART: an exclusion list keyed on ONE SYNTACTIC FORM of a thing silently admits every other form of the same thing, and it
+           looks complete because the form it does check is the one everybody writes.  Refusing is always safe -- a refused name keeps its guarded NV_*_fn accesses and loses only speed. */
         { IR_t *arg = nd->operands[0];
-          if (arg->op == IR_LIT_NAME && IR_LIT(arg).sval) gva_io_refuse_name(IR_LIT(arg).sval); }
+          if ((arg->op == IR_LIT_NAME || arg->op == IR_LIT_STRING) && IR_LIT(arg).sval) gva_io_refuse_name(IR_LIT(arg).sval); }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
