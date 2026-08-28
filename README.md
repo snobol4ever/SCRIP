@@ -5,8 +5,9 @@
 One compiler, seven languages, native code. SCRIP compiles **SNOBOL4/SPITBOL, Snocone,
 Icon, Prolog, Rebus, Raku, and Pascal** to x86-64 through a single engine: every
 construct in every language lowers to the same IR of four-port **Byrd boxes**, and every
-machine instruction is produced by one encoder. Part of the
-[snobol4ever](https://github.com/snobol4ever) organization.
+machine instruction is produced by one encoder. x86-64 is the shipping target; **JVM,
+.NET, JavaScript, and WebAssembly backends are the planned roadmap** on the same engine.
+Part of the [snobol4ever](https://github.com/snobol4ever) organization.
 
 ---
 
@@ -110,12 +111,20 @@ never regress), `test_smoke_*` (per-language smokes), `board_*` / `bench_*`
 [`corpus`](https://github.com/snobol4ever/corpus) repository — SCRIP's scripts expect
 it checked out beside this repo.
 
-Status snapshot (2026-08-28): the SNOBOL4 corpus board runs **FAIL=0 in both modes**
-(1298 programs and suite entries at that day's tree); `beauty.sno` — the SNOBOL4
-beautifier written in SNOBOL4 — reproduces itself byte-identically through the
-compiler in both modes; per-language checks that day: Pascal suites 96/96 both modes,
-Icon smoke 14/14 both modes, Snocone 5/5, Rebus 4/4, Prolog 4/5, Raku parser suite
-83/83. Denominators grow as the corpus consolidates; the boards print their own totals.
+Correctness is also triangulated against independent implementations: the vendored
+**snoflake fixture suite** (180 self-describing programs from the
+[snoflake](https://github.com/atdt/snoflake) project) runs four arms side by side —
+SCRIP in both modes, SPITBOL, and CSNOBOL4 — so a failure is attributed to a real
+defect, a dialect difference, or a broken fixture by measurement, never by guess
+(`scripts/test_snoflake_suite.sh`).
+
+Status snapshot (2026-08-28, end of day): the SNOBOL4 corpus board runs **FAIL=0 in
+both modes** (1299 programs and suite entries at that day's tree); `beauty.sno` — the
+SNOBOL4 beautifier written in SNOBOL4 — reproduces itself byte-identically through the
+compiler in both modes; per-language checks that day: Pascal suites 96/96 both modes
+(and the loose-program set deterministic at 150/154), Icon smoke 14/14 both modes,
+Snocone 5/5, Rebus 4/4, Prolog 4/5, Raku parser suite 83/83. Denominators grow as the
+corpus consolidates; the boards print their own totals.
 
 ## License
 
