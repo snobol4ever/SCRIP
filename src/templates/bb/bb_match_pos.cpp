@@ -21,10 +21,10 @@ static std::string bb_match_pos_body() {
 std::string bb_match_pos() {
     static char b[24];
     if (_.op_sval != NULL) {
-        const char * vn1 = _.op_sval + 1;
         return x86("comment", "IR_MATCH_POS defer")
              + x86_alpha()
-             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)vn1, (strtab_label(b, sizeof b, vn1), b))
+             + x86("lea",  "rdi", "[rip + __]",
+                   (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), (strtab_label(b, sizeof b, _.op_sval + 1), b))
              + x86("call", "rt_pat_prim_int", (uint64_t)(uintptr_t)(void *)rt_pat_prim_int)
              + x86("test", "rax", "rax")
              + x86_omega("js")
@@ -33,6 +33,5 @@ std::string bb_match_pos() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (_.op_zres) return bb_match_pos_body();
     return bb_match_pos_body();
 }
