@@ -66,7 +66,12 @@ for f in $DEMOS; do
     fi
     src="$hits"; dst="${src%.sno}.s"
     tmp="$TMPD/demo_$f.s"
-    if ! timeout 90 "$SCRIP" --compile "$src" > "$tmp" 2>/dev/null; then
+    # ⛔ COMPILE VIA A $DEMO-RELATIVE PATH (cwd is $DEMO), NEVER the absolute $src from find: since
+    # perf-per-statement-loc-emission the compiler emits `.file 1 "<path as given>"`, so an absolute
+    # path bakes THIS SEAT ROOT into a committed artifact and every other root regenerates it back --
+    # a permanent churn war between /home/claude_P and /home/claude_C. The benchmark regen already
+    # passes a bare basename; this is the same discipline. hq_P 2026-08-28.
+    if ! timeout 90 "$SCRIP" --compile "${src#$DEMO/}" > "$tmp" 2>/dev/null; then
         echo "  SKIP  $f.s — --compile failed (committed .s untouched)"; continue
     fi
     if [ ! -s "$tmp" ]; then
