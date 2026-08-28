@@ -41,15 +41,34 @@ TOL="${TOL:-8}"                   # % convergence tolerance between successive r
 MAXREPS="${MAXREPS:-4000000}"
 ENGINES="${ENGINES:-sbl m3 m4}"
 NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-4096}"
+STATIC="${STATIC:-0}"    # row m4-static-link-arm: opt-in m4 link arm, out/libscrip_rt.so stays canonical
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority. A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm)." >&2; exit 3; }
+. "$HERE/lib_static_link_snobol4.sh" 2>/dev/null || { echo "⛔ REFUSING: cannot load lib_static_link_snobol4.sh -- the ONE static-link-arm authority." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; SF="${SBLFLAGS:--d512m -i64m -s256m}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSING: scrip not built at $SCRIP" >&2; exit 3; }
 [ -x "$SBL" ]   || { echo "⛔ REFUSING: clean bench oracle missing at $SBL" >&2; exit 3; }
 [ -f "$MK" ]    || { echo "⛔ REFUSING: fixture generator missing at $MK" >&2; exit 3; }
+if [ "$STATIC" = 1 ]; then
+  RT_A="$(static_rt_archive "$ROOT")" || { echo "⛔ REFUSING: STATIC=1 but out/libscrip_rt.a could not be built (make libscrip_rt_static)" >&2; exit 3; }
+fi
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" 2>/dev/null || { echo "⛔ REFUSING: cannot build $WRAP -- aspect 1 needs microsecond external timing, and /usr/bin/time's 10 ms tick reports these demos as 0.0" >&2; exit 3; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 RC=0
+# ---- compile+assemble+link a .sno into an m4 binary, honoring STATIC (m4-static-link-arm) ----------
+# ⛔ NOT an `A && B || C` chain: a static-link failure must REFUSE, never silently fall through to the
+# dynamic arm -- that is exactly the "control that doesn't test what it claims" trap FINDING f4f6292c
+# warns about (its own `--as-needed` near-miss). Real if/else so STATIC=1 either links static or fails.
+m4_build() {  # $1=prog.sno $2=dst.bin $3=workstem (used for $3.s / $3.o)
+  local prog="$1" dst="$2" stem="$3"
+  "$SCRIP" --compile -o "$stem.s" "$prog" </dev/null >/dev/null 2>&1 || return 1
+  as -o "$stem.o" "$stem.s" 2>/dev/null || return 1
+  if [ "$STATIC" = 1 ]; then
+    m4_link_static "$dst" "$stem.o" "$ROOT"
+  else
+    gcc -no-pie -o "$dst" "$stem.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2>/dev/null
+  fi
+}
 # ---- one bracketed run; echoes "per_match_ns answer" or "" ----------------------------------------
 brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
   local eng="$2x" v="$2" in="$3" r="$4" stem="$5" out ns
@@ -57,9 +76,7 @@ brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
   case "$1" in
     sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $SF "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
     m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$SCRIP" "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
-    m4)  [ -x "$W/$stem.bin" ] || { "$SCRIP" --compile -o "$W/$stem.s" "$v" </dev/null >/dev/null 2>&1 \
-             && as -o "$W/$stem.o" "$W/$stem.s" 2>/dev/null \
-             && gcc -no-pie -o "$W/$stem.bin" "$W/$stem.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2>/dev/null; }
+    m4)  [ -x "$W/$stem.bin" ] || m4_build "$v" "$W/$stem.bin" "$W/$stem"
          [ -x "$W/$stem.bin" ] || { echo ""; return; }
          out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$W/$stem.bin" < "$in" 2>"$W/$stem.err" | tail -1) ;;
   esac
@@ -94,7 +111,7 @@ aspect2() {  # $1=engine $2=prog $3=input $4=fam ; echoes "per_match_ns reps ans
 }
 printf '%s\n' "=== TWO-ASPECT tier-1 demo board (Lon's presentation law) ===" \
   "  ASPECT 1 = whole process, external elapsed, COMPILE INCLUDED   |  ASPECT 2 = in-program bracket, MATCH ONLY" \
-  "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf $SF | RT_OPT=-O0 | NOHUGE=$NOHUGE HEAP=${HEAP}MB | reps RAMPED to convergence (tol ${TOL}%)" \
+  "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf $SF | RT_OPT=-O0 | NOHUGE=$NOHUGE HEAP=${HEAP}MB | reps RAMPED to convergence (tol ${TOL}%) | m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)" \
   "  ⛔ aspect 1 is a TOTAL and aspect 2 is a SLOPE -- per the FACT RULE they may never share a column."
 printf '%-26s %-4s %12s %14s %8s %10s\n' demo eng "A1_total_ms" "A2_TIME_ns" "reps" "A2_mult"
 while IFS=$'\t' read -r fam prog inp; do
@@ -113,7 +130,7 @@ while IFS=$'\t' read -r fam prog inp; do
       case "$e" in
         sbl) "$WRAP" timeout 600 "$SBL" $(sbl_lang_flags) $SF "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
         m3)  SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 600 "$SCRIP" "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
-        m4)  [ -x "$W/$fam.a1.bin" ] || { "$SCRIP" --compile -o "$W/$fam.a1.s" "$P" </dev/null >/dev/null 2>&1 && as -o "$W/$fam.a1.o" "$W/$fam.a1.s" 2>/dev/null && gcc -no-pie -o "$W/$fam.a1.bin" "$W/$fam.a1.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2>/dev/null; }
+        m4)  [ -x "$W/$fam.a1.bin" ] || m4_build "$P" "$W/$fam.a1.bin" "$W/$fam.a1"
              [ -x "$W/$fam.a1.bin" ] || continue
              SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 600 "$W/$fam.a1.bin" < "$IN" >/dev/null 2>"$W/ru" ;;
       esac

@@ -51,7 +51,7 @@ SCRIP_CC_BIN := $(ROOT)/scrip
         test \
         native codegen-emit-test \
         monitor-ipc \
-        libscrip_rt \
+        libscrip_rt libscrip_rt_static \
         run run-ir run-jvm run-net \
         clean distclean
 
@@ -69,7 +69,7 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 	# binary in place, so a build that failed part-way left a stale, plausible ./scrip that every later
 	# test would silently grade instead of failing loudly. Measured 2026-08-22: mid-rebuild the tree held a
 	# 20:06 -O0 binary while an -O2 build was still running. That is the "non-empty is not alive" class.
-	rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(ROOT)/scrip
+	rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip
 	$(MAKE) all
 
 test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ Gate VERDICTS still require `make pristine` first (HQ-27); this target only builds what is missing.
@@ -89,6 +89,7 @@ buildinfo:  # ⭐ what am I actually about to link? print it rather than assume 
 	@printf 'RT_OBJDIR  : %s  (%s objects cached)\n' '$(RT_OBJDIR)' "$$(ls $(RT_OBJDIR)/*.o 2>/dev/null | wc -l)"
 	@printf 'RT_SO      : %s\n' '$(RT_SO)'
 	@printf 'canonical  : out/libscrip_rt.so -> %s\n' "$$(readlink out/libscrip_rt.so 2>/dev/null || echo '(none)')"
+	@printf 'static arm : out/libscrip_rt.a -> %s  (opt-in, m4-static-link-arm; never canonical)\n' "$$(readlink out/libscrip_rt.a 2>/dev/null || echo '(not built)')"
 	@printf 'compiler   : %s  (hardcoded -O0; RT_OPT does NOT affect it)\n' '$(OBJ)'
 	@printf 'cached tags:\n'; for d in out/rt_pic-*; do [ -d "$$d" ] && printf '   %s  %s objects\n' "$$d" "$$(ls $$d/*.o 2>/dev/null|wc -l)"; done; true
 
@@ -394,6 +395,7 @@ RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime
 RT_TAG    := $(shell printf '%s|%s' '$(strip $(RT_OPT))' '$(strip $(ZCFLAGS))' | tr -s ' ' | md5sum | cut -c1-10)
 RT_OBJDIR := out/rt_pic-$(RT_TAG)
 RT_SO     := out/libscrip_rt-$(RT_TAG).so
+RT_A      := out/libscrip_rt-$(RT_TAG).a
 RT_PIC_OBJS := $(addprefix $(RT_OBJDIR)/,$(addsuffix .o,$(basename $(notdir $(RT_PIC_SRCS)))))
 vpath %.c $(sort $(dir $(RT_PIC_SRCS)))
 vpath %.cpp $(sort $(dir $(RT_PIC_SRCS)))
@@ -419,6 +421,25 @@ $(RT_SO): $(RT_PIC_OBJS)
 out/libscrip_rt.so: $(RT_SO) FORCE
 	@ln -sfn $(notdir $(RT_SO)) out/libscrip_rt.so
 	@echo "out/libscrip_rt.so -> $(notdir $(RT_SO))   RT_OPT=$(RT_OPT)"
+
+# ── libscrip_rt.a — static-archive TWIN of libscrip_rt.so, for the OPT-IN m4 STATIC link arm ────
+# Row m4-static-link-arm (Lon 2026-08-28, FLEET-6). ADDITIVE ONLY: out/libscrip_rt.so above REMAINS
+# canonical -- this archives the SAME $(RT_PIC_OBJS) already built for the .so (no separate compile,
+# no separate flags) so `ar` is the only new cost. FINDING f4f6292c measured the shared .so's mere
+# page-in as a fixed floor (430 faults / 7.4MB / ~1.8ms before any program work); static linking
+# against this archive is the one lever there that actually worked (-51% faults on a do-nothing
+# program, -29% on treebank-match, byte-identical output) -- at a real price (~27-30MB/binary) that
+# is why it is a SEPARATE opt-in target and never wired into `scrip`/`libscrip_rt` above.
+$(RT_A): $(RT_PIC_OBJS)
+	@mkdir -p out
+	ar rcs $(RT_A) $(RT_PIC_OBJS)
+	@echo "Built: $@   RT_OPT=$(RT_OPT)"
+# Same FORCE-symlink-refresh reasoning as out/libscrip_rt.so above -- a stale symlink surviving a
+# RT_TAG switch would silently statically-link the WRONG configuration.
+out/libscrip_rt.a: $(RT_A) FORCE
+	@ln -sfn $(notdir $(RT_A)) out/libscrip_rt.a
+	@echo "out/libscrip_rt.a -> $(notdir $(RT_A))   RT_OPT=$(RT_OPT)"
+libscrip_rt_static: out/libscrip_rt.a
 FORCE:
 
 # ── EM-2 synthetic-program harness — RETIRED (SMX-4, 2026-05-30): sm_codegen_x64_emit

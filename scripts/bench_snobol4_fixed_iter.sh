@@ -32,6 +32,7 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 SCALETSV="${SCALETSV:-$B/SCALE.tsv}"
 T="${TIMEOUT:-120}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-4096}"
+STATIC="${STATIC:-0}"    # row m4-static-link-arm: opt-in m4 link arm, out/libscrip_rt.so stays canonical
 # ⛔ HEAP DEFAULT DIFFERS FROM ANGLE 1's 1024MB, MEASURED NOT GUESSED: angle 2's committed N values
 # target a multi-second window (vs angle 1's 500ms budget), so total allocation per run is larger by
 # construction. At 1024MB, 7 of 18 kernels (array_sum/mixed_workload/roman/string_manip/
@@ -39,6 +40,7 @@ T="${TIMEOUT:-120}"; REPS="${REPS:-1}"; NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-409
 # 4096MB cleared all 7 to gc=0 with correctness unchanged (18/18 ok). Same law as angle 1: size the
 # arena past the window's allocation, don't average a stall into a rate.
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
+. "$HERE/lib_static_link_snobol4.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_static_link_snobol4.sh -- the ONE static-link-arm authority." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"   # BENCHMARK oracle (s255): never x64/bin/sbl (monitor-IPC overhead)
 SBLFLAGS="${SBLFLAGS:--s16m}"
 ENGINES="${ENGINES:-sbl m3 m4}"
@@ -47,6 +49,9 @@ ENGINES="${ENGINES:-sbl m3 m4}"
 [ -f "$SCALETSV" ] || { echo "REFUSING: no $SCALETSV -- angle 2 needs a committed per-kernel N; run scripts/calibrate_bench_scale.sh once to bake it, then commit it. Not deriving one on the fly (that would be re-deriving from scratch on every run, exactly what this row exists to stop)." >&2; exit 3; }
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "FAIL build $WRAP" >&2; exit 1; }
+if [ "$STATIC" = 1 ]; then
+  RT_A="$(static_rt_archive "$ROOT")" || { echo "REFUSING: STATIC=1 but out/libscrip_rt.a could not be built (make libscrip_rt_static)" >&2; exit 3; }
+fi
 NIVCSW_FLAG="${BENCH_NIVCSW_THRESHOLD:-20}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 rate() { awk -v n="$1" -v m="$2" 'BEGIN{ if(m+0>0) printf "%.0f", n/m*1000; else printf "NA" }'; }
@@ -63,8 +68,16 @@ run1() {
          out=$("$WRAP" timeout "$T" "$SBL" $(sbl_lang_flags) $SBLFLAGS "$twin" 2>"$W/gc.err" <"$in") ;;
     m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "$SCRIP" --run "$twin" 2>"$W/gc.err" <"$in") ;;
     m4)  "$SCRIP" --compile "$twin" > "$W/$s.s" 2>/dev/null
-         if [ ! -s "$W/$s.s" ] || ! gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm \
-              -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null; then echo "- - - BUILD-ERR"; return; fi
+         # ⛔ real if/else, not `A && B || C` -- a static-link failure must REFUSE (BUILD-ERR), never
+         # silently fall through to the dynamic arm (the control-arm-trap class FINDING f4f6292c warns
+         # about: a "control" that doesn't test what it claims to test agrees with every hypothesis).
+         if [ ! -s "$W/$s.s" ]; then echo "- - - BUILD-ERR"; return; fi
+         if [ "$STATIC" = 1 ]; then
+           as -o "$W/$s.o" "$W/$s.s" 2>/dev/null && m4_link_static "$W/$s.prog" "$W/$s.o" "$ROOT"
+         else
+           gcc -no-pie "$W/$s.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$s.prog" 2>/dev/null
+         fi
+         [ -x "$W/$s.prog" ] || { echo "- - - BUILD-ERR"; return; }
          out=$(cd "$W" && SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" SCRIP_ZETA_TELEM=1 "$WRAP" timeout "$T" "./$s.prog" 2>"$W/gc.err" <"$in") ;;
   esac
   local ck gc rusage_line user_us sys_us nivcsw cpu_ms
@@ -91,7 +104,7 @@ best() {
 }
 echo "FIXED-ITERATION SNOBOL4 BENCHMARKS -- N fixed per kernel (SCALE.tsv), elapsed cpu time measured"
 echo "engines: $ENGINES   reps: $REPS   corpus: $B   scale: $SCALETSV"
-echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)"
+echo "measurement condition: SCRIP_NOHUGE=$NOHUGE  SCRIP_HEAP_MB=$HEAP (sbl unaffected -- separate binary)  m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)"
 echo
 printf "%-20s %10s %12s %12s %12s   %8s %8s %5s %7s  %s\n" BENCHMARK "N" "sbl/s" "m3/s" "m4/s" "m3:sbl" "m4:m3" "gc" "nivcsw" "check"
 printf "%-20s %10s %12s %12s %12s   %8s %8s %5s %7s  %s\n" "--------------------" "----------" "------------" "------------" "------------" "--------" "--------" "-----" "-------" "-----"
