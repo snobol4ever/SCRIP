@@ -42,12 +42,26 @@ stmt = lines[i].strip()
 # convention), but WHICH clock it is -- wall or cpu -- is NOT settled: every calibration run was
 # compute-bound, so the two coincide and the test cannot separate them. Naming it for the primitive
 # rather than for a quantity we have not proven keeps the claim the size of the evidence.
-pre = ["        OUTPUT(.rep_brk, 7, '[-f2]')",
-       "        rep_count = %s" % reps,
+# ⛔⛔ THE ASSOCIATION IS CREATED *AFTER* THE TIMED REGION, AND THAT IS NOT TIDINESS -- IT IS THE
+# DIFFERENCE BETWEEN MEASURING THE MATCH AND MEASURING THE INSTRUMENT. The bracket used to open its
+# OUTPUT association BEFORE the loop, and an existing association makes EVERY variable assignment pay
+# an I/O channel lookup: SNOBOL4 semantics say assigning to an associated variable writes to its file,
+# so NV_SET_fn must consult the channel table on every store. MEASURED on json-match's match phase,
+# 60,000 reps, m4 -O0: with the association open across the loop the profile was led by
+# _io_chan_find_by_var at 18.35%, plus NV_SET_fn 5.07% and mon_name_is_internal 3.74%, and ZERO
+# emitted match boxes appeared in the top ten. With the association removed those three vanish
+# entirely and the profile is led by rt_name_save_push / rt_proc_find / rt_call_proc_descr.
+# ⭐ SO THE INSTRUMENT WAS MANUFACTURING ITS OWN TOP COST CENTRE, and doing it WORST on exactly the
+# demos that assign most inside the match -- i.e. non-uniformly across the board, which is the kind of
+# contamination that does not cancel in a multiple. T0 needs no association, and the write happens
+# after the loop has ended, so opening the channel afterwards costs the measurement nothing.
+pre = ["        rep_count = %s" % reps,
        "        rep_index = 0",
        "        rep_t0 = TIME()"]
 post = ["        rep_index = LT(rep_index, rep_count) rep_index + 1              :S(rep_loop)",
-        "        rep_brk = 'BRACKET TIME_ns=' (TIME() - rep_t0) ' reps=' rep_count"]
+        "        rep_t1 = TIME()",
+        "        OUTPUT(.rep_brk, 7, '[-f2]')",
+        "        rep_brk = 'BRACKET TIME_ns=' (rep_t1 - rep_t0) ' reps=' rep_count"]
 lines[i:i+1] = pre + ["rep_loop " + stmt] + post
 open(out_path, 'w', encoding='utf-8', errors='surrogateescape').write('\n'.join(lines))
 print("ok fixture_line=%d stmt=%s" % (i + 1, stmt))
