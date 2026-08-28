@@ -1158,7 +1158,15 @@ static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_C
 static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
 static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
+/* ⛔ always_inline, and it is the -O0 fact rule biting for the sixth time in this tree (hq_P, json-match callout dig).
+   The body is ONE global read, but at -O0 -- which the s262 NO-`-O2` rule makes the number of record -- gcc emits a real
+   call for a plain `static`, so every consultation costs a prologue, a call and a ret to reach a load.  MEASURED on
+   json-match's MATCH PHASE (60,000 reps, m4, clean bracket): `call rt_call_fastpath_ok` is 9.20% of rt_name_save_push's
+   own self time, and rt_name_save_push is the largest single symbol in that phase at 5.78% of the whole program.  Three
+   call sites, all on the procedure-callout path json drives hardest.  ⭐ Same class this tree already names five times
+   over (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len, comm_var_active): a control arm is read into
+   a local and carried, and where it cannot be hoisted it is at least not a CALL. */
+static inline __attribute__((always_inline)) int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_name_side_effecting(const char *nm)
 {
