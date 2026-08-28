@@ -25,11 +25,11 @@
 # rep count would be a number nobody could tell had gone stale -- the same class as a scale column
 # nobody can justify from a measurement.
 #
-# ⛔ THE BRACKET IS WRITTEN TO A FILE, NOT TO STDERR, and that is deliberate: SCRIP silently discards
-# every write to an OUTPUT association on fd 2 (rc=0, no diagnostic -- see
-# FINDING-2026-08-28-hq_P-scrip-output-association-to-fd2-stderr-silently-discards-writes.md). File
-# association works in BOTH engines today, so the harness is not blocked on that defect. It also keeps
-# stdout byte-identical, so every committed .ref and the cross-engine agreement gate stay untouched.
+# ⭐ THE BRACKET GOES TO STDERR (ceo ruling): the correctness anchor and the perf instrument never share
+# a channel, so stdout stays byte-identical and every committed .ref and the cross-engine agreement gate
+# are untouched. ⛔ It was a temp file until 2026-08-28 only because SCRIP silently discarded every write
+# to an OUTPUT association on a file descriptor; hq_C cured that (69178c73) and the defect was WIDER than
+# the fd2 symptom -- -f1 was discarded identically. Verified in both modes on the cured build.
 set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -53,17 +53,17 @@ RC=0
 # ---- one bracketed run; echoes "per_match_ns answer" or "" ----------------------------------------
 brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
   local eng="$2x" v="$2" in="$3" r="$4" stem="$5" out ns
-  rm -f "$W/$stem.brk"
+  : > "$W/$stem.err"
   case "$1" in
-    sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $SF "$v" < "$in" 2>/dev/null | tail -1) ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$SCRIP" "$v" < "$in" 2>/dev/null | tail -1) ;;
+    sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $SF "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$SCRIP" "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
     m4)  [ -x "$W/$stem.bin" ] || { "$SCRIP" --compile -o "$W/$stem.s" "$v" </dev/null >/dev/null 2>&1 \
              && as -o "$W/$stem.o" "$W/$stem.s" 2>/dev/null \
              && gcc -no-pie -o "$W/$stem.bin" "$W/$stem.o" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" 2>/dev/null; }
          [ -x "$W/$stem.bin" ] || { echo ""; return; }
-         out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$W/$stem.bin" < "$in" 2>/dev/null | tail -1) ;;
+         out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$W/$stem.bin" < "$in" 2>"$W/$stem.err" | tail -1) ;;
   esac
-  ns=$(grep -oE 'ns=[0-9]+' "$W/$stem.brk" 2>/dev/null | cut -d= -f2)
+  ns=$(grep -oE 'TIME_ns=[0-9]+' "$W/$stem.err" 2>/dev/null | tail -1 | cut -d= -f2)
   case "$ns" in ''|*[!0-9]*) echo ""; return;; esac
   [ -n "$out" ] || { echo ""; return; }     # ⛔ empty answer is never a pass
   echo "$(awk -v n="$ns" -v r="$r" 'BEGIN{printf "%.6f", n/r}') $out"
@@ -75,7 +75,7 @@ aspect2() {  # $1=engine $2=prog $3=input $4=fam ; echoes "per_match_ns reps ans
     v="$W/$fam.$eng.$r.sno"
     # ⛔ the bracket path MUST use the same reps-keyed stem brk() reads, or the generator writes one file
     # and the reader looks for another -- which is exactly what the reps-keyed stem fix broke first time.
-    python3 "$MK" "$prog" "$v" "$W/$fam.$eng.$r.brk" "$r" >/dev/null 2>&1 || { echo "REFUSE fixture-not-identified"; return; }
+    python3 "$MK" "$prog" "$v" "$W/$fam.$eng.$r.brk" "$r" >/dev/null 2>&1 || { echo "REFUSE fixture-not-identified"; return; }   # arg 3 retained for call-shape stability; the bracket now goes to stderr
     # ⛔ THE STEM CARRIES THE REP COUNT. Without it the m4 arm builds its binary once (at reps=1) and
     # reuses it for every ramp step while dividing by the CURRENT r -- per-match times wrong by the
     # whole ramp factor, silently, with every run looking healthy. The variant CHANGES with reps, so
@@ -96,7 +96,7 @@ printf '%s\n' "=== TWO-ASPECT tier-1 demo board (Lon's presentation law) ===" \
   "  ASPECT 1 = whole process, external elapsed, COMPILE INCLUDED   |  ASPECT 2 = in-program bracket, MATCH ONLY" \
   "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf $SF | RT_OPT=-O0 | NOHUGE=$NOHUGE HEAP=${HEAP}MB | reps RAMPED to convergence (tol ${TOL}%)" \
   "  ⛔ aspect 1 is a TOTAL and aspect 2 is a SLOPE -- per the FACT RULE they may never share a column."
-printf '%-26s %-4s %12s %14s %8s %10s\n' demo eng "A1_total_ms" "A2_match_ns" "reps" "A2_mult"
+printf '%-26s %-4s %12s %14s %8s %10s\n' demo eng "A1_total_ms" "A2_TIME_ns" "reps" "A2_mult"
 while IFS=$'\t' read -r fam prog inp; do
   case "$fam" in ''|\#*) continue;; esac
   P="$D/$prog"; IN="$D/$inp"

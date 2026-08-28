@@ -30,12 +30,24 @@ if not fix:
 fix = [fix[0]]
 i = fix[0]
 stmt = lines[i].strip()
-pre = ["        OUTPUT(.rep_brk, 7, '%s')" % brk_path,
+# ⭐ THE BRACKET GOES TO STDERR (ceo ruling, 2026-08-28): the correctness anchor and the perf instrument
+# never share a channel, so stdout stays byte-identical and every committed .ref is untouched.
+# ⛔ THIS WAS A TEMP FILE UNTIL TONIGHT, and only because SCRIP silently discarded every write to an
+# OUTPUT association on a file descriptor. hq_C cured that (SCRIP 69178c73) -- and the defect was WIDER
+# than the fd2 symptom I routed: -f1 was silently discarded identically, because _io_parse_opts
+# understood -fn perfectly and had exactly one caller, _INPUT_; the write side never called the parser.
+# Verified in both modes on the cured build before this switch was made.
+# ⛔ LABELLED TIME_ns, NOT cpu_ns OR elapsed_ns, DELIBERATELY: TIME() is measured to be NANOSECONDS in
+# both engines (calibrated against an external clock, not taken from the manual's millisecond
+# convention), but WHICH clock it is -- wall or cpu -- is NOT settled: every calibration run was
+# compute-bound, so the two coincide and the test cannot separate them. Naming it for the primitive
+# rather than for a quantity we have not proven keeps the claim the size of the evidence.
+pre = ["        OUTPUT(.rep_brk, 7, '[-f2]')",
        "        rep_count = %s" % reps,
        "        rep_index = 0",
        "        rep_t0 = TIME()"]
 post = ["        rep_index = LT(rep_index, rep_count) rep_index + 1              :S(rep_loop)",
-        "        rep_brk = 'BRACKET ns=' (TIME() - rep_t0) ' reps=' rep_count"]
+        "        rep_brk = 'BRACKET TIME_ns=' (TIME() - rep_t0) ' reps=' rep_count"]
 lines[i:i+1] = pre + ["rep_loop " + stmt] + post
 open(out_path, 'w', encoding='utf-8', errors='surrogateescape').write('\n'.join(lines))
 print("ok fixture_line=%d stmt=%s" % (i + 1, stmt))
