@@ -2289,6 +2289,7 @@ static void _var_init(void) {
     if (_var_init_done) return;
     memset(_var_buckets, 0, sizeof(_var_buckets));
     _var_init_done = 1;
+    { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }   /* ⭐ ARMED HERE, NOT AT THE &DUMP ASSIGNMENT: `&DUMP = 1` reaches g_dump through the keywords.c TABLE (a write through its int64_t* entry), not through rt_keyword_dump_set, so arming at the setter armed nothing -- measured, the keyword read back as 1 while the exit listing stayed silent. _var_init runs before any variable exists, so the handler is registered for every program and reads g_dump AT EXIT; a program that never sets &DUMP pays one atexit slot and prints nothing. */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
@@ -2571,34 +2572,41 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void var_dump(void) {
-    fprintf(stderr, "[DUMP start]\n");
-    for (int i = 0; i < VAR_BUCKETS; i++) {
-        for (NV_t *e = _var_buckets[i]; e; e = e->next) {
-            const char *tname;
-            switch(e->val.v) {
-                case 0: tname="NULL"; break;
-                case 1: tname="STR"; break;
-                case 2: tname="INT"; break;
-                case 3: tname="REAL"; break;
-                case 5: tname="PATTERN"; break;
-                case 6: tname="DT_A"; break;
-                case 7: tname="TABLE"; break;
-                case 8: tname="DT_DATA"; break;
-                case 9: tname="DT_FAIL"; break;
-                default: tname="OTHER"; break;
-            }
-            if (IS_STR(e->val)) {
-                const char *s = e->val.s ? e->val.s : "(null)";
-                int len = (int)strlen(s);
-                fprintf(stderr, "  %s = STR(%.*s)\n", e->name, len > 40 ? 40 : len, s);
-            } else {
-                fprintf(stderr, "  %s = %s\n", e->name, tname);
-            }
-        }
-    }
-    fprintf(stderr, "[DUMP end]\n");
+/* ⛔⛔ THE DUMP LISTING IS A GRADED PROGRAM OUTPUT, NOT A DEBUG AID, AND IT WAS WRONG IN FOUR INDEPENDENT WAYS (hq_C 2026-08-28, snoflake RUNG SF-3).  Measured against x64/bin/sbl -bf, which PASSES both fixtures:
+   (1) STREAM -- it printed to stderr, so the graded stdout got NOTHING at all.  A fixture matching on the listing could never pass, however correct the text.
+   (2) VALUES -- it read e->val UNCONDITIONALLY, ignoring e->is_gva.  A GVA-admitted name keeps its value in *e->cell and its e->val is stale/empty, so `FRUIT = 'apple'` dumped as `FRUIT = STR()`.  ⭐ NV_GET_fn has always spelled this `e->is_gva ? *e->cell : e->val`; the dump simply never learned it -- the same shape as this session's other finds, a reader of the variable table that does not use the table's own accessor.
+   (3) ORDER -- storage order, i.e. hash-bucket order, which is not an order at all: it varies with the name set.  SPITBOL alphabetizes, and `dump-ordered` grades exactly that.
+   (4) FORM -- it printed internal tag names (`STR(...)`, `DT_DATA`) rather than SPITBOL's `name = 'string'` / `name = 3`.
+   ⛔ BUILT-IN PATTERN CONSTANTS ARE NOT NATURAL VARIABLES and sbl omits them; is_protected_pat_name is the EXISTING single authority for that set (rt_protected.h), so it is consulted rather than re-listed here -- a duplicated name list in this function is precisely the per-op filter RULES.md forbids. */
+static int var_dump_cmp(const void *a, const void *b) { const NV_t *x = *(const NV_t *const *)a, *y = *(const NV_t *const *)b; return strcmp(x->name, y->name); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void var_dump_val(FILE *f, DESCR_t d) {
+    if (d.v == DT_I) { fprintf(f, "%lld", (long long)d.i); return; }
+    if (d.v == DT_R) { extern const char *real_str(double r, char *b, int bufsz); char b[64]; fprintf(f, "%s", real_str(d.r, b, sizeof b)); return; }
+    if (IS_STR(d) || d.v == DT_SNUL) { const char *s = rt_cstr_d(d); fprintf(f, "'%s'", s ? s : ""); return; }
+    fprintf(f, "'%s'", "");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void var_dump(void) {
+    NV_t **v = (NV_t **)0; int n = 0, cap = 0;
+    for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+        if (!e->name || !e->name[0] || e->name[0] == '&' || e->name[0] == '_') continue;
+        if (is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
+        DESCR_t d = e->is_gva ? *e->cell : e->val;
+        if (d.v != DT_I && d.v != DT_R && !IS_STR(d)) continue;
+        if (n == cap) { cap = cap ? cap * 2 : 64; v = (NV_t **)realloc(v, (size_t)cap * sizeof(NV_t *)); if (!v) return; }
+        v[n++] = e;
+    }
+    if (n > 1) qsort(v, (size_t)n, sizeof(NV_t *), var_dump_cmp);
+    printf("\n\ndump of natural variables\n\n");
+    for (int i = 0; i < n; i++) { printf("%s = ", v[i]->name); var_dump_val(stdout, v[i]->is_gva ? *v[i]->cell : v[i]->val); printf("\n"); }
+    fflush(stdout);
+    free(v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ &DUMP's POST-MORTEM WAS NEVER WIRED: keywords.c stores the value in g_dump and NOTHING EVER READ IT at termination, so `&DUMP = 1` produced no listing at all (snoflake dump-ordered got empty stdout, not a wrong listing -- a silent no-op, which reads as "feature absent" rather than "feature broken").  Registered through atexit, mirroring mon_at_exit's precedent in this same file, and the flag is read AT EXIT rather than latched at registration because a program sets &DUMP while running. */
+static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }
+void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; atexit(var_dump_at_exit); } }
 #define NSTACK_MAX 256
 static int64_t _nstack[NSTACK_MAX];
 static int      _ntop = -1;
