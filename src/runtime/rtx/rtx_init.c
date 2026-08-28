@@ -42,6 +42,7 @@ _Static_assert(DT_S    == 0x02,  "rtx_abi.inc hardcodes DT_S 1; descr.h drifted 
 _Static_assert(DT_P    == 0x08,  "rtx_abi.inc hardcodes DT_P 3; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
 _Static_assert(DT_X    == 0x58, "rtx_abi.inc hardcodes DT_X 15; descr.h drifted -- str_concat_d's pattern guard would stop routing to pat_cat");
 _Static_assert(HB_AGGV == 206, "rtx_alloc.S hardcodes HB_AGGV 206; gc_heap.h drifted -- rt_agg_alloc would tag every aggregate cell with the WRONG block type, which links fine, allocates fine, and corrupts the GC's precise-visit classification silently");
+_Static_assert(HB_WS == 203, "rtx_alloc.S hardcodes HB_WS 203; gc_heap.h drifted -- rt_ws_alloc would tag every workspace-island block with the WRONG block type, which links fine, allocates fine, and corrupts any code that switches on title.type silently");
 _Static_assert(DT_FAIL == 0x68, "rtx_abi.inc hardcodes DT_FAIL 99; descr.h drifted -- FAILDESCR precedence in the null-identity arm would break");
 _Static_assert(offsetof(VCELL_t, cellp) == 0, "rtx_icnvar.S hardcodes VCELL_t.cellp at offset 0; descr.h drifted -- the NAMETRAP fast arm would store a DESCR_t through the wrong member, which links fine and corrupts silently");
 _Static_assert(DT_E == 0x38, "rtx_icncall.S hardcodes DT_E 11; descr.h drifted -- rt_proc_value would mint procedure values with the WRONG TAG, which links fine and silently changes procedure identity rather than crashing");

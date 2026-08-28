@@ -42,6 +42,7 @@ RTX_GATE_DEF(alloc)
 
 #define HBF_TTL 0x0001
 #define HB_AGGV 206                     /* gc_heap.h; anchored by _Static_assert in rtx_init.c */
+#define HB_WS   203                     /* gc_heap.h; anchored by _Static_assert in rtx_init.c */
 
 /*-----------------------------------------------------------------------------
  * void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
@@ -167,6 +168,71 @@ RTX_FUNC(rt_agg_alloc)
     cmove   rsi, rcx                    /* n ? n : 1                            */
     jmp     .Lga_armed                  /* armed already proven, r10 loaded     */
 RTX_ENDF(rt_agg_alloc)
+
+/*-----------------------------------------------------------------------------
+ * void *rt_ws_alloc(size_t n)             C of record: gc_heap.c c_rt_ws_alloc
+ *
+ *   Args: rdi = n.   Returns: rax = payload pointer.
+ *   Clobbers rax/rcx/rdx/r9/r10 only -- rdi survives for the tail jump.
+ *
+ *   THE "WORKSPACE ISLAND" BUMP ALLOCATOR -- a SECOND, SEPARATE arena from
+ *   g_hp_fr's GC heap above (rt_gcheap_alloc/rt_str_alloc/rt_agg_alloc): TTL
+ *   scratch storage that is never collected, growing FORWARD from g_wsi_base
+ *   through g_wsi_ws (this function) while rt_ws_strdup (not yet ported)
+ *   grows BACKWARD from g_wsi_wss toward it. Same 16-byte rt_hblk_t title as
+ *   the GC heap; HB_WS type, HBF_TTL flag, always -- rt_ws_alloc never omits
+ *   the zero-fill decision the way rt_gcheap_alloc's detax path does, it only
+ *   skips memset when g_hp_fr.zfull says the caller does not need one.
+ *
+ *   C being reproduced, exactly (gc_heap.c c_rt_ws_alloc):
+ *     if (hist_on) hist_ra(...);                          <- diagnostic, C-only
+ *     if (!g_wsi_base) rt_wsi_init();                       <- once ever, C-only
+ *     total = 16 + round16(n ? n : 1);
+ *     if (wss - ws < total) abort();                        <- exhaustion, C-only
+ *     h = ws; h->fwd=0; h->size=total; h->type=HB_WS; h->flags=HBF_TTL;
+ *     if (g_hp_fr.zfull) memset(h+1, 0, total-16);           <- zfull, C-only
+ *     ws += total; blocks += 1; return h+1;
+ *
+ *   PORTED: the fast arm only -- histogram off, island already initialised,
+ *   zfull resolved-false (0, not the -1-unresolved or 1-force-full arms), room
+ *   at the frontier. Everything else falls through to C untouched (rdi still
+ *   holds the original n), matching rt_gcheap_alloc's detax-only-fast-path
+ *   precedent above. g_ah_on/g_wsi_* are all hidden (unlike g_hp_fr, which is
+ *   exported for sink_carve48 and needs the GOT) so every one is a direct
+ *   [rip+sym] load -- confirmed via readelf -sW on the compiled .o, not the
+ *   .so (RTX step 0(c): the .so link-localises statics and hidden globals to
+ *   the SAME lowercase letter, so only the .o tells them apart). g_ah_on was
+ *   widened static->hidden for exactly this read (gc_heap.c, same rung).
+ */
+RTX_FUNC(rt_ws_alloc)
+    RTX_GATE(alloc, c_rt_ws_alloc)
+    cmp     dword ptr [rip + g_ah_on], 0
+    jne     c_rt_ws_alloc               /* histogram armed -> C owns the record */
+    cmp     qword ptr [rip + g_wsi_base], 0
+    je      c_rt_ws_alloc               /* island not yet born -> C lazy-inits  */
+    mov     r10, [rip + g_hp_fr@GOTPCREL]
+    cmp     dword ptr [r10 + 40], 0     /* zfull: -1 unresolved, 1 force-full   */
+    jne     c_rt_ws_alloc               /* either one -> C resolves / memsets   */
+    mov     rcx, 1
+    test    rdi, rdi
+    cmovnz  rcx, rdi                    /* n ? n : 1                            */
+    add     rcx, 15
+    and     rcx, -16
+    add     rcx, 16                     /* total = 16 + round16(n ? n : 1)      */
+    mov     r9, [rip + g_wsi_ws]        /* at = ws (title address)              */
+    mov     rdx, [rip + g_wsi_wss]
+    sub     rdx, r9                     /* avail = wss - ws                     */
+    cmp     rdx, rcx
+    jb      c_rt_ws_alloc               /* exhausted -> C aborts w/ its message */
+    mov     qword ptr [r9 + 0], 0       /* title.fwd  = 0                       */
+    mov     dword ptr [r9 + 8], ecx     /* title.size = total                   */
+    mov     dword ptr [r9 + 12], (HB_WS | (HBF_TTL << 16))  /* type | flags, one store, both compile-time */
+    lea     r10, [r9 + rcx]             /* new ws = at + total                  */
+    mov     [rip + g_wsi_ws], r10
+    add     qword ptr [rip + g_wsi_blocks], 1
+    lea     rax, [r9 + 16]              /* return h + 1                         */
+    ret
+RTX_ENDF(rt_ws_alloc)
 
 /* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

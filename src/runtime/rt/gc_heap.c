@@ -141,7 +141,12 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     g_hp_blocks += 1;
     return (void *)(h + 1); }
 }
-static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_on = -1; static int g_ah_reg = 0;
+static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
+/* g_ah_on widened static->hidden (RTX step 0(c) precedent, matching g_wsi_base/ws/wss/blocks below): rtx_alloc.S's
+   rt_ws_alloc fast path must skip to C whenever the alloc-histogram diagnostic is armed, so it needs to read this
+   flag directly. Hidden (not exported) keeps [rip+sym] addressing and interposition-proofing identical to a static;
+   only cross-TU linkability widens. Resolved once, before any RT call, by the rt_alloc_hist_init constructor below. */
+__attribute__((visibility("hidden"))) int g_ah_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_alloc_hist_report(void)
 {
@@ -223,7 +228,7 @@ static void rt_wsi_init(void)
     g_wsi_ws = g_wsi_base; g_wsi_end = g_wsi_base + ((size_t)mb << 20); g_wsi_wss = g_wsi_end;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_ws_alloc(size_t n)
+void *c_rt_ws_alloc(size_t n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
     if (!g_wsi_base) rt_wsi_init();
