@@ -776,6 +776,8 @@ std::string net_push_i4_str(int v);
 std::string net_ctor_none_str(int sid, int nid);
 std::string net_spec_zw_str();
 #define IF(c, ...) ((c) ? (__VA_ARGS__) : std::string())
+#define IF_M3(...) IF(MEDIUM_BINARY, __VA_ARGS__)
+#define IF_M4(...) IF(MEDIUM_TEXT, __VA_ARGS__)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 template<typename F>
 inline std::string FOR(int lo, int hi, F f) {
