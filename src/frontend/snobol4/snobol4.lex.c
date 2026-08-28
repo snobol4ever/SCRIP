@@ -1190,6 +1190,21 @@ YY_RULE_SETUP
 }
 	YY_BREAK
 /*--------------------------------------------------------------------------------------------------------------------*/
+case YY_STATE_EOF(LABEL):
+{
+    /* ⛔ A FINAL LINE WITH NO TRAILING NEWLINE IS A STATEMENT, NOT A NON-EVENT.  Without this arm the pending label is
+       DISCARDED at EOF and a file whose last line is `END` (unterminated) reports "missing END statement" -- the END was
+       lexed and thrown away, so the diagnostic names a missing token that is present in the source.  Mirrors the <LABEL>\n
+       arm above minus lineno++ (there is no line to count), and lands in LABEL_DONE precisely because <LABEL_DONE><<EOF>>
+       already exists and yields T_STMT_END: the pair reproduces exactly what a newline-terminated label produces, and the
+       state change guarantees termination rather than re-firing this rule.  Measured: 11 of 180 snoflake fixtures ship
+       without a final newline and ALL 11 failed here; sbl -bf accepts every one of them. */
+    strbuf[strpos] = '\0';
+    BEGIN(LABEL_DONE);
+    return T_LABEL;
+}
+	YY_BREAK
+/*--------------------------------------------------------------------------------------------------------------------*/
 case 16:
 YY_RULE_SETUP
 { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
@@ -1229,6 +1244,9 @@ case 22:
 YY_RULE_SETUP
 { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
+case YY_STATE_EOF(BODY_START):
+{ BEGIN(INITIAL); return T_STMT_END; }   /* same class as <LABEL><<EOF>>: a label-plus-blank-body final line still ends a statement */
+	YY_BREAK
 case 23:
 YY_RULE_SETUP
 { BEGIN(INITIAL); return T_STMT_END; }
@@ -1241,6 +1259,9 @@ case 25:
 /* rule 25 can match eol */
 YY_RULE_SETUP
 { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+	YY_BREAK
+case YY_STATE_EOF(BODY):
+{ gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }   /* same class as <LABEL><<EOF>>: an unterminated final statement body still ends the statement */
 	YY_BREAK
 case 26:
 /* rule 26 can match eol */
@@ -1656,9 +1677,6 @@ YY_RULE_SETUP
 { lineno++; BEGIN(INITIAL); }
 	YY_BREAK
 case YY_STATE_EOF(INITIAL):
-case YY_STATE_EOF(LABEL):
-case YY_STATE_EOF(BODY):
-case YY_STATE_EOF(BODY_START):
 case YY_STATE_EOF(GT):
 case YY_STATE_EOF(STR1):
 case YY_STATE_EOF(STR2):

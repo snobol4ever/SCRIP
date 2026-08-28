@@ -144,6 +144,19 @@ G       ({WS}|{CONT})*
     return T_LABEL;
 }
  /*--------------------------------------------------------------------------------------------------------------------*/
+<LABEL><<EOF>>          {
+    /* ⛔ A FINAL LINE WITH NO TRAILING NEWLINE IS A STATEMENT, NOT A NON-EVENT.  Without this arm the pending label is
+       DISCARDED at EOF and a file whose last line is `END` (unterminated) reports "missing END statement" -- the END was
+       lexed and thrown away, so the diagnostic names a missing token that is present in the source.  Mirrors the <LABEL>\n
+       arm above minus lineno++ (there is no line to count), and lands in LABEL_DONE precisely because <LABEL_DONE><<EOF>>
+       already exists and yields T_STMT_END: the pair reproduces exactly what a newline-terminated label produces, and the
+       state change guarantees termination rather than re-firing this rule.  Measured: 11 of 180 snoflake fixtures ship
+       without a final newline and ALL 11 failed here; sbl -bf accepts every one of them. */
+    strbuf[strpos] = '\0';
+    BEGIN(LABEL_DONE);
+    return T_LABEL;
+}
+ /*--------------------------------------------------------------------------------------------------------------------*/
 <LABEL_DONE>[ \t]          { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 <LABEL_DONE>\n             { lineno++; BEGIN(INITIAL); return T_STMT_END; }
 <LABEL_DONE>[*!|;]         { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
@@ -158,9 +171,11 @@ G       ({WS}|{CONT})*
  /*--------------------------------------------------------------------------------------------------------------------*/
 <BODY_START>[ \t]+      { }
 <BODY_START>\n          { lineno++; BEGIN(INITIAL); return T_STMT_END; }
+<BODY_START><<EOF>>     { BEGIN(INITIAL); return T_STMT_END; }   /* same class as <LABEL><<EOF>>: a label-plus-blank-body final line still ends a statement */
 <BODY_START>";"         { BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START>.           { yyless(0); BEGIN(BODY); }
 <BODY>\n               { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY><<EOF>>          { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }   /* same class as <LABEL><<EOF>>: an unterminated final statement body still ends the statement */
 <BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
