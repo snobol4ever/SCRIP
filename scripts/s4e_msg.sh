@@ -285,7 +285,7 @@ case "$cmd" in
          # silently removed a row from the whole fleet's reach. ⛔ REFUSES a claim that is DONE (that is a receipt, not
          # a lock) and one you do not own. The release is APPENDED to the baton's LEDGER, so a lock that was taken and
          # returned leaves a trace instead of vanishing.
-         topic="${2:?topic}"; c="$PO/claims/$topic.claim"
+         topic="${2:?topic}"; c="$PO/claims/$topic.claim"; q="$PO/QUEUE.tsv"
          [ -f "$c" ] || { echo "no claim on $topic — nothing to release"; exit 1; }
          own="$(head -1 "$c")"
          # ⛔ s272 hq_C — THE CODE CONTRADICTED ITS OWN MESSAGE. The header above and this very string both said "or by
@@ -317,6 +317,14 @@ case "$cmd" in
            fi
          fi
          why="${why:-${3:-released unworked}}"
+         # ⭐ unclaim-leaves-row-invisible-column-not-freed (ceo, 2026-08-28, on hq_P's icon-n2 measurement) —
+         # unclaim removed only the claim FILE and never touched QUEUE.tsv's state column, so a released row
+         # stayed ASSIGNED/ASSIGNED:<seat> and next()'s PASS 3 (which serves only FREE|'') never saw it again —
+         # the exact "half the hiding" this case's own header already named. Mirrors `park`'s write, same awk
+         # shape. The column is always driven to FREE, even over an ASSIGNED-BY state: an assignment is spent
+         # the instant its lock is released, never restored to what the assigner intended (ruling: back to FREE).
+         # A row whose column already reads FREE is simply rewritten FREE -> FREE: a no-op, not an error.
+         [ -f "$q" ] && { tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$topic" -v s="FREE" '$2==t&&NF>3{$4=s} {print}' "$q" > "$tmp" && cat "$tmp" > "$q"; rm -f "$tmp"; }
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          s4e_mark_row "$topic" RELEASED
