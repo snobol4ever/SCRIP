@@ -91,6 +91,16 @@ while IFS=$'\t' read -r kind path bucket evidence; do
         tf="$PO/tasks/$evidence.task.md"
         if [ ! -f "$tf" ]; then
             echo "⛔ BROKEN ROW: $path claims row '$evidence' -- no such task file"; FAIL=1
+        elif ! grep -qP "\t\Q$evidence\E\t" "$PO/QUEUE.tsv"; then
+            # ⭐ A ROWD claim is satisfied by the row being OPEN, so an UNDISPATCHABLE row satisfies it FOREVER --
+            # green in exactly the wrong direction, while a COMPLETED row red-gates the whole fleet. A row with a
+            # task file but no QUEUE.tsv row can never be picked by `next`, so its promise can never be kept.
+            # Measured witness: prolog-parser-corpus-vacuous-gate-422-files was the sole cover for tests/prolog
+            # (261 files) with ZERO queue rows; its work had in fact landed at b362f2a3 and nobody could close it.
+            echo "⛔ UNDISPATCHABLE ROW: $path claims row '$evidence', which has a task file but NO row in QUEUE.tsv."
+            echo "     -> no seat can pick it via 'next', so this coverage claim can never be discharged."
+            echo "     -> either restore the queue row, or classify the subtree GATED and name the harness."
+            FAIL=1
         elif head -1 "$tf" | grep -q 'state: DONE'; then
             echo "⛔ ROW CLOSED, COVERAGE NOT LANDED: $path is only covered by '$evidence', which is state: DONE."
             echo "     -> either the subtree is now GATED (say so, name the harness) or the row reopened prematurely."

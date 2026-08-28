@@ -23,7 +23,7 @@ EXCLUDE	programs	EXCLUDED	Lon 2026-08-27 RULES.md:55 -- "all the corpus/programs
 
 SUBTREE	packages/snobol4	GATED	test_csnobol4_budne_suite.sh
 SUBTREE	tests/icon	GATED	test_icon_all_rungs.sh
-SUBTREE	tests/prolog	ROWD	prolog-parser-corpus-vacuous-gate-422-files
+SUBTREE	tests/prolog	GATED	test_corpus_prolog_parser.sh
 SUBTREE	packages/prolog	ROWD	swi-tests-subdirs-invisible
 SUBTREE	tests/snobol4	GATED	test_corpus_snobol4.sh
 SUBTREE	crosscheck/snocone	GATED	test_crosscheck_sc_corpus_rung.sh
