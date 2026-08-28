@@ -27,6 +27,7 @@ void         rt_arena_destroy(rt_arena_t *a);
 void        *rt_arena_zblock_get(rt_arena_t *a, size_t block_sz);
 void         rt_arena_zblock_put(rt_arena_t *a, void *blk);
 void        *rt_ws_alloc(size_t n);
+void        *rt_ws_alloc_tag(size_t n, uint16_t ty);
 void        *rt_ws_realloc(void *p, size_t n);
 char        *rt_ws_strdup(const char *s);
 void        *rt_ws_alloc_c(size_t n);

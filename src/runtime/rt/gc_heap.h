@@ -19,6 +19,14 @@
   DESCR_t and segfaulted the collector (measured, not feared).  HB_AGGB carries NO descriptors -- the entries it
   points at are marked by gc_visit_tbblk walking the table -- so its sweep arm is a deliberate no-op. */
 #define HB_AGGB  211
+/*⭐ HB_ARR/HB_DINST (gc-stress-arm-nondeterministic) -- ARBLK_t/DATINST_t headers used to share the generic HB_WS tag
+  with every other rt_ws_alloc payload shape in the workspace island (DESCR_t data buffers included), so gc_zeta_frame
+  could only check "is this address the start of SOME real WS block", not "...of an ARBLK_t/DATINST_t specifically".
+  A conservatively-scanned garbage word whose payload happened to equal a data buffer's address passed that check and
+  got its bytes read as ARBLK_t fields -- own type tags close the gap the same way HB_AGGV/HB_AGGT already do for the
+  main heap. rt_ws_alloc_tag is the only thing that may write these; a bare rt_ws_alloc stays HB_WS. */
+#define HB_ARR   212
+#define HB_DINST 213
 #define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002

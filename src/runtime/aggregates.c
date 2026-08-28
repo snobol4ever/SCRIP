@@ -13,7 +13,7 @@ long rt_agg_serial_list(void) { return g_agg_list_ser++; }
 long rt_agg_serial_table(void) { return g_agg_table_ser++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
-    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
     a->lo   = lo;
     a->hi   = hi;
     a->ndim = 1;
@@ -27,7 +27,7 @@ ARBLK_t *array_new(int lo, int hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
-    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
     a->lo   = lo1;
     a->hi   = hi1;
     a->lo2  = lo2;

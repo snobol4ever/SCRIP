@@ -546,7 +546,7 @@ DESCR_t sort_fn(DESCR_t arr) {
         }
         order[j+1] = tmp;
     }
-    ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
+    ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
     a->lo         = 1;
     a->hi         = n;
     a->ndim       = 1;
@@ -557,7 +557,7 @@ DESCR_t sort_fn(DESCR_t arr) {
     { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_ws_strdup(pb); }
     a->data = rt_ws_alloc(n * sizeof(DESCR_t));
     for (int i = 0; i < n; i++) {
-        ARBLK_t *row = rt_ws_alloc(sizeof(ARBLK_t));
+        ARBLK_t *row = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
         row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0; row->id = rt_agg_serial_list();
         row->data = rt_ws_alloc(2 * sizeof(DESCR_t));
         row->data[0] = key_descrs[order[i]];

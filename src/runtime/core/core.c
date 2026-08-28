@@ -1145,7 +1145,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             TBBLK_t *tbl = val.tbl;
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
-            ARBLK_t *a = rt_ws_alloc(sizeof(ARBLK_t));
+            ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
             a->lo = 1; a->hi = n; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
             a->proto_bare = 1; a->id = rt_agg_serial_list();
             { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_ws_strdup(pb); }
@@ -1156,7 +1156,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                 DESCR_t kd = (e->key_descr.v != DT_SNUL)
                              ? e->key_descr
                              : STRVAL(tbl_pair_key(e));
-                ARBLK_t *rb = rt_ws_alloc(sizeof(ARBLK_t));
+                ARBLK_t *rb = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
                 rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
                 rb->proto_bare = 1; rb->proto = 0; rb->id = rt_agg_serial_list();
                 rb->data = rt_ws_alloc(2 * sizeof(DESCR_t));
@@ -1426,7 +1426,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     if (tidx < 0 || tidx >= _data_ntypes) return NULVCL;
     DATBLK_t *t = _udef_lookup(_data_types[tidx].typename);
     if (!t) return NULVCL;
-    DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
+    DATINST_t *u = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     u->type   = t;
     u->id     = t->serial_next++;
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
@@ -2238,7 +2238,7 @@ static DATBLK_t *_udef_lookup(const char *name) {
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
     if (!t) return NULVCL;
-    DATINST_t *u = rt_ws_alloc(sizeof(DATINST_t));
+    DATINST_t *u = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     u->type   = t;
     u->id     = t->serial_next++;
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));

@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "rt/gc_heap.h"
 #include "driver_private.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_print(DESCR_t *args, int nargs) {
@@ -334,7 +335,7 @@ DatType *dat_find_field(const char *name, int *fidx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
-    DATINST_t *inst = rt_ws_alloc(sizeof(DATINST_t));
+    DATINST_t *inst = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     DATBLK_t *blk = rt_ws_alloc(sizeof(DATBLK_t));
     blk->name    = rt_ws_strdup(t->name);
     blk->nfields = t->nfields;

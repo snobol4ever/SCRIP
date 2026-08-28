@@ -228,14 +228,29 @@ static void rt_wsi_init(void)
     g_wsi_ws = g_wsi_base; g_wsi_end = g_wsi_base + ((size_t)mb << 20); g_wsi_wss = g_wsi_end;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *c_rt_ws_alloc(size_t n)
+static void *rt_ws_alloc_core(size_t n, uint16_t ty)
 {
-    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
     if (!g_wsi_base) rt_wsi_init();
     { uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
       if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
-      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WS; h->flags = HBF_TTL; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = ty; h->flags = HBF_TTL; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rtx_alloc.S's RTX_FUNC(rt_ws_alloc) fast path jumps here (`jne/je/jb c_rt_ws_alloc`) with ONLY rdi=n staged —
+   this signature and its hardcoded HB_WS are the slow-path contract the asm veneer was written against, and
+   may not gain a second argument. rt_ws_alloc_tag below is a SEPARATE entry point (no asm fast path of its
+   own — ARBLK_t/DATINST_t headers are not hot enough to earn one) sharing the core carve via rt_ws_alloc_core. */
+void *c_rt_ws_alloc(size_t n)
+{
+    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
+    return rt_ws_alloc_core(n, (uint16_t)HB_WS);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_ws_alloc_tag(size_t n, uint16_t ty)
+{
+    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), ty, (uint64_t)n);
+    return rt_ws_alloc_core(n, ty);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_ws_realloc(void *p, size_t n)
@@ -292,6 +307,9 @@ static long g_gc_nseg = -1, g_gc_seg_cap = 0;
 static rt_hblk_t **g_gc_idx = (rt_hblk_t **)0;
 static rt_hblk_t **g_gc_idxbuf = (rt_hblk_t **)0;
 static long g_gc_icap = 0;
+static rt_hblk_t **g_gc_widx = (rt_hblk_t **)0;
+static long g_gc_wicap = 0, g_gc_wn = 0;
+static char *g_gc_windexed = (char *)0;
 static rt_hblk_t *g_gc_mhead = (rt_hblk_t *)0;
 static rt_hblk_t **g_gc_liveo = (rt_hblk_t **)0;
 static uint64_t *g_gc_livef = (uint64_t *)0;
@@ -555,9 +573,14 @@ static void gc_coexpr_roots(char **cur_hi)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int gc_in_wsi(const char *q)
+/* WSI twin of gc_blk_of: the old gc_in_wsi took ANY address inside [g_wsi_base,g_wsi_ws) as a hit, so ASLR-shifted stack garbage that merely landed in-range got chased as a live DT_A/DT_DATA (gc-stress-arm-nondeterministic); g_gc_widx (built each collection in gc_collect_ex, mirrors g_gc_idx) makes this an EXACT header match, never a range coincidence. want_type also rules out a hit landing on some OTHER rt_ws_alloc payload shape at that address (HB_WS data buffers included) -- exact-start alone was not enough, since ARBLK_t/DATINST_t used to share HB_WS with everything else in the island; see HB_ARR/HB_DINST in gc_heap.h. */
+static int gc_wsi_exact(const char *q, uint16_t want_type)
 {
-    return q && g_wsi_base && q >= (const char *)g_wsi_base && q < (const char *)g_wsi_ws && !((uintptr_t)q & 7u);
+    if (!q || (uintptr_t)q < sizeof(rt_hblk_t) || ((uintptr_t)q & 7u)) return 0;
+    { char *hp = (char *)q - sizeof(rt_hblk_t); long lo = 0, hi = g_gc_wn - 1;
+      while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_widx[m];
+          if (hp < b) hi = m - 1; else if (hp > b) lo = m + 1; else return g_gc_widx[m]->type == want_type && (g_gc_widx[m]->flags & HBF_TTL); }
+      return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_zeta_frame(const char *lo0, const char *hi0)
@@ -569,8 +592,8 @@ static void gc_zeta_frame(const char *lo0, const char *hi0)
             if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) { rt_gc_visit_descr(d); p += 16; continue; }
             if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
             if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
-            if (d->v == DT_A && gc_in_wsi((const char *)d->arr)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (d->v == DT_DATA && gc_in_wsi((const char *)d->u)) { rt_gc_visit_descr(d); p += 16; continue; } }
+            if (d->v == DT_A && gc_wsi_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); p += 16; continue; }
+            if (d->v == DT_DATA && gc_wsi_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
         { const char **loc = (const char **)p; if (gc_blk_of(*loc)) rt_gc_visit_raw(loc); }
         p += 8;
     }
@@ -618,6 +641,10 @@ static long gc_collect_ex(int cons_stack)
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+    /* WSI is bump-only and never compacted (unlike g_hp_arena above), so g_gc_widx grows INCREMENTALLY from g_gc_windexed instead of a full rewalk from g_wsi_base every collection -- under SCRIP_GC_STRESS that rewalk is O(collections*blocks) and timed out real programs. */
+    { char *p = g_gc_windexed ? g_gc_windexed : g_wsi_base; while (p && p < g_wsi_ws) { rt_hblk_t *h = (rt_hblk_t *)p;
+        if (g_gc_wn >= g_gc_wicap) { g_gc_wicap = g_gc_wicap ? g_gc_wicap * 2 : 4096; g_gc_widx = (rt_hblk_t **)realloc((void *)g_gc_widx, (size_t)g_gc_wicap * sizeof(*g_gc_widx)); if (!g_gc_widx) abort(); }
+        g_gc_widx[g_gc_wn++] = h; p += h->size; } g_gc_windexed = p; }
     g_gc_mhead = (rt_hblk_t *)0;
     { static int legacy_env = -1; if (legacy_env < 0) { const char *e = getenv("SCRIP_GC_LEGACY"); legacy_env = (e && *e && *e != '0') ? 1 : 0; }
       pz = (cons_stack == 0 && !legacy_env && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && rt_value_trail_mark() == 0 && g_gc_rrng_n == g_gc_rrng_ss);
