@@ -738,7 +738,7 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
-         + (zf_resume ? std::string("") : x86_lea_id("rax", 7) + x86("push", "rax"))
+         + (zf_resume ? std::string("") : x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN: pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.") + x86_lea_id("rax", 7) + x86("push", "rax"))
          + (gi_idx >= 0
             ? x86("mov32", "edi", (long)gi_idx)
             + x86("mov32", "esi", (long)_.op_ival)
@@ -776,7 +776,7 @@ static std::string bcps_spine_gen_arm() {
               + (zf_resume
                  ? x86("mov", FRQ(act + 8), "rax")
                  : x86("mov", FRQ(act + 8), "rsp")
-                   + x86("add", "rsp", 8L)))
+                   + x86("add", "rsp", 16L)))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -788,7 +788,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("jmp", L(2))
          + x86("def", L(4))
          + bcps_wire_land(_.op_sval)
-         + IF(!zf_resume, x86("add", "rsp", 8L))
+         + IF(!zf_resume, x86("add", "rsp", 16L))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(6))
@@ -858,12 +858,14 @@ static std::string bcps_spine_gen_arm() {
                      + x86("test", "rax", "rax")
                      + x86_omega("je")
                      + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+                     + x86("sub", "rsp", 8L)
                      + x86_lea_id("r8", 7)
                      + x86("push", "r8")
                      + x86("comment", "PZ-4: the RETRY entry must use the SAME wire spelling as the first-call entry at :615.  It hardcoded the FLAT register pair (lea rcx,L3; lea rdx,L4) while the first-call path goes through bcps_wire_cross, which under icn_wire_stack_on() PUSHES the pair instead.  The callee reads its continuation from a FIXED [rsp+k] and the shared landings pop what the first-call entry pushed -- so with stack wires armed the retry entry arrived 16 bytes shallower, the landing over-popped, and the next continuation was read one slot off: a small integer (measured 17) used as a jump target, rip=0x11.  Route through the shared helper so the two entries CANNOT disagree; it emits its own jmp rax and is byte-identical to the old spelling when stack wires are OFF.")
+                     + x86("note", "PL-CALL-ALIGN: same 16B-unit pad as the first-call entry above -- this retry entry pushed L(7) unpadded too, 8-mod-16 into open_det/the callee jmp; matching add-rsp-8 below becomes 16.")
                      + bcps_wire_cross_gen(3, 4)
                      + x86("def", L(7))
-                     + x86("add", "rsp", 8L)
+                     + x86("add", "rsp", 16L)
                      + x86_anchor_leave()
                      + x86_scan_sync_in_rr()
                      + x86("mov", FRQ(off), "rax")
