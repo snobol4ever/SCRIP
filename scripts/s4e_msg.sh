@@ -86,6 +86,20 @@ qrank() { local row; row="$(qrow "$1")"; [ -n "$row" ] && printf '%s' "$row" | c
 s4e_blocker_done() {
     local b="$1"; [ -n "$b" ] || return 1
     [ -f "$PO/claims/$b.claim" ] && grep -q '^DONE$' "$PO/claims/$b.claim" && return 0
+    # ⛔⭐ DO NOT "FIX" THIS BY ALSO CHECKING THE ROW'S STATE COLUMN — PRESENCE IS THE WHOLE SIGNAL, AND IT IS SOUND.
+    # `sweep` moves a row into QUEUE.done.tsv ONLY IF its claim carries DONE — the IDENTICAL test to the line above
+    # (see the sweep) case). So membership here == "claim carried DONE at sweep time", which is exactly what this
+    # branch is for. ⛔ QUEUE.done.tsv's col3/col4 are the BUFFER'S values copied verbatim at sweep time and are
+    # STALE BY CONSTRUCTION: `done`/OVERRIDE appends DONE to claims/<topic>.claim and nothing rewrites the queue
+    # row's state column first, so 171 of 300 landed rows read FREE/ASSIGNED and are nonetheless genuinely DONE.
+    # A state check here would reject ~57% of legitimately-done blockers and re-block every row behind them.
+    # ⭐ MEASURED, not hypothetical (hq_C 2026-08-28, on seat06's report): this file's HEADER used to name legacy v1
+    # columns (`brief`/`first-step-and-done-when`) it has never carried, which makes col4 read as an authoritative
+    # state field and makes this branch look like a presence-vs-state bug. It is not. seat06 read this function
+    # carefully, reproduced the symptom twice, and released a rank-1 row (tests-consolidate-icon) TWICE on a
+    # correctly-observed symptom with a non-existent root cause — the blocker (icon-corpus-semicolonize) had been
+    # genuinely DONE by documented OVERRIDE since 2026-08-24, and branch 1 above fires on it anyway.
+    # FINDING-2026-08-28-hq_C-the-done-tsv-header-named-columns-the-file-does-not-have.md
     grep -qP "^[0-9]+\t\Q$b\E\t" "$PO/QUEUE.done.tsv" 2>/dev/null
 }
 cmd="${1:-check}"
