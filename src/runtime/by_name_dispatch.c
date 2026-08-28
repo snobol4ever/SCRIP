@@ -5554,7 +5554,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (IS_INT_fn(av)) {
                 char _pb[32];
                 int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
-                int _fw = (w < 0) ? 10 : (w > _pfmtlen ? w : _pfmtlen);
+                int _fw = (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
                 fprintf(_dest, "%*s", _fw, _pb);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
