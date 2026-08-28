@@ -6,7 +6,11 @@
 # variable/function-call mnemonics alike — the three successive census blind spots the pivot session hit
 # (incomplete jcc list; PORT_* macros; x86(cc_expr, "ω")). Comments stripped first; the parked pair
 # bb_callee_frame.cpp / bb_query_frame.cpp (non-Makefile, PARK-NEVER-DELETE) is excluded.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SELF_DIR/lib_gate.sh"
 cd "$(dirname "$0")/.." || exit 2
+gate_require "src/templates" "templates dir"
+gate_require "src/emitter" "emitter dir"
 total=0; hits=""
 while IFS= read -r f; do
   case "$f" in *bb_callee_frame.cpp|*bb_query_frame.cpp) continue;; esac
