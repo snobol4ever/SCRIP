@@ -258,6 +258,25 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     if r.returncode != 0:
         return Verdict("SKIP", detail="gcc -c failed")
     rt_dir = str(paths["rt_dir"])
+    # ⛔⭐ -no-pie IS **NOT** APPLIED HERE, DELIBERATELY, AND THIS IS NOT AN OVERSIGHT -- READ BEFORE "FIXING" IT.
+    # The case FOR it is real: SCRIP mode-4 codegen embeds ABSOLUTE (non-PIC) addresses. Link it PIE and the
+    # binary still "works" for programs that pass -- but for a CRASHING one the crash SIGNAL ITSELF becomes
+    # non-deterministic run to run, because the load address moves. MEASURED (seat03, 2026-08-28, fz_segv_09):
+    # 4x SIGILL + 1x SIGSEGV over 5 runs of this function's own build; the IDENTICAL .o re-linked -no-pie gave
+    # 5x stable SIGSEGV. behaviorally_equal() requires a CRASH to match the exact signal, so a PIE link makes
+    # every crashing witness ungradeable -- and it is silent, because passing programs are unaffected.
+    # ⛔⛔ BUT ADDING IT CHANGES PROGRAM BEHAVIOUR, AND THE RATIONALE ABOVE DOES NOT EXPLAIN HOW.
+    # MEASURED (hq_C 2026-08-28, on seat03's report): with -no-pie, `test_corpus_snobol4.sh` goes m4 FAIL=2 --
+    # fz_red_m2a_fence_cap_gen and fz_segv_10 flip from PASS to SIGSEGV. Both arms are DETERMINISTIC and opposite:
+    # linked PIE they exit 0 three times out of three; the IDENTICAL .o linked -no-pie SIGSEGVs three out of three.
+    # ⭐ That is backwards from the stated reason. If mode-4 truly embedded absolute addresses that PIE relocation
+    # broke, PIE would be the failing arm -- here PIE is the PASSING one. So the flag is doing something the
+    # rationale does not cover, and shipping it would silently change what 2 witnesses mean while claiming to fix
+    # only a measurement. Whether SCRIP's m4 output is PIE-correct, no-PIE-correct, or has a latent memory bug that
+    # one layout masks is UNRESOLVED -- row `m4-pie-vs-no-pie-changes-behaviour-not-just-signal`.
+    # ⛔ Do not add -no-pie here (or to test_corpus_snobol4.sh's compile_mode4(), which mirrors this) until that row
+    # rules. The determinism win is real and confirmed (5/5 stable SIGSEGV on fz_segv_09 vs 4x SIGILL + 1x SIGSEGV)
+    # -- it is simply not free, and a measurement fix that alters the thing being measured needs a ruling first.
     r = subprocess.run(["gcc", str(o_path), "-L", rt_dir, "-lscrip_rt", "-lm",
                          "-Wl,-rpath," + rt_dir, "-o", str(out_bin)],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(paths["scrip_root"]))
