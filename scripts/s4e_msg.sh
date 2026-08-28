@@ -103,6 +103,73 @@ s4e_blocker_done() {
     # FINDING-2026-08-28-hq_C-the-done-tsv-header-named-columns-the-file-does-not-have.md
     grep -qP "^[0-9]+\t\Q$b\E\t" "$PO/QUEUE.done.tsv" 2>/dev/null
 }
+
+# ⭐⭐ picker-dependency-and-boomerang-blindness (hq_B, 2026-08-28) — THREE CURES FOR ONE SYMPTOM: THE PICKER
+# CANNOT SEE A DEPENDENCY A HUMAN KNOWS, so every seat re-pays the discovery cost. hq_P's census measured FOUR
+# instances IN ONE DAY. All three cures below are MECHANISM-level; a per-row fix is precisely what we did four
+# times already, and four hand-cures of one disease is the evidence that hand-curing is not the cure.
+s4e_row_state() { qrow "${1:-}" | cut -f4; }
+
+# ⭐ CURE 3 — A GRANT-WAIT IS NOT A PARK. `perf-nv-set-fn-o0-overhead` was re-served SEVEN times in one day
+# (seat05 four times in NINE MINUTES) on a blocker no seat could ever clear: it needed a governance grant from
+# Lon. Neither existing state fits. PARKED is routing, liftable by anyone with `park <topic> FREE`; the
+# BLOCKED-ON:/PARKED-AWAITING: family SELF-CLEARS the instant its named topic goes DONE. A grant names no topic
+# and never goes DONE, so both spellings are lies about the same wait. GRANT-NEEDED is its own state: the picker
+# skips it, it never self-clears, and `park <topic> FREE` REFUSES on it unless S4E_GRANT_BY names the grant.
+# ⛔ PARKED-LON-HOLD is honoured as a SYNONYM, not migrated away, because THREE LIVE ROWS ALREADY CARRY IT — the
+# fleet invented this state by hand before the tool had one, exactly as it had invented PARKED-AWAITING before
+# BLOCKED-ON existed. A canonical spelling that orphans the rows already using the ad-hoc one cures nothing.
+s4e_is_grant_wait() { case "${1:-}" in GRANT-NEEDED|GRANT-NEEDED:*|PARKED-LON-HOLD|PARKED-LON-HOLD:*) return 0;; *) return 1;; esac; }
+
+# ⭐ CURE 2 — THE RELEASE BOOMERANG. seat01 released rank-0 `icon-n2` and the picker served THE SAME ROW BACK
+# two minutes later, because a released row is instantly the top free row again and nothing remembered who let
+# it go. That is a livelock, not a dispatch: the one seat guaranteed to refuse a row again is the seat that just
+# judged it "not mine". `unclaim` now leaves a receipt under released/, and PASS 3 will not serve a row back to
+# ITS OWN releaser inside the cooldown. ⛔ IT HIDES THE ROW FROM THE RELEASER ONLY — every other seat still sees
+# it, which is the entire point: the row must stay live for the fleet, or this cure becomes the s265 disease it
+# is modelled on. Any OTHER seat claiming it, or an HQ assigning it, DELETES the receipt — "without another
+# seat/HQ touching it" is the row's own wording for when the cooldown ends early.
+s4e_boomerang_hold() {   # <topic> -> rc 0 if THIS seat released it too recently to be served it back
+    local r="$PO/released/${1:-}.release" who when now cool
+    [ -f "$r" ] || return 1
+    who="$(sed -n 1p "$r" 2>/dev/null)"; when="$(sed -n 2p "$r" 2>/dev/null)"
+    [ "$who" = "$ME" ] || return 1
+    case "$when" in ''|*[!0-9]*) return 1;; esac
+    cool="${S4E_RELEASE_COOLDOWN:-3600}"; case "$cool" in ''|*[!0-9]*) cool=3600;; esac
+    now="$(date -u +%s)"; [ "$((now - when))" -lt "$cool" ]
+}
+s4e_release_receipt() { mkdir -p "$PO/released" 2>/dev/null || return 0; printf '%s\n%s\n' "$ME" "$(date -u +%s)" > "$PO/released/${1}.release" 2>/dev/null || true; }
+s4e_release_clear()   { rm -f "$PO/released/${1}.release" 2>/dev/null || true; }
+
+# ⭐ CURE 1 — DEPENDENCY INVERSION: THE BLOCKER OUTRANKS THE BLOCKED, WHATEVER THE COLUMNS SAY.
+# `prolog-call-n-user-predicate-segfault` (rank 1) blocked `polyglot-scrip-demos-10-working`, the umbrella
+# outranked its own blocker, and so the rank-sorted picker served the BLOCKED work first — cured by hand that
+# once, by a ceo re-rank 2->1. Re-ranking by hand does not scale and does not survive the next mint: rank is a
+# human's GUESS at priority, a dependency is a FACT, and a fact outranks a guess. PASS 3 no longer merely skips
+# a blocked row — it walks the chain and serves the blocker AT THE BLOCKED ROW'S OWN RANK POSITION.
+# ⛔ Bounded at 8 hops with a seen-set: a dependency CYCLE must degrade to "skip", never spin. Every reason to
+# decline promotion returns 1 and lets the caller fall through to the ordinary skip — this function can only
+# ever ADD a serve the picker would not otherwise make, never suppress one it would.
+s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEAD, or nothing (rc 1)
+    local cur="${1:-}" seen=" " blk st depth=0
+    while [ "$depth" -lt 8 ]; do
+      depth=$((depth+1))
+      case "$(s4e_row_state "$cur")" in BLOCKED-ON:*|PARKED-AWAITING:*) st="$(s4e_row_state "$cur")"; blk="${st#*:}";; *) return 1;; esac
+      [ -n "$blk" ] || return 1
+      case "$seen" in *" $blk "*) return 1;; esac        # cycle -> skip, never spin
+      seen="$seen$blk "
+      s4e_blocker_done "$blk" && return 1                # resolved: the caller's self-heal owns this case
+      [ -n "$(qrow "$blk")" ] || return 1                # dangling blocker: no row exists to serve
+      [ -f "$PO/claims/$blk.claim" ] && return 1         # already someone's
+      s4e_boomerang_hold "$blk" && return 1              # never promote a row I myself just released
+      case "$(s4e_row_state "$blk")" in
+        FREE|'')                        printf '%s' "$blk"; return 0;;   # servable -> promote it
+        BLOCKED-ON:*|PARKED-AWAITING:*) cur="$blk";;                     # transitive -> walk deeper
+        *)                              return 1;;                       # parked/grant-gated -> nothing to promote
+      esac
+    done
+    return 1
+}
 cmd="${1:-check}"
 case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
@@ -276,7 +343,13 @@ case "$cmd" in
   claim) topic="${2:?topic}"; c="$PO/claims/$topic.claim"; mkdir -p "$PO/claims"
          if [ -f "$c" ]; then own="$(head -1 "$c")"; if [ "$own" = "$ME" ]; then echo "already yours"; else echo "CLAIMED by $own — pick other work"; exit 1; fi
          else t="$(mktemp "$PO/claims/.c.XXXXXX")"; echo "$ME" > "$t"
-              if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
+              if ln "$t" "$c" 2>/dev/null; then rm -f "$t"
+                # ⭐ picker-dependency-and-boomerang-blindness CURE 2: an explicit claim IS the "another seat
+                # touched it" event that ends the boomerang cooldown early. Cleared unconditionally, including
+                # for the releaser's own deliberate re-claim — `claim` is a chosen act, `next` is a serve, and
+                # the guard exists only to stop the SERVE. Never let this cure outlive a human decision.
+                s4e_release_clear "$topic"
+                echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
   unclaim) # ⭐ s265 — RELEASE AN UNWORKED CLAIM. Minted because THREE seats hit its absence in one day (seat08,
          # seat09, seat13): a stale-clone picker mis-locked a row, the seat correctly refused to work it, and then had
          # NO WAY TO PUT IT BACK. `done` was the only exit and `done` is COMPUTED — closing a row you never worked
@@ -328,6 +401,10 @@ case "$cmd" in
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          s4e_mark_row "$topic" RELEASED
+         # ⭐ picker-dependency-and-boomerang-blindness CURE 2 — leave a RECEIPT so the picker can tell "this row
+         # is free" from "this row is free BECAUSE I just let it go". Written after every refusal above has been
+         # passed, so a REFUSED unclaim leaves no receipt and cannot hide a row from anyone.
+         s4e_release_receipt "$topic"
          rm -f "$c"; echo "released $topic — $why";;
   park)  # ⭐ s265 — TAKE A ROW OUT OF THE PICKER WITHOUT CLOSING IT. Minted with `unclaim`, same day, same cause:
          # `161-o2-red` was PARKED BY LON at s258 and its baton said so, yet QUEUE.tsv still carried it as rank-0 FREE,
@@ -356,6 +433,26 @@ case "$cmd" in
              printf 'PARKED-AROUND by %s %s (claim preserved; holder done still works)\n' "$ME" "$(date -u +%Y-%m-%dT%H:%MZ)" >> "$c"; echo "  (claim held by $hold PRESERVED — parked around it)"
          elif [ -f "$c" ] && ! grep -q '^DONE$' "$c" ; then
              rm -f "$c"; echo "  (cleared my own holding claim — the state column carries this now, not a lock)"
+         fi
+         # ⭐ picker-dependency-and-boomerang-blindness CURE 3 — A GOVERNANCE GATE IS NOT LIFTED BY `park FREE`.
+         # An ordinary park is routing and anyone may lift it. A GRANT-NEEDED/PARKED-LON-HOLD row waits on a
+         # grant only Lon can give, and `perf-nv-set-fn-o0-overhead` proves what happens when the two are the
+         # same verb: the row goes back to FREE, the picker serves it, and the next seat re-pays the discovery
+         # cost against a wall that has not moved. The gate is lifted by the grant ARRIVING, so lifting it
+         # REQUIRES NAMING THE GRANT — S4E_GRANT_BY is recorded into the baton, which is what makes the lift
+         # auditable instead of a keystroke. ⛔ Moving BETWEEN grant-wait spellings is not a lift and is allowed.
+         cur_st="$(s4e_row_state "$topic")"
+         if s4e_is_grant_wait "$cur_st" && ! s4e_is_grant_wait "$st"; then
+           if [ -z "${S4E_GRANT_BY:-}" ]; then
+             printf '⛔ REFUSED: %s is GOVERNANCE-GATED (%s) — it waits on a GRANT, not on work.\n' "$topic" "$cur_st" >&2
+             printf '   `park <topic> FREE` lifts an ordinary park. A grant-wait is lifted only when the grant ARRIVES,\n' >&2
+             printf '   and whoever lifts it must say whose word lifted it (RULES.md: you are the only witness to what Lon told you):\n' >&2
+             printf '     S4E_GRANT_BY="Lon, in-chat 2026-08-28" bash %s park %s %s\n' "$0" "$topic" "$st" >&2
+             exit 1
+           fi
+           printf '⭐ GRANT RECORDED for %s (was %s) — granted by: %s\n' "$topic" "$cur_st" "$S4E_GRANT_BY"
+           _gb="$PO/tasks/$topic.task.md"
+           [ -f "$_gb" ] && printf '\n- %s **GOVERNANCE GATE LIFTED** by %s — gate was `%s`; grant: %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$cur_st" "$S4E_GRANT_BY" >> "$_gb"
          fi
          s4e_set_row_state "$topic" "$st"
          b="$PO/tasks/$topic.task.md"
@@ -574,6 +671,10 @@ case "$cmd" in
            echo "⛔ REFUSED: '$topic' is held by $own, not $seat. Release that claim first (that is a deliberate act, not a retry)." >&2; exit 1; fi
          t="$(mktemp "$PO/claims/.c.XXXXXX")"; { echo "$seat"; echo "ASSIGNED-BY $ME $(date -u +%FT%TZ)"; } > "$t"
          if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; else rm -f "$t"; echo "⛔ RACE LOST: $(head -1 "$c" 2>/dev/null) owns '$topic'" >&2; exit 1; fi
+         # ⭐ picker-dependency-and-boomerang-blindness CURE 2: an HQ assignment is the loudest possible "another
+         # seat/HQ touched it" — it ends the boomerang cooldown outright. (PASS 1 serves assigned rows and never
+         # consults the guard, so this is belt-and-braces: it keeps released/ from accumulating dead receipts.)
+         s4e_release_clear "$topic"
          # THE DOORBELL CARRIES NO CONTENT (ARCH-FLEET-CEO: "the mail never carries content that isn't also in a file").
          # A seat that never reads this message still resumes correctly, because the claim + task file are authoritative.
          if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
@@ -672,15 +773,44 @@ case "$cmd" in
            case "$step" in
              BLOCKED-ON:*|PARKED-AWAITING:*)
                blk="${step#*:}"
-               if s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE; fi ;;
+               if s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE
+               # ⭐ CURE 1 — DEPENDENCY INVERSION (picker-dependency-and-boomerang-blindness). The blocker is
+               # un-DONE, so the old code skipped this row and walked on down the rank order — which is how a
+               # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
+               # row at rank N is itself the proof that its blocker deserves rank N: serve the BLOCKER, here.
+               elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && "$0" claim "$promo" >/dev/null 2>&1; then
+                 echo "RUNNING" >> "$PO/claims/$promo.claim"
+                 printf '⭐ DEPENDENCY INVERSION — rank-%s %s is BLOCKED-ON %s, which is un-DONE, unclaimed and FREE.\n' "$rank" "$topic" "$blk"
+                 printf '   Rank is a human guess at priority; a dependency is a fact, and a fact outranks a guess.\n'
+                 printf '   You are being served THE BLOCKER at the blocked row'"'"'s own rank position.\n'
+                 printf '   When %s lands DONE, %s un-blocks ITSELF — its state column is the self-clearing spelling.\n' "$promo" "$topic"
+                 serve "$promo" "LOCKED" "(promoted over blocked $topic, rank $rank)"; exit 0
+               fi ;;
            esac
+           # ⭐ CURE 3 — GOVERNANCE-GATED ROWS SKIP HERE, ATTRIBUTABLY. The generic non-FREE skip below would
+           # drop these too, but silently and indistinguishably from a park — and "indistinguishable from a
+           # park" is the whole defect: a grant-wait that reads as a park gets `park FREE`d back into the
+           # picker by the next tidy-minded seat, and the seven-re-serves-in-one-day loop restarts. Named here
+           # so the state is legible to a -x trace, to the QUEUE-EMPTY report below, and to the park refusal.
+           if s4e_is_grant_wait "$step"; then continue; fi
            case "$step" in FREE|'') : ;; *) continue;; esac
            [ -f "$PO/claims/$topic.claim" ] && continue
+           # ⭐ CURE 2 — RELEASE BOOMERANG. Do not hand a seat back the row it just put down; say so out loud,
+           # because a silent skip here is indistinguishable from the row not existing.
+           if s4e_boomerang_hold "$topic"; then
+             printf '↩ SKIP %s (rank %s) — YOU released this row less than %ss ago; not serving it back to you.\n' "$topic" "$rank" "${S4E_RELEASE_COOLDOWN:-3600}"
+             printf '   It is still live for every other seat. To take it back deliberately: s4e_msg.sh claim %s\n' "$topic"
+             continue; fi
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
              serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
          done < <(grep -P '^[0-9]+\t' "$q" | sort -t$'\t' -s -k1,1n)
-         echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"; exit 1;;
+         # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
+         # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
+         _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
+         echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"
+         [ -n "$_gw" ] && { echo "   ⭐ NOT empty of WORK — these rows are GOVERNANCE-GATED, waiting on a grant, not on a seat:"; printf '%s\n' "$_gw"; echo "   Chase the grant (route via your HQ to ceo), do not re-park these to FREE."; }
+         exit 1;;
   banner) # ⛔ FACTS ONLY -- NO PREDICTIONS (Lon 2026-08-22: "Why are you trying to predict the future. Quit saying
          # in the banner what you will do. You do not know the future."). Every line below is a measured fact about
          # state as it stands. What a later session does is not knowable here: HQ can re-rank the queue, and THE LOOP
