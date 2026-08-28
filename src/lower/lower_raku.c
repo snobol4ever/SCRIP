@@ -693,10 +693,49 @@ static void rk_discover_procs(const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_prologue_target(const tree_t * s) {
+    if (!s || s->t != TT_UNLESS || s->n < 1 || !s->c[0]) return NULL;
+    const tree_t * mc = s->c[0];
+    if (mc->t != TT_METHCALL || mc->n < 2 || !mc->c[0] || !mc->c[1] || !mc->c[1]->v.sval || strcmp(mc->c[1]->v.sval, "defined")) return NULL;
+    return (mc->c[0]->t == TT_VAR) ? mc->c[0]->v.sval : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
+    int is_multi = (pd && pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$');
+    int rk_np = 0; if (pd && !is_multi) for (int k = 1; k < pd->n && pd->c[k] && pd->c[k]->t == TT_VAR; k++) rk_np++;
+    int rk_bstart = rk_np + 1, rk_bn = (pd && pd->n > rk_bstart) ? pd->n - rk_bstart : 0;
+    const tree_t ** rk_plan = (rk_np > 0) ? (const tree_t **) calloc((size_t) (rk_bn + rk_np), sizeof(const tree_t *)) : NULL;
+    if (rk_plan) {
+        int nplan = 0, bi = 0;
+        for (int k = 1; k <= rk_np; k++) {
+            const tree_t * pv = pd->c[k]; const char * pn = (pv && pv->t == TT_VAR) ? pv->v.sval : NULL;
+            const char * tgt = (bi < rk_bn) ? rk_prologue_target(pd->c[rk_bstart + bi]) : NULL;
+            if (pn && tgt && !strcmp(tgt, pn)) rk_plan[nplan++] = pd->c[rk_bstart + bi++];
+            if (pn && pv->n >= 1 && pv->c[0] && pv->c[0]->v.sval) {
+                const char * ty = pv->c[0]->v.sval;
+                if (strstr(ty, ":D") || strstr(ty, ":U") || rk_is_modeled_type(ty)) {
+                    tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__param_check";
+                    tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__param_check"; ast_push(mc, nmv);
+                    tree_t * tyq = ast_node_new(TT_QLIT); tyq->v.sval = (char *)ty; ast_push(mc, tyq);
+                    tree_t * pvr = ast_node_new(TT_VAR); pvr->v.sval = (char *)pn; ast_push(mc, pvr);
+                    tree_t * pnq = ast_node_new(TT_QLIT); pnq->v.sval = (char *)pn; ast_push(mc, pnq);
+                    rk_plan[nplan++] = mc;
+                }
+            }
+        }
+        for (; bi < rk_bn; bi++) rk_plan[nplan++] = pd->c[rk_bstart + bi];
+        for (int i = nplan - 1; i >= 0; i--) {
+            const tree_t * s = rk_plan[i]; if (!s) continue;
+            if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+            if (s->t == TT_VAR) continue;
+            IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
+            if (e) { entry = e; sentry = e; }
+        }
+        free(rk_plan); g->entry = entry; return g;
+    }
     for (int i = (pd ? pd->n : 0) - 1; i >= 1; i--) {
         const tree_t * s = pd->c[i];
         if (!s) continue;
@@ -705,7 +744,7 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
         IR_t * r = NULL; IR_t * e = lower_rv(&cx, s, sentry, fail, &r);
         if (e) { entry = e; sentry = e; }
     }
-    if (pd && !((pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$'))) {
+    if (pd && !is_multi) {
         for (int k = pd->n - 1; k >= 1; k--) {
             const tree_t * pv = pd->c[k];
             if (!pv || pv->t != TT_VAR || !pv->v.sval) continue;
@@ -984,6 +1023,15 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
+        int has_rk_MAIN = 0;
+        for (int pi = 0; pi < g_stage2.proc_count; pi++)
+            if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "MAIN") == 0) { has_rk_MAIN = 1; break; }
+        if (has_rk_MAIN) {
+            tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"MAIN";
+            tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"MAIN"; ast_push(mc, nmv);
+            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, mc, sentry, fail, &r);
+            if (e) { entry = e; sentry = e; }
+        }
         for (int i = prog->n - 1; i >= 0; i--) {
             const tree_t * s = prog->c[i];
             if (!s) continue;
