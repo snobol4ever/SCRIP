@@ -169,6 +169,7 @@ WS       [ \t\r]
 "]"             { return ']'; }
 ";"             { return ';'; }
 ","             { return ','; }
+":"             { return ':'; }
 "\.="           { return OP_DOTEQ; }
 "."             { return '.'; }
 "=>"            { return OP_FATARROW; }

@@ -1261,9 +1261,17 @@ named_arg_list
         { $$ = exprlist_new();
           exprlist_append($$, leaf_sval(TT_QLIT, $1)); free($1);
           exprlist_append($$, $3); }
+    | ':' IDENT '(' expr ')'
+        { $$ = exprlist_new();
+          exprlist_append($$, leaf_sval(TT_QLIT, $2)); free($2);
+          exprlist_append($$, $4); }
     | named_arg_list ',' IDENT OP_FATARROW expr
         { exprlist_append($1, leaf_sval(TT_QLIT, $3)); free($3);
           exprlist_append($1, $5);
+          $$ = $1; }
+    | named_arg_list ',' ':' IDENT '(' expr ')'
+        { exprlist_append($1, leaf_sval(TT_QLIT, $4)); free($4);
+          exprlist_append($1, $6);
           $$ = $1; }
     ;
 pair_list
