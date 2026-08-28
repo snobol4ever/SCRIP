@@ -12,8 +12,7 @@ static const char * frame_display_reg(int lvl) { return lvl == 1 ? "r13" : lvl =
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_frame() {
     x86_begin();
-    int lvl = _.node ? _.node->seal : 0;
-    const char * dreg = frame_display_reg(lvl);
+    const char * dreg = frame_display_reg(_.node ? _.node->seal : 0);
     int off = (_.op_a_sval && _.op_sval) ? stage2_owner_varslot(_.op_a_sval, _.op_sval) : -1;
     if (!dreg)                    return x86_alpha() + x86_bomb("bb_var_frame: PAS-DISPLAY L>=4 fallback unimplemented") + x86_beta_trampoline();
     if (off < 0 || _.op_off < 0)  return x86_alpha() + x86_bomb("bb_var_frame: owner vslot unresolved") + x86_beta_trampoline();
