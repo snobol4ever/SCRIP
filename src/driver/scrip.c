@@ -1290,6 +1290,8 @@ int main(int argc, char **argv)
             g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
+            { extern int emit_dwarf_loc_on(void); extern const char * stmt_src_get_file(void); const char * _sf = stmt_src_get_file();
+              if (emit_dwarf_loc_on() && _sf && *_sf) { emit_textf("  .file 1 \"%s\"\n", _sf); emit_textf("  .file 2 \"<included>\"\n"); } }
             for (int _dz = 0; _dz < bbg->n; _dz++) {
                 const char * _dn = ir_define_plain_name(bbg->all[_dz]);
                 if (!_dn) continue;
@@ -1469,6 +1471,8 @@ int main(int argc, char **argv)
             g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
+            { extern int emit_dwarf_loc_on(void); extern const char * stmt_src_get_file(void); const char * _sf = stmt_src_get_file();
+              if (emit_dwarf_loc_on() && _sf && *_sf) { emit_textf("  .file 1 \"%s\"\n", _sf); emit_textf("  .file 2 \"<included>\"\n"); } }
             rt_proc_reset();
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {

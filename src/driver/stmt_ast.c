@@ -87,7 +87,9 @@ tree_t *stmt_to_ast(const STMT_t *s)
     sa_add(node, attr_int(":stno", s->stno));
     { char * ssrc = stmt_src_slice(s);
       if (!s->subject && !s->pattern && !s->replacement && !s->label && !s->goto_s && !s->goto_f && !s->goto_u && !s->goto_s_expr && !s->goto_f_expr && !s->goto_u_expr && !s->is_end) { free(ssrc); ssrc = strdup(""); }
-      if (!ssrc && !s->is_end) { char b[160]; snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno); ssrc = strdup(b); }
+      if (!ssrc && !s->is_end) { char b[160];
+        snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno);
+        ssrc = strdup(b); sa_add(node, attr_int(":incl", 1)); }
       if (ssrc) { sa_add(node, attr_leaf(":src", ssrc)); free(ssrc); } }
     if (s->subject)
         sa_add(node, attr_expr(":subj", s->subject));
@@ -146,6 +148,8 @@ static int     g_src_nlines = 0;
 static char *  g_src_path = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * stmt_src_get_file(void) { return g_src_path; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int stmt_src_nlines(void) { return g_src_nlines; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void stmt_src_set_file(const char * path)
 {

@@ -19,6 +19,7 @@ extern "C" {
 const char * bb_src_of(const IR_t * nd);
 int bb_line_of(const IR_t * nd);
 const char * stmt_src_get_file(void);
+int stmt_src_nlines(void);
 bb_emit_mode_t  bb_emit_mode = EMIT_BINARY_WIRED;
 int             g_sm_native_unsupported = 0;
 FILE           *bb_emit_out  = NULL;
@@ -997,6 +998,8 @@ static int cap_ok_at(IR_t * base, int bi) { for (int _j = 0; _j < g_emit_cfg->n;
 static int cap_anchor_of(IR_t * nd) { (void)nd; return 0; }
 static const char * sr3_gamma_label(const IR_t * g) { static int _off = -1; if (_off < 0) { const char * e = getenv("SCRIP_SR3_FIX"); _off = (e && *e == '0') ? 1 : 0; } if (getenv("SCRIP_SR3_CENSUS")) fprintf(stderr, "SR3 gamma op=%d\n", (int)g->op); if (!_off && g->op != IR_GOTO_DEFERRED) return (const char *)0; return IR_LIT(g).sval; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int emit_dwarf_loc_on(void) { const char * e = getenv("SCRIP_DWARF_LOC"); return (e && e[0] == '0') ? 0 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { extern int zls_result_live(const IR_t *); g_emit.op_res_live = zls_result_live(nd); }
     { static int _ba = -1; static const char * _bo; static const char * _bs; if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); }
@@ -1061,9 +1064,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     { if (g_emit.op_src && *g_emit.op_src) emit_sep_rule('=');
       if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("srccomment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
       emit_sep_rule('-'); }
-    { static int _dl = -1; if (_dl < 0) { const char *e = getenv("SCRIP_DWARF_LOC"); _dl = (e && e[0] == '1') ? 1 : 0; }
-      g_emit.op_line = _dl ? bb_line_of(nd) : 0;
-      if (g_emit.op_line > 0) { const char * _sf = stmt_src_get_file(); if (_sf && *_sf) bb_emit_x86(x86("loc", _sf, g_emit.op_line)); } }
+    { static int _dl = -1; if (_dl < 0) _dl = emit_dwarf_loc_on();
+      int _raw = _dl ? bb_line_of(nd) : 0; int _ln = _raw < 0 ? -_raw : _raw; g_emit.op_line = _ln;
+      if (_ln > 0) { const char * _sf = stmt_src_get_file(); int _nl = stmt_src_nlines();
+        if (_sf && *_sf) bb_emit_x86(x86("loc", _sf, _ln, (_raw > 0 && _nl > 0 && _ln <= _nl) ? 1 : 2)); } }
     bb_classify_node(nd);
     if (emit_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }
     switch (nd->op) {
