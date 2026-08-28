@@ -512,6 +512,12 @@ stmt
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2); $$=r; }
     | KW_RETURN ';'
         { $$=ast_node_new(TT_RETURN); }
+    | KW_RETURN expr KW_IF expr ';'
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2);
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$4); expr_add_child(e,seq1(r)); $$=e; }
+    | KW_RETURN expr KW_UNLESS expr ';'
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2);
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$4); ast_push(e,seq1(r)); $$=e; }
     | VAR_SCALAR '=' expr ';'
         { $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
@@ -1381,6 +1387,11 @@ closure
 expr
     : VAR_SCALAR '=' expr  { $$=expr_binary(TT_ASSIGN,var_node($1),$3); }
     | VAR_ARRAY '=' expr   { $$=expr_binary(TT_ASSIGN,var_node($1),rk_arr_rhs($3)); }
+    | VAR_SCALAR OP_ADD_EQ expr { tree_t *v=var_node($1); $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_ADD,v,$3)); }
+    | VAR_SCALAR OP_SUB_EQ expr { tree_t *v=var_node($1); $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_SUB,v,$3)); }
+    | VAR_SCALAR OP_MUL_EQ expr { tree_t *v=var_node($1); $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_MUL,v,$3)); }
+    | VAR_SCALAR OP_DIV_EQ expr { tree_t *v=var_node($1); $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_DIV,v,$3)); }
+    | VAR_SCALAR OP_CAT_EQ expr { tree_t *v=var_node($1); $$=expr_binary(TT_ASSIGN,var_node($1),expr_binary(TT_CAT,v,$3)); }
     | KW_GATHER block      {
           tree_t *g = ast_node_new(TT_GATHER);
           expr_add_child(g, $2);
