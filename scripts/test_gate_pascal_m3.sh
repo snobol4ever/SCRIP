@@ -76,7 +76,7 @@ done
 # ⛔ 7 of the 9 open with `readln(reps)`; feeding /dev/null yields reps=0, an empty loop and a PLAUSIBLE all-zero
 # board that is pure instrument error (measured, hq_C 2026-08-27). The `1` below is load-bearing -- do not remove it.
 WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
-WITNESS_XFAIL="${WITNESS_XFAIL:-fbench}"   # quick CURED (seat08, 71175348, void-procedure return-value fix) -- removed 2026-08-28. fbench: SIGSEGV in lower_assign_var (name=NULL) on a nested function's self-assignment return value. Row pascal-fbench-nested-function-self-assign-null-name.
+WITNESS_XFAIL="${WITNESS_XFAIL:-fbench}"   # quick CURED (seat08, 71175348, void-procedure return-value fix) -- removed 2026-08-28. fbench: original LOWER-time SIGSEGV (lower_assign_var name=NULL on a curried multi-dim array write, e.g. testcase[i,sp] := v -- NOT self-assignment, that hypothesis was wrong) FIXED (seat02, row pascal-fbench-nested-function-self-assign-null-name). Still XFAIL: fixing that unmasked a SEPARATE, already-tracked, still-open defect one step further in -- transitXsurface/traceXline's nested if/elseif-inside-for-loop shape SIGSEGVs, matching pascal-m4-for-spine-leak-64b-per-iter's own "second spine leak" (zd_plan misses IR_BINOP_TEST merge points) exactly. Blocked on that row, not this one.
 W_PASS=0; W_FAIL=0; W_EXAMINED=0; W_STALE=0
 if [ -f "$WCORPUS/uplevel2.pas" ]; then
     for wpas in "$WCORPUS"/*.pas; do

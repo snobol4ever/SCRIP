@@ -276,6 +276,27 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     *res = nd; return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* pas_lower_idx_assign_curried -- `lhs := rhs` where lhs is TT_IDX and lhs->c[0] is ITSELF TT_IDX (a
+   curried multi-dimensional array write, e.g. `a[i,j] := v` parsed as TT_IDX(TT_IDX(a,i),j)). The plain
+   arr_set_pure path below needs a flat TT_VAR base to name the variable it writes the updated array back
+   into; it has none here. Rewritten into the same temp-var read/modify/write-back shape lower_call
+   already uses for byref array-index arguments: read the sub-array, assign into it at THIS level (an
+   ordinary 1-D array assign, base now a TT_VAR), then write the updated sub-array back to its own
+   (possibly still-curried) slot -- which recurses through lower_assign again for depth > 2, so any
+   dimension count is handled uniformly rather than special-cased per depth. */
+static IR_t * pas_lower_idx_assign_curried(pcx_t * cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, IR_t ** res) {
+    const tree_t * base = lhs->c[0];
+    const tree_t * idx  = (lhs->n > 1) ? lhs->c[1] : NULL;
+    tree_t * tv = pas_vptmp_var();
+    tree_t * read_asn = pas_lc_bin(TT_ASSIGN, pas_lc_clone(tv), pas_lc_clone(base));
+    tree_t * idx1 = ast_node_new(TT_IDX); ast_push(idx1, pas_lc_clone(tv)); ast_push(idx1, pas_lc_clone(idx));
+    tree_t * inner_asn = pas_lc_bin(TT_ASSIGN, idx1, pas_lc_clone(rhs));
+    tree_t * writeback_asn = pas_lc_bin(TT_ASSIGN, pas_lc_clone(base), pas_lc_clone(tv));
+    tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+    ast_push(seq, read_asn); ast_push(seq, inner_asn); ast_push(seq, writeback_asn);
+    return lower(cx, seq, γ, ω, res);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
     const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
@@ -288,6 +309,7 @@ static IR_t * lower_assign(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
             IR_t * e = pas_call_args(cx, call, 2.0, av, 3, ω);
             *res = call; return e;
         }
+        if (base && base->t == TT_IDX && !pas_is_nrec_idx(lhs)) return pas_lower_idx_assign_curried(cx, lhs, rhs, γ, ω, res);
         const char * bname = (base && base->t == TT_VAR) ? base->v.sval : NULL;
         if (bname && pas_name_is_byref(cx, bname)) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
