@@ -9,11 +9,10 @@ long rt_pat_prim_int(const char *varname);
 std::string bb_match_rtab() {
     static char b[24];
     if (_.op_sval != NULL) {
-        const char * vn1 = _.op_sval + 1;
         return x86("comment", "IR_MATCH_RTAB defer")
              + x86_alpha()
              + x86("mov",  LFC(0), "r14d")
-             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)vn1, (strtab_label(b, sizeof b, vn1), b))
+             + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), (strtab_label(b, sizeof b, _.op_sval + 1), b))
              + x86("call", "rt_pat_prim_int", (uint64_t)(uintptr_t)(void *)rt_pat_prim_int)
              + x86("test", "rax", "rax")
              + x86_omega("js")
@@ -31,7 +30,8 @@ std::string bb_match_rtab() {
         return x86("comment", "IR_MATCH_RTAB zd")
              + x86_alpha()
              + x86("mov",  LFC(0), "r14d")
-             + IF(_.op_sa >= 0, x86("note", ZOPN(0)) + x86("mov", "rax", ZOPQ(0, 8)))
+             + IF(_.op_sa >= 0, x86("note", ZOPN(0))
+                              + x86("mov", "rax", ZOPQ(0, 8)))
              + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
              + x86("mov",  "ecx", "r15d")
              + x86("sub",  "ecx", "eax")
