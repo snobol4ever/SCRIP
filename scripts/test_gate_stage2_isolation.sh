@@ -32,6 +32,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
 
+# A missing src/ must REFUSE, not silently score zero violations. The scan below
+# runs grep with `|| true` (required so `set -euo pipefail` tolerates a legitimate
+# zero-matches result), which also swallows grep's "No such file or directory" when
+# src/ itself is absent -- indistinguishable from a clean scan without this check.
+[ -d src ] || { echo "UNPROVEN: src missing"; exit 2; }
+
 # The six field names that used to be shim macros.  Each must appear in
 # source only as a qualified field reference (preceded by `.` or `->`).
 FIELDS=(
@@ -49,21 +55,31 @@ FIELDS=(
 ALLOW=(
     # stage2.h defines the struct itself — the field names appear bare
     # there as struct member declarations.  This is the source of truth.
-    "src/contracts/stage2.h:g_registry"
-    "src/contracts/stage2.h:label_table"
-    "src/contracts/stage2.h:label_count"
-    "src/contracts/stage2.h:g_pl_pred_table"
-    "src/contracts/stage2.h:proc_table"
-    "src/contracts/stage2.h:proc_count"
+    # PATH UPDATED 2026-08-28 (stage2-isolation-missing-src-false-ok): the
+    # srcreorg MOVE 2 of 3 (SCRIP d4312e86, 2026-08-26) merged src/contracts
+    # into src/ir; these six entries still named the pre-move path, which
+    # made this gate FAIL on the four fields still bare in the struct today
+    # (label_table/label_count/proc_table/proc_count) — a false RED, not a
+    # real ST2-1b regression. Re-verified at src/ir/stage2.h before fixing.
+    "src/ir/stage2.h:g_registry"
+    "src/ir/stage2.h:label_table"
+    "src/ir/stage2.h:label_count"
+    "src/ir/stage2.h:g_pl_pred_table"
+    "src/ir/stage2.h:proc_table"
+    "src/ir/stage2.h:proc_count"
     # ScripModule (the per-language module-registry entry) has its own
     # `nprocs` field — renamed from `proc_count` in ST2-1 specifically to
     # avoid colliding with the (now-gone) shim macro.  The struct comment
     # in stage2.h still mentions the old name as documentation history.
     # No code change here; this is doc text only.
 
-    # interp_private.h carries a doc comment line summarizing which shim
-    # macros got deleted in ST2-1b — the field names appear in prose form
-    # explaining the cleanup history.  No code reference, just documentation.
+    # KNOWN STALE, LEFT AS-IS 2026-08-28: src/driver/interp_private.h no
+    # longer exists post-srcreorg (confirmed: `ls` fails; the "ST2-1b"/"shim
+    # macro" doc text these three entries described is not findable anywhere
+    # under src/ by grep either — deleted, not moved). Currently inert: zero
+    # live violations depend on these three entries either way, so left
+    # untouched rather than guessing a replacement path — flagged for
+    # whoever next sweeps this gate's allowlist for post-srcreorg staleness.
     "src/driver/interp_private.h:g_registry"
     "src/driver/interp_private.h:label_table"
     "src/driver/interp_private.h:label_count"
@@ -73,6 +89,26 @@ ALLOW=(
     # format string.  The format string is human-facing text; the actual
     # code reads s2->proc_count and s2->proc_table[i] (both qualified).
     "src/driver/scrip_sm.c:proc_table"
+
+    # ADDED 2026-08-28 (stage2-isolation-missing-src-false-ok): unification.c
+    # declares its own file-static `pl_pred_row_t *g_pl_pred_table = 0;` for
+    # the UNRELATED Prolog predicate-table meta-call substrate (PT-0/PT-1a/
+    # PT-2a, SCRIP 01dbd8fe/62426a60) -- not a stage2_t field reference.
+    # Verified: `static` (internal linkage, cannot be extern'd elsewhere) and
+    # this is its ONLY occurrence in the file (grep), so it is also unread —
+    # dead within its own translation unit, not just misnamed. stage2_t has
+    # no field named g_pl_pred_table today (renamed to resolve_pred_table);
+    # this identifier cannot resolve to or be confused with that field.
+    "src/runtime/unification.c:g_pl_pred_table"
+
+    # ADDED 2026-08-28 (stage2-isolation-missing-src-false-ok): scrip.c:57 is
+    # the closing line of a multi-line /* ... */ block comment (opens line 47,
+    # "N-2 item 2 step 1 (hq_P): HOST-DETECTION PREDICATE...") whose
+    # continuation lines carry no leading '*', so this gate's line-starts-
+    # with-comment-marker heuristic (see the loop below) does not catch it.
+    # The word is plain prose ("...therefore proc_count for main..."), not
+    # code; the actual code four lines later correctly reads s2->proc_count.
+    "src/driver/scrip.c:proc_count"
 )
 
 violations=0
