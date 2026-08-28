@@ -121,14 +121,6 @@ static IR_t * pas_mat(pcx_t * cx, const tree_t * e, IR_t * ω, IR_t ** res) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_mat_rv(pcx_t * cx, const tree_t * e, IR_t * γ, IR_t * ω, IR_t ** res) {
-    if (e && is_relop(e->t)) {
-        IR_t * op = build(cx, IR_BINOP_RELOP_VAL, γ, ω); IR_LIT(op).ival = lc_binop_code(e->t);
-        IR_t * lr = NULL, * rr = NULL;
-        IR_t * ea = lower(cx, (e->n > 0) ? e->c[0] : NULL, NULL, ω, &lr);
-        IR_t * eb = lower(cx, (e->n > 1) ? e->c[1] : NULL, op, ω, &rr);
-        γ_to(lr, eb); ir_operand_push(op, lr); ir_operand_push(op, rr);
-        *res = op; return ea;
-    }
     IR_t * v = NULL; IR_t * e2 = pas_mat(cx, e, ω, &v); γ_to(v, γ); *res = v; return e2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
