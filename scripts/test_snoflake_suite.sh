@@ -39,7 +39,16 @@ if [ "$ARM_SBL" = "1" ]; then
 fi
 CSN=""
 if [ "$ARM_CSN" = "1" ]; then
-    CSN="$SD/../csnobol4/snobol4"
+    # ⛔ ASSET ROOT FIRST, WORKSPACE ROOT ONLY AS A FALLBACK (hq_C 2026-08-28).  The original spelling looked ONLY at
+    # "$SD/../csnobol4/snobol4" -- INSIDE the seat's workspace root -- which contradicts two standing rules at once:
+    # CLAUDE.md's "the oracles are NOT siblings here, they live outside every root" (sbl, icont/iconx and swipl are all
+    # reached by asset path), and the handoff law, because handoff_status.sh AUTO-DISCOVERS every top-level directory
+    # that is a git repo with an origin remote -- so a csnobol4 clone placed where this line wanted it becomes a
+    # PERMANENT handoff blocker the moment it has a local commit, on a remote we do not own.  ⭐ The sibling script
+    # build_csnobol4_archive.sh already resolves it as "$S4A/csnobol4" (asset root); this line was the odd one out, and
+    # the disagreement was invisible because whoever wrote it had the tree in the one place that worked for them.
+    CSN_ASSET="${S4E_ASSETS:-$([ -d "$SD/../x64" ] && echo "$SD/.." || echo /home/resources)}/csnobol4/snobol4"
+    if [ -x "$CSN_ASSET" ]; then CSN="$CSN_ASSET"; else CSN="$SD/../csnobol4/snobol4"; fi
     [ -x "$CSN" ] || { echo "⛔ REFUSE(rc=2): csnobol4 absent: $CSN — set ARM_CSN=0 to survey without it (triangulation arm, Lon 2026-08-28)"; exit 2; }
 fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
