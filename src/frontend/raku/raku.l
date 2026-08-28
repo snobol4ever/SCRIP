@@ -141,6 +141,8 @@ WS       [ \t\r]
 "/="            { return OP_DIV_EQ; }
 "~="            { return OP_CAT_EQ; }
 "//"            { return OP_DOR; }
+"+&"            { return OP_BAND; }
+"+<"            { return OP_SHL; }
 "+"             { return '+'; }
 "-"             { return '-'; }
 "**"            { return OP_POW; }

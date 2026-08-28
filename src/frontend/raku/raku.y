@@ -361,6 +361,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_ADD_EQ OP_SUB_EQ OP_MUL_EQ OP_DIV_EQ OP_CAT_EQ
 %token OP_DOR
 %token OP_DIV
+%token OP_BAND OP_SHL
 %token OP_DIVIS
 %token OP_REP_X OP_REP_XX
 %token OP_POW
@@ -385,7 +386,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  '~'
 %left  OP_REP_X OP_REP_XX
 %left  '+' '-'
-%left  '*' '/' '%' OP_DIV
+%left  '*' '/' '%' OP_DIV OP_BAND OP_SHL
 %right UMINUS
 %right OP_POW
 %left  '.'
@@ -1480,11 +1481,15 @@ addsub_expr
     | mul_expr                  { $$=$1; }
     ;
 mul_expr
-    : mul_expr '*'    unary_expr  { $$=expr_binary(TT_MUL,$1,$3); }
-    | mul_expr '/'    unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
-    | mul_expr '%'    unary_expr  { $$=expr_binary(TT_MOD,$1,$3); }
-    | mul_expr OP_DIV unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
-    | unary_expr                  { $$=$1; }
+    : mul_expr '*'     unary_expr  { $$=expr_binary(TT_MUL,$1,$3); }
+    | mul_expr '/'     unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
+    | mul_expr '%'     unary_expr  { $$=expr_binary(TT_MOD,$1,$3); }
+    | mul_expr OP_DIV  unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
+    | mul_expr OP_BAND unary_expr
+        { tree_t *c=make_call("iand"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
+    | mul_expr OP_SHL  unary_expr
+        { tree_t *c=make_call("ishift"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
+    | unary_expr                   { $$=$1; }
     ;
 unary_expr
     : '-' unary_expr %prec UMINUS  { $$=expr_unary(TT_MNS,$2); }
