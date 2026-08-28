@@ -42,5 +42,4 @@ std::string bb_var_global() {
              + x86(".quad",  LS(0), _.op_sval)
              + x86("label",  LS(0))
              + x86(".string", _.op_sval);
-    return std::string();
 }
