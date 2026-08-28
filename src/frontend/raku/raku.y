@@ -417,6 +417,8 @@ stmt
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$6);
           ExprList *args=$8; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
           $$ = rk_destructure($3, call); }
+    | '(' scalar_list ')' '=' expr ';'
+        { $$ = rk_destructure($2, $5); }
     | KW_MY VAR_ARRAY ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
     | KW_MY VAR_HASH ';'
