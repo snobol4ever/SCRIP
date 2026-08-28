@@ -2852,6 +2852,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int host_reserve = icn_gen_host_reserve(prefix);
         if (host_reserve > 0) frame_total += host_reserve;
         (void)host_frame_base;
+        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);   /* N-2 item 3 prep (seat01, 2026-08-28): inert unless armed */
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;

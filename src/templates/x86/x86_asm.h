@@ -881,6 +881,39 @@ inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 ST
     if (forward) { if (prefix) fprintf(stderr, "[GENHOST] \u26d4 host=%s RESERVES NOTHING: %d generator callee(s) not yet registered (forward reference). A partial carve would be silently too small.\n", prefix, forward); return 0; }
     return total;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node) {   /* N-2 ITEM 3 PREP (seat01, 2026-08-28): PER-CALLEE OFFSET WITHIN icn_gen_host_reserve()'s summed region -- that function answers "how many bytes total", never "which slice is THIS call site's". \u26d4 KEYED ON NODE IDENTITY, NEVER ON CALLEE NAME: the same generator proc called twice in one host is two independent live activations under SUM-not-max (see icn_gen_host_reserve()'s own comment), so a name-keyed lookup would hand both call sites the SAME offset. \u2b50 Walks g_emit_cfg->all[] with the IDENTICAL predicate icn_gen_host_reserve() uses, in the SAME order -- two independently-written scans over the same array is exactly the shape that drifted once already (that function's own comment names the carve/release incident); MEASURE the two agree before trusting either in a new consumer, never assume it from matching source. Landed INERT: zero call sites reference this yet. Returns -1 (never a guessed offset) if call_node is not a registered-generator call in this graph, or if a forward-referenced callee sits before it in scan order -- a partial answer is exactly the silently-too-small class the forward-reference guard already exists to refuse. */
+    if (!icn_genframe2() || !g_emit_cfg || !call_node) return -1;
+    int off = 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) {
+        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        { const char * cn = IR_LIT(hn).sval;
+          if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+          if (hn == call_node) return off;
+          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) off += (fb + 15) & ~15;
+            else { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] \u26d4 host=%s a forward-referenced generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; } }
+        }
+    }
+    return -1;   /* call_node was never seen as a registered-generator call in this graph's own scan */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3 PREP (seat01, 2026-08-28): PROVES icn_gen_host_reserve_offset() against icn_gen_host_reserve()'s own total AND against an INDEPENDENTLY-accumulated local expectation -- a check that only re-derives the function under test is not a proof (RULES.md TWO-PART PROOF). getenv-gated (SCRIP_N2_OFFSET_SELFTEST), stderr only, zero emission effect -- inert by construction, same as N-2 step 1's own diagnostic. */
+    if (!icn_genframe2() || !g_emit_cfg) return;
+    int total = icn_gen_host_reserve(0);
+    int expect = 0, calls = 0, mismatches = 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) {
+        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        const char * cn = IR_LIT(hn).sval;
+        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+        int got = icn_gen_host_reserve_offset(0, hn);
+        calls++;
+        if (got != expect) { mismatches++; fprintf(stderr, "[GENHOST-SELFTEST] ⛔ host=%s call#%d name=%s expect_off=%d got_off=%d MISMATCH\n", prefix ? prefix : "?", calls, cn, expect, got); }
+        { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) expect += (fb + 15) & ~15; }
+    }
+    if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "⛔ DISAGREE", mismatches);
+}
 inline int x86_zop_regime(int off) { if (x86_zstorage() == ZC_STORAGE_FRAME_R12) return 1; if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
