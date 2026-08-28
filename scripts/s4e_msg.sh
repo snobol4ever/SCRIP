@@ -381,6 +381,24 @@ case "$cmd" in
               tf="$PO/tasks/$topic.task.md"
               if [ -f "$tf" ]; then
                 dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$tf" | head -1)"
+                # ⛔⭐⭐ A MARKDOWN-STYLED DONE-WHEN WAS BEING RUN AS COMMAND SUBSTITUTION (seat06, 2026-08-28; FINDING
+                # be4b2257). A criterion authored as `DONE-WHEN: \`bash scripts/gate.sh\`` -- backticks meant as CODE
+                # STYLING, because this line lives in a MARKDOWN file -- reaches `bash -c "$dw"` as live substitution:
+                # bash runs the gate, captures its stdout, and then EXECUTES THAT STDOUT AS A COMMAND. A gate printing
+                # "GATE OK -- ..." on success dies `GATE: command not found`, rc=127, and the row cannot be closed.
+                # ⛔ IT EXECUTES THE OUTPUT, so this is not merely a wrong exit code -- whatever a gate prints is fed
+                # to a shell. ⭐ MEASURED BLAST RADIUS: 5 of 411 live task files carry a wrapped DONE-WHEN today.
+                # ⭐ The SILENT case is SAFE and that was checked, not assumed: bash gives a command consisting only of
+                # a substitution the SUBSTITUTION's exit status, so `\`false\`` still exits 1 -- no false green. The
+                # defect is confined to criteria whose command prints on its success path.
+                # ⭐ NORMALISED HERE, AT THE ONE EXTRACTION POINT, so the vacuity probe and the real run cannot disagree
+                # about what the criterion IS -- two consumers reading one value, never two copies to drift.
+                # ⛔ ONE matched OUTER pair only, and never a one-sided backtick: a lone ` is either real substitution
+                # or a typo, and both must fail LOUDLY rather than be silently rewritten. Announced, never silent.
+                case "$dw" in
+                  '`'*'`') dw="${dw#\`}"; dw="${dw%\`}"
+                     printf '⚠ DONE-WHEN was wrapped in markdown backticks; stripped one matched pair before running.\n   Running: %s\n' "$dw" >&2 ;;
+                esac
                 if [ -z "$dw" ]; then
                   echo "⛔ REFUSED: $tf has no DONE-WHEN: line. A task with no computable completion test cannot be closed." >&2; exit 1; fi
                 # ⛔⭐ A DONE-WHEN MUST EXAMINE SOMETHING (hq_P found this by source-reading the previous version).
