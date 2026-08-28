@@ -29,11 +29,35 @@ To grade a suite for real, use the mechanism the board uses:
 Format spec: .github postoffice task corpus-suites-consolidation.task.md.
   (A) ONE-LINE entry:  "<stmt1>;<stmt2>;...;* <name>"            family.sno line N
                         "<expected, \\n-escaped if multi-line>"    family.ref line N
-  (B) MULTI-LINE (banner) entry, used when a join exceeds 200 chars or changes behaviour:
-                        "*----...---- <seq> <name>"  (banner, exactly 80 chars, SNOBOL4 comment syntax)
+  (B) MULTI-LINE (banner) entry, used when a join exceeds 200 chars or changes behaviour, OR when the
+      original source carries column-1 '*' comments (SNOBOL4 has no inline-comment syntax, so a
+      comment cannot survive a one-line join -- see has_comment_lines()), OR when the original was
+      already non-green at conversion time (an XFAIL witness -- see below):
+                        "*----...---- <seq> <name>[ XFAIL]"  (banner, 80 chars, SNOBOL4 comment syntax)
                         <original statement lines, verbatim, one per physical line>
                         (block runs until the next banner or EOF)
                         Same banner + expected output VERBATIM (no escaping) in family.ref.
+      A comment/blank-preserving block uses the ORIGINAL file's lines verbatim (not the
+      statement-reconstructed form multiline_block() produces for the plain length/behaviour
+      fallback) -- simpler and lossless, with no dependence on the goto-merge heuristic.
+
+⭐ XFAIL/XPASS (added corpus-crosscheck-probe-total-conversion, probe-consolidate-passthru): a
+family may contain witnesses that are DELIBERATELY red at conversion time -- an active correctness
+campaign's documented, known-bad state (e.g. probe/passthru's ARCH-PASSTHRU.md witnesses, "a red row
+is never denied"). Lon's 2026-08-28 total-conversion ruling forbids leaving these as permanent loose-
+file exceptions, but converting one must not silently inflate a caller's FAIL count. convert_one()
+never refuses a non-green original; it marks the resulting block Entry `xfail=True` (banner carries
+a trailing " XFAIL") and byte-equal-or-no-delete still requires the candidate to reproduce the
+ORIGINAL's exact verdict, whatever it is. `run`/cmd_run then buckets an XFAIL entry's non-PASS
+verdict as XFAIL (not FAIL) and a surprising PASS as XPASS (not PASS) in the SUITE_BOARD line's
+<mode>_xfail/<mode>_xpass fields -- a caller that only reads <mode>_fail/<mode>_pass (like
+test_corpus_snobol4.sh's probe/ auto-discovery loop) is unaffected by a witness it was never told
+to expect green. XPASS is surfaced exactly as loudly as FAIL: the bug got fixed and nobody promoted
+the marker, which is exactly as actionable as a fresh failure, just in the opposite direction.
+`names <sno> <ref>` lists every entry name (one per line) for a bash gate that needs to enumerate a
+suite's contents before extract()-ing each one -- same read_suite()-is-the-only-authority precedent
+as `extract`, now this file's established idiom for a gate script that needs standalone per-witness
+files with custom env-var arms or output handling (see test_gate_udc.sh).
 
 ⭐ THE JOIN RULE (empirically derived+verified against scrip and the SPITBOL oracle -- SPITBOL manual
 "each semicolon ... behaves like a new column one for the statement which follows"): a label must be
@@ -61,7 +85,7 @@ from pathlib import Path
 
 BANNER_WIDTH = 80
 ONE_LINE_CAP = 200
-BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)$")
+BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)(?P<xfail> XFAIL)?$")
 
 # ============================================================ language configs ===
 # Per-language config for the format-(B)-ONLY (banner-block) conversion path -- convert_blocks
@@ -342,8 +366,8 @@ def multiline_block(statements):
     return [s["raw"] if s["labeled"] else ("        " + s["raw"]) for s in statements]
 
 
-def make_banner(seq, name):
-    suffix = f"{seq} {name}"
+def make_banner(seq, name, xfail=False):
+    suffix = f"{seq} {name}" + (" XFAIL" if xfail else "")
     dash_count = max(1, BANNER_WIDTH - 1 - 1 - len(suffix))
     banner = "*" + ("-" * dash_count) + " " + suffix
     return banner
@@ -368,13 +392,29 @@ def banner_re_for(comment_open, comment_close):
 
 # ============================================================= conversion ===
 class Entry:
-    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None):
+    def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None, xfail=False):
         self.kind = kind          # "line" or "block"
         self.seq = seq
         self.name = name
         self.sno_lines = sno_lines        # list[str]: 1 line for "line", N for "block"
         self.ref = ref_text_or_lines      # str for "line" (unescaped), list[str] for "block"
         self.stdin = stdin                # str fed to the entry's stdin, or None = /dev/null (see STDIN below)
+        self.xfail = xfail        # block-only: original was already non-green at conversion time
+                                   # (byte-equal-or-no-delete still holds -- the candidate reproduces
+                                   # the ORIGINAL's verdict exactly, whatever it is, never just PASS).
+                                   # cmd_run buckets these as XFAIL/XPASS instead of FAIL, so a
+                                   # pre-existing, documented-red witness doesn't poison a caller's
+                                   # FAIL=0 gate. See corpus-suites-consolidation.task.md amendment log.
+
+
+def has_comment_lines(text):
+    """True if the source carries any column-1 '*' comment line. SNOBOL4 has no inline-comment
+    syntax, so a comment cannot survive a one-line join, and parse_statements()/multiline_block()
+    silently drop them -- harmless when a comment carries no information, but not for
+    probe/passthru's witnesses, which carry dated research rationale cited by ARCH-PASSTHRU.md and
+    ~10 FINDINGs. A conversion that launders that away just because byte-equal-or-no-delete only
+    checks RUN OUTPUT would be exactly the transcription-kills-provenance class RULES.md warns about."""
+    return any(line[:1] == "*" for line in text.splitlines())
 
 
 def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
@@ -385,33 +425,54 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
     statements = parse_statements(original_text)
 
     orig_verdicts = run_all_modes(paths, sno_path, expected_text, tmp_root, modes)
-    if any(v.kind != "PASS" for v in orig_verdicts.values()):
-        return None, {"ok": False, "reason": f"original file itself is not green: {orig_verdicts}"}
+    orig_green = all(v.kind == "PASS" for v in orig_verdicts.values())
+    # ⛔ A non-green original is NOT refused. probe/passthru's law-0d witnesses are DELIBERATELY red
+    # ("a red row is never denied" -- board_passthru_combo.sh's own header, ARCH-PASSTHRU.md): this
+    # active correctness campaign's whole point is documenting a known-bad state until it's cured, so
+    # refusing to convert a red witness would either strand it as a permanent loose-file exception
+    # (voided by Lon's 2026-08-28 total-conversion ruling) or force it to be silently fixed/altered by
+    # a mechanical conversion pass, which is not this row's call to make. byte-equal-or-no-delete still
+    # holds in full: the candidate must reproduce the ORIGINAL's verdict exactly, whatever it is, never
+    # just "PASS" -- see corpus-crosscheck-probe-total-conversion.task.md's xfail/xpass extension and
+    # cmd_run's XFAIL/XPASS bucketing, which keeps a pre-existing red from inflating a caller's FAIL count.
+    force_verbatim = has_comment_lines(original_text) or not orig_green
 
-    # --- attempt (A): one-line join ---
-    joined = join_one_line(statements)
-    one_line = joined + f";* {name}"
-    if len(one_line) <= ONE_LINE_CAP:
-        with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            cand = Path(td) / "cand.sno"
-            cand.write_text(one_line + "\n")
-            cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
-        if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
-            entry = Entry("line", seq, name, [one_line], expected_text.rstrip("\n"))
-            return entry, {"ok": True, "reason": "one-line", "len": len(one_line)}
+    # --- attempt (A): one-line join --- skipped for a comment-bearing or non-green original: comments
+    # have no one-line syntax to survive in, and a red witness is safest preserved byte-for-byte rather
+    # than re-derived through the join's statement-merge heuristic.
+    if not force_verbatim:
+        joined = join_one_line(statements)
+        one_line = joined + f";* {name}"
+        if len(one_line) <= ONE_LINE_CAP:
+            with tempfile.TemporaryDirectory(dir=tmp_root) as td:
+                cand = Path(td) / "cand.sno"
+                cand.write_text(one_line + "\n")
+                cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
+            if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
+                entry = Entry("line", seq, name, [one_line], expected_text.rstrip("\n"))
+                return entry, {"ok": True, "reason": "one-line", "len": len(one_line)}
 
-    # --- fallback (B): multi-line banner block ---
-    block_lines = multiline_block(statements)
+    # --- fallback (B): multi-line banner block --- verbatim original text (comments/blanks/indentation
+    # intact) when forced (see has_comment_lines()/force_verbatim above): simpler AND lossless -- no
+    # dependence on the goto-merge heuristic, no re-derivation at all. Otherwise unchanged: the existing
+    # statement-reconstructed form every already-converted family was proven against.
+    block_lines = original_text.splitlines() if force_verbatim else multiline_block(statements)
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
         cand = Path(td) / "cand.sno"
         cand.write_text("\n".join(block_lines) + "\n")
         cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
     if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
-        entry = Entry("block", seq, name, block_lines, expected_text.rstrip("\n").splitlines())
-        return entry, {"ok": True, "reason": "multi-line-block"}
+        entry = Entry("block", seq, name, block_lines, expected_text.rstrip("\n").splitlines(),
+                       xfail=not orig_green)
+        if not orig_green:
+            reason = "multi-line-block-verbatim(XFAIL: original already non-green)"
+        elif force_verbatim:
+            reason = "multi-line-block-verbatim(comments preserved)"
+        else:
+            reason = "multi-line-block"
+        return entry, {"ok": True, "reason": reason}
 
-    return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: "
-                                          f"one-line={cand_verdicts} orig={orig_verdicts}"}
+    return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
 def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None):
@@ -436,7 +497,7 @@ def write_suite(entries, out_sno, out_ref):
             sno_lines.append(e.sno_lines[0])
             ref_lines.append(e.ref.replace("\n", "\\n"))
         else:
-            banner = make_banner(e.seq, e.name)
+            banner = make_banner(e.seq, e.name, xfail=e.xfail)
             sno_lines.append(banner)
             sno_lines.extend(e.sno_lines)
             ref_lines.append(banner)
@@ -574,17 +635,17 @@ def read_suite(sno_path, ref_path, in_path=None):
         line = sno_lines[si]
         m = BANNER_RE.match(line) if line[:1] == "*" else None
         if m:
-            banner_line, name = line, m.group("name")
+            banner_line, name, xfail = line, m.group("name"), bool(m.group("xfail"))
             si += 1
             body = []
             while si < len(sno_lines) and not _is_entry_start(sno_lines[si]):
                 body.append(sno_lines[si])
                 si += 1
-            items.append(("block", name, banner_line, body))
+            items.append(("block", name, banner_line, body, xfail))
         else:
             tag_m = ONE_LINE_TAG_RE.search(line)
             name = tag_m.group(1) if tag_m else f"seq{len(items) + 1}"
-            items.append(("line", name, line, None))
+            items.append(("line", name, line, None, False))
             si += 1
 
     entries = []
@@ -592,7 +653,7 @@ def read_suite(sno_path, ref_path, in_path=None):
     seq = 0
     i = 0
     while i < len(items):
-        kind, name, a, b = items[i]
+        kind, name, a, b, xfail = items[i]
         seq += 1
         if kind == "line":
             if ri >= len(ref_lines):
@@ -617,9 +678,9 @@ def read_suite(sno_path, ref_path, in_path=None):
         if trailing > len(seg):
             raise ValueError(f"family.ref segment after seq {seq} ({name}) has {len(seg)} line(s), too short to hold {trailing} trailing one-line entrie(s)")
         split = len(seg) - trailing
-        entries.append(Entry("block", seq, name, block_sno, seg[:split]))
+        entries.append(Entry("block", seq, name, block_sno, seg[:split], xfail=xfail))
         for k, ref_line in enumerate(seg[split:]):
-            _, lname, lraw, _ = items[i + 1 + k]
+            _, lname, lraw, _, _ = items[i + 1 + k]
             seq += 1
             entries.append(Entry("line", seq, lname, [lraw], ref_line.replace("\\n", "\n")))
         i = j
@@ -914,16 +975,31 @@ def cmd_run(args):
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno))
-    counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0} for m in modes}
+    counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     try:
         for e in entries:
             verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext)
             for m in modes:
-                counts[m][verdicts[m].kind] += 1
-                if verdicts[m].kind != "PASS":
-                    fails.append((e.name, m, verdicts[m]))
+                kind = verdicts[m].kind
+                # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
+                # see convert_one()) is EXPECTED to stay red -- bucketing it as XFAIL/XPASS instead of
+                # FAIL/PASS keeps a documented, pre-existing defect from inflating a caller's FAIL count
+                # (test_corpus_snobol4.sh's probe/ auto-discovery loop reads m3_fail/m4_fail and would
+                # otherwise regress a green gate the moment such a witness converts). An XPASS -- the
+                # bug got fixed and nobody updated the marker -- is surfaced just as loudly as a FAIL:
+                # it is exactly as actionable, only in the opposite direction.
+                if e.xfail:
+                    if kind == "PASS":
+                        counts[m]["XPASS"] += 1
+                        fails.append((e.name, m, verdicts[m]))
+                    else:
+                        counts[m]["XFAIL"] += 1
+                else:
+                    counts[m][kind] += 1
+                    if kind != "PASS":
+                        fails.append((e.name, m, verdicts[m]))
     finally:
         import shutil
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -933,11 +1009,28 @@ def cmd_run(args):
     for m in modes:
         c = counts[m]
         fields.append(f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
-                       f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']}")
+                       f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
+                       f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']}")
     print("SUITE_BOARD " + " ".join(fields))
     for name, m, v in fails[:40]:
-        print(f"  {v.kind} {m} {name}: {v.detail}", file=sys.stderr)
+        tag = "XPASS(marker stale, promote it)" if v.kind == "PASS" else v.kind
+        print(f"  {tag} {m} {name}: {v.detail}", file=sys.stderr)
     sys.exit(0 if not fails else 1)
+
+
+def cmd_names(args):
+    """Print every entry name in a suite, one per line, in seq order -- for a bash consumer (a gate
+    script) that needs to enumerate what's there before extract()-ing each one individually, same
+    precedent/reasoning as cmd_extract below (ONE AUTHORITY for the suite grammar, never a second
+    bash-side parse of the format)."""
+    if args.lang:
+        cfg = LANG_CONFIGS[args.lang]
+        banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
+        entries = read_block_suite(args.sno, args.ref, banner_re)
+    else:
+        entries = read_suite(args.sno, args.ref)
+    for e in entries:
+        print(e.name)
 
 
 def cmd_extract(args):
@@ -1003,6 +1096,12 @@ def main():
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.set_defaults(func=cmd_run)
+
+    n = sub.add_parser("names", help="print every entry name in a suite, one per line, in seq order")
+    n.add_argument("sno")
+    n.add_argument("ref")
+    n.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
+    n.set_defaults(func=cmd_names)
 
     e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref) file")
     e.add_argument("sno")
