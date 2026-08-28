@@ -74,17 +74,29 @@ scaled_input() {                       # $1=name $2=srcfile $3=scale ; echoes pa
   if [ "$3" = 1 ]; then ln -sf "$2" "$f"; else local i; for ((i=0;i<$3;i++)); do cat "$2"; done > "$f"; fi
   echo "$f"
 }
+# ---- oracle's -sNNNsuffix (parse_mem_arg semantics, src/driver/scrip.c:428) -> ulimit -s KB ----
+stack_kb_from_sf() {                   # $1=sblflags e.g. "-d512m -i64m -s256m" ; echoes KB or ""
+  local tok val=""
+  for tok in $1; do case "$tok" in -s*) val="${tok#-s}";; esac; done
+  case "$val" in
+    '') ;;
+    *[kK]) echo "${val%[kK]}" ;;
+    *[mM]) echo $(( ${val%[mM]} * 1024 )) ;;
+    *)     echo $(( val / 1024 )) ;;
+  esac
+}
 # ---- ONE run. echoes: cpu_ms elapsed_ms inblock oublock rc <TAB> output-digest ----------------
 run1() {                               # $1=engine $2=prog $3=input $4=stem $5=sblflags
   local eng="$1" prog="$2" in="$3" stem="$4" sf="$5" out rl u s el ib ob rc
-  case "$eng" in
-    sbl) out=$("$WRAP" timeout 300 "$SBL" $(sbl_lang_flags) $sf "$prog" <"$in" 2>"$W/e.err") ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$SCRIP" --run "$prog" <"$in" 2>"$W/e.err") ;;
+  local stkkb; stkkb=$(stack_kb_from_sf "$sf")  # ⛔ same -s the oracle gets, on all 3 arms -- m4 has
+  case "$eng" in                                #   no driver to hand a CLI flag to, so ulimit covers it
+    sbl) out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; "$WRAP" timeout 300 "$SBL" $(sbl_lang_flags) $sf "$prog" <"$in" 2>"$W/e.err") ;;
+    m3)  out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$SCRIP" --run "$prog" <"$in" 2>"$W/e.err") ;;
     m4)  [ -x "$W/$stem.prog" ] || {
            "$SCRIP" --compile "$prog" > "$W/$stem.s" 2>/dev/null
            [ -s "$W/$stem.s" ] && gcc -no-pie "$W/$stem.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$stem.prog" 2>/dev/null \
              || { echo "- - - - BUILD-ERR	BUILD-ERR"; return; }; }
-         out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$W/$stem.prog" <"$in" 2>"$W/e.err") ;;
+         out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$W/$stem.prog" <"$in" 2>"$W/e.err") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.err" | tail -1)
   [ -n "$rl" ] || { echo "- - - - CRASH	CRASH"; return; }
@@ -128,7 +140,7 @@ echo "THREE-ANGLE DEMO TRIANGULATION -- SNOBOL4 demo programs"
 echo "⛔ BASIS: one iteration = ONE WHOLE PROGRAM RUN. Every number is a TOTAL carrying process"
 echo "   startup AND compile -- NOT a kernel slope. Never share a column with benchmarks/snobol4."
 echo "instrument: tools/bench_rusage external cpu(user+sys); engines: $ENGINES; budget(a1)=${BUDGET_MS}ms; reps(a2)=$REPS_A2; tol=${TOL}%"
-echo "oracle: $SBL $(sbl_lang_flags) (+per-row size flags from DEMO-SCALE.tsv); RT_OPT=-O0"
+echo "oracle: $SBL $(sbl_lang_flags) (+per-row size flags from DEMO-SCALE.tsv); RT_OPT=-O0; ulimit -s matched across sbl/m3/m4 per row"
 echo "trees: SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)  corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
 echo
 printf "%-11s %-6s %12s %12s %9s %-9s %7s %7s %s\n" DEMO ENGINE "a1 runs/s" "a2 runs/s" "ratio" "VERDICT" "inblk" "oublk" "answer"
