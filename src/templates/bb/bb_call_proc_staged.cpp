@@ -776,6 +776,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("jmp", L(2))
          + x86("def", L(4))
          + bcps_wire_land(_.op_sval)
+         + IF(!zf_resume, x86("add", "rsp", 8L))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(6))
