@@ -2908,6 +2908,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **st_pre = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     int st_first_seen = 0;
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **bxs   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
     /* ⭐⭐ N-2 ITEM 2 STEP 1 DIAGNOSTIC (hq_P s277) -- INERT BY CONSTRUCTION: reports only, emits nothing, changes no codegen. It answers the one question ceo's ruling depends on: at the moment THIS graph is emitted, is the frame size of each generator it DIRECTLY calls already KNOWN? ⛔ It exists because the favourable ordering does NOT generalize. Procs are emitted before main (every driver proc loop continues on main), so a main-host always finds its callee registered -- but a host that is ITSELF A PROC calling a generator declared LATER in the same loop is a FORWARD REFERENCE, and emit_patzeta_frame_reserve() then answers "not registered". ⭐ That miss must stay LOUD: reading it as 0 bytes would give a host carve silently too small -- the silent-overflow class ceo refused worst-case reservation over. ⭐ WHY A DIAGNOSTIC BEFORE A CURE (the s272 allocator pattern): the promotion this feeds touches x86_main_prologue()/bb_glue_framed_enter(), the glue path EVERY frontend shares, so the ordering assumption is proven on the real compiler BEFORE anything depends on it -- the window in which a wrong assumption gets baked in and is later blamed on the codegen that landed on top of it. ⛔ The estimate this checks was REGEX over .icn source (geddump 6 forward refs, tgrlink 2), explicitly labelled indicative not exact; this is the compiler's own answer. Run: SCRIP_GENHOST_DIAG=1 ./scrip --compile prog.icn */
     if (getenv("SCRIP_GENHOST_DIAG") && g_emit_cfg) {
@@ -2944,6 +2945,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         na_f[i]  = (((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) || nodes[i]->op == IR_MATCH_BEGIN) ? emit_label_alloc("n%d_%s_af", _uid, _kn) : NULL;
         { extern const char * bb_src_of(const IR_t *); st_pre[i] = (g_emit.flat_stmt_frame && bb_src_of(nodes[i])) ? emit_label_alloc("n%d_%s_st", _uid, _kn) : NULL; }
         st_x[i] = (st_pre[i] && st_first_seen) ? emit_label_alloc("n%d_%s_sx", _uid, _kn) : NULL; if (st_pre[i]) st_first_seen = 1;
+        bxs[i]  = emit_label_alloc("n%d_%s_bx", _uid, _kn);
         fc_sig[i] = NULL;
         if (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) {
             int _N = (int)(nodes[i]->n_operands / 2);
@@ -2983,8 +2985,19 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emit.op_off = drive_value_slot(nodes[_li]);
         bb_emit_x86(bb_limit_init());
     }
+    int _bx_open = -1;
     for (int i = 0; i < n; i++) {
         { int _fk = emit_floater_kind(nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
+        /* PER-BOX ELF SYMBOL (hq_P, row emit-type-size-directives): give every flat box a REAL, TYPED, SIZED symbol so callgrind/perf attribute Ir to BOXES. valgrind DISCARDS
+           zero-sized symbols, so the labels we already emitted (NOTYPE, size 0) bought NO attribution at all -- per-box cost existed only in the SAMPLING instrument, the one
+           that needs long runs to be trusted (the 144-sample lesson). The close for box i-1 is emitted HERE, at box i OPEN, because this loop has THREE drive paths (repalt /
+           match_alt / emit_drive) each with its own `continue`: closing at the head covers all three with no per-op filter. Ranges are disjoint by construction (boxes emit
+           sequentially), so attribution is exact, not overlapping. TEXT medium only -- m3 BINARY has no symtab and `.` is an assembler notion; the g_is_text guard keeps
+           BOTH-MEDIUM intact without a MEDIUM_* branch in any template. Killswitch SCRIP_ASM_SYMSIZE=0 restores the un-symbolled output. */
+        { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
+          if (_sz && g_is_text) {
+              if (_bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name);
+              emit_textf(".type %s, @function\n%s:\n", bxs[i]->name, bxs[i]->name); _bx_open = i; } }
         if (g_emit.flat_stmt_frame && st_pre[i]) { g_emit.xa_bb_emit_pair_n = 2; g_emit.xa_bb_emit_pair_define[0] = st_x[i]; g_emit.xa_bb_emit_pair_jmp[0] = NULL; g_emit.xa_bb_emit_pair_define[1] = st_pre[i]; g_emit.xa_bb_emit_pair_jmp[1] = NULL; g_emit.op_fc_bytes = 0; bb_emit_x86((st_x[i] ? x86_deflabel_pair(0) + bb_glue_framed_leave() : std::string()) + x86_deflabel_pair(1) + bb_glue_framed_enter()); }
         emit_zeta_selfload();
         { static int _beo = -1; if (_beo < 0) { const char *_e = getenv("SCRIP_BETA_ELIDE_OFF"); _beo = (_e && _e[0] == '1') ? 1 : 0; } g_emit.op_beta_dead = (_beo || bused[i]) ? 0 : 1; }
@@ -3179,6 +3192,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_zw5_on && nodes[i]->op == IR_STATEMENT) { for (int _si = 0; _si < zw5_pool_stmts; _si++) { if (zw5_stmt_idx[_si] != i) continue; int _si_base = 0; for (int _sj = 0; _sj < _si; _sj++) _si_base += zw5_stmt_cnt[_sj]; for (int _d = 0; _d < zw5_stmt_cnt[_si]; _d++) { emit_label_define_bb(&zw5_pool[_si_base + _d]); bb_emit_x86(x86("add", "rsp", (long)zw5_stmt_depths[_si][_d]) + x86("jmp", "extlbl", (uint64_t)(uintptr_t)node_ω)); } break; } }
           if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
     }
+    { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
+      if (_sz && g_is_text && _bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name); }
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
     if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
