@@ -1283,6 +1283,8 @@ param_list
     | param_list ',' IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append($1,rk_typed_def_param($3,":U",$5)); free($3); }
     | VAR_SCALAR '=' expr    { $$=exprlist_append(exprlist_new(),rk_param_default(var_node($1),$3)); }
     | param_list ',' VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(var_node($3),$5)); }
+    | IDENT VAR_SCALAR '=' expr { $$=exprlist_append(exprlist_new(),rk_param_default(rk_typed_param($1,$2),$4)); free($1); }
+    | param_list ',' IDENT VAR_SCALAR '=' expr { $$=exprlist_append($1,rk_param_default(rk_typed_param($3,$4),$6)); free($3); }
     | SLURPY_POS             { $$=exprlist_append(exprlist_new(),rk_slurpy_param($1)); }
     | param_list ',' SLURPY_POS { $$=exprlist_append($1,rk_slurpy_param($3)); }
     | SLURPY_LOL             { $$=exprlist_append(exprlist_new(),rk_slurpy_lol_param($1)); }
@@ -1378,6 +1380,7 @@ closure
     ;
 expr
     : VAR_SCALAR '=' expr  { $$=expr_binary(TT_ASSIGN,var_node($1),$3); }
+    | VAR_ARRAY '=' expr   { $$=expr_binary(TT_ASSIGN,var_node($1),rk_arr_rhs($3)); }
     | KW_GATHER block      {
           tree_t *g = ast_node_new(TT_GATHER);
           expr_add_child(g, $2);
@@ -1629,8 +1632,9 @@ atom
     | WORDLIST
         { tree_t *call=make_call("__rk_arr"); char *s=$1; int wc=0;
           while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
-            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1);
-            memcpy(tok,w,L); tok[L]='\0'; expr_add_child(call,leaf_sval(TT_QLIT,tok)); free(tok); wc++; }
+            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1); int ti=0;
+            for(int wi=0;wi<L;wi++){ if(w[wi]=='\\'&&wi+1<L&&w[wi+1]=='\\'){ tok[ti++]='\\'; wi++; } else tok[ti++]=w[wi]; }
+            tok[ti]='\0'; expr_add_child(call,leaf_sval(TT_QLIT,tok)); free(tok); wc++; }
           free($1);
           if(wc==1){ tree_t *only=call->c[0]; call->c[0]=NULL; call->n=0; $$=only; }
           else { $$=call; } }

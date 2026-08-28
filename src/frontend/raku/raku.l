@@ -148,7 +148,7 @@ WS       [ \t\r]
 "%%"            { return OP_DIVIS; }
 "%"             { return '%'; }
 "~"             { return '~'; }
-"<"[ \t]*[a-zA-Z0-9_.:/*+?=!$-]+([ \t]+[a-zA-Z0-9_.:/*+?=!$-]+)+[ \t]*">"  {
+"<"[ \t]*[a-zA-Z0-9_.:/*+?=!$,;#@|\\-]+([ \t]+[a-zA-Z0-9_.:/*+?=!$,;#@|\\-]+)+[ \t]*">"  {
     int n=(int)yyleng-2; char *inner=(char*)malloc(n+1); memcpy(inner,yytext+1,n); inner[n]='\0';
     raku_yylval.sval=inner; return WORDLIST; }
 "<"             { return '<'; }
