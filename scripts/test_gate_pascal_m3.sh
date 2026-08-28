@@ -76,7 +76,7 @@ done
 # ⛔ 7 of the 9 open with `readln(reps)`; feeding /dev/null yields reps=0, an empty loop and a PLAUSIBLE all-zero
 # board that is pure instrument error (measured, hq_C 2026-08-27). The `1` below is load-bearing -- do not remove it.
 WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
-WITNESS_XFAIL="${WITNESS_XFAIL:-quick}"   # quick: SCRIP biggest=10414, fpc 3.2.2 oracle + .ref = 15505. WRONG ANSWER, row pascal-bench-quick-wrong-biggest.
+WITNESS_XFAIL="${WITNESS_XFAIL:-fbench}"   # quick CURED (seat08, 71175348, void-procedure return-value fix) -- removed 2026-08-28. fbench: SIGSEGV in lower_assign_var (name=NULL) on a nested function's self-assignment return value. Row pascal-fbench-nested-function-self-assign-null-name.
 W_PASS=0; W_FAIL=0; W_EXAMINED=0; W_STALE=0
 if [ -f "$WCORPUS/uplevel2.pas" ]; then
     for wpas in "$WCORPUS"/*.pas; do
