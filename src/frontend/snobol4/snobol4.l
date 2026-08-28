@@ -160,6 +160,7 @@ G       ({WS}|{CONT})*
 <BODY_START>";"         { BEGIN(INITIAL); return T_STMT_END; }
 <BODY_START>.           { yyless(0); BEGIN(BODY); }
 <BODY>\n               { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; BEGIN(GT); }
