@@ -38,11 +38,16 @@ for f in "$CORPUS"/rung13_assertz_*.pl; do
     ref="${f%.pl}.expected"
     [ -f "$ref" ] || continue
     actual=$(timeout 8 "$SCRIPBIN" --run "$f" < /dev/null 2>/dev/null)
+    rc=$?
     expected=$(cat "$ref")
-    if [ "$actual" = "$expected" ]; then
+    # ⛔ rc IS PART OF THE VERDICT, NOT JUST STDOUT -- a crash-after-correct-output program
+    # (rung14_retract_all is the measured witness) prints its full expected text and THEN
+    # segfaults; a stdout-only compare reads that as PASS. Same FACT RULE as RULES.md's
+    # "a suite that ignores exit status cannot see a wrong exit status."
+    if [ "$rc" -eq 0 ] && [ "$actual" = "$expected" ]; then
         echo "  PASS $(basename "$f")"; PASS=$((PASS+1))
     else
-        echo "  FAIL $(basename "$f") (loose -- known PZ-4 prolog-multiclause-uninit-lexprep-frame)"; FAIL=$((FAIL+1))
+        echo "  FAIL $(basename "$f") (loose -- known PZ-4 prolog-multiclause-uninit-lexprep-frame, rc=$rc)"; FAIL=$((FAIL+1))
     fi
 done
 
