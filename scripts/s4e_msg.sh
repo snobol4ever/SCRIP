@@ -192,6 +192,20 @@ s4e_age_compact() { [ -n "${1:-}" ] && [ "$1" -gt 0 ] 2>/dev/null || { echo "-";
 # under this identity, which is what let an ancient unrelated DONE claim surface as if it were this
 # session's work. Two lines: topic, then "STATE ISO-TIMESTAMP". Overwritten each transition -- only the
 # LATEST closing action is ever attributed, matching "what did this seat just finish."
+# ⛔⭐ THE ONE WRITER OF QUEUE.tsv's STATE COLUMN. Factored out of `park` (which was its only caller) so that
+# `done` can mirror a close through the SAME code rather than growing a second, subtly-different rewriter.
+# ⭐ WHY THIS EXISTS AT ALL: dispatch state has two homes -- claims/<topic>.claim and QUEUE.tsv's column --
+# and until 2026-08-28 NO verb updated the column on completion. `done` latched the claim and left the column,
+# so claim=DONE / queue=FREE was the DESIGNED steady state between a close and the next MANUAL sweep. Measured
+# that day: 4 rows in that state, 0 in the mirror state. The asymmetry is the point -- the loud direction (a row
+# that keeps coming back) gets noticed and fixed; this one is SILENT and produces no symptom until a ruling
+# lands on the row and cannot be dispatched. See PROTOCOL-V2-DRAFT § A RESERVED QUESTION GETS AN ASSIGNED OWNER.
+s4e_set_row_state() {   # <topic> <state>  -- no-op (rc 1) when the topic has no live QUEUE.tsv row
+  local _t="$1" _s="$2" _q="$PO/QUEUE.tsv" _tmp
+  grep -qP "^[0-9]+\t\Q$_t\E\t" "$_q" 2>/dev/null || return 1
+  _tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$_t" -v s="$_s" '$2==t&&NF>3{$4=s} {print}' "$_q" > "$_tmp" \
+    && cat "$_tmp" > "$_q" && rm -f "$_tmp"
+}
 s4e_mark_row() { mkdir -p "$PO/$ME"; printf '%s\n%s %s\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$PO/$ME/.last-row"; }
 s4e_sweep_orphans
 # ⛔ UNREAD MAIL IS SHOUTED ON EVERY COMMAND (HQ, 2026-08-22, after seat2 skipped THE LOOP step 1 and left an HQ
@@ -335,7 +349,7 @@ case "$cmd" in
          elif [ -f "$c" ] && ! grep -q '^DONE$' "$c" ; then
              rm -f "$c"; echo "  (cleared my own holding claim — the state column carries this now, not a lock)"
          fi
-         tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$topic" -v s="$st" '$2==t&&NF>3{$4=s} {print}' "$q" > "$tmp" && cat "$tmp" > "$q" && rm -f "$tmp"
+         s4e_set_row_state "$topic" "$st"
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **STATE -> %s** by %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$st" "$ME" >> "$b"
          echo "$topic state -> $st";;
@@ -488,10 +502,29 @@ case "$cmd" in
                     printf '    ⛔ Do NOT weaken a DONE-WHEN to make it pass -- that is the false-green trap this gate exists to stop.\n\n' >&2
                     exit 1; fi; fi
               else
-                printf '⚠ NO TASK BATON at %s — closing on the seat word alone, which LAW 1 forbids for a baton-backed row.\n' "$tf"
-                printf '  This is the v1 path and survives only while rows are still being converted (V2-2). Mint a baton for this topic.\n'
+                # ⛔⭐ HOLE A, CURED 2026-08-28 (hq_B; reproduced in a scratch postoffice before the fix). This arm
+                # used to PRINT the law it was breaking -- "closing on the seat word alone, which LAW 1 forbids" --
+                # and then FALL THROUGH to the unconditional DONE write below, closing the row with ZERO verification
+                # and exit 0. A warning that does not change what happens is not a guard, it is a comment with
+                # stdout. ⭐ AND IT WAS INVISIBLE FOR THE SAME REASON EVERY MUTE INSTRUMENT IS: the operator saw a
+                # ⚠ line scroll past inside a command that then said "done", so the loud part and the wrong part
+                # disagreed and the reassuring one was last. Now it REFUSES rc=2 -- a criterion that cannot be READ
+                # cannot be PASSED, exactly as a test that cannot measure refuses rather than skipping as success.
+                printf '⛔ REFUSED (rc=2): NO TASK BATON at %s — closing on the seat word alone is what LAW 1 forbids.\n' "$tf" >&2
+                printf '   A row with no baton has no computable DONE-WHEN, so its completion cannot be verified, so it\n' >&2
+                printf '   cannot be closed. This is NOT a pass and NOT a skip. Mint the baton for this topic, then close.\n' >&2
+                exit 2
               fi
               grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
+              # ⛔⭐ (a) DONE CLOSES ITS OWN WINDOW (hq_B scope, 2026-08-28, ratified by ceo as rank 1). Until now
+              # this verb latched the CLAIM and never touched QUEUE.tsv -- s4e_mark_row() below writes only the
+              # per-seat .last-row despite its name. So a verified close left the column reading FREE, and the row
+              # became INVISIBLE IN ALL THREE PICKER PASSES (PASS 1/2 skip a DONE claim even for its owner; PASS 3
+              # skips any topic that has a claim file at all) while still reading FREE to any human scanning the
+              # queue. ⛔ THE FIX IS CLOSING THE WINDOW, NEVER WIDENING THE PICKER: making `next` serve DONE-claimed
+              # rows would reopen landed work. The column is now MIRRORED FROM the claim, which is the authority.
+              if s4e_set_row_state "$topic" DONE; then echo "  (QUEUE.tsv state -> DONE; claim and column now agree)"
+              else echo "  (no live QUEUE.tsv row for $topic — nothing to mirror; the claim is the record)"; fi
               s4e_mark_row "$topic" DONE
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
          else echo "not your claim"; exit 1; fi;;
@@ -915,7 +948,30 @@ case "$cmd" in
            [ -s "$d" ] || printf '# S4E QUEUE — LANDED ROWS (the MEMORY; QUEUE.tsv is the BUFFER). Append-only.\n# rank\ttopic\tbrief\tfirst-step-and-done-when\n' > "$d"
            printf '# --- swept %s by %s: %s rows ---\n' "$(date -u +%FT%TZ)" "$ME" "$ng" >> "$d"; cat "$gone" >> "$d"
            mv "$keep" "$q"; chmod 664 "$q"; else rm -f "$keep"; fi
-         rm -f "$gone"; printf 'sweep: %s live rows kept, %s DONE rows moved to QUEUE.done.tsv (nothing deleted; buffer backed up)\n' "$nk" "$ng";;
+         rm -f "$gone"; printf 'sweep: %s live rows kept, %s DONE rows moved to QUEUE.done.tsv (nothing deleted; buffer backed up)\n' "$nk" "$ng"
+         # ⛔⭐ (b) GARBAGE-COLLECT CLAIMS WHOSE TOPIC HAS NO LIVE ROW (hq_B 2026-08-28; runs AFTER (a) by design --
+         # `done` now mirrors its close into the column, so a claim reaching this point has already had every chance
+         # to be recorded). ⭐ WHY IT MATTERS AND WHY IT IS NOT COSMETIC: PASS 3 skips ANY topic that has a claim
+         # file, DONE or not. Measured that day: 227 claim files against 205 live rows, 195 of them residue for
+         # topics already in QUEUE.done.tsv. Re-mint any one of those 195 NAMES and the new row is INVISIBLE ON
+         # ARRIVAL -- it never reaches a seat, and the queue still reads FREE. That is a trap armed by ordinary
+         # success: the more work the fleet lands, the more names become undispatchable.
+         # ⛔ DELETES ONLY THE REDUNDANT ONES. A claim with no live row AND a DONE latch is duplicated by
+         # QUEUE.done.tsv, so removing it loses nothing. A claim with no live row and NO DONE latch is NOT residue
+         # -- it is a live lock whose row was renamed or dropped underneath it, i.e. possible work in flight -- so
+         # it is REPORTED AND KEPT. Deleting that one would destroy the only trace of an in-flight claim, which is
+         # the mirror of the bug this whole row exists to fix.
+         _gc=0; _orph=""
+         for _c in "$PO"/claims/*.claim; do
+           [ -f "$_c" ] || continue
+           _t="$(basename "$_c" .claim)"
+           grep -qP "^[0-9]+\t\Q$_t\E\t" "$q" 2>/dev/null && continue      # still a live row -- leave it alone
+           if grep -q '^DONE$' "$_c"; then rm -f "$_c"; _gc=$((_gc+1))
+           else _orph="$_orph $_t"; fi
+         done
+         printf 'sweep: %s residue claim(s) garbage-collected (DONE + no live row; QUEUE.done.tsv keeps the record)\n' "$_gc"
+         [ -n "$_orph" ] && printf '⚠ KEPT, NOT DELETED — claim with NO live row and NO DONE latch (a live lock whose row vanished; investigate, do not assume residue):%s\n' "$_orph"
+         :;;
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
