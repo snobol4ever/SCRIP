@@ -109,6 +109,44 @@ aspect2() {  # $1=engine $2=prog $3=input $4=fam ; echoes "per_match_ns reps ans
   done
   echo "REFUSE did-not-converge-by-reps=$MAXREPS"
 }
+# ---- --selftest: the harness MECHANISM, not a benchmark number ------------------------------------
+# ⛔ WHY THIS EXISTS (row bench-rep-loop-demo-harness): a refusal path that is never itself tested is a
+# refusal path that can silently rot -- the "mute correct gate" class this project keeps getting bitten
+# by. Runs AFTER the normal preamble (SCRIP/SBL/MK already verified above) and calls brk()/aspect2()
+# directly -- the SAME functions a real board run uses -- rather than a lighter parallel reimplementation
+# that could drift from what actually ships.
+if [ "${1:-}" = "--selftest" ]; then
+  echo "=== bench_rep_loop_demos_snobol4.sh --selftest -- harness mechanism check, NOT a benchmark number ==="
+  st_ok=1
+  # POSITIVE: the core bracket-and-measure primitive returns a real per-rep timing + answer for a
+  # known-good demo. This is brk() directly, not the full convergence ramp -- proving the measurement
+  # primitive works does not require spending the ramp's wall-clock budget on every selftest run.
+  st_v="$W/selftest_pos.m3.8.sno"
+  if python3 "$MK" "$D/calculator/calculator-1-match.sno" "$st_v" "$W/selftest_pos.brk" 8 >/dev/null 2>&1; then
+    st_res=$(brk m3 "$st_v" "$D/calculator/calculator.input" 8 "selftest_pos.m3.8")
+    if [ -n "$st_res" ]; then
+      echo "  PASS measures-a-real-demo (per-rep-ns + answer: $st_res)"
+    else
+      echo "  FAIL brk() returned nothing for a known-good demo at reps=8 -- is the demo corpus intact?"; st_ok=0
+    fi
+  else
+    echo "  FAIL fixture generator could not bracket calculator-1-match.sno -- is the demo corpus intact?"; st_ok=0
+  fi
+  # NEGATIVE 1: REFUSES when the program cannot even be identified/bracketed (the fixture-generator arm).
+  st_neg1=$(aspect2 m3 "$D/__selftest_no_such_demo__.sno" "$D/__selftest_no_such_input__.txt" selftest_neg1)
+  case "$st_neg1" in
+    REFUSE*) echo "  PASS refuses-unbracketable-program ($st_neg1)" ;;
+    *) echo "  FAIL expected a REFUSE for a nonexistent program, got: [$st_neg1]"; st_ok=0 ;;
+  esac
+  # NEGATIVE 2: REFUSES when the convergence ramp cannot run far enough to reach a verdict -- the actual
+  # "unmeasurable" case this whole harness exists for (a real demo, artificially starved of ramp budget).
+  st_neg2=$(MAXREPS=1 aspect2 m3 "$D/calculator/calculator-1-match.sno" "$D/calculator/calculator.input" selftest_neg2)
+  case "$st_neg2" in
+    REFUSE*) echo "  PASS refuses-when-ramp-budget-exhausted ($st_neg2)" ;;
+    *) echo "  FAIL expected a REFUSE at MAXREPS=1, got: [$st_neg2]"; st_ok=0 ;;
+  esac
+  if [ "$st_ok" = 1 ]; then echo "SELFTEST OK"; exit 0; else echo "SELFTEST FAILED"; exit 1; fi
+fi
 printf '%s\n' "=== TWO-ASPECT tier-1 demo board (Lon's presentation law) ===" \
   "  ASPECT 1 = whole process, external elapsed, COMPILE INCLUDED   |  ASPECT 2 = in-program bracket, MATCH ONLY" \
   "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf $SF | RT_OPT=-O0 | NOHUGE=$NOHUGE HEAP=${HEAP}MB | reps RAMPED to convergence (tol ${TOL}%) | m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)" \
