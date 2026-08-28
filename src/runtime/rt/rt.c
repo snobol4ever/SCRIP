@@ -884,6 +884,9 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
       return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long rt_proc_call_open_p(rt_proc_t *p, int nargs);
+static int proc_open_p_on(void);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -895,7 +898,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     }
     if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
-    long fbytes = rt_proc_call_open(name, nargs);
+    long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
         if (p->jmp_entry) return rt_proc_enter((void *)p->fn);
@@ -1631,14 +1634,23 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
     return rt_proc_call_epilogue_ret(fret);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_proc_call_open(const char *name, int nargs)
+/* ⭐ KILLSWITCH + CONTROL ARM (RULES.md: every perf claim ships one).  SCRIP_PROC_OPEN_P=0 restores the by-name re-resolution, so the cure A/Bs in ONE binary with no rebuild.  Default ON, opt-OUT -- same polarity and spelling as defer_xpat_on/defer_ic_on/patv_fast_on; a default-OFF killswitch on a cure is a deletion with a comment (s275). */
+static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* The post-resolution half of rt_proc_call_open, split out so a caller that has ALREADY resolved the record does not resolve it a second time.  rt_call_proc_descr resolves `name` on its own first line and then handed the same `name` here, so every by-name callout paid rt_proc_find TWICE -- MEASURED on json-match: 185,890 rt_proc_find calls for 92,945 callouts, 7.50% of the program.  The two resolutions cannot disagree: nothing between them mutates the table (rt_dyn_alpha_fn_p only READS an alpha cell), and rt_call_proc_descr already dereferences its own `p` AFTER this call, so it relies on exactly that invariant today. */
+static long rt_proc_call_open_p(rt_proc_t *p, int nargs)
 {
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p && name) p = rt_proc_find_alias(name);
     if (!p || !p->fn) return 0;
     int wn = rt_g_want_name; rt_g_want_name = 0;
     if (p->dyn_scope) return (long)rt_proc_call_prologue(p, g_call_args, nargs, wn);
     return (long)rt_proc_call_prologue_lex(p, nargs, wn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_proc_call_open(const char *name, int nargs)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p && name) p = rt_proc_find_alias(name);
+    return rt_proc_call_open_p(p, nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_call_open_fnret(const char *name, int nargs)
