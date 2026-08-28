@@ -102,6 +102,7 @@ LANG_CONFIGS = {
     "rebus": {"ext": ".reb", "comment_open": "#", "comment_close": "", "modes": "ast"},
     "pascal": {"ext": ".pas", "comment_open": "{", "comment_close": "}", "modes": "m3,m4"},
     "prolog": {"ext": ".pl", "comment_open": "%", "comment_close": "", "modes": "ast"},
+    "icon": {"ext": ".icn", "comment_open": "#", "comment_close": "", "modes": "m3,m4"},
 }
 
 
