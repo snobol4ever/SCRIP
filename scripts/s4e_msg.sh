@@ -110,6 +110,19 @@ case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
 # -- one rotted 46 hours at the postoffice root, a seat-to-seat brief neither end ever knew was lost. A message
 # whose header still names a reachable mailbox is RE-DELIVERED here; one that does not is REPORTED loudly and
 # left on disk. Never deleted: an undeliverable message is evidence, not garbage.
+# ⛔⭐⭐ ROWD-CLOSE HANDS OFF OR REDS THE FLEET (CEO-69 batch 5a + CEO-70; row done-must-hand-off-manifest-cited-rows, hq_P).
+# THREE IDENTICAL FLEET-WIDE REDS IN ONE DAY: closing a row cited as ROWD evidence in corpus_coverage_manifest.tsv reds
+# `make test` for EVERY seat until someone re-points the manifest BY HAND (pas-display-revival 07:49 -> pascal-bench-quick-
+# wrong-biggest 08:08 -> pascal-bool-family-truncated-output 14:35, the last caught mid-re-point). The manifest's own law,
+# line 15: "ROWD evidence = a task topic that must exist and NOT be DONE." Nothing enforced it, so `done` could red the
+# fleet and report success. ⭐ ONE check, placed BEFORE the done/OVERRIDE fork, so both close paths are covered BY
+# CONSTRUCTION and cannot drift -- the emit_rec_fb / icn_gen_host_reserve lesson: two copies of one rule DO drift.
+# ⛔ MATCHES ON $3=="ROWD" ALONE, never on $1, so a future kind= still trips the guard. FAILS CLOSED by design.
+s4e_manifest_rowd_cite() {   # echo the citing manifest line(s) for topic $1; rc 0 = cited (refuse), rc 1 = not cited
+    local t="$1" m="$S4E/SCRIP/scripts/corpus_coverage_manifest.tsv"
+    [ -n "$t" ] && [ -f "$m" ] || return 1
+    awk -F'\t' -v t="$t" '/^#/ {next} $3=="ROWD" && $4==t {print; f=1} END{exit !f}' "$m"
+}
 s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
     _h="$(head -1 "$_o")"; _to="$(printf '%s' "$_h" | sed -n 's/^FROM [^ ]* TO \([^ ]*\) RE .*$/\1/p')"
     _tp="$(printf '%s' "$_h" | sed -n 's/^FROM [^ ]* TO [^ ]* RE \([^ :]*\).*$/\1/p')"
@@ -332,6 +345,20 @@ case "$cmd" in
          # hope, not a mechanism, exactly like the inbox before `check` was forced. A seat that closes a row runs
          # `done`, so `done` prints the banner. Same reason `board` does. Suppress with S4E_NO_BANNER=1.
          if [ -f "$c" ] && [ "$(head -1 "$c")" = "$ME" ]; then
+              # ⛔⭐⭐ ROWD-CLOSE GUARD -- fires for BOTH the computed close and the S4E_DONE_OVERRIDE close, because it
+              # sits ABOVE the fork. An override is an assertion by a human; it still may not red twelve other seats.
+              if _cite="$(s4e_manifest_rowd_cite "$topic")"; then
+                printf '⛔ REFUSED: "%s" is cited as ROWD evidence in the corpus coverage manifest, so closing it REDS\n' "$topic" >&2
+                printf '   `make test` FOR EVERY SEAT until the manifest is re-pointed by hand. This has happened THREE times in one day.\n' >&2
+                printf '   The citing line (SCRIP/scripts/corpus_coverage_manifest.tsv):\n       %s\n' "$_cite" >&2
+                printf '   HAND OFF FIRST, then close -- in the SCRIP checkout, one of:\n' >&2
+                printf '     (a) re-point the ROWD topic to a LIVE successor row that still covers that subtree, or\n' >&2
+                printf '     (b) flip the subtree to GATED and name the harness script that now proves it.\n' >&2
+                printf '   Commit and push that edit BEFORE re-running done.\n' >&2
+                printf '   ⛔ THE MANIFEST LIVES IN SCRIP, NOT THE POSTOFFICE: this check reads YOUR checkout, so a stale\n' >&2
+                printf '      clone reads a stale manifest. `git pull --rebase` in SCRIP before you close, or this guard\n' >&2
+                printf '      can pass on a manifest that no longer matches origin.\n' >&2
+                exit 1; fi
               # ⛔⭐⭐ DONE IS COMPUTED, NEVER DECLARED (ARCH-FLEET-CEO.md LAW 1 "NO HAND-TYPED VERDICTS", γ port).
               # Until now `done` appended the DONE marker UNCONDITIONALLY and never ran the task's DONE-WHEN --
               # so the one command whose entire job is to certify completion accepted the seat's word for it.
