@@ -102,5 +102,4 @@ std::string bb_to() {
              + x86_beta()
              + x86("inc",     FRQ(_.op_off + 16))
              + x86("jmp",     L(0));
-    return std::string();
 }
