@@ -422,6 +422,20 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
     """Returns (Entry, report_dict). report_dict always has "ok": bool and "reason": str."""
     name = sno_path.stem
     original_text = sno_path.read_text()
+    # ⛔⭐ CONVERT MUST BE IDEMPOTENT — STRIP OUR OWN `;* <name>` SENTINEL BEFORE RE-PROCESSING.
+    # A format-(A) one-liner ends with a MANDATORY `;* <name>` tag. Feed such a line back through convert
+    # (which is exactly what merging new witnesses into an EXISTING suite does: extract all, add new,
+    # re-convert) and parse_statements() keeps that tag as a trailing comment statement, join_one_line()
+    # preserves it, and then `joined + f";* {name}"` appends a SECOND one -- `;* ev_fn_literal;* ev_fn_literal`.
+    # Every re-conversion adds another. MEASURED (hq_C 2026-08-28, root-causing seat02's report): re-converting
+    # probe/eval's 21 entries doubled the tag on 17 of them in a single pass.
+    # Stripping is safe and precise: the tag is only removed when the file is a SINGLE line whose trailing tag
+    # names THIS entry, which is our own writer's output and never a hand-authored witness's real last statement.
+    _stripped = original_text.strip("\n")
+    if "\n" not in _stripped:
+        _m = ONE_LINE_TAG_RE.search(_stripped)
+        if _m and _m.group(1) == name:
+            original_text = _stripped[: _m.start()] + "\n"
     expected_text = ref_path.read_text()
     statements = parse_statements(original_text)
 
@@ -492,19 +506,36 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
 
 # ========================================================== suite writer ===
 def write_suite(entries, out_sno, out_ref):
+    """⛔⭐ FORMAT-(B) BLOCKS ARE EMITTED LAST, ALWAYS — THIS ORDERING IS A CORRECTNESS INVARIANT, NOT A STYLE CHOICE.
+    A banner block ends only at the NEXT BANNER OR EOF (see read_suite()'s scanner). So any format-(A) one-line entry
+    written AFTER a block is silently swallowed into that block's body: the file stops round-tripping, and the swallowed
+    entries either vanish or come back duplicated. MEASURED (hq_C 2026-08-28, on seat02's convert-corrupts-eval report):
+    re-converting probe/eval's 21 entries wrote 21 and read back 22, with `ev_fn_beauty_shape` appearing twice, because
+    alphabetical order put that one block in the MIDDLE and it absorbed the nine one-liners after it.
+    ⛔ Suites written before this fix were correct only BY ACCIDENT OF ORDERING — probe/eval survived because its two
+    blocks happened to be appended last. Do not "simplify" this back into a single loop over `entries`."""
+    lines = [e for e in entries if e.kind == "line"]
+    blocks = [e for e in entries if e.kind != "line"]
     sno_lines, ref_lines = [], []
-    for e in entries:
+    for seq, e in enumerate(lines + blocks, 1):
         if e.kind == "line":
             sno_lines.append(e.sno_lines[0])
             ref_lines.append(e.ref.replace("\n", "\\n"))
         else:
-            banner = make_banner(e.seq, e.name, xfail=e.xfail)
+            banner = make_banner(seq, e.name, xfail=e.xfail)
             sno_lines.append(banner)
             sno_lines.extend(e.sno_lines)
             ref_lines.append(banner)
             ref_lines.extend(e.ref)
     Path(out_sno).write_text("\n".join(sno_lines) + "\n")
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
+    # ⛔ ROUND-TRIP OR REFUSE. A writer that cannot be read back is the "lying test" class: it reports success while
+    # having destroyed entries. Cheap to check, and it is the only thing standing between an ordering bug and a
+    # silently-corrupted permanent suite.
+    back = read_suite(out_sno, out_ref)
+    if len(back) != len(entries) or [e.name for e in back] != [e.name for e in lines + blocks]:
+        raise ValueError(f"⛔ SUITE DID NOT ROUND-TRIP: wrote {len(entries)} entries, read back {len(back)}. "
+                         f"wrote={[e.name for e in lines + blocks]!r} read={[e.name for e in back]!r}")
 
 
 def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None):
@@ -639,6 +670,19 @@ def read_suite(sno_path, ref_path, in_path=None):
             banner_line, name, xfail = line, m.group("name"), bool(m.group("xfail"))
             si += 1
             body = []
+            # ⛔⭐ THE FIRST LINE AFTER A BANNER IS ALWAYS BODY — NEVER TESTED AGAINST _is_entry_start.
+            # _is_entry_start()'s docstring assumes a block's body lines "do not end this way IN PRACTICE".
+            # That assumption holds only until an ALREADY-CONVERTED ONE-LINER IS PROMOTED TO A BLOCK, which is
+            # exactly what re-converting an existing suite does: the promoted line still carries its own
+            # mandatory `;* <name>` tag, _is_entry_start() fires on it, the block gets an EMPTY body, and the
+            # very same line is then re-read as a one-line entry -- so the entry comes back TWICE.
+            # MEASURED (hq_C 2026-08-28, root-causing seat02's convert-corrupts-eval report): re-converting
+            # probe/eval wrote 21 entries and read back 22, `ev_fn_beauty_shape` duplicated, block body empty.
+            # A format-(B) block ALWAYS has at least one body line, so consuming one unconditionally is safe
+            # for every suite -- interleaved ones included -- and is what makes promotion round-trip.
+            if si < len(sno_lines):
+                body.append(sno_lines[si])
+                si += 1
             while si < len(sno_lines) and not _is_entry_start(sno_lines[si]):
                 body.append(sno_lines[si])
                 si += 1
