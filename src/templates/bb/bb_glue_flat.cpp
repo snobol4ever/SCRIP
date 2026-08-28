@@ -16,20 +16,33 @@ std::string bb_glue_flat_leave() {
 int g_glue_entered = 0;
 int g_glue_o_sup = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline bool bb_glue_outer_whack() { extern int g_glue_o_sup; if (g_glue_o_sup) return false; static int s = -1; if (s < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; } return s ? (g_glue_entered != 0) : true; }
+static inline bool bb_glue_outer_whack() {
+    extern int g_glue_o_sup;
+    if (g_glue_o_sup) return false;
+    static int s = -1;
+    if (s < 0)
+        { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; }
+    return s ? (g_glue_entered != 0) : true;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_γ() {
-    bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(!_chain, x86("xor", "edi", "edi") + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
-         + IF( _chain, x86("mov32", "eax", (long)DT_S) + x86("ret"));
+         + IF(!(g_emit.flat_jmp_entry != 0),
+              x86("xor", "edi", "edi")
+            + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
+         + IF( (g_emit.flat_jmp_entry != 0),
+              x86("mov32", "eax", (long)DT_S)
+            + x86("ret"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
-    bool _chain = g_emit.flat_jmp_entry != 0;
     return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
-         + IF(!_chain, x86("mov32", "edi", 1) + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
-         + IF( _chain, x86("mov32", "eax", (long)DT_FAIL) + x86("ret"));
+         + IF(!(g_emit.flat_jmp_entry != 0),
+              x86("mov32", "edi", 1)
+            + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
+         + IF( (g_emit.flat_jmp_entry != 0),
+              x86("mov32", "eax", (long)DT_FAIL)
+            + x86("ret"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_land(void) { return std::string(); }
