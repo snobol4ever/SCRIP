@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 const char * rt_nv_cstr(const char * name);
+int rt_icn_cset_member(const char *needle, int ch);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -21,7 +22,7 @@ std::string bb_scan_any() {
              + x86("movzx",   "esi", "[r13+rcx]")
              + x86("mov",     "rdi", FRQ(_.op_sa + 8))
              + x86("sub",     "rsp", (long)8)
-             + x86("call",    "strchr", (uint64_t)(uintptr_t)(void*)(const char *(*)(const char *, int))strchr)
+             + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, int))rt_icn_cset_member)
              + x86("add",     "rsp", (long)8)
              + x86("test",    "rax", "rax")
              + x86_omega("je")
@@ -41,7 +42,7 @@ std::string bb_scan_any() {
          + x86("movzx",   "esi", "[r13+rcx]")
          + x86("mov",     "rdi", ROQ(0))
          + x86("sub",     "rsp", (long)8)
-         + x86("call",    "strchr", (uint64_t)(uintptr_t)(void*)(const char *(*)(const char *, int))strchr)
+         + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void*)(int (*)(const char *, int))rt_icn_cset_member)
          + x86("add",     "rsp", (long)8)
          + x86("test",    "rax", "rax")
          + x86_omega("je")

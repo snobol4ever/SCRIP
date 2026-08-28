@@ -104,6 +104,7 @@ struct tree_t {
     int         n;
     tree_t   ** c;
     int         line;
+    int         slen;
 };
 #include <stdlib.h>
 #include <string.h>

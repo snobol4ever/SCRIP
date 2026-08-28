@@ -43,13 +43,32 @@ static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * icn_cset_canon(const char * s) {
-    if (!s) return s;
+static const char * icn_cset_canon(const char * s, int len, int * out_len) {
+    if (!s) { if (out_len) *out_len = 0; return s; }
     unsigned char seen[256]; memset(seen, 0, sizeof seen);
-    for (const unsigned char * p = (const unsigned char *) s; *p; p++) seen[*p] = 1;
+    for (int i = 0; i < len; i++) seen[(unsigned char) s[i]] = 1;
     char buf[257]; int n = 0;
     for (int c = 0; c < 256; c++) if (seen[c]) buf[n++] = (char) c;
-    buf[n] = 0; return lp_strdup(buf);
+    buf[n] = 0; if (out_len) *out_len = n;
+    /* lp_strdup (-> rt_ws_strdup) is an ordinary NUL-bounded strdup: byte 0 is a legal, ASCENDING-
+       SORTED-FIRST member here, so a canonical set containing it truncates to "" the instant it is
+       strdup'd, discarding every member (not just undercounting a length, per intern_n's already-
+       length-aware copy at the AST layer) -- confirmed live via rt_scan_enter's subject buffer reading
+       00 00 00 instead of 00 61 62 for '\x00ab'. Length-aware copy, matching intern_n's own recipe,
+       exactly here where the embedded-NUL case is real; lp_strdup itself is left untouched since its
+       many other callers never carry a length to give it. */
+    { char * p = (char *) malloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn-cset-embedded-nul-four-layer-gap, layer 2->3 plumbing: attach a literal's TRUE length (which
+   the AST now carries in tree_t.slen, or a canonicalized cset's real member count) as a pure-data
+   IR_LIT_INTEGER operand -- PEERS-RULE-legal (no new IR_t field; ir_operand_push is the sanctioned
+   channel), read generically at emit time via g_emit.op_a_ival_sg (populated for ANY node's
+   operands[0] regardless of kind -- see emit.cpp walk_bb_node_inner). Precedent for a NULL/NULL
+   pure-data operand node: bb_rev_swap's IR_LIT_STRING rc in this same file. */
+static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) {
+    IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) len;
+    ir_operand_push(nd, ln);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_proc_is_generator(const char * name) {
@@ -326,7 +345,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        if (cs) { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(cs); *res = nd; return nd; }
+        if (cs) { int cn; const char * canon = icn_cset_canon(cs, (int) strlen(cs), &cn); IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = canon; icn_attach_lit_len(cx, nd, cn); *res = nd; return nd; }
     }
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
     IR_t * nd = build(cx, is_gen_kw ? IR_KW_ICON_GEN : IR_KW_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
@@ -389,8 +408,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     switch (t->t) {
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
-    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_CSET: { IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = icn_cset_canon(t->v.sval); *res = nd; return nd; }
+    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; icn_attach_lit_len(cx, nd, t->slen); *res = nd; return nd; }
+    case TT_CSET: { int cn; const char * canon = icn_cset_canon(t->v.sval, t->slen, &cn); IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = canon; icn_attach_lit_len(cx, nd, cn); *res = nd; return nd; }
     case TT_NULL: {
         if (t->n > 0 && t->c[0]) {
             IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;

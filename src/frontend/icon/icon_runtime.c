@@ -65,3 +65,22 @@ const char *cset_canonical(const char *cs) {
     str_arena_pos += bi + 1;
     return out;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn-cset-embedded-nul-four-layer-gap, a fifth/newly-discovered layer found while proving the
+   original four-layer fix end to end: bb_scan_{any,many,bal,upto}.cpp and bb_gcc.cpp all test cset
+   membership via a per-subject-byte strchr(needle, ch) call. strchr treats ch==0 as "find the
+   needle's own NUL terminator", which ALWAYS returns non-NULL -- so any subject byte that happens to
+   be \x00 is reported as a member of EVERY needle cset, regardless of its actual content (confirmed:
+   corpus/tests/icon/rung38_cset_embedded_nul.icn's `skips ? upto('a')` matched at the leading \x00
+   instead of the real 'a'). memchr has no such special case; resolving the needle's TRUE length here
+   (same kw_cset_len-then-strlen fallback as rt_scan_enter/c_rt_size_d) and bounding the search by it
+   fixes both an embedded-NUL SUBJECT (this bug) and an embedded-NUL NEEDLE, for the same reason.
+   Same call-site shape as strchr (rdi=needle, esi=ch as int) so every caller's null/non-null result
+   check (test+je) is unchanged -- only the call target and this function differ. */
+int rt_icn_cset_member(const char *needle, int ch) {
+    if (!needle) return 0;
+    extern int kw_cset_len(const char *);
+    int kn = kw_cset_len(needle);
+    int len = (kn >= 0) ? kn : (int) strlen(needle);
+    return memchr(needle, (unsigned char)ch, (unsigned long)len) != 0;
+}

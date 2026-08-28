@@ -4,6 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
+void rt_icn_cset_register(const char *ptr, int len);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -49,7 +50,21 @@ std::string bb_lit_scalar() {
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(0), lit_tag_imm((long)DT_S))
              + x86("note",   ZRESN())
-             + x86("mov",    ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0))
+             + (_.op_a_node_kind >= 0
+                 /* icn-cset-embedded-nul-four-layer-gap layer 4 (string side): a literal carrying a
+                    length operand (see lower_icon.c icn_attach_lit_len) may contain embedded \0 --
+                    strlen(_.op_sval) would undercount it. BINARY bakes the TRUE length (its bytes come
+                    from a direct pointer into the compiler's own live buffer, never re-serialized, so
+                    length and content already agree). TEXT still emits strlen() here on purpose: the
+                    .string directive below re-escapes through a NUL-terminated scan (x86_asm_str_escape)
+                    and truncates at the same byte today, so baking the true length there would claim
+                    more bytes than the assembled buffer actually holds -- a real out-of-bounds read, not
+                    a fix. Deliberate, documented MODES-MAY-DIVERGE arm; TEXT-side byte emission is a
+                    separate, tracked follow-up. Literals with no length operand (every other frontend)
+                    take neither arm and fall through to the original unconditional strlen() below. */
+                 ? IF_M3(x86("mov", ls_rd(4), (long)_.op_a_ival_sg))
+                 + IF_M4(x86("mov", ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0)))
+                 : x86("mov",    ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0)))
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
@@ -88,6 +103,26 @@ std::string bb_lit_scalar() {
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
              + ls_dual(0) + ls_dual(8)
+             /* icn-cset-embedded-nul-four-layer-gap layer 4/5 (charset side): .slen stays the CSETVAL
+                -1 identity sentinel above (load-bearing in >=10 runtime sites, never a length itself);
+                the TRUE member count -- known here only when lower_icon.c attached one via
+                icn_attach_lit_len (Icon literals only; every other IR_LIT_CHARSET producer does not
+                exist) -- is registered by pointer so kw_cset_len/c_rt_size_d resolve it instead of
+                falling to strlen(), which undercounts a set containing byte 0. BINARY-only (IF_M3):
+                in BINARY the baked ROQ(0) address already points at the compiler's own correct,
+                embedded-NUL-safe buffer, so registering here is exact. TEXT is deliberately left
+                unregistered -- its .string bytes below are still NUL-truncated by x86_asm_str_escape
+                (a separate, tracked follow-up), so a TEXT-mode registration would claim a length the
+                assembled buffer does not actually hold; letting kw_cset_len miss and fall through to
+                strlen() keeps TEXT exactly as self-consistent (short pointer, short reported length)
+                as it was before this row. */
+             + (_.op_a_node_kind >= 0
+                 ? IF_M3(x86("push", "rax") + x86("push", "rdx")
+                       + x86("mov", "rdi", ROQ(0))
+                       + x86("mov", "rsi", (long)_.op_a_ival_sg)
+                       + x86("call", "rt_icn_cset_register", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_icn_cset_register)
+                       + x86("pop", "rdx") + x86("pop", "rax"))
+                 : std::string())
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))

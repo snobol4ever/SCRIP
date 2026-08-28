@@ -5,6 +5,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
+int rt_icn_cset_member(const char *needle, int ch);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23,7 +24,7 @@ std::string bb_scan_upto() {
              + x86("mov",     "rdi", FRQ(_.op_sa + 8))
              + x86("push",    "rax")
              + x86("sub",     "rsp", (long)8)
-             + x86("call",    "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
+             + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_icn_cset_member)
              + x86("add",     "rsp", (long)8)
              + x86("test",    "rax", "rax")
              + x86("pop",     "rax")
@@ -51,7 +52,7 @@ std::string bb_scan_upto() {
              + x86("mov",     "rdi", ROQ(2))
              + x86("push",    "rax")
              + x86("sub",     "rsp", (long)8)
-             + x86("call",    "strchr", (uint64_t)(uintptr_t)(void *)(const char *(*)(const char *, int))strchr)
+             + x86("call",    "rt_icn_cset_member", (uint64_t)(uintptr_t)(void *)(int (*)(const char *, int))rt_icn_cset_member)
              + x86("add",     "rsp", (long)8)
              + x86("test",    "rax", "rax")
              + x86("pop",     "rax")

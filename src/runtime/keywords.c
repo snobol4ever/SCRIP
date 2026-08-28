@@ -31,29 +31,35 @@ long g_lastline = 0;
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;
-#define KW_CSET_MAX 16
-static struct { const char *ptr; const char *name; int len; } g_kw_cset_names[KW_CSET_MAX];
+typedef struct { const char *ptr; const char *name; int len; } kw_cset_ent_t;
+static kw_cset_ent_t *g_kw_cset_names = NULL;
 static int g_kw_cset_count = 0;
+static int g_kw_cset_cap = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void kw_cset_grow(void) {
+    if (g_kw_cset_count < g_kw_cset_cap) return;
+    g_kw_cset_cap = g_kw_cset_cap ? g_kw_cset_cap * 2 : 16;
+    g_kw_cset_names = (kw_cset_ent_t *) realloc(g_kw_cset_names, (size_t)g_kw_cset_cap * sizeof(kw_cset_ent_t));
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     for (int i = 0; i < g_kw_cset_count; i++)
-        if (!strcmp(g_kw_cset_names[i].name, kw_name))
+        if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name))
             return CSETVAL(g_kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars);
     char *stable = rt_ws_strdup(arena);
     int clen = (int)strlen(stable);
-    if (g_kw_cset_count < KW_CSET_MAX) {
-        g_kw_cset_names[g_kw_cset_count].ptr  = stable;
-        g_kw_cset_names[g_kw_cset_count].name = kw_name;
-        g_kw_cset_names[g_kw_cset_count].len  = clen;
-        g_kw_cset_count++;
-    }
+    kw_cset_grow();
+    g_kw_cset_names[g_kw_cset_count].ptr  = stable;
+    g_kw_cset_names[g_kw_cset_count].name = kw_name;
+    g_kw_cset_names[g_kw_cset_count].len  = clen;
+    g_kw_cset_count++;
     return CSETVAL(stable);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_cset_reg(const char *chars, const char *name, int len) {
-    for (int i = 0; i < g_kw_cset_count; i++) if (!strcmp(g_kw_cset_names[i].name, name)) return;
-    if (g_kw_cset_count >= KW_CSET_MAX) return;
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
+    kw_cset_grow();
     g_kw_cset_names[g_kw_cset_count].ptr  = rt_ws_strdup(cset_canonical(chars));
     g_kw_cset_names[g_kw_cset_count].name = name;
     g_kw_cset_names[g_kw_cset_count].len  = len;
@@ -70,12 +76,38 @@ static void kw_cset_prime(void) {
     { static char a[256]; for (int c=1;c<256;c++) a[c-1]=(char)c; a[255]='\0'; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn-cset-embedded-nul-four-layer-gap, layer 5 (registry side): a literal charset's TRUE length
+   (which can exceed what strlen() reports when the set contains byte 0) is baked by codegen as a
+   compile-time constant and registered here, keyed by pointer identity -- the same lookup
+   c_rt_size_d/kw_cset_len already perform for the 6 keyword csets, now open to any literal.
+   Dedup is by pointer, never by content (strcmp cannot safely compare two embedded-NUL strings). */
+void rt_icn_cset_register(const char *ptr, int len) {
+    if (!ptr) return;
+    kw_cset_prime();
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr == ptr) return;
+    kw_cset_grow();
+    g_kw_cset_names[g_kw_cset_count].ptr  = ptr;
+    g_kw_cset_names[g_kw_cset_count].name = NULL;
+    g_kw_cset_names[g_kw_cset_count].len  = len;
+    g_kw_cset_count++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *kw_cset_name(const char *ptr) {
     kw_cset_prime();
+    /* icn-cset-embedded-nul-four-layer-gap follow-on: &lcase/&ucase/&digits/&letters fold to a
+       compile-time IR_LIT_CHARSET at lower_icon.c's lc_key (their content is statically known), so
+       their runtime value is a CODEGEN-BAKED buffer, never make_kw_cset's own pointer -- and
+       rt_icn_cset_register now registers every IR_LIT_CHARSET literal, keyword-folded ones included,
+       with name=NULL (it has no way to know a given literal happens to BE a keyword's folded value).
+       An unnamed entry can never supply a name, so it must not win the exact-pointer match ahead of
+       the real keyword entry (registered separately, at a different address, by kw_cset_prime/
+       make_kw_cset) -- without this guard the unnamed hit short-circuits both loops and image()/etc.
+       print the raw character content instead of "&lcase". kw_cset_len is unaffected: it does not
+       care which entry it matches, since the length agrees either way. */
     for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].ptr == ptr) return g_kw_cset_names[i].name;
+        if (g_kw_cset_names[i].ptr == ptr && g_kw_cset_names[i].name) return g_kw_cset_names[i].name;
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].ptr && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
+        if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -266,12 +298,11 @@ DESCR_t kw_read(const char *kw) {
             static char ascii_str[128];
             for (int c=1;c<128;c++) ascii_str[c-1]=(char)c; ascii_str[127]='\0';
             char *stable = rt_ws_strdup(cset_canonical(ascii_str));
-            if (g_kw_cset_count < KW_CSET_MAX) {
-                g_kw_cset_names[g_kw_cset_count].ptr  = stable;
-                g_kw_cset_names[g_kw_cset_count].name = "&ascii";
-                g_kw_cset_names[g_kw_cset_count].len  = 128;
-                g_kw_cset_count++;
-            }
+            kw_cset_grow();
+            g_kw_cset_names[g_kw_cset_count].ptr  = stable;
+            g_kw_cset_names[g_kw_cset_count].name = "&ascii";
+            g_kw_cset_names[g_kw_cset_count].len  = 128;
+            g_kw_cset_count++;
             cs = stable;
         }
         return CSETVAL(cs);
@@ -282,12 +313,11 @@ DESCR_t kw_read(const char *kw) {
             static char cset_str[256];
             for (int c=1;c<256;c++) cset_str[c-1]=(char)c; cset_str[255]='\0';
             char *stable = rt_ws_strdup(cset_canonical(cset_str));
-            if (g_kw_cset_count < KW_CSET_MAX) {
-                g_kw_cset_names[g_kw_cset_count].ptr  = stable;
-                g_kw_cset_names[g_kw_cset_count].name = "&cset";
-                g_kw_cset_names[g_kw_cset_count].len  = 256;
-                g_kw_cset_count++;
-            }
+            kw_cset_grow();
+            g_kw_cset_names[g_kw_cset_count].ptr  = stable;
+            g_kw_cset_names[g_kw_cset_count].name = "&cset";
+            g_kw_cset_names[g_kw_cset_count].len  = 256;
+            g_kw_cset_count++;
             cs = stable;
         }
         return CSETVAL(cs);
