@@ -13,9 +13,9 @@ if [ ! -d "$CORPUS" ]; then
 fi
 for f in "$CORPUS"/*.pl; do
     ref="${f%.pl}.ref"; [ -f "$ref" ] || continue
-    actual=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+    actual=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); rc=$?
     expected=$(cat "$ref")
-    if [ "$actual" = "$expected" ]; then
+    if [ "$actual" = "$expected" ] && [ "$rc" -eq 0 ]; then
         echo "  PASS $(basename "$f")"; PASS=$((PASS+1))
     else
         echo "  FAIL $(basename "$f")"
