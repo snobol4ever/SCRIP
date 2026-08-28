@@ -308,7 +308,7 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     if (v->v == DT_R) { *rv = v->r; *isreal = 1; return 1; }
     if (v->v == DT_SNUL) { *iv = 0; *isreal = 0; return 1; }
     if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) {
-        const char *p = v->s; while (*p == ' ') p++;
+        const char *p = rt_cstr_d(*v); while (*p == ' ') p++;
         if (!*p) { *iv = 0; *isreal = 0; return 1; }
         { char *ep = NULL; long long t = strtoll(p, &ep, 10);
           if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *iv = (int64_t)t; *isreal = 0; return 1; } } }
@@ -338,8 +338,9 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     else if (v.v == DT_R) { double d = v.r; if (d == floor(d) && d >= -9.2e18 && d <= 9.2e18) { r = (int64_t)d; ok = 1; } }
     else if (v.v == DT_SNUL) { r = 0; ok = 1; }
     else if (v.v == DT_S && v.s) {
-        if (!v.s[0]) { r = 0; ok = 1; }
-        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
+        const char *s0 = rt_cstr_d(v);
+        if (!s0[0]) { r = 0; ok = 1; }
+        else { const char *p = s0; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
                if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = (int64_t)t; ok = 1; } } } }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
     if (r < 0 && en) core_runtime_error(en, rt_coerce_errmsg(en));
@@ -354,8 +355,9 @@ long rt_pat_prim_int(const char *varname) {
     else if (v.v == DT_R) { double d = v.r; r = (int64_t)d; }
     else if (v.v == DT_SNUL) { r = 0; }
     else if (v.v == DT_S && v.s) {
-        if (!v.s[0]) { r = 0; }
-        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
+        const char *s0 = rt_cstr_d(v);
+        if (!s0[0]) { r = 0; }
+        else { const char *p = s0; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
                if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) r = (int64_t)t; else return -1; } else return -1; }
     } else { return -1; }
     if (r < 0) return -1;

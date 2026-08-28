@@ -756,9 +756,33 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
               c->cur += sizeof(rt_dcap_e);
               rc = 1;
               continue; } }
-        char *copy = rt_str_alloc(len);
-        if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = (char)(len > 0 ? rt_cap_poison() : 0); }
-        DESCR_t d = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        /* ⭐⭐ SLICE-CAPTURE (row perf-pattern-defer-capture-layer-cure, slice b).  The captured text ALREADY EXISTS,
+           contiguous, inside the subject -- so hand out a descriptor that points AT it instead of minting a block and
+           copying it byte for byte.  Measured on string_pattern (three BREAK captures per iteration): m4 6.2M -> 10.1M
+           iters/s, and gc_collect_ex leaves the profile entirely, because the per-iteration garbage it was collecting
+           was these copies.  THREE THINGS MAKE THIS SOUND, each proven rather than assumed:
+           (1) LIFETIME AND RELOCATION were never the obstacle -- rt_gc_visit_descr already maps an interior DT_S
+               pointer to its block via gc_blk_of, marks the WHOLE PARENT (so the subject cannot be collected out from
+               under a live capture), and the compactor's slot fixup already preserves interior offsets exactly
+               (gc_heap.c:438-444 and its fixup loop).  A subject outside the heap -- a rodata literal -- is immortal
+               and equally safe.
+           (2) LENGTH AUTHORITY is now a board-proven property, not a hope: a slice has no terminator of its own, and
+               SCRIP_CAP_POISON=1 (above) makes any consumer that reads past .slen answer wrongly.  That board went
+               16 -> 6 -> 1 -> 0 FAILs as the numeric-validator family was routed through rt_cstr_d (core.h).
+           (3) THE sxt EXTEND-OWNER MUST BE BROKEN, and this is the one hazard that is neither GC nor terminator:
+               rt_sxt_match keys on exact base-pointer equality, so a delta-0 slice whose base IS the current extend
+               owner would inherit the OWNER'S length (g_sxt_len, not ours) and str_concat would then append at the
+               wrong offset -- a wrong answer, not a crash.  Breaking the owner costs one compare and one store.
+           ⛔ len == 0 IS NEVER A SLICE: descr_slen reads slen 0 as "ask strlen", so a zero-length slice would report
+           the whole remainder of the subject.  The empty capture keeps the allocated path, where its terminator is
+           real. */
+        DESCR_t d;
+        if (len > 0 && c->subj) { rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
+        else {
+            char *copy = rt_str_alloc(len);
+            if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = (char)(len > 0 ? rt_cap_poison() : 0); }
+            d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+        }
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
             _prev_star = 1;   /* ⛔ set BEFORE the arm runs user code, so every exit path below is covered -- see the loop-head comment */
