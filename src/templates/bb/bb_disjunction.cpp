@@ -7,7 +7,11 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_dispatch_chain(long N, int base, int lo) { std::string r; for (long i = lo; i < N; i++) r += x86("cmp", "eax", (int)i) + x86("je", PAIR((int)(base + i))); return r; }
+static std::string disj_dispatch_chain(long N, int base, int lo)
+{ std::string r;
+  for (long i = lo; i < N; i++) r += x86("cmp", "eax", (int)i)
+                                    + x86("je", PAIR((int)(base + i)));
+  return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_sigma_copy() {
     std::string r = x86("mov", "eax", FR(_.op_off + 16));
