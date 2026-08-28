@@ -562,7 +562,9 @@ def write_suite(entries, out_sno, out_ref):
 def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None, out_x=None):
     """write_suite() for a format-(B)-ONLY family: every entry is ALWAYS a banner block (no
     one-line join is ever attempted -- parser-ladder families are format-B by task-spec design,
-    not by join-failure fallback), and the banner uses the dialect's own comment syntax."""
+    not by join-failure fallback), and the banner uses the dialect's own comment syntax.
+    Returns True iff a stdin sidecar was written (out_in given AND at least one entry carries
+    stdin) -- lets a caller report accurately without re-deriving write_stdin_sidecar's own check."""
     src_lines, ref_lines = [], []
     for e in entries:
         banner = make_banner_cfg(e.seq, e.name, comment_open, comment_close, xfail=e.xfail)
@@ -572,10 +574,12 @@ def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, ou
         ref_lines.extend(e.ref)
     Path(out_src).write_text("\n".join(src_lines) + "\n")
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
+    wrote_in = False
     if out_in is not None:
-        write_stdin_sidecar(entries, out_in, comment_open, comment_close)
+        wrote_in = write_stdin_sidecar(entries, out_in, comment_open, comment_close)
     if out_x is not None:
         write_xfail_sidecar(entries, out_x, comment_open, comment_close)
+    return wrote_in
 
 
 # =========================================================== stdin sidecar ===
@@ -1065,15 +1069,22 @@ def cmd_convert_blocks(args):
         for seq, (src, ref) in enumerate(pairs, start=1):
             name = src.stem
             expected_text = ref.read_text()
-            orig = run_all_modes(paths, src, expected_text, tmp_root, modes)
+            # ⭐ .stdin SIDECAR (hq_C 2026-08-28 ruling, q-harness-gap-lang-convert-blocks-no-stdin):
+            # a loose <stem>.stdin beside <stem>.icn/.expected feeds that one entry's stdin, mirroring
+            # the family-level .in sidecar this same content becomes once written (write_block_suite's
+            # out_in= below) -- discovered by convention, never a flag, same principle as
+            # sidecar_in_path(). Absent file -> None -> /dev/null, identical to pre-stdin behaviour.
+            stdin_path = src.with_suffix(".stdin")
+            stdin_text = stdin_path.read_text() if stdin_path.is_file() else None
+            orig = run_all_modes(paths, src, expected_text, tmp_root, modes, stdin_text=stdin_text)
             if any(v.kind != "PASS" for v in orig.values()):
                 failures.append((name, f"original file itself is not green: {orig}"))
                 print(f"[{seq}/{len(pairs)}] {name}: FAIL (original not green)", file=sys.stderr)
                 continue
             body = src.read_text().splitlines()
             ref_body = expected_text.rstrip("\n").splitlines()
-            entries.append(Entry("block", len(entries) + 1, name, body, ref_body))
-            print(f"[{seq}/{len(pairs)}] {name}: OK", file=sys.stderr)
+            entries.append(Entry("block", len(entries) + 1, name, body, ref_body, stdin=stdin_text))
+            print(f"[{seq}/{len(pairs)}] {name}: OK{' (stdin)' if stdin_text is not None else ''}", file=sys.stderr)
     finally:
         import shutil
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -1084,18 +1095,30 @@ def cmd_convert_blocks(args):
             print(f"   {name}: {reason[:120]}", file=sys.stderr)
         sys.exit(1)
 
-    write_block_suite(entries, args.out_src, args.out_ref, comment_open, comment_close,
+    out_in = str(Path(args.out_src).with_suffix(".in"))
+    wrote_in = write_block_suite(entries, args.out_src, args.out_ref, comment_open, comment_close,
+                      out_in=out_in,
                       out_x=str(Path(args.out_src).with_suffix(".xfail")) if any(e.xfail_reason for e in entries) else None)
-    print(f"✅ wrote {args.out_src} / {args.out_ref}: {len(entries)} entries", file=sys.stderr)
+    print(f"✅ wrote {args.out_src} / {args.out_ref}"
+          f"{' / ' + out_in if wrote_in else ''}: {len(entries)} entries", file=sys.stderr)
 
     banner_re = banner_re_for(comment_open, comment_close)
+    # sidecar_in_path (not out_in directly): if wrote_in is False -- no entry carried stdin -- the file
+    # was never created, and sidecar_in_path's is_file() check correctly degrades to None (-> /dev/null),
+    # same auto-discovery cmd_run's --lang path already uses (ZERO argv changes for any caller).
     reread = read_block_suite(args.out_src, args.out_ref, banner_re,
-                              x_path=sidecar_xfail_path(args.out_src))
+                              in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src))
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_verify_"))
     mismatches = []
     try:
         for (src, ref), written in zip(pairs, reread):
-            orig_verdicts = run_all_modes(paths, src, ref.read_text(), tmp_root, modes)
+            # ⛔ hq_C 2026-08-28: diff STDOUT, never verdict kind alone -- re-derive the ORIGINAL's
+            # stdin independently from its own loose .stdin sidecar (not from `written.stdin`), so a
+            # round-trip that silently lost or corrupted the sidecar produces a genuine behavioral
+            # mismatch here instead of two coincidentally-identical verdicts.
+            orig_stdin_path = src.with_suffix(".stdin")
+            orig_stdin_text = orig_stdin_path.read_text() if orig_stdin_path.is_file() else None
+            orig_verdicts = run_all_modes(paths, src, ref.read_text(), tmp_root, modes, stdin_text=orig_stdin_text)
             suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, ext=ext)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 mismatches.append((src.stem, orig_verdicts, suite_verdicts))
