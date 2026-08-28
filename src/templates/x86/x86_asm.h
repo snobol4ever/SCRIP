@@ -2250,6 +2250,24 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_rec("call") + sym + "@PLT\n" + cap + x86_rtcc_rl_text(m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔⛔ THE PORT MARKER IS IN-BAND, AND \x01 IS NOT A RESERVED BYTE IN EMITTED TEXT.  a01fe9f6 prepends
+   '\x01' + ('0'+port) to a port-label line and x86_internal_resolve() consumed ANY '\x01' it met, plus the
+   byte after it.  Emitted `.string` DATA legitimately contains \x01 -- Pascal record layout descriptors do --
+   so the resolver silently DELETED TWO BYTES OF THE PROGRAM'S OWN DATA.  Measured: rec1.pas emitted
+   `.string "0\x010"` before the commit and `.string "0"` after it, and the program printed 4 instead of 7.
+   That is why the damage is m4-only (this resolver runs in TEXT medium only, never BINARY), why the
+   record/variant-record/nested-proc families were hit hardest (they are the ones emitting \x01 in data), and
+   why it reads as `output mismatch` rather than a crash: nothing is malformed, the data is just wrong.
+   ⭐ THE DISCRIMINATOR IS WHERE THE MARKER CAN OCCUR, NOT WHAT IT LOOKS LIKE.  A marker is only ever emitted
+   at the START of a port-label line, so it can only appear at offset 0 or immediately after a newline; a data
+   \x01 always sits mid-line, inside a quoted operand.  Requiring line-start AND a valid port digit separates
+   them exactly, and a \x01 that fails the test now passes through VERBATIM instead of being eaten.
+   ⛔ This is a narrowing, not a redesign: in-band signalling over a channel that does not reserve the signal
+   byte stays fragile by construction, and the durable fix is to carry port transitions OUT of band. Named for
+   whoever owns the label-prefix design; this restores correctness without rewriting their commit. */
+#define X86_IS_PORTMARK(s_, i_, n_)  ((s_)[i_] == '\x01' && (i_) + 1 < (n_) && ((i_) == 0 || (s_)[(i_) - 1] == '\n') && (s_)[(i_) + 1] >= '0' && (s_)[(i_) + 1] <= '3')
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_ir_digit(char c) { return c >= '0' && c <= '9'; }
 inline long x86_ir_num(const std::string & s, size_t & i) { long v = 0; size_t n = s.size(); while (i < n && x86_ir_digit(s[i])) v = v * 10 + (s[i++] - '0'); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2259,7 +2277,7 @@ inline std::string x86_internal_resolve(const std::string & s) {
     int portof[X86_INTERNAL_MAX]; for (int k = 0; k < X86_INTERNAL_MAX; k++) portof[k] = -1;
     int cur = X86P_ALPHA; size_t n = s.size();
     for (size_t i = 0; i < n; ) {
-        if (s[i] == '\x01' && i + 1 < n) { cur = s[i + 1] - '0'; i += 2; continue; }
+        if (X86_IS_PORTMARK(s, i, n)) { cur = s[i + 1] - '0'; i += 2; continue; }
         if (i + 3 < n && s[i] == '.' && s[i + 1] == 'L' && s[i + 2] == 'x' && x86_ir_digit(s[i + 3])) {
             size_t j = i + 3; x86_ir_num(s, j);
             if (j < n && s[j] == '_' && j + 1 < n && x86_ir_digit(s[j + 1])) {
@@ -2270,7 +2288,7 @@ inline std::string x86_internal_resolve(const std::string & s) {
     }
     std::string out; out.reserve(n + 32); cur = X86P_ALPHA;
     for (size_t i = 0; i < n; ) {
-        if (s[i] == '\x01' && i + 1 < n) { cur = s[i + 1] - '0'; i += 2; continue; }
+        if (X86_IS_PORTMARK(s, i, n)) { cur = s[i + 1] - '0'; i += 2; continue; }
         if (i + 3 < n && s[i] == '.' && s[i + 1] == 'L' && s[i + 2] == 'x' && x86_ir_digit(s[i + 3])) {
             size_t j = i + 3; long uid = x86_ir_num(s, j);
             if (j < n && s[j] == '_' && j + 1 < n && x86_ir_digit(s[j + 1])) {
