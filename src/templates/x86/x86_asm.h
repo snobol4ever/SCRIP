@@ -1954,8 +1954,44 @@ std::string bb_glue_wire_ω();
 extern "C" int emit_diag_regs_suppress(void);
 inline int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" uint64_t * rt_port_counts_slot(int uid, int port, const char * label);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_portcount_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PORT_COUNTS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ SLICE 4 ROUTE (a): EXACT per-box α/β execution counts in MODE 3. Global granted by Lon in-chat via CEO,
+ * 2026-08-28, GOAL-CEO CEO-75. ⛔ ABSENT WHEN OFF -- with SCRIP_PORT_COUNTS unset this contributes not one byte,
+ * so the default build is byte-identical to before (clause-10 control arm).
+ *
+ * ⛔⭐ THE SEQUENCE TOUCHES NO FLAGS, AND THAT IS THE WHOLE DESIGN, NOT A DETAIL. A port label is a JUMP TARGET: the
+ * `jcc` that arrived set the flags, and code after the label may still read them. Every memory-increment instruction
+ * x86 offers -- `inc`, `add` -- WRITES FLAGS, so the obvious `incq [cell]` would silently corrupt a conditional
+ * downstream of any instrumented port, on an arm that is only ever on during measurement. That is the worst possible
+ * failure shape: a bug that exists only while you are looking. `mov` and `lea` write no flags, so the read-modify-
+ * write goes through `lea rcx,[rcx+1]` instead of `inc`, and the whole sequence is flag-transparent by construction.
+ * ⚠️ It DOES cost two pushes; rsp is ζ-SPINE, so the pair is strictly balanced and nothing runs between them.
+ *
+ * ⛔ MODE-4 EMITS NOTHING HERE, DELIBERATELY, AND THIS IS THE ONE ASYMMETRY IN THIS FILE THAT IS ARGUED RATHER THAN
+ * INHERITED: m4 ALREADY has exact per-port counts, from scripts/util_port_counts.py, which reads callgrind Ir at the
+ * α/β symbols the linker already carries. An emitted counter in m4 would be strictly WORSE than the instrument that
+ * already exists -- it perturbs the binary, needs the granted global reachable across a .so boundary, and buys
+ * nothing. m3 has no such option: its boxes live in an anonymous sealed slab with no symbols at all. The medium
+ * branch lives HERE, in the encoder, where medium-specific encoding belongs -- never in a bb_*.cpp (BOTH-MEDIUM
+ * MANDATORY governs templates, and no template can see this). */
+inline std::string x86_portcount(int port) {
+    if (!x86_portcount_on() || (port != X86P_ALPHA && port != X86P_BETA) || !MEDIUM_BINARY) return std::string();
+    uint64_t * cell = rt_port_counts_slot(_.x86_uid, port == X86P_ALPHA ? 0 : 1, x86_portname(port));
+    if (!cell) return std::string();
+    return x86("push", "rax") + x86("push", "rcx")
+         + x86_movabs_r64("rax", (uint64_t)(uintptr_t)cell)
+         + x86("mov", "rcx", RDQ("rax", 0))
+         + x86("lea", "rcx", RDQ("rcx", 1))
+         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("pop", "rcx") + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_port_hook(int site, int port) {
     std::string s;
+    if (site == X86H_DEF) s += x86_portcount(port);
     if (site == X86H_JMP) s += x86_port_canary();
     if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
