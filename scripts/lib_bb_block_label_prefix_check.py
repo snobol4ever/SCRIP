@@ -56,6 +56,18 @@ ALLOW = [
      "fam) where fam is the GRAPH name, ~line 2665; the bare \"<fam>_α\"/_β/_γ/_ω/_res siblings declared "
      "alongside it are never themselves emitted as a text definition -- verified via direct grep, no live "
      "witness defines them bare) -- same function-level class as FN__/RETURN, one level above any box"),
+    (re.compile(r'^\.Lgvan\d+$'),
+     "driver-level GVA name table (src/driver/scrip.c, not any bb_*/xa_*/emit.cpp box loop) -- RULED "
+     "exempt, hq_P 2026-08-29 (ceo-endorsed): 'a greek infix names a PORT OF A BOX; this label has no "
+     "owning box, so there is no port for the letter to name -- the infix would not be redundant, it "
+     "would be FALSE.' Mechanism test, not a location test -- apply it fresh to any new borderline family "
+     "rather than pattern-matching against this list."),
+    (re.compile(r'^\.Lstartup_(pname|prec|pnames)\d+$'),
+     "driver-level per-procedure startup/reflection table (src/driver/scrip.c) -- same ruling and same "
+     "reason as .Lgvan above: no owning box, no port to name."),
+    (re.compile(r'^\.Lseala\d+$'),
+     "driver-level rt_proc_seal_alpha startup table (src/driver/scrip.c) -- same ruling and same reason "
+     "as .Lgvan above."),
 ]
 
 

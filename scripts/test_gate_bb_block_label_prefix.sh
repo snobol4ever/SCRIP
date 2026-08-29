@@ -17,15 +17,33 @@
 # own history warned the next seat about -- don't add one without updating this header AND the task
 # file's LEDGER.
 #
-# KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on these until fixed or
-# ruled exempt -- see task bb-label-prefix-uniform.task.md LEDGER for the code citations):
+# RULED (hq_P 2026-08-29, ceo-endorsed, full text in task LEDGER): the mechanism test is "a greek infix
+# names a PORT OF A BOX; a label with no owning box has no port, so the infix would not be redundant, it
+# would be FALSE" -- NOT a location test ("driver-level is exempt"), because that fails the next
+# borderline case. Under that test: .S/.C, .Lgvan/.Lstartup_*/.Lseala (allowlisted below) have no owning
+# box, so they're exempt; _bx is exempt for an UNRELATED reason (a RANGE marker, never a jump target, per
+# emit.cpp:3041-3042/3238); _af/_as/_ry/_rt/_sN are REAL box-owned gamma/omega jump targets (emit.cpp
+# node_γ/node_ω assignment at :3074/:3090/:1398/:3095) and are NOT exempt by either test.
+#
+# KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on these until fixed --
+# see task bb-label-prefix-uniform.task.md LEDGER for the full ruling and code citations):
 #   - n<N>_<kind>_as / _af / _s<N> / _ry / _rt -- emit.cpp na_s/na_f/fc_sig/ra_y/ra_t: REAL gamma/omega
-#     transition labels (used as node_gamma/node_omega jump targets, emit.cpp:3061-3082), NOT siblings of
-#     the exempt _bx debug-symbol-span marker despite the superficially similar 2-3 letter suffix -- a
-#     prior ceo ruling's "_bx (+_af/_as siblings)" phrasing conflated the two; correction routed to hq_P.
-#   - .Lgvan<N> / .Lstartup_* / .Lseala<N> -- src/driver/scrip.c, module-level startup/reflection tables
-#     (one entry per PROCEDURE in the whole program), structurally the same "no single owning box" shape
-#     as the exempt .S<N>/.C<N> tables, but never asked about; open question routed to hq_P.
+#     transition labels, NOT siblings of the exempt _bx debug-symbol-span marker despite the superficially
+#     similar 2-3 letter suffix -- a prior ceo ruling's "_bx (+_af/_as siblings)" phrasing conflated a
+#     naming neighbourhood with a mechanism; corrected and ceo-endorsed, see LEDGER. na_f is genuinely
+#     harder than a rename: it serves as EITHER gamma or omega depending on the CALLING node's own
+#     gamma_is_phi/omega_is_phi, so fixing this is real design work, not mechanical -- not attempted here.
+#   - a DEFINE'd procedure's own nested/embedded body (e.g. PATTERN_BT, compiled inline immediately after
+#     its own DEFINE box) -- UNRESOLVED DISAGREEMENT between two independently-built gates for this same
+#     row, see task LEDGER "SEAT11 COLLISION" entry before touching this. This script's bracketing treats
+#     PATTERN_BT_α (a bare, non-"n<uid>_"-prefixed port label -- the nested graph has its OWN alpha/beta/
+#     gamma/omega ports, same shape as any other graph) as opening a NEW block requiring ITS OWN identity,
+#     so internal labels physically inside it that still say the ENCLOSING "define" box's kind currently
+#     FAIL here. A separate, earlier gate (git show 57ecf03e:scripts/test_gate_bb_block_label_prefix.sh)
+#     reached the opposite conclusion on the identical shape, with its own cited measurement. Applying
+#     hq_P's mechanism test above suggests this script's reading (PATTERN_BT has its own box/ports, so it
+#     needs its own identity) -- but that application is this seat's own reasoning, not a ruling on THIS
+#     specific question, which was never asked.
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$S4E/SCRIP" || exit 2
