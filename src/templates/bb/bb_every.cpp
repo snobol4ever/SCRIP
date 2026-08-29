@@ -9,5 +9,4 @@ std::string bb_every() {
     return x86("comment", "IR_EVERY")
                            + x86_omega()
                            + x86_beta_trampoline();
-    return std::string();
 }
