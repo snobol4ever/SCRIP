@@ -961,9 +961,16 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         if companion_dir:
             import shutil
             for name in _companion_files(text):
+                # an ABSOLUTE reference is the program's own scratch path (e.g. /tmp/rung37_fh_test.txt),
+                # not a companion in the family dir -- Path(dir)/absolute RETURNS the absolute path for
+                # both src and dst, so the copy is file-onto-itself: SameFileError, suite dies boardless
+                # (witness: rung37_all after the icon suite conversion, false FAIL on the icon board)
+                if Path(name).is_absolute():
+                    continue
                 src_companion = Path(companion_dir) / name
-                if src_companion.is_file():
-                    shutil.copy(src_companion, Path(td) / name)
+                dst_companion = Path(td) / name
+                if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
+                    shutil.copy(src_companion, dst_companion)
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin)
 
 

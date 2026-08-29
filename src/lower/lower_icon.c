@@ -10,7 +10,7 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;   /* ceo s283g: the LAST break-expression's resume chain inside the loop being lowered -- the loop publishes it as ITS beta so `every` resumes INTO the suspended break expression (iconx semantics), not around the loop; single-break corpus reality, last-lowered wins on multiples */ IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; int loop_sp;
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp;   /* loop_fail: the innermost loop's OWN failure continuation (its ω param) — a break-expression that fails or exhausts fails THE LOOP (iconx), never the exit/read path (ceo s283g: stale-value infinite yield otherwise) */
 } icx_t;
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -562,10 +562,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         } else {
             IR_t * cur_exit = cx->loop_exit;
             IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
-            int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next;
-            if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; }
-            IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, exit_goto, &ev);
-            cx->loop_exit = se; cx->loop_next = sn;
+            IR_t * cur_fail = cx->loop_fail;
+            IR_t * fail_goto = cur_fail ? build(cx, IR_GOTO, cur_fail, cur_fail) : exit_goto;
+            int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next, * sf = cx->loop_fail;
+            if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; cx->loop_fail = cx->loop_stk_fail[idx]; }
+            IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, fail_goto, &ev);
+            cx->loop_exit = se; cx->loop_next = sn; cx->loop_fail = sf;
             /* break-value channel (ceo s283g, measured: `write(repeat break 7)` printed EMPTY — this arm lowered the expression and then DISCARDED ev, and no loop published a result, so break transmitted nothing; with a generator (`break (1 to 5)`) the RESUME count was right and every value was null. The TT_CASE __case_result idiom: the value flows expr-γ → ASSIGN(__break_result) → the loop-exit GOTO → the loop's read box. β resumption re-enters the expression, whose γ runs the assign again — full generation transmits. */
             IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
             { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
@@ -914,16 +916,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
+    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, CENT, CENT, &bval);
     cx->loop_sp--;
     lc_γ_to(cval, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
     *res = bres; return centry;
 }
@@ -932,14 +934,14 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
-    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
+    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
     *res = bres; return centry;
 }
@@ -947,13 +949,13 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
     cx->loop_exit = bres; cx->loop_next = H;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
+    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
     cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }   /* generation-resume: a break with a resumable expr makes the LOOP resumable -- publish the break-expr's beta so a consuming call/every resumes INTO the suspended expr (iconx), not back around its own alpha (ceo s283g half two) */
     cx->beta = γ; *res = bres; return H;
 }
@@ -1154,21 +1156,21 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
        A private GOTO(ω,ω) trampoline keeps E's γ off the shared node while still reaching ω either way; the
        trampoline's own both-ports-same-target shape is the existing φ (fail-conduit) special case, never σ. */
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = ω; cx->loop_next = gen_beta;
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; cx->loop_exit = ω; cx->loop_next = gen_beta; cx->loop_fail = ω;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
         IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
         ir_operand_push(unmk, mark);
         cx->loop_next = unmk;
-        if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
+        if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
         b_entry = lower(cx, B, unmk, unmk, &bval);
         cx->loop_sp--;
         lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
         b_entry = mark;
     }
     else { b_entry = gen_beta; }
-    cx->loop_exit = sle; cx->loop_next = sln;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
     if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);   /* ⛔ N-2 loop cure (ceo s283): an IR_SUSPEND's γ IS ITS YIELD EDGE (psucc → the graph's γ port), and it is SELF-ITERATING — its resume operand already re-enters the generator expression's β. Redirecting its γ into the drive loop, as this line does for every ordinary expression, deleted the yield entirely: `every suspend 1 to 3` emitted suspend_α → to_β with no gen_γ anywhere, a silent no-output spin (measured, suspend_loop witness). Ordinary expressions keep the redirect — that is what makes `every` drive them. ⚠ `every suspend E do B` still redirects nothing extra for B; the do-clause-over-suspend interaction is untested and inherits today's behavior. */
     cx->beta = ω; *res = NULL; return e_entry;
 }
