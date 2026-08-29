@@ -1485,6 +1485,11 @@ expr
           expr_add_child(g, $2);
           $$ = g;
       }
+    | KW_GATHER for_stmt   {
+          tree_t *g = ast_node_new(TT_GATHER);
+          expr_add_child(g, $2);
+          $$ = g;
+      }
     | tern_expr            { $$=$1; }
     ;
 tern_expr
