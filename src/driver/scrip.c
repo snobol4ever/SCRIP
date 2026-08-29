@@ -133,12 +133,11 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
    never supposed to be one. */
 static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
     extern void emit_patzeta_register(const char *, int, int, int);
-    extern int zls_g_fp_total(IR_graph_t *);
     for (int i = 0; i < s2->proc_count; i++) { if (!s2->proc_table[i].is_generator) continue;
         const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
         IR_graph_t *g = s2->bbp.table[gi];
-        emit_patzeta_register(pn, g->jcon_value_region, zls_g_fp_total(g), 0); } }
+        emit_patzeta_register(pn, g->jcon_value_region, (g->nparams + g->nlocals) * 16, 0); } }   /* ⛔⛔ fp term = (np+nl)*16, MIRRORING the callee alpha's own frame_total = flat_frame_bytes + (np+nl)*16 (ceo s283d): the previous zls_g_fp_total(g) read 0 for every Icon generator (fct_fp_range knows zls FIELDS, not Icon params/locals), so the registry undersold frame_total by 16 per param+local -- the caller's landing then read the yielded value 16 low ([rdx-288] vs the suspend's write at [rbp-304], MEASURED on the w1 concat witness: every suspended value from a generator WITH a local arrived EMPTY -- seat15's concord one-empty-key table, seat02's garbage suspend-n) and the host reservation was one slot too small (silent slice overflow). Every proof witness to date had np=nl=0, where 0 was the right answer -- plausible-zero instance SIX on this rung. The reserve consumer's align16(32+fb)+fp+16 algebra equals flat_frame_bytes+fp exactly, so with this term the registry IS frame_total. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
