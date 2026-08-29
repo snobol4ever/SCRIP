@@ -108,7 +108,17 @@ pending_row_of() { sed -n 's/^[[:space:]]*ROW:[[:space:]]*\([A-Za-z0-9_.-]\{1,\}
 # the next `## `) declare anything. There is no migration cost: this format is one session old and has
 # exactly one instance in the tree. A NEW format is the one moment when strictness is free -- KEEP.md's
 # surface stayed open only because it had already been paid for.
-pending_deferred_block() { awk '/^##[[:space:]]+DEFERRED([[:space:]]|$)/{f=1;next} /^##[[:space:]]/{f=0} f&&/^[[:space:]]*[-*][[:space:]]/' "$1" 2>/dev/null; }
+# ⭐ A `## DEFERRED` HEADING MAY NAME ITS OWN ROW: `## DEFERRED <row-topic>`. Bare `## DEFERRED` falls back to
+# the file-level `ROW:`. MEASURED NEED (hq_B 2026-08-29, within a day of writing the one-row rule): the 12
+# wrong-output prolog files route to THREE different rows -- 11 to the generator-resume-cell row (ASM-confirmed
+# by seat03 for 5, by the same discriminator here for 6 more) and 1 to prolog-existence-error-not-catchable-iso,
+# which shares neither symbol. The original "one row per PENDING.md" rule was justified as "a file that needs
+# two owners has not been split yet" -- true of ONE FILE, and it silently also forbade DIFFERENT FILES having
+# different owners, which is the ordinary case. Per-section rows cost one awk field and remove the incentive to
+# mis-route a file just to keep the declaration expressible.
+# Emits `row<TAB>list-item-text` for every item under any DEFERRED heading; row empty => use the file-level ROW:.
+pending_sections() { awk '/^##[[:space:]]+DEFERRED([[:space:]]|$)/{h=$0; sub(/^##[[:space:]]+DEFERRED[[:space:]]*/,"",h); gsub(/[[:space:]]+$/,"",h); row=h; f=1; next} /^##[[:space:]]/{f=0} f&&/^[[:space:]]*[-*][[:space:]]/{print (row==""?"@FILEROW@":row) "\t" $0}' "$1" 2>/dev/null; }
+pending_deferred_block() { pending_sections "$1" | cut -f2-; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
 # ⛔⭐⭐ THE DECLARATION CHECK WAS A RAW SUBSTRING TEST OVER EVERY KEEP.md CONCATENATED, AND IT UNDER-COUNTED
 # (seat14 2026-08-29, measured; cured here by hq_P). The old form was:
@@ -169,13 +179,24 @@ for f in "${LOOSE[@]}"; do
             pk="$pprobe/PENDING.md"
             if [ -f "$pk" ]; then
                 pblk="$(pending_deferred_block "$pk")"
-                prel=${f#$pprobe/}; prre=${prel//./[.]}
-                if printf '%s\n' "$pblk" | grep -qE "(^|[^A-Za-z0-9_./-])$prre([^A-Za-z0-9_-]|$)"; then pfound="$pk"; pvia="path"; fi
-                if [ -z "$pfound" ] && [ "${_BNC[$b]}" -eq 1 ]; then
-                    pbre=${b//./[.]}
-                    printf '%s\n' "$pblk" | grep -qE "(^|[^A-Za-z0-9_./-])$pbre([^A-Za-z0-9_-]|$)" && { pfound="$pk"; pvia="name"; }
+                prel=${f#$pprobe/}; prre=${prel//./[.]}; pbre=${b//./[.]}
+                # Walk the sections so the row is taken from the heading that actually lists this file.
+                psec=""
+                while IFS=$'\t' read -r _row _item; do
+                    [ -n "$_item" ] || continue
+                    if printf '%s' "$_item" | grep -qE "(^|[^A-Za-z0-9_./-])$prre([^A-Za-z0-9_-]|$)"; then pfound="$pk"; pvia="path"; psec="$_row"; break; fi
+                    if [ "${_BNC[$b]}" -eq 1 ] && printf '%s' "$_item" | grep -qE "(^|[^A-Za-z0-9_./-])$pbre([^A-Za-z0-9_-]|$)"; then pfound="$pk"; pvia="name"; psec="$_row"; break; fi
+                done < <(pending_sections "$pk")
+                if [ -n "$pfound" ]; then
+                    # ⛔ @FILEROW@ is the sentinel for a BARE `## DEFERRED` heading, and it is not cosmetic.
+                    # An empty first field with IFS=<tab> makes `read` treat the leading tab as leading IFS
+                    # whitespace and STRIP it, shifting the list item into the row variable -- so every bare
+                    # heading silently stopped deferring, while per-section headings kept working. Caught only
+                    # because the bare-heading arm was re-run after adding per-section rows; testing just the
+                    # new feature would have shipped a regression that un-declares the common case.
+                    if [ -n "$psec" ] && [ "$psec" != "@FILEROW@" ]; then prow="$psec"; else prow="$(pending_row_of "$pk")"; fi
+                    break
                 fi
-                [ -n "$pfound" ] && { prow="$(pending_row_of "$pk")"; break; }
                 # A PENDING.md with NO `## DEFERRED` block declares nothing at all. Say so once, loudly:
                 # silence here would read as "this file is not deferred" and hide a malformed declaration.
                 if [ -z "$pblk" ] && [ -z "${_PBLK_WARNED:-}" ]; then
