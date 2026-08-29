@@ -1766,7 +1766,12 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
          * whether the choicepoint was pushed by this activation or restored into a fresh one. */
         *(long  *)((char *)fb + 0) = g_pl_zf_pending_tm_lo;
         *(long  *)((char *)fb + 8) = g_pl_zf_pending_tm_hi;
-        g_pl_zf_pending_cursor = (void *)0;
+        /* Do NOT clear g_pl_zf_pending_cursor here. Two emitted consumers read it after this prologue returns:
+         * the clause's first node checks it to take its RESUMED arm (reusing the marks restored above instead of
+         * re-capturing the current trail top over them — re-capture was the one-'a' multiclause bug: unwind then
+         * ran to the wrong mark, the clause-1 binding survived, and every later clause head failed), and the
+         * SUSPEND node's resumed α-arm is the designed consumption point — it calls rt_pl_zf_resume_clear before
+         * dispatching to the retained continuation. Clearing here starved the first consumer. */
     }
 }
 __attribute__((visibility("default"))) void **g_pl_retry;

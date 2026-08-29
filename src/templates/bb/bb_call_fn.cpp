@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
+extern "C" int zls_g_resume(const IR_graph_t *);
 extern "C" {
 #include "builtin_ids.h"
 }
@@ -354,6 +355,14 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
         s += x86("mov", "rax", "[rdi]");
         s += x86("test", "rax", "rax");
         s += x86_jcc_id("je", 102);
+        { int _gres = zls_g_resume(g_emit_cfg);
+          if (_gres >= 0) {
+            /* PL-FR-4b RESEED: the α-body's unconditional resume-slot seed (emit.cpp, first suspend's β) runs AFTER
+             * lexprep2 wrote the STAGED continuation there, stomping it — so a second retry re-delivered clause 2
+             * forever (the a,b,b,b… loop). On the resumed arm the staged cursor is still in the pending global
+             * (the suspend's resumed α is its designed consumer/clearer), so re-assert it over the seed here. */
+            s += x86("mov", FRQ(_gres), "rax");
+          } }
         s += x86("mov", "rax", FRQ(resoff));
         s += x86("mov", "rdx", FRQ(resoff + 8));
         s += x86_jmp_id(101);
