@@ -31,7 +31,6 @@ static std::string xa_entry_dispatch_str(void) {
              + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
              + "  jmp " + (g_emit.flat_lbl_β      ? g_emit.flat_lbl_β      : "?") + "\n";
     }
-    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
@@ -43,7 +42,6 @@ static std::string xa_flat_data_section_str(void) {
              + std::string(g_flat_data_buf, g_flat_data_len)
              + "  .section .text\n";
     }
-    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_entry_dispatch(void)    { auto s = xa_entry_dispatch_str();    if (!s.empty()) emit_text_n(s.data(), s.size()); }
