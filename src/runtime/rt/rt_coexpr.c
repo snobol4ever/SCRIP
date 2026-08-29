@@ -70,7 +70,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
     }
-    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "memory");
+    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "rax", "memory");   /* ⛔ the "rax" clobber is LOAD-BEARING (ceo s283h): the .byte trio is mov %rbp,%rax (rbp can't be named in a clobber list), so rax is destroyed mid-asm -- without declaring it, GCC is free to pick rax for %0, and the store "mov %rax,8(%0)" becomes mov %rax,8(%rax): it wrote rbp into [rbp+8], the caller's saved RETURN ADDRESS, and every coexpr activation returned into its own stack (SIGBUS at a stack rip, caught live by hardware watchpoint on this exact line). Latent until a build whose register allocator chose rax; first exercised end-to-end by the N-2 apply-call window. */
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");

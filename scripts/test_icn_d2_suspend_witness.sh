@@ -126,8 +126,13 @@ end'
 # cure exists. Once every seat pulls, nobody can reproduce it without a deliberate checkout, and "we watched
 # it fail" becomes an assertion instead of a record. A negative result that cannot be re-obtained must be
 # recorded at the moment it is cheap.
+# ⭐ MERGE (ceo s283h, rebase of the cure onto hq_B's widening -- two seats, one file, merged per the house rule):
+# hq_B's provenance + watched-to-fail record above is kept verbatim; the program BODY takes ceo's three-yield
+# alternation, because a single-yield apply never re-enters the window -- only >=2 yields exercise the cure's
+# RESUME dance (rt_genp_deliver_n2_γ's post-coret β: rax=H, rsp=[H+24]-40, jmp [H+32]), and a witness that
+# never resumes would leave the cure's hardest leg unpinned.
 mkw suspend_apply 'procedure gen(x)
-   suspend x;
+   suspend x | x + 1 | x + 2;
 end
 procedure main()
    every write(gen ! [10]);

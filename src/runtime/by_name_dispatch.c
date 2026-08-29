@@ -951,6 +951,7 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
+    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }   /* N-2 (ceo s283h): bb_call_value's spine transfer pushes only the wire pair, so a region-resident callee would read garbage at [rsp+16] (seat10's apply-call SIGSEGV). Route N-2 generators through rt_proc_call_gen_h's coexpr window, whose n2 entry shim supplies a real region; the direct spine fast path for apply is its own follow-on row. */
     { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; }
     if (!rt_proc_call_open(nm, n)) return (void *)0;
     return rt_proc_fn(nm);

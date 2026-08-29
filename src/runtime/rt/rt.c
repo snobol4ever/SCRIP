@@ -405,7 +405,8 @@ int * const rt_k_level_p = &rt_k_level;
 #define CALL_ARGS_MAX     64
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
-    int frame_bytes; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
+    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
+    /* gen_region_ft (N-2, ceo s283h): frame_total of this proc's region-resident alpha, stamped by the driver from emit_icn_n2_gen_region_ft(); 0 = alpha does not take the N-2 region prologue. It occupies the 4-byte alignment HOLE that sat between frame_bytes@48 and pcells@56 (the alpha_slot precedent below) -- sizeof stays 128 and every rtx-baked offset is unmoved, which the asserts below fence. */
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
@@ -452,7 +453,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_result_name(const char *name, const char *rname)
@@ -726,7 +727,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
     p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_call_proc(const char *name, int nargs)
@@ -960,6 +961,8 @@ typedef struct rt_genp_s {
     const char       *name;
     int               done;
     int               first_done;
+    void             *region;   /* N-2 (ceo s283h): the callee's region slice [R, R+ft+48), rt_zls_alloc'd (zeroed, GC-walkable chain, non-LIFO release) when the proc's stamped gen_region_ft > 0; the n2 entry shim pushes it to [entry rsp+16] where the region-resident alpha reads it. Released in rt_genp_destroy. */
+    long              region_ft;
 } rt_genp_s;
 _Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
 static rt_genp_s *g_genp_head = (rt_genp_s *)0;
@@ -1015,13 +1018,60 @@ __asm__(
 "  call rt_genp_deliver_ω\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* N-2 APPLY-CALL CURE (ceo s283h, FINDING-2026-08-29-seat10-n2-default-on-apply-call-to-generator-segfaults): the shim above predates N-2 and enters with ZERO at [rsp+16] -- exactly the slot the
+ * region-resident alpha (emit.cpp ~2871) reads as its REGION pointer, so any N-2 generator entered through the coexpr window wrote through ~NULL. This shim speaks the armed protocol: entry stack
+ * [rsp+0]=γ [rsp+8]=ω [rsp+16]=REGION [rsp+24]=L7-slot [rsp+32]=selfrec-depth(seed 0), anchor=entry rsp+40 -- the initial subq $8 makes the anchor 0 mod 16 so the body runs at the staged callers'
+ * measured 8-mod-16 parity. γ-SUSPEND arrives with rdx = the region header H (value at [H - align16(ft)]) on the generator's scratch rsp, or a RETIRE arrives at the same wire with al=DT_FAIL and rsp
+ * already at the anchor (the shared-landing contract bb_call_proc_staged.cpp:780 documents); resume re-runs the staged β dance byte-for-byte: rax=H, rsp=[H+24]-40, jmp [H+32] (bcps :900). */
+extern void rt_genp_spine_enter_n2(void *fn, void *region);
+extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
+_Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
+__asm__(
+".text\n"
+".globl rt_genp_spine_enter_n2\n"
+"rt_genp_spine_enter_n2:\n"
+"  subq $8, %rsp\n"
+"  pushq $0\n"
+"  pushq $0\n"
+"  pushq %rsi\n"
+"  leaq 6f(%rip), %rax\n"
+"  pushq %rax\n"
+"  leaq 5f(%rip), %rax\n"
+"  pushq %rax\n"
+"  movq %rdi, %rax\n"
+"  leaq 5f(%rip), %rcx\n"
+"  leaq 6f(%rip), %rdx\n"
+"  jmp *%rax\n"
+"5:\n"
+"  cmpb $0x68, %al\n"
+"  je 6f\n"
+"  movq 24(%rdx), %rsp\n"
+"  movq %rdx, %rdi\n"
+"  call rt_genp_deliver_n2_γ\n"
+"  movq 24(%rax), %rsp\n"
+"  subq $40, %rsp\n"
+"  jmpq *32(%rax)\n"
+"6:\n"
+"  call rt_genp_deliver_ω\n"
+);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+uint64_t rt_genp_deliver_n2_γ(uint64_t H)
+{
+    rt_genp_s *g = g_genp_self;
+    long ftc = (g->region_ft + 15L) & ~15L;
+    DESCR_t v; memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
+    if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v); }
+    { uint64_t d[2]; memcpy(d, &v, 16); scrip_coret(d[0], d[1], (void *)0); }
+    return H;   /* coret returns here on reactivation; H in rax feeds the shim's β dance and the resume landing's one-instruction rbp repoint */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_entry_c(rt_genp_s *g)
 {
     g_genp_self = g;
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
     if (!fb) { g->done = 2; scrip_cofail(); }
-    rt_genp_spine_enter(g->fn);
+    if (g->region) rt_genp_spine_enter_n2(g->fn, g->region); else rt_genp_spine_enter(g->fn);
     g->done = 2; scrip_cofail();
     for (;;) pause();
 }
@@ -1032,6 +1082,7 @@ static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; 
 static void rt_genp_destroy(rt_genp_s *g)
 {
     scrip_coexpr_destroy(&g->co);
+    if (g->region) { extern void rt_zls_release(void *); rt_zls_release(g->region); g->region = (void *)0; }
     rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next;
     free(g);
 }
@@ -1051,6 +1102,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
     if (p->jmp_entry && p->is_generator) {
+        if (p->gen_region_ft > 0 && scrip_co_current) { fprintf(stderr, "[N2-APPLY] REFUSED: apply/value call to generator '%s' from inside a coexpression thread -- nested coexpr stack windows are un-cured (pthread_create SIGSEGV on the second gcheap window; row icon-n2-apply-nested-coexpr). Refusing loudly: a silent FAIL here would falsely exhaust the outer generator (wrong answers, not just a crash).\n", p->name ? p->name : "?"); abort(); }
         uint64_t cregs[5];
         __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)calloc(1, sizeof *g);
@@ -1059,6 +1111,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         g->nargs = nargs; if (g->nargs > CALL_ARGS_MAX) g->nargs = CALL_ARGS_MAX; if (g->nargs < 0) g->nargs = 0;
         for (int i = 0; i < g->nargs; i++) g->args[i] = g_call_args[i];
         g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
+        if (p->gen_region_ft > 0) { extern void *rt_zls_alloc(long); g->region = rt_zls_alloc((long)p->gen_region_ft + 48L); g->region_ft = (long)p->gen_region_ft; }
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head; g_genp_head = g;
@@ -1929,6 +1982,9 @@ void rt_proc_set_frame(const char *name, int nslots, int decl_level)
     rt_proc_t *p = rt_proc_find(name);
     if (p) { p->frame_nslots = nslots; p->decl_level = decl_level; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_gen_region_ft(const char *name, int ft) { rt_proc_t *p = rt_proc_find(name); if (p) p->gen_region_ft = ft; }
+int rt_proc_gen_region_ft(const char *name) { rt_proc_t *p = rt_proc_find(name); return p ? p->gen_region_ft : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_frame_bytes(const char *name, int bytes)
 {

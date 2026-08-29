@@ -801,6 +801,13 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  .intel_syntax noprefix\n");
                 emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
                 emit_textf("  call rt_proc_register_rec@PLT\n");
+                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _gpi = proc_pidx_buf[i]; int _gft2 = 0;   /* N-2 apply-call cure (ceo s283h): the ONE_REG default lane registers via the compact record, which has no gen_region_ft field -- stamp it with one extra setter call so mode-4 binaries know the region-resident alphas too (the per-setter stamp below sits in the legacy _onereg==0 lane and never runs by default) */
+                  if (_gpi >= 0 && _gpi < s2->proc_count) { int _ggi = s2->proc_table[_gpi].bb_idx; if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]); }
+                  if (_gft2 > 0) {
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                    emit_textf("  mov esi, %d\n", _gft2);
+                    emit_textf("  call rt_proc_set_gen_region_ft@PLT\n");
+                  } }
             } else {
             emit_textf("  .section .rodata\n");
             emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
@@ -854,6 +861,13 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
                 emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
             }
+            { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _pig = proc_pidx_buf[i]; int _gft = 0;   /* N-2 apply-call cure (ceo s283h): mode-4 twin of the mode-3 rt_proc_set_gen_region_ft stamp -- emitted into the startup block so the standalone binary's runtime table knows the region-resident alphas too */
+              if (_pig >= 0 && _pig < s2->proc_count) { int _gi2 = s2->proc_table[_pig].bb_idx; if (_gi2 >= 0 && _gi2 < s2->bbp.count && s2->bbp.table[_gi2]) _gft = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_pig].is_generator, s2->bbp.table[_gi2]); }
+              if (_gft > 0) {
+                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                emit_textf("  mov esi, %d\n", _gft);
+                emit_textf("  call rt_proc_set_gen_region_ft@PLT\n");
+              } }
             if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
                 emit_textf("  mov esi, 1\n");
@@ -1836,6 +1850,7 @@ int main(int argc, char **argv)
                 if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
+                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); extern void rt_proc_set_gen_region_ft(const char *, int); int _gft = emit_icn_n2_gen_region_ft(pname, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); if (_gft > 0) rt_proc_set_gen_region_ft(pname, _gft); }   /* N-2 apply-call cure (ceo s283h): tell the runtime this alpha is region-resident and how big its slice is, so the coexpr window can supply one and spine_prep can refuse the un-wired transfer */
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }

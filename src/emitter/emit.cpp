@@ -3576,6 +3576,11 @@ extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_
     return _r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_icn_n2_gen_region_ft(const char *pname, int is_generator, IR_graph_t *g) {   /* N-2 APPLY-CALL REGION (ceo s283h): answers "will pname's alpha take the region-resident N-2 prologue, and what frame_total did it bake" -- 0 means no. The predicate mirrors, term for term, the prologue arm selection (emit.cpp ~2859 if/else-if chain: zframe wins, then icn_gen_regime() && flat_gen) and flat_gen's own rule via the ONE blessed emit_graph_has_suspend(); ft comes from the ONE pz[] registry via emit_patzeta_frame_reserve(), never re-derived (one-formula-two-copies is a named defect class on this rung). The driver stamps this into the runtime proc table (rt_proc_set_gen_region_ft) so rt_proc_call_gen_h's coexpr window can supply a real region and rt_call_value_spine_prep can refuse the un-wired bb_call_value spine transfer -- the apply-call SIGSEGV cure, FINDING-2026-08-29-seat10-n2-default-on-apply-call-to-generator-segfaults. */
+    if (!pname || !is_generator || !g || !g->icn_cells_graph || g->zframe_graph || !icn_genframe2() || !emit_graph_has_suspend(g)) return 0;
+    { int ft = 0; if (!emit_patzeta_frame_reserve(pname, &ft) || ft <= 0) return 0; return ft; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
     extern int g_flat_dc_np; g_flat_dc_np = -1;
     return emit_jmp_entry_arm_region(g);
