@@ -1138,6 +1138,19 @@ int main(int argc, char **argv)
         { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     }
     if (nsegs == 1) segs[0].prog = ast_prog;
+    /* zframe-registration-order fix (row polyglot-demo-empty-output-rc0): the Prolog eager-name prepass below is
+       gated on is_prolog, which is set ONLY for a standalone .pl file (scrip.c:971) -- for a .scrip/.md polyglot
+       file every section routes through lang_polyglot instead, so is_prolog stays false even when one of the
+       parsed segments IS Prolog, and the prepass silently never runs. Without it, a graph's name is attached to
+       its zg[] registry entry lazily, one proc at a time, only when that proc reaches its own turn in the
+       proc_table emission loop (scrip.c ~1774/~1367) -- so a call site emitted for an EARLIER proc that calls a
+       LATER-emitted proc (in proc_table order, not source order) does its zls_g_resume_by_name() lookup before
+       that callee has a name at all, and silently gets -1 even though drive_slots_all() already computed its
+       resume_off correctly by pointer. This does not depend on WHICH proc is affected or on any language's
+       arming/depth computation -- has_prolog_seg only widens WHEN the pre-existing prepass runs, it changes no
+       computed value. */
+    int has_prolog_seg = is_prolog;
+    if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
     const char *input_path = argv[argc - 1];
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t2);
@@ -1370,7 +1383,7 @@ int main(int argc, char **argv)
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1772,7 +1785,7 @@ int main(int argc, char **argv)
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
                 return 0;
             }
-            if (is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
