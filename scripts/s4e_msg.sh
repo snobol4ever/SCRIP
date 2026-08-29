@@ -935,8 +935,34 @@ case "$cmd" in
            cut_epoch=$(date -u -d "12 hours ago" +%s 2>/dev/null || echo 0)
            if [ "$m_epoch" -gt 0 ] 2>/dev/null && [ "$m_epoch" -lt "$cut_epoch" ] 2>/dev/null; then since="$rowmark_ts"; fi
          fi
+         # ⛔⭐ THIRD ATTRIBUTION DEFECT IN THIS BLOCK, and the first one the MESSAGE GREP CANNOT EVER FIX
+         # (seat05 2026-08-29, msg q-bb-fixup-az-cleanup; verified + generalized by hq_P same session).
+         # The grep above can only see a commit that NAMES this seat or its row. Nothing requires that:
+         # the ONE-IDENTITY LAW makes every commit's author identical fleet-wide, so the message is the
+         # only signal, and long-standing conventions carry neither field -- e.g. this repo's own
+         # "FIXUP <file>: <change>" rung convention. seat05 landed 3 real, pushed, gate-verified FIXUP
+         # commits and `board` printed "⚠ NOTHING LANDED ... produced NO commit and NO FINDING".
+         # ⭐ MEASURED BLAST RADIUS, not just that row: of 20 commits in one 12h window, 15 (75%) named
+         # neither a seat/hq id nor ANY QUEUE.tsv topic -- so this under-reports most fleet work, and
+         # reports zero whenever a seat's whole session used such a convention.
+         # ⭐ THE FIX USES A SIGNAL THAT NEEDS NO CONVENTION AT ALL: every seat has its OWN CLONE, so a
+         # commit CREATED HERE is this seat's by construction. `git reflog` distinguishes exactly that --
+         # locally-created commits are "commit:"/"commit (amend):" entries, while another seat's work
+         # arriving via pull/rebase/merge is "pull ... (start): checkout"/"merge origin/main" and is
+         # NEVER counted. (A `pull --rebase (pick)` replays THIS seat's own commit, also not counted --
+         # the original "commit:" entry already covers it, and counting unique SUBJECTS de-duplicates
+         # the rewritten hash.)
+         # ⛔ STRICTLY ADDITIVE BY CONSTRUCTION: we take the MAX of the two counts, never the reflog
+         # alone. This can only ever find MORE commits than before, never fewer, so it cannot turn a
+         # correct banner red or a landed session into a false NOTHING LANDED -- the failure being cured
+         # is a false NEGATIVE, and the fallback's own population ("commits made in this clone inside
+         # the window") is this seat's work by definition. A repo with no reflog degrades to the old
+         # behaviour silently.
          cmts=0; for r in "$S4E"/*/; do [ -d "$r/.git" ] || continue
-           n=$(git -C "$r" log --since="$since" -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l); cmts=$((cmts+n)); done
+           n=$(git -C "$r" log --since="$since" -i --grep="$ME" ${row1:+--grep="$row1"} --oneline 2>/dev/null | wc -l)
+           n2=$(git -C "$r" reflog show --since="$since" --format='%gs' 2>/dev/null | sed -n 's/^commit[^:]*: //p' | sort -u | grep -c . 2>/dev/null || true); n2="${n2:-0}"
+           [ "$n2" -gt "$n" ] 2>/dev/null && n="$n2"
+           cmts=$((cmts+n)); done
          # seat8 2026-08-22: every FINDING-*.md ever written (202/202 checked) names the seat the OLD,
          # unpadded way ("seat8"), because s255's zero-padding change touched $ME fleet-wide but no seat's
          # file-naming habit. Matching $ME alone ("seat08") against the corpus finds ZERO files, always,
