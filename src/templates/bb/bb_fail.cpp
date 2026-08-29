@@ -10,5 +10,4 @@ std::string bb_fail() {
                            + x86("comment", "IR_FAIL")
                            + x86_omega()
                            + x86_beta_trampoline();
-    return std::string();
 }
