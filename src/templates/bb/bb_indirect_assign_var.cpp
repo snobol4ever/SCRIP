@@ -15,5 +15,4 @@ std::string bb_indirect_assign_var() {
              + x86("call", "rt_indirect_assign_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_indirect_assign_var)
              + x86_gamma()
              + x86_beta_trampoline();
-    return std::string();
 }
