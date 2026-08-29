@@ -15,5 +15,4 @@ std::string bb_indirect_assign_lit_s() {
              + x86("call", "rt_indirect_assign_str", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, const char *))rt_indirect_assign_str)
              + x86_gamma()
              + x86_beta_trampoline();
-    return std::string();
 }
