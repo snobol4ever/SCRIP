@@ -1068,6 +1068,15 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
     return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_inc64(const char * base, int disp) {   /* ⛔ N-2 loop cure (ceo s283): x86("inc", FRQ(...)) under the armed generator regime resolves to a [rbp+disp] REGDISP operand, and the inc dispatch had NO arm for it -- it returned an EMPTY STRING, silently deleting the to-box's counter increment from every armed flat_gen graph (suspend_loop spun at value 1 forever, no output, no error). Encoding mirrors x86_reg_disp32_store64: REX.W (+B for r8+), FF /0, mod=10 disp32; x86_rd32_modrm carries the rsp/r12 SIB case exactly as the store does. */
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xFF; x86_rd32_modrm(c, 0, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("inc") + "qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm) {
     int b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1634,7 +1643,8 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (!strcmp(mnem, "inc")) {
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
         if (a.kind == XK_REG) return x86_inc_r(a.txt);
-        return std::string();
+        if (a.kind == XK_REGDISP) return x86_reg_disp32_inc64(a.base, a.off);
+        return x86_bomb("x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator graph; ceo s283)");
     }
     if (!strcmp(mnem, "movabs")) {
         if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movabs_r64(a.txt, (uint64_t)b.imm);

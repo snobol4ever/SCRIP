@@ -1154,7 +1154,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     }
     else { b_entry = gen_beta; }
     cx->loop_exit = sle; cx->loop_next = sln;
-    γ_to(eval, b_entry);
+    if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);   /* ⛔ N-2 loop cure (ceo s283): an IR_SUSPEND's γ IS ITS YIELD EDGE (psucc → the graph's γ port), and it is SELF-ITERATING — its resume operand already re-enters the generator expression's β. Redirecting its γ into the drive loop, as this line does for every ordinary expression, deleted the yield entirely: `every suspend 1 to 3` emitted suspend_α → to_β with no gen_γ anywhere, a silent no-output spin (measured, suspend_loop witness). Ordinary expressions keep the redirect — that is what makes `every` drive them. ⚠ `every suspend E do B` still redirects nothing extra for B; the do-clause-over-suspend interaction is untested and inherits today's behavior. */
     cx->beta = ω; *res = NULL; return e_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1162,7 +1162,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PSUCC; IR_t * fail = PFAIL;
+    IR_t * succ = PFAIL; IR_t * fail = PFAIL;   /* ⛔ FALLING OFF `end` FAILS (ceo s283, icon-n2 loop/after): this seeded PSUCC, so the LAST statement's success edge SUCCEEDED the whole procedure with a stale value -- measured two ways: a non-generator `procedure f() write("x"); end` returned the write's value (printed "x" twice through write(f()); iconx prints one) and, once N-2's frames made generators survive resume, suspend_after's body-end reached the flat_gen graph's γ port = SUSPEND and re-yielded the stale return slot FOREVER (the 1/after infinite loop). Icon law: reaching `end` is &fail; only return/suspend produce values, and TT_RETURN routes to psucc EXPLICITLY (case TT_RETURN below), so PSUCC stays reachable exactly where the language says. An empty body now correctly fails too. */
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
