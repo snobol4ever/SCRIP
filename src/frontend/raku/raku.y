@@ -493,6 +493,8 @@ stmt
         { $$=make_call(testop_rt($1)); free($1); }
     | TESTOP arg_list ';'
         { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$2; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
+    | IDENT VAR_ARRAY ';'
+        { tree_t *c=make_call($1); free($1); expr_add_child(c,var_node($2)); $$=c; }
     | KW_SAY expr ';'
         { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,$2); $$=c; }
     | KW_SAY expr ',' arg_list ';'
