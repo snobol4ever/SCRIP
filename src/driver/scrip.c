@@ -1874,18 +1874,19 @@ int main(int argc, char **argv)
                 fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
                 abort();
             }
+            int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->icn_cells_graph, _icn_zframe_gen = bbg->icn_zframe_gen;
             ir_delete_all(s2);
             void *mf = NULL;
             if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); }
-            if (mf && bbg->nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
-            if (bbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+            if (mf && _nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
+            if (_nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
-            if (bbg->zframe_graph && !bbg->icn_cells_graph) {
-                if (!bbg->icn_zframe_gen) { extern int g_plw_floor_bypass; g_plw_floor_bypass = 1; }
+            if (_zframe_graph && !_icn_cells_graph) {
+                if (!_icn_zframe_gen) { extern int g_plw_floor_bypass; g_plw_floor_bypass = 1; }
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
             } else
-            { extern void rt_outer_call(bb_box_fn, void *, long); extern int g_plw_floor_bypass; int _bypass = is_prolog && bbg->zframe_graph; if (_bypass) g_plw_floor_bypass = 1;  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }    if (_bypass) g_plw_floor_bypass = 0; }
+            { extern void rt_outer_call(bb_box_fn, void *, long); extern int g_plw_floor_bypass; int _bypass = is_prolog && _zframe_graph; if (_bypass) g_plw_floor_bypass = 1;  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }    if (_bypass) g_plw_floor_bypass = 0; }
             goto run_done;
         }
         {
