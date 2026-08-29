@@ -100,5 +100,4 @@ std::string bb_to_by() {
              + x86("add",     "rax", "rdx")
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("jmp",     L(0));
-    return std::string();
 }
