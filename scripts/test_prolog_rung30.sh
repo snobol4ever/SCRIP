@@ -17,9 +17,14 @@ echo "=== rung30: DCG (basic_terminals/generate/nonterminals/phrase3/pushback_re
 # pair below -- delegate to `run`, which extracts and runs each entry alone (a suite file is
 # never run whole, corpus_suite_harness.py's own docstring). The other 2 (generate: findall
 # over phrase/2; nonterminals: multi-clause DCG needing backtracking across 3 phrase/2 calls)
-# both crash 3/3 direct runs with "*** stack smashing detected ***" (rc=134) -- fits PZ-4's
-# documented trigger set (prolog-multiclause-uninit-lexprep-frame). They stay loose ON PURPOSE,
-# not KEEP.md (not a permanent design choice, see task file tests-consolidate-prolog), and are
+# both crashed 3/3 direct runs with "*** stack smashing detected ***" (rc=134) at that time --
+# fitting PZ-4's documented trigger set (prolog-multiclause-uninit-lexprep-frame).
+# ⭐ UPDATE 2026-08-29 (seat08, tests-consolidate-prolog): re-measured both directly (10/10 runs
+# each, setarch -R) before converting anything -- `nonterminals` is now CLEAN (10/10 PASS),
+# apparently cured as a side effect of unrelated work landed between 2026-08-28 and today (not
+# re-derived further, out of this row's lane); `generate` is STILL red (10/10 rc=134, unchanged).
+# `nonterminals` is now entry 4 of the suite pair below. `generate` stays loose ON PURPOSE, not
+# KEEP.md (not a permanent design choice, see task file tests-consolidate-prolog), and is
 # DELIBERATELY KEPT in this script's own board below (rc-checked, not stdout-only -- see
 # test_prolog_rung13/14's same-day fix for why) so the crash stays visible instead of silently
 # disappearing once PZ-4 lands.
@@ -36,7 +41,7 @@ if [ -f "$SNO" ] && [ -f "$REF" ]; then
 fi
 
 shopt -s nullglob
-for f in "$CORPUS"/rung30_dcg_generate.pl "$CORPUS"/rung30_dcg_nonterminals.pl; do
+for f in "$CORPUS"/rung30_dcg_generate.pl; do
     ref="${f%.pl}.expected"
     [ -f "$ref" ] || continue
     actual=$(timeout 8 "$SCRIPBIN" --run "$f" < /dev/null 2>/dev/null)
