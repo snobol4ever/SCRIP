@@ -58,6 +58,7 @@ std::string bb_match_fence1() {
          + fence_whack_commit(_.op_off)
          + x86_gamma()
          + x86("def", PAIR(3))
+         + x86("def", PAIR(4))
          + IF(fence_u2_frame(), bb_glue_framed_leave())
          + x86_beta()
          + fence_release(_.op_off)

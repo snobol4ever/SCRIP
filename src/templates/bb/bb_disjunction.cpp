@@ -46,6 +46,7 @@ std::string bb_disjunction() {
              + disj_dispatch_chain(_.op_ival - 1, (int)_.op_ival, 0)
              + x86("jmp", PAIR((int)(_.op_ival + _.op_ival - 1)))
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
+             + x86("def", PAIR((int)(2 * _.op_ival + 2)))
              + x86("add", FR(_.op_off + 16), 1)
              + x86("mov", "eax", FR(_.op_off + 16))
              + disj_dispatch_chain(_.op_ival, 0, 1)

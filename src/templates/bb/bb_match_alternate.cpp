@@ -50,6 +50,7 @@ std::string bb_match_alternate() {
              + x86("mov", "rax", CROQ(cro, 8))
              + x86_jmp_reg("rax")
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
+             + x86("def", PAIR((int)(3 * _.op_ival + 2)))
              + x86("mov", "r14d", CROD(cro, 0))
              + x86("mov", "rax", CROQ(cro, 16))
              + x86_jmp_reg("rax")

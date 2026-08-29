@@ -38,6 +38,7 @@ std::string bb_scan_sequence() {
              + x86_beta()
              + x86("mov", FR(_.op_off + 20), (int)_.op_ival)
              + x86("def", PAIR((int)(2 * _.op_ival + 1)))
+             + x86("def", PAIR((int)(2 * _.op_ival + 2)))
              + x86("mov", "eax", FR(_.op_off + 20))
              + x86("sub", "eax", 1)
              + x86("mov", FR(_.op_off + 20), "eax")

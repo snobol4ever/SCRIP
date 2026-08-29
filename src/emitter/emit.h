@@ -449,6 +449,7 @@ typedef struct {
     struct bb_label_t *          lbl_β_p;
     struct bb_label_t *          lbl_t0_p;
     struct bb_label_t *          lbl_t1_p;
+    struct bb_label_t *          lbl_t0o_p;   /* na_fo's MATCH_BEGIN bridge, same shape as lbl_t0_p/na_f -- bb-label-prefix-uniform */
     void *                       child_fn;
     const char *                 op_name1;
     const char *                 op_name2;

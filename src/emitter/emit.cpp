@@ -1390,17 +1390,22 @@ static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label
     return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω, bb_label_t *chain_ω) {
+static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t **na_fo, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω, bb_label_t *chain_ω) {
     IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;
-    if (3 * N + 2 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 2, XA_BB_EMIT_PAIR_MAX); abort(); }
+    if (3 * N + 3 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 3, XA_BB_EMIT_PAIR_MAX); abort(); }
     g_emit.xa_bb_emit_pair_n = 0;
     for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_f[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_f[i];    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i];    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1; for (int k = 0; k < n; k++) { if (_s0 && nodes[k] == _s0) _i0 = k; if (_t && nodes[k] == _t) _i1 = k; } if (_i0 > _i1) { int _sw = _i0; _i0 = _i1; _i1 = _sw; } if (_i0 >= 0) for (int k = _i1; k >= _i0; k--) if (nodes[k] && nodes[k] != nd && nodes[k]->γ.node == nd) { _t = nodes[k]; break; } }    bb_label_t *_tb = node_ω; for (int k = 0; k < n; k++) if (_t && nodes[k] == _t) { _tb = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = _tb; }
     if (nd->op == IR_MATCH_ALTERNATE && fc_sig && fc_sig[i])
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
+    /* na_fo's define is ALWAYS THE LAST slot appended, after every conditional block above, so it never
+       shifts an index a template already hardcodes (ARBNO's own PAIR(4), ALTERNATE's PAIR(2N+2+j) fc_sig
+       loop). Back-to-back with na_f's own define -- zero bytes between, the shared-address mechanism
+       hq_P's ruling verified safe (task QA hq_P·2026-08-29c; FINDING-2026-08-29-seat16-na-f-dual-port...). */
+    { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_fo[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
     if (nd->op == IR_DISJUNCTION) { for (int j = 0; j < N && j < 32; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }    int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }
@@ -1559,7 +1564,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_frame_extra = emit_match_begin_frame_extra(nd);
         DRIVE_PAIR_RESET();
-        if (g_emit.lbl_t0_p) { for (int _q = 0; _q < 3; _q++) { int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = NULL; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; } int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = g_emit.lbl_t0_p; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL; }
+        if (g_emit.lbl_t0_p) { for (int _q = 0; _q < 3; _q++) { int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = NULL; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; } int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = g_emit.lbl_t0_p; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL;
+          /* na_fo's define, back-to-back with na_f's own (PAIR(3) above) -- zero bytes between, same shared-address mechanism hq_P's ruling verified safe (task QA hq_P·2026-08-29c; feasibility FINDING-2026-08-29-seat16-na-f-dual-port...). */
+          int _zo = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_zo] = g_emit.lbl_t0o_p; g_emit.xa_bb_emit_pair_jmp[_zo] = NULL; g_emit.lbl_t0o_p = NULL; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_END: {
@@ -2950,6 +2957,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **na_s  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t ***fc_sig = (bb_label_t ***)alloca(sizeof(bb_label_t **) * n);
     bb_label_t **na_f  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
+    bb_label_t **na_fo = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **st_pre = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     int st_first_seen = 0;
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -2987,7 +2995,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_γ_%d_ry", _kn, _uid) : NULL;
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_ω_%d_rt", _kn, _uid) : NULL;
         na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
-        na_f[i]  = (((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) || nodes[i]->op == IR_MATCH_BEGIN) ? emit_label_alloc("n%d_%s_af", _uid, _kn) : NULL;
+        { int _naf_on = (((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) || nodes[i]->op == IR_MATCH_BEGIN);
+          /* na_f can be reached by BOTH a gamma-phi edge and an omega-phi edge onto the SAME target in
+             real programs (SCRIP_NAF_DIAG corpus sweep, bb-label-prefix-uniform row, 2026-08-29) -- one
+             mint-time label cannot carry a single correct port letter. hq_P's ruling (task QA
+             hq_P·2026-08-29c): define BOTH greek-suffixed names back-to-back at the same address (BINARY
+             feasibility independently verified, seat16, FINDING-2026-08-29-seat16-na-f-dual-port...) and
+             let each caller pick the name matching its own resolved port. na_f is the gamma name,
+             na_fo the omega name -- never rename call sites, only which of the two they read. */
+          na_f[i]  = _naf_on ? emit_label_alloc(".L%s_γ_%d_af", _kn, _uid) : NULL;
+          na_fo[i] = _naf_on ? emit_label_alloc(".L%s_ω_%d_af", _kn, _uid) : NULL; }
         { extern const char * bb_src_of(const IR_t *); st_pre[i] = (g_emit.flat_stmt_frame && bb_src_of(nodes[i])) ? emit_label_alloc("n%d_%s_st", _uid, _kn) : NULL; }
         st_x[i] = (st_pre[i] && st_first_seen) ? emit_label_alloc("n%d_%s_sx", _uid, _kn) : NULL; if (st_pre[i]) st_first_seen = 1;
         bxs[i]  = emit_label_alloc("n%d_%s_bx", _uid, _kn);
@@ -3091,7 +3108,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_f[k]) fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_f[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_f[k]->name); break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_fo[k]) ? na_fo[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_fo[k]) fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_fo[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_fo[k]->name); break; }
         { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
@@ -3142,7 +3159,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) {
             { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
               long _p0 = _dd ? emit_text_count() : 0;
-              { flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, fc_sig, node_γ, node_ω, &lbl_ω); }
+              { flat_drive_match_alt(nodes, n, i, lbls, betas, na_s, na_f, na_fo, fc_sig, node_γ, node_ω, &lbl_ω); }
               if (_dd && emit_text_count() == _p0) fprintf(stderr, "[DRIVE-DIAG] ZERO-EMIT chain=%d i=%d op=%s n_operands=%d (match_alt path)\n", id, i, bb_op_name(nodes[i]->op), nodes[i]->n_operands); }
             continue;
         }
@@ -3179,7 +3196,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = port_sz_beta(_g->γ.sz); if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
                   bb_label_t *_next = NULL; int _k2 = -1;
                   for (int _k = 0; _k < n; _k++) if (nodes[_k] == _o) { _k2 = _k; break; }
-                  if (_k2 >= 0) { _next = (_ip && na_f[_k2]) ? na_f[_k2] : _ib ? betas[_k2] : lbls[_k2]; }
+                  if (_k2 >= 0) { _next = (_ip && na_fo[_k2]) ? na_fo[_k2] : _ib ? betas[_k2] : lbls[_k2]; }
                   else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
                   for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0 && nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
                   node_ω = _next;
@@ -3231,7 +3248,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   for (int _zj = 0; _zj < _no && _zj < 6; _zj++) { if (_cap && _zj == 0) continue;
                   IR_t * _p = nodes[i]->operands[_zj]; for (int _k = 0; _k < n; _k++) if (nodes[_k] == _p) { int _xh = 0; for (int _zm = i - 1; _zm > _k; _zm--) { if (zd_arm[i] >= 0 && _zm == zd_arm[i]) { _xh += 32; continue; }    if (nodes[_zm]->op == IR_MATCH_DEFER) { _xh += 16; continue; }    if (nodes[_zm]->op != IR_MATCH_BEGIN) continue; extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_rbp(void); if (emit_match_rbp()) { extern int sn4_xh_frame_extra(void); extern int emit_match_begin_frame_extra(const IR_t *); _xh += 64 + (sn4_xh_frame_extra() ? emit_match_begin_frame_extra(nodes[_zm]) : 0); }    else if (x86_zc_frame() == ZC_FRAME_RSP && (x86_port_mode() == ZC_PORT_FORTH || x86_port_mode() == ZC_PORT_HEAP) && (fc_head_fp(nodes[_zm]) >= 0 || fc_tail_head(nodes[_zm]))) _xh += 32; } g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh;       g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); break; } } } }
               { if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { g_zd_read[2] = -1; g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb2 = nodes[_zj]; _jh2 = _zj; break; } } IR_t * _sp = (_mb2 && _mb2->n_operands > 0) ? _mb2->operands[0] : (IR_t *)0; if (_sp && _jh2 >= 0) { for (int _js = _jh2 - 1; _js >= 0; _js--) if (nodes[_js] == _sp) { if (zd_on[_js]) { g_zd_read[2] = g_zd_zunder + (zd_out[_jh2] - zd_out[_js]); g_zd_kind[2] = (int)_sp->op; } if (getenv("SCRIP_ZPAT_DIAG")) fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_zd_read[2]); break; } } } }
-          if (nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; }
+          if (nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; g_emit.lbl_t0o_p = na_fo[i]; }
           if (nodes[i]->op == IR_SUSPEND && g_emit.zframe_graph && g_emit_cfg && g_emit_cfg->icn_zframe_gen && g_suspend_dobody_beta) { g_zd_suspend_uclaim = 0; g_zd_stage = 1; }
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
           if (_zw5_saved_omega) node_ω = _zw5_saved_omega;
