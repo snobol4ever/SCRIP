@@ -201,8 +201,8 @@ static std::string release_pump() { return one_end() ? release_pump_one() : rele
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_end() {
     x86_begin();
-    if (getenv("SCRIP_MEND_ADDR_DIAG")) fprintf(stderr, "[MEND] op_off=%d op_fc_disp=%d op_dval=%g rfc=%d zc_frame=%d op_tail=%d\n",
-                                                 _.op_off, _.op_fc_disp, _.op_dval, rfc() ? 1 : 0, (int)x86_zc_frame(), _.op_tail);
+    if (getenv("SCRIP_MEND_ADDR_DIAG")) fprintf(stderr, "[MEND] op_off=%d op_fc_disp=%d op_dval=%g rfc=%d op_tail=%d\n",
+                                                 _.op_off, _.op_fc_disp, _.op_dval, rfc() ? 1 : 0, _.op_tail);
     return _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_tail && rfc()
@@ -221,23 +221,20 @@ std::string bb_match_end() {
          + release_pump()
          : x86("comment", "IR_MATCH_END")
          + x86_alpha() + mend_bank_cursors()
-         + IF(x86_zc_frame() == ZC_FRAME_RSP && !emit_match_rbp(), x86("mov", "r8", "r12")
-                                               + x86("def", L(9))
-                                               + x86("sub", "r8", (long)24)
-                                               + x86("mov", "rax", RDQ("r8", 0))
-                                               + x86("test", "rax", "rax")
-                                               + x86("jne", L(9)))
+         + IF(!emit_match_rbp(), x86("mov", "r8", "r12")
+                                + x86("def", L(9))
+                                + x86("sub", "r8", (long)24)
+                                + x86("mov", "rax", RDQ("r8", 0))
+                                + x86("test", "rax", "rax")
+                                + x86("jne", L(9)))
          + (_.op_dval != 0.0 && !emit_match_rbp()
                 ? IF(rfc(), x86("mov", "eax", RDD("rsp", (int)_.op_fc_disp))
-                          + (x86_zc_frame() == ZC_FRAME_RSP ? x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "eax")
-                                                      : x86("mov", stfh() ? HKD() : FR(_.op_off), "eax")))
-                + (x86_zc_frame() == ZC_FRAME_RSP && rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "r14")
-                                                     : x86("mov", FRQ(_.op_off + 24), "r14"))
+                          + x86("mov", RDD("rsp", (int)(_.op_off + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "eax"))
+                + (rfc() ? x86("mov", RSP((int)(_.op_off + 24 + _.op_fc_disp + (emit_match_rbp() ? 64 : 32))), "r14")
+                         : x86("mov", FRQ(_.op_off + 24), "r14"))
                 : std::string())
          + (emit_match_rbp() ? std::string()
-            : x86_zc_frame() == ZC_FRAME_RSP ? IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r8", 8, 11, 12)) + x86("mov", "rsp", RDQ("r8", 8))
-            : (rfc() ? x86("mov", "rsp", RDQ("r8", 8))
-               : x86_zls2_release_to_call(stfh() ? HKM() : FRQ(_.op_off + 16))))
+            : IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r8", 8, 11, 12)) + x86("mov", "rsp", RDQ("r8", 8)))
          + x86_align_leave()
          + release_pump();
 }

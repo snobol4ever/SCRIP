@@ -2016,20 +2016,6 @@ inline std::string x86_zls2_mark_save(const char * slot) {
          + x86("note", HKN(5)) + x86("mov", slot, "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_release_to_call(const char * slot) {
-    if (x86_port_cstack())
-        return x86_align_leave()
-             + x86("mov", "rsp", slot)
-             + x86_align_enter();
-    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
-        return x86_zls2_cur_lea("rdi")
-             + x86("mov", "rax", slot)
-             + x86("mov", RDQ("rdi", 0), "rax");
-    if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
-    return x86("note", HKN(5)) + x86("mov",  "rdi", slot)
-         + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)rt_zls2_release_to);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zls2_release_to_rspd(int disp) {
     if (!x86_port_cstack()) return x86_bomb("x86_zls2_release_to_rspd: FORTH-grant-only helper reached on a non-cstack port");
     static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", disp);
