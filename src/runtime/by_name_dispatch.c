@@ -559,7 +559,16 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
     }
     if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_ws_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
-    if (!strcmp(meth, "ord")) { if (!s || !*s) { *out = FAILDESCR; return 1; } *out = INTVAL((unsigned char)s[0]); return 1; }
+    if (!strcmp(meth, "ord")) {
+        /* NOT the shared `n` above (strlen(s), computed before this dispatch knew which method it would
+           serve): a single character extracted from a cset/string containing chr(0) has strlen()==0
+           despite being one real character (icon-ascii-cset-keywords-built-off-by-one). descr_slen(recv)
+           reads the DESCRIPTOR's own stamped length instead of re-deriving one from the (here, misleading)
+           byte content. */
+        size_t on = descr_slen(recv);
+        if (!s || !on) { *out = FAILDESCR; return 1; }
+        *out = INTVAL((unsigned char)s[0]); return 1;
+    }
     if (!strcmp(meth, "abs")) { if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
@@ -5745,7 +5754,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5330: ;
     if ((_bid == BID_ord) && nargs == 1) {
         DESCR_t av = args[0];
-        const char *s = VARVAL_fn(av); if (!s||!*s) { *out = FAILDESCR; return 1; }
+        const char *s = VARVAL_fn(av);
+        /* NOT !*s (icon-ascii-cset-keywords-built-off-by-one): a legitimate one-character result whose
+           character IS chr(0) has *s==0 despite being non-empty; descr_slen(av) reads the descriptor's
+           own stamped length instead of testing the byte content for the C-string "empty" convention. */
+        if (!s || !descr_slen(av)) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
     if (((_bid == BID_type) || (_bid == BID_DATATYPE)) && nargs == 1) return bn_type_datatype(fn, args, nargs, out);
@@ -7121,12 +7134,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             *out=(a.v==DT_SNUL)?FAILDESCR:a; return 1;
         }
         if (fn[0]=='~' && fn[1]=='\0') {
-            const char *s=NULL;
+            const char *s=NULL; int slen=-1;
             if (IS_INT_fn(a)) { char *nb=rt_ws_alloc(32); snprintf(nb,32,"%lld",(long long)a.i); s=nb; }
             else if (IS_REAL_fn(a)) { char *nb=rt_ws_alloc(64); real_str(a.r,nb,64); s=nb; }
-            else { s=VARVAL_fn(a); }
+            else { s=VARVAL_fn(a); if (IS_CSET_fn(a)) slen=kw_cset_len(s); }
             if(!s) s="";
-            unsigned char in_set[256]={0}; for(const char *p=s;*p;p++) in_set[(unsigned char)*p]=1;
+            /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops scanning at the
+               first byte-0 member, so a correctly-built &ascii/&cset (which now legitimately starts
+               with chr(0)) read as an EMPTY input set -- the complement then wrongly claimed almost
+               every byte. kw_cset_len(s), when s is a registered keyword cset, gives the true length
+               without touching the general embedded-NUL literal gap (still open, still out of scope). */
+            if (slen<0) slen=(int)strlen(s);
+            unsigned char in_set[256]={0}; for (int i=0;i<slen;i++) in_set[(unsigned char)s[i]]=1;
             char *buf=rt_ws_alloc(256); int n=0;
             for(int c=1;c<256;c++) if(!in_set[c]) buf[n++]=(char)c; buf[n]='\0';
             *out=STRVAL(buf); return 1;
@@ -7202,9 +7221,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (IS_INT_fn(r))       { snprintf(_rbuf,sizeof _rbuf,"%lld",(long long)r.i); ra=_rbuf; }
             else if (IS_REAL_fn(r)) { real_str(r.r,_rbuf,sizeof _rbuf); ra=_rbuf; }
             else                    { ra=VARVAL_fn(r); if(!ra) ra=""; }
-            if (fn[0]=='+') *out=CSETVAL(cset_canonical(cset_union(la,ra)));
-            else if (fn[1]=='-') *out=CSETVAL(cset_canonical(cset_diff(la,ra)));
-            else *out=CSETVAL(cset_canonical(cset_inter(la,ra)));
+            int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : -1; if (lalen < 0) lalen = (int)strlen(la);
+            int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : -1; if (ralen < 0) ralen = (int)strlen(ra);
+            if (fn[0]=='+') *out=CSETVAL(cset_canonical(cset_union(la,lalen,ra,ralen)));
+            else if (fn[1]=='-') *out=CSETVAL(cset_canonical(cset_diff(la,lalen,ra,ralen)));
+            else *out=CSETVAL(cset_canonical(cset_inter(la,lalen,ra,ralen)));
             return 1;
         }
     }

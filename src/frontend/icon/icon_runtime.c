@@ -7,15 +7,23 @@ long icn_retval = 0;
 int  icn_failed = 0;
 static char subscript_buf[2];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_union(const char *a, const char *b) {
+/* NOT `for(;a[i];i++)`-style scanning of `a`/`b` directly (icon-ascii-cset-keywords-built-off-by-one):
+   stops at the first byte-0 member, so `&cset -- &ascii`-style expressions (a natural, foreseeable use
+   of these two keywords, e.g. rung36_jcon_scan1.icn's `uppers := &cset -- &ascii`) read an operand that
+   correctly starts with chr(0) as empty. alen/blen -- resolved by each call site via kw_cset_len for a
+   registered keyword cset, strlen() otherwise -- fix the INPUT side only; results that themselves start
+   with chr(0) still hit cset_canonical's own leading-NUL gap at the call sites below, which stays open
+   (general embedded-NUL literal gap, out of scope -- neither &cset -- &ascii nor any other combination
+   exercised by the broad Icon corpus produces such a result, so this is not a live gap for those). */
+const char *cset_union(const char *a, int alen, const char *b, int blen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
     int n = 0;
-    for (int i = 0; a[i]; i++) out[n++] = a[i];
-    for (int j = 0; b[j]; j++) {
+    for (int i = 0; i < alen; i++) out[n++] = a[i];
+    for (int j = 0; j < blen; j++) {
         int found = 0;
-        for (int i = 0; a[i]; i++) { if (a[i] == b[j]) { found = 1; break; } }
+        for (int i = 0; i < alen; i++) { if (a[i] == b[j]) { found = 1; break; } }
         if (!found) out[n++] = b[j];
     }
     out[n] = '\0';
@@ -23,14 +31,14 @@ const char *cset_union(const char *a, const char *b) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_diff(const char *a, const char *b) {
+const char *cset_diff(const char *a, int alen, const char *b, int blen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
     int n = 0;
-    for (int i = 0; a[i]; i++) {
+    for (int i = 0; i < alen; i++) {
         int found = 0;
-        for (int j = 0; b[j]; j++) { if (a[i] == b[j]) { found = 1; break; } }
+        for (int j = 0; j < blen; j++) { if (a[i] == b[j]) { found = 1; break; } }
         if (!found) out[n++] = a[i];
     }
     out[n] = '\0';
@@ -38,13 +46,13 @@ const char *cset_diff(const char *a, const char *b) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_inter(const char *a, const char *b) {
+const char *cset_inter(const char *a, int alen, const char *b, int blen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
     int n = 0;
-    for (int i = 0; a[i]; i++) {
-        for (int j = 0; b[j]; j++) { if (a[i] == b[j]) { out[n++] = a[i]; break; } }
+    for (int i = 0; i < alen; i++) {
+        for (int j = 0; j < blen; j++) { if (a[i] == b[j]) { out[n++] = a[i]; break; } }
     }
     out[n] = '\0';
     str_arena_pos += n + 1;

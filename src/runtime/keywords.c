@@ -57,10 +57,22 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     return CSETVAL(stable);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ NOT cset_canonical(chars) (icon-ascii-cset-keywords-built-off-by-one): cset_canonical scans its input
+   with `for (...; *p; p++)`, so it truncates to "" the moment `chars` contains a byte-0 member -- exactly
+   what a correctly-built &ascii/&cset now does at index 0. All 6 callers of kw_cset_reg already pass
+   sorted, deduped, complete input (the very thing cset_canonical would compute), so canonicalizing here
+   was always redundant work; routing around it with an explicit-length copy costs nothing for the other
+   5 and fixes the 6th. This does not touch cset_canonical itself -- its own general-literal gap
+   (FINDING-2026-08-27-seat09-icon-cset-embedded-nul-is-a-four-layer-representation-gap.md) is untouched,
+   deliberately, same reasoning as that FINDING's own "not fixed this session". */
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
     kw_cset_grow();
-    g_kw_cset_names[g_kw_cset_count].ptr  = rt_ws_strdup(cset_canonical(chars));
+    extern void *rt_ws_alloc(size_t);
+    char *stable = (char *)rt_ws_alloc((size_t)len + 1);
+    memcpy(stable, chars, (size_t)len);
+    stable[len] = '\0';
+    g_kw_cset_names[g_kw_cset_count].ptr  = stable;
     g_kw_cset_names[g_kw_cset_count].name = name;
     g_kw_cset_names[g_kw_cset_count].len  = len;
     g_kw_cset_count++;
@@ -72,8 +84,8 @@ static void kw_cset_prime(void) {
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "&ucase", 26);
     kw_cset_reg("0123456789", "&digits", 10);
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", "&letters", 52);
-    { static char a[128]; for (int c=1;c<128;c++) a[c-1]=(char)c; a[127]='\0'; kw_cset_reg(a, "&ascii", 128); }
-    { static char a[256]; for (int c=1;c<256;c++) a[c-1]=(char)c; a[255]='\0'; kw_cset_reg(a, "&cset", 256); }
+    { static char a[128]; for (int c=0;c<128;c++) a[c]=(char)c; kw_cset_reg(a, "&ascii", 128); }
+    { static char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* icn-cset-embedded-nul-four-layer-gap, layer 5 (registry side): a literal charset's TRUE length
@@ -106,8 +118,12 @@ const char *kw_cset_name(const char *ptr) {
        care which entry it matches, since the length agrees either way. */
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr && g_kw_cset_names[i].name) return g_kw_cset_names[i].name;
+    /* NOT strcmp against an entry starting with byte 0 (icon-ascii-cset-keywords-built-off-by-one):
+       same unsafe-comparison shape as kw_cset_len's own fallback, just above -- see its comment. An
+       unrelated short/empty pointer (e.g. rt_cset_compl's empty-complement result) would otherwise
+       strcmp-"match" a correctly-built &ascii/&cset and print its name instead of the real content. */
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
+        if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -115,8 +131,14 @@ int kw_cset_len(const char *ptr) {
     kw_cset_prime();
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr) return g_kw_cset_names[i].len;
+    /* NOT strcmp against an entry whose OWN content starts with byte 0 (icon-ascii-cset-keywords-built-off-by-one):
+       strcmp has no length for `ptr` to check, so it can only compare up to the shorter side's own NUL -- an
+       entry that starts with chr(0) (a correctly-built &ascii/&cset) matches ANY other pointer that also starts
+       with chr(0), including a short/empty/unrelated one, as spuriously "equal". Such an entry is reachable only
+       by the exact-pointer match above, which is the normal case for every caller that holds the real registered
+       pointer; refusing the content fallback here is strictly safer than a wrong length. */
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].ptr && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].len;
+        if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].len;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -296,8 +318,11 @@ DESCR_t kw_read(const char *kw) {
         static const char *cs = NULL;
         if (!cs) {
             static char ascii_str[128];
-            for (int c=1;c<128;c++) ascii_str[c-1]=(char)c; ascii_str[127]='\0';
-            char *stable = rt_ws_strdup(cset_canonical(ascii_str));
+            for (int c=0;c<128;c++) ascii_str[c]=(char)c;
+            /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
+               it truncates to "" on a leading byte-0, and ascii_str is already sorted/deduped/complete. */
+            extern void *rt_ws_alloc(size_t);
+            char *stable = (char *)rt_ws_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
             kw_cset_grow();
             g_kw_cset_names[g_kw_cset_count].ptr  = stable;
             g_kw_cset_names[g_kw_cset_count].name = "&ascii";
@@ -311,8 +336,11 @@ DESCR_t kw_read(const char *kw) {
         static const char *cs = NULL;
         if (!cs) {
             static char cset_str[256];
-            for (int c=1;c<256;c++) cset_str[c-1]=(char)c; cset_str[255]='\0';
-            char *stable = rt_ws_strdup(cset_canonical(cset_str));
+            for (int c=0;c<256;c++) cset_str[c]=(char)c;
+            /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
+               it truncates to "" on a leading byte-0, and cset_str is already sorted/deduped/complete. */
+            extern void *rt_ws_alloc(size_t);
+            char *stable = (char *)rt_ws_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
             kw_cset_grow();
             g_kw_cset_names[g_kw_cset_count].ptr  = stable;
             g_kw_cset_names[g_kw_cset_count].name = "&cset";

@@ -236,12 +236,13 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
-        int slen = (int)strlen(s);
+        int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        if (slen < 0) slen = (int)strlen(s);
         int i = (int)to_int(idx);
         if (i < 0) i = slen + i + 1;
         if (i < 1 || i > slen) return FAILDESCR;
         char *buf = rt_str_alloc(1); buf[0] = s[i-1]; buf[1] = '\0';
-        return STRVAL(buf);
+        return BSTRVAL(buf, 1);   /* NOT STRVAL: .slen=0 means "ask strlen", which reads 0 when the extracted byte is chr(0) itself (icon-ascii-cset-keywords-built-off-by-one) */
     }
     if (arr.v == DT_DATA) {
         DESCR_t *elems; int n;
@@ -379,7 +380,12 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
-        int slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
+        /* NOT strlen(s) for a cset (icon-ascii-cset-keywords-built-off-by-one): same gap as
+           subscript_get's single-index sibling -- kw_cset_len gives the true length for a
+           registered keyword cset (e.g. &cset[34+:94], htprep.icn's own idiom) without touching
+           the general embedded-NUL literal gap. */
+        int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        if (slen < 0) slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
         int ii = (int)to_int(i), jj = (int)to_int(j);
         if (ii < -slen || ii > slen + 1) return FAILDESCR;
         if (jj < -slen || jj > slen + 1) return FAILDESCR;
@@ -388,7 +394,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;
         char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
-        return STRVAL(buf);
+        return BSTRVAL(buf, len);   /* NOT STRVAL: the slice may itself start with chr(0) */
     }
     return FAILDESCR;
 }

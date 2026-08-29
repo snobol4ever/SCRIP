@@ -280,9 +280,12 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
             else if (IS_INT_fn(b))  { snprintf(_bb, sizeof _bb, "%lld", (long long)b.i); bs = _bb; }
             else if (IS_REAL_fn(b)) { real_str(b.r, _bb, sizeof _bb); bs = _bb; }
             else { bs = VARVAL_fn(b); if (!bs) bs = ""; }
-            if (op == BINOP_CUNION) return CSETVAL(cset_canonical(cset_union(as, bs)));
-            if (op == BINOP_CDIFF)  return CSETVAL(cset_canonical(cset_diff(as, bs)));
-            return CSETVAL(cset_canonical(cset_inter(as, bs)));
+            extern int kw_cset_len(const char *);
+            int aslen = IS_CSET_fn(a) ? kw_cset_len(as) : -1; if (aslen < 0) aslen = (int)strlen(as);
+            int bslen = IS_CSET_fn(b) ? kw_cset_len(bs) : -1; if (bslen < 0) bslen = (int)strlen(bs);
+            if (op == BINOP_CUNION) return CSETVAL(cset_canonical(cset_union(as, aslen, bs, bslen)));
+            if (op == BINOP_CDIFF)  return CSETVAL(cset_canonical(cset_diff(as, aslen, bs, bslen)));
+            return CSETVAL(cset_canonical(cset_inter(as, aslen, bs, bslen)));
         }
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
@@ -296,7 +299,13 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     else if (IS_INT_fn(a))  { snprintf(_cbuf, sizeof _cbuf, "%lld", (long long)a.i); raw = _cbuf; }
     else if (IS_REAL_fn(a)) { real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
     else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
-    unsigned char in[256] = {0}; for (const unsigned char *p = (const unsigned char *)raw; *p; p++) in[*p] = 1;
+    /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops at the first byte-0
+       member, so a correctly-built &ascii/&cset (now legitimately starting with chr(0)) reads as
+       empty. kw_cset_len gives the true length for a registered keyword cset without touching the
+       general embedded-NUL literal gap (still open, still out of scope). */
+    extern int kw_cset_len(const char *);
+    int rawlen = IS_CSET_fn(a) ? kw_cset_len(raw) : -1; if (rawlen < 0) rawlen = (int)strlen(raw);
+    unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
     char *outs = rt_str_alloc(255); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
     return CSETVAL(cset_canonical(outs));
 }

@@ -536,7 +536,7 @@ RTX_FUNC(rt_subscript_var)
  * arm. It mints a one-character substring trapped variable: cellp/tbl/key all 0,
  * sv = bvar, pos = i, len = 1.
  *
- * ⛔ THREE THINGS THIS ARM DELIBERATELY DOES NOT DO, EACH ONE A BAIL:
+ * ⛔ FOUR THINGS THIS ARM DELIBERATELY DOES NOT DO, EACH ONE A BAIL:
  *  (1) DT_SNUL. C would take slen from strlen("") and then fail every index, so
  *      the arm is pure ceremony; bail rather than reproduce a guaranteed FAIL.
  *  (2) slen == 0. C falls back to `strlen(sp)`. Porting a strlen call to keep a
@@ -544,6 +544,15 @@ RTX_FUNC(rt_subscript_var)
  *      it for string literals). Bail.
  *  (3) A NULL byte pointer with a nonzero slen. C substitutes ""; that shape is
  *      incoherent and unmeasured, so it is C's to keep.
+ *  (4) slen == 0xFFFFFFFF (icon-ascii-cset-keywords-built-off-by-one). This is
+ *      CSETVAL's type-tag sentinel (core.h), not a length -- treating it as one
+ *      told this arm a cset is ~4 billion characters long, so every in-range
+ *      index passed the bounds check and this arm happily built a substring trap
+ *      pointing past whatever the cset's REAL length is. A cset's true length
+ *      lives in kw_cset_len's registry (keywords.c), which only the C path
+ *      (subscript_get, fixed the same row) consults; porting that lookup into
+ *      this arm buys nothing cset subscripting doesn't already get from C, same
+ *      reasoning as (2). Bail.
  *
  * ⛔ `vc->sv = bvar`, THE **ORIGINAL** BASE, NOT THE DEREF'D ONE. The trap has to
  *    name the VARIABLE so a write-back can reach it; storing the deref'd string
@@ -565,6 +574,8 @@ RTX_FUNC(rt_subscript_var)
     shr     r8, 32                      /* r8 = base.slen (zero-extended)        */
     test    r8d, r8d
     je      .Lsub_bail                  /* slen == 0 => C's strlen path; bail (2) */
+    cmp     r8d, 0xFFFFFFFF
+    je      .Lsub_bail                  /* slen == CSETVAL sentinel, not a real length; bail (4) */
     test    rdx, rdx
     je      .Lsub_bail                  /* NULL bytes => C's ""; bail (3)         */
     mov     rax, [rsp + 24]             /* i = (long)to_int(idx), full qword      */
