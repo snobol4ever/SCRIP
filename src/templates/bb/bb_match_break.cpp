@@ -15,31 +15,8 @@ extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long 
 static char bk_nlb[24];
 static char bk_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define bk_gu() (_.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL || ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE))
-#define bk_rangep() (_.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE)
-static unsigned char bk_rlo[128], bk_rhi[128]; static long bk_rn;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bk_ranges() { unsigned char in[256]; memset(in, 0, 256);
-    for (const unsigned char * p = (const unsigned char *)(_.op_sval ? _.op_sval : ""); *p; p++) in[*p] = 1;
-    bk_rn = 0;
-    for (int b = 0; b < 256; b++)
-        if (in[b]) {
-            if (bk_rn && bk_rhi[bk_rn - 1] == b - 1) bk_rhi[bk_rn - 1] = (unsigned char)b;
-            else { bk_rlo[bk_rn] = bk_rhi[bk_rn] = (unsigned char)b; bk_rn++; }
-        }
-}
-#define bk_rtest(i) ( \
-      bk_rlo[i] == bk_rhi[i] \
-    ? x86("cmp", "esi", (long)bk_rlo[i]) \
-    + x86("je",  L(1)) \
-    : x86("mov", "eax", "esi") \
-    + x86("sub", "eax", (long)bk_rlo[i]) \
-    + x86("cmp", "eax", (long)(bk_rhi[i] - bk_rlo[i])) \
-    + x86("jbe", L(1)) \
-)
-static std::string bk_rmemb(long i) { return i >= bk_rn ? std::string() : bk_rtest(i) + bk_rmemb(i + 1); }
-#define bk_gi() (_.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE)
-#define bk_gc() (_.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL)
+#define bk_gu() (_.op_sa < 0)
+#define bk_gi() (_.op_sa >= 0)
 #define bk_ndl_r8() ( \
       _.op_sa >= 0 \
     ? x86("mov", "r8", XSAQ(8)) \
@@ -50,15 +27,8 @@ static std::string bk_rmemb(long i) { return i >= bk_rn ? std::string() : bk_rte
     ? x86("mov", "eax", XSAD(4)) \
     : x86("mov32", "eax", CSK()) \
 )
-#define bk_ndl_rsi() ( \
-      _.op_sa >= 0 \
-    ? x86("mov", "rsi", XSAQ(8)) \
-    + x86("mov", "edx", XSAD(4)) \
-    : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) \
-    + x86("mov32", "edx", CSK()) \
-)
-#define bk_chainp() (bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
-#define bk_tablep() (bk_gu() && !bk_rangep() && !bk_chainp())
+#define bk_chainp() (bk_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define bk_tablep() (bk_gu() && !bk_chainp())
 static std::string bk_memb(long i) {
     return i >= CSK() ? std::string()
          : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i])
@@ -69,8 +39,7 @@ static std::string bk_memb(long i) {
       x86("cmp",   "ecx", "r15d") \
     + x86_omega("jge") \
     + x86("movzx", "esi", "[r13+rcx]") \
-    + (bk_rangep() ? bk_rmemb(0) \
-     : bk_chainp() ? bk_memb(0) \
+    + (bk_chainp() ? bk_memb(0) \
      : (sn4_cset32() \
         ? x86("bt",    "[rdi]", "esi") \
         + x86("jc",    L(1)) \
@@ -104,8 +73,6 @@ std::string bb_match_break() {
              + x86_omega();
     static char c[24];
     const void * ct = bk_tablep() ? csettab_label(c, sizeof c, _.op_sval ? _.op_sval : "") : (const void *)0;
-    if (bk_rangep()) bk_ranges();
-    if (_.op_sa < 0 && ZC_LIT_GUTS != ZC_LIT_GUTS_UNROLL) strtab_label(bk_nlb, sizeof bk_nlb, _.op_sval ? _.op_sval : "");
     if (_.op_zres && _.op_sa >= 0)
         return x86("comment", "IR_MATCH_BREAK zd")
              + x86_alpha()
@@ -151,14 +118,6 @@ std::string bb_match_break() {
             + x86("def",    L(1))
             + x86("mov",    "eax", "r14d")
             + x86("add",    "eax", LFC(0))
-            + x86("mov",    LFC(0), "r14d")
-            + x86("mov",    "r14d", "eax"))
-         + IF(bk_gc(),
-              x86("mov",    "edi", "r14d")
-            + bk_ndl_rsi()
-            + x86("call",   "rt_sg_scan_member", (uint64_t)(uintptr_t)(void *)rt_sg_scan_member)
-            + x86("cmp",    "eax", "r15d")
-            + x86_omega("jge")
             + x86("mov",    LFC(0), "r14d")
             + x86("mov",    "r14d", "eax"))
          + IF(bk_gu(),
