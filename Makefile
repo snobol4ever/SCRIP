@@ -44,7 +44,7 @@ SNO          ?= $(error SNO is required — e.g. make run SNO=prog.sno)
 INC          ?= $(CORPUS)/inc
 JVM_CACHE    := /tmp/scrip_jvm_cache
 NET_CACHE    := /tmp/scrip_net_cache
-JASMIN       := $(ROOT)/interpreters/jasmin.jar
+JASMIN       := $(ROOT)/miscellaneous/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
 .PHONY: all scrip setup pristine pristine-all buildinfo FORCE \

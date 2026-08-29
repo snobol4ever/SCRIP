@@ -8,7 +8,7 @@ set -euo pipefail
 SNO="${1:?Usage: build_snobol4_jvm.sh <file.sno>}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP_CC="${SCRIP_CC_JVM:-$S4E/scrip-cc_jvm}"
-JASMIN="${JASMIN:-$DIR/interpreters/jasmin.jar}"
+JASMIN="${JASMIN:-$DIR/miscellaneous/jasmin.jar}"
 JVM_CACHE="${JVM_CACHE:-/tmp/scrip_cc_jvm_cache}"
 
 mkdir -p "$JVM_CACHE"

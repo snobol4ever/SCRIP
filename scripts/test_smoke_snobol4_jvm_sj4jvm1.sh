@@ -5,7 +5,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-JASMIN="${JASMIN:-$HERE/../interpreters/jasmin.jar}"
+JASMIN="${JASMIN:-$HERE/../miscellaneous/jasmin.jar}"
 PASS=0; FAIL=0
 check_jasmin() {
     local name="$1" sno="$2"

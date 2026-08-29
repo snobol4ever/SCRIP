@@ -2,7 +2,7 @@
 # run_rung19.sh — rung19_pow_toby JVM corpus runner
 set -euo pipefail
 DRIVER="${1:-/tmp/scrip}"
-JASMIN="$(dirname "$0")/../../../interpreters/jasmin.jar"
+JASMIN="$(dirname "$0")/../../../miscellaneous/jasmin.jar"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 TMPDIR_OUT="$(mktemp -d)"

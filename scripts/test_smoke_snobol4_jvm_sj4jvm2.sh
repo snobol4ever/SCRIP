@@ -2,9 +2,9 @@
 # test_smoke_snobol4_jvm_sj4jvm2.sh — SJ4-JVM-2 gate: SnoRt.j assembles and runs correctly
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-JASMIN="${JASMIN:-$HERE/../interpreters/jasmin.jar}"
-SNORT_J="$HERE/../interpreters/runtime/jvm/SnoRt.j"
-SNORT_MS_J="$HERE/../interpreters/runtime/jvm/SnoRtMatchState.j"
+JASMIN="${JASMIN:-$HERE/../miscellaneous/jasmin.jar}"
+SNORT_J="$HERE/../miscellaneous/runtime/jvm/SnoRt.j"
+SNORT_MS_J="$HERE/../miscellaneous/runtime/jvm/SnoRtMatchState.j"
 PASS=0; FAIL=0
 tmp=$(mktemp -d)
 # Step 1: assemble SnoRt.j
