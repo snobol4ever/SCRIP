@@ -113,6 +113,32 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
         fprintf(stderr, "[N2-XG] proc=%-10s is_gen=%d all=%s n=%-4d calls=%-3d named=%-3d registered=%-3d generator=%d\n",
                 pn, s2->proc_table[i].is_generator, g->all ? "OK" : "NULL", g->n, calls, named, reg, gen); }
     fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* N-2 FORWARD-REF PRE-PASS, THE CURE (seat01 2026-08-29, row icon-n2-forward-ref-gen-prepass): registers every generator proc's frame bytes into the
+   pz[] registry (zeta_storage.c) BEFORE any graph is emitted, so icn_gen_host_reserve()'s emit_patzeta_frame_reserve() lookup HITS even when a host
+   is emitted before the generator it calls (a forward reference in source order) -- measured live in bench_correct: geddump 6 such call sites,
+   tgrlink 2. Same window step 1b proved stable (AGREE=429/MISMATCH=0 on jcon_value_region): live immediately after drive_slots_all(), before any
+   emission loop reads or writes a graph's fields again. ⛔ ONLY frame bytes (fb) and fp are computed; uniform is passed 0, not derived: its one
+   reader, fct_defer_susp() (zeta_storage.c), only ever looks up names prefixed "PAT$" (SNOBOL4 deferred-pattern names) -- a namespace disjoint from
+   Icon proc names -- so no entry this pre-pass writes is ever read through that field, and computing it correctly would need a non-static export of
+   emit.cpp's emit_graph_uniform() for a value nothing here consumes. fp mirrors the REAL per-emission registration (g_last_flat_fp =
+   zls_g_fp_total(g_emit_cfg), emit.cpp) but calls the same pure function directly against the callee's OWN graph, since no graph is "current" yet
+   at this window; the two calls agree once real emission reaches this proc and re-registers it (emit_patzeta_register overwrites in place, same
+   name -- scrip.c's other three call sites and runtime_eval.c:194), so a pre-pass value is never stale, only ever superseded by an identical one.
+   Only is_generator procs are registered -- the sole population icn_gen_host_reserve() ever queries by name -- leaving pz[]'s 512-slot table
+   headroom untouched for the rest. ⭐ INERT ON THE UNARMED PATH BY CONSTRUCTION, NOT BY A GATE: pz[] registration already runs unconditionally today
+   (all four real call sites carry no icn_genframe2() check), and every consumer of emit_patzeta_frame_reserve() is itself gated on icn_genframe2()
+   (icn_gen_host_reserve() etc., x86_asm.h) -- so an unarmed build looks up nothing this pre-pass touches, armed or not. The forward-reference refusal
+   in icn_gen_host_reserve() is UNTOUCHED and still fires on a genuine miss (see the poison-arm test) -- this pre-pass only removes the miss that was
+   never supposed to be one. */
+static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
+    extern void emit_patzeta_register(const char *, int, int, int);
+    extern int zls_g_fp_total(IR_graph_t *);
+    for (int i = 0; i < s2->proc_count; i++) { if (!s2->proc_table[i].is_generator) continue;
+        const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+        if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
+        IR_graph_t *g = s2->bbp.table[gi];
+        emit_patzeta_register(pn, g->jcon_value_region, zls_g_fp_total(g), 0); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
@@ -1300,7 +1326,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1484,7 +1510,7 @@ int main(int argc, char **argv)
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1740,7 +1766,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1862,7 +1888,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
