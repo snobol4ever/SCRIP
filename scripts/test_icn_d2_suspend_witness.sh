@@ -101,6 +101,21 @@ end'
 # icon-d2-witness-never-exercises-apply-the-shape-it-accepted (this widening) and
 # icon-apply-to-generator-segv-bb-call-value-has-no-n2-awareness (the emitter cure, tracked separately --
 # do NOT fix bb_call_value.cpp here, this file is the instrument, not the cure).
+# ⛔⭐ WATCHED TO FAIL — RECORDED HERE BECAUSE THE EVIDENCE IS PERISHABLE (hq_B, 2026-08-29T21:1xZ).
+# The row that demanded this witness made one clause non-negotiable: the widened script must be seen to go RED
+# on the apply case BEFORE any cure lands, because a widened witness that is green on its first run has not
+# been shown to test anything. ceo disclosed honestly that the STANDALONE witness was watched to fail
+# extensively pre-cure (rc=139, 5/5, plus a killswitch-off control) but that this INTEGRATED spelling was born
+# post-cure and had never been seen red THROUGH THIS SCRIPT. Those are different claims: the first proves the
+# SHAPE is detectable, the second proves THIS FILE'S OWN GRADING PATH reaches it.
+# MEASURED on a pre-cure tree (SCRIP 68046fa3; `grep -c rt_genp_spine_enter_n2 src/templates/bb/bb_call_value.cpp`
+# = 0, i.e. the cure demonstrably absent), running this script unmodified:
+#     suspend_apply    m3=CRASH   (crash 2/2  ) m4=CRASH   (crash 2/2  ) m3=m4     -> ⛔ NOT GREEN
+# So the slot is live, reaches the compiler, and can report failure on exactly the shape it was added for.
+# ⭐ WHY IT IS WRITTEN DOWN RATHER THAN LEFT AS A RE-RUN: this reading exists only while a tree without the
+# cure exists. Once every seat pulls, nobody can reproduce it without a deliberate checkout, and "we watched
+# it fail" becomes an assertion instead of a record. A negative result that cannot be re-obtained must be
+# recorded at the moment it is cheap.
 mkw suspend_apply 'procedure gen(x)
    suspend x;
 end
