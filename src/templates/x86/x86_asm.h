@@ -482,10 +482,6 @@ inline const char * x86_jcc_canon(uint8_t op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8_t)(x86_jcc_op(m) ^ 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_selfload_mode() {
-    return (int)ZC_SELFLOAD;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return 0; }
@@ -516,21 +512,9 @@ inline std::string x86_align_assert() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_port_canary() {
-    if (x86_port_mode() != ZC_PORT_INSTRUMENTED) return std::string();
-    if (MEDIUM_BINARY) {
-        int z = x86_zr_num(), lo = z & 7;
-        uint8_t rex = (uint8_t)(0x48 | (z >= 8 ? 0x05 : 0x00)), modrm = (uint8_t)(0xC0 | (lo << 3) | lo);
-        return x86_Lrec(x86_b3(rex, 0x85, modrm) + x86_b2(0x75, 0x02) + x86_b2(0x0F, 0x0B));
-    }
-    return x86_rec("test") + x86_zr() + ", " + x86_zr() + "\n jnz 1f\n ud2\n1:\n";
+    return std::string();
 }
 extern "C" void rt_zls_release(void *);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_own_floor_store() {
-    if (MEDIUM_BINARY)
-        return x86_Lrec(x86_b3(0x48, 0x39, 0xC1) + x86_b2(0x73, 0x03) + x86_b3(0x48, 0x89, 0x0F));
-    return x86_rec("cmp") + "rcx, rax\n jae 1f\n mov qword ptr [rdi], rcx\n1:\n";
-}
 inline std::string x86_zeta_free_call();
 inline std::string x86_zdp_rbp_omega_at(int port);
 inline std::string x86_zdp_rbp_gamma_at(int port);
@@ -558,10 +542,6 @@ inline std::string x86_gamma(const char * mnem)   { return x86_jcc(mnem, X86P_GA
 inline std::string x86_omega()                    { return x86_jmp(X86P_OMEGA); }
 inline std::string x86_omega(const char * mnem)   { return x86_jcc(mnem, X86P_OMEGA); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_free() {
-    if (_.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC) return x86_add(x86_zr(), _.op_zls2_bytes);
-    return std::string();
-}
 enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_tgt(int t) {
@@ -1009,7 +989,7 @@ inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3
     }
     if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "DISAGREE", mismatches);
 }
-inline int x86_zop_regime(int off) { if (x86_zstorage() == ZC_STORAGE_FRAME_R12) return 1; if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
+inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zop(int off, int q, int bump) {   /* ⭐ THE FR (FRAME) ζ FAMILY. ⛔ MEASURED hq_P s276, AND IT CORRECTS THIS RUNG'S ORDERED WORK: generator ζ is split across TWO addressing families that are INDISTINGUISHABLE in the emitted .s (both print `qword ptr [rsp + N]`), which is why the s275 .s-grep read "9 of 9 ζ refs are rsp-relative" as ONE homogeneous problem. It is two. This function is the FR family (FRQ/FR, XK_FR*) and it had NO rbp arm anywhere; ZRES/ZOPQ are the SPINE family (rsp#, XK_RSP*) and already had one via op_xf_off. ⛔⭐ THE HALF THAT HOLDS THE YIELDED VALUE IS THIS ONE: on the four-line witness the literal's result descriptor lands at [rsp+16]/[rsp+24] through bb_lit_scalar.cpp:19's FRQ(_.op_off + w) arm -- proven by elimination, since ZRES's base is 0 and could not produce 16 -- so re-homing ONLY ZOPQ/ZRES, as this rung's NEXT instructed, would have re-homed the half that does NOT carry the value, and split the frame across two bases for item 2 to trip over. */
@@ -2000,56 +1980,15 @@ extern "C" void *rt_zls2_mark(void);
 extern "C" void  rt_zls2_release_to(void *);
 extern "C" char *g_zls2_cur;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_cur_lea(const char * reg) {
-    return x86_load_ro(reg, "g_zls2_cur", (uint64_t)(uintptr_t)(void *)&g_zls2_cur);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zls2_mark_save(const char * slot) {
-    if (x86_port_cstack())
-        return x86("note", HKN(5)) + x86("mov", slot, "rsp");
-    if (x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED)
-        return x86_zls2_cur_lea("rdi")
-             + x86("mov", "rax", RDQ("rdi", 0))
-             + x86("note", HKN(5)) + x86("mov", slot, "rax");
-    if (x86_port_mode() != ZC_PORT_ALLOC) return std::string();
-    return x86("call", "rt_zls2_mark", (uint64_t)(uintptr_t)(void *)rt_zls2_mark)
-         + x86("note", HKN(5)) + x86("mov", slot, "rax");
+    return x86("note", HKN(5)) + x86("mov", slot, "rsp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_zls2_release_to_rspd(int disp) {
-    if (!x86_port_cstack()) return x86_bomb("x86_zls2_release_to_rspd: FORTH-grant-only helper reached on a non-cstack port");
     static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", disp);
     return x86_align_leave()
          + x86("mov", "rsp", b[i])
          + x86_align_enter();
-}
-extern "C" void *rt_zls2_push(long k);
-extern "C" void  rt_zls2_pop(long k);
-extern "C" void *rt_zls_alloc(long bytes);
-extern "C" void  rt_zls_release(void *fb);
-extern "C" void  rt_zls_arbno_step1_store(void *p);
-extern "C" void *rt_zls_arbno_step1_load(void);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_push_call(long k) {
-    return x86_align_enter()
-         + x86("mov",  "rdi", k)
-         + x86("call", "rt_zls2_push", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls2_push)
-         + x86_align_leave();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_pop_call(long k) {
-    return x86_align_enter()
-         + x86("mov",  "rdi", k)
-         + x86("call", "rt_zls2_pop", (uint64_t)(uintptr_t)(void *)(void (*)(long))rt_zls2_pop)
-         + x86_align_leave();
-}
-extern "C" void rt_zls2_release_to(void *);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_release_to_reg(const char * reg, long disp) {
-    return x86_align_enter()
-         + (disp ? (x86("mov", "rdi", reg) + x86("add", "rdi", disp)) : x86("mov", "rdi", reg))
-         + x86("call", "rt_zls2_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls2_release_to)
-         + x86_align_leave();
 }
 std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();
@@ -2105,36 +2044,7 @@ inline std::string x86_port_hook(int site, int port) {
     if (site == X86H_JMP) s += x86_port_canary();
     if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    if (x86_port_mode() == ZC_PORT_ALLOC && _.op_zls2_ops && _.op_zls2_slot >= 0) {
-        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
-            s += x86_zls2_push_call(_.op_zls2_bytes)
-               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
-               + x86("mov", RDQ("rax", 0), "rcx")
-               + x86("mov", FRQ(_.op_zls2_slot), "rax");
-        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
-            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
-               + x86("mov", "rcx", RDQ("rax", 0))
-               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
-               + x86_zls2_release_to_reg("rax", _.op_zls2_bytes);
-    }
-    if ((x86_port_mode() == ZC_PORT_INLINE || x86_port_mode() == ZC_PORT_OWNED) && _.op_zls2_ops && _.op_zls2_slot >= 0) {
-        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
-            s += x86_zls2_cur_lea("rdi")
-               + x86("mov", "rax", RDQ("rdi", 0))
-               + x86_sub("rax", _.op_zls2_bytes)
-               + x86("mov", RDQ("rdi", 0), "rax")
-               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
-               + x86("mov", RDQ("rax", 0), "rcx")
-               + x86("mov", FRQ(_.op_zls2_slot), "rax");
-        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
-            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
-               + x86("mov", "rcx", RDQ("rax", 0))
-               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
-               + x86_add("rax", _.op_zls2_bytes)
-               + x86_zls2_cur_lea("rdi")
-               + x86("mov", RDQ("rdi", 0), "rax");
-    }
-    if (x86_port_cstack() && _.op_zls2_ops && _.op_zls2_slot >= 0) {
+    if (_.op_zls2_ops && _.op_zls2_slot >= 0) {
         long k16 = (_.op_zls2_bytes + 15L) & ~15L;
         if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
             s += x86_sub("rsp", k16)
@@ -2157,51 +2067,14 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop > 0) s += x86_add("rsp", (long)_.op_zgpop);
     if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop > 0) s += x86_add("rsp", (long)_.op_wpop);
-    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
-        s += x86_sub(x86_zr(), _.op_zls2_bytes);
     if (site == X86H_DEF && port == X86P_ALPHA) {
         static int on = -1;
         if (on < 0) { const char *e = getenv("SCRIP_RBX_FIELD_TRACE"); on = (e && *e == '1') ? 1 : 0; }
-        if (on) fprintf(stderr, "[RBX-FIELD] port=%d zls2_bytes=%ld zls2_ops=%ld fc_bytes=%ld fc_base=%ld\n",
-                         x86_port_mode(), (long)_.op_zls2_bytes, (long)_.op_zls2_ops, (long)_.op_fc_bytes, (long)_.op_fc_base);
+        if (on) fprintf(stderr, "[RBX-FIELD] zls2_bytes=%ld zls2_ops=%ld fc_bytes=%ld fc_base=%ld\n",
+                         (long)_.op_zls2_bytes, (long)_.op_zls2_ops, (long)_.op_fc_bytes, (long)_.op_fc_base);
     }
-    { long hk = (_.op_zls2_bytes > 0 && _.op_zls2_ops == 0) ? _.op_zls2_bytes : (_.op_fc_bytes > 0 ? (long)_.op_fc_bytes : 0L);
-    if (site == X86H_DEF && port == X86P_ALPHA && hk > 0 && x86_port_mode() == ZC_PORT_HEAP)
-        s += x86("mov", "rax", "rbx")
-           + x86("add", "rbx", hk)
-           + x86("cmp", "rbx", ABSQ(RT_WS_LIMIT))
-           + x86("ja",  L(60))
-           + x86("jmp", L(61))
-           + x86("def", L(60))
-           + x86_align_enter()
-           + x86("mov", "edi", hk)
-           + x86("call", "rt_zh_bump_slow", (uint64_t)(uintptr_t)(void *)rt_zh_bump_slow_addr())
-           + x86_align_leave()
-           + x86("mov", "rbx", ABSQ(RT_WS_TOP))
-           + x86("def", L(61)); }
-    if (x86_port_mode() == ZC_PORT_OWNED && (site == X86H_DEF || site == X86H_DEF_PAIR) && (port == X86P_ALPHA || port == X86P_BETA) && _.op_own_mark >= 0 && _.op_own_ci > 0)
-        s += x86_zls2_cur_lea("rdi")
-           + x86("mov", "rax", RDQ("rdi", 0))
-           + x86("mov", "rcx", FRQ(_.op_own_mark))
-           + x86_sub("rcx", (long)_.op_own_ci)
-           + x86_own_floor_store();
     if (x86_diag_regs_on() && (site == X86H_DEF || site == X86H_DEF_PAIR) && (port == X86P_ALPHA || port == X86P_BETA) && !emit_diag_regs_suppress())
         s += x86("mov", "r11", (long)_.nid);
-    if (x86_selfload_mode() == ZC_SELFLOAD_ALLOC && _.op_selfload) {
-        if (site == X86H_DEF && port == X86P_ALPHA && _.op_selfload == 1)
-            s += x86_align_enter()
-               + x86("mov",  "rdi", 4096L)
-               + x86("call", "rt_zls_alloc", (uint64_t)(uintptr_t)(void *)(void * (*)(long))rt_zls_alloc)
-               + x86("mov",  "rdi", "rax")
-               + x86("call", "rt_zls_arbno_step1_store", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_arbno_step1_store)
-               + x86_align_leave();
-        if (site == X86H_JMP && port == X86P_OMEGA && _.op_selfload == 2)
-            s += x86("call", "rt_zls_arbno_step1_load", (uint64_t)(uintptr_t)(void *)(void * (*)(void))rt_zls_arbno_step1_load)
-               + x86_align_enter()
-               + x86("mov",  "rdi", "rax")
-               + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-               + x86_align_leave();
-    }
     return s;
 }
 extern "C" std::string bb_zdp_probe(long op, long node, long port, long expect, long want_rbp);
