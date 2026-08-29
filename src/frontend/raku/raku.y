@@ -327,7 +327,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_USE
 %token <sval> TESTOP
 %token KW_MY KW_SAY KW_PRINT KW_IF KW_ELSE KW_ELSIF KW_WHILE KW_FOR
-%token KW_SUB KW_GATHER KW_TAKE KW_RETURN
+%token KW_SUB KW_GATHER KW_TAKE KW_RETURN KW_EXIT
 %token KW_CONSTANT
 %token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
@@ -523,6 +523,11 @@ stmt
     | KW_RETURN expr KW_UNLESS expr ';'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2);
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$4); ast_push(e,seq1(r)); $$=e; }
+    | KW_EXIT expr ';'
+        { tree_t *c=make_call("__rk_exit"); expr_add_child(c,$2); $$=c; }
+    | KW_EXIT ';'
+        { tree_t *c=make_call("__rk_exit"); tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0;
+          expr_add_child(c,z); $$=c; }
     | VAR_SCALAR '=' expr ';'
         { $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'

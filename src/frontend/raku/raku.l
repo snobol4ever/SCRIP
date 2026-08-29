@@ -69,6 +69,7 @@ WS       [ \t\r]
 "gather"        { return KW_GATHER; }
 "take"          { return KW_TAKE; }
 "return"        { return KW_RETURN; }
+"exit"          { return KW_EXIT; }
 "exists"        { return KW_EXISTS; }
 "delete"        { return KW_DELETE; }
 "unless"        { return KW_UNLESS; }

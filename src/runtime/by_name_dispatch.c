@@ -293,7 +293,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "rk_write", "rk_writes", "__rk_named_call", "__rk_rep",
+        "__rk_div", "rk_write", "rk_writes", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure",
@@ -1700,6 +1700,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!fn) return 0;
     extern int fh_capture_begin(char **, size_t *, int *); extern void fh_capture_end(int, int);
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
+    if (!strcmp(fn, "__rk_exit") && nargs == 1) {
+        long code = IS_INT_fn(args[0]) ? args[0].i : 0;
+        exit((int) code);
+    }
     if (!strcmp(fn, "__rk_arr_at") && nargs == 2) {
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = NULVCL; return 1; } *out = b->data[i - b->lo]; return 1;
