@@ -50,7 +50,6 @@ static std::string xa_bb_macro_library_text(void) {
          + "                        jmp              \\lbl_ω\n"
          + "                        .endm\n"
          + "# === END bb macro library ===\n";
-    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_macro_library(void) {
