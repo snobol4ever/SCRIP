@@ -148,10 +148,46 @@ mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
 # files shared it and only one was meant. So: a bare basename declares a file only when that basename is
 # UNIQUE among the loose files; when two or more share it, the declaration must be written as the path
 # relative to the KEEP.md. Unambiguous trees keep working untouched; ambiguous ones must say which they mean.
+# ⛔⭐⭐ A DEFERRAL RECORDS INTENT, NOT REACHABILITY (hq_B 2026-08-29, on hq_P + seat05's finding).
+# A file can be correctly deferred -- named, reasoned, pointed at a LIVE row -- and simultaneously run by
+# NOTHING. The two facts are independent and this gate reported only the first, which made the state read as
+# under control. MEASURED WITNESS: tests/prolog/rung31_bridge_catch/{04,05}_*.pl and
+# rung38_iso_errors/03_existence_error.pl are all correctly deferred here, and their family runners were
+# repointed at the consolidated suite -- which contains ZERO `throw(` and ZERO `existence_error` -- so nothing
+# executes them. The board stays green because nothing fails, and nothing fails because nothing runs.
+# ⛔ REFERENCING THE FAMILY IS NOT REACHING THE FILE. A consolidated runner names its family and points at
+# <family>.pl only; matching the family name would call every orphaned directory file "reachable" and the
+# check would certify exactly the state it exists to catch. Match the PATH or the BASENAME, or a runner that
+# globs the file's OWN directory -- nothing weaker.
+# ⛔ AND A GATE THAT MERELY LISTS A FILE IS NOT A RUNNER: this script and the declaration files are excluded,
+# or the census would count its own reading of a name as evidence that something executes it.
+# ⭐ SCOPE, stated because the general problem is bigger than what this can check (hq_P's sweep): of 140
+# consolidated suites only FIVE still have a directory. Where the loose files are GONE, "is anything running
+# this file" has to become "is anything running what this file COVERED" -- a construct check, not a path
+# check. This gate answers the path question for files that still exist, which is exactly the population a
+# PENDING.md declares. It does NOT answer the construct question, and must not be read as though it does.
+gate_reachable() {   # <abs-path> -> rc 0 if some runner reaches it
+    local _f="$1" _base _dir _rel
+    # ⛔ MATCH RELATIVE TO THE CORPUS ROOT, NOT THE SEAT ROOT. A first version stripped only $S4E, producing
+    # "corpus/tests/prolog/x.pl" -- but runners write "$CORPUS/tests/prolog/..." and never the literal
+    # "corpus/" prefix, so nothing ever matched and the check reported 44 of 44 deferred files DARK. A census
+    # that finds 100% of its population guilty is indicting itself, not the tree; that implausibility is the
+    # only reason the bug was caught before it landed as a finding.
+    _base="$(basename "$_f")"; _dir="$(dirname "$_f")"
+    _rel="${_f#"$S4E"/corpus/}"          # tests/prolog/x.pl  -- the form runners actually spell
+    _reldir="${_dir#"$S4E"/corpus/}"
+    grep -rlF --include='*.sh' --include='*.py' -e "$_base" -e "$_rel" "$S4E/SCRIP/scripts" 2>/dev/null \
+      | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
+    grep -rlF --include='*.sh' --include='*.py' -e "$_reldir/" "$S4E/SCRIP/scripts" 2>/dev/null \
+      | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
+    return 1
+}
+
 declare -A _BNC=()
 for f in "${LOOSE[@]}"; do _b=$(basename "$f"); _BNC["$_b"]=$(( ${_BNC["$_b"]:-0} + 1 )); done
 UND=0; UNDLIST=""; DECLBY=""; AMBIG=0
 DEF=0; DEFLIST=""; DEFROWS=""; PBAD=0; PBADLIST=""; PUNV=0; PUNVLIST=""
+DARK=0; DARKLIST=""
 for f in "${LOOSE[@]}"; do
     b=$(basename "$f"); d=$(dirname "$f"); found=""; via=""
     probe="$d"
@@ -212,7 +248,9 @@ for f in "${LOOSE[@]}"; do
         elif [ -n "$pfound" ]; then
             st="$(pending_row_state "$prow")"
             case "$st" in
-                LIVE)         DEF=$((DEF+1)); DEFLIST="$DEFLIST\n     ${f#$TREE/}  ->  $prow  (live; by $pvia)"; DEFROWS="$DEFROWS $prow";;
+                LIVE)         DEF=$((DEF+1)); DEFROWS="$DEFROWS $prow"
+                              if gate_reachable "$f"; then DEFLIST="$DEFLIST\n     ${f#$TREE/}  ->  $prow  (live; by $pvia)"
+                              else DARK=$((DARK+1)); DARKLIST="$DARKLIST\n     ${f#$TREE/}  ->  $prow  (deferred to a LIVE row, but NO RUNNER REACHES IT)"; fi;;
                 UNVERIFIABLE) PUNV=$((PUNV+1)); PUNVLIST="$PUNVLIST\n     ${f#$TREE/}  ->  $prow  (queue unreadable at $PO)";;
                 *)            PBAD=$((PBAD+1)); PBADLIST="$PBADLIST\n     ${f#$TREE/}  ->  $prow  ($st -- deferral is stale, convert these now)";;
             esac
@@ -226,10 +264,21 @@ done
 mapfile -t PENDFILES < <(find "$TREE" -type f -name 'PENDING.md' 2>/dev/null)
 DEFROWS_U="$(printf '%s\n' $DEFROWS | grep -v '^$' | sort -u | tr '\n' ' ')"
 echo "KEEP.md file(s) found: ${#KEEPFILES[@]}   PENDING.md file(s) found: ${#PENDFILES[@]}"
-echo "loose-but-undeclared: $UND   deferred-to-live-row: $DEF   stale-deferral: $PBAD   unverifiable-deferral: $PUNV"
+echo "loose-but-undeclared: $UND   deferred-to-live-row: $DEF   deferred-but-DARK: $DARK   stale-deferral: $PBAD   unverifiable-deferral: $PUNV"
 [ "$DEF"  -gt 0 ] && { echo "deferred to another row (NOT converted, NOT keepers -- this gate certifies THIS row's scope, not the tree's completeness):"; printf "$DEFLIST\n" | grep -v '^[[:space:]]*$'; }
 # ⛔ A STALE DEFERRAL IS A FAILURE, NOT A NOTE. The row it waits on is gone or already DONE, so nothing will ever
 # convert these -- which is precisely the permanent-allowance state PENDING.md exists to make impossible.
+# ⛔ DEFERRED-BUT-DARK IS A FAILURE, NOT A NOTE. The file is not "waiting to be converted"; it is not being
+# tested at all, and the deferral is what makes that look intentional. Cure: fold its constructs into the
+# consolidated suite, or repoint a runner at it -- do NOT delete the declaration to quiet the gate.
+if [ "$DARK" -ne 0 ]; then
+    echo "GATE FAILED -- $DARK deferred file(s) are DARK: declared against a live row, and executed by nothing:"
+    printf "$DARKLIST\n" | grep -v '^[[:space:]]*$'
+    echo "     -> a deferral records INTENT, not REACHABILITY. These are not 'not yet converted', they are"
+    echo "        UNTESTED, and the declaration is what makes that state look managed."
+    echo "     -> fix by folding the constructs into the consolidated suite, or by repointing a runner."
+    exit 1
+fi
 if [ "$PBAD" -ne 0 ]; then
     echo "GATE FAILED -- $PBAD file(s) deferred to a row that is DONE, missing, or unnamed:"
     printf "$PBADLIST\n" | grep -v '^[[:space:]]*$'
