@@ -11,7 +11,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
-TIMEOUT="${TIMEOUT:-10}"
+# ⛔⭐ 10s WAS A FAIL FACTORY AT FLEET LOAD, AND THE KILL WAS INDISTINGUISHABLE FROM A WRONG ANSWER
+# (hq_C 2026-08-29, verified by hq_B). This bound is PER PROGRAM, not for the board. A program taking 2s on a
+# quiet box can exceed 10s at load 30 with ~20 concurrent boards -- and because the captures below said
+# `|| true`, rc=124 was DISCARDED at the point of capture, the SIGTERM-truncated stdout was compared to the
+# .ref like any other answer, and the board printed FAIL. So two runs of THE CORRECTNESS BLOCKING FLOOR on an
+# identical tree at different fleet loads could legitimately disagree, with nothing in the output saying which
+# was contended. Raised to an order of magnitude over the measured per-program cost (a 1381-program board
+# measures M3=20s M4=53s in total, i.e. tens of ms each) rather than beside it.
+# ⛔ The raise alone does NOT remove the ambiguity, it only moves the threshold. The real cure is the third
+# state: see the rc capture in run_test and the TIMEOUT-KILLED refusal near the verdict.
+TIMEOUT="${TIMEOUT:-120}"
+TMOUT3=0; TMOUT4=0; TMOUT_LIST=""
 INC="${INC:-$CORPUS/include}"
 BEAUTY="${BEAUTY:-$CORPUS/tests/snobol4/beauty_suite}"
 DEMO="${DEMO:-$CORPUS/demo/snobol4}"
@@ -77,14 +88,21 @@ run_test() {
     # ── Mode 3: --run ──────────────────────────────────────────────────────
     local T0m3=$SECONDS
     local got3
+    # ⛔⭐ CAPTURE THE rc INSTEAD OF THROWING IT AWAY. `|| true` discarded rc=124, so the runner never held
+    # the one byte that says "we did not wait long enough" -- it then compared truncated stdout to the .ref and
+    # reported the only fact it had left. A SIGTERMed program was NOT MEASURED: neither PASS nor FAIL but
+    # UNPROVEN, the same three-state doctrine lib_gate.sh exists to enforce.
+    local rc3=0
     if [ -n "$inp_arg" ]; then
-        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null || true)
+        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
     else
-        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null || true)
+        got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < /dev/null 2>/dev/null); rc3=$?
     fi
     [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
     T_M3=$((T_M3+SECONDS-T0m3))
-    if [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
+    if [ "$rc3" -eq 124 ]; then
+        TMOUT3=$((TMOUT3+1)); TMOUT_LIST="${TMOUT_LIST}  TIMEOUT-M3 ${label} (killed at ${TIMEOUT}s -- NOT graded)\n"
+    elif [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
     else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL-M3 ${label}\n"; fi
 
     # ── Mode 4: --compile → assemble → link → run ─────────────────────────
@@ -93,14 +111,17 @@ run_test() {
     local bin="$WORKDIR/${slug}.bin"
     if ! compile_mode4 "$sno" "$bin"; then SKIP4=$((SKIP4+1)); FAILURES4="${FAILURES4}  SKIP(compile/link) ${label}\n"; return; fi
     local got4
+    local rc4=0
     if [ -n "$inp_arg" ]; then
-        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null || true)
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null); rc4=$?
     else
-        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null || true)
+        got4=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); rc4=$?
     fi
     [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
     T_M4=$((T_M4+SECONDS-T0m4))
-    if [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
+    if [ "$rc4" -eq 124 ]; then
+        TMOUT4=$((TMOUT4+1)); TMOUT_LIST="${TMOUT_LIST}  TIMEOUT-M4 ${label} (killed at ${TIMEOUT}s -- NOT graded)\n"
+    elif [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
     else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
 }
 
@@ -355,6 +376,7 @@ echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
 
 printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
+[ "$((TMOUT3+TMOUT4))" -gt 0 ] && printf "TIMEOUT-KILLED m3=%d m4=%d at %ss/program — NOT graded, NOT failures\n" "$TMOUT3" "$TMOUT4" "$TIMEOUT"
 # ⛔⭐ STAMP THE TREE ON THE BOARD ITSELF (seat09's ask, 2026-08-29, from a live disagreement).
 # seat09 and hq_B both ran THIS SCRIPT and got different denominators -- 1339 and 1377 -- each reproducible
 # on demand in its own root. Neither number is stale and neither of us could settle it, because the output
@@ -373,6 +395,20 @@ else echo "    (tree stamp unavailable — lib_gate.sh not sourced; record SCRIP
 # the printf above, so it exited 0 with any number of mode-4 failures -- the SAME false-green shape as `make test`,
 # sitting inside the blocking set itself. CLAUDE.md has said "mode-4 is the hard gate" throughout; nothing enforced
 # it. m3 stays informational per that documented contract, but it is printed in the verdict so it cannot hide.
+# ⛔⭐ A TIMEOUT-KILLED PROGRAM WAS NOT MEASURED, SO IT SHRINKS THE DENOMINATOR EXACTLY LIKE A MISSING PATH.
+# Reported and refused SEPARATELY from FAIL, because "answered wrong" and "we did not wait long enough" are
+# different facts and this board printed one word for both. ⭐ The separation is load-bearing, not the raised
+# bound: at ANY bound a contended box can cross it, so the instrument must be able to SAY it was contended
+# rather than silently convert contention into a correctness regression.
+if [ "$((TMOUT3+TMOUT4))" -gt 0 ]; then
+    echo "⛔ GATE REFUSES: $((TMOUT3+TMOUT4)) program(s) KILLED at the ${TIMEOUT}s per-program bound (m3=$TMOUT3 m4=$TMOUT4) -- NOT graded:"
+    printf "$TMOUT_LIST"
+    echo "   These are NOT failures and NOT passes. The board is SMALLER than its PASS counts suggest."
+    echo "   ⛔ Do NOT read this as a regression. Re-run on a quieter box, or raise the bound:"
+    echo "      TIMEOUT=600 bash scripts/test_corpus_snobol4.sh"
+    echo "   ⭐ A program killed even on an idle box at a generous bound is a real hang and wants a row."
+    exit 2
+fi
 if [ "$MISSING" -gt 0 ]; then
     echo "⛔ GATE REFUSES: $MISSING hardcoded corpus path(s) no longer resolve -- the board is SMALLER than it looks:"
     printf "$MISSING_LIST"
