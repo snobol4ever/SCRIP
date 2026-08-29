@@ -336,7 +336,18 @@ esac
 # ⭐ ONE PROTOCOL NUMBER, HOISTED (ceo 2026-08-29, row s4e-clear-needs-protocol-version-guard): next() and clear() both
 # guard on it now, and two inline copies of one value is the drift class this file convicts elsewhere. Bump it HERE and
 # in the shared PROTOCOL-VERSION file together.
-S4E_PROTO=4
+# ⛔ BUMPED 4 -> 5 (ceo ruling 2026-08-29, on hq_B's ask; "the word is given"). WHY A BUMP RATHER THAN A
+# CADENCE: the state-column cure (d1ae2d30) lives in EACH SEAT'S OWN s4e_msg.sh, so a clone that has not
+# pulled keeps writing lying FREE rows at every claim. Measured after the one-time reconcile of 18 rows: the
+# A count went to 1 within minutes, and that one row was minted by a seat whose clone predates the cure. So
+# reconciling on a cadence is symptom management -- the drift regenerates faster than a human sweeps it.
+# Raising this number makes next() REFUSE to dispatch from any clone below it, which forces the pull before
+# the next serve. That is what the guard was built for (seat09 79 commits behind, seat13 2, both silently
+# running v1's picker).
+# ⛔⛔ ORDERING IS LOAD-BEARING AND IS THE ONE WAY THIS GOES WRONG: this commit must be PUSHED BEFORE
+# $PO/PROTOCOL-VERSION is raised to 5. The shared file is what seats compare against; raise it first and
+# every seat is refused work while the commit that would fix them does not yet exist on origin.
+S4E_PROTO=5
 case "$cmd" in
   send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
