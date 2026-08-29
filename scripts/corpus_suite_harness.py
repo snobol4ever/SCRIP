@@ -140,24 +140,40 @@ def check_scrip(paths):
         refuse(f"scrip is not built/executable at {paths['scrip_bin']}")
 
 
-def resolve_oracle_bin(paths):
+def resolve_oracle_bin(paths, lang=""):
     """Resolve the correctness oracle's binary+flags via lib_oracle_flags.sh -- the ONE authority
     (RULES.md Oracles section): never hand-assemble an oracle path/flag pair in a second copy.
-    Shells out to the real bash accessors (sbl_correctness_bin, sbl_lang_flags) so a future change
-    to the shared oracle's location or capability check is picked up automatically, same as every
-    bash caller gets. Used only by cmd_capture_oracle_refs -- no other command in this file talks
-    to SPITBOL at all, since every other family already ships a committed .ref."""
+    Shells out to the real bash accessors so a future change to a shared oracle's location or
+    capability check is picked up automatically, same as every bash caller gets. Used only by
+    cmd_capture_oracle_refs -- no other command in this file talks to a live oracle at all, since
+    every other family already ships a committed .ref.
+
+    lang="" or "snobol4" (the original, only path until 2026-08-29): sbl_correctness_bin +
+    sbl_lang_flags, i.e. SPITBOL `-bf`. lang="prolog": swipl_bin() from the same lib, invoked
+    `-q -g halt` -- the exact flags every other swipl call in this repo already uses
+    (bench_prolog_vanroy.sh, test_bench_prolog_4way.sh, bench_prolog_perf.sh), not a new
+    invention. No other --lang has an oracle wired here yet; refuses rather than guessing one."""
     lib = paths["scrip_root"] / "scripts" / "lib_oracle_flags.sh"
     if not lib.is_file():
         refuse(f"lib_oracle_flags.sh missing at {lib} -- the ONE oracle-flag authority (RULES.md)")
-    r = subprocess.run(["bash", "-c", f". '{lib}' && sbl_correctness_bin && sbl_lang_flags"],
-                        capture_output=True, text=True)
-    if r.returncode != 0:
-        refuse(f"lib_oracle_flags.sh refused (sbl_correctness_bin/sbl_lang_flags): {r.stderr.strip()}")
-    lines = r.stdout.strip("\n").splitlines()
-    if len(lines) != 2 or not lines[0] or not lines[1]:
-        refuse(f"unexpected output from sbl_correctness_bin/sbl_lang_flags: {r.stdout!r}")
-    return lines[0], lines[1]  # oracle binary path, language flags (e.g. "-bf")
+    if lang in ("", "snobol4"):
+        r = subprocess.run(["bash", "-c", f". '{lib}' && sbl_correctness_bin && sbl_lang_flags"],
+                            capture_output=True, text=True)
+        if r.returncode != 0:
+            refuse(f"lib_oracle_flags.sh refused (sbl_correctness_bin/sbl_lang_flags): {r.stderr.strip()}")
+        lines = r.stdout.strip("\n").splitlines()
+        if len(lines) != 2 or not lines[0] or not lines[1]:
+            refuse(f"unexpected output from sbl_correctness_bin/sbl_lang_flags: {r.stdout!r}")
+        return lines[0], lines[1]  # oracle binary path, language flags (e.g. "-bf")
+    if lang == "prolog":
+        r = subprocess.run(["bash", "-c", f". '{lib}' && swipl_bin"], capture_output=True, text=True)
+        if r.returncode != 0:
+            refuse(f"lib_oracle_flags.sh refused (swipl_bin): {r.stderr.strip()}")
+        bin_path = r.stdout.strip()
+        if not bin_path:
+            refuse(f"unexpected empty output from swipl_bin: {r.stdout!r}")
+        return bin_path, "-q -g halt"
+    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog so far)")
 
 
 def run_oracle(oracle_bin, flags, sno_path, timeout):
@@ -893,23 +909,28 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno"):
 def cmd_capture_oracle_refs(args):
     """For a family with NO committed .ref files at all (oracle-graded loose files, e.g.
     probe/conformance -- see corpus-suites-consolidation task, probe-consolidate-conformance):
-    synthesizes a .ref for every .sno whose CURRENT m3 AND m4 output+returncode both agree with a
-    FRESH live run of the correctness oracle (sbl -bf), mirroring test_one_witness.sh's exact
-    contract. Writes nothing for a stem that disagrees, that already has a .ref (unless --force),
-    or where the oracle itself doesn't run cleanly -- those stay exactly as they are on disk, never
-    touched. This is a ONE-TIME bootstrap step: once a .ref exists, the family behaves exactly like
-    every other SNOBOL4 suite family (cmd_convert reads a static .ref, same as always) -- grading
-    never re-invokes the oracle after this point, matching how every other family's .ref is a frozen
-    snapshot, not a live re-check on every run."""
+    synthesizes a .ref for every source file whose CURRENT m3 AND m4 output+returncode both agree
+    with a FRESH live run of the correctness oracle (SPITBOL `-bf` by default, or --lang prolog's
+    swipl), mirroring test_one_witness.sh's exact contract. Writes nothing for a stem that
+    disagrees, that already has a .ref (unless --force), or where the oracle itself doesn't run
+    cleanly -- those stay exactly as they are on disk, never touched. This is a ONE-TIME bootstrap
+    step: once a .ref exists, the family behaves exactly like every other suite family (cmd_convert/
+    convert-blocks reads a static .ref, same as always) -- grading never re-invokes the oracle after
+    this point, matching how every other family's .ref is a frozen snapshot, not a live re-check on
+    every run. --lang defaults to snobol4 (unchanged behavior, glob *.sno) for every existing
+    caller; passing --lang prolog globs *.pl and captures against swipl instead (2026-08-29, see
+    tests-consolidate-prolog's ~77-file no-.ref backlog -- the gap this parameter closes)."""
     paths = resolve_paths()
     check_scrip(paths)
-    oracle_bin, flags = resolve_oracle_bin(paths)
+    lang = args.lang or "snobol4"
+    ext = LANG_CONFIGS[lang]["ext"] if lang != "snobol4" else ".sno"
+    oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
     modes = args.modes.split(",")
     family_dir = Path(args.family_dir)
-    srcs = sorted(family_dir.glob("*.sno"))
+    srcs = sorted(family_dir.glob(f"*{ext}"))
     if not srcs:
-        refuse(f"no .sno files found under {family_dir}")
+        refuse(f"no {ext} files found under {family_dir}")
 
     green, red = [], []
     for i, src in enumerate(srcs, 1):
@@ -1253,10 +1274,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    o = sub.add_parser("capture-oracle-refs", help="bootstrap missing .ref files for an oracle-graded, no-.ref family from a live SPITBOL run (m3+m4 must both agree, rc and text)")
+    o = sub.add_parser("capture-oracle-refs", help="bootstrap missing .ref files for an oracle-graded, no-.ref family from a live SPITBOL (or --lang dialect) run (m3+m4 must both agree, rc and text)")
     o.add_argument("family_dir")
     o.add_argument("--modes", default="m3,m4")
     o.add_argument("--force", action="store_true", help="re-capture even stems that already have a .ref (default: leave them alone)")
+    o.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="capture against a LANG_CONFIGS dialect's own oracle instead of SPITBOL (only 'prolog' has an oracle wired as of 2026-08-29; default '' means snobol4, unchanged behavior)")
     o.set_defaults(func=cmd_capture_oracle_refs)
 
     c = sub.add_parser("convert", help="convert a loose-file family into suite .sno/.ref, validating byte-equal before writing")
