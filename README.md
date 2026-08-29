@@ -111,6 +111,36 @@ never regress), `test_smoke_*` (per-language smokes), `board_*` / `bench_*`
 [`corpus`](https://github.com/snobol4ever/corpus) repository — SCRIP's scripts expect
 it checked out beside this repo.
 
+## Benchmarks — measured, labeled, gaps included
+
+Speed claims follow the house fact rules: the unit is a multiple on the faster axis
+(`reference time / SCRIP time` — above 1.00x SCRIP is ahead, below 1.00x behind), rows
+in one grid share one instrument, and a number's tree and date are part of its label.
+Measured 2026-08-27 (wall clock, scaled fixed work, `-O0` runtime, output agreement
+verified per kernel before timing — a wrong answer is never a fast answer):
+
+**SNOBOL4 × vs SPITBOL x64** (19/19 kernels output-identical; scaled trio):
+
+| kernel | work | × vs SPITBOL |
+|---|---|:---:|
+| loopsum | 3M iterations | **2.25x** |
+| concat | 200k appends | **22.7x** — SPITBOL grows O(n²) here; a class win, labeled as such |
+| patmatch | 1M iterations | **0.55x** — the named gap: the core pattern lane, under active cure |
+
+**Icon × vs Arizona `iconx`** (10/10 kernels output-identical):
+
+| kernel | × | kernel | × |
+|---|:---:|---|:---:|
+| int_loop | **5.64x** | list_dispatch | **2.52x** |
+| mod_isolate | **4.65x** | table_miss_dispatch | **1.49x** |
+| concat_dispatch | **4.45x** | concat_int_dispatch | 0.93x |
+| concat_table | **2.64x** | concat_intvar | 0.72x |
+| concat_strvar | **2.39x** | | |
+
+Prolog is graded for correctness against GNU Prolog and SWI-Prolog (204-program test
+tree, all modes); its rivals speed grid, and Raku's and Pascal's, are the frontier —
+they get published here the same way, measured with named instruments, when they land.
+
 Correctness is also triangulated against independent implementations: the vendored
 **snoflake fixture suite** (180 self-describing programs from the
 [snoflake](https://github.com/atdt/snoflake) project) runs four arms side by side —
