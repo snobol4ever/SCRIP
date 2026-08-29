@@ -64,6 +64,22 @@ if [ "$b_n" -gt 0 ]; then
   printf '⛔ NO SEAT CAN BE SERVED EITHER KIND, but they want OPPOSITE treatment and this script will not guess:\n'
   printf '   B-RESERVED is how an HQ-only row is held (the picker ignores the owner column; only state is\n'
   printf '     load-bearing), so "unservable by a seat" is the POINT. Do not park these to FREE to tidy them.\n'
+  # ⛔⭐ B-RESERVED IS NOT A STABLE STATE, AND THIS CENSUS IS A SNAPSHOT OF ONE (hq_P, 2026-08-29, reporting
+  # a reservation they destroyed themselves an hour after explaining the mechanism to me in writing).
+  # `unclaim` drives the state column to FREE UNCONDITIONALLY, even over ASSIGNED:<hq> -- ceo's 2026-08-28
+  # ruling, and right for the DISPATCH meaning of ASSIGNED, which really is spent when a lock is released.
+  # But ASSIGNED:<hq> also carries a RESTRICTION meaning that belongs to the ROW and is not spent by letting
+  # go of a lock. So a correct `unclaim` silently converts B-RESERVED into A, the picker serves the row
+  # within minutes, and a seat starts work its own baton forbids. That is what happened; seat16 caught it
+  # and restored it with `park <topic> ASSIGNED:hq_P`.
+  # ⭐ THE LESSON FOR ANY STATE CENSUS, and it is the converse of this script's own: A CENSUS THAT FINDS A
+  # CONFORMING ROW HAS NOT FOUND A SAFE ONE. That row was conforming at every instant -- ASSIGNED, then
+  # legitimately FREE, then ASSIGNED again. No instrument reading STATES would flag the hour in between,
+  # because the defect lived in a TRANSITION. (The durable cure -- a distinct RESTRICTED:<x> spelling rather
+  # than special-casing ASSIGNED:<hq> inside unclaim -- is hq_P's recommendation and ceo's ruling to make.)
+  printf '     ⚠ B-RESERVED IS FRAGILE: `unclaim` drives the column to FREE even over ASSIGNED:<hq>, so a\n'
+  printf '       reservation is destroyed by any correct release and is preserved only by `park`. This census\n'
+  printf '       is a SNAPSHOT — a row reserved here can be FREE and under way within minutes, nobody at fault.\n'
   printf '   B-STRANDED is a genuine marooning: `park <topic> FREE` returns it to the picker, or\n'
   printf '     `assign <seat> <topic>` locks it properly.\n'
   printf '   ⭐ The split is a HEURISTIC (presence of a released/ receipt), not a proof. Ask the owner before\n'
