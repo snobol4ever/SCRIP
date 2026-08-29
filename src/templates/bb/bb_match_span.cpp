@@ -14,20 +14,20 @@ extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long 
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
 static char sp_nlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long sp_gu() { return _.op_sa < 0; }
-static long sp_gi() { return _.op_sa >= 0; }
-static std::string sp_ndl_r8() {
-    return _.op_sa >= 0
-         ? x86("mov", "r8", XSAQ(8))
-         : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb);
-}
-static std::string sp_len_eax() {
-    return _.op_sa >= 0
-         ? x86("mov", "eax", XSAD(4))
-         : x86("mov32", "eax", CSK());
-}
-static long sp_chainp() { return sp_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
-static long sp_tablep() { return sp_gu() && !sp_chainp(); }
+#define sp_gu() (_.op_sa < 0)
+#define sp_gi() (_.op_sa >= 0)
+#define sp_ndl_r8() ( \
+      _.op_sa >= 0 \
+    ? x86("mov", "r8", XSAQ(8)) \
+    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), sp_nlb) \
+)
+#define sp_len_eax() ( \
+      _.op_sa >= 0 \
+    ? x86("mov", "eax", XSAD(4)) \
+    : x86("mov32", "eax", CSK()) \
+)
+#define sp_chainp() (sp_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define sp_tablep() (sp_gu() && !sp_chainp())
 static std::string sp_memb(long u, long i) {
     return i >= CSK()
          ? x86("jmp", L(1))
@@ -36,18 +36,18 @@ static std::string sp_memb(long u, long i) {
          + x86("je",  L(10 + u))
          + sp_memb(u, i + 1);
 }
-static std::string sp_char(long u) {
-    return x86("cmp",   "ecx", "r15d")
-         + x86("jge",   L(1))
-         + x86("movzx", "esi", "[r13+rcx]")
-         + (sp_chainp() ? sp_memb(u, 0)
-          : (sn4_cset32()
-             ? x86("bt",    "[rdi]", "esi")
-             + x86("jnc",   L(1))
-             : x86("cmpb0", "[rdi+rsi]", "0")
-             + x86("je",    L(1))))
-         + x86("add",   "ecx", (long)1);
-}
+#define sp_char(u) ( \
+      x86("cmp",   "ecx", "r15d") \
+    + x86("jge",   L(1)) \
+    + x86("movzx", "esi", "[r13+rcx]") \
+    + (sp_chainp() ? sp_memb(u, 0) \
+     : (sn4_cset32() \
+        ? x86("bt",    "[rdi]", "esi") \
+        + x86("jnc",   L(1)) \
+        : x86("cmpb0", "[rdi+rsi]", "0") \
+        + x86("je",    L(1)))) \
+    + x86("add",   "ecx", (long)1) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_span() {
     x86_begin();
