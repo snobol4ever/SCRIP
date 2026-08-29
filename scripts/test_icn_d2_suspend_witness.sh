@@ -93,6 +93,20 @@ end
 procedure main()
    every write(gen());
 end'
+# ⛔⭐ APPLY (`!`) TO A GENERATOR -- this witness set flipped the gate default-ON (ceo s283f) with ZERO
+# coverage of this shape (measured hq_B 2026-08-29: this file's only two `!` characters, before this
+# witness, were the shebang and a `!=` inside a comment). bb_call_value.cpp (the `!`-apply call-emission
+# template) has zero N-2 awareness -- RULES.md § INSTRUMENT LAWS FIFTH BATCH, witness D: a gate that had
+# no capacity to fail on the one broken shape was not evidence that shape worked. See row
+# icon-d2-witness-never-exercises-apply-the-shape-it-accepted (this widening) and
+# icon-apply-to-generator-segv-bb-call-value-has-no-n2-awareness (the emitter cure, tracked separately --
+# do NOT fix bb_call_value.cpp here, this file is the instrument, not the cure).
+mkw suspend_apply 'procedure gen(x)
+   suspend x;
+end
+procedure main()
+   every write(gen ! [10]);
+end'
 # ⭐ CONTROL ARMS -- these already pass and MUST keep passing. Arming the gate must be INERT outside generator procedures;
 # if one of these moves, the protocol has reached code it does not own and the result is a regression, not a cure.
 mkw ctl_return 'procedure gen()
@@ -104,7 +118,7 @@ end'
 mkw ctl_every 'procedure main()
    every write(1 to 3);
 end'
-WITNESSES="suspend_single suspend_multi suspend_loop suspend_nested suspend_after suspend_scan ctl_return ctl_every"
+WITNESSES="suspend_single suspend_multi suspend_loop suspend_nested suspend_after suspend_scan suspend_apply ctl_return ctl_every"
 # ---------------------------------------------------------------------------------------------------------------------
 # classify <expected-file> <got-file> <rc> -> CORRECT | WRONG | CRASH ; three states, never two.
 classify() { local exp="$1" got="$2" rc="$3"
