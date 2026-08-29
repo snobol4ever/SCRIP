@@ -11,13 +11,25 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../s
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255)." >&2; exit 3; }
 SBL="${SBL:-$(sbl_clean_bin)}"; CORPUS="${CORPUS:-$S4E/corpus}"; D="$CORPUS/demo"; W="${W:-$(mktemp -d)}"   # BENCHMARK oracle (s255)
 [ -x "$SBL" ] || { echo "⛔ ORACLE ABSENT: $SBL — every ratio below would be fiction, not a benign gap (row oracle-two-face-adoption). Build /home/resources/spitbol-bench-oracle (see RULES.md Oracles) -- seats do not clone x64 (s255)." >&2; exit 3; }
-input_of() { case $1 in claws5-match) echo $D/CLAWS5inTASA.dat;; treebank-match) echo $D/VBGinTASA.dat;; json-match) echo $D/twitter.json;; calculator-1-match|calculator-2-match) echo $D/calculator.input;; esac; }
+# ⛔ RESOLVE BY SEARCH, REFUSE ON UNRESOLVABLE -- the flat `$D/<name>` lookup this replaced went silent the same
+# way util_regen_demo_s_artifacts.sh did (row demo-regen-broken-subfolder-reorg): the s272 corpus re-grid moved
+# every demo source/data file from $D/<name> to $D/snobol4/<family>/<name>, and a coincidental path is not an
+# address -- a reorg ends the coincidence. Confirmed live: bare invocation raised python FileNotFoundError on
+# every $D/$p.sno lookup, then "claws5-match BUILD FAIL", before this fix.
+resolve1() { local hits n; hits="$(find "$D" -name "$1" -type f | sort)"; n="$(printf '%s\n' "$hits" | grep -c . || true)"
+    [ "$n" -eq 1 ] || { echo "⛔ REFUSING: $1 resolved to $n file(s) under $D (want exactly 1) -- corpus moved or demo renamed/deleted:" >&2; printf '      %s\n' $hits >&2; exit 3; }
+    printf '%s' "$hits"; }
+input_of() { case $1 in claws5-match) resolve1 CLAWS5inTASA.dat;; treebank-match) resolve1 VBGinTASA.dat;; json-match) resolve1 twitter.json;; calculator-1-match|calculator-2-match) resolve1 calculator.input;; esac; }
 mkrep() { python3 - "$1" "$2" "$3" << 'PYEOF'
 import re, sys
 src_path, out_path, reps = sys.argv[1], sys.argv[2], int(sys.argv[3])
 lines = open(src_path).read().splitlines(); mi = None
 for i, l in enumerate(lines):
-    m = re.match(r'^(\s*)src\s+(\S+)\s+:F\((\w+)\)\s*$', l)
+    # (.+?) not (\S+): a src line's pattern expression can be multiple tokens (e.g. claws5-match's "?   claws"),
+    # not always one bare name (e.g. json-match's "json") -- the old single-token regex silently NameError'd on
+    # any multi-token pattern (claws5-match, treebank-match, calculator-1-match: 3 of the 5 default PROGS),
+    # non-greedy so it still stops at the LAST "  :F(label)" rather than swallowing into it.
+    m = re.match(r'^(\s*)src\s+(.+?)\s+:F\((\w+)\)\s*$', l)
     if m and 'INPUT' not in l: mi, ind, pat, flab = i, m.group(1), m.group(2), m.group(3)
 tail = [ind+'tape           =  &LCASE &UCASE', ind+'tape           LEN(%d) . reps'%reps,
  'benchloop'.ljust(max(len(ind),10))+'src            '+pat+'                     :F('+flab+')',
@@ -26,7 +38,7 @@ tail = [ind+'tape           =  &LCASE &UCASE', ind+'tape           LEN(%d) . rep
 open(out_path,'w').write('\n'.join(lines[:mi]+tail)+'\n')
 PYEOF
 }
-evalrep() { python3 - "$D/calculator-1.sno" "$1" << 'PYEOF'
+evalrep() { python3 - "$(resolve1 calculator-1.sno)" "$1" << 'PYEOF'
 import sys
 src = open(sys.argv[1]).read().splitlines()
 cut = next(i for i,l in enumerate(src) if l.startswith('loop'))
@@ -54,7 +66,7 @@ REPS="${REPS:-20}"
 PROGS="${PROGS:-claws5-match treebank-match json-match calculator-1-match calculator-2-match}"
 _pcount=0; for _p in $PROGS; do _pcount=$((_pcount+1)); done   # ${VAR:-default} only substitutes on unset-or-empty-string; PROGS=" " (whitespace) survives it, and every `for p in $PROGS` loop below then word-splits to zero iterations while the script exits 0 -- silent, contentless success is worse than a printed all-zero table (row bench-sno-match4-progs-space-evasion)
 [ "$_pcount" -gt 0 ] || { echo "⛔ REFUSING: PROGS is empty or whitespace-only after defaulting -- nothing to benchmark." >&2; exit 3; }
-for p in $PROGS; do mkrep "$D/$p.sno" "$W/$p-rep.sno" "$REPS"; done
+for p in $PROGS; do mkrep "$(resolve1 "$p.sno")" "$W/$p-rep.sno" "$REPS"; done
 for p in $PROGS; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
 for p in $PROGS; do IN=$(input_of $p)
   so=$(timeout 300 "$SBL" $(sbl_lang_flags) "$W/$p-rep.sno" < "$IN" 2>/dev/null); mo=$(timeout 300 "$W/$p.prog" < "$IN" 2>/dev/null)
