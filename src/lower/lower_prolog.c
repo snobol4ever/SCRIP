@@ -1352,6 +1352,14 @@ static const tree_t * pl_init_resolve_body(const tree_t *gt) {
     return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * pl_init_goal_name(const tree_t *gt) {
+    char kb[128];
+    if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) snprintf(kb, sizeof kb, "%s/0", gt->v.sval);
+    else if (gt && gt->t == TT_FNC && gt->v.sval) snprintf(kb, sizeof kb, "%s/%d", gt->v.sval, gt->n);
+    else snprintf(kb, sizeof kb, "?");
+    return strdup(kb);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_register_program(&g_stage2, prog);
     pl_expand_disjunctions();
@@ -1402,6 +1410,26 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             body = body ? pl_synth_fnc2(",", b, body) : b;
         }
         if (body) {
+            /* ⭐ row prolog-failed-initialization-goal-exits-1-silently: today this exits rc=1 with ZERO
+               diagnostic (SWI warns and names the goal). Wrap with a plain ';' -- never '->' -- so it adds
+               no choice point and cuts nothing: every solution the chain would otherwise offer is tried
+               completely unchanged, and the warning fires only once the chain is genuinely exhausted, on
+               the exact path that already led to silent rc=1 -- so the existing rc is untouched too.
+               Scope: names every chained goal (comma-joined) rather than isolating exactly which one of
+               several exhausted, since only a single-goal chain is the reported witness and per-goal
+               isolation would need a cut (`->`) that changes cross-goal backtracking -- out of scope here. */
+            char msg[512]; int off = snprintf(msg, sizeof msg, "Warning: initialization goal failed: ");
+            if (off < 0) off = 0; if ((size_t) off >= sizeof msg) off = (int) sizeof msg - 1;
+            for (int i = 0; i < pl_init_ngoals_acc && (size_t) off + 1 < sizeof msg; i++) {
+                char *nm = pl_init_goal_name(pl_init_goals_acc[i]);
+                int n = snprintf(msg + off, sizeof msg - (size_t) off, "%s%s", i ? ", " : "", nm);
+                free(nm);
+                if (n > 0) off += n;
+                if ((size_t) off >= sizeof msg) off = (int) sizeof msg - 1;
+            }
+            if ((size_t) off + 1 < sizeof msg) { msg[off] = '\n'; msg[off + 1] = '\0'; }
+            tree_t *warn = pl_synth_fnc2("write", pl_synth_qlit("user_error"), pl_synth_qlit(strdup(msg)));
+            body = pl_synth_fnc2(";", body, pl_synth_fnc2(",", warn, pl_synth_qlit("fail")));
             tree_t *cl = ast_node_new(TT_CLAUSE);
             cl->v.sval = (char *) "$init_chain/0"; cl->v.dval = 0.0;
             ast_push(cl, (tree_t *) body);
