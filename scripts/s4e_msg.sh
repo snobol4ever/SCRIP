@@ -294,11 +294,25 @@ s4e_age_compact() { [ -n "${1:-}" ] && [ "$1" -gt 0 ] 2>/dev/null || { echo "-";
 # that day: 4 rows in that state, 0 in the mirror state. The asymmetry is the point -- the loud direction (a row
 # that keeps coming back) gets noticed and fixed; this one is SILENT and produces no symptom until a ruling
 # lands on the row and cannot be dispatched. See PROTOCOL-V2-DRAFT § A RESERVED QUESTION GETS AN ASSIGNED OWNER.
+# ⛔⭐ THE LOCK IS NOT OPTIONAL, AND ITS NAME IS A LIE (hq_B 2026-08-29, queue-column-unwritten-by-acquiring-verbs).
+# QUEUE.tsv is ONE file rewritten read-all/write-tmp/cat-back here, and the cure below puts that rewrite on the
+# CLAIM path -- which up to 16 seats hit at every prompt, where before it ran only on a park or a close. That is
+# exactly the shape `mint` already takes $PO/.mint.lock for, so this takes THE SAME lock: two differently-named
+# locks over one file are not mutual exclusion at all. Reusing .mint.lock rather than renaming it is deliberate --
+# a rename silently loses exclusion against any seat whose clone still has the old name, which is the stale-clone
+# class this file convicts elsewhere. Renaming it to .queue.lock fleet-wide is a separate, later row.
+# ⛔⭐ AND IT FAILS OPEN, NEVER CLOSED. A column write that cannot get the lock WARNS and returns 1; it must never
+# abort a claim or a dispatch. The claim file is the authority and the picker reads THAT -- the column is only its
+# readable twin, so a missed write costs legibility, while failing closed here would cost the fleet its dispatch.
 s4e_set_row_state() {   # <topic> <state>  -- no-op (rc 1) when the topic has no live QUEUE.tsv row
-  local _t="$1" _s="$2" _q="$PO/QUEUE.tsv" _tmp
+  local _t="$1" _s="$2" _q="$PO/QUEUE.tsv" _tmp _lk="$PO/.mint.lock" _got=0 _i _rc=0
   grep -qP "^[0-9]+\t\Q$_t\E\t" "$_q" 2>/dev/null || return 1
-  _tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$_t" -v s="$_s" '$2==t&&NF>3{$4=s} {print}' "$_q" > "$_tmp" \
-    && cat "$_tmp" > "$_q" && rm -f "$_tmp"
+  for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
+  [ "$_got" = 1 ] || { printf '⚠ QUEUE.tsv state column NOT updated for %s (lock busy 2s). The CLAIM is the authority and dispatch is unaffected; only its readable twin is stale.\n' "$_t" >&2; return 1; }
+  _tmp="$(mktemp)"
+  if awk -F'\t' -v OFS='\t' -v t="$_t" -v s="$_s" '$2==t&&NF>3{$4=s} {print}' "$_q" > "$_tmp"; then cat "$_tmp" > "$_q" || _rc=1; else _rc=1; fi
+  rm -f "$_tmp"; rmdir "$_lk" 2>/dev/null
+  return $_rc
 }
 s4e_mark_row() { mkdir -p "$PO/$ME"; printf '%s\n%s %s\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$PO/$ME/.last-row"; }
 s4e_sweep_orphans
@@ -404,6 +418,19 @@ case "$cmd" in
                 # for the releaser's own deliberate re-claim — `claim` is a chosen act, `next` is a serve, and
                 # the guard exists only to stop the SERVE. Never let this cure outlive a human decision.
                 s4e_release_clear "$topic"
+                # ⭐ queue-column-unwritten-by-acquiring-verbs (hq_B 2026-08-29, on hq_P's queue-wide audit).
+                # THE COLUMN LEARNED ABOUT ENDINGS AND NEVER ABOUT BEGINNINGS: park, done and unclaim all wrote it,
+                # while claim, `next` and assign -- every verb that TAKES a lock -- wrote only the claim file. Measured
+                # before the cure: of 16 rows holding a live claim, 15 read FREE. That is not a column three verbs
+                # forgot, it is a column no ACQUIRING verb ever wrote. Enforcing it HERE and not per-verb is hq_P's
+                # sharpening and is the load-bearing part: `next` reaches its lock through this line (so does the
+                # dependency-inversion promo), so one write covers the primary dispatch path and any future verb that
+                # claims through the primitive instead of re-implementing it.
+                # ⛔ COLUMN 3 IS DELIBERATELY NOT TOUCHED. serve() prints it as "owner", but on the live queue it
+                # carries an HQ on rows a SEAT holds (corpus-crosscheck-probe-total-conversion: col3 hq_B, claim
+                # seat12) -- which reads as umbrella-HQ + working-seat, not as drift. Writing the claimant there
+                # would destroy that, so col3 stays a question routed to hq_P/ceo, not a field this cure assumes.
+                s4e_set_row_state "$topic" "CLAIMED:$ME" || true
                 echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
   unclaim) # ⭐ s265 — RELEASE AN UNWORKED CLAIM. Minted because THREE seats hit its absence in one day (seat08,
          # seat09, seat13): a stale-clone picker mis-locked a row, the seat correctly refused to work it, and then had
@@ -452,7 +479,10 @@ case "$cmd" in
          # shape. The column is always driven to FREE, even over an ASSIGNED-BY state: an assignment is spent
          # the instant its lock is released, never restored to what the assigner intended (ruling: back to FREE).
          # A row whose column already reads FREE is simply rewritten FREE -> FREE: a no-op, not an error.
-         [ -f "$q" ] && { tmp="$(mktemp)"; awk -F'\t' -v OFS='\t' -v t="$topic" -v s="FREE" '$2==t&&NF>3{$4=s} {print}' "$q" > "$tmp" && cat "$tmp" > "$q"; rm -f "$tmp"; }
+         # ⭐ WAS A SECOND, INLINE COPY of the awk in s4e_set_row_state -- the exact "second, subtly-different
+         # rewriter" that function's own header says it was factored out to prevent, grown back four lines below it.
+         # Identical behaviour (col4 -> FREE), now through the one writer, so it inherits the lock instead of racing.
+         s4e_set_row_state "$topic" "FREE" || true
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          s4e_mark_row "$topic" RELEASED
@@ -757,6 +787,11 @@ case "$cmd" in
          # seat/HQ touched it" — it ends the boomerang cooldown outright. (PASS 1 serves assigned rows and never
          # consults the guard, so this is belt-and-braces: it keeps released/ from accumulating dead receipts.)
          s4e_release_clear "$topic"
+         # ⭐ Same cure, second acquisition site. assign does NOT route through the `claim` verb (it writes ANOTHER
+         # seat's name, which `claim` by construction cannot), so it is the one acquiring path the primitive does not
+         # already cover -- an explicit call, not a missed one. ASSIGNED:<seat> is the spelling two live rows already
+         # carry by hand; this makes it written. Col3 untouched here too, for the reason given at `claim`.
+         s4e_set_row_state "$topic" "ASSIGNED:$seat" || true
          # THE DOORBELL CARRIES NO CONTENT (ARCH-FLEET-CEO: "the mail never carries content that isn't also in a file").
          # A seat that never reads this message still resumes correctly, because the claim + task file are authoritative.
          if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
