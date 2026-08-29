@@ -1427,7 +1427,7 @@ void lower_icon_resolve_call_kinds(void) {
     icn_scan_write_reassignable();
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
-        if (!g) continue;
+        if (!g || !g->icn_cells_graph) continue;
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
             if (!nd || nd->op != IR_CALL) continue;
