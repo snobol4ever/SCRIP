@@ -22,6 +22,7 @@ DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
+void    rt_pl_iso_throw_existence_key(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
@@ -241,6 +242,22 @@ extern "C" int  bb_scc_handoff_room(void) { return g_c2h_pend.live && g_c2h_n < 
 extern "C" int  bb_scc_handoff_consume(const void *call_nd, const char *fname) { for (int i = 0; i < g_c2h_n; i++) if (g_c2h_tab[i].call == call_nd) { int ok = fname && !strcmp(g_c2h_tab[i].name, fname) ? 1 : 0; g_c2h_tab[i] = g_c2h_tab[--g_c2h_n]; return ok ? 1 : -1; } return 0; }
 extern "C" void bb_scc_handoff_reset(void) { g_c2h_n = 0; g_c2h_pend.live = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bool bcps_is_pl_pi(const char * s) {
+    if (!s || s[0] == '$') return false;
+    const char * sl = strrchr(s, '/');
+    if (!sl || sl == s || !sl[1]) return false;
+    for (const char * d = sl + 1; *d; d++) if (*d < '0' || *d > '9') return false;
+    return true;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_undef_fallback(uint64_t undef_fp) {
+    if (bcps_is_pl_pi(_.op_sval)) {
+        uint64_t pl_fp; { void (*fp)(const char *) = rt_pl_iso_throw_existence_key; pl_fp = (uint64_t)(uintptr_t)(void*)fp; }
+        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_iso_throw_existence_key", pl_fp) + x86_omega();
+    }
+    return x86("call", "rt_ab_undef_fn_stub", undef_fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_det_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
@@ -422,7 +439,7 @@ static std::string bcps_det_arm() {
                    + bcps_epi_named(1, epiw_fp_z)
                    + x86("jmp", L(2))
                    + x86("def", L(1))
-                   + x86("call", "rt_ab_undef_fn_stub", undef_fp_z))
+                   + bcps_undef_fallback(undef_fp_z))
                 : std::string(""))
              + x86("def", L(2))
              + x86_anchor_leave()
@@ -679,7 +696,7 @@ static std::string bcps_det_arm() {
             + x86("call", "rt_proc_call_epilogue_ret", epir_fp)
             + x86("jmp", L(2)))
          + IF(!dc, x86("def", L(1))
-         + x86("call", "rt_ab_undef_fn_stub", undef_fp))
+         + bcps_undef_fallback(undef_fp))
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
@@ -821,7 +838,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
          + x86("jmp", L(2))
          + x86("def", L(1))
-         + x86("call", "rt_ab_undef_fn_stub", undef_fp)
+         + bcps_undef_fallback(undef_fp)
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
