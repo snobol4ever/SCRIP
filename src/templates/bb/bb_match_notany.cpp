@@ -15,17 +15,15 @@ extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long 
 static char na_nlb[24];
 static char na_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long na_gu() { return _.op_sa < 0; }
-static long na_gi() { return _.op_sa >= 0; }
-static std::string na_ndl_r8() {
-    return _.op_sa >= 0
-         ? x86("mov", "r8",  XSAQ(8))
-         + x86("mov", "ecx", XSAD(4))
-         : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), na_nlb)
-         + x86("mov32", "ecx", CSK());
-}
-static long na_chainp() { return na_gu() && CSK() >= 2 && CSK() <= ZC_CSET_CHAIN_MAX; }
-static long na_tablep() { return na_gu() && (CSK() == 0 || CSK() > ZC_CSET_CHAIN_MAX); }
+#define na_gu() (_.op_sa < 0)
+#define na_gi() (_.op_sa >= 0)
+#define na_ndl_r8() (_.op_sa >= 0 \
+         ? x86("mov", "r8",  XSAQ(8)) \
+         + x86("mov", "ecx", XSAD(4)) \
+         : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), na_nlb) \
+         + x86("mov32", "ecx", CSK()))
+#define na_chainp() (na_gu() && CSK() >= 2 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define na_tablep() (na_gu() && (CSK() == 0 || CSK() > ZC_CSET_CHAIN_MAX))
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {
