@@ -1045,9 +1045,6 @@ static const char * sno_cset_fold(const tree_t * a) {
 }
 static int sno_is_pattern_rhs(const tree_t * t);
 static int sno_pat_supported(const tree_t * t);
-static int sno_pat_contains_arbno(const tree_t * t);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_arbno_chain_on(void) { return rt_zeta_port_mode() == ZC_PORT_FORTH; }
 static const char * sno_pat_collect(const tree_t * pat);
 static struct { const char * var; const char * procname; const tree_t * pat; } g_sno_fz[SNO_PAT_MAX];
 static int g_sno_nfz = 0;
@@ -1602,7 +1599,6 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     }
     case TT_ARBNO: {
         if (!(t->n > 0) || !t->c[0]) sno_fatal("ARBNO requires a pattern argument", NULL);
-        if (sno_pat_contains_arbno(t->c[0]) && !sno_arbno_chain_on()) sno_fatal("nested ARBNO awaits the rsp iteration-frame chain (ZC_PORT_FORTH — GOAL-SNOBOL4-BB ZB-ITER-1a)", NULL);
         IR_t * R = lc_build(g, IR_MATCH_ARBNO, succ, NULL);
         sno_ω_to(R, fail);
         int before = g->n;
@@ -1842,13 +1838,6 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     return succ;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_pat_contains_arbno(const tree_t * t) {
-    if (!t) return 0;
-    if (t->t == TT_ARBNO) return 1;
-    for (int i = 0; i < t->n; i++) if (sno_pat_contains_arbno(t->c[i])) return 1;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_supported(const tree_t * t) {
     if (!t) return 0;
     const tree_e k = sno_pat_eff_kind(t);
@@ -1863,7 +1852,7 @@ static int sno_pat_supported(const tree_t * t) {
     if (k == TT_ABORT || k == TT_FAIL) return 1;
     if (k == TT_BAL) return 1;
     if (k == TT_SUCCEED) return 0;
-    if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]) && (sno_arbno_chain_on() || !sno_pat_contains_arbno(t->c[0]));
+    if (k == TT_ARBNO) return t->n > 0 && t->c[0] && sno_pat_supported(t->c[0]);
     if (k == TT_VAR) return t->v.sval != NULL;
     if (k == TT_KEYWORD) return t->v.sval != NULL;
     if (k == TT_DEFER) return t->n > 0 && t->c[0] != NULL;
