@@ -3075,6 +3075,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_is_retry = omega_is_beta && !beta_is_stmt_land(otgt);
         for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
             node_γ = (gamma_is_phi && na_f[k]) ? na_f[k] : (gamma_is_sig && na_s[k]) ? na_s[k] : gamma_is_beta ? betas[k] : lbls[k];
+            if (getenv("SCRIP_NAF_DIAG") && gamma_is_phi && na_f[k]) fprintf(stderr, "[NAF-DIAG] GAMMA i=%d(%s) -> na_f[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_f[k]->name);
             if (gamma_is_sig && fc_sig[k]) {
                 int _N = (int)(nodes[k]->n_operands / 2), _arm = 0, _src = -1, _best = -1;
                 for (int _p = 0; _p < n; _p++) if (nodes[_p] == nodes[i]) { _src = _p; break; }
@@ -3090,7 +3091,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; break; }
+        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_f[k]) ? na_f[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_f[k]) fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_f[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_f[k]->name); break; }
         { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
