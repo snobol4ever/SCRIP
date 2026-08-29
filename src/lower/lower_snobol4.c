@@ -676,7 +676,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NOT: {
         const tree_t * inner = (t->n > 0) ? t->c[0] : NULL;
         if (!inner) sno_fatal("TT_NOT with no operand", NULL);
-        IR_t * gate = lc_build(cx->g, IR_GOTO, γ, NULL);
+        IR_t * gate = lc_build(cx->g, IR_LIT_STRING, γ, NULL); IR_LIT(gate).sval = (char *) "";  /* ~X SUCCEEDS with the NULL STRING as its VALUE (SPITBOL: SIZE(~F())=0, DATATYPE STRING) -- a bare IR_GOTO here is control flow with no ZLS slot, so any VALUE consumer (a match subject: `~TRY() CUT(2)`) drove drive_value_slot() onto a non-value-producer and aborted. */
         IR_t * r = NULL;
         IR_t * e = sx_lower(cx, inner, ω, gate, &r);
         if (res) *res = gate;
