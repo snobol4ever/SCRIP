@@ -72,5 +72,4 @@ std::string bb_scan_upto() {
              + x86("label",   LS(2))
              + x86(".string", _.op_name1) :
                x86_bomb("bb_scan_upto: unhandled (needs literal cset arg + descr flat-chain slot)");
-    return std::string();
 }
