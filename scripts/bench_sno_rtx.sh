@@ -83,9 +83,11 @@ print(v[len(v)//2] if v else 0)" "$@"; }
 echo "=== RTX GATE A/B RAIL — family $FAM (gate $GATE) — RT_OPT=$RT_OPT, mode 3, R=$R, MIN_MS=${MIN_MS} ==="
 printf "%-18s %7s %9s %9s %7s  %s\n" PROGRAM N on_ms off_ms ratio VERDICT
 FAILED=0
+FOUND=0
 for n in $PROGS; do
   src="$BENCH/$n.sno"
   [ -f "$src" ] || { printf "%-18s %7s %9s %9s %7s  %s\n" "$n" - - - - "MISSING"; continue; }
+  FOUND=$((FOUND + 1))
   # ---- auto-range N until the OFF-arm window is adequate ----
   F=1; sc="$W/$n.sno"; cp "$src" "$sc"; w=$(run1 "$sc" 0 | msof); w="${w:-0}"
   while [ "${w:-0}" -lt "$MIN_MS" ] && [ "$F" -lt "$NMAX_SCALE" ]; do
@@ -110,5 +112,9 @@ for n in $PROGS; do
   ratio=$(python3 -c "print('%.3f' % ($off/$on)) if $on else print('inf')")
   printf "%-18s %7s %9s %9s %7s  %s\n" "$n" "x$F" "$on" "$off" "$ratio" "ok (off/on; >1 = asm faster)"
 done
+if [ "$FOUND" -eq 0 ]; then
+  echo "⛔ NO-PROGRAMS: 0 of $(echo $PROGS | wc -w) requested program(s) found under BENCH=$BENCH for family $FAM — untested, not clean"
+  FAILED=1
+fi
 echo "--- every number above is ${GATE}=1 vs =0 on ONE binary, RT_OPT=$RT_OPT, medians of $R interleaved rounds ---"
 exit $FAILED
