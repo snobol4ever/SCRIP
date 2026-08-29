@@ -55,7 +55,7 @@ if [ ! -d "$CORPUS" ]; then echo "⛔ REFUSED TO GRADE: corpus not found at $COR
 # said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most
 # dangerous shape a board has, and corpus paths have moved three times in two days, so this WILL happen again.
 # FAIL=0 is not a verdict; FAIL=0 over the expected denominator is.
-for _d in "$DEMO" "$BEAUTY"; do
+for _d in "$DEMO"; do   # beauty_suite left this list 2026-08-29: its 13 drivers were absorbed into the MASTER suite (one-flat-suite cutover) and the dir no longer exists; the master block refuses on ITS absence instead
     if [ ! -d "$_d" ]; then echo "⛔ GATE REFUSES: corpus subtree missing: $_d"; echo "   The corpus layout moved. Repoint this script; do NOT read a smaller total as a pass."; exit 2; fi
 done
 
@@ -160,9 +160,9 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort)
 # ⛔ So crosscheck gets the same refusal, conditioned on the distinguisher the other two do not need: absence of
 # the loose tree is acceptable ONLY when the converted families are actually present to be graded instead.
 if [ ! -d "$CORPUS/crosscheck" ]; then
-    _cc_conv="$CORPUS/tests/snobol4/crosscheck"
-    if [ -d "$_cc_conv" ] && [ "$(find "$_cc_conv" -name '*.sno' 2>/dev/null | wc -l)" -gt 0 ]; then
-        echo "note: loose crosscheck tree is absent and its converted families ARE present ($(find "$_cc_conv" -name '*.sno' | wc -l) family file(s) at ${_cc_conv#$S4E/}) — graded by the suite block below, not skipped."
+    _cc_master="$CORPUS/tests/snobol4/master/ALL.csv"
+    if [ -f "$_cc_master" ] && grep -q ',crosscheck_' "$_cc_master"; then
+        echo "note: loose crosscheck tree is absent and its entries live in the MASTER suite (one-flat-suite ruling) — graded by the master block below, not skipped."
     else
         echo "⛔ GATE REFUSES: corpus subtree missing: $CORPUS/crosscheck"
         echo "   AND no converted crosscheck families exist at $_cc_conv either, so this board would grade a"
@@ -172,165 +172,52 @@ if [ ! -d "$CORPUS/crosscheck" ]; then
     fi
 fi
 
-# ── Suite families (corpus-suites-consolidation) ────────────────────────────────
-# ⭐ A converted family's loose files are gone (the crosscheck loop above simply stops finding
-# them once deleted -- no exclusion needed here); this block runs its suite .sno/.ref pair through
-# the ONE Python harness (corpus_suite_harness.py) and folds the result into the SAME PASS3/FAIL3/
-# PASS4/FAIL4/SKIP4 this board already reports, so "byte-equal before and after" is a statement
-# about these same four counters, not a parallel instrument. CRASH/HANG/UNPROVEN at the run stage
-# fold into FAIL -- the bucket the old per-file instrument put them in too (it never distinguished
-# them either, see RULES.md/FINDING 5ad95ab1); mode-4 compile/link failure folds into SKIP4,
-# matching compile_mode4()'s own contract. Missing harness or missing suite files is the SAME
-# MISSING/rc=2 loud refusal as a stale hardcoded demo path -- never a silent narrower denominator.
+# ── THE ONE FLAT SUITE (Lon 2026-08-29: "one big *.sno and one big *.ref ... Not 10's of folders and 100's of files") ──
+# Replaces the three per-family discovery blocks that lived here (crosscheck / probe / top-level-misc --
+# each with its own floor): every absorbed family's entries are graded through the ONE master pair, with
+# per-entry provenance in master/ALL.csv's origin column and levels as rank prefixes. The un-absorbable
+# residue (beauty_suite drivers, rtx_func_11, linker, probe_loose, stdin classes) is listed LOUDLY in
+# master/ALL.excluded.txt and still graded by its own blocks below (beauty) or its own instruments.
+# Counter folding is byte-identical to the retired blocks': fail+crash -> FAIL, hang/unproven -> TMOUT
+# (measured-nothing, never a verdict), m4 compile/link skip -> SKIP4. XFAIL entries are graded separately
+# by the harness (a pre-existing red never inflates FAIL); XPASS is echoed loudly -- a cured bug whose
+# marker nobody promoted is actionable in the opposite direction.
 HARNESS="$HERE/corpus_suite_harness.py"
-SUITES="$CORPUS/tests/snobol4"
-# ⭐⭐ FAMILIES ARE DISCOVERED FROM THE TREE, NEVER HAND-MAINTAINED (two seats converged on this the same day --
-# rows crosscheck-families-filesystem-truth + corpus-suite-family-list-should-autodiscover -- both curing hq_P's
-# s277 measurement: a hand-typed for-loop enumeration here let 98 entries -- 19 converted families -- vanish
-# from the board silently, GATE OK, while m3/m4 totals fell 365 -> 267. A typed list is a SECOND SOURCE OF TRUTH
-# about what exists on disk and it drifts silently in the direction that looks like success. THE CURE: every
-# *.sno with a sibling *.ref directly under $SUITES/crosscheck IS a family -- nothing is named, so families are
-# now discovered from the tree and nothing can be forgotten when a new one lands.
-# ⛔ Scoped to crosscheck/ specifically, not all of $SUITES: beauty_suite/ already has its own driver-pair loop
-# a few lines below and would be DOUBLE-COUNTED by a wider glob (its *_driver.sno/.ref pairs match the identical
-# by-basename rule). A separate top-level-misc block further below (after the probe block) covers families born
-# directly at $SUITES/*.sno (e.g. feat.sno) with its own independent floor -- deliberately NOT folded into this
-# loop or its floor, so a crosscheck-only regression and a top-level-misc regression are never conflated into one
-# number. parser/smoke/jvm_j3/linker are NOT suite-format families at all (see that block's own comment).
-# ⛔ DISCOVERY ALONE CANNOT SEE A FAMILY THAT WENT MISSING (fewer names discovered looks identical to fewer names
-# that exist) -- covers the ADDITION direction (a new pair needs no registration, and
-# test_gate_crosscheck_family_list_autodiscovers.sh proves that direction hermetically) but not the DELETION
-# direction, so a FLOOR stands guard below: a discovered count under it SHRINK-REFUSES through the same
-# MISSING/stale-vs-gone diagnosis this script already runs for a stale hardcoded demo path, rather than
-# reporting a smaller total as green (TWO-PART PROOF, RULES.md -- the criterion must be able to say NO both ways).
-# FLOOR PROVENANCE: 29 pairs, counted directly off $SUITES/crosscheck this commit. This is a FLOOR, not a
-# pinned total (RULES.md: a probe never asserts a denominator) -- growth needs no re-pin, ever. Only a
-# genuine, intentional retirement may lower this number, in the SAME commit that removes the pair -- exactly
-# what the old list required of an ADDITION, now required only of a REMOVAL.
-SUITE_FAMILY_FLOOR="${SUITE_FAMILY_FLOOR:-29}"
-suite_found=0
-while IFS= read -r s_sno; do
-    family="crosscheck/$(basename "$s_sno" .sno)"
-    s_ref="${s_sno%.sno}.ref"
-    if [ ! -f "$HARNESS" ]; then
-        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
-    fi
-    if [ ! -f "$s_ref" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no oracle ref at ${s_ref}\n"; continue
-    fi
-    suite_found=$((suite_found+1))
-    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
-    if [ -z "$board" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: harness produced no SUITE_BOARD line\n"; continue
-    fi
-    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
-    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
-    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    # ⛔⭐ HANG AND UNPROVEN ARE NOT FAILURES, AND THE HARNESS ALREADY TOLD US SO (hq_C's find). This line
-    # collapsed m3_fail + m3_crash + m3_hang + m3_unproven into one FAIL count -- discarding a distinction
-    # corpus_suite_harness.py had ALREADY computed and printed. That is the same defect just cured in
-    # run_test(), one layer up: the instrument telling you less than it knows. A hang and an unproven entry
-    # were NOT MEASURED; they are neither pass nor fail, and folding them into FAIL makes a contended or
-    # unmeasurable run indistinguishable from a wrong answer.
-    # ⚠️ Both terms are 0 on this population today (the fuzz family's expected hangs are classified XFAIL by
-    # the harness, m3_hang=0), so this changes no verdict today -- it stops the next one from lying.
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u))
-    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
-    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
-done < <(find "$SUITES/crosscheck" -maxdepth 1 -name "*.sno" 2>/dev/null | sort)
-if [ "$suite_found" -lt "$SUITE_FAMILY_FLOOR" ]; then
-    suite_family_shortfall=$((SUITE_FAMILY_FLOOR-suite_found))
-    MISSING=$((MISSING+suite_family_shortfall))
-    MISSING_LIST="${MISSING_LIST}  suite-family-count: discovered ${suite_found} pairs under corpus/tests/snobol4/crosscheck, pinned floor is ${SUITE_FAMILY_FLOOR} (short by ${suite_family_shortfall}) -- a family vanished from the tree, or this checkout is behind origin\n"
+MASTER_SNO="$CORPUS/tests/snobol4/master/ALL.sno"
+MASTER_REF="$CORPUS/tests/snobol4/master/ALL.ref"
+MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1495}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
+if [ ! -f "$HARNESS" ]; then
+    echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
+fi
+if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ]; then
+    echo "⛔ GATE REFUSES: the master suite is missing at $MASTER_SNO"
+    echo "   The per-family suite files were RETIRED INTO the master (Lon 2026-08-29 one-flat-suite ruling);"
+    echo "   a checkout without it cannot grade the suite population at all. Pull corpus; do NOT read the"
+    echo "   remaining loose blocks' smaller total as the board."
+    exit 2
+fi
+board=$(python3 "$HARNESS" run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
+if [ -z "$board" ]; then
+    echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"; exit 2
+fi
+field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
+mt=$(field total)
+m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
+m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip); m4x=$(field m4_xfail); m4xp=$(field m4_xpass)
+PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
+PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+[ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: master/ALL.csv)\n"
+[ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: master/ALL.csv)\n"
+echo "master: total=$mt · m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp"
+[ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted -- as actionable as a failure, in the opposite direction (names: python3 $HARNESS run ... | grep XPASS)"
+if [ "$mt" -lt "$MASTER_ENTRY_FLOOR" ]; then
+    MISSING=$((MISSING+MASTER_ENTRY_FLOOR-mt))
+    MISSING_LIST="${MISSING_LIST}  master-entry-count: master total ${mt} is under the floor ${MASTER_ENTRY_FLOOR} -- entries vanished from the master, or this checkout is behind origin\n"
 fi
 
-# ── Suite families (probe/ house-cleaning fan-out) ──────────────────────────────
-# ⭐ Same discovered-not-hand-maintained mechanism as the crosscheck block above, generalized to a
-# second source directory: $SUITES/probe. The 2026-08-28 house-cleaning fan-out
-# (corpus-suites-consolidation's probe-consolidate-* rows) converts probe/<family> loose-file trees
-# into suite pairs under tests/snobol4/probe/<family>.{sno,ref}; this loop discovers them the same
-# filesystem-is-truth way, so no sibling fan-out row needs its own hand-registration step here -- the
-# exact landmine hq_C raised to rank 0 (row corpus-suite-family-list-should-autodiscover) after corpus
-# 0e75bfdb's 98-entry silent-invisibility incident, generalized before a SECOND fan-out (~2,300 files,
-# 11 concurrent rows) repeats it. First tenant: tests/snobol4/tests/snobol4/probe_loose/conformance (probe-consolidate-
-# conformance, 92 of 147 tests/snobol4/probe_loose/conformance witnesses; the other 55 stay loose, see that directory's
-# own KEEP.md -- 17 still diverge from the live oracle, 38 are cited by name in an existing task file).
-while IFS= read -r family; do
-    s_sno="$SUITES/probe/${family}.sno"; s_ref="$SUITES/probe/${family}.ref"
-    if [ ! -f "$HARNESS" ]; then
-        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
-    fi
-    if [ ! -f "$s_sno" ] || [ ! -f "$s_ref" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:probe/${family}: no suite file at ${s_sno}\n"; continue
-    fi
-    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
-    if [ -z "$board" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:probe/${family}: harness produced no SUITE_BOARD line\n"; continue
-    fi
-    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
-    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
-    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))   # hang/unproven are NOT failures -- see the crosscheck block above
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
-    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
-    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
-done < <(find "$SUITES/probe" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
-    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/probe/}"
-done)
-
-# ── Suite families (top-level misc, e.g. feat) ───────────────────────────────────
-# ⭐ Same discovered-not-hand-maintained mechanism as crosscheck/probe above, generalized to a third
-# source: $SUITES itself at maxdepth 1 -- a family born directly as tests/snobol4/<name>.sno (not nested
-# under crosscheck/ or probe/), reading with an UNPREFIXED name. maxdepth 1 structurally cannot reach
-# beauty_suite/'s contents (one directory down, see beauty_suite/KEEP.md for why it never converts at
-# all) or crosscheck's/probe's own contents (also one directory down), so no separate exclusion is
-# needed. parser/smoke/jvm_j3 have zero .ref siblings today -- they are graded LIVE against the oracle by
-# scorecard_snobol4.sh's MISC_DIRS, a different grading model this harness does not implement; linker/
-# tests cross-file IMPORT/EXPORT linking, which the suite format's one-file-per-entry model cannot
-# represent. None of those four are discovered here (task tests-consolidate-snobol4-loose's ledger has
-# the full disposition). First tenant: tests/snobol4/feat.sno (16 of feat/'s 19 pairable programs; 3 left
-# loose as documented pre-existing reds, 2 for having no .ref at all).
-# ⭐ FLOOR, same shape and same reasoning as crosscheck's above -- own counter, own floor, deliberately not
-# merged with crosscheck's suite_found/SUITE_FAMILY_FLOOR so the two regressions are never conflated.
-MISC_SUITE_FAMILY_FLOOR="${MISC_SUITE_FAMILY_FLOOR:-1}"
-misc_suite_found=0
-while IFS= read -r family; do
-    s_sno="$SUITES/${family}.sno"; s_ref="$SUITES/${family}.ref"
-    if [ ! -f "$HARNESS" ]; then
-        echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
-    fi
-    if [ ! -f "$s_ref" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: no oracle ref at ${s_ref}\n"; continue
-    fi
-    misc_suite_found=$((misc_suite_found+1))
-    board=$(python3 "$HARNESS" run "$s_sno" "$s_ref" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
-    if [ -z "$board" ]; then
-        MISSING=$((MISSING+1)); MISSING_LIST="${MISSING_LIST}  suite:${family}: harness produced no SUITE_BOARD line\n"; continue
-    fi
-    field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
-    m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
-    m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))   # hang/unproven are NOT failures -- see the crosscheck block above
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
-    [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
-    [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
-done < <(find "$SUITES" -maxdepth 1 -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
-    b="${s%.sno}"; [ -f "$b.ref" ] && printf '%s\n' "${b#"$SUITES"/}"
-done)
-if [ "$misc_suite_found" -lt "$MISC_SUITE_FAMILY_FLOOR" ]; then
-    misc_shortfall=$((MISC_SUITE_FAMILY_FLOOR-misc_suite_found))
-    MISSING=$((MISSING+misc_shortfall))
-    MISSING_LIST="${MISSING_LIST}  misc-suite-family-count: discovered ${misc_suite_found} pairs directly under corpus/tests/snobol4, pinned floor is ${MISC_SUITE_FAMILY_FLOOR} (short by ${misc_shortfall}) -- a family vanished from the tree, or this checkout is behind origin\n"
-fi
-
-# ── Beauty library drivers ─────────────────────────────────────────────────────
-for sno in "$BEAUTY"/*_driver.sno; do
-    [ ! -f "$sno" ] && continue
-    name=$(basename "$sno" .sno)
-    ref="$BEAUTY/${name}.ref"
-    run_test "$name" "$sno" "$ref" "" ""
-done
+# ── Beauty library drivers: RETIRED INTO THE MASTER (one-flat-suite cutover 2026-08-29) ──
+# The 13 *_driver.sno/.ref pairs and their .inc companions were absorbed into master/ALL.* (origins
+# beauty_suite__*, see master/ALL.csv) and the loose pairs deleted; the master block above grades them.
 
 # ── Demo programs ─────────────────────────────────────────────────────────────
 # Coverage audit (demo-corpus-coverage-audit, 2026-08-22): wordcount's ref/input were
@@ -360,7 +247,7 @@ run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "
 # associated variable was silently discarded in BOTH modes (rc=0, ordinary output intact), because
 # _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
 # than -f2 because this harness compares stdout; the defect was never fd2-specific.
-run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.sno"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.ref"        "" ""
+# feat_io_fd_assoc: retired hardcoded row (one-flat-suite cutover) -- absorbed into the master (origin feat_f21_io_fd_assoc... see master/ALL.csv), graded there; the loose pair is deleted.
 # k41: the IMMEDIATE pattern lambda, the arm that is LANDED (row lang-lambda-pattern-primitives).
 # ⛔ NOT k40. k40 is the row's INSTRUMENT, authored before the cure and RED ON PURPOSE until the
 # whole feature lands (conditional lambda, backtrack-unqueue, stored-pattern round trip are all

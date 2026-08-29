@@ -174,23 +174,42 @@ def descriptive_name(text, flags):
     return base
 
 
+
+# ⛔ dirs whose pairs are COMPANION-DEPENDENT and must NOT be absorbed: an entry runs ALONE in a scratch dir, so a
+# test needing sibling files beside it would grade a DIFFERENT program. linker/ is the multi-file IMPORT/EXPORT
+# class (its companions are themselves source files, invisible to the extension rule); probe_loose/ is the
+# characterized un-convertible residue by definition; rtx_func_11 is the -INCLUDE class whose include resolution
+# provably differs between its own dir and master/ (absorbed copy graded m3-red while the source grades green --
+# measured v5); all stay loose until their owning rows settle representation.
+EXCLUDE_DIRS = {"linker", "probe_loose", "rtx_func_11"}
+COMPANION_EXTS = {".inc", ".dat", ".input", ".in", ".json"}
+
+
 def discover_pairs(ROOT, OUTDIR, EXT):
-    pairs = []
+    pairs, excluded = [], []
     for dirpath, dirnames, filenames in os.walk(ROOT):
         if os.path.abspath(dirpath) == os.path.abspath(OUTDIR):
             dirnames[:] = []
             continue
+        rel_dir = os.path.relpath(dirpath, ROOT)
+        top = rel_dir.split(os.sep)[0] if rel_dir != "." else ""
+        if top in EXCLUDE_DIRS:
+            if any(f.endswith(EXT) for f in filenames):
+                excluded.append((rel_dir.replace(os.sep, "_"), "companion-dependent dir class (%s) -- stays as files" % top))
+            dirnames[:] = []
+            continue
+        dir_companions = sorted({os.path.splitext(f)[1] for f in filenames if os.path.splitext(f)[1] in COMPANION_EXTS})
         for fn in sorted(filenames):
             if not fn.endswith(EXT):
                 continue
             sno = os.path.join(dirpath, fn)
             ref = sno[:-len(EXT)] + ".ref"
             if not os.path.isfile(ref):
-                continue  # pairless loose witnesses (probe_loose residue) are not suite pairs
+                continue  # pairless loose witnesses are not board members and are untouched
             rel = os.path.relpath(sno, ROOT)
             fam = rel[:-len(EXT)].replace(os.sep, "_")
-            pairs.append((fam, sno, ref))
-    return pairs
+            pairs.append((fam, sno, ref, dir_companions))
+    return pairs, excluded
 
 
 def main():
@@ -219,36 +238,87 @@ def main():
     global COLS, NAME_FEATURES
     COLS, NAME_FEATURES = LANG_TABLES[lang]
     os.makedirs(OUTDIR, exist_ok=True)
-    excluded, included, all_entries, per_family = [], [], [], {}
-    for fam, sno, ref in discover_pairs(ROOT, OUTDIR, EXT):
-        inp = sno[:-4] + ".input"
-        if os.path.isfile(inp):
-            excluded.append((fam, "stdin sidecar (.input) -- the merge cannot represent per-entry stdin; stays a standalone suite"))
-            continue
-        try:
-            # ⛔⭐ READ EACH SOURCE PAIR WITH ITS OWN DIALECT READER. read_suite() parses the SNOBOL4 `*---`
-            # banner; pointed at a .pl/.sc/.reb pair it sees NO banners, returns the whole file as ONE entry,
-            # and that entry's body then still contains its `%---` banners. Writing that into the master
-            # emitted stray in-body banners (measured: a `%--- 1 anon_in_...` line landed between seq 8 and
-            # seq 9 of ALL.pl) which the reader then parsed as real entries -- content that looks like
-            # structure, the same class as everything else today.
-            if lang == "snobol4":
-                entries = h.read_suite(sno, ref)
-            else:
+    delete_absorbed = "--delete-absorbed" in sys.argv[1:]
+    included, all_entries, per_family = [], [], {}
+    absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
+    companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
+    pairs, excluded = discover_pairs(ROOT, OUTDIR, EXT)
+    if not pairs:
+        sys.stderr.write("REFUSED: zero absorbable pairs under %s -- after the retirement commit the MASTER IS THE SOURCE"
+                         " (rebuilds happen only on a tree that still carries per-family files; edit master/ALL%s directly"
+                         " or extract/convert through the harness).\n" % (ROOT, EXT))
+        raise SystemExit(2)
+    for fam, sno, ref, dir_companions in pairs:
+        entries = None
+        mode = "suite"
+        if lang == "snobol4":
+            try:
+                entries = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
+                # ⛔ THE seqN DISCRIMINATOR: read_suite names a TAGLESS line `seqN` -- a PLAIN PROGRAM whose line
+                # count happens to match its ref's would silently absorb as N bogus entries. Any seqN name means
+                # this pair is NOT a suite; fall through to plain-program absorption instead.
+                if any(re.fullmatch(r"seq\d+", e.name) for e in entries):
+                    entries = None
+            except Exception:
+                entries = None
+            if entries is None:  # plain program: ONE format-B block entry, body and ref VERBATIM
+                mode = "plain"
+                if os.path.isfile(sno[:-len(EXT)] + ".input"):
+                    excluded.append((fam, "stdin sidecar (.input) -- stays as files until the stdin-sections format extension lands (hq_C row)"))
+                    continue
+                sno_text = open(sno).read().splitlines()
+                ref_text = open(ref).read().splitlines()
+                if not sno_text:
+                    excluded.append((fam, "empty source"))
+                    continue
+                # auto-XFAIL by source verdict -- convert_one's own law applied to plain absorption: a documented-red
+                # witness never inflates the master's FAIL count, and XPASS polices the marker the day the bug is cured.
+                import tempfile as _tf
+                _paths = h.resolve_paths()
+                _tmp = _tf.mkdtemp(prefix="mstr_")
+                try:
+                    from pathlib import Path as _P
+                    _v = h.run_all_modes(_paths, _P(sno), open(ref).read(), _P(_tmp), ["m3", "m4"])
+                    _green = all(x.kind == "PASS" for x in _v.values())
+                finally:
+                    import shutil as _sh
+                    _sh.rmtree(_tmp, ignore_errors=True)
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], sno_text, ref_text, xfail=not _green)]
+        else:
+            # ⛔⭐ READ EACH SOURCE PAIR WITH ITS OWN DIALECT READER (hq_B, measured: read_suite on a .pl pair returns
+            # the whole file as one entry whose body still contains %--- banners -- content that looks like structure).
+            try:
                 try:
                     entries = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC))
                 except Exception:
                     entries = h.read_suite(sno, ref)   # a genuine one-line-dialect pair
-        except Exception as e:  # malformed-conversion class: loud, listed, never silent
-            excluded.append((fam, "read_suite refused: %s" % str(e)[:140]))
-            continue
-        # a probe_loose dir can hold a stray VALID pair (relocated loose witnesses) -- those are single programs,
-        # not suite containers; read_suite reads a bare program as one nameless entry, which is fine to carry.
+            except Exception as e:
+                excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
+                continue
         for e in entries:
             e.origin = "%s__%s" % (fam, e.name)
+            e.src_mode = mode
         per_family[fam] = len(entries)
         all_entries.extend(entries)
+        absorbed_files.append((fam, sno, ref, mode))
         included.append(fam)
+        # ⛔ COMPANIONS RIDE ALONG (the v3 board's fail-delta root cause): run_suite_entry copies the SUITE FILE'S OWN
+        # DIR into each entry's scratch, so an absorbed family whose dir carried companion files (crosscheck's .in,
+        # beauty's .inc) would grade a DIFFERENT program from master/ unless those companions move with it. Copy them
+        # in, refusing on basename collision with different content -- never silently shadowed.
+        src_dir = os.path.dirname(sno)
+        if os.path.abspath(src_dir) != os.path.abspath(OUTDIR):
+            for cf in sorted(os.listdir(src_dir)):
+                cext = os.path.splitext(cf)[1]
+                if cext in (EXT, ".ref", ".md", ".txt", ".csv", ".s", ".expected") or not os.path.isfile(os.path.join(src_dir, cf)):
+                    continue
+                if cext in (".in", ".xfail") and os.path.isfile(os.path.join(src_dir, os.path.splitext(cf)[0] + EXT)):
+                    continue  # a SIDECAR of some suite in this dir -- its content threads through read/write sidecars, never a raw copy
+                dst = os.path.join(OUTDIR, cf)
+                srcf = os.path.join(src_dir, cf)
+                if os.path.exists(dst) and open(dst, "rb").read() != open(srcf, "rb").read():
+                    h.refuse("companion basename collision with different content: %s (from %s)" % (cf, src_dir))
+                companion_copies[cf] = srcf
     # feature scan first (names are DERIVED from features), then the descriptive rename with numbered uniqueness
     counters = {}
     rows = []
@@ -283,19 +353,21 @@ def main():
     out_ref = os.path.join(OUTDIR, "ALL.ref")
     for e_i, e in enumerate(all_entries, 1):
         e.seq = e_i
-    # ⛔⭐ DIALECTS MUST USE THE BLOCK WRITER/READER, NOT THE SNOBOL4 PAIR. write_suite()/read_suite() emit and
-    # parse the SNOBOL4 `*---` banner; pointing them at a .pl/.raku/.sc/.reb file writes banners the language's
-    # own reader cannot match, and every entry comes back named seqN. MEASURED on the first build attempt: all
-    # four languages failed the round-trip check with wrote==read counts but seq-names -- the harness caught it
-    # exactly as designed, which is why nothing corrupt was written.
-    # snobol4 keeps write_suite() so its master stays byte-identical (verified control arm).
     if lang == "snobol4":
         h.write_suite(all_entries, out_sno, out_ref)
-        reread = h.read_suite(out_sno, out_ref)
+        out_in = os.path.join(OUTDIR, "ALL.in")
+        out_x = os.path.join(OUTDIR, "ALL.xfail")
+        if not h.write_stdin_sidecar(all_entries, out_in, "*", "") and os.path.exists(out_in):
+            os.remove(out_in)
+        if not h.write_xfail_sidecar(all_entries, out_x, "*", "") and os.path.exists(out_x):
+            os.remove(out_x)
+        reread = h.read_suite(out_sno, out_ref, in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
     else:
-        _co, _cc = _CO, _CC
-        h.write_block_suite(all_entries, out_sno, out_ref, _co, _cc)
-        reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_co, _cc))
+        h.write_block_suite(all_entries, out_sno, out_ref, _CO, _CC)
+        reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC))
+    import shutil
+    for cf, srcf in sorted(companion_copies.items()):
+        shutil.copy2(srcf, os.path.join(OUTDIR, cf))
     if len(reread) != len(all_entries):
         h.refuse("re-read count %d != written %d -- NOT trusting the merge" % (len(reread), len(all_entries)))
     with open(os.path.join(OUTDIR, "ALL.csv"), "w", newline="") as f:
@@ -312,6 +384,67 @@ def main():
     for fam, why in excluded:
         print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
     print("attribute columns: %d" % (5 + len(COLS)), file=sys.stderr)
+    # -- BYTE-EQUAL-OR-NO-DELETE (the house law, applied to absorption): every absorbed source pair is re-read FRESH
+    # from disk and compared entry-by-entry against the written master. A family that does not verify is NEVER deleted.
+    # Verification is implemented for snobol4 (the language whose sources this session deletes); dialect masters keep
+    # their sources until their own verification lands -- an unverified family is simply never deleted, loudly.
+    by_origin = {}
+    for e, flags, text in rows:
+        by_origin[e.origin] = e
+    verified, unverified = [], []
+    for fam, sno, ref, mode in absorbed_files:
+        ok = lang == "snobol4"
+        if ok:
+            try:
+                if mode == "plain":
+                    e = by_origin.get("%s__%s" % (fam, os.path.basename(sno)[:-len(EXT)]))
+                    ok = e is not None and e.sno_lines == open(sno).read().splitlines() and \
+                        (e.ref if isinstance(e.ref, list) else str(e.ref).split("\n")) == open(ref).read().splitlines()
+                else:
+                    for se in h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno)):
+                        e = by_origin.get("%s__%s" % (fam, se.name))
+                        if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
+                            ok = False
+                            break
+                        if e.kind == "line":
+                            strip = lambda ln, nm: ln[: -len(";* %s" % nm)] if ln.endswith(";* %s" % nm) else ln
+                            if strip(e.sno_lines[0], e.name) != strip(se.sno_lines[0], se.name) or e.ref != se.ref:
+                                ok = False
+                                break
+                        else:
+                            if e.sno_lines != se.sno_lines or e.ref != se.ref or bool(e.xfail) != bool(se.xfail):
+                                ok = False
+                                break
+            except Exception:
+                ok = False
+        (verified if ok else unverified).append((fam, sno, ref))
+    print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d" % (len(verified), len(unverified)), file=sys.stderr)
+    if delete_absorbed:
+        n = 0
+        touched_dirs = set()
+        for fam, sno, ref in verified:
+            os.remove(sno)
+            os.remove(ref)
+            for sc in (sno[:-len(EXT)] + ".in", sno[:-len(EXT)] + ".xfail"):
+                if os.path.isfile(sc):
+                    os.remove(sc)
+                    n += 1
+            touched_dirs.add(os.path.dirname(sno))
+            n += 2
+        for d in sorted(touched_dirs):
+            if os.path.abspath(d) == os.path.abspath(OUTDIR):
+                continue
+            if not any(f.endswith(EXT) for f in os.listdir(d)):
+                for cf in sorted(os.listdir(d)):
+                    if os.path.splitext(cf)[1] in COMPANION_EXTS or cf.endswith(".ref"):
+                        os.remove(os.path.join(d, cf))
+                        n += 1
+        for dirpath, dirnames, filenames in list(os.walk(ROOT, topdown=False)):
+            if not dirnames and not filenames and os.path.abspath(dirpath) != os.path.abspath(ROOT):
+                os.rmdir(dirpath)
+        print("DELETED %d absorbed source files (verified families only; fully-absorbed dirs' companions included); empty dirs pruned" % n, file=sys.stderr)
+    elif verified:
+        print("(dry run: pass --delete-absorbed to remove the %d verified families' source pairs)" % len(verified), file=sys.stderr)
 
 
 if __name__ == "__main__":
