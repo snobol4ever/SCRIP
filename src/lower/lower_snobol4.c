@@ -2655,6 +2655,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_stage2.proc_table[pi].dyn_scope = 0;
     g_stage2.proc_table[pi].result_name = NULL;
     g_stage2.proc_table[pi].bb_idx = bb_program_add(&g_stage2.bbp, g);
+    { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) { g_stage2.module_registry.mods[mi].nprocs++;
+        if (g_stage2.module_registry.main_mod < 0) g_stage2.module_registry.main_mod = mi; } }
     if (g_sno_uses_code) {
         int main_bb_idx = g_stage2.proc_table[pi].bb_idx;
         for (int i = 0; i < nst; i++) {

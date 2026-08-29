@@ -57,6 +57,18 @@ static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int
    occur.  Emission position is therefore proc_count for main and the table index for every other proc. */
 static int n2_proc_index(const stage2_t *s2, const char *fn) { if (!s2 || !fn) return -1;
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; } return -1; }
+/* Selects "main" via module_registry.main_mod + that module's proc range first (fixes cross-language collisions:
+   picks the right MODULE, and within it the FIRST "main"-named entry -- which for Prolog's two main/0 registrations
+   is the dedicated goal-entry-point graph, registered before the generic-predicate one). Falls back to the old
+   flat-table first-wins scan when the registry is unset or its range doesn't resolve, so a frontend whose
+   main_mod/nprocs bookkeeping has a gap this pass didn't find never regresses below the already-landed baseline. */
+static int polyglot_main_bb_idx(const stage2_t *s2) { if (!s2) return -1;
+    int mm = s2->module_registry.main_mod;
+    if (mm >= 0 && mm < s2->module_registry.nmod) { const ScripModule *m = &s2->module_registry.mods[mm];
+        int lo = m->proc_start, hi = lo + m->nprocs; if (lo < 0) lo = 0; if (hi > s2->proc_count) hi = s2->proc_count;
+        for (int i = lo; i < hi; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, "main")) return s2->proc_table[i].bb_idx; } }
+    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, "main")) return s2->proc_table[i].bb_idx; }
+    return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void n2_host_scan_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_HOST_DIAG")) return; int hosts = 0, fwd = 0, indirect = 0, edges = 0, unresolved = 0;
     for (int hi = 0; hi < s2->proc_count; hi++) { const char *hn = s2->proc_table[hi].name; int gi = s2->proc_table[hi].bb_idx;
@@ -1314,12 +1326,12 @@ int main(int argc, char **argv)
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
-            int main_bb_idx = -1;
+            int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
-                if (strcmp(pname, "main") == 0) { if (main_bb_idx < 0) main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }
+                if (strcmp(pname, "main") == 0) continue;
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;
@@ -1739,7 +1751,7 @@ int main(int argc, char **argv)
             extern int g_frame_active;
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(); extern int x86_diag_regs_on_c(void);
             if (x86_diag_regs_on_c()) { g_m4_dense_nid = 1; g_bb_alpha_seq_reset(); }
-            int main_bb_idx = -1;
+            int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             g_frame_active = 1;
             void *m3_gva_arena = (void *)0;
@@ -1760,7 +1772,7 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
-                if (strcmp(pname, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }   /* ⛔ KNOWN-IDENTICAL BUG, DELIBERATELY NOT FIXED HERE (seat01 2026-08-29, row m3-passes-m4-fails-three-polyglot-demos): same last-wins collision as the mode-4 site above, guarded there. Not symmetric on purpose: mode-3 and mode-4 apparently register procs in a different relative order for the same polyglot source (both are "buggy" today yet disagree on which main wins for demo03/04/08/09), so guarding THIS site too is NOT inert -- measured `test_gate_polyglot_demos.sh` m3 PASS 6->3 (demo03/04/08/09 newly crash), a materially bigger/different regression than the mode-4-only fix hq_C's land-it ruling was measured against (m4 PASS 4->3, demo03+demo08 named). Routed as a fresh, explicitly-scoped follow-up rather than folded into this commit silently. */
+                if (strcmp(pname, "main") == 0) continue;   /* main_bb_idx now comes from polyglot_main_bb_idx() above (row polyglot-main-selector-ignores-main-mod-registry), not a table scan here -- see that function for the mode-3-vs-mode-4 order-collision history this comment used to carry. */
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;

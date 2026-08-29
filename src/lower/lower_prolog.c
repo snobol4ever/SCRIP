@@ -995,7 +995,8 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
       g_stage2.proc_table[pi].entry_pc     = -1;
       g_stage2.proc_table[pi].bb_idx       = bb_idx;
       g_stage2.proc_table[pi].nparams      = nparams;
-      g_stage2.proc_table[pi].is_generator = 1; }
+      g_stage2.proc_table[pi].is_generator = 1;
+      { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) g_stage2.module_registry.mods[mi].nprocs++; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ensure_call_bridge(int nparams) { if (nparams >= 1 && nparams <= 8) pl_ensure_gen_builtin_pred("$call", "$call", nparams); }
@@ -1092,6 +1093,8 @@ static void lower_pl_register_all_preds(void) {
                     g_stage2.proc_table[pi].bb_idx       = bb_idx;
                     g_stage2.proc_table[pi].nparams      = ar;
                     g_stage2.proc_table[pi].is_generator = det ? 0 : 1;
+                    { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) { g_stage2.module_registry.mods[mi].nprocs++;
+                        if (strcmp(key, "main/0") == 0 && g_stage2.module_registry.main_mod < 0) g_stage2.module_registry.main_mod = mi; } }
                 }
             }
         }
@@ -1114,6 +1117,7 @@ static void lower_pl_register_dyn_only_preds(void) {
         g_stage2.proc_table[pi].bb_idx       = bb_idx;
         g_stage2.proc_table[pi].nparams      = ar;
         g_stage2.proc_table[pi].is_generator = 1;
+        { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) g_stage2.module_registry.mods[mi].nprocs++; }
     }
 }
 typedef struct { const char * key; const tree_t * ch; int state; } pl_det_ent_t;
@@ -1289,7 +1293,8 @@ static void pl_ll_maybe_lift(tree_t *fa) {
       g_stage2.proc_table[pi].entry_pc     = -1;
       g_stage2.proc_table[pi].bb_idx       = bb_idx;
       g_stage2.proc_table[pi].nparams      = nhead;
-      g_stage2.proc_table[pi].is_generator = 1; }
+      g_stage2.proc_table[pi].is_generator = 1;
+      { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) g_stage2.module_registry.mods[mi].nprocs++; } }
     tree_t *call = ast_node_new(TT_FNC); call->v.sval = nm;
     for (int j = 0; j < nhead; j++) { tree_t *av = ast_node_new(TT_VAR); av->v.ival = head_slots[j]; ast_push(call, av); }
     fa->c[1] = call;
@@ -1421,6 +1426,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
                 g_stage2.proc_table[pl_init_main_pi].proc     = NULL;
                 g_stage2.proc_table[pl_init_main_pi].entry_pc = -1;
                 g_stage2.proc_table[pl_init_main_pi].nparams  = 0;
+                { int mi = g_stage2.module_registry.nmod - 1; if (mi >= 0) { g_stage2.module_registry.mods[mi].nprocs++;
+                    if (g_stage2.module_registry.main_mod < 0) g_stage2.module_registry.main_mod = mi; } }
             }
             g_stage2.proc_table[pl_init_main_pi].bb_idx = bb_idx;
         }
