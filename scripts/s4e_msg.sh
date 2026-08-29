@@ -1142,5 +1142,5 @@ case "$cmd" in
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|done|ask|send|check|clear|claim|assign|sweep|board|banner|fleet|mailbox"; exit 2;;
+  *) echo "usage: next|claim|unclaim|park|done|assign|ask|send|check|clear|mailbox|sweep|board|banner|fleet"; exit 2;;
 esac
