@@ -272,7 +272,19 @@ static std::string bb_define_bind() {
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    std::string blbl = _.lbl_t0 ? std::string(_.lbl_t0) : std::string("rt_ab_undef_fn_stub");
+    // ⛔⭐ FIX ATTEMPT (seat10, row m3-passes-m4-fails-three-polyglot-demos, bug 2): _.lbl_t0 names "the next
+    // node in program order" (set upstream in emit.cpp per IR_DEFINE role), which coincides with the proc's
+    // own entry point ONLY when the DEFINE'd body is textually the very next statement AND node numbering is
+    // undisturbed -- true for every single-language program, false once polyglot merging renumbers/reorders
+    // nodes into one flat space (seat01/seat16/seat03's root-cause chain, FINDING-2026-08-22-seat01-... and
+    // successors). The proc's real entry is always exactly `<fname>_α` -- proven reliable 10 lines below by
+    // bb_ab_seal_alpha's OWN identical direct construction (`fname + "_α"`), which has never shown this bug.
+    // Un-tested against every DEFINE role (0-6) this function serves; verify broadly before trusting.
+    // ⛔ SURGICAL: only replaces the label USED when _.lbl_t0 was already going to be trusted (the `lea`
+    // rip-relative path below stays gated on the SAME `_.lbl_t0` non-null condition, unchanged) -- the
+    // `_.lbl_t0 == NULL` stub-fallback branch ("rt_ab_undef_fn_stub", x86_load_got path) is untouched.
+    static int _direct_alpha = -1; if (_direct_alpha < 0) { const char * _e = getenv("SCRIP_DEFINE_FN_DIRECT_ALPHA"); _direct_alpha = (_e && *_e == '0') ? 0 : 1; }
+    std::string blbl = _.lbl_t0 ? (_direct_alpha ? (std::string(fname) + "_\xce\xb1") : std::string(_.lbl_t0)) : std::string("rt_ab_undef_fn_stub");
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
          + x86_ro_load_q("rdi", 0)
          + x86_ro_load_q("rsi", 1)
