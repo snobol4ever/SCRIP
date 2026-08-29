@@ -24,9 +24,9 @@ SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 OUT=${OUT:-/tmp/radius_src_reset}
 KILLSWITCH=${KILLSWITCH:-SCRIP_SRC_RESET}
 rm -rf "$OUT"; mkdir -p "$OUT"
-# probe/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
+# library/probe_reference/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
 # total conversion) -- this DIR now contributes 0 by construction. EXPECTED, not a regression.
-DIRS=${*:-"$S4E/corpus/probe/bb $S4E/corpus/tests/snobol4 $S4E/corpus/crosscheck $S4E/corpus/probe/eval $S4E/corpus/tests/icon $S4E/corpus/tests/prolog"}
+DIRS=${*:-"$S4E/corpus/library/probe_reference/bb $S4E/corpus/tests/snobol4 $S4E/corpus/crosscheck $S4E/corpus/probe/eval $S4E/corpus/tests/icon $S4E/corpus/tests/prolog"}
 tot=0; diffn=0; failn=0
 for d in $DIRS; do
     [ -d "$d" ] || continue

@@ -7,7 +7,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../scrip}"; OUT="$HERE/../out"
 # ⛔ test_sno_call2bb_1/2 moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
-# conversion): probe/bb no longer holds loose .sno files, so the two witnesses this gate hardcodes by
+# conversion): library/probe_reference/bb no longer holds loose .sno files, so the two witnesses this gate hardcodes by
 # exact path are materialized here via the harness's `extract` (ONE AUTHORITY for the suite grammar,
 # same as every other suite consumer) into a scratch dir, then used exactly as the old standalone files were.
 SUITE_SNO="${SUITE_SNO:-$HERE/../../corpus/tests/snobol4/probe/bb.sno}"

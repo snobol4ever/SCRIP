@@ -13,7 +13,7 @@
 # classified op-kinds ever reached -- [EARN] need=1 was dead code before this fix (5x
 # `bb_prepare(nd);` inserted in emit.cpp's IR_MATCH_ARBNO / _FENCE1 / _ASSIGN_{IMM,
 # COND,SAVE} case-arms). Byte-identical proven first (crosscheck/patterns 122/122,
-# probe/bb 14/14) before this script was written against it. If the NEED column below
+# library/probe_reference/bb 14/14) before this script was written against it. If the NEED column below
 # reads all-zero on a fresh clone, that fix regressed -- MONITOR-FIRST: do not silently
 # reinterpret an all-zero column as "no hazards exist in the corpus".
 #
@@ -65,11 +65,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
 CORPUS="${1:-$S4E/corpus}"
-# probe/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
+# library/probe_reference/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
 # total conversion) -- this DIR now contributes 0 by construction, same as `feat`'s drop under
 # tests-consolidate-snobol4-loose. EXPECTED, not a regression; override via EARN2_DIRS if the suite
 # entries (tests/snobol4/probe/bb*.sno) need to rejoin this census.
-DIRS="${EARN2_DIRS:-crosscheck/patterns probe/bb probe/earn0 demo benchmarks/snobol4}"
+DIRS="${EARN2_DIRS:-crosscheck/patterns library/probe_reference/bb tests/snobol4/probe_loose demo benchmarks/snobol4}"   # re-pointed (ceo s283h): probe/earn0's loose files are converted into suites; probe_loose holds the residual loose witnesses
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not built: $SCRIP"; exit 0; fi
 

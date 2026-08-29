@@ -33,7 +33,7 @@ printf ' OUTPUT = "GATE_LOOSE_OK"\nEND\n' > "$ROOT/corpus/probe/gateloose/one.sn
 printf 'GATE_LOOSE_OK\n' > "$ROOT/corpus/probe/gateloose/one.ref"
 
 # ---- the converted family: 3 entries, format-A one-line join (verified against a real committed suite
-# file's own join shape -- corpus/tests/snobol4/probe/dv.sno -- before being baked in here: END is written
+# file's own join shape -- corpus/tests/snobol4/tests/snobol4/probe_loose/dv.sno -- before being baked in here: END is written
 # flush at column 1 in the source, which the harness's own column-1 "labeled" heuristic then joins with NO
 # pad space, i.e. `;END`, not `; END`) ----
 printf ' OUTPUT = "GATE_ENTRY_1";END;* gatefam_e1\n OUTPUT = "GATE_ENTRY_2";END;* gatefam_e2\n OUTPUT = "GATE_ENTRY_3";END;* gatefam_e3\n' \
@@ -65,7 +65,7 @@ echo "⛔ NOT DONE: probes_misc's denominator/pass-counts do not include the con
 echo "   Expected N=4 M3ok=4 M4ok=4 (1 loose witness + 3 entries from tests/snobol4/probe/gatefam.sno)."
 echo "   Got:      N=${n:-?} M3ok=${m3ok:-?} M4ok=${m4ok:-?}"
 if [ "${n:-0}" -eq 1 ]; then
-  echo "   N=1 means the fixture's 3-entry converted family is exactly as invisible as probe/conformance's real"
+  echo "   N=1 means the fixture's 3-entry converted family is exactly as invisible as tests/snobol4/probe_loose/conformance's real"
   echo "   92 witnesses were (seat15's FINDING) -- probes_misc is still only seeing the loose leftover."
 fi
 echo "--- probes_misc row ---"

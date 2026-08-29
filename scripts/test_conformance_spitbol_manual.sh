@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # test_conformance_spitbol_manual.sh -- row `conformance-sweep-spitbol-manual`.
 #
-# Re-runs every witness under corpus/probe/conformance/ (minted by the SPITBOL-manual conformance sweep --
+# Re-runs every witness under corpus/tests/snobol4/probe_loose/conformance/ (minted by the SPITBOL-manual conformance sweep --
 # each witness is sourced from the manual's OWN worked example, v3.7) through test_one_witness.sh (m3 + m4
 # vs the live x64 sbl oracle, -bf) and reports a compact PASS/DIFF table plus a summary line. A DIFF here
-# reproduces an already-filed conformance-sweep queue row (see corpus/probe/conformance/*.sno headers /
+# reproduces an already-filed conformance-sweep queue row (see corpus/tests/snobol4/probe_loose/conformance/*.sno headers /
 # the sweep's FINDING for which row owns which witness) -- this script is a fast re-check, not a triage
 # tool: it does not classify NEW divergences, it only tells you whether a KNOWN one is still present.
 #
 # usage: bash scripts/test_conformance_spitbol_manual.sh [--quiet]
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-D="$ROOT/../corpus/probe/conformance"
+D="$ROOT/../corpus/tests/snobol4/probe_loose/conformance"
 QUIET=0; [ "${1:-}" = "--quiet" ] && QUIET=1
 [ -d "$D" ] || { echo "UNPROVEN: no $D -- has the conformance sweep ever minted a witness?"; exit 2; }
 total=0; pass=0; diverge=0

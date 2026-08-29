@@ -7,7 +7,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
-WITNESS_DIR="${WITNESS_DIR:-$S4E/corpus/probe/errpath}"
+WITNESS_DIR="${WITNESS_DIR:-$S4E/corpus/tests/snobol4/probe_loose/errpath}"
 TIMEOUT="${TIMEOUT:-10}"
 . "$(dirname "$0")/lib_gate.sh"
 . "$(dirname "$0")/lib_oracle_flags.sh"

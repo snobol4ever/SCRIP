@@ -26,7 +26,7 @@ RTOUT="$(dirname "$S")/out"
 DIR="${1:-}"
 [ -x "$S" ]   || { echo "no scrip at $S"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
 # conversion): the default subject no longer exists as loose files -- materialize every entry from
 # the suite into this run's own scratch dir (cleaned up by the trap above) instead.
 if [ -z "$DIR" ]; then

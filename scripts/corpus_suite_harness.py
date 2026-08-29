@@ -1006,7 +1006,7 @@ def cmd_capture_oracle_refs(args):
     oracle_bin, flags = resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
     modes = args.modes.split(",")
-    family_dir = Path(args.family_dir)
+    family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     srcs = sorted(family_dir.glob(f"*{ext}"))
     if not srcs:
         refuse(f"no {ext} files found under {family_dir}")
@@ -1054,7 +1054,7 @@ def cmd_convert(args):
     paths = resolve_paths()
     check_scrip(paths)
     modes = args.modes.split(",")
-    family_dir = Path(args.family_dir)
+    family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     pairs = discover_pairs(family_dir)
     if not pairs:
         refuse(f"no .sno/.ref pairs discovered under {family_dir}")
@@ -1156,7 +1156,7 @@ def cmd_convert_blocks(args):
     cfg = LANG_CONFIGS[args.lang]
     ext, comment_open, comment_close = cfg["ext"], cfg["comment_open"], cfg["comment_close"]
     modes = (args.modes or cfg["modes"]).split(",")
-    family_dir = Path(args.family_dir)
+    family_dir = Path(args.family_dir).resolve()   # ⛔ ABSOLUTE, ALWAYS (ceo s283h): run_m3/run_ast set subprocess cwd to the FILE'S OWN PARENT while argv carries this path -- a caller-relative path then resolves against the wrong dir, scrip cannot open it (rc=1), and every 'original' baseline is silently garbage: convert then REFUSES green families ('NEITHER form reproduced') or, worse, validates a candidate against the broken baseline. Measured on probe/kw (15/15 false FAIL) and probe/define (false-validated) 2026-08-29.
     pairs = discover_pairs(family_dir, ext=ext)
     if not pairs:
         refuse(f"no {ext}/.ref pairs discovered under {family_dir}")

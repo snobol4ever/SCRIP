@@ -26,7 +26,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE"
-# probe/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
+# library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
 # conversion) -- each SET member below is materialized on demand via the harness's `extract`.
 SUITE_SNO=$S4E/corpus/tests/snobol4/probe/bb_probes.sno
 SUITE_REF=$S4E/corpus/tests/snobol4/probe/bb_probes.ref

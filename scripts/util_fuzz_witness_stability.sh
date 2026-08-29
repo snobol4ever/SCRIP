@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# util_fuzz_witness_stability.sh — measure whether the probe/fuzz witnesses are STABLE AGAINST THEMSELVES,
+# util_fuzz_witness_stability.sh — measure whether the tests/snobol4/probe_loose/fuzz witnesses are STABLE AGAINST THEMSELVES,
 # in BOTH modes, comparing (stdout, rc) AS A PAIR.  Refuses (rc=2) if it cannot measure.
 #
 # ⛔⭐ WHY THIS EXISTS — A WITNESS SET WHOSE OWN STABILITY IS UNMEASURED CANNOT FALSIFY ANYTHING.
@@ -25,7 +25,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
-DIR="${FUZZ_DIR:-$ROOT/corpus/probe/fuzz}"
+DIR="${FUZZ_DIR:-$ROOT/corpus/tests/snobol4/probe_loose/fuzz}"
 N="${N:-10}"; TIMEOUT="${TIMEOUT:-8s}"; MODES="${MODES:-m3 m4}"
 [ -d "$DIR" ]                  || { echo "⛔ REFUSE(rc=2): witness dir missing: $DIR"; exit 2; }
 [ -x "$SCRIP" ]                || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP — build first (make)"; exit 2; }

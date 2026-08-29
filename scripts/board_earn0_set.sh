@@ -6,7 +6,20 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
-EARN0="${EARN0:-$S4E/corpus/probe/earn0}"
+# ⭐ RE-POINTED (ceo s283h, probe total-conversion): corpus/probe/earn0 is GONE -- the witnesses live in
+# the earn0 + earn02 SUITES (tests/snobol4/probe/) and are materialized here via the harness `extract`
+# verb into an assembled dir, so the board's per-witness loop below is unchanged. EARN0= still overrides.
+if [ -z "${EARN0:-}" ]; then
+  _EA="$(mktemp -d)"; trap 'rm -rf "$_EA"' EXIT
+  for _sfx in earn0 earn02; do
+    _ss="$S4E/corpus/tests/snobol4/probe/$_sfx.sno"; _sr="$S4E/corpus/tests/snobol4/probe/$_sfx.ref"
+    [ -f "$_ss" ] || continue
+    python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" list "$_ss" "$_sr" 2>/dev/null | while IFS= read -r _n; do
+      python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" extract "$_ss" "$_sr" "$_n" "$_EA/$_n.sno" --out-ref "$_EA/$_n.ref" >/dev/null 2>&1
+    done
+  done
+  EARN0="$_EA"
+fi
 MODE="${1:-m3}"
 TMO="${TMO:-8}"
 one_shot() {
@@ -38,6 +51,6 @@ run_one() {
   printf '%-38s %-4s %s\n' "$base" "$mode" "$first"
 }
 for m in $( [ "$MODE" = both ] && echo "m3 m4" || echo "$MODE" ); do
-  echo "=== earn0 board · mode $m · SCRIP $(cd "$SCRIP_DIR" && git rev-parse --short HEAD) · corpus $(cd "$EARN0" && git rev-parse --short HEAD) ==="
+  echo "=== earn0 board · mode $m · SCRIP $(cd "$SCRIP_DIR" && git rev-parse --short HEAD) · corpus $(cd "$S4E/corpus" && git rev-parse --short HEAD) ==="
   for f in "$EARN0"/*.sno; do run_one "$f" "$m"; done
 done

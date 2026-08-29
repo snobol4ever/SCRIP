@@ -12,11 +12,11 @@
 # therefore carry the .err_sno extension (repo convention) and no .ref, and are checked stream-by-stream below.
 #
 # ⭐ seat16 2026-08-27: 10 of the 11 witnesses below moved into the shared suite file
-# tests/snobol4/probe/cn.sno/.ref (probe-consolidate-m1-and-small) and are read back out one at a time via
+# tests/snobol4/tests/snobol4/probe_loose/cn.sno/.ref (probe-consolidate-m1-and-small) and are read back out one at a time via
 # corpus_suite_harness.py's `extract` subcommand -- this gate is now JUST ANOTHER CONSUMER of that shared
 # file, not a second copy of the witness text. `cn_udc_closed` (.err_sno, no .ref, stream-separated
 # checking) does NOT fit the suite's one-.ref-per-entry model and stays a loose file permanently -- see
-# probe/cn/KEEP.md. Byte-equal-or-no-delete already proved each moved witness's suite form matches its
+# tests/snobol4/probe_loose/cn/KEEP.md. Byte-equal-or-no-delete already proved each moved witness's suite form matches its
 # original under the DEFAULT arm at conversion time; cn_t1_eval/cn_t2_eval_boundary/cn_t1_scalar_fold were
 # ADDITIONALLY hand-verified (both T1 arms, both media, extracted form vs the pre-move original) before
 # their loose files were deleted, since the harness's own convert step only ever exercises one arm.
@@ -24,9 +24,9 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-CN="${CN:-$S4E/corpus/probe/cn}"
-SUITE_SNO="${SUITE_SNO:-$S4E/corpus/tests/snobol4/probe/cn.sno}"
-SUITE_REF="${SUITE_REF:-$S4E/corpus/tests/snobol4/probe/cn.ref}"
+CN="${CN:-$S4E/corpus/tests/snobol4/probe_loose/cn}"
+SUITE_SNO="${SUITE_SNO:-$S4E/corpus/tests/snobol4/tests/snobol4/probe_loose/cn.sno}"
+SUITE_REF="${SUITE_REF:-$S4E/corpus/tests/snobol4/tests/snobol4/probe_loose/cn.ref}"
 HARNESS="${HARNESS:-$S4E/SCRIP/scripts/corpus_suite_harness.py}"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
@@ -91,7 +91,7 @@ done
 #
 # ⛔ cn_udc_closed stays a LOOSE FILE, permanently -- .err_sno, no .ref, stream-separated m3==m4 checking
 # (no oracle text to diff against at all). Structurally does not fit the suite's one-.ref-per-entry model;
-# see probe/cn/KEEP.md. Read directly from $CN, same as before this row.
+# see tests/snobol4/probe_loose/cn/KEEP.md. Read directly from $CN, same as before this row.
 w=cn_udc_closed
 "$SCRIP" --compile "$CN/$w.err_sno" -o "/tmp/gate_$w.s" < /dev/null > /dev/null 2>&1
 gcc -no-pie "/tmp/gate_$w.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "/tmp/gate_$w.bin" 2>/dev/null

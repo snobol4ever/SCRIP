@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_s_md5_sweep.sh — per-program mode-4 .s md5 sweep, for killswitch byte-identity and blast-radius gates.
 #   bash scripts/util_s_md5_sweep.sh OUT.md5 [LISTFILE]
-# LISTFILE = one .sno path per line; default list = corpus demo (maxdepth 1) + crosscheck + probe/bb.
+# LISTFILE = one .sno path per line; default list = corpus demo (maxdepth 1) + crosscheck + library/probe_reference/bb.
 # Compare arms/builds with:  diff A.md5 B.md5   (or join to list movers).  Landed s145 (HQ) — the gate that
 # proved ARBNO-TAIL-BETA byte-identity (529/529) and the SEED-NAMES fix .s-invariance ran exactly this shape.
 #
@@ -22,14 +22,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd
 SCRIP="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"
 OUT="${1:?usage: util_s_md5_sweep.sh OUT.md5 [LISTFILE]}"; LIST="${2:-}"
 T="$(mktemp)"; trap 'rm -f "$T"' EXIT
-# probe/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
-# total conversion) -- the probe/bb find below now contributes 0 by construction. EXPECTED, not a
-# regression (the "demo + crosscheck + probe/bb = 529" denominator cited across several FINDING docs
+# library/probe_reference/bb's loose .sno files converted to suite format 2026-08-28 (probe-consolidate-bb, LON-20260828
+# total conversion) -- the library/probe_reference/bb find below now contributes 0 by construction. EXPECTED, not a
+# regression (the "demo + crosscheck + library/probe_reference/bb = 529" denominator cited across several FINDING docs
 # will read smaller from here on -- that is this comment, not a mystery); pass LISTFILE to include
 # tests/snobol4/probe/bb*.sno entries (materialize via corpus_suite_harness.py extract first -- suite
 # files are not standalone-runnable .sno programs).
 if [ -n "$LIST" ]; then cp "$LIST" "$T"; else
-  { find "$CORPUS/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/probe/bb" -name '*.sno'; } | sort > "$T"; fi
+  { find "$CORPUS/demo" -maxdepth 1 -name '*.sno'; find "$CORPUS/crosscheck" -name '*.sno'; find "$CORPUS/library/probe_reference/bb" -name '*.sno'; } | sort > "$T"; fi
 gen() { local d n W rc; d="$(dirname "$1")"; n="$(basename "$1" .sno)"; W=$(mktemp -d)
   (cd "$d" && SNO_LIB="$d" timeout 60 "$SCRIP" --compile "$1" </dev/null >"$W/p.s" 2>/dev/null); rc=$?
   if   [ "$rc" -ne 0 ]; then printf 'COMPILE_RC_%s\t%s\n' "$rc" "$1"

@@ -46,7 +46,7 @@ beauty_self    20 SELF                                                -         
 beauty_suite   15 tests/snobol4/beauty_suite                       -maxdepth 1 -name *_driver.sno  SELFDIR      60 -
 demos          15 demo                               -maxdepth 2 -name *.sno    SELFDIR      90 -
 benchmarks     10 benchmarks/snobol4                                  -maxdepth 1 -name *.sno    SELFDIR      90 -
-bb_probes      10 probe/bb                                            -name *.sno                SELFDIR      20 -
+bb_probes      10 library/probe_reference/bb                                            -name *.sno                SELFDIR      20 -
 patterns       10 crosscheck/patterns                                 -maxdepth 1 -name *.sno    demo/inc     20 -
 crosscheck     10 crosscheck                                          -name *.sno -not -path */patterns/*  demo/inc  20 -
 feature_test    5 SCRIPTEST                                           -name *.sno                CORPUS       20 -
@@ -388,7 +388,7 @@ cmd_run() {
     # row probe-consolidate-bb 2026-08-28): these are the two rows whose root has a live sibling
     # suite-consolidation destination TODAY (tests/snobol4/probe/), and they PARTITION that one shared
     # directory by the bb*/non-bb* naming convention (mirrors bb_probes's own find-glob split three lines
-    # above: probe/bb has its OWN dedicated higher-weighted row, everything else is probes_misc) so neither
+    # above: library/probe_reference/bb has its OWN dedicated higher-weighted row, everything else is probes_misc) so neither
     # double-counts the other's entries. A different suite growing the same sibling-directory shape needs
     # its own named hook here, not a speculative generic one.
     if [ "$name" = probes_misc ] && [ -d "$CORPUS/tests/snobol4/probe" ]; then

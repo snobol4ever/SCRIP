@@ -10,7 +10,19 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -uo pipefail
 SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROBE_DIR="${KW_PROBE_DIR:-$S4E/corpus/probe/kw}"
+# ⭐ RE-POINTED (ceo s283h, probe total-conversion): corpus/probe/kw is GONE. The 13 non-stdin witnesses
+# live in the kw SUITE (tests/snobol4/probe/kw.{sno,ref}) and are materialized here via the harness's
+# `extract` verb (test_arbno_witnesses.sh's established idiom); the 2 stdin-bearing witnesses
+# (kw_trim_effect, kw_trim_lazy_seed -- .dat companions) stay LOOSE in tests/snobol4/probe_loose/kw
+# per hq_C's permanent stdin ruling and are copied in beside them, so this gate's witness population
+# is UNCHANGED (15) and the .dat-stdin arm below still exercises what it always did.
+KW_ASSEMBLED="$(mktemp -d)"
+KW_SUITE_SNO="$S4E/corpus/tests/snobol4/probe/kw.sno"; KW_SUITE_REF="$S4E/corpus/tests/snobol4/probe/kw.ref"
+if [[ -f "$KW_SUITE_SNO" ]]; then
+    while IFS= read -r _n; do python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" extract "$KW_SUITE_SNO" "$KW_SUITE_REF" "$_n" "$KW_ASSEMBLED/$_n.sno" --out-ref "$KW_ASSEMBLED/$_n.ref" >/dev/null 2>&1; done < <(python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" list "$KW_SUITE_SNO" "$KW_SUITE_REF")
+fi
+cp "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.sno "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.ref "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.dat "$KW_ASSEMBLED/" 2>/dev/null
+PROBE_DIR="${KW_PROBE_DIR:-$KW_ASSEMBLED}"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
 MODE="both"; VERBOSE=0
 while [[ $# -gt 0 ]]; do
@@ -25,7 +37,7 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -x "$SCRIP_BIN" ]] || { echo "GATE BLOCKED: no scrip binary at $SCRIP_BIN (run make -j8 scrip)"; exit 2; }
 [[ -d "$PROBE_DIR" ]] || { echo "GATE BLOCKED: no probe dir at $PROBE_DIR (clone corpus)"; exit 2; }
-WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK" "$KW_ASSEMBLED"' EXIT
 pass=0; fail=0; failed_names=()
 # a witness may ship a .dat beside it -- that file is its stdin (kw_trim_effect needs one to
 # show that &TRIM actually trims).  Absent, stdin is /dev/null.

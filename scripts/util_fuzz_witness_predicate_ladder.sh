@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# util_fuzz_witness_predicate_ladder.sh — for each probe/fuzz witness x mode, find the FINEST
+# util_fuzz_witness_predicate_ladder.sh — for each tests/snobol4/probe_loose/fuzz witness x mode, find the FINEST
 # grading predicate under which it is STABLE.  Companion to util_fuzz_witness_stability.sh.
 #
 # ⛔⭐ WHY THIS EXISTS.  The stability runner answers one question — "is this witness stable under
@@ -33,7 +33,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
-DIR="${FUZZ_DIR:-$ROOT/corpus/probe/fuzz}"
+DIR="${FUZZ_DIR:-$ROOT/corpus/tests/snobol4/probe_loose/fuzz}"
 N="${N:-10}"; TIMEOUT="${TIMEOUT:-8s}"; MODES="${MODES:-m3 m4}"
 [ -d "$DIR" ]                   || { echo "⛔ REFUSE(rc=2): witness dir missing: $DIR"; exit 2; }
 [ -x "$SCRIP" ]                 || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP — build first (make)"; exit 2; }

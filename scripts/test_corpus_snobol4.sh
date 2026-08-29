@@ -230,8 +230,8 @@ fi
 # filesystem-is-truth way, so no sibling fan-out row needs its own hand-registration step here -- the
 # exact landmine hq_C raised to rank 0 (row corpus-suite-family-list-should-autodiscover) after corpus
 # 0e75bfdb's 98-entry silent-invisibility incident, generalized before a SECOND fan-out (~2,300 files,
-# 11 concurrent rows) repeats it. First tenant: tests/snobol4/probe/conformance (probe-consolidate-
-# conformance, 92 of 147 probe/conformance witnesses; the other 55 stay loose, see that directory's
+# 11 concurrent rows) repeats it. First tenant: tests/snobol4/tests/snobol4/probe_loose/conformance (probe-consolidate-
+# conformance, 92 of 147 tests/snobol4/probe_loose/conformance witnesses; the other 55 stay loose, see that directory's
 # own KEEP.md -- 17 still diverge from the live oracle, 38 are cited by name in an existing task file).
 while IFS= read -r family; do
     s_sno="$SUITES/probe/${family}.sno"; s_ref="$SUITES/probe/${family}.ref"
@@ -345,7 +345,7 @@ run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.s
 # gate. A red instrument cannot also be a regression guard, so k41 guards what works and k40 keeps
 # measuring the distance left. ⛔ SELF-PINNED, never sbl-graded: SPITBOL cannot even LEX the file --
 # sbl -bf dies at the Greek line with ERROR 230 "illegal character" -- so no oracle arm exists.
-run_test "k41_lambda_immediate"    "$CORPUS/probe/conformance/k41_lambda_immediate_landed.sno"    "$CORPUS/probe/conformance/k41_lambda_immediate_landed.ref"    "" ""
+# k41_lambda_immediate: retired hardcoded row (ceo s283h, probe total-conversion) -- the witness now lives in the conformance2 SUITE (tests/snobol4/probe/conformance2.sno, entry k41_lambda_immediate_landed) and is graded by the suite loop below; keeping the loose-path row too would double-grade it against a path that no longer exists.
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""

@@ -8,7 +8,7 @@
 # total-conversion ruling): the 183 witnesses that used to live as loose corpus/probe/passthru/*.sno files now
 # live in corpus/tests/snobol4/probe/passthru.{sno,ref} (the corpus-suites-consolidation format) -- this script
 # is JUST ANOTHER CONSUMER of that shared file now, the same relationship test_gate_udc.sh already has with
-# tests/snobol4/probe/cn.{sno,ref}, not a second copy of the witness text. one_shot() and the classifier/rollup
+# tests/snobol4/tests/snobol4/probe_loose/cn.{sno,ref}, not a second copy of the witness text. one_shot() and the classifier/rollup
 # below are UNCHANGED from before the conversion; only the SOURCE of (name, .sno, .ref) triples changed, from a
 # directory glob to entries extracted from the suite via corpus_suite_harness.py's `list`+`extract` (the ONE
 # parsing authority -- reused, never re-implemented in bash, per this file's own established precedent).
