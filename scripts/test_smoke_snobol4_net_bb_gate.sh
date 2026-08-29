@@ -171,15 +171,15 @@ if [ $? -ne 0 ]; then
 fi
 
 # Assemble with ilasm (referencing boxes.dll)
-BOXES="$REPO/miscellaneous/runtime/net/boxes.dll"
+BOXES="$REPO/miscellaneous/runtimes/net/boxes.dll"
 if [ ! -f "$BOXES" ]; then
     echo "SKIP: boxes.dll not found at $BOXES; building it now"
-    ilasm /dll /output:"$BOXES" "$REPO/miscellaneous/runtime/net/bb_boxes.il" > "$OUT/boxes_build.log" 2>&1
+    ilasm /dll /output:"$BOXES" "$REPO/miscellaneous/runtimes/net/bb_boxes.il" > "$OUT/boxes_build.log" 2>&1
 fi
 
 ilasm /output:"$OUT/all19.exe" \
       "$OUT/all19.il" \
-      "$REPO/miscellaneous/runtime/net/SnoRt.il" \
+      "$REPO/miscellaneous/runtimes/net/SnoRt.il" \
       > "$OUT/ilasm.log" 2>&1
 RC=$?
 if [ $RC -ne 0 ]; then

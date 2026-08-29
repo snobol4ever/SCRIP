@@ -38,11 +38,11 @@ run_smoke() {
     fi
     # Copy runtime classes
     mkdir -p "$class_dir/rt"
-    java -jar "$JASMIN" "$HERE/../miscellaneous/runtime/jvm/SnoRt.j" -d "$class_dir" > /dev/null 2>&1
-    java -jar "$JASMIN" "$HERE/../miscellaneous/runtime/jvm/SnoRtMatchState.j" -d "$class_dir" > /dev/null 2>&1
+    java -jar "$JASMIN" "$HERE/../miscellaneous/runtimes/jvm/SnoRt.j" -d "$class_dir" > /dev/null 2>&1
+    java -jar "$JASMIN" "$HERE/../miscellaneous/runtimes/jvm/SnoRtMatchState.j" -d "$class_dir" > /dev/null 2>&1
     # Compile SnoPat.java (pattern matcher) with SnoRt on classpath
     if which javac > /dev/null 2>&1; then
-        javac -cp "$class_dir" -d "$class_dir" "$HERE/../miscellaneous/runtime/jvm/SnoPat.java" > /dev/null 2>&1
+        javac -cp "$class_dir" -d "$class_dir" "$HERE/../miscellaneous/runtimes/jvm/SnoPat.java" > /dev/null 2>&1
     fi
     # Run
     local jvm_out=$(timeout 5 java -cp "$class_dir" Prog 2>/dev/null || echo "")

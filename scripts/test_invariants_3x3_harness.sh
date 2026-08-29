@@ -353,8 +353,8 @@ run_snobol4_js() {
   fi
 
   local W="$WORK/$cell"; mkdir -p "$W"
-  local SNO_RT="$ROOT/miscellaneous/runtime/js/sno_runtime.js"
-  local SNO_ENG="$ROOT/miscellaneous/runtime/js/sno_engine.js"
+  local SNO_RT="$ROOT/miscellaneous/runtimes/js/sno_runtime.js"
+  local SNO_ENG="$ROOT/miscellaneous/runtimes/js/sno_engine.js"
 
   local DIRS="hello rung2 rung3 rung4 rung8 rung9 rung10 rung11 arith assign capture concat control data functions keywords library output patterns"
   for dir in $DIRS; do
@@ -872,7 +872,7 @@ run_prolog_wasm() {
   local W="$WORK/$cell"; mkdir -p "$W"
   local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
   local PL_RUNNER="$ROOT/test/wasm/pl_run_wasm.js"
-  local PL_RUNTIME="$ROOT/miscellaneous/runtime/wasm/pl_runtime.wasm"
+  local PL_RUNTIME="$ROOT/miscellaneous/runtimes/wasm/pl_runtime.wasm"
   if [[ ! -f "$PL_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
