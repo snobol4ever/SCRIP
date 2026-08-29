@@ -5264,6 +5264,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
                 if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
             } else t="procedure"; }
     }
+    else if (av.v==DT_C)     t="CODE";
     else if (av.v==DT_X)     t="EXPRESSION";
     else if (av.v==DT_N)     t="name";
     else if (av.v==DT_P)     t="PATTERN";

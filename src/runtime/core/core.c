@@ -2014,7 +2014,7 @@ char *c_VARVAL_fn(DESCR_t v) {
         case DT_E:
             return rt_ws_strdup_c("EXPRESSION");
         case DT_C:
-            return rt_ws_strdup_c("");
+            return rt_ws_strdup_c("CODE");
         default:
             return rt_ws_strdup_c("");
     }
