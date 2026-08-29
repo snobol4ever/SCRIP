@@ -2834,6 +2834,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
+        /* N-2 ITEM 3, flat_gen HALF (2026-08-29, per hq_P LEDGER-s282's RULED (b)): mirrors step 2b's flat_lcl_proc carve extension below -- a flat_gen host (a generator calling a generator, e.g. suspend_nested's outer()->inner()) reserves its own generator callees' frames the same way a flat_lcl_proc host already does. Prerequisite for this arm: icn_gen_host_reserved() (x86_asm.h) now mirrors this three-arm chain so icn_gen_host_reserve_offset() correctly answers here instead of the plausible-but-wrong off=0/base=128 it used to return -- see test_icn_n2_host_reserved_agrees.sh. INERT: nothing yet reads or writes into the reserved bytes (the 4th-word channel + generator-alpha consumption are still open, see the task baton), and the flat_gen retire (mov rsp,rbp; pop rbp) is base-relative/size-independent, so there is no release-side mirror to drift. */
+        int host_frame_base = frame_total;
+        int host_reserve = icn_gen_host_reserve(prefix);
+        if (host_reserve > 0) frame_total += host_reserve;
+        (void)host_frame_base;
+        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
