@@ -6,16 +6,18 @@
 #
 # rc=0 both modes 10/10 (CLEAN); rc=1 examined all 10 in both modes, at least one FAIL (VIOLATION);
 # rc=2 scrip unbuilt or the demo corpus absent -- cannot measure (UNPROVEN, never a silent pass).
-# PATH NOTE (2026-08-28): corpus/scrip/demoNN/ was moved to corpus/demo/scrip/demoNN/ by a
-# concurrent session mid-campaign (Lon's direct order) -- this path has moved before and may
-# again; if this gate starts reporting UNPROVEN(2) unexpectedly, check for another corpus move
-# before assuming the demos themselves regressed.
+# PATH NOTE (corrected 2026-08-29): this gate was pointing at corpus/demo/scrip/demoNN/, a path
+# that does not exist on disk -- verified fresh, the demos live at corpus/scrip/demoNN/ (10
+# demoNN dirs, each one *.scrip + *.expected). The 2026-08-28 comment claiming a move TO
+# corpus/demo/scrip/ was itself stale/wrong by the time this was checked. This path has moved
+# before and may again; if this gate starts reporting UNPROVEN(2) unexpectedly, re-verify with
+# `find corpus -ipath '*demoNN*'` before assuming the demos themselves regressed.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 OUTDIR="${OUTDIR:-$S4E/SCRIP/out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-DEMO_DIR="$CORPUS/demo/scrip"
+DEMO_DIR="$CORPUS/scrip"
 TIMEOUT=8
 
 if [ ! -x "$SCRIP" ]; then
