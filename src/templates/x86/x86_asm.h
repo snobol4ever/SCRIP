@@ -462,10 +462,10 @@ extern "C" void *rt_zh_bump_slow(long bytes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline void *rt_zh_bump_slow_addr() { return (void *)rt_zh_bump_slow; }
 inline int x86_port_mode() { return rt_zeta_port_mode(); }
-inline int x86_port_cstack() { int m = x86_port_mode(); return m == ZC_PORT_CSTACK || m == ZC_PORT_FORTH; }
-inline int x86_fc_on()       { return (x86_port_mode() == ZC_PORT_FORTH || x86_port_mode() == ZC_PORT_HEAP) && _.op_fc_bytes > 0; }
+inline int x86_port_cstack() { return 1; }
+inline int x86_fc_on()       { return _.op_fc_bytes > 0; }
 inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
-inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = (x86_port_mode() == ZC_PORT_FORTH || x86_port_mode() == ZC_PORT_HEAP) && w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [off %d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }
+inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [off %d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }
 inline std::string x86_fc_jcc_omega(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_jcc_canon(uint8_t op) {
@@ -487,7 +487,7 @@ inline int x86_selfload_mode() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr()         { return "rsp"; }
-inline int          x86_zr_num()     { return x86_zc_frame() == ZC_FRAME_RSP ? 4 : 5; }
+inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
@@ -1845,17 +1845,9 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_align_enter() {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();
-    if (MEDIUM_BINARY) return x86_Lrec(x86_b1(0x54) + x86_b3(0xFF, 0x34, 0x24) + x86_b2(0x48, 0x83) + x86_b2(0xE4, 0xF0));
-    return x86_rec("push") + "rsp\n push qword ptr [rsp]\n and rsp, -16\n";
-}
+inline std::string x86_align_enter() { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_align_leave() {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();
-    if (MEDIUM_BINARY) return x86_Lrec(x86_b3(0x48, 0x8B, 0x64) + x86_b2(0x24, 0x08));
-    return x86_rec("mov") + "rsp, [rsp + 8]\n";
-}
+inline std::string x86_align_leave() { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_anchor_enter() { return x86_align_enter(); }
 inline std::string x86_anchor_leave() { return x86_align_leave(); }
@@ -1876,15 +1868,9 @@ inline std::string x86_frame_unsink() {
     return x86("mov", "rsp", "qword ptr [rsp + 0]");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_enter() {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L);
-    return x86("push", "r14") + x86("push", "r15") + x86("push", "r13");
-}
+inline std::string x86_xfer_enter() { return x86("push", "r14") + x86("push", "r15") + x86("push", "r13") + x86("sub", "rsp", 8L); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_xfer_leave() {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
-    return x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14");
-}
+inline std::string x86_xfer_leave() { return x86("add", "rsp", 8L) + x86("pop", "r13") + x86("pop", "r15") + x86("pop", "r14"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_alpha_carve(long K)          { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
 inline std::string x86_gamma_free(long K)           { return K > 0 ? x86("add", "rsp", K) : std::string(); }
@@ -2275,23 +2261,6 @@ inline std::string x86_zdp_rbp_gamma_at(int port) {
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zeta_mark_call(int off) {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();
-    return x86("push", "rsi")
-         + x86_align_enter()
-         + x86("call", "rt_zls_mark", (uint64_t)(uintptr_t)(void *)(void *(*)(void))rt_zls_mark)
-         + x86_align_leave()
-         + x86("mov",  FRQ(off), "rax")
-         + x86("pop",  "rsi");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zeta_release_to_call(int off) {
-    if (x86_zc_frame() == ZC_FRAME_RSP) return std::string();
-    return x86_align_enter()
-         + x86("mov",  "rdi", FRQ(off))
-         + x86("call", "rt_zls_release_to", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release_to)
-         + x86_align_leave();
-}
 extern "C" void rt_bomb(const char * msg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_bomb(const char * msg) {
