@@ -666,6 +666,20 @@ static void rk_register_classes(const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_discover_nested_subs(const tree_t * d) {
+    if (!d || d->t != TT_SUB_DECL) return;
+    int np = (int) d->v.ival; if (np < 0) np = 0;
+    for (int k = np + 1; k < d->n; k++) {
+        const tree_t * ch = d->c[k];
+        if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
+        if (!ch || ch->t != TT_SUB_DECL) continue;
+        const char * nm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+        if (!nm || !*nm) continue;
+        if (!rk_proc_known(nm)) rk_register_proc(ch, nm, (int) ch->v.ival);
+        rk_discover_nested_subs(ch);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_discover_procs(const tree_t * prog) {
     if (!prog) return;
     for (int i = 0; i < prog->n; i++) {
@@ -690,6 +704,11 @@ static void rk_discover_procs(const tree_t * prog) {
                 rk_register_proc(ch, qname, np);
             }
         }
+    }
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (d && d->t == TT_SUB_DECL) rk_discover_nested_subs(d);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
