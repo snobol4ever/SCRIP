@@ -146,6 +146,19 @@ s4e_row_state() { qrow "${1:-}" | cut -f4; }
 # ⛔ PARKED-LON-HOLD is honoured as a SYNONYM, not migrated away, because THREE LIVE ROWS ALREADY CARRY IT — the
 # fleet invented this state by hand before the tool had one, exactly as it had invented PARKED-AWAITING before
 # BLOCKED-ON existed. A canonical spelling that orphans the rows already using the ad-hoc one cures nothing.
+# ⭐⭐ RESTRICTED:<x> — THE STATE THAT SURVIVES ITS OWN RELEASE (ceo ruling 2026-08-29, on hq_P's report; implemented hq_P).
+# ⛔ WHY IT IS NOT JUST ASSIGNED WITH A DIFFERENT NAME: ASSIGNED:<x> was carrying TWO meanings with DIFFERENT LIFETIMES.
+# (1) DISPATCH — HQ handed this work to x; when x lets go the assignment IS spent, and ceo's 2026-08-28 always-FREE
+# unclaim ruling is exactly right for it. (2) RESTRICTION — this row may only EVER be worked by x (CEO-19 HQ-only rows):
+# releasing a lock does not spend that, because the restriction belongs to the ROW and not to one episode of work on it.
+# One spelling, two lifetimes, so no single rule about what release does could serve both -- and the one we had silently
+# destroyed (2). MEASURED, not theorised: hq_P released defect-c-zop-flat-regime-depth-compensate with plain `unclaim`,
+# the column went FREE, and seat16's `next` locked an HQ-only codegen row within minutes -- precisely the scenario that
+# row's own header was minted to prevent. ⛔ THE PATCH WE REFUSED, and the refusal is the load-bearing part: special-case
+# ASSIGNED:<hq> inside unclaim. That keys behaviour on WHO the assignee is rather than WHAT the state means, so the first
+# restricted row assigned to a non-HQ breaks in silence -- the keyed-on-identity-not-behaviour shape banned elsewhere in
+# this project for the same reason. A distinct spelling makes the lifetime a property of the STATE, checkable by machine.
+s4e_restricted_to() { case "${1:-}" in RESTRICTED:?*) printf '%s' "${1#RESTRICTED:}"; return 0;; *) return 1;; esac; }
 s4e_is_grant_wait() { case "${1:-}" in GRANT-NEEDED|GRANT-NEEDED:*|PARKED-LON-HOLD|PARKED-LON-HOLD:*) return 0;; *) return 1;; esac; }
 
 # ⭐ CURE 2 — THE RELEASE BOOMERANG. seat01 released rank-0 `icon-n2` and the picker served THE SAME ROW BACK
@@ -191,6 +204,7 @@ s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEA
       s4e_boomerang_hold "$blk" && return 1              # never promote a row I myself just released
       case "$(s4e_row_state "$blk")" in
         FREE|'')                        printf '%s' "$blk"; return 0;;   # servable -> promote it
+        RESTRICTED:*)                   [ "$(s4e_restricted_to "$(s4e_row_state "$blk")")" = "$ME" ] && { printf '%s' "$blk"; return 0; }; return 1;;   # only its own owner
         BLOCKED-ON:*|PARKED-AWAITING:*) cur="$blk";;                     # transitive -> walk deeper
         *)                              return 1;;                       # parked/grant-gated -> nothing to promote
       esac
@@ -446,6 +460,14 @@ case "$cmd" in
                 # carries an HQ on rows a SEAT holds (corpus-crosscheck-probe-total-conversion: col3 hq_B, claim
                 # seat12) -- which reads as umbrella-HQ + working-seat, not as drift. Writing the claimant there
                 # would destroy that, so col3 stays a question routed to hq_P/ceo, not a field this cure assumes.
+                # ⭐ REMEMBER A RESTRICTION BEFORE OVERWRITING IT. The column must still learn about beginnings
+                # (hq_B's cure: 15 of 16 claimed rows read FREE before it), so a claimed RESTRICTED row still reads
+                # CLAIMED:<x> -- but unclaim would then have no way to know the row was ever restricted, and would
+                # correctly-but-destructively drive it to FREE. The claim file is the natural place: it already
+                # carries the owner and the DONE/OVERRIDE-BY receipts, it is deleted with the lock, and it cannot
+                # outlive the episode it describes. ⛔ ONLY RESTRICTED is remembered: an ASSIGNED dispatch really is
+                # spent on release and must NOT be restored (that is ceo's 2026-08-28 ruling, still governing).
+                { _pre="$(s4e_row_state "$topic")"; if s4e_restricted_to "$_pre" >/dev/null; then printf 'PRIOR-STATE %s\n' "$_pre" >> "$c"; fi; }
                 s4e_set_row_state "$topic" "CLAIMED:$ME" || true
                 echo "claimed $topic"; else rm -f "$t"; echo "RACE LOST: $(head -1 "$c" 2>/dev/null) owns it"; exit 1; fi; fi;;
   unclaim) # ⭐ s265 — RELEASE AN UNWORKED CLAIM. Minted because THREE seats hit its absence in one day (seat08,
@@ -498,7 +520,11 @@ case "$cmd" in
          # ⭐ WAS A SECOND, INLINE COPY of the awk in s4e_set_row_state -- the exact "second, subtly-different
          # rewriter" that function's own header says it was factored out to prevent, grown back four lines below it.
          # Identical behaviour (col4 -> FREE), now through the one writer, so it inherits the lock instead of racing.
-         s4e_set_row_state "$topic" "FREE" || true
+         # ⭐ A RESTRICTION IS NOT SPENT BY LETTING GO OF THE LOCK -- restore it rather than freeing the row.
+         # Everything else still goes to FREE, unchanged: ceo's 2026-08-28 ruling governs DISPATCH and is untouched.
+         { _rst="$(grep -m1 '^PRIOR-STATE ' "$c" 2>/dev/null | sed 's/^PRIOR-STATE //')"
+           if [ -n "$_rst" ] && s4e_restricted_to "$_rst" >/dev/null; then s4e_set_row_state "$topic" "$_rst" || true
+           else s4e_set_row_state "$topic" "FREE" || true; fi; }
          b="$PO/tasks/$topic.task.md"
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          s4e_mark_row "$topic" RELEASED
@@ -536,10 +562,11 @@ case "$cmd" in
          esac
          case "$st" in
            FREE|PARKED|BLOCKED|ASSIGNED|DONE|SUPERSEDED|RETIRED|GRANT-NEEDED|PARKED-LON-HOLD) : ;;
-           PARKED-AWAITING:?*|BLOCKED-ON:?*|ASSIGNED:?*|CLAIMED:?*|DONE:?*|SUPERSEDED:?*|GRANT-NEEDED:?*|PARKED-UMBRELLA:?*|PARKED-LON-HOLD:?*) : ;;
+           PARKED-AWAITING:?*|BLOCKED-ON:?*|ASSIGNED:?*|CLAIMED:?*|RESTRICTED:?*|DONE:?*|SUPERSEDED:?*|GRANT-NEEDED:?*|PARKED-UMBRELLA:?*|PARKED-LON-HOLD:?*) : ;;
            *) printf '⛔ REFUSED: "%s" is not a state. ARG 3 IS THE STATE COLUMN, NOT A REASON — that is the mistake this guard exists for.\n' "$st" >&2
               printf '   Accepted: FREE PARKED BLOCKED ASSIGNED DONE SUPERSEDED RETIRED GRANT-NEEDED PARKED-LON-HOLD\n' >&2
               printf '             PARKED-AWAITING:<topic>  BLOCKED-ON:<topic>  ASSIGNED:<seat>  CLAIMED:<seat>\n' >&2
+              printf '             RESTRICTED:<seat>   (only <seat> may ever work it; survives unclaim -- for CEO-19 HQ-only rows)\n' >&2
               printf '             DONE:<why>  SUPERSEDED:<why>  GRANT-NEEDED:<why>  PARKED-UMBRELLA:<why>\n' >&2
               printf '   ⭐ Put the REASON in the baton (%s/tasks/%s.task.md) — the queue is an INDEX, not a brief store.\n' "$PO" "$topic" >&2
               printf '   ⭐ To make a park SELF-CLEARING, spell it PARKED-AWAITING:<blocker> or BLOCKED-ON:<blocker>;\n' >&2
@@ -1014,7 +1041,14 @@ TASKEOF
            # picker by the next tidy-minded seat, and the seven-re-serves-in-one-day loop restarts. Named here
            # so the state is legible to a -x trace, to the QUEUE-EMPTY report below, and to the park refusal.
            if s4e_is_grant_wait "$step"; then continue; fi
-           case "$step" in FREE|'') : ;; *) continue;; esac
+           # ⭐ RESTRICTED:<x> IS SERVABLE, BUT ONLY TO x. Unlike ASSIGNED (which hides a row from everyone, its owner
+           # included, so the owner must reach for `claim`), a restriction names who MAY work it -- so the picker can and
+           # should hand it to that seat. Everyone else falls through to the generic skip below, as before.
+           case "$step" in
+             FREE|'') : ;;
+             RESTRICTED:*) [ "$(s4e_restricted_to "$step")" = "$ME" ] || continue ;;
+             *) continue;;
+           esac
            [ -f "$PO/claims/$topic.claim" ] && continue
            # ⭐ CURE 2 — RELEASE BOOMERANG. Do not hand a seat back the row it just put down; say so out loud,
            # because a silent skip here is indistinguishable from the row not existing.
