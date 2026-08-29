@@ -194,6 +194,39 @@ COMPANION_EXTS = {".inc", ".dat", ".input", ".in", ".json"}
 # between two copies of the same rule. One function, two callers, or the comparison is not worth making.
 # ⚠️ A profile is a LEXICAL approximation. It can show a construct is ABSENT from every master entry; it
 # cannot show that the behaviour is adequately tested. Callers must treat it as one-directional.
+# ⛔⭐⭐ `modes` IS A DECLARED FIELD, NEVER A DERIVED ONE (hq_C's FORMAT RULING, TRIO 2026-08-29, on hq_B's
+# four-for-four evidence). The grading mode is a property of THE RUNNER and is recorded nowhere in the corpus,
+# so the builder cannot know it -- it can only carry a declaration someone wrote down.
+# ⛔ WHY NOT DERIVE IT FROM THE FAMILY NAME, when `family.startswith("parser") -> ast` is exactly right on all
+# four languages measured (prolog 134/134, raku 83/83, snocone 67/67, rebus 15/15): BECAUSE THAT EXACTNESS IS
+# THE ARGUMENT AGAINST IT. A heuristic right on every case you have is maximally tempting and gives NO SIGNAL
+# when it starts being wrong -- RULES.md § A CORRECT PROCEDURE WITH A FALSE EXPLANATION, where every
+# successful use appears to confirm the rule and the rule is never once under test. A name is a proxy that is
+# right today by coincidence of naming discipline.
+# ⛔ DEFAULT IS `UNKNOWN` AND IT MUST BE LOUD. An unknown-mode entry may NOT be quietly graded in a default
+# mode -- that reproduces the original defect with a schema field on top, which is WORSE because the field
+# now looks like the question was answered. Unknown is UNPROVEN at grading time, never pass and never fail.
+# DECLARATION FILE: tests/<lang>/config/MODES.tsv (or tests/<lang>/MODES.tsv until the flat/config end state
+# lands), lines of `family<TAB>modes`, `#` comments ignored. One human-maintained file per language, in the
+# folder ceo's flat layout reserves for exactly this kind of companion.
+def read_modes_decl(root):
+    """{family: modes} from the per-language declaration. Absent file or absent family -> UNKNOWN."""
+    decl = {}
+    for cand in (os.path.join(root, "config", "MODES.tsv"), os.path.join(root, "MODES.tsv")):
+        if not os.path.isfile(cand):
+            continue
+        with open(cand) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 2 and parts[1].strip():
+                    decl[parts[0].strip()] = parts[1].strip()
+        break
+    return decl
+
+
 def attrs_for_text(text, lang="snobol4"):
     """Construct profile for arbitrary source text, in `lang`'s attribute vocabulary. -> {column: 0|1}"""
     if lang not in LANG_TABLES:
@@ -256,6 +289,7 @@ def main():
     global COLS, NAME_FEATURES
     COLS, NAME_FEATURES = LANG_TABLES[lang]
     os.makedirs(OUTDIR, exist_ok=True)
+    _modes_decl = read_modes_decl(ROOT)   # declared, never derived -- absent family => UNKNOWN
     delete_absorbed = "--delete-absorbed" in sys.argv[1:]
     included, all_entries, per_family = [], [], {}
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
@@ -390,10 +424,10 @@ def main():
         h.refuse("re-read count %d != written %d -- NOT trusting the merge" % (len(reread), len(all_entries)))
     with open(os.path.join(OUTDIR, "ALL.csv"), "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines"] + [c for c, _ in COLS])
+        w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
         for rank, (e, flags, text) in enumerate(rows, 1):
             fam = e.origin.split("__", 1)[0]
-            w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines)] + [flags[c] for c, _ in COLS])
+            w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
     with open(os.path.join(OUTDIR, "ALL.excluded.txt"), "w") as f:
         for fam, why in excluded:
             f.write("%s\t%s\n" % (fam, why))
@@ -401,7 +435,27 @@ def main():
     print("EXCLUDED (loud, see ALL.excluded.txt): %d" % len(excluded), file=sys.stderr)
     for fam, why in excluded:
         print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
-    print("attribute columns: %d" % (5 + len(COLS)), file=sys.stderr)
+    print("attribute columns: %d" % (6 + len(COLS)), file=sys.stderr)
+    # ⛔⭐ UNKNOWN MODE IS LOUD, per hq_C's FORMAT RULING (3). A recorded-but-unknown mode is only an
+    # improvement if the reader is TOLD it is unknown; a silent UNKNOWN is worse than no column at all,
+    # because the field makes the question look answered. These entries are UNPROVEN at grading time --
+    # never PASS, never FAIL -- and any consumer that grades them in a default mode reproduces the exact
+    # defect the column exists to expose.
+    _fams = sorted({e.origin.split("__", 1)[0] for e in all_entries})
+    _unk = [f for f in _fams if f not in _modes_decl]
+    _unk_entries = sum(1 for e in all_entries if e.origin.split("__", 1)[0] not in _modes_decl)
+    if _unk:
+        print("⛔ MODE UNKNOWN for %d of %d families (%d entries) -- these are UNPROVEN, not passes:"
+              % (len(_unk), len(_fams), _unk_entries), file=sys.stderr)
+        for f in _unk[:10]:
+            print("     %s" % f, file=sys.stderr)
+        if len(_unk) > 10:
+            print("     ... and %d more (the full set is the `modes` column = UNKNOWN in ALL.csv)" % (len(_unk) - 10), file=sys.stderr)
+        print("   Declare them in %s/config/MODES.tsv as `family<TAB>modes`. ⛔ Do NOT guess from the family"
+              % ROOT, file=sys.stderr)
+        print("   name: a heuristic that is right on every case you have gives no signal when it starts being wrong.", file=sys.stderr)
+    else:
+        print("mode: declared for all %d families" % len(_fams), file=sys.stderr)
     # -- BYTE-EQUAL-OR-NO-DELETE (the house law, applied to absorption): every absorbed source pair is re-read FRESH
     # from disk and compared entry-by-entry against the written master. A family that does not verify is NEVER deleted.
     # Verification is implemented for snobol4 (the language whose sources this session deletes); dialect masters keep
