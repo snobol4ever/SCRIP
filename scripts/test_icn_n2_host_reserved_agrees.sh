@@ -1,29 +1,24 @@
 #!/usr/bin/env bash
-# test_icn_n2_host_reserved_agrees.sh -- N-2 item 3: icn_gen_host_reserved() agrees with what emit.cpp actually
-# carves (hq_P 2026-08-28, contract UPDATED 2026-08-29 when the flat_gen arm gained its own reservation carve).
+# test_icn_n2_host_reserved_agrees.sh -- N-2 item 3: THE HOST-RESERVED REFUSAL invariant (hq_P 2026-08-28).
 #
-# THE CLAIM UNDER TEST:  icn_gen_host_reserve_offset() answers (off>=0, base>=0) for a host that actually carved a
-# reservation, and REFUSES (-1/-1) for one that did not -- keyed on icn_gen_host_reserved(), which classifies a host
-# by WHICH ARM of emit.cpp's three-arm prologue chain it took: if (zframe_graph) :2829 (never reserves) / else if
-# (icn_genframe2() && flat_gen) :2832 (N-2 item 3 flat_gen half, 2026-08-29 -- NOW reserves, mirroring the sibling
-# arm) / else if (flat_lcl_proc) :2845 (step 2b -- reserves). ⭐ AS OF 2026-08-29 BOTH NON-zframe ARMS RESERVE, so
-# every site in this witness set (none of which contain a forward-referenced callee) must ANSWER, regardless of host
-# kind -- the old "flat_gen must refuse" assertion is retired, not the gate itself.
+# THE CLAIM UNDER TEST:  icn_gen_host_reserve_offset() answers ONLY for a host that actually carved a reservation,
+# and REFUSES (-1/-1) for one that did not.  icn_gen_host_reserve() is called from exactly one place (emit.cpp:2852),
+# inside the THIRD arm of a three-arm prologue chain -- if (zframe_graph) :2829 / else if (icn_genframe2() &&
+# flat_gen) :2832 / else if (flat_lcl_proc) :2845 -- so a graph taking either of the first two arms reserves NOTHING.
 #
-# ⛔ WHY THIS IS STILL A GATE AFTER THE FLAT_GEN EXTENSION.  icn_gen_host_reserved() MIRRORS AN else-if CHAIN IN
-# ANOTHER TRANSLATION UNIT WITH NO COMPILER CHECK THAT IT STILL DOES.  Proof it still catches drift: extending
-# emit.cpp's flat_gen arm to carve a reservation WITHOUT updating this predicate in lockstep was caught by this
-# exact selftest discipline before it shipped -- SCRIP_N2_OFFSET_SELFTEST=1 on nested.icn measured
-# host=proc_outer expect_off=0 got_off=-1 MISMATCH, because icn_gen_host_reserved() still hardcoded flat_gen->0.
-# ⛔ EARLIER HISTORY, kept for why the witness set looks the way it does: before the s282 cure the scan was
-# HOST-KIND-BLIND in a different way and returned a plausible `off=0 base=128` for a flat_gen host that reserved
-# NOTHING -- MEASURED on suspend_nested's inner(), and on a two-caller witness the SAME generator answered
-# `off=0 base=128` from its flat_gen host and `off=128 base=240` from its flat_lcl_proc host. Zero is the most
-# dangerous answer available -- indistinguishable from a correct first-slot answer -- so a step-3 consumer would
-# have carved into a region that was never reserved and corrupted the host frame three layers from the edit. The
-# witness set (one flat_lcl_proc-only host, one flat_gen-only host, one generator reached from both) still exists
-# to prove the predicate is keyed on the HOST, not the callee -- only the expected ANSWER per class changed.
+# ⛔ WHY THIS IS A GATE.  Before the s282 cure the scan was HOST-KIND-BLIND and returned a plausible `off=0 base=128`
+# for a flat_gen host: MEASURED on suspend_nested's inner(), and on a two-caller witness the SAME generator answered
+# `off=0 base=128` from its flat_gen host and `off=128 base=240` from its flat_lcl_proc host.  Zero is the most
+# dangerous answer available -- indistinguishable from a correct first-slot answer -- so a step-3 consumer would carve
+# into a region that was never reserved and corrupt the host frame three layers from the edit.
+# ⛔ AND THE PREDICATE MIRRORS AN else-if CHAIN IN ANOTHER TRANSLATION UNIT WITH NO COMPILER CHECK THAT IT STILL DOES.
+# That is precisely what rots silently: add a fourth arm before :2845, or move the reserve call, and the predicate is
+# wrong with nothing to say so.  This gate is that missing check.
 #
+# ⛔ CONTRACT HISTORY (ceo s283, 2026-08-29): 06d4852f briefly flipped this gate to "both host kinds ANSWER" alongside
+# the flat_gen-arm stack reserve; BOTH are superseded by the region-resident alpha (a flat_gen host carves nothing on
+# the stack, so answering would hand out a base into storage that does not exist). The REFUSAL contract below is
+# RESTORED and flips only when icon-n2-flat-gen-host-transitive-reserve lands the region-nested reserve.
 # THREE STATES:  rc=0 invariant holds  |  rc=1 violated  |  rc=2 could not measure (never skip-as-success)
 set -u
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); root=$(cd "$here/.." && pwd); cd "$root" || exit 2
@@ -43,20 +38,24 @@ done
 grep -a 'N2-STEP3-DBG' "$tmp/all.log" > "$tmp/dbg.txt" 2>/dev/null
 sites=$(wc -l < "$tmp/dbg.txt")
 [ "$sites" -gt 0 ] || { echo "⛔ REFUSE: zero generator call sites observed -- the diagnostic did not fire, so nothing was measured (an empty denominator is not a pass)"; exit 2; }
-# ⛔ BOTH HOST KINDS MUST BE PRESENT.  A run that saw only one host kind cannot have exercised the OTHER arm of
-# emit.cpp's three-arm chain at all -- untested-where-it-matters is not a pass, even though both kinds now expect
-# the SAME answer (respond, don't refuse). This is the predicate-drift guard, not a per-kind behavior check.
-flproc=$(awk '/host_flat_lcl_proc=1/' "$tmp/dbg.txt" | wc -l)
-flgen=$(awk '/host_flat_lcl_proc=0/' "$tmp/dbg.txt" | wc -l)
-[ "$flproc" -gt 0 ] || { echo "⛔ REFUSE: no flat_lcl_proc host observed -- cannot exercise that arm of the chain"; exit 2; }
-[ "$flgen" -gt 0 ] || { echo "⛔ REFUSE: no flat_gen host observed -- cannot exercise that arm of the chain"; exit 2; }
+# ⛔ BOTH CLASSES MUST BE PRESENT.  A run that saw only reserving hosts cannot have exercised the refusal at all, and
+# would pass while the cure was entirely absent -- untested-where-it-matters is not a pass.
+resv=$(awk '/host_flat_lcl_proc=1/' "$tmp/dbg.txt" | wc -l)
+nonr=$(awk '/host_flat_lcl_proc=0/' "$tmp/dbg.txt" | wc -l)
+[ "$resv" -gt 0 ] || { echo "⛔ REFUSE: no reserving (flat_lcl_proc) host observed -- cannot test the answering path"; exit 2; }
+[ "$nonr" -gt 0 ] || { echo "⛔ REFUSE: no non-reserving (flat_gen) host observed -- cannot test the REFUSAL path, which is the whole point of this gate"; exit 2; }
 bad=0
 while read -r line; do
+    lcl=$(sed -n 's/.*host_flat_lcl_proc=\([0-9-]*\).*/\1/p' <<<"$line")
     off=$(sed -n 's/.*off=\([0-9-]*\).*/\1/p' <<<"$line")
     bse=$(sed -n 's/.*base=\([0-9-]*\).*/\1/p' <<<"$line")
-    if [ "$off" = -1 ] || [ "$bse" = -1 ]; then echo "⛔ FAIL: host REFUSED off=$off base=$bse but this witness set has no forward references -- every site must answer now that both host kinds reserve: $line"; bad=$((bad+1)); fi
+    if [ "$lcl" = 0 ]; then
+        if [ "$off" != -1 ] || [ "$bse" != -1 ]; then echo "⛔ FAIL: non-reserving host answered off=$off base=$bse (must be -1/-1): $line"; bad=$((bad+1)); fi
+    else
+        if [ "$off" = -1 ] || [ "$bse" = -1 ]; then echo "⛔ FAIL: reserving host REFUSED off=$off base=$bse (must answer): $line"; bad=$((bad+1)); fi
+    fi
 done < "$tmp/dbg.txt"
-echo "=== N-2 HOST-RESERVED AGREEMENT GATE: sites=$sites flat_lcl_proc_hosts=$flproc flat_gen_hosts=$flgen violations=$bad ==="
-[ "$bad" -eq 0 ] || { echo "⛔ FAIL: $bad site(s) got an unexpected refusal -- icn_gen_host_reserved() likely drifted from emit.cpp's chain again"; exit 1; }
-echo "✅ PASS: every host in the fixed witness set (both host kinds) answers with a valid off/base"
+echo "=== N-2 HOST-RESERVED REFUSAL GATE: sites=$sites reserving=$resv non-reserving=$nonr violations=$bad ==="
+[ "$bad" -eq 0 ] || { echo "⛔ FAIL: $bad site(s) disagree with icn_gen_host_reserved()"; exit 1; }
+echo "✅ PASS: every non-reserving host refuses (-1/-1); every reserving host answers"
 exit 0
