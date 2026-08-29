@@ -25,7 +25,10 @@ if [ ${#FILES[@]} -eq 0 ]; then
     # corpus/probe/passthru/ptc*.sno files; it now lives in corpus/tests/snobol4/probe/passthru.{sno,ref}
     # (corpus-suites-consolidation format). Extract the ptc-prefixed entries via corpus_suite_harness.py
     # (the ONE parsing authority) into a scratch dir so the rest of this script's file-list contract is
-    # unchanged. retry/ is untouched -- a separate, not-yet-converted probe family.
+    # unchanged.
+    # ⭐ RE-POINTED 2026-08-29 (seat16, corpus-crosscheck-probe-total-conversion clause 3): retry/ is now
+    # converted too -- corpus/probe/retry/*.sno -> corpus/tests/snobol4/probe/retry.{sno,ref}. Same
+    # extraction idiom, same scratch-dir contract; nothing downstream of $FILES changed.
     HARNESS="$S4E/SCRIP/scripts/corpus_suite_harness.py"
     SUITE_SNO="$S4E/corpus/tests/snobol4/probe/passthru.sno"
     SUITE_REF="$S4E/corpus/tests/snobol4/probe/passthru.ref"
@@ -35,7 +38,15 @@ if [ ${#FILES[@]} -eq 0 ]; then
             case "$name" in ptc*) python3 "$HARNESS" extract "$SUITE_SNO" "$SUITE_REF" "$name" "$PTC_TMP/$name.sno" >/dev/null 2>&1 ;; esac
         done < <(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
     fi
-    FILES=( "$PTC_TMP"/*.sno "$S4E"/corpus/probe/retry/*.sno )
+    RETRY_SNO="$S4E/corpus/tests/snobol4/probe/retry.sno"
+    RETRY_REF="$S4E/corpus/tests/snobol4/probe/retry.ref"
+    RETRY_TMP="$TMP/retry_family"; mkdir -p "$RETRY_TMP"
+    if [ -f "$RETRY_SNO" ] && [ -f "$RETRY_REF" ]; then
+        while IFS= read -r name; do
+            python3 "$HARNESS" extract "$RETRY_SNO" "$RETRY_REF" "$name" "$RETRY_TMP/$name.sno" >/dev/null 2>&1
+        done < <(python3 "$HARNESS" list "$RETRY_SNO" "$RETRY_REF" 2>/dev/null)
+    fi
+    FILES=( "$PTC_TMP"/*.sno "$RETRY_TMP"/*.sno )
 fi
 n=0
 for f in "${FILES[@]}"; do

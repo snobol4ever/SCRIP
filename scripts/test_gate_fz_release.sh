@@ -26,10 +26,29 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-FZ="${FZ:-$S4E/corpus/probe/fz}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
-[ -d "$FZ" ]    || { echo "⛔ REFUSED-TO-GRADE no $FZ"; exit 2; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+# ⭐ RE-POINTED 2026-08-29 (seat16, corpus-crosscheck-probe-total-conversion clause 3): corpus/probe/fz/
+# is gone -- converted to corpus/tests/snobol4/probe/fz.{sno,ref} (corpus-suites-consolidation format).
+# Same idiom as util_zsm_beta_skew_census.sh's ptc-grid re-point: extract every entry via
+# corpus_suite_harness.py (the ONE parsing authority) into a scratch dir, then use that as FZ so every
+# LOCK below -- including LOCK 2/4's raw-asm regex analysis, which needs standalone files to feed
+# `--compile` directly under different env-var arms -- is unchanged. extract() is byte-equal by the
+# same law that gated the conversion itself, so this is a pure re-point: verified via a before/after
+# full-output diff against the pre-conversion loose-file run (see the conversion commit).
+# An explicit FZ override (a caller's own standalone witness dir) is used AS-IS, exactly as before --
+# extraction only runs on the default path, so override semantics are unchanged.
+if [ -z "${FZ:-}" ]; then
+    FZ_SUITE_SNO="${FZ_SUITE_SNO:-$S4E/corpus/tests/snobol4/probe/fz.sno}"
+    FZ_SUITE_REF="${FZ_SUITE_REF:-$S4E/corpus/tests/snobol4/probe/fz.ref}"
+    FZ="$WORK/fz_src"; mkdir -p "$FZ"
+    if [ -f "$FZ_SUITE_SNO" ] && [ -f "$FZ_SUITE_REF" ]; then
+        while IFS= read -r name; do
+            python3 "$HERE/corpus_suite_harness.py" extract "$FZ_SUITE_SNO" "$FZ_SUITE_REF" "$name" "$FZ/$name.sno" --out-ref "$FZ/$name.ref" >/dev/null 2>&1
+        done < <(python3 "$HERE/corpus_suite_harness.py" list "$FZ_SUITE_SNO" "$FZ_SUITE_REF" 2>/dev/null)
+    fi
+fi
+[ -d "$FZ" ] && [ -n "$(ls -A "$FZ" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $FZ (suite missing or extraction failed)"; exit 2; }
 rc=0
 echo "=== FZ GATE -- LOCK 1: witnesses vs oracle .ref, DISARMED default, both modes ==="
 for sno in "$FZ"/*.sno; do
