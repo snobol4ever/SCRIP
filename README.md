@@ -127,6 +127,42 @@ verified per kernel before timing — a wrong answer is never a fast answer):
 | concat | 200k appends | **22.7x** — SPITBOL grows O(n²) here; a class win, labeled as such |
 | patmatch | 1M iterations | **0.55x** — the named gap: the core pattern lane, under active cure |
 
+**SNOBOL4 priority workloads × vs SPITBOL** (callgrind Ir, slope method — fixed work, no
+startup — SCRIP mode-4, tree `2037a02f`, 2026-08-23; the ruled product target for these
+is 2.00x–3.00x):
+
+| workload | × vs SPITBOL |
+|---|:---:|
+| claws5 — the 3-level table gauntlet, real 66 KB corpus input | 0.734x |
+| json — the deserializer, real 631 KB document | 0.422x |
+| claws5 grammar only (pattern engine alone, zero captures) | **1.628x** |
+
+The pattern engine already beats SPITBOL; the open gap is the deferred actions and
+runtime services around it — which is where the cure work is aimed.
+
+**SNOBOL4 17-kernel grid × vs SPITBOL** (callgrind Ir/iter, 2026-08-22 tree — restated
+onto the faster axis from that scoreboard's own stated scrip/sbl columns):
+
+| kernel | × | kernel | × | kernel | × |
+|---|:---:|---|:---:|---|:---:|
+| string_concat | **1.72x** | ident_call1 | 0.97x | string_pattern | 0.43x |
+| fibonacci | **1.67x** | ident_call2 | 0.93x | table_access | 0.43x |
+| var_access | **1.32x** | array_sum | 0.79x | indirect_dispatch | 0.43x |
+| func_call | **1.24x** | eval_fixed | 0.67x | string_manip | 0.37x |
+| op_dispatch | **1.19x** | pattern_bt | 0.45x | mixed_workload | 0.34x |
+| arith_loop | **1.03x** | | | roman | 0.20x |
+
+**SNOBOL4 demos × vs SPITBOL** (2026-08-27, whole-program totals *including* startup —
+a different basis, never comparable to the slopes above; every row's answer verified by
+output digest against SPITBOL before timing):
+
+| demo | mode 3 | mode 4 |
+|---|:---:|:---:|
+| claws5 | 0.76x | 0.77x |
+| calculator | 0.35x | 0.48x |
+| treebank | 0.29x | 0.35x |
+| json | 0.25x | 0.41x |
+
 **Icon × vs Arizona `iconx`** (10/10 kernels output-identical):
 
 | kernel | × | kernel | × |
