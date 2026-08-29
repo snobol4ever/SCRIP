@@ -3745,20 +3745,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             }
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
-                           || !strcmp(mname0, "elems") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
+                           || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
-                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values" : mname0;
+                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
+                                    : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
                     if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
                     else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-                    if (script_try_call_builtin_by_name(afn, fa, total, out)) return 1;
+                    if (script_try_call_builtin_by_name(afn, fa, total, out)) {
+                        if (!strcmp(mname0, "end") && IS_INT_fn(*out)) *out = INTVAL(out->i - 1);   /* @a.end == @a.elems - 1 (last valid index; -1 for an empty array) */
+                        return 1;
+                    }
                 }
             }
         }

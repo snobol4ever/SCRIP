@@ -1029,7 +1029,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         if (has_rk_MAIN) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"MAIN";
             tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"MAIN"; ast_push(mc, nmv);
-            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, mc, sentry, fail, &r);
+            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, mc, sentry, sentry, &r);
             if (e) { entry = e; sentry = e; }
         }
         for (int i = prog->n - 1; i >= 0; i--) {
@@ -1038,7 +1038,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
             if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_ROLE_DECL || s->t == TT_GRAMMAR_DECL) continue;
             if ((s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
-            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, fail, &r);
+            IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, sentry, &r);
             if (e) { entry = e; sentry = e; }
         }
         tg->entry = entry;
