@@ -121,13 +121,26 @@ run_corpus() {
     MODE_FAIL=0
     if mode_is_refused "$mode"; then
         local pend=0 f
-        for f in "${FILES[@]}"; do [ -f "${f%.pl}.expected" ] && pend=$((pend+1)); done
+        for f in "${FILES[@]}"; do { [ -f "${f%.pl}.expected" ] || [ -f "${f%.pl}.ref" ]; } && pend=$((pend+1)); done
         echo "--- Prolog ($mode): REFUSED (Stack Machine refused) — $pend files pending regrow ---"
         return 0
     fi
-    local pl base name exp got want
+    local pl base name exp got want _isref
     for pl in "${FILES[@]}"; do
-        exp="${pl%.pl}.expected"
+        # ⛔⭐ .ref-AWARE, AND IT IS A DENOMINATOR FIX, NOT A FEATURE (hq_P 2026-08-29, row tests-consolidate-prolog; cures the class seat16 filed as
+        # "GATE-3 is .ref-blind").  A single-entry suite conversion renames <stem>.expected -> <stem>.ref and prepends ONE banner line.  This arm looked
+        # only for .expected, so every converted file SILENTLY LEFT THE DENOMINATOR: converting 13 files dropped `Prolog (compile): TOTAL` from 30 to 17
+        # with FAIL unchanged at 13 -- a board that shrinks instead of reddening, which is the exact false-green shape RULES.md names.  Measured, not
+        # theorised: I caused it in this session and caught it with a stash-and-rerun control arm.
+        # ⛔ DELIBERATELY NARROW -- a .ref is accepted here ONLY when it is a SINGLE-ENTRY suite (exactly one banner line).  A MULTI-entry family .ref
+        # holds several programs' outputs plus their banners and belongs to corpus_suite_harness.py, which the interp arm already delegates to and which
+        # this arm explicitly does not get (see the header note).  Reading one of those as a single pin would compare one program's output against the
+        # whole family's -- a guaranteed, and confusingly plausible, FAIL.
+        exp="${pl%.pl}.expected"; _isref=0
+        if [ ! -f "$exp" ] && [ -f "${pl%.pl}.ref" ] \
+           && [ "$(grep -cE '^[^A-Za-z0-9]*-{10,}[[:space:]]+[0-9]+[[:space:]]+[A-Za-z0-9_]' "${pl%.pl}.ref")" = "1" ]; then
+            exp="${pl%.pl}.ref"; _isref=1
+        fi
         [ -f "$exp" ] || continue
         base="${pl%.pl}"
         name=$(basename "$pl" .pl)
@@ -143,7 +156,7 @@ run_corpus() {
             [ "$VERBOSE" = 1 ] && echo "REFUSED $name"
             REFUSED=$((REFUSED+1)); continue
         fi
-        want=$(cat "$exp")
+        if [ "$_isref" = 1 ]; then want=$(tail -n +2 "$exp"); else want=$(cat "$exp"); fi
         if [ "$got" = "$want" ]; then
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
             PASS=$((PASS+1))
