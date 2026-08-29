@@ -876,7 +876,7 @@ inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 ST
         if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
         { const char * cn = IR_LIT(hn).sval;
           if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) total += (fb + 15) & ~15; else forward++; } }
+          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) total += (((fb + 15) & ~15) + 48); else forward++; } }   /* N-2 STEP 3 (ceo s283): +48 = the region HEADER above the callee's ft bytes -- [H+0]=saved caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR (caller pre-pad rsp0) [H+32]=resume label [H+40]=spare/16B-align. The slice is [R, R+ft+48) with H=R+ft; the generator runs with rbp=H so every FRQ/ZOPQ spelling from item 1 lands inside the region unchanged. ⛔ ALL THREE SCANS IN THIS HEADER (reserve/offset/selftest) MUST CARRY THE SAME PER-CALLEE ARITHMETIC -- two copies of one formula drift, every time (the 240-vs-144 lesson above). */
     }
     if (forward) { if (prefix) fprintf(stderr, "[GENHOST] \u26d4 host=%s RESERVES NOTHING: %d generator callee(s) not yet registered (forward reference). A partial carve would be silently too small.\n", prefix, forward); return 0; }
     return total;
@@ -901,7 +901,7 @@ inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_no
         { const char * cn = IR_LIT(hn).sval;
           if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
           if (hn == call_node) return off;
-          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) off += (fb + 15) & ~15;
+          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) off += (((fb + 15) & ~15) + 48);   /* N-2 step 3: ft + 48-byte header per slice -- MUST match icn_gen_host_reserve()'s arithmetic above */
             else { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] \u26d4 host=%s a forward-referenced generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; } }
         }
     }
@@ -920,7 +920,7 @@ inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3
         int got = icn_gen_host_reserve_offset(0, hn);
         calls++;
         if (got != expect) { mismatches++; fprintf(stderr, "[GENHOST-SELFTEST] ⛔ host=%s call#%d name=%s expect_off=%d got_off=%d MISMATCH\n", prefix ? prefix : "?", calls, cn, expect, got); }
-        { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) expect += (fb + 15) & ~15; }
+        { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) expect += (((fb + 15) & ~15) + 48); }   /* N-2 step 3: ft + 48-byte header -- the independent accumulation must mirror the reserve arithmetic or the selftest proves nothing */
     }
     if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "⛔ DISAGREE", mismatches);
 }

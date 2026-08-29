@@ -730,6 +730,14 @@ static std::string bcps_spine_gen_arm() {
      * mechanism at all yet. Extending icn_gen_host_reserve() to the flat_gen arm is its own piece of work, not step 3's.
      * See .github/FINDING-2026-08-28-seat01-n2-step3-flat-gen-host-has-no-reservation-mechanism.md before scoping step 3. */
     if (getenv("SEAT01_N2_STEP3_DBG")) { int _dbgbase = -1; int _dbgoff = icn_gen_host_reserve_offset(0, _.node, &_dbgbase); fprintf(stderr, "[N2-STEP3-DBG] node=%p callee=%s host_flat_lcl_proc=%d off=%d base=%d\n", (void*)_.node, _.op_sval ? _.op_sval : "?", g_emit.flat_lcl_proc, _dbgoff, _dbgbase); }
+    /* N-2 STEP 3 (ceo s283): the call site owns the region hand-off. n2_off/n2_base come from the ONE function the carve used; n2_fb is THIS callee's registered ft (needed for the landing's value load at
+     * [H-ft]); n2_res>0 proves the host's carve actually grew -- offset() can answer off=0 for the FIRST callee while a LATER forward reference zeroed the whole reservation (plausible-zero #5 of this rung,
+     * caught at design time), so the guard is the SUM, not the offset. ⛔ A site that cannot supply a region under arming BOMBS loudly (rt_bomb at run time) rather than letting the shared prologue read
+     * garbage at [rsp+16] -- that silent-wild-rbp is exactly the shape s282 ruled UNSOUND in option (a). flat_gen-hosted calls (suspend_nested) land here until the transitive-reserve follow-on row. */
+    int n2_base = -1, n2_off = -1, n2_res = 0, n2_fb = -1;
+    if (icn_genframe2()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
+    if (icn_genframe2() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");   /* the beta label must still be DEFINED -- a later box's beta chain jumps to it (suspend_nested: outer's suspend beta resumes the inner call), and an early return without it dies as an unresolved forward reference at bb_emit_end instead of as this bomb */
+    int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
@@ -749,28 +757,27 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+         + IF(icn_genframe2(), x86("comment", "N-2 STEP 3 REGION HAND-OFF (ceo s283): push the callee's region slice address as the third word above the wire pair -- it lands at [entry rsp+16] where the new alpha reads it. Depth arithmetic: pad+L7 = 16 bytes are already down since the carve, so the slice [carve + base + off] is [rsp + base + off + 16] HERE; this constant is verifiable in the .s and breaks loudly (bomb'd alpha reads garbage) if a push is ever added between L7 and this point. Alignment: one extra 8B word flips nothing that matters -- the ABI-sensitive calls (open_det above, args_install inside the callee) keep their old mod-16 classes because the callee no longer subs its ft (alpha carves nothing).")
+              + x86("lea", "rcx", RDQ("rsp", n2_base + n2_off + 16)) + x86("push", "rcx"))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (icn_genframe2()
-            ? /* N-2: L(3) is a SHARED landing -- the callee reaches it from BOTH ports, so the two arrivals must be told
-               * apart before rsp is touched. A retiring generator still `ret`s through this slot at entry depth carrying
-               * DT_FAIL, exactly as the pre-frame emitter did; a SUSPENDING one arrives by `jmp` with nothing popped and
-               * rsp pointing at the 4-word resume record it just built. The port tag in al is the existing discriminator
-               * (the epilogue below already routes on it), so branch on it here rather than inventing a second channel.
-               * ⭐ The caller needs nothing banked for its own rsp: record word 3 is the generator's rbp, and the three
-               * words the caller pushed before jumping in sit at rbp+8/+16/+24, so its pre-call rsp is recoverable from it: the retire arm below lands at gen-rbp+40 (ret past gamma, then wire_land 16, then 8), so the suspend arm must land THERE TOO or every [rsp+k] after the join means two different slots depending on which port arrived. */
-              x86("comment", "N-2 GENERATOR LANDING: tell a SUSPEND arrival from a RETIRE arrival by the port tag, then restore rsp from the record instead of from a banked copy -- both arms MUST join at the same rsp -- gen-rbp+40, which is where the retire arm has always landed.")
+            ? /* N-2 STEP 3 (ceo s283): L(3) is still the SHARED landing and al still tells a RETIRE (DT_FAIL, arrives with rsp ALREADY restored to the anchor by the retire arm) from a SUSPEND (arrives on the
+               * generator's scratch rsp with rdx = the region header H). Both arms now run every FRQ at TRUE depth (rsp = carve), which buries the old trio of depth defects this landing carried: the suspend
+               * arm joined 8 low so FRQ(act) read [carve+56] (garbage), both banks wrote [carve+64] -- the act FLAG -- while beta read [carve+72], and the epilogue calls ran 8-misaligned on the suspend path
+               * (the intermittent armed m4 SIGSEGV, measured in the .s 2026-08-29). The suspend arm also loads rdi:rsi from the region's return slot [H-ft] -- rt_proc_call_epilogue_γ and rt_gen_spine_pass_γ
+               * are PASS-THROUGH (rt.c:1305, rtx_icngen.s), so the yielded descriptor must be in the argument registers HERE or the caller stores garbage: that was s273's missing value path. */
+              x86("comment", "N-2 STEP 3 LANDING: restore rsp from the ANCHOR in the region header ([rdx+24], = caller pre-pad rsp0), load the yielded descriptor from the frame's return slot, bank the header as the resume token at TRUE depth so beta's FRQ(act+8) read finds it.")
               + x86("cmp", "al", (long)DT_FAIL)
               + x86("je", L(8))
-              + x86("mov", "rcx", "rsp")
-              + x86("mov", "rax", RDQ("rsp", 24))
-              + x86("lea", "rsp", RDQ("rax", 32))
-              + x86("mov", FRQ(act + 8), "rcx")
+              + x86("mov", "rsp", RDQ("rdx", 24))
+              + x86("mov", "rdi", RDQ("rdx", 0 - n2_ftc))
+              + x86("mov", "rsi", RDQ("rdx", 8 - n2_ftc))
+              + x86("mov", FRQ(act + 8), "rdx")
               + x86("jmp", L(9))
               + x86("def", L(8))
-              + bcps_wire_land(_.op_sval)
+              + x86("mov32", "edi", (long)DT_FAIL) + x86("mov32", "esi", 0L)
               + x86("mov", FRQ(act + 8), "rsp")
-              + x86("add", "rsp", 8L)
               + x86("def", L(9))
             : bcps_wire_land(_.op_sval)
               + (zf_resume
@@ -874,8 +881,14 @@ static std::string bcps_spine_gen_arm() {
                      + x86_omega("je")
                      + x86_gamma();
               })()
-            : x86("mov", "rsp", FRQ(act + 8))
-            + x86_jmp_mem("rsp", 0)
+            : (icn_genframe2()
+               ? x86("comment", "N-2 STEP 3 BETA (ceo s283): the banked token is the region header H, not a stack record. Re-create the generator's body rsp from the ANCHOR -- [H+24] is the caller's pre-pad rsp0 and the body ran 40 below it at first entry (pad+L7+region+wire pair), so anchor-40 IS first-entry depth and parity, per activation, per call site -- then jump the resume label stored at [H+32] with the token in rax for the resume landing's one-instruction rbp repoint. The old form (mov rsp,[record]; jmp [rsp]) read a stack record the caller's own calls had already scribbled over.")
+                 + x86("mov", "rax", FRQ(act + 8))
+                 + x86("mov", "rsp", RDQ("rax", 24))
+                 + x86("sub", "rsp", 40L)
+                 + x86_jmp_mem("rax", 32)
+               : x86("mov", "rsp", FRQ(act + 8))
+                 + x86_jmp_mem("rsp", 0))
             + x86("def", L(7))
             + x86("add", "rsp", 8L)
             + x86_anchor_leave()
