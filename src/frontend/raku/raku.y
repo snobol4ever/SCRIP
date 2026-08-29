@@ -255,6 +255,46 @@ static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
     if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
     return expr_binary(op, left, right);
 }
+/* ⭐ construct (f), raku-frontend-real-world-syntax-gaps: a bounded hand-rolled subscript-expression
+   scanner for "@arr[expr]" interpolation, per the task's own catalog note that the alternative (a
+   reentrant flex sub-parse) needed its reentrancy risk "not yet assessed" -- this avoids that risk
+   entirely by never re-entering the lexer/parser. Deliberately narrow: a $name/@name/integer primary,
+   optionally one +-*-/-% operator and a second primary -- measured against every "@name[...]" inside a
+   "..." string across all 17 corpus/benchmarks/raku kernels (spinner's "$_ % @spinner" is the ONLY one),
+   not guessed at a wider generality nothing in the corpus needs. */
+static tree_t *rk_interp_primary(const char *s, int *ip, int len) {
+    int i = *ip;
+    while (i<len && s[i]==' ') i++;
+    if (i<len && (s[i]=='$'||s[i]=='@')) {
+        i++;
+        char nm[256]; int nl=0;
+        while (i<len&&(s[i]=='_'||(s[i]>='A'&&s[i]<='Z')||(s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')))
+            { if(nl<255) nm[nl++]=s[i]; i++; }
+        nm[nl]='\0'; *ip=i;
+        return leaf_sval(TT_VAR,nm);
+    }
+    if (i<len && s[i]>='0' && s[i]<='9') {
+        long v=0;
+        while (i<len && s[i]>='0' && s[i]<='9') { v=v*10+(s[i]-'0'); i++; }
+        *ip=i;
+        tree_t *lit=ast_node_new(TT_ILIT); lit->v.ival=v; return lit;
+    }
+    *ip=i; return NULL;
+}
+static tree_t *rk_interp_subexpr(const char *s, int *ip, int len) {
+    tree_t *left = rk_interp_primary(s,ip,len);
+    if (!left) return NULL;
+    int i = *ip;
+    while (i<len && s[i]==' ') i++;
+    if (i<len && (s[i]=='+'||s[i]=='-'||s[i]=='*'||s[i]=='/'||s[i]=='%')) {
+        char op = s[i]; i++; *ip=i;
+        tree_t *right = rk_interp_primary(s,ip,len);
+        if (!right) return left;
+        tree_e k = op=='+'?TT_ADD:op=='-'?TT_SUB:op=='*'?TT_MUL:op=='/'?TT_DIV:TT_MOD;
+        return expr_binary(k,left,right);
+    }
+    *ip=i; return left;
+}
 static tree_t *lower_interp_str(const char *s) {
     int len = s ? (int)strlen(s) : 0;
     tree_t *result = NULL;
@@ -272,6 +312,25 @@ static tree_t *lower_interp_str(const char *s) {
             vname[vlen]='\0';
             tree_t *var=leaf_sval(TT_VAR,vname);
             result=result?expr_binary(TT_CAT,result,var):var;
+        } else if (s[i]=='@' && i+1<len &&
+            (s[i+1]=='_'||(s[i+1]>='A'&&s[i+1]<='Z')||(s[i+1]>='a'&&s[i+1]<='z'))) {
+            if (litpos>0) { litbuf[litpos]='\0';
+                tree_t *lit=leaf_sval(TT_QLIT,litbuf);
+                result=result?expr_binary(TT_CAT,result,lit):lit; litpos=0; }
+            i++;
+            char vname[256]; int vlen=0;
+            while (i<len&&(s[i]=='_'||(s[i]>='A'&&s[i]<='Z')||(s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')))
+                { if(vlen<255) vname[vlen++]=s[i]; i++; }
+            vname[vlen]='\0';
+            tree_t *arrpart;
+            if (i<len && s[i]=='[') {
+                i++;
+                tree_t *idx = rk_interp_subexpr(s,&i,len);
+                while (i<len && s[i]!=']') i++;
+                if (i<len && s[i]==']') i++;
+                arrpart = idx ? rk_arr_index(vname,idx) : leaf_sval(TT_VAR,vname);
+            } else { arrpart = leaf_sval(TT_VAR,vname); }
+            result=result?expr_binary(TT_CAT,result,arrpart):arrpart;
         } else { if(litpos<4095) litbuf[litpos++]=s[i]; i++; }
     }
     if (litpos>0) { litbuf[litpos]='\0';

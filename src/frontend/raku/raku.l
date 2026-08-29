@@ -208,7 +208,7 @@ WS       [ \t\r]
     raku_strbuf[raku_strpos] = '\0';
     raku_yylval.sval = strdup(raku_strbuf);
     BEGIN(INITIAL);
-    if (strchr(raku_strbuf, '$') != NULL)
+    if (strchr(raku_strbuf, '$') != NULL || strchr(raku_strbuf, '@') != NULL)
         return LIT_INTERP_STR;
     return LIT_STR;
 }
