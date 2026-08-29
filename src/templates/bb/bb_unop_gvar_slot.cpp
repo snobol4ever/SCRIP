@@ -29,5 +29,4 @@ std::string bb_unop_gvar_slot() {
                               && (_.op_ival == TT_MNS || _.op_ival == TT_PLS)
                               && (_.bb_lk == (int)IR_LIT_INTEGER || (_.bb_lk == (int)IR_VAR && _.op_name1 != 0) || _.op_sa >= 0)),
                             x86_bomb("bb_unop_gvar_slot: shape mismatch (dispatch chose this arm but predicate failed)"));
-    return std::string();
 }
