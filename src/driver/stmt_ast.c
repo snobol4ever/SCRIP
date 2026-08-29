@@ -4,6 +4,7 @@
 #include "ast.h"
 #include "frontend/snobol4/scrip_cc.h"
 static char * stmt_src_slice(const STMT_t * s);
+static int stmt_line_is_included(int lineno);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *ast_stmt_new(tree_e kind)
 {
@@ -87,9 +88,12 @@ tree_t *stmt_to_ast(const STMT_t *s)
     sa_add(node, attr_int(":stno", s->stno));
     { char * ssrc = stmt_src_slice(s);
       if (!s->subject && !s->pattern && !s->replacement && !s->label && !s->goto_s && !s->goto_f && !s->goto_u && !s->goto_s_expr && !s->goto_f_expr && !s->goto_u_expr && !s->is_end) { free(ssrc); ssrc = strdup(""); }
-      if (!ssrc && !s->is_end) { char b[160];
+      if (!ssrc && !s->is_end && stmt_line_is_included(s->lineno)) { char b[160];
         snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not in main file (INCLUDE)>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno);
         ssrc = strdup(b); sa_add(node, attr_int(":incl", 1)); }
+      if (!ssrc && !s->is_end) { char b[160];
+        snprintf(b, sizeof b, "%s%s<stmt %d, line %d: source not resolvable>", s->label ? s->label : "", s->label && s->label[0] ? "  " : "        ", s->stno, s->lineno);
+        ssrc = strdup(b); }
       if (ssrc) { sa_add(node, attr_leaf(":src", ssrc)); free(ssrc); } }
     if (s->subject)
         sa_add(node, attr_expr(":subj", s->subject));
@@ -146,6 +150,9 @@ const char *stmt_attr_str(const tree_t *attr)
 static char ** g_src_lines = NULL;
 static int     g_src_nlines = 0;
 static char *  g_src_path = NULL;
+static int *   g_incl_ranges = NULL;
+static int     g_n_incl_ranges = 0;
+static int     g_cap_incl_ranges = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * stmt_src_get_file(void) { return g_src_path; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -156,6 +163,7 @@ void stmt_src_set_file(const char * path)
     for (int i = 0; i < g_src_nlines; i++) free(g_src_lines[i]);
     free(g_src_lines); g_src_lines = NULL; g_src_nlines = 0;
     free(g_src_path); g_src_path = path ? strdup(path) : NULL;
+    g_n_incl_ranges = 0;
     FILE * f = path ? fopen(path, "r") : NULL;
     if (!f) return;
     fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
@@ -181,9 +189,30 @@ void stmt_src_set_file(const char * path)
     free(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void stmt_src_mark_include_range(int start_line, int end_line)
+{
+    if (end_line <= start_line) return;
+    if (g_n_incl_ranges + 2 > g_cap_incl_ranges) {
+        int newcap = g_cap_incl_ranges ? g_cap_incl_ranges * 2 : 16;
+        int * g = realloc(g_incl_ranges, (size_t) newcap * sizeof(int));
+        if (!g) return;
+        g_incl_ranges = g; g_cap_incl_ranges = newcap;
+    }
+    g_incl_ranges[g_n_incl_ranges++] = start_line;
+    g_incl_ranges[g_n_incl_ranges++] = end_line;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int snobol4_incl_depth(void);
+static int stmt_line_is_included(int lineno)
+{
+    if (snobol4_incl_depth() > 0) return 1;
+    for (int i = 0; i + 1 < g_n_incl_ranges; i += 2) if (lineno >= g_incl_ranges[i] && lineno < g_incl_ranges[i + 1]) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * stmt_src_slice(const STMT_t * s)
 {
-    if (!g_src_nlines || !s || s->lineno < 1 || s->lineno > g_src_nlines) return NULL;
+    if (!g_src_nlines || !s || s->lineno < 1 || s->lineno > g_src_nlines || stmt_line_is_included(s->lineno)) return NULL;
     int n1 = s->lineno;
     int n2 = (s->next && s->next->lineno > n1) ? s->next->lineno : n1 + 1;
     if (n2 > g_src_nlines + 1) n2 = g_src_nlines + 1;

@@ -26,6 +26,11 @@ static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
 int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
+extern void stmt_src_mark_include_range(int start_line, int end_line);
+#define MAX_INCL_NEST 64
+static int incl_start_stack[MAX_INCL_NEST];
+static int incl_stack_depth = 0;
+int snobol4_incl_depth(void) { return incl_stack_depth; }
 static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
     return t;
@@ -64,6 +69,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
         }
     }
 }
@@ -83,6 +89,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
         }
     }
 }
@@ -103,6 +110,7 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
+            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
         }
     }
 }
@@ -301,6 +309,7 @@ G       ({WS}|{CONT})*
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
 <<EOF>>             {
+    if (incl_stack_depth > 0) stmt_src_mark_include_range(incl_start_stack[--incl_stack_depth], lineno);
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);
     if (!YY_CURRENT_BUFFER) return T_EOF;
 }
