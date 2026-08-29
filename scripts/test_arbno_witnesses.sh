@@ -12,16 +12,17 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"   # CORRECTNESS oracle -- witness set vs live oracle, not timing
 TAG="${1:-run}"
 W=/tmp/arbw.$TAG; mkdir -p "$W"
-# ⭐ corpus-crosscheck-probe-total-conversion (2026-08-28): every witness below now lives only
+# ⭐ corpus-crosscheck-probe-total-conversion (2026-08-28/29): every witness below now lives only
 # inside a suite file (tests/snobol4/crosscheck/patterns.{sno,ref}, tests/snobol4/probe/earn0.{sno,ref},
 # tests/snobol4/probe/bb_probes.{sno,ref} -- the last from probe-consolidate-bb, concurrent this same
-# day) -- this tool needs each as a standalone file to feed sbl/scrip directly, so extract()
-# materializes one per run into $W.
+# day; tests/snobol4/probe/arb1.{sno,ref} converted 2026-08-29, seat12) -- this tool needs each as a
+# standalone file to feed sbl/scrip directly, so extract() materializes one per run into $W.
 extract() { python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$1" "$2" "$3" "$W/$3.sno" >/dev/null 2>&1; }
 extract "$CORPUS/tests/snobol4/crosscheck/patterns.sno" "$CORPUS/tests/snobol4/crosscheck/patterns.ref" 181_pat_arbno_defer_tail_stressors
 extract "$CORPUS/tests/snobol4/probe/earn0.sno" "$CORPUS/tests/snobol4/probe/earn0.ref" earn0_disc_arbno_star_fence_positive
 extract "$CORPUS/tests/snobol4/probe/earn0.sno" "$CORPUS/tests/snobol4/probe/earn0.ref" earn0_disc_arbno_star_fence_poisoned
-FILES="$CORPUS/probe/arb1.sno $W/181_pat_arbno_defer_tail_stressors.sno"
+extract "$CORPUS/tests/snobol4/probe/arb1.sno" "$CORPUS/tests/snobol4/probe/arb1.ref" arb1
+FILES="$W/arb1.sno $W/181_pat_arbno_defer_tail_stressors.sno"
 for n in 22 23 24 25 26 27 28 29 30 31 32 33; do
     extract "$CORPUS/tests/snobol4/probe/bb_probes.sno" "$CORPUS/tests/snobol4/probe/bb_probes.ref" "N$n"
     FILES="$FILES $W/N$n.sno"
