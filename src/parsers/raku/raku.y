@@ -576,6 +576,10 @@ stmt
           ExprList *a=$5; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
     | KW_TAKE expr ';'
         { $$=expr_unary(TT_SUSPEND,$2); }
+    | KW_TAKE expr ',' arg_list ';'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); }
+          $$=expr_unary(TT_SUSPEND,call); }
     | KW_RETURN expr ';'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2); $$=r; }
     | KW_RETURN ';'
