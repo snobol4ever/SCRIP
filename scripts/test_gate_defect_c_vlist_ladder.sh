@@ -42,7 +42,8 @@ NAMES="$(cd "$PROBE" && ls *.sno 2>/dev/null | sed 's/\.sno$//' | sort)"
 for n in $NAMES; do [ -f "$PROBE/$n.ref" ] || { echo "⛔ REFUSES (rc=2): $n has no .ref oracle -- cannot grade it."; exit 2; }; done
 echo "=== DEFECT-C vlist_select LADDER — env -i + valgrind is the primary detector (REPS=$REPS bare backstop) ==="
 echo "    tree: $(git -C "$ROOT" log --oneline -1 2>/dev/null | cut -c1-12)   corpus: $(git -C "$CORPUS" log --oneline -1 2>/dev/null | cut -c1-12)   valgrind: $(valgrind --version)"
-printf '  %-34s %-8s %-9s %-14s %-10s\n' WITNESS M3 M4-AMB "M4-MIN(bare)" VALGRIND
+printf '  %-34s %-8s %-9s %-14s %-16s\n' WITNESS M3 M4-AMB "M4-MIN(bare)" "VALGRIND(OOB/UNI)"
+tot_oob=0; tot_uni=0; wit_oob=0; wit_uni=0
 fail=0
 for n in $NAMES; do
     ref="$PROBE/$n.ref"
@@ -57,13 +58,31 @@ for n in $NAMES; do
         done
         [ "$bad" -eq 0 ] && minr="PASS $REPS/$REPS" || minr="FAIL $bad/$REPS"
         bash -c 'env -i timeout 300s valgrind -q --error-exitcode=99 "$0" < /dev/null > /dev/null 2> "$1"' "$W/$n.bin" "$W/vg.txt" 2>/dev/null; vrc=$?
-        verr=$(grep -cE 'Invalid (read|write)|Access not within|uninitialised' "$W/vg.txt" 2>/dev/null)
-        if [ "$vrc" -ge 128 ]; then vg="CRASH"; elif [ "${verr:-0}" -gt 0 ]; then vg="ERR($verr)"; elif [ "$vrc" -eq 99 ]; then vg="ERR"; else vg=CLEAN; fi
+        # ⛔⭐ TWO DEFECT CLASSES, COUNTED SEPARATELY (hq_P 2026-08-29, approved by hq_C who owns the witness row).
+        # This used to be ONE grep folding `Invalid read/write | Access not within | uninitialised` into a single
+        # count, so a red ladder said only "not clean" -- and on a row NAMED for an out-of-bounds write that reads
+        # as "Defect C is live". MEASURED: it is not. The OOB signature is 0/8 across every witness while v05
+        # carries 6 uninitialised-value reads in the eval-cache/tiny-shim paths, which are a different defect
+        # entirely. One number standing for two classes on a row named for one of them is how a reader concludes
+        # the wrong thing from a correct gate. ⛔ THE GATE IS NOT WEAKENED: it still fails on EITHER class, so
+        # nothing that failed before passes now -- only the REPORT distinguishes them.
+        voob=$(grep -cE "Invalid (read|write)|Access not within|is not stack'd" "$W/vg.txt" 2>/dev/null)
+        vuni=$(grep -c 'uninitialised' "$W/vg.txt" 2>/dev/null)
+        voob=${voob:-0}; vuni=${vuni:-0}
+        tot_oob=$((tot_oob+voob)); tot_uni=$((tot_uni+vuni))
+        [ "$voob" -gt 0 ] && wit_oob=$((wit_oob+1)); [ "$vuni" -gt 0 ] && wit_uni=$((wit_uni+1))
+        if [ "$vrc" -ge 128 ]; then vg="CRASH"; elif [ "$voob" -gt 0 ] || [ "$vuni" -gt 0 ]; then vg="OOB=$voob UNI=$vuni"; elif [ "$vrc" -eq 99 ]; then vg="ERR"; else vg=CLEAN; fi
     else amb=CERR; minr=CERR; vg=CERR; fi
-    printf '  %-34s %-8s %-9s %-14s %-10s\n' "$n" "$m3" "$amb" "$minr" "$vg"
-    case "$m3$amb$minr$vg" in *WRONG*|*CRASH*|*CERR*|*FAIL*|*ERR*) fail=$((fail+1));; esac
+    printf '  %-34s %-8s %-9s %-14s %-16s\n' "$n" "$m3" "$amb" "$minr" "$vg"
+    case "$m3$amb$minr$vg" in *WRONG*|*CRASH*|*CERR*|*FAIL*|*ERR*|*OOB=*) fail=$((fail+1));; esac
 done
 echo "------------------------------------------------------------"
+printf '  CLASS SPLIT — Defect-C OOB signature: %d occurrence(s) in %d witness(es)  ·  uninitialised-value: %d in %d\n' "$tot_oob" "$wit_oob" "$tot_uni" "$wit_uni"
+if [ "$tot_oob" -eq 0 ] && [ "$tot_uni" -gt 0 ]; then
+  echo "  ⭐ READ THIS BEFORE CONCLUDING ANYTHING ABOUT DEFECT C: the OOB signature this row is named for is"
+  echo "     ABSENT (0). The red below is the OTHER class. That is NOT evidence the cure landed -- x86_zop's"
+  echo "     regime-3/4 raw fallback may be unchanged and merely latent; see the FINDINGs on the row."
+fi
 if [ "$fail" -eq 0 ]; then echo "✅ GATE OK — full ladder clean in both modes, both environments, and valgrind-clean under env -i."; exit 0; fi
 echo "⛔ GATE FAILS — $fail witness(es) not clean. ⭐ EXPECTED until the Defect C cure lands; this is the gate's own negative test."
 echo "   ⛔ Do NOT weaken this gate to make it pass, and do NOT re-grade on a single ambient run: ambient is blind to this defect"
