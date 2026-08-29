@@ -475,6 +475,28 @@ case "$cmd" in
          # it self-clearing instead of needing a human to remember to come back and re-park it.
          topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
          grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" || { echo "⛔ no QUEUE.tsv row named $topic"; exit 1; }
+         # ⛔⭐ picker-dangling-blocker-parks-a-row-forever-in-silence (hq_B mint, cured here). A BLOCKED-ON:/
+         # PARKED-AWAITING: value naming a topic with NO row (live or swept-done) can never self-clear: the
+         # promotion walk's own dangling branch ("no row exists to serve") and the self-heal check
+         # (s4e_blocker_done, which needs a claim/QUEUE.done.tsv hit) both just silently return false forever
+         # for a name nothing ever refers to. MEASURED (hq_B, queue-wide sweep): pz4 parked behind
+         # "icon-n2-generator-activation-frames-items-3-4" — a sub-item gloss appended to a real row name,
+         # itself not a row — with 3 more rows parked behind pz4, all silently permanent. Refuse the bad
+         # state before it can be written, the same way `s4e_assert_box` refuses an invented mailbox instead
+         # of creating one on the fly (LAW 6, same failure shape: an invented identity that silently succeeds).
+         case "$st" in
+           BLOCKED-ON:*|PARKED-AWAITING:*)
+             _blk="${st#*:}"
+             if [ -z "$(qrow "$_blk")" ] && ! s4e_blocker_done "$_blk"; then
+               printf '\n⛔⛔⛔ REFUSED: %s names blocker "%s", which has no QUEUE.tsv row (live or swept-done) ⛔⛔⛔\n' "$st" "$_blk" >&2
+               printf '    This state can never self-clear — s4e_blocker_done has nothing to ever find true for a\n' >&2
+               printf '    name that is not a real row, so the block would be PERMANENT and SILENT.\n' >&2
+               printf '    If you meant a SUB-ITEM of an existing row, name the ROW itself here and put the\n' >&2
+               printf '    sub-item detail in the baton prose (## NEXT), not in the state string.\n' >&2
+               printf '    If the blocker genuinely does not exist yet: mint it first (s4e_msg.sh mint).\n\n' >&2
+               exit 2
+             fi ;;
+         esac
          # ⛔ s266 — PARK MUST NOT DESTROY ANOTHER SEAT'S RUNNING CLAIM. hq_C parked rung-E5-suspend-cache as
          # SUPERSEDED while seat13 was mid-flight on it; the rm below deleted their claim, so their computed `done`
          # said "not your claim" AFTER the fix was already landed and pushed. A park is a routing verdict on a ROW;
