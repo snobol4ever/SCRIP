@@ -6,6 +6,8 @@
 # (RULES: the two modes must be 1:1 corresponding).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
+# ⭐ V2-5 GATE HONESTY: examining nothing (wiped/empty corpus) must exit UNPROVEN(2), never read as a pass.
+. "$(dirname "$0")/lib_gate.sh"
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RTDIR="${RTDIR:-$S4E/SCRIP/out}"
 CORPUS_SRC="${CORPUS_SRC:-$S4E/corpus/benchmarks/icon}"
@@ -39,12 +41,13 @@ progs="concord deal geddump ipxref micro micsum queens rsg tgrlink version"
 
 printf "%-9s | %-26s | %-30s | %-7s\n" "PROGRAM" "SCRIP m3 (--run)" "SCRIP m4 (--compile)" "m3==m4"
 printf "%-9s-+-%-26s-+-%-30s-+-%-7s\n" "---------" "--------------------------" "------------------------------" "-------"
-p3=0; p4=0; ident=0; total=0
+p3=0; p4=0; ident=0; total=0; examined=0
 for name in $progs; do
   total=$((total+1))
   sin="${STDIN[$name]:-}"; [ -z "$sin" ] && sin=/dev/null
   read -ra a <<< "${ARGS[$name]}"
   read -ra ld <<< "${LINK[$name]:-}"
+  [ -f "$CORPUS/$name.icn" ] && examined=$((examined+1))
 
   # mode-3
   ( cd "$CORPUS" && timeout "$TMO" "$SCRIP" --run "$name.icn" "${ld[@]}" -- "${a[@]}" >"$WORK/$name.m3.out" 2>"$WORK/$name.m3.err" <"$sin"; echo $? >"$WORK/$name.m3.rc" )
@@ -78,3 +81,6 @@ for name in $progs; do
 done
 echo "---"
 echo "scrip-m3(--run)=$p3/$total  scrip-m4(--compile)=$p4/$total  m3==m4 byte-identical=$ident/$total"
+echo "files examined (source .icn found)=$examined/$total"
+gate_floor "$examined" "$total" "programs found/opened"
+exit 0
