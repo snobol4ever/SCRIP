@@ -31,11 +31,41 @@ gate_parse_args() {
     [ "$GATE_STRICT" = "0" ] && echo "⛔ $GATE_NAME: --informational -- verdict is NOT enforced, exit code is not a gate result."
     return 0
 }
+# ⭐⭐ THE TREE STAMP — ON EVERY ARM, INCLUDING UNPROVEN (hq_B + hq_C, 2026-08-29).
+# ⛔ WHY IT IS NOT A TIMESTAMP: a verdict outlives the tree it measured, and then two honest readings of the
+# same gate become an argument instead of a datum. hq_C's witness this session: one witness read stable at
+# noon and 4/6 split that morning; without a stamp that is two people with different numbers, "resolved" by
+# whoever measured last. WITH it, both readings are true and THE TREE MOVED — which is a finding, not a dispute.
+# ⛔ SO IT STAMPS THE TREE, NOT THE CLOCK. Per repo, because SCRIP and corpus CAN disagree and a gate reads
+# both. And -DIRTY is load-bearing: a bare HEAD hash on a dirty tree is WORSE than no hash, because it names a
+# commit that does not describe what actually ran.
+# ⛔ AND IT STAMPS UNPROVEN(2) TOO, not only PASS/FAIL. An UNPROVEN that cannot say which tree it failed to
+# measure is the least actionable output a gate can produce — you cannot even tell whether a later build fixed it.
+# ⭐ INSIDE THE HELPER, NEVER OPT-IN (hq_C's ruling, and the reason is decisive): an opt-in stamp is a stamp the
+# next instrument forgets, and forgetting IS the failure mode. It also fails ASYMMETRICALLY — the gates that
+# remember to opt in are the carefully-written ones, so the stamp would be present exactly where it was least
+# needed and absent where it mattered most. No call site changes; all 17 callers inherit it.
+# It must never break a gate: every git call is failure-tolerant and an unreadable repo prints `unknown`.
+gate_stamp() {
+    local _root _r _p _h _dirty
+    _root="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd 2>/dev/null)}"
+    printf '    tree:'
+    for _r in SCRIP corpus .github; do
+        _p="$_root/$_r"
+        [ -d "$_p/.git" ] || continue
+        _h="$(git -C "$_p" rev-parse --short HEAD 2>/dev/null)"
+        if [ -z "$_h" ]; then printf ' %s=unknown' "$_r"; continue; fi
+        if [ -n "$(git -C "$_p" status --porcelain 2>/dev/null)" ]; then _dirty="-DIRTY"; else _dirty=""; fi
+        printf ' %s=%s%s' "$_r" "$_h" "$_dirty"
+    done
+    printf '  measured %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
+}
 # gate_require <path> <what-it-is> -- a prerequisite that must exist.  Absent => UNPROVEN(2), never SKIP-0.
 gate_require() {
     if [ ! -e "$1" ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: required $2 is absent at $1"
         echo "    This is NOT a pass.  The gate could not examine anything, so it cannot certify anything."
+        gate_stamp
         exit 2
     fi
 }
@@ -44,6 +74,7 @@ gate_require_exec() {
     if [ ! -x "$1" ]; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: required $2 is not built/executable at $1"
         echo "    This is NOT a pass.  Build it (make) and re-run; a fresh seat must not read as green."
+        gate_stamp
         exit 2
     fi
 }
@@ -53,6 +84,7 @@ gate_floor() {
     if [ "$1" -lt "$2" ] 2>/dev/null; then
         echo "GATE UNPROVEN(2) [$GATE_NAME]: examined $1 $3, floor is $2"
         echo "    Zero-work-examined is indistinguishable from all-clean, so it is refused rather than passed."
+        gate_stamp
         exit 2
     fi
 }
@@ -97,10 +129,12 @@ gate_oracle_stdout_match() {
 gate_verdict() {
     if [ "${1:-0}" -ne 0 ] 2>/dev/null; then
         echo "GATE FAIL(1) [$GATE_NAME]: $1 $2 (examined ${GATE_EXAMINED:-?})"
+        gate_stamp
         [ "$GATE_STRICT" = "1" ] && exit 1
         echo "    (--informational: exiting 0 despite the failure above)"
         exit 0
     fi
     echo "GATE PASS(0) [$GATE_NAME]: 0 $2 (examined ${GATE_EXAMINED:-?})"
+    gate_stamp
     exit 0
 }
