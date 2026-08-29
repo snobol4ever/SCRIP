@@ -355,6 +355,19 @@ echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
 
 printf "TIME M3=%ds M4=%ds TOTAL=%ds\n" "$T_M3" "$T_M4" "$T_ALL"
+# ⛔⭐ STAMP THE TREE ON THE BOARD ITSELF (seat09's ask, 2026-08-29, from a live disagreement).
+# seat09 and hq_B both ran THIS SCRIPT and got different denominators -- 1339 and 1377 -- each reproducible
+# on demand in its own root. Neither number is stale and neither of us could settle it, because the output
+# said what was measured but not WHAT TREE IT WAS MEASURED ON. A denominator is a fact about a corpus, and
+# this board folds DEMO + BEAUTY + crosscheck families + misc from a SEPARATE REPO whose commit the SCRIP
+# hash does not pin: two roots can sit at the same SCRIP commit and different corpus commits and disagree
+# by 38 programs with nothing in either transcript to show it.
+# ⭐ lib_gate.sh already stamps per-repo HEAD + dirty/clean + machine on every gate verdict, but THE BOARD
+# THAT MATTERS MOST DID NOT SOURCE IT -- the instrument most often quoted in commit messages was the one
+# with no provenance. Sourced tolerantly: if the lib is unreachable the board still runs, because a missing
+# stamp must never cost a measurement.
+if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp
+else echo "    (tree stamp unavailable — lib_gate.sh not sourced; record SCRIP and corpus HEAD by hand when quoting these numbers)"; fi
 
 # ⛔⛔ THE VERDICT IS AN EXIT CODE, NOT A PRINTED NUMBER (hq_C s272). Until now this script's last statement was
 # the printf above, so it exited 0 with any number of mode-4 failures -- the SAME false-green shape as `make test`,
