@@ -59,13 +59,60 @@ echo "suite conversion completeness -- $LANG_DIR -- $(date -u +%Y-%m-%dT%H:%M:%S
 echo "tree: $TREE   pattern: $EXT   total: $TOTAL_ANY   converted suite output: $SUITEOUT   loose: ${#LOOSE[@]}"
 [ "${#LOOSE[@]}" -eq 0 ] && { echo "GATE OK -- nothing loose; every $EXT file lives in the governed suite tree."; exit 0; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
-DECLARED=""
-[ "${#KEEPFILES[@]}" -gt 0 ] && DECLARED=$(cat "${KEEPFILES[@]}" 2>/dev/null)
-UND=0; UNDLIST=""
+# ⛔⭐⭐ THE DECLARATION CHECK WAS A RAW SUBSTRING TEST OVER EVERY KEEP.md CONCATENATED, AND IT UNDER-COUNTED
+# (seat14 2026-08-29, measured; cured here by hq_P). The old form was:
+#     DECLARED=$(cat "${KEEPFILES[@]}"); case "$DECLARED" in *"$b"*) : ;; ... esac
+# — two independent defects on one line, BOTH of which make the gate report FEWER undeclared files than exist,
+# i.e. they push it toward FALSE GREEN:
+#   (1) SCOPE WAS DESTROYED. Every KEEP.md in the tree was concatenated, so a KEEP.md in one subdirectory
+#       silently declared same-named files anywhere else. MEASURED: writing tests/prolog/KEEP.md to rule on
+#       ONE file (plunit.pl) dropped loose-but-undeclared by THREE — frontend/plunit.pl was declared by
+#       accident purely through a basename collision.
+#   (2) THE MATCH WAS AN UNDELIMITED SUBSTRING, so `foo.pl` matches inside `myfoo.pl`, and any KEEP.md that
+#       merely MENTIONS another file's name — to contrast it, exclude it, or cross-reference it, which is a
+#       normal and good thing to write in prose — silently declared that file too.
+# ⭐ THE CURE KEEPS THE PROSE FORMAT (every real KEEP.md is prose with backticked names; a structured-list
+# requirement would invalidate all of them). Instead: a KEEP.md may only declare files in ITS OWN DIRECTORY
+# or below it, and the basename must appear DELIMITED — bounded by a non-filename character on each side.
+# ⛔ Prose mention WITHIN the owning directory still counts as a declaration; that surface is deliberately
+# left, because narrowing it further needs a format change and would break every existing KEEP.md. The
+# declaring file is now PRINTED for each kept file, so an accidental declaration is visible instead of silent.
+# ⭐ AMBIGUITY IS THE ACTUAL TEST, not path depth. Two rules were tried and BOTH were wrong:
+#   bare basename anywhere in any KEEP.md  -> seat14's measured false positive (a root KEEP.md naming
+#                                             `plunit.pl` silently declared frontend/plunit.pl too);
+#   path relative to the KEEP.md, always   -> a FALSE RED on 66 real files: tests/snocone/ladder/KEEP.md
+#                                             legitimately declares ladder/prog/*.sc by bare basename, and
+#                                             there is nothing ambiguous about it.
+# ⛔ What made seat14's case wrong was not the bare name, it was that the bare name was AMBIGUOUS — two loose
+# files shared it and only one was meant. So: a bare basename declares a file only when that basename is
+# UNIQUE among the loose files; when two or more share it, the declaration must be written as the path
+# relative to the KEEP.md. Unambiguous trees keep working untouched; ambiguous ones must say which they mean.
+declare -A _BNC=()
+for f in "${LOOSE[@]}"; do _b=$(basename "$f"); _BNC["$_b"]=$(( ${_BNC["$_b"]:-0} + 1 )); done
+UND=0; UNDLIST=""; DECLBY=""; AMBIG=0
 for f in "${LOOSE[@]}"; do
-    b=$(basename "$f")
-    case "$DECLARED" in *"$b"*) : ;; *) UND=$((UND+1)); UNDLIST="$UNDLIST\n     $b";; esac
+    b=$(basename "$f"); d=$(dirname "$f"); found=""; via=""
+    probe="$d"
+    while : ; do
+        k="$probe/KEEP.md"
+        if [ -f "$k" ]; then
+            rel=${f#$probe/}; rre=${rel//./[.]}
+            if grep -qE "(^|[^A-Za-z0-9_./-])$rre([^A-Za-z0-9_-]|$)" "$k" 2>/dev/null; then found="$k"; via="path"; break; fi
+            if [ "${_BNC[$b]}" -eq 1 ]; then
+                bre=${b//./[.]}
+                if grep -qE "(^|[^A-Za-z0-9_./-])$bre([^A-Za-z0-9_-]|$)" "$k" 2>/dev/null; then found="$k"; via="name"; break; fi
+            fi
+        fi
+        [ "$probe" = "$TREE" ] && break
+        parent=$(dirname "$probe"); [ "$parent" = "$probe" ] && break; probe="$parent"
+    done
+    if [ -n "$found" ]; then DECLBY="$DECLBY\n     ${f#$TREE/}  <-  ${found#$TREE/} (by $via)"
+    else
+        UND=$((UND+1)); UNDLIST="$UNDLIST\n     ${f#$TREE/}"
+        [ "${_BNC[$b]}" -gt 1 ] && AMBIG=$((AMBIG+1))
+    fi
 done
+[ "$AMBIG" -gt 0 ] && echo "note: $AMBIG undeclared file(s) share a basename with another loose file — declare those by path relative to the KEEP.md, not by bare name"
 echo "KEEP.md file(s) found: ${#KEEPFILES[@]}   loose-but-undeclared: $UND"
 if [ "$UND" -ne 0 ]; then
     echo "GATE FAILED -- $UND loose file(s) neither converted nor declared as keepers:"
