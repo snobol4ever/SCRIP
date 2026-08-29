@@ -45,8 +45,23 @@ static const char *rk_tw_bare(const char *s) { return (s && (s[0]=='.'||s[0]=='!
 static tree_t *leaf_sval(tree_e k, const char *s) {
     tree_t *e = ast_node_new(k); e->v.sval = intern(s); return e;
 }
+#define RK_ARRNAME_MAX 256
+static const char *rk_array_names[RK_ARRNAME_MAX];
+static int rk_array_names_n = 0;
+static void rk_mark_array_name(const char *bare) {
+    if (!bare) return;
+    for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return;
+    if (rk_array_names_n < RK_ARRNAME_MAX) rk_array_names[rk_array_names_n++] = intern(bare);
+}
+static int rk_is_array_name(const char *bare) {
+    if (!bare) return 0;
+    for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return 1;
+    return 0;
+}
 static tree_t *var_node(const char *name) {
-    return leaf_sval(TT_VAR, strip_sigil(name));
+    const char *bare = strip_sigil(name);
+    if (name && name[0] == '@') rk_mark_array_name(bare);
+    return leaf_sval(TT_VAR, bare);
 }
 static const char *testop_rt(const char *s) {
     if (!s) return "__rk_test_ok";
@@ -157,6 +172,10 @@ static tree_t *rk_given_mod(tree_t *stmt, tree_t *topicval) {
 }
 static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
     if (hi && hi->t == TT_ILIT) { tree_t *d = ast_node_new(TT_ILIT); d->v.ival = hi->v.ival - 1; return expr_binary(TT_TO, lo, d); }
+    if (hi && hi->t == TT_VAR && rk_is_array_name(hi->v.sval)) {
+        tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, hi); ast_push(el, leaf_sval(TT_QLIT, "elems"));
+        hi = el;
+    }
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
 }
