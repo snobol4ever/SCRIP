@@ -1089,11 +1089,22 @@ def cmd_convert(args):
           f"({one_line_n} one-line, {block_n} multi-line-block)", file=sys.stderr)
 
     # close the loop: re-read the WRITTEN files and re-validate every entry against the originals
+    # ⛔ MATCH BY NAME, NEVER BY POSITION (seat06 2026-08-29): write_suite() deliberately reorders
+    # entries (all format-A lines first, then all format-B blocks -- see its own docstring) for a
+    # real, previously-fixed correctness reason, so `reread`'s order does not track `pairs`'
+    # discovery order (alphabetical) whenever a batch mixes line and block entries. A positional
+    # `zip(pairs, reread)` then silently cross-compares UNRELATED entries -- two genuinely-correct
+    # conversions can each get reported as a false "ON-DISK RE-VALIDATION FAILED" simply because a
+    # third entry's kind shuffled the read-back order. Confirmed on a 3-entry repro (fence_arbno_top
+    # [line], ident_differ_inline [block], os1_runtime_k [line] -- discovery order != reread order,
+    # and the loop below used to compare ident's own orig output against os1's suite output).
     reread = read_suite(args.out_sno, args.out_ref)
+    by_name = {e.name: e for e in reread}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_verify_"))
     mismatches = []
     try:
-        for (sno, ref), written in zip(pairs, reread):
+        for sno, ref in pairs:
+            written = by_name[sno.stem]
             orig_verdicts = run_all_modes(paths, sno, ref.read_text(), tmp_root, modes)
             suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, companion_dir=sno.parent)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
@@ -1215,10 +1226,16 @@ def cmd_convert_blocks(args):
     # same auto-discovery cmd_run's --lang path already uses (ZERO argv changes for any caller).
     reread = read_block_suite(args.out_src, args.out_ref, banner_re,
                               in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src))
+    # ⛔ MATCH BY NAME, NEVER BY POSITION -- same fix as cmd_convert, applied defensively here too
+    # (format-B-only means this path is not currently exposed to write_suite's line-then-block
+    # reorder, but a positional zip between two independently-built lists is the same latent class
+    # of bug regardless; see cmd_convert's comment for the confirmed repro).
+    by_name = {e.name: e for e in reread}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_verify_"))
     mismatches = []
     try:
-        for (src, ref), written in zip(pairs, reread):
+        for src, ref in pairs:
+            written = by_name[src.stem]
             # ⛔ hq_C 2026-08-28: diff STDOUT, never verdict kind alone -- re-derive the ORIGINAL's
             # stdin independently from its own loose .stdin sidecar (not from `written.stdin`), so a
             # round-trip that silently lost or corrupted the sidecar produces a genuine behavioral
