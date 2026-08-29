@@ -6,7 +6,7 @@ One compiler, seven languages, native code. SCRIP compiles **SNOBOL4/SPITBOL, Sn
 Icon, Prolog, Rebus, Raku, and Pascal** to x86-64 through a single engine: every
 construct in every language lowers to the same IR of four-port **Byrd boxes**, and every
 machine instruction is produced by one encoder. x86-64 is the shipping target; **JVM,
-.NET, JavaScript, and WebAssembly backends are the planned roadmap** on the same engine.
+.NET, JavaScript, and WebAssembly backends are the near-term roadmap** on the same engine.
 Part of the [snobol4ever](https://github.com/snobol4ever) organization.
 
 ---
@@ -21,7 +21,7 @@ make pristine        # full clean rebuild
 
 ```bash
 ./scrip prog.sno                 # compile AND run, in-process (mode 3 — the default)
-./scrip --compile prog.sno       # emit standalone x86-64 assembly, assemble, link (mode 4)
+./scrip --compile prog.sno       # emit standalone x86-64 assembly to stdout (mode 4)
 ./scrip --compile -o prog.s prog.sno   # keep the readable .s
 ./scrip prog.icn -- arg1 arg2    # program arguments go after --
 ```
@@ -38,6 +38,8 @@ The frontend is chosen by file extension:
 | `.raku`| Raku | Rakudo |
 | `.pas` | Pascal (ISO 7185) | Free Pascal (`fpc -Miso`) |
 
+SNOBOL4 is complete; Icon is in active development; Prolog is experimental; Rebus,
+Raku, and Pascal are newer frontiers, benchmarked as they land (see Benchmarks below).
 Correctness is not asserted, it is diffed: every test runs against its language's
 reference implementation, byte for byte.
 
@@ -52,9 +54,15 @@ flags: `--dump-ast | --dump-ir | --dump-ir-verbose | --dump-bb | --dump-zeta`
 executable slab inside the running process and jumps in — no assembler, no linker,
 no temporary files.
 
-**Mode 4 (`--compile`)** emits human-readable x86-64 assembly, assembles and links it
-into a standalone binary against `out/libscrip_rt.so` (pattern engine, garbage
-collector, builtins).
+**Mode 4 (`--compile`)** emits human-readable x86-64 assembly for a standalone
+program. SCRIP itself only emits the `.s`; turning it into a binary is one more
+step, against the same runtime mode 3 uses in-process:
+
+```bash
+./scrip --compile prog.sno > prog.s
+gcc -c prog.s -o prog.o
+gcc prog.o -L out -lscrip_rt -lm -Wl,-rpath,out -o prog
+```
 
 Each mode is graded against the oracles independently. Where they diverge, it is an
 optimization choice — never a semantic one.
@@ -85,6 +93,34 @@ Language identity stops at the parser: the driver dispatches once on file extens
 and everything downstream branches on IR kind only — no language enums, no language
 globals, no per-language code paths past the lowering boundary (enforced by gate).
 
+## Eating its own cooking
+
+SCRIP beautifies its own source: `beauty.sno`, the SNOBOL4 pretty-printer written in
+SNOBOL4, reproduces itself byte-for-byte when run through the compiler, in both modes.
+
+Six of the seven frontends also exist a second time, as real Snocone source that
+SCRIP itself compiles and runs — [`bootstrap/parser_<lang>.sc`](bootstrap) (SNOBOL4,
+Snocone, Icon, Prolog, Rebus, Raku), sharing one small hand-written runtime under the
+same directory. This is not a claim that `scrip` bootstraps itself: the frontends it
+ships with today (`src/frontend/`, below) are hand-written C built with flex/yacc;
+`bootstrap/` is a second, self-hosted implementation living alongside them — evidence
+the language is expressive enough to write a parser in, and fast enough to run one.
+
+## Seven languages, one compiland
+
+> SCRIP is seven languages on five platforms, such that they can call each other and
+> even co-exist in the same translation unit — one compiland.
+> — Lon Jones Cherryholmes
+
+Today that shows up as the polyglot `.scrip` format: one document, one fenced section
+per language, compiled and run together from a single `scrip --run` invocation — see
+[`test/cross_lang.scrip`](test/cross_lang.scrip) for three languages sharing one
+process and one box-driving runtime. Full cross-language data sharing — one language
+reading or writing a value another language set — is the active work, not yet
+uniformly proven; x86-64 ships today, and JVM, .NET, JavaScript, and WebAssembly are
+the near-term plan on the same engine, so the same program can eventually target any
+of the five platforms named above.
+
 ## Layout
 
 ```
@@ -96,7 +132,8 @@ src/templates/  bb/ box templates · x86/ the one instruction encoder · xa/ hel
 src/ir/         IR, box, and ζ-storage contracts
 src/runtime/    pattern engine, GC, builtins · rtx/ hand-written asm runtime
 src/driver/     the scrip CLI
-scripts/        500+ test, gate, board, and bench scripts, organized by prefix
+bootstrap/      the self-hosted Snocone frontends (see above)
+scripts/        500+ test, gate, and benchmark scripts, organized by prefix
 ```
 
 ## Testing
@@ -203,13 +240,23 @@ SCRIP in both modes, SPITBOL, and CSNOBOL4 — so a failure is attributed to a r
 defect, a dialect difference, or a broken fixture by measurement, never by guess
 (`scripts/test_snoflake_suite.sh`).
 
-Status snapshot (2026-08-28, end of day): the SNOBOL4 corpus board runs **FAIL=0 in
-both modes** (1299 programs and suite entries at that day's tree); `beauty.sno` — the
-SNOBOL4 beautifier written in SNOBOL4 — reproduces itself byte-identically through the
-compiler in both modes; per-language checks that day: Pascal suites 96/96 both modes
-(and the loose-program set deterministic at 150/154), Icon smoke 14/14 both modes,
-Snocone 5/5, Rebus 4/4, Prolog 5/5 in all three modes (multiclause backtracking cured that evening; rung ladders 12/15, from 3/15), Raku parser suite 83/83. Denominators grow as the
-corpus consolidates; the boards print their own totals.
+Status, reverified 2026-08-29 (tree `7817f370`, pristine build): the SNOBOL4 corpus
+suite runs **FAIL=0 in both modes** (1299 programs and suite entries); the
+language-identity and medium-invisibility invariant checks are both clean, and
+`beauty.sno`'s self-reproduction (above) still holds in both modes. Per-language
+checks as of 2026-08-28: Pascal
+suites 96/96 both modes (and the loose-program set deterministic at 150/154), Icon
+smoke 14/14 both modes, Snocone 5/5, Rebus 4/4, Prolog 5/5 in all three modes
+(multiclause backtracking cured that evening; its parser-conformance suite at 12/15,
+up from 3/15), Raku parser suite 83/83. Denominators grow as the corpus consolidates;
+each script prints its own totals.
+
+## Credits
+
+Built by Lon Jones Cherryholmes, working with Claude — Sonnet, Opus, and Fable. Part
+of the [snobol4ever](https://github.com/snobol4ever) organization; the org README has
+the full story of how a rediscovered 1980 idea (Byrd boxes) became a seven-language
+compiler.
 
 ## License
 
