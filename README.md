@@ -105,6 +105,8 @@ same directory. This is not a claim that `scrip` bootstraps itself: the frontend
 ships with today (`src/frontend/`, below) are hand-written C built with flex/yacc;
 `bootstrap/` is a second, self-hosted implementation living alongside them — evidence
 the language is expressive enough to write a parser in, and fast enough to run one.
+Running them today hits a known parse regression in the shared runtime — tracked, not
+forgotten; a run-it-yourself snippet lands here once that clears.
 
 ## Seven languages, one compiland
 
