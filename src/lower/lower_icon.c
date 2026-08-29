@@ -9,7 +9,7 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
-    IR_t * last_gen; IR_t * loop_exit; IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
+    IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;   /* ceo s283g: the LAST break-expression's resume chain inside the loop being lowered -- the loop publishes it as ITS beta so `every` resumes INTO the suspended break expression (iconx semantics), not around the loop; single-break corpus reality, last-lowered wins on multiples */ IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
     IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; int loop_sp;
 } icx_t;
 #define ICN_LOOP_STK_MAX 64
@@ -553,14 +553,23 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             int idx = cx->loop_sp - k;
             IR_t * lx = (idx >= 0 && idx < ICN_LOOP_STK_MAX) ? cx->loop_stk_exit[idx] : NULL;
             if (!lx) lx = cx->loop_exit;
-            IR_t * nd = lx ? build(cx, IR_GOTO, lx, lx) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd;
+            if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+            /* break-value channel (ceo s283g): a bare break yields &null through the SAME __break_result cell the expression form writes — a stale value from an earlier break must never leak (the TT_CASE __case_result idiom, applied to loops). */
+            IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
+            IR_t * asn0 = build(cx, IR_ASSIGN, lx, lx); IR_LIT(asn0).sval = (char *) "__break_result";
+            ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
+            *res = nullv; return nullv;
         } else {
             IR_t * cur_exit = cx->loop_exit;
             IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
             int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next;
             if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; }
-            IR_t * ev = NULL; IR_t * en = lower(cx, ch, exit_goto, exit_goto, &ev);
+            IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, exit_goto, &ev);
             cx->loop_exit = se; cx->loop_next = sn;
+            /* break-value channel (ceo s283g, measured: `write(repeat break 7)` printed EMPTY — this arm lowered the expression and then DISCARDED ev, and no loop published a result, so break transmitted nothing; with a generator (`break (1 to 5)`) the RESUME count was right and every value was null. The TT_CASE __case_result idiom: the value flows expr-γ → ASSIGN(__break_result) → the loop-exit GOTO → the loop's read box. β resumption re-enters the expression, whose γ runs the assign again — full generation transmits. */
+            IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
+            { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
+            cx->loop_break_beta = cx->beta;   /* unconditional: is_resumable() on the TREE misses paren-wrapped generators (measured: (1 to 5) is TT-grouped); the post-lower beta is the truth — a non-resumable expr leaves a beta that resumes-to-fail, which is correct */
             *res = en; return en;
         }
     }
@@ -905,7 +914,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ;
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
@@ -914,33 +924,38 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     cx->loop_sp--;
     lc_γ_to(cval, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
-    *res = NULL; return centry;
+    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }
+    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
+    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
+    *res = bres; return centry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ;
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT;
     IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
-    *res = NULL; return centry;
+    *res = bres; return centry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; cx->loop_exit = γ; cx->loop_next = H;
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    cx->loop_exit = bres; cx->loop_next = H;
     if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
     cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln;
-    cx->beta = γ; *res = NULL; return H;
+    cx->beta = γ; *res = bres; return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
