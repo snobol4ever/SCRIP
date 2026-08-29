@@ -13,6 +13,9 @@
 #                                         QUEUE.done.tsv — the buffer must never become a graveyard again
 #   s4e_msg.sh assign <seat> <topic>      ⭐ V2-1/LAW 2 ASSIGNMENT IS THE LOCK: HQ writes <seat>'s claim
 #                                         atomically + rings a contentless doorbell; that seat's next serves it FIRST
+#   s4e_msg.sh mint <topic> [rank] "GOAL"  ⭐ THE ONLY WAY A SEAT CAN ADD NEW WORK (2026-08-29 ceo ruling):
+#                                         atomically writes a QUEUE.tsv row + a skeleton task baton; refuses a
+#                                         duplicate topic and a bad-topic filename the same way send does
 #   s4e_msg.sh banner [topic]             ⛔ MANDATORY LAST ACT OF EVERY SESSION: prints the COMPUTED
 #                                         SUCCESS/FAILURE banner + whether re-firing advances anything
 set -u
@@ -737,6 +740,59 @@ case "$cmd" in
          if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
          then echo "assigned $topic -> $seat (claim written, doorbell sent)"
          else echo "assigned $topic -> $seat (claim written; ⛔ DOORBELL NOT SENT — the claim still governs, $seat gets it from next)"; fi;;
+  # ⭐⭐ ceo RULING 2026-08-29 (row s4e-mint-subcommand, hq_C's find): A SEAT COULD NOT MINT A ROW — next|claim|
+  # unclaim|park|done|assign|ask|send|check|clear|mailbox|sweep|board|banner|fleet, NONE of them creates one. That
+  # makes "a finding without a row is a finding nobody had" unreachable from a seat by construction. Two seats left
+  # real defects loose in one session for want of this path; hq_B hand-appended to QUEUE.tsv (no lock, 16 live
+  # seats) and flagged the race themselves. The mail-your-HQ workaround only functions while an HQ is reading, and
+  # a mint-request queue is just a second queue — so this is the real thing, open to every seat.
+  # Usage: mint <topic> [rank] "GOAL text"   or   mint <topic> [rank] --stdin <<'EOF' ... EOF
+  # rank is sniffed, not fixed-position: the token right after topic is consumed as rank ONLY if it is
+  # ALL DIGITS (never true of real GOAL prose, even prose that happens to start with a number — that always
+  # has a following space/letter); otherwise it defaults to 2 and the same token starts the goal text.
+  mint)  topic="${2:?topic}"; shift 2
+         rank=2
+         if [ -n "${1:-}" ]; then case "$1" in *[!0-9]*|'') :;; *) rank="$1"; shift;; esac; fi
+         if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then goal="$(cat)"; else goal="$*"; fi
+         # ⛔ THE TOPIC BECOMES A FILENAME TWICE OVER (a QUEUE.tsv row AND tasks/<topic>.task.md) — same guard
+         # as send (s191), checked before either write, not after.
+         case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a short filename-safe slug (no / and no newline). Usage: $0 mint <topic> [rank] \"GOAL text\"" >&2; exit 2;; esac
+         [ -n "$goal" ] || { echo "⛔ REFUSED: empty GOAL text. Usage: $0 mint <topic> [rank] \"GOAL text\" (or --stdin)" >&2; exit 2; }
+         q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; b="$PO/tasks/$topic.task.md"; mkdir -p "$PO/tasks"
+         s4e_mint_dup() { grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null && return 0
+                           [ -f "$d" ] && grep -qP "^[0-9]+\t\Q$topic\E\t" "$d" 2>/dev/null && return 0
+                           [ -f "$b" ]; }
+         # Cheap pre-check OUTSIDE the lock — refuses the common case (an existing topic) without making
+         # every mint wait on the lock for a duplicate that was always going to be refused. This is an
+         # optimization, never the actual guard: the lock below re-checks for the real TOCTOU race.
+         if s4e_mint_dup; then echo "⛔ REFUSED: '$topic' already exists (a live QUEUE.tsv row, a QUEUE.done.tsv row, or an existing task file) — pick a different name." >&2; exit 1; fi
+         # ⭐ THE ATOMIC APPEND THE GOAL DEMANDS. QUEUE.tsv is ONE FILE every topic's row shares, unlike a
+         # claim (one file per topic, where the `ln` hard-link trick above is already atomic per-target) — so
+         # the lock is a DIRECTORY, not the row: mkdir is atomic on every POSIX filesystem, same guarantee
+         # `ln` leans on, just scoped to the whole file instead of one name in it.
+         lock="$PO/.mint.lock"; got=0
+         for _i in $(seq 1 50); do mkdir "$lock" 2>/dev/null && { got=1; break; }; sleep 0.1; done
+         [ "$got" = 1 ] || { echo "⛔ REFUSED: could not acquire the mint lock ($lock) after 5s — another mint is stuck or crashed holding it. Investigate before removing it by hand; do not rm -rf blindly." >&2; exit 3; }
+         trap 'rmdir "$lock" 2>/dev/null' EXIT
+         if s4e_mint_dup; then echo "⛔ REFUSED: '$topic' was minted by someone else in the race just now — no torn row written, nothing lost." >&2; exit 1; fi
+         # Baton BEFORE the queue row, deliberately: a crash between the two writes then leaves an orphan
+         # task file (inert — nobody's picker ever finds a file next() never points at) rather than a live
+         # QUEUE.tsv row with no baton behind it, which next()'s own "⛔ NO BATON" path can only catch AFTER
+         # some seat has already been served the row.
+         cat > "$b" <<TASKEOF
+# TASK $topic
+GOAL: $goal
+DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row.
+LINKS: minted via \`mint\` by $ME, $(date -u +%FT%TZ)
+## NEXT
+Distill a real first step from the GOAL above (and a real DONE-WHEN — see the line above), then work it.
+## QA
+## LEDGER
+- [$ME·$(date -u +%F)] Minted via \`s4e_msg.sh mint\`.
+TASKEOF
+         printf '%s\t%s\tunassigned\tFREE\n' "$rank" "$topic" >> "$q"
+         rmdir "$lock" 2>/dev/null; trap - EXIT
+         echo "minted $topic (rank $rank, owner unassigned, state FREE) -> $b";;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          s4e_mode_line
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
@@ -1223,5 +1279,5 @@ case "$cmd" in
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|claim|unclaim|park|done|assign|ask|send|check|clear|mailbox|sweep|board|banner|fleet"; exit 2;;
+  *) echo "usage: next|claim|unclaim|park|done|assign|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"; exit 2;;
 esac
