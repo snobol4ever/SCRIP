@@ -306,6 +306,11 @@ s4e_age_compact() { [ -n "${1:-}" ] && [ "$1" -gt 0 ] 2>/dev/null || { echo "-";
 # readable twin, so a missed write costs legibility, while failing closed here would cost the fleet its dispatch.
 s4e_set_row_state() {   # <topic> <state>  -- no-op (rc 1) when the topic has no live QUEUE.tsv row
   local _t="$1" _s="$2" _q="$PO/QUEUE.tsv" _tmp _lk="$PO/.mint.lock" _got=0 _i _rc=0
+  # ⛔ STRUCTURAL INTEGRITY BELONGS AT THE PRIMITIVE, VOCABULARY AT THE VERB. `park` validates the state against
+  # the known vocabulary; here we refuse only what would TEAR the file, because this function is reached by every
+  # writer (claim/assign/unclaim/done/park) and a tab in the state column splits the row for every reader. A
+  # vocabulary check here would instead risk refusing a legitimate value some future verb computes.
+  case "$_s" in *$'\t'*|*$'\n'*) printf '⛔ REFUSED: state for %s contains a tab/newline; that would tear the QUEUE.tsv row. Not written.\n' "$_t" >&2; return 1;; esac
   grep -qP "^[0-9]+\t\Q$_t\E\t" "$_q" 2>/dev/null || return 1
   for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
   [ "$_got" = 1 ] || { printf '⚠ QUEUE.tsv state column NOT updated for %s (lock busy 2s). The CLAIM is the authority and dispatch is unaffected; only its readable twin is stale.\n' "$_t" >&2; return 1; }
@@ -504,6 +509,32 @@ case "$cmd" in
          # swept into QUEUE.done.tsv). Recording a block this way, not as bare PARKED/BLOCKED text, is what makes
          # it self-clearing instead of needing a human to remember to come back and re-park it.
          topic="${2:?topic}"; st="${3:-PARKED}"; q="$PO/QUEUE.tsv"
+         # ⛔⭐ ARG 3 IS THE STATE, NOT A REASON — AND IT USED TO ACCEPT ANY STRING AT ALL (hq_P, 2026-08-29,
+         # reported against themselves). They ran `park <topic> "<a whole explanatory sentence>"` on the natural
+         # assumption that the third argument was a reason, and the entire sentence — commas and all — was written
+         # verbatim into QUEUE.tsv's load-bearing state column. They caught it on the verify line inside a minute,
+         # so no harm; but the shape is the point. ⛔ THE NEAR MISS IS THE REAL FINDING: their prose happened to
+         # contain no TAB. One that did would have SPLIT THE ROW and broken the TSV for every reader, not merely
+         # uglified one cell — and a torn row in an unversioned file 16 seats dispatch from has no undo.
+         # ⭐ AND AN UNVALIDATED STATE FAILS TOWARD INVISIBILITY: PASS 3 serves only FREE|'', so ANY typo — a
+         # reason, a misspelling, a stray quote — silently removes the row from the picker while looking like a
+         # deliberate park. The vocabulary below is the MEASURED one (every distinct value live in QUEUE.tsv),
+         # not an invented one, plus CLAIMED: which the claim primitive now writes.
+         case "$st" in
+           *$'\t'*|*$'\n'*) printf '⛔ REFUSED: a state may not contain a tab or newline — that would TEAR the QUEUE.tsv row, not just mis-set it.\n' >&2; exit 2;;
+         esac
+         case "$st" in
+           FREE|PARKED|BLOCKED|ASSIGNED|DONE|SUPERSEDED|RETIRED|GRANT-NEEDED|PARKED-LON-HOLD) : ;;
+           PARKED-AWAITING:?*|BLOCKED-ON:?*|ASSIGNED:?*|CLAIMED:?*|DONE:?*|SUPERSEDED:?*|GRANT-NEEDED:?*|PARKED-UMBRELLA:?*|PARKED-LON-HOLD:?*) : ;;
+           *) printf '⛔ REFUSED: "%s" is not a state. ARG 3 IS THE STATE COLUMN, NOT A REASON — that is the mistake this guard exists for.\n' "$st" >&2
+              printf '   Accepted: FREE PARKED BLOCKED ASSIGNED DONE SUPERSEDED RETIRED GRANT-NEEDED PARKED-LON-HOLD\n' >&2
+              printf '             PARKED-AWAITING:<topic>  BLOCKED-ON:<topic>  ASSIGNED:<seat>  CLAIMED:<seat>\n' >&2
+              printf '             DONE:<why>  SUPERSEDED:<why>  GRANT-NEEDED:<why>  PARKED-UMBRELLA:<why>\n' >&2
+              printf '   ⭐ Put the REASON in the baton (%s/tasks/%s.task.md) — the queue is an INDEX, not a brief store.\n' "$PO" "$topic" >&2
+              printf '   ⭐ To make a park SELF-CLEARING, spell it PARKED-AWAITING:<blocker> or BLOCKED-ON:<blocker>;\n' >&2
+              printf '      next() re-asks whether that blocker is DONE and un-parks this row by itself.\n' >&2
+              exit 2;;
+         esac
          grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" || { echo "⛔ no QUEUE.tsv row named $topic"; exit 1; }
          # ⛔⭐ picker-dangling-blocker-parks-a-row-forever-in-silence (hq_B mint, cured here). A BLOCKED-ON:/
          # PARKED-AWAITING: value naming a topic with NO row (live or swept-done) can never self-clear: the
