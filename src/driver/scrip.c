@@ -89,6 +89,31 @@ static void n2_fb_prepass_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N
         fprintf(stderr, "[N2-FB] PREPASS proc=%s idx=%d gen=%d region=%d\n", pn, i, s2->proc_table[i].is_generator, s2->bbp.table[gi]->jcon_value_region); }
     fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ N-2 TRANSITIVE-RESERVE STEP 1 (hq_P 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): VERIFY CROSS-GRAPH
+   NODE ACCESS BEFORE BUILDING THE RECURSIVE SUM ON IT. The row's own GOAL orders this first and says why: this rung has
+   FIVE plausible-zero scars (step 1 hosts=0; step 1b ft "obviously" 0 and measured 96; icn_gen_host_reserve_offset
+   returning off=0 from a host that never carved). ⛔ reserve(g) = Σ over g's generator call nodes of (align16(ft)+48+
+   reserve(callee)) has to walk a graph that is NOT g_emit_cfg, and every existing consumer of this predicate walks only
+   the CURRENT graph. Two independent things could each silently answer zero here and both look identical to "this host
+   calls no generators": (1) another graph's all[]/n may not be populated in the post-drive_slots_all window, and
+   (2) the rt_proc_is_* registration lookups may not answer yet this early -- registration is ORDERED, which is exactly
+   why icn_gen_host_reserve() carries a forward-reference refusal at all. This probe reports BOTH, per graph, so the
+   answer is measured rather than assumed. Inert: getenv-gated, stderr only, zero emission effect. */
+static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
+    fprintf(stderr, "[N2-XG] window=post-drive_slots_all procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
+    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+        if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) { fprintf(stderr, "[N2-XG] proc=%s UNREACHABLE gi=%d\n", pn ? pn : "(null)", gi); continue; }
+        IR_graph_t *g = s2->bbp.table[gi];
+        int calls = 0, named = 0, reg = 0, gen = 0;
+        for (int k = 0; k < g->n; k++) { IR_t *hn = g->all[k]; if (!hn) continue;
+            if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+            calls++;
+            { const char *cn = IR_LIT(hn).sval; if (!cn || !cn[0]) continue; named++;
+              if (rt_proc_is_registered(cn)) { reg++; if (rt_proc_is_generator(cn)) gen++; } } }
+        fprintf(stderr, "[N2-XG] proc=%-10s is_gen=%d all=%s n=%-4d calls=%-3d named=%-3d registered=%-3d generator=%d\n",
+                pn, s2->proc_table[i].is_generator, g->all ? "OK" : "NULL", g->n, calls, named, reg, gen); }
+    fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1275,7 +1300,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1459,7 +1484,7 @@ int main(int argc, char **argv)
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1715,7 +1740,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
@@ -1837,7 +1862,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
