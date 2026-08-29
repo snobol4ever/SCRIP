@@ -14,7 +14,7 @@
 # reproducing the exact defect the honesty clause originally measured. If that arm ever reads
 # correct too, this gate is measuring nothing and must fail loudly, not pass quietly.
 #
-# Method: compile corpus/probe/diag_regs_witness.sno (mode-4), link it, set a breakpoint at
+# Method: compile tests/snobol4/probe/diag_regs_witness.{sno,ref} (mode-4), link it, set a breakpoint at
 # n*_match_break's alpha (reached only after rt_match_enter's protected call has returned), and
 # FORCE a real SIGSEGV there via `set $rip = 0` -- a standard fault-injection idiom that corrupts
 # only RIP, leaving every GPR exactly as the box left it, so r10 is read as a genuine crash would
@@ -37,14 +37,22 @@ set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 ROOT="$S4E/SCRIP"
 CORPUS="$S4E/corpus"
-WITNESS="$CORPUS/probe/diag_regs_witness.sno"
+# corpus-crosscheck-probe-total-conversion (2026-08-29, seat12): the loose witness moved into
+# tests/snobol4/probe/diag_regs_witness.{sno,ref} (suite format, single entry) -- extract() below
+# materializes a standalone .sno into $WORK, same idiom test_arbno_witnesses.sh already uses.
+WITNESS_SNO="$CORPUS/tests/snobol4/probe/diag_regs_witness.sno"
+WITNESS_REF="$CORPUS/tests/snobol4/probe/diag_regs_witness.ref"
 
 if [ ! -x "$ROOT/scrip" ]; then echo "⛔ FAIL: scrip is not built."; exit 1; fi
-if [ ! -f "$WITNESS" ]; then echo "⛔ REFUSED: witness missing: $WITNESS"; exit 2; fi
+if [ ! -f "$WITNESS_SNO" ] || [ ! -f "$WITNESS_REF" ]; then echo "⛔ REFUSED: suite missing: $WITNESS_SNO"; exit 2; fi
 if ! command -v gdb >/dev/null 2>&1; then echo "⛔ REFUSED: gdb not available -- cannot grade a live-register crash reading without it."; exit 2; fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+
+WITNESS="$WORK/diag_regs_witness.sno"
+python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$WITNESS_SNO" "$WITNESS_REF" diag_regs_witness "$WITNESS" >/dev/null 2>&1
+if [ ! -f "$WITNESS" ]; then echo "⛔ REFUSED: could not extract diag_regs_witness from suite"; exit 2; fi
 
 compile_and_link() {   # $1 = output basename; caller sets/unsets SCRIP_RTCC_VENEER first
     local name="$1"
