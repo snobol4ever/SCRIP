@@ -48,7 +48,10 @@ SUBTREE	demo/icon	GATED	test_lower_byte_identical.sh
 # .sno into tests/snobol4/crosscheck/beauty.{sno,ref}. The directory survives but holds ZERO program files now --
 # only .input/.ref fixtures -- so it is no longer a live subtree. The gate caught this drift within hours of the
 # conversion landing, which is exactly what a manifest checked against the live tree is for.
-SUBTREE	crosscheck/coverage	GATED	test_corpus_snobol4.sh
+# crosscheck/coverage RETIRED 2026-08-29 (corpus-crosscheck-probe-total-conversion, LON-20260828): coverage_sno_nodes.sno
+# moved to tests/snobol4/coverage/ (KEEP.md fixture -- IR-node-coverage witness, not runtime-gradeable; see that KEEP.md).
+# corpus/crosscheck/ now holds nothing at all -- this was its last SUBTREE entry. tests/snobol4 (below) already covers
+# the new location; no new line needed.
 SUBTREE	demo/scrip	ROWD	scrip-demo-harness-unwired
 EXCLUDE	archive	EXCLUDED	archived bisection scratch and retired probes, provenance in corpus/archive/*/README -- not gradeable, not test material; archived rather than deleted so a regressed cure can bisect against them
 EXCLUDE	packages/pascal	EXCLUDED	third-party Pascal-P4 reference compiler (pcom.pas/pint.pas/ppp.pas + grammar), ETH Zurich 1976, Free Pascal/Delphi port by Christophe Staiesse 2013; provenance in packages/pascal/README.md -- imported upstream, never converted/graded
