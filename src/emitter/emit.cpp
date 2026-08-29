@@ -2981,9 +2981,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_emit_cfg && g_emit_cfg->n_balias > 0) { for (int _bi = 0; _bi < g_emit_cfg->n_balias; _bi++) if (g_emit_cfg->balias_node[_bi] == nodes[i]) { lbls[i] = emit_label_alloc("%s", g_emit_cfg->balias_name[_bi]); break; } }
         if (g_emit_cfg && g_emit_cfg->n_dentry > 0) { for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_entry[_dq] == nodes[i]) g_emit_cfg->dentry_name[_dq] = lbls[i]->name; }
         betas[i] = emit_label_alloc("n%d_%s_β", _uid, _kn);
-        ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_ry", _uid, _kn) : NULL;
-        ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc("n%d_%s_rt", _uid, _kn) : NULL;
-        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc("n%d_%s_as", _uid, _kn) : NULL;
+        ra_y[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_γ_%d_ry", _kn, _uid) : NULL;
+        ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_ω_%d_rt", _kn, _uid) : NULL;
+        na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
         na_f[i]  = (((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) || nodes[i]->op == IR_MATCH_BEGIN) ? emit_label_alloc("n%d_%s_af", _uid, _kn) : NULL;
         { extern const char * bb_src_of(const IR_t *); st_pre[i] = (g_emit.flat_stmt_frame && bb_src_of(nodes[i])) ? emit_label_alloc("n%d_%s_st", _uid, _kn) : NULL; }
         st_x[i] = (st_pre[i] && st_first_seen) ? emit_label_alloc("n%d_%s_sx", _uid, _kn) : NULL; if (st_pre[i]) st_first_seen = 1;
@@ -2992,7 +2992,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_MATCH_ALTERNATE && nodes[i]->n_operands > 0) {
             int _N = (int)(nodes[i]->n_operands / 2);
             fc_sig[i] = (bb_label_t **)alloca(sizeof(bb_label_t *) * _N);
-            for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc("n%d_%s_s%d", _uid, _kn, _j);
+            for (int _j = 0; _j < _N; _j++) fc_sig[i][_j] = emit_label_alloc(".L%s_γ_%d_s%d", _kn, _uid, _j);
         }
     }
     unsigned char *bused = (unsigned char *)alloca(n > 0 ? n : 1);
