@@ -64,7 +64,7 @@ case "$SEL" in
         row demo            "$(d_demo)"             "top-level only; recursive find OVERCOUNTS (subdirs not board members)"
         row demo15          "$(d_demo15)"            "the 15-board is a FIXED named set (board_sno15_ident.sh's own for-loop), not a corpus count — will not drift with corpus size"
         row bench           "$(d_bench)"            "$(d_bench_xfail) xfail => $(($(d_bench)-$(d_bench_xfail))) graded both modes; every .sno is harness-driven since s170 (BM-2) and the timed runner FAILS if one is not"
-        row beauty_total    "$(d_beauty_total)"      ".sno files in beauty_suite/ (includes non-driver support files)"
+        row beauty_total    "$(d_beauty_total)"      ".sno files in beauty_suite/ — DRIVERS ONLY since 2026-08-29: the 17 include-sources were deduplicated into corpus/include/*.inc, so no non-driver .sno remains here"
         row beauty_drivers  "$(d_beauty_drivers)"    ".ref count = driver count = the SIGSEGV-floor denominator"
         row earn0           "$(d_earn0)"             "⛔ HAS MOVED 16→20→28→... at least 3x in one plan's lifetime — NEVER cite from memory"
         row broad336        "$(d_broad336)"          "RECONSTRUCTED, confirmed OFF BY 2 vs the script's own printed total (338 here, 336 printed) — unresolved, see function comment; TRUST THE SCRIPT'S OWN RUN, not this row, until fixed"
