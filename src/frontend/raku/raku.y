@@ -489,9 +489,6 @@ stmt
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$4);
           ExprList *args=$6; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
           $$ = expr_binary(TT_ASSIGN, var_node($2), call); }
-    | KW_MY VAR_ARRAY '=' expr OP_REP_XX expr ';'
-        { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,$4); expr_add_child(call,$6);
-          $$ = expr_binary(TT_ASSIGN, var_node($2), call); }
     | KW_MY VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$5);
           ExprList *args=$7; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
@@ -501,9 +498,6 @@ stmt
     | VAR_ARRAY '=' expr ',' arg_list ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$3);
           ExprList *args=$5; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          $$ = expr_binary(TT_ASSIGN, var_node($1), call); }
-    | VAR_ARRAY '=' expr OP_REP_XX expr ';'
-        { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,$3); expr_add_child(call,$5);
           $$ = expr_binary(TT_ASSIGN, var_node($1), call); }
     | VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$4);
@@ -1558,6 +1552,7 @@ add_expr
     ;
 repl_expr
     : repl_expr OP_REP_X addsub_expr  { $$=expr_binary(TT_XREP,$1,$3); }
+    | repl_expr OP_REP_XX addsub_expr { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,$1); expr_add_child(call,$3); $$=call; }
     | addsub_expr                     { $$=$1; }
     ;
 addsub_expr
