@@ -41,5 +41,4 @@ std::string bb_subject() {
            + x86("add",     "rsp", (long)8)
            + x86_gamma()
            + x86_beta_trampoline() );
-    return std::string();
 }
