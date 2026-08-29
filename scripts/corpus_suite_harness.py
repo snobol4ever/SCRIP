@@ -1333,7 +1333,40 @@ def cmd_extract(args):
     need per-witness standalone access a shared suite file cannot give them directly -- e.g. a gate script
     compiling one named witness under several env-var arms with custom stdout/stderr handling. Reuses
     read_suite() (ONE AUTHORITY for the suite grammar) rather than re-parsing the format a second time."""
-    entries = read_suite(args.sno, args.ref)
+    # ⛔⭐ TWO READERS EXIST AND THIS ONE PICKED THE WRONG ONE FOR BLOCK-ONLY FAMILIES (hq_B 2026-08-29).
+    # read_suite() handles the one-line dialect and one-line/block INTERLEAVING; read_block_suite() handles a
+    # format-(B)-ONLY family, where every entry is a banner-delimited block. cmd_extract called read_suite()
+    # unconditionally, so on a block-only family it compared sno LINES to ref LINES 1:1 -- a correspondence
+    # multi-line procedure bodies legitimately break -- and died with
+    #     ValueError: family.ref is shorter than family.sno at seq N
+    # MEASURED: rung10_augop (5 entries) and rung36_all (36 entries) both FAIL under read_suite and both read
+    # CLEANLY under read_block_suite. rung10_augop's ref is 11 lines for 5 entries = 5 banners + 6 output
+    # lines, which is exactly right; its .icn is 37 because the bodies are procedures.
+    # ⛔⭐ THE ERROR TEXT NAMES ONLY ONE OF ITS TWO CAUSES, which is why this cost a wrong diagnosis before it
+    # cost a fix: "family.ref is shorter than family.sno" is emitted BOTH when a ref is genuinely truncated AND
+    # when the one-line reader is pointed at a block family. The first reading sends you to regenerate a
+    # correct .ref against the oracle -- destructive work on a good file. Prefer the block reader and keep the
+    # one-line reader as the fallback, and if BOTH fail report BOTH errors rather than the last one, so the
+    # next reader is never handed a single cause for a two-cause signal.
+    _ext = Path(args.sno).suffix
+    _copen, _cclose = "*", ""
+    for _lc in LANG_CONFIGS.values():
+        if _lc.get("ext") == _ext:
+            _copen, _cclose = _lc.get("comment_open", "*"), _lc.get("comment_close", "")
+            break
+    try:
+        entries = read_block_suite(args.sno, args.ref, banner_re_for(_copen, _cclose))
+    except Exception as _block_err:
+        try:
+            entries = read_suite(args.sno, args.ref)
+        except Exception as _line_err:
+            print(f"⛔ REFUSED: {args.sno} reads as neither dialect.\n"
+                  f"   as a BLOCK-only family : {type(_block_err).__name__}: {_block_err}\n"
+                  f"   as a ONE-LINE family   : {type(_line_err).__name__}: {_line_err}\n"
+                  f"   Both causes are shown deliberately: 'ref is shorter than sno' is reachable BOTH from a\n"
+                  f"   genuinely truncated .ref AND from reading a block family with the one-line reader.",
+                  file=sys.stderr)
+            raise SystemExit(2)
     for e in entries:
         if e.name != args.name:
             continue
