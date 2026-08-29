@@ -22,5 +22,4 @@ std::string bb_swap() {
                            + x86("mov", FRQ(_.op_off + 8), "rsi")
                            + x86_gamma()
                            + x86_beta_trampoline());
-    return std::string();
 }
