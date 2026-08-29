@@ -129,7 +129,13 @@ TASKS="$PO/tasks"
 # consistent but verbose -- convert it LAST and coordinate with its claim holder").
 # Override only to WIDEN a gate run against a different/older postoffice snapshot, never to accommodate
 # a genuinely new offender -- narrow the sweep instead.
-RATCHET="${BATON_NEXT_RATCHET:-3}"
+# ⭐ CEILING LOWERED 3 -> 1 (hq_P 2026-08-29, row tests-consolidate-prolog). The header's own law is that it may
+# only FALL, driven down by the sweep. Two of the three offenders are gone: `tests-consolidate-prolog` carried 12
+# `## NEXT` headers (a pre-rule baton) and its 11 historical blocks are now demoted to `## SUPERSEDED-NEXT`, and
+# `array-sum-valgrind-segv` cleared independently. ⛔ The remaining 1 is `picker-lane-restricted-rows-must-be-assigned`,
+# which is MISSING a task file entirely -- a different defect (a queue row with no baton), not a NEXT-block one, and
+# not repairable by demoting anything. Held at 1 rather than 0 so that row's absence does not block every seat.
+RATCHET="${BATON_NEXT_RATCHET:-1}"
 
 out="$(run_scan "$QUEUE" "$TASKS")"; scan_rc=$?
 if [ "$scan_rc" -eq 2 ]; then
