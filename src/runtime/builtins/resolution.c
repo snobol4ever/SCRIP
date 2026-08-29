@@ -2,12 +2,12 @@
 #include <math.h>
 #include <limits.h>
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
-#include "../../frontend/prolog/prolog_driver.h"
-#include "../../frontend/prolog/term.h"
-#include "../../frontend/prolog/prolog_runtime.h"
-#include "../../frontend/prolog/prolog_atom.h"
-#include "../../frontend/prolog/prolog_builtin.h"
+#include "../../parsers/snobol4/scrip_cc.h"
+#include "../../parsers/prolog/prolog_driver.h"
+#include "../../parsers/prolog/term.h"
+#include "../../parsers/prolog/prolog_runtime.h"
+#include "../../parsers/prolog/prolog_atom.h"
+#include "../../parsers/prolog/prolog_builtin.h"
 extern void rt_trail_unwind(int mark);
 extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"
@@ -18,7 +18,7 @@ extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include <setjmp.h>
 Trail         g_resolve_trail;
 int           g_resolve_cut_flag = 0;
-#include "../../frontend/prolog/pl_cell.h"
+#include "../../parsers/prolog/pl_cell.h"
 pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_value_trail_mark(void) { return g_pl_trail.top; }

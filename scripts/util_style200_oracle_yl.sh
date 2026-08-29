@@ -18,7 +18,7 @@
 #    never affect compiled output, so identical-after-stripping means the grammar and the actions are unchanged.
 # ⛔ BOTH SIDES MUST BE GENERATED FROM AN IDENTICAL PATH AND OUTPUT NAME.  bison/flex bake the input path into `#line`
 #    directives and the output basename into an `#include`, so generating "before" as /tmp/x.y and "after" as the real
-#    src/frontend/... path produces a diff that is pure path noise and proves nothing.  Measured while building this:
+#    src/parsers/... path produces a diff that is pure path noise and proves nothing.  Measured while building this:
 #    running the repo's own regenerate script from inside each parser dir rewrote 10 committed files, and the ENTIRE
 #    difference was `#line` prefixes plus one `#include` basename -- 4 non-#line lines in total.  The committed parsers
 #    ARE reproducible; they were simply generated from the SCRIP root rather than from the parser directory.

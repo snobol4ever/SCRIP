@@ -18,7 +18,7 @@ static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
 #include "builtins/gen_value.h"
 #include "builtins/gen_runtime.h"
 #include "../driver/driver_private.h"
-#include "../frontend/raku/re.h"
+#include "../parsers/raku/re.h"
 #include "core.h"
 #include "core/utf8.h"
 #include "builtin_ids.h"
@@ -74,8 +74,8 @@ int icn_builtin_is_known(const char *name)
     for (int i = 0; icn_known[i]; i++) if (!strcmp(icn_known[i], name)) return 1;
     return 0;
 }
-#include "../frontend/prolog/pl_cell.h"
-#include "../frontend/prolog/term.h"
+#include "../parsers/prolog/pl_cell.h"
+#include "../parsers/prolog/term.h"
 extern pl_trail_t g_pl_trail;
 typedef struct { const char *key; void *alpha; void *beta; int nslots; } plw_pred_t;
 static plw_pred_t g_plw_preds[512]; static int g_plw_pred_n = 0;

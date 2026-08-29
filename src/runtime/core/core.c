@@ -3,7 +3,7 @@
 #include "../rt/rt_arena.h"
 #include "sil_macros.h"
 #include "utf8.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parsers/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
 #include "../rt/gc_heap.h"
 #include "../snobol4_system_fns.h"

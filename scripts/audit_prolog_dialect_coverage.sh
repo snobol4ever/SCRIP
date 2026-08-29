@@ -126,7 +126,7 @@ iso_infer -= iso_expl
 # ================ side B: SCRIP admitted set (SAME four sites as the ISO audit) =================
 bnd = rd(os.path.join(ROOT, 'src/runtime/by_name_dispatch.c'))
 low = rd(os.path.join(ROOT, 'src/lower/lower_prolog.c'))
-pbl = rd(os.path.join(ROOT, 'src/frontend/prolog/prolog_lower.c'))
+pbl = rd(os.path.join(ROOT, 'src/parsers/prolog/prolog_lower.c'))
 i, det = bnd.find('rt_pl_det_builtin_target'), set()
 if i >= 0:
     body = bnd[i: bnd.find('return (const char *)0;', i)]

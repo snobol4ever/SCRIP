@@ -14,11 +14,11 @@ WORK=$(mktemp -d /tmp/snobol4_asm_XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
 # Precompile runtime
-gcc -O0 -g -c "$RT/asm/snobol4_stmt_rt.c"    -I"$RT/snobol4" -I"$RT" -I"$DIR/src/frontend/snobol4" -w -o "$WORK/stmt_rt.o"
-gcc -O0 -g -c "$RT/snobol4/snobol4.c"         -I"$RT/snobol4" -I"$RT" -I"$DIR/src/frontend/snobol4" -w -o "$WORK/snobol4.o"
-gcc -O0 -g -c "$RT/mock/mock_includes.c"       -I"$RT/snobol4" -I"$RT" -I"$DIR/src/frontend/snobol4" -w -o "$WORK/mock_includes.o"
-gcc -O0 -g -c "$RT/snobol4/snobol4_pattern.c" -I"$RT/snobol4" -I"$RT" -I"$DIR/src/frontend/snobol4" -w -o "$WORK/pat.o"
-gcc -O0 -g -c "$RT/engine/engine.c"            -I"$RT/snobol4" -I"$RT" -I"$DIR/src/frontend/snobol4" -w -o "$WORK/eng.o"
+gcc -O0 -g -c "$RT/asm/snobol4_stmt_rt.c"    -I"$RT/snobol4" -I"$RT" -I"$DIR/src/parsers/snobol4" -w -o "$WORK/stmt_rt.o"
+gcc -O0 -g -c "$RT/snobol4/snobol4.c"         -I"$RT/snobol4" -I"$RT" -I"$DIR/src/parsers/snobol4" -w -o "$WORK/snobol4.o"
+gcc -O0 -g -c "$RT/mock/mock_includes.c"       -I"$RT/snobol4" -I"$RT" -I"$DIR/src/parsers/snobol4" -w -o "$WORK/mock_includes.o"
+gcc -O0 -g -c "$RT/snobol4/snobol4_pattern.c" -I"$RT/snobol4" -I"$RT" -I"$DIR/src/parsers/snobol4" -w -o "$WORK/pat.o"
+gcc -O0 -g -c "$RT/engine/engine.c"            -I"$RT/snobol4" -I"$RT" -I"$DIR/src/parsers/snobol4" -w -o "$WORK/eng.o"
 gcc -O0 -g -c "$RT/asm/blk_alloc.c"            -I"$RT/asm"                                            -w -o "$WORK/blk_alloc.o"
 gcc -O0 -g -c "$RT/asm/blk_reloc.c"            -I"$RT/asm"                                            -w -o "$WORK/blk_reloc.o"
 

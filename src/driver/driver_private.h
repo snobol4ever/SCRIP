@@ -6,19 +6,19 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <time.h>
-#include "frontend/snobol4/scrip_cc.h"
-#include "frontend/snocone/snocone_driver.h"
-#include "frontend/prolog/prolog_driver.h"
-#include "frontend/prolog/term.h"
-#include "frontend/prolog/prolog_runtime.h"
-#include "frontend/prolog/prolog_atom.h"
-#include "frontend/raku/re.h"
-#include "frontend/prolog/prolog_builtin.h"
-#include "frontend/icon/icon_driver.h"
-#include "frontend/raku/raku_driver.h"
-#include "frontend/rebus/rebus_lower.h"
+#include "parsers/snobol4/scrip_cc.h"
+#include "parsers/snocone/snocone_driver.h"
+#include "parsers/prolog/prolog_driver.h"
+#include "parsers/prolog/term.h"
+#include "parsers/prolog/prolog_runtime.h"
+#include "parsers/prolog/prolog_atom.h"
+#include "parsers/raku/re.h"
+#include "parsers/prolog/prolog_builtin.h"
+#include "parsers/icon/icon_driver.h"
+#include "parsers/raku/raku_driver.h"
+#include "parsers/rebus/rebus_lower.h"
 #include "runtime/builtins/gen.h"
-#include "frontend/icon/icon_lex.h"
+#include "parsers/icon/icon_lex.h"
 extern void ir_print_node   (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "core.h"

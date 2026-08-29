@@ -2,7 +2,7 @@
 #ifndef POLYGLOT_H
 #define POLYGLOT_H
 #include <stdint.h>
-#include "frontend/snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "driver/driver.h"
 #include "stage2.h"
 extern int g_fi8_gen_init_count;

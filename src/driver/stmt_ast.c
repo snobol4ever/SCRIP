@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "ast.h"
-#include "frontend/snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 static char * stmt_src_slice(const STMT_t * s);
 static int stmt_line_is_included(int lineno);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,6 +1,6 @@
 #include "lower_snobol4.h"
 #include "ast.h"
-#include "../frontend/icon/icon_lex.h"
+#include "../parsers/icon/icon_lex.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

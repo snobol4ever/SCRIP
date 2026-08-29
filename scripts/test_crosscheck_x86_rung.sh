@@ -43,11 +43,11 @@ fi
 # Build shared runtime objects once into WORK
 WORK=$(mktemp -d); trap "rm -rf $WORK" EXIT
 
-gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/stmt_rt.o"
-gcc -O0 -g -c "$RT/x86/snobol4.c"            -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/snobol4.o"
-gcc -O0 -g -c "$RT/mock/mock_includes.c"          -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/mock_includes.o"
-gcc -O0 -g -c "$RT/x86/snobol4_pattern.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/snobol4_pattern.o"
-gcc -O0 -g -c "$RT/x86/engine.c"               -I"$RT/x86" -I"$RT" -I"$TINY/src/frontend/snobol4" -w -o "$WORK/engine.o"
+gcc -O0 -g -c "$RT/x86/snobol4_stmt_rt.c"       -I"$RT/x86" -I"$RT" -I"$TINY/src/parsers/snobol4" -w -o "$WORK/stmt_rt.o"
+gcc -O0 -g -c "$RT/x86/snobol4.c"            -I"$RT/x86" -I"$RT" -I"$TINY/src/parsers/snobol4" -w -o "$WORK/snobol4.o"
+gcc -O0 -g -c "$RT/mock/mock_includes.c"          -I"$RT/x86" -I"$RT" -I"$TINY/src/parsers/snobol4" -w -o "$WORK/mock_includes.o"
+gcc -O0 -g -c "$RT/x86/snobol4_pattern.c"    -I"$RT/x86" -I"$RT" -I"$TINY/src/parsers/snobol4" -w -o "$WORK/snobol4_pattern.o"
+gcc -O0 -g -c "$RT/x86/engine.c"               -I"$RT/x86" -I"$RT" -I"$TINY/src/parsers/snobol4" -w -o "$WORK/engine.o"
 
 LINK_OBJS="$WORK/stmt_rt.o $WORK/snobol4.o $WORK/mock_includes.o $WORK/snobol4_pattern.o $WORK/engine.o"
 

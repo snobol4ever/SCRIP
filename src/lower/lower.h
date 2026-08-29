@@ -4,7 +4,7 @@
 #include "SM.h"
 #include "stage2.h"
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parsers/snobol4/scrip_cc.h"
 #include "ast.h"
 #include "../../runtime/builtins/gen_runtime.h"
 #include "IR.h"

@@ -1,10 +1,10 @@
 #ifndef RESOLUTION_H
 #define RESOLUTION_H
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
-#include "../../frontend/prolog/prolog_driver.h"
-#include "../../frontend/prolog/term.h"
-#include "../../frontend/prolog/prolog_runtime.h"
+#include "../../parsers/snobol4/scrip_cc.h"
+#include "../../parsers/prolog/prolog_driver.h"
+#include "../../parsers/prolog/term.h"
+#include "../../parsers/prolog/prolog_runtime.h"
 #include "bb_box.h"
 #include "IR.h"
 #include "SM.h"

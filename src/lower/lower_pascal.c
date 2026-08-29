@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lower.h"
-#include "../frontend/pascal/pascal_driver.h"
+#include "../parsers/pascal/pascal_driver.h"
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s {
     const char *        names[PAS_MAX_SCOPE];

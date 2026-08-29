@@ -16,7 +16,7 @@
 #include "bb_build.h"
 #include "ast.h"
 #include "SM.h"
-#include "../../frontend/prolog/prolog_atom.h"
+#include "../../parsers/prolog/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

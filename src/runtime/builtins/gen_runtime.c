@@ -1,7 +1,7 @@
 #include "gen_runtime.h"
 #include "gen_value.h"
 #include "ast.h"
-#include "../../frontend/snobol4/scrip_cc.h"
+#include "../../parsers/snobol4/scrip_cc.h"
 #include "gen.h"
 #include "../rt/gc_heap.h"
 #include "coerce.h"

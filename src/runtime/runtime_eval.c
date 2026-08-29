@@ -6,7 +6,7 @@
 #include "core.h"
 #include "keywords.h"
 #include "sil_macros.h"
-#include "../frontend/snobol4/scrip_cc.h"
+#include "../parsers/snobol4/scrip_cc.h"
 #include "IR.h"
 #include "stage2.h"
 extern int exec_stmt(const char  *subj_name,

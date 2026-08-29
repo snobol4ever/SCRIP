@@ -3,7 +3,7 @@
 #define DRIVER_H
 #include <stdint.h>
 #include <setjmp.h>
-#include "frontend/snobol4/scrip_cc.h"
+#include "parsers/snobol4/scrip_cc.h"
 #include "stage2.h"
 extern int g_opt_dump_bb;
 extern int g_polyglot;

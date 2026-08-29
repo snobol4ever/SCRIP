@@ -53,12 +53,12 @@
 extern int snobol4_debug;
 #endif
 /* "%code requires" blocks.  */
-#line 1 "src/frontend/snobol4/snobol4.y"
+#line 1 "src/parsers/snobol4/snobol4.y"
 
 #include "scrip_cc.h"
 #include "snobol4.h"
 
-#line 62 "src/frontend/snobol4/snobol4.tab.h"
+#line 62 "src/parsers/snobol4/snobol4.tab.h"
 
 /* Token kinds.  */
 #ifndef SNOBOL4_TOKENTYPE
@@ -130,10 +130,10 @@ extern int snobol4_debug;
 #if ! defined SNOBOL4_STYPE && ! defined SNOBOL4_STYPE_IS_DECLARED
 union SNOBOL4_STYPE
 {
-#line 55 "src/frontend/snobol4/snobol4.y"
+#line 55 "src/parsers/snobol4/snobol4.y"
  tree_t *expr; Token tok; 
 
-#line 137 "src/frontend/snobol4/snobol4.tab.h"
+#line 137 "src/parsers/snobol4/snobol4.tab.h"
 
 };
 typedef union SNOBOL4_STYPE SNOBOL4_STYPE;

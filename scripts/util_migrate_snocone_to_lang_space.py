@@ -30,7 +30,7 @@ What this script does NOT touch:
     alt-eval rewrite
 
 Edge-case behaviour explicitly verified against the LS-4 grammar
-in src/frontend/snocone/snocone_parse.y:
+in src/parsers/snocone/snocone_parse.y:
   - `if (a || b)`  → `if ((a, b))` — the `if`'s own parens
     syntactically wrap a single expr0; the alt-eval needs its
     OWN parens for the `T_LPAREN expr0 T_COMMA exprlist_ne

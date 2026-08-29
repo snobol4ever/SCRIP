@@ -29,7 +29,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$(cd "$HERE/.." && pwd)"
 TEST="$SCRIP/test/parser/snocone/test_snocone_parse_d.c"
-SRCDIR="$SCRIP/src/frontend/snocone"
+SRCDIR="$SCRIP/src/parsers/snocone"
 BIN="/tmp/test_snocone_parse_d"
 
 cc -Wall -o "$BIN" \
@@ -37,7 +37,7 @@ cc -Wall -o "$BIN" \
     "$SRCDIR/snocone_parse.tab.c" \
     "$SRCDIR/snocone_lex.c" \
     -I "$SRCDIR" \
-    -I "$SCRIP/src/frontend/snobol4" \
+    -I "$SCRIP/src/parsers/snobol4" \
     -I "$SCRIP/src"
 
 "$BIN"

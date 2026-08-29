@@ -326,32 +326,32 @@ RT_PIC_SRCS := \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/polyglot.c \
     $(SRC)/ir/ast_print.c \
-    $(SRC)/frontend/snobol4/snobol4.tab.c \
-    $(SRC)/frontend/snobol4/snobol4.lex.c \
-    $(SRC)/frontend/icon/icon_runtime.c \
-    $(SRC)/frontend/icon/icon_parse.c \
-    $(SRC)/frontend/icon/icon_lex.c \
-    $(SRC)/frontend/icon/icon_driver.c \
-    $(SRC)/frontend/prolog/prolog_lex.c \
-    $(SRC)/frontend/prolog/prolog_parse.c \
-    $(SRC)/frontend/prolog/prolog_atom.c \
-    $(SRC)/frontend/prolog/prolog_builtin.c \
-    $(SRC)/frontend/prolog/prolog_unify.c \
-    $(SRC)/frontend/prolog/prolog_driver.c \
-    $(SRC)/frontend/prolog/prolog_lower.c \
-    $(SRC)/frontend/snocone/snocone_lex.c \
-    $(SRC)/frontend/snocone/snocone_parse.tab.c \
-    $(SRC)/frontend/snocone/snocone_driver.c \
-    $(SRC)/frontend/raku/raku.tab.c \
-    $(SRC)/frontend/raku/raku.lex.c \
-    $(SRC)/frontend/raku/raku_driver.c \
-    $(SRC)/frontend/raku/re.c \
-    $(SRC)/frontend/rebus/rebus.tab.c \
-    $(SRC)/frontend/rebus/lex.rebus.c \
-    $(SRC)/frontend/rebus/rebus_lower.c \
-    $(SRC)/frontend/pascal/pascal.tab.c \
-    $(SRC)/frontend/pascal/pascal.lex.c \
-    $(SRC)/frontend/pascal/pascal_driver.c \
+    $(SRC)/parsers/snobol4/snobol4.tab.c \
+    $(SRC)/parsers/snobol4/snobol4.lex.c \
+    $(SRC)/parsers/icon/icon_runtime.c \
+    $(SRC)/parsers/icon/icon_parse.c \
+    $(SRC)/parsers/icon/icon_lex.c \
+    $(SRC)/parsers/icon/icon_driver.c \
+    $(SRC)/parsers/prolog/prolog_lex.c \
+    $(SRC)/parsers/prolog/prolog_parse.c \
+    $(SRC)/parsers/prolog/prolog_atom.c \
+    $(SRC)/parsers/prolog/prolog_builtin.c \
+    $(SRC)/parsers/prolog/prolog_unify.c \
+    $(SRC)/parsers/prolog/prolog_driver.c \
+    $(SRC)/parsers/prolog/prolog_lower.c \
+    $(SRC)/parsers/snocone/snocone_lex.c \
+    $(SRC)/parsers/snocone/snocone_parse.tab.c \
+    $(SRC)/parsers/snocone/snocone_driver.c \
+    $(SRC)/parsers/raku/raku.tab.c \
+    $(SRC)/parsers/raku/raku.lex.c \
+    $(SRC)/parsers/raku/raku_driver.c \
+    $(SRC)/parsers/raku/re.c \
+    $(SRC)/parsers/rebus/rebus.tab.c \
+    $(SRC)/parsers/rebus/lex.rebus.c \
+    $(SRC)/parsers/rebus/rebus_lower.c \
+    $(SRC)/parsers/pascal/pascal.tab.c \
+    $(SRC)/parsers/pascal/pascal.lex.c \
+    $(SRC)/parsers/pascal/pascal_driver.c \
     $(SRC)/templates/bb/bb_arith.cpp \
     $(SRC)/templates/bb/bb_binop_gvar_arith.cpp \
     $(SRC)/templates/bb/bb_binop_gvar_arith_slot.cpp \
@@ -375,7 +375,7 @@ RT_PIC_SRCS := \
 
 # ⛔ RT_OPT IS DEFINED ONCE, AT LINE 34. A SECOND `RT_OPT ?=` stood here carrying the RETIRED O0-DEV-O2-BENCH text (s179) — inert by `?=` but read as law by anyone who greps for the flag and lands on the wrong one, which is how a NO-O2-BUILDS violation gets written in good faith. Deleted hq_P s269; the s262 FACT RULE lives at :34 and nowhere else.
 RT_INCS := -I$(SRC) -I$(SRC)/ir -I$(SRC)/lower -I$(SRC)/emitter -I$(SRC)/runtime/core -I$(SRC)/runtime/builtins -I$(RT) -I$(RT)/rt \
-    -I$(SRC)/frontend/snobol4 -I$(SRC)/frontend/raku -I$(SRC)/optimizer -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86
+    -I$(SRC)/parsers/snobol4 -I$(SRC)/parsers/raku -I$(SRC)/optimizer -I$(SRC)/templates/bb -I$(SRC)/templates/xa -I$(SRC)/templates/x86
 # ⭐⭐ BUILD CACHE KEYED BY THE FLAGS THAT PRODUCED IT (Lon 2026-08-22 s258, in-chat: "can we enforce a
 # pure incremental build and keep these objects around longer ... That is killing us concerning optimized
 # tests"). MEASURED CAUSE, and it is NOT header fan-out (that was the hypothesis; transitive-include census

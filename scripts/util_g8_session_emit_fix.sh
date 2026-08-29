@@ -18,7 +18,7 @@
 #   bash test/g8_session.sh [--skip-verify] [--skip-fix] [--only-baseline]
 #
 # After this script completes successfully, commit:
-#   git add test/emit_baseline src/frontend/snobol4/lex.c src/driver/main.c
+#   git add test/emit_baseline src/parsers/snobol4/lex.c src/driver/main.c
 #   git commit -m "G-8: M-G-INV-EMIT-FIX ✅ — in-process batch + emit baseline"
 #
 # Milestones closed by this script:
@@ -93,7 +93,7 @@ if [[ $SKIP_FIX -eq 0 && $ONLY_BASELINE -eq 0 ]]; then
 
   echo -e "${BOLD}FIX GUIDANCE — statics to audit and reset in snoc_reset()${RESET}"
   echo ""
-  info "In src/frontend/snobol4/lex.c:"
+  info "In src/parsers/snobol4/lex.c:"
   info "  snoc_nerrors      — reset to 0           ✅ done"
   info "  n_inc / inc_dirs  — reset to 0 / freed   ✅ done"
   info "  yyfilename        — reset to <stdin>      ✅ done"
@@ -177,7 +177,7 @@ echo -e "${BOLD}═════════════════════�
 if [[ $ERRORS -eq 0 ]]; then
   echo -e "${GREEN}${BOLD}  G-8 SESSION COMPLETE — commit and close${RESET}"
   echo ""
-  echo "  git add test/emit_baseline src/frontend/snobol4/lex.c src/driver/main.c"
+  echo "  git add test/emit_baseline src/parsers/snobol4/lex.c src/driver/main.c"
   echo "  git commit -m 'G-8: M-G-INV-EMIT ✅ — in-process batch + emit baseline'"
   echo "  git push"
 else

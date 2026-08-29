@@ -7,7 +7,7 @@
 #include "builtins/gen.h"
 #include "builtins/gen_runtime.h"
 #include "builtins/resolution.h"
-#include "../frontend/prolog/prolog_atom.h"
+#include "../parsers/prolog/prolog_atom.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>

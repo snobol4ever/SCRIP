@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include "lower.h"
 #include "bb_program.h"
-#include "frontend/icon/icon_lex.h"
+#include "parsers/icon/icon_lex.h"
 #include "zeta_choices.h"
 #include "snobol4_system_fns.h"
 int rt_zeta_port_mode(void);

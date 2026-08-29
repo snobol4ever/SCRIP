@@ -3,13 +3,13 @@
 #include "core.h"
 #include "builtins/resolution.h"
 #include "bb_pool.h"
-#include "../frontend/prolog/prolog_atom.h"
+#include "../parsers/prolog/prolog_atom.h"
 #include "../ir/IR.h"
 #include <stdio.h>
 #include <unistd.h>
-#include "../frontend/prolog/pl_cell.h"
+#include "../parsers/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) (rt_pl_cellws_on() ? rt_pl_cellws_alloc(n) : rt_ws_alloc(n))
-#include "../frontend/prolog/pl_cell_conv.h"
+#include "../parsers/prolog/pl_cell_conv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_terms(void *l, void *r)
 {
