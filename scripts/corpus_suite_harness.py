@@ -1003,7 +1003,19 @@ def _copy_companions(text, companion_dir, dest_dir):
         # (witness: rung37_all after the icon suite conversion, false FAIL on the icon board)
         if Path(name).is_absolute():
             continue
+        # ⛔⭐ SEARCH <dir>/config TOO, FOR THE FLAT END STATE (Lon via ceo, 2026-08-29): tests/<lang>/ becomes
+        # FLAT -- ALL.{ext,ref,in,csv} side by side, with ZERO subdirectories except ONE `config/` folder
+        # holding runtime companions (.inc/.dat/.in/.conf) and docs. Once a family's own directory is gone,
+        # its companions live there and NOWHERE ELSE, so a copier that only looks beside the suite file finds
+        # nothing and the entry fails as an ordinary missing-dependency error -- indistinguishable from a real
+        # defect. ⛔ THE ORDER MATTERS AND SO DOES THE DIRECTION: the flat layout cannot be adopted until this
+        # search exists, or every companion-using entry breaks the moment its directory is removed. Additive
+        # and beside-first, so a tree that has NOT flattened yet behaves exactly as before.
         src_companion = Path(companion_dir) / name
+        if not src_companion.is_file():
+            _cfg = Path(companion_dir) / "config" / name
+            if _cfg.is_file():
+                src_companion = _cfg
         dst_companion = Path(dest_dir) / name
         if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
             shutil.copy(src_companion, dst_companion)
