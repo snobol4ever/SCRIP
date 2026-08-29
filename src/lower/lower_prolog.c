@@ -1331,13 +1331,31 @@ static void pl_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_init_resolve_body(const tree_t *gt) {
+    char kb[128]; const char *k = NULL;
+    if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) { snprintf(kb, sizeof kb, "%s/0", gt->v.sval); k = kb; }
+    else if (gt && gt->t == TT_FNC && gt->v.sval) { snprintf(kb, sizeof kb, "%s/%d", gt->v.sval, gt->n); k = kb; }
+    if (!k) return NULL;
+    const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, k);
+    const tree_t *rc = NULL;
+    if (choice) { if (choice->t == TT_CLAUSE) rc = choice; else if (choice->t == TT_CHOICE && choice->n >= 1) rc = choice->c[0]; }
+    if (!rc) return NULL;
+    int ar = (int) rc->v.dval; if (ar < 0) ar = 0; if (ar > rc->n) ar = rc->n;
+    if (ar >= rc->n) return pl_synth_qlit("true");
+    const tree_t *body = rc->c[rc->n - 1];
+    for (int j = rc->n - 2; j >= ar; j--) body = pl_synth_fnc2(",", rc->c[j], body);
+    return body;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_register_program(&g_stage2, prog);
     pl_expand_disjunctions();
     pl_ll_prepass();
     pl_dyn_mark_prepass();
-    const char *goal_key = NULL;
-    char keybuf[128];
+    enum { PL_INIT_GOALS_MAX = 256 };
+    static const tree_t *pl_init_goals_acc[PL_INIT_GOALS_MAX];
+    static int pl_init_ngoals_acc = 0;
+    static int pl_init_main_pi = -1;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
@@ -1345,31 +1363,66 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (!subj) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
             const tree_t *gt = subj->c[0];
-            if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) {
-                snprintf(keybuf, sizeof keybuf, "%s/0", gt->v.sval);
-                goal_key = keybuf;
-            } else if (gt && gt->t == TT_FNC && gt->v.sval) {
-                snprintf(keybuf, sizeof keybuf, "%s/%d", gt->v.sval, gt->n);
-                goal_key = keybuf;
+            /* prolog_lower.c wraps a bare `:- dynamic/use_module/module/ensure_loaded/discontiguous/
+               meta_predicate/begin_tests/end_tests/nb_setval Goal.` directive into a synthetic
+               `pj_dir_<N> :- Goal.` helper plus an `initialization(pj_dir_<N>)` statement, purely so the
+               helper still gets registered -- these are not user-authored deferred goals and were never
+               individually called before (only ever accidentally selected as "main" by the old last-wins
+               scalar, and only when nothing real followed them); chaining them as real calls surfaces an
+               unrelated by-name dispatch gap, so they are excluded from the goal list here. */
+            int pl_is_synth_dir = gt && gt->v.sval && !strncmp(gt->v.sval, "pj_dir_", 7);
+            if (pl_is_synth_dir) continue;
+            if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
+                if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = gt;
             }
         }
     }
-    if (!goal_key) goal_key = "main/0";
-    const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, goal_key);
     const tree_t *clause = NULL;
-    if (choice) {
-        if (choice->t == TT_CLAUSE) clause = choice;
-        else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+    if (pl_init_ngoals_acc == 0) {
+        const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, "main/0");
+        if (choice) {
+            if (choice->t == TT_CLAUSE) clause = choice;
+            else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+        }
+    } else {
+        /* Each accumulated goal is resolved and INLINED as its target clause's own body -- never called
+           by name -- so a user predicate that happens to share a name with something this function's own
+           bookkeeping uses (e.g. a plain `main :- ...` picked up via `:- initialization(main).`) can never
+           collide with a live by-name dispatch cell; this mirrors the single-goal path's own pre-existing
+           inline-not-call semantics, just threaded across every accumulated goal instead of only the last. */
+        const tree_t *body = NULL;
+        for (int i = pl_init_ngoals_acc - 1; i >= 0; i--) {
+            const tree_t *b = pl_init_resolve_body(pl_init_goals_acc[i]);
+            if (!b) continue;
+            body = body ? pl_synth_fnc2(",", b, body) : b;
+        }
+        if (body) {
+            tree_t *cl = ast_node_new(TT_CLAUSE);
+            cl->v.sval = (char *) "$init_chain/0"; cl->v.dval = 0.0;
+            ast_push(cl, (tree_t *) body);
+            clause = cl;
+        }
     }
     if (clause) {
         int bb_idx = lower_pl_clause_graph(clause);
         if (bb_idx >= 0) {
-            int pi = stage2_proc_grow(&g_stage2);
-            g_stage2.proc_table[pi].name     = "main";
-            g_stage2.proc_table[pi].proc     = NULL;
-            g_stage2.proc_table[pi].entry_pc = -1;
-            g_stage2.proc_table[pi].bb_idx   = bb_idx;
-            g_stage2.proc_table[pi].nparams  = 0;
+            /* Claim "main/0" in the resolve_bb cache so the later lower_pl_register_all_preds() sweep
+               (which walks resolve_pred_table and independently lowers+registers anything not already
+               there) skips re-lowering the plain, un-chained "main/0" clause under the same proc_table
+               name -- otherwise that second, unaware-of-the-chain row shadows this one under mode-3's
+               last-registration-wins main lookup, silently dropping every goal before the last. Only
+               needed when a real chain was built here (pl_init_ngoals_acc>0); the ngoals==0 fallback path
+               resolves the SAME clause lower_pl_register_all_preds() would build anyway, so the harmless
+               pre-existing duplicate there is left alone. */
+            if (pl_init_ngoals_acc > 0 && !resolve_bb_lookup("main/0", 0)) resolve_bb_register("main/0", 0, bb_idx);
+            if (pl_init_main_pi < 0) {
+                pl_init_main_pi = stage2_proc_grow(&g_stage2);
+                g_stage2.proc_table[pl_init_main_pi].name     = "main";
+                g_stage2.proc_table[pl_init_main_pi].proc     = NULL;
+                g_stage2.proc_table[pl_init_main_pi].entry_pc = -1;
+                g_stage2.proc_table[pl_init_main_pi].nparams  = 0;
+            }
+            g_stage2.proc_table[pl_init_main_pi].bb_idx = bb_idx;
         }
     }
     lower_pl_register_all_preds();
