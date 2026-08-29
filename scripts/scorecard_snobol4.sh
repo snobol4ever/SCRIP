@@ -516,6 +516,18 @@ cmd_report() {
   # ⛔ `if`, NOT `[ ... ] && echo`: this is cmd_report's LAST statement, so a bare test would make the whole script exit 1 on any
   # board that happens to have zero pin-only rows -- a green board reporting failure.  Caught by running it, not by reading it.
   if [ "$np" -gt 0 ]; then echo "PIN-ONLY ROWS — scored against the pin because the live oracle did not deliver: $np (of which oracle exited 0 on a FATAL REPORT: $nd)"; fi
+  # ⛔⭐ OUT-OF-DIALECT ROWS ARE NAMED HERE, NEVER FILTERED OUT (Lon ruled 2026-08-29; executed hq_P, row `beauty-suite-ref-provenance`).  These two are pin-only for a
+  # REASON THE COUNT CANNOT CARRY: the oracle did not "fail to deliver", it REFUSED BY DOCUMENTED RESTRICTION -- tree_driver's ARRAY('1:0') is manual ERROR 067 (line 11380)
+  # and ReadWrite_driver's CSNOBOL4 bracket file spec is ERROR 116 (line 11434).  So they are kept as regression tests but are NOT SPITBOL-conformance evidence, and a
+  # reader of this board must not count them as either a pass or a defect.  ⛔ Named, not skipped: this file's own law (see the lon_cherryholmes note above, :72) is that an
+  # exclusion must be STRUCTURAL or VISIBLE, because a run-time skip list is re-openable by anyone and silently shrinks a denominator.  Same shape as beauty_self above.
+  if [ -s "$out/results.tsv" ]; then
+    local od; od="$(awk -F'\t' '$7 ~ /^pin-only/ && ($2 ~ /beauty_suite\/tree_driver\.sno$/ || $2 ~ /beauty_suite\/ReadWrite_driver\.sno$/){print $2}' "$out/results.tsv" | sort | tr '\n' ' ')"
+    if [ -n "$od" ]; then
+      echo "  ⭐ OUT-OF-DIALECT (Lon 2026-08-29) — kept as regression tests, NOT conformance witnesses; the oracle refuses them by documented SPITBOL restriction, so their pin-only status is BY DESIGN: $od"
+      echo "     tree_driver: ARRAY('1:0') -> ERROR 067 (manual 11380) · ReadWrite_driver: CSNOBOL4 bracket file spec -> ERROR 116 (manual 11434).  See corpus/tests/snobol4/beauty_suite/KEEP.md."
+    fi
+  fi
 }
 # ---------------------------------------------------------------- one program, N times (row `scorecard-provenance`, s190)
 # ⛔ THIS EXISTS BECAUSE THE CONTENTION EXPERIMENT NEEDS ONE PROGRAM, NOT NINETY.  seat5 convicted this instrument by running
