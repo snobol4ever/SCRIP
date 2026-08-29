@@ -185,6 +185,24 @@ EXCLUDE_DIRS = {"linker", "probe_loose", "rtx_func_11"}
 COMPANION_EXTS = {".inc", ".dat", ".input", ".in", ".json"}
 
 
+# ⭐⭐ THE ONE ATTRIBUTE EXTRACTOR, CALLABLE OUTSIDE A BUILD (hq_B 2026-08-29, for the construct check).
+# The builder computed flags inline, so anything else wanting a construct profile had to RE-IMPLEMENT the
+# predicates. ⛔ That is the defect this exposure exists to prevent: the construct check must ask "does any
+# master entry still cover what this deleted file covered", and it can only recover the deleted file's text
+# from git history. If the historical profile and the master's profile are computed by TWO implementations,
+# any disagreement between them is UNATTRIBUTABLE -- you cannot tell a real coverage loss from a drift
+# between two copies of the same rule. One function, two callers, or the comparison is not worth making.
+# ⚠️ A profile is a LEXICAL approximation. It can show a construct is ABSENT from every master entry; it
+# cannot show that the behaviour is adequately tested. Callers must treat it as one-directional.
+def attrs_for_text(text, lang="snobol4"):
+    """Construct profile for arbitrary source text, in `lang`'s attribute vocabulary. -> {column: 0|1}"""
+    if lang not in LANG_TABLES:
+        raise ValueError("no attribute table for language %r -- add it deliberately rather than "
+                         "borrowing another dialect's columns" % lang)
+    cols, _ = LANG_TABLES[lang]
+    return {c: fn(text) for c, fn in cols}
+
+
 def discover_pairs(ROOT, OUTDIR, EXT):
     pairs, excluded = [], []
     for dirpath, dirnames, filenames in os.walk(ROOT):
@@ -324,7 +342,7 @@ def main():
     rows = []
     for e in all_entries:
         text = "\n".join(e.sno_lines)
-        flags = {c: fn(text) for c, fn in COLS}
+        flags = {c: fn(text) for c, fn in COLS}   # == attrs_for_text(text, lang); COLS is the same table, rebound by main()
         base = descriptive_name(text, flags)
         counters[base] = counters.get(base, 0) + 1
         new = "%s_%d" % (base, counters[base])
