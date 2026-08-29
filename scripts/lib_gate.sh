@@ -59,6 +59,18 @@ gate_stamp() {
         printf ' %s=%s%s' "$_r" "$_h" "$_dirty"
     done
     printf '  measured %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
+    # ⛔⭐ AND THE MACHINE, BECAUSE A TIMING-DEPENDENT VERDICT IS MACHINE-RELATIVE AS WELL AS TREE-RELATIVE
+    # (hq_C's ask, 2026-08-29, hitting it live on fuzz-nondeterminism-rootcause). Any gate or runner with a
+    # `timeout` in it can return rc=124, and rc=124 is THE TIMEOUT FIRING, not a property of the program --
+    # it is a function of how loaded this box is. hq_C measured load 20-22 on 16 cores with ~20 seat roots
+    # and three concurrent pristine builds; re-measured here at 23.83. On a box like that a witness can flip
+    # rc 0 vs 124 with no code change at all, and the reader cannot tell the program from the fleet.
+    # ⭐ A NUMBER'S TREE IS PART OF ITS LABEL; FOR A TIMING-DEPENDENT NUMBER THE MACHINE STATE IS TOO, and
+    # omitting it is the same omission wearing a clock. The ratio is what matters, so nproc is printed beside
+    # the load rather than leaving the reader to guess the core count of a box they may never see.
+    local _la _np
+    _la="$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"; _np="$(nproc 2>/dev/null)"
+    [ -n "$_la" ] && printf '    machine: load %s on %s core(s) — rc=124 anywhere in this run is a TIMEOUT, and timeouts are load-dependent\n' "$_la" "${_np:-?}"
 }
 # gate_require <path> <what-it-is> -- a prerequisite that must exist.  Absent => UNPROVEN(2), never SKIP-0.
 gate_require() {

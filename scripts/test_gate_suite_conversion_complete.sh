@@ -92,6 +92,23 @@ pending_row_state() {
 # a file that needs two owners has not been split yet, and inventing a per-entry syntax here would re-create
 # the prose-parsing surface the KEEP.md matcher was just cured of.
 pending_row_of() { sed -n 's/^[[:space:]]*ROW:[[:space:]]*\([A-Za-z0-9_.-]\{1,\}\).*$/\1/p' "$1" 2>/dev/null | head -1; }
+# ⛔⭐⭐ A PENDING.md DECLARES ONLY WHAT IS LISTED UNDER `## DEFERRED`, AND PROSE ANYWHERE ELSE IS INERT.
+# MEASURED THE HARD WAY (hq_B 2026-08-29, on the first real PENDING.md ever written -- my own): I listed all
+# 49 loose files in it, 32 deferred plus 17 I was explicitly NOT deferring and was describing in order to
+# explain the split. The gate deferred ALL 49 AND WENT GREEN (rc=0). A false green, authored by the person
+# who had just written the bucket, in the first hour it existed.
+# ⭐ THIS IS KEEP.md's PROSE-MENTION SURFACE, WHICH hq_P CURED ONE LEVEL AND DELIBERATELY LEFT OPEN AT THIS
+# ONE -- "prose mention WITHIN the owning directory still counts as a declaration; that surface is left,
+# because narrowing it further needs a format change and would break every existing KEEP.md". That reasoning
+# is right for KEEP.md and WRONG for PENDING.md, for a reason specific to what each file is for: a KEEP.md
+# lists things it keeps, while a PENDING.md inherently wants to DISCUSS the files it is not deferring -- to
+# say which are convertible now and why the rest are not. Its most natural content is the exact content that
+# breaks it. The surface is not merely open here, it is aimed at the writer.
+# ⛔ SO PENDING.md IS STRUCTURED, NOT PROSE. Only `- `/`* ` list items under a `## DEFERRED` heading (up to
+# the next `## `) declare anything. There is no migration cost: this format is one session old and has
+# exactly one instance in the tree. A NEW format is the one moment when strictness is free -- KEEP.md's
+# surface stayed open only because it had already been paid for.
+pending_deferred_block() { awk '/^##[[:space:]]+DEFERRED([[:space:]]|$)/{f=1;next} /^##[[:space:]]/{f=0} f&&/^[[:space:]]*[-*][[:space:]]/' "$1" 2>/dev/null; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
 # ⛔⭐⭐ THE DECLARATION CHECK WAS A RAW SUBSTRING TEST OVER EVERY KEEP.md CONCATENATED, AND IT UNDER-COUNTED
 # (seat14 2026-08-29, measured; cured here by hq_P). The old form was:
@@ -151,13 +168,20 @@ for f in "${LOOSE[@]}"; do
         while : ; do
             pk="$pprobe/PENDING.md"
             if [ -f "$pk" ]; then
+                pblk="$(pending_deferred_block "$pk")"
                 prel=${f#$pprobe/}; prre=${prel//./[.]}
-                if grep -qE "(^|[^A-Za-z0-9_./-])$prre([^A-Za-z0-9_-]|$)" "$pk" 2>/dev/null; then pfound="$pk"; pvia="path"; fi
+                if printf '%s\n' "$pblk" | grep -qE "(^|[^A-Za-z0-9_./-])$prre([^A-Za-z0-9_-]|$)"; then pfound="$pk"; pvia="path"; fi
                 if [ -z "$pfound" ] && [ "${_BNC[$b]}" -eq 1 ]; then
                     pbre=${b//./[.]}
-                    grep -qE "(^|[^A-Za-z0-9_./-])$pbre([^A-Za-z0-9_-]|$)" "$pk" 2>/dev/null && { pfound="$pk"; pvia="name"; }
+                    printf '%s\n' "$pblk" | grep -qE "(^|[^A-Za-z0-9_./-])$pbre([^A-Za-z0-9_-]|$)" && { pfound="$pk"; pvia="name"; }
                 fi
                 [ -n "$pfound" ] && { prow="$(pending_row_of "$pk")"; break; }
+                # A PENDING.md with NO `## DEFERRED` block declares nothing at all. Say so once, loudly:
+                # silence here would read as "this file is not deferred" and hide a malformed declaration.
+                if [ -z "$pblk" ] && [ -z "${_PBLK_WARNED:-}" ]; then
+                    echo "note: $pk has no '## DEFERRED' section — it declares nothing; deferrals must be '- ' list items under that heading"
+                    _PBLK_WARNED=1
+                fi
             fi
             [ "$pprobe" = "$TREE" ] && break
             pparent=$(dirname "$pprobe"); [ "$pparent" = "$pprobe" ] && break; pprobe="$pparent"
