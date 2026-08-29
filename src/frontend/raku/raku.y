@@ -1361,6 +1361,8 @@ pair_list
     ;
 param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
+    | VAR_SCALAR TESTOP IDENT { free($2); free($3); $$=exprlist_append(exprlist_new(),var_node($1)); }
+    | param_list ',' VAR_SCALAR TESTOP IDENT { free($4); free($5); $$=exprlist_append($1,var_node($3)); }
     | VAR_ARRAY               { $$=exprlist_append(exprlist_new(),var_node($1)); }
     | param_list ',' VAR_ARRAY { $$=exprlist_append($1,var_node($3)); }
     | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
