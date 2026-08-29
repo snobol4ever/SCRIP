@@ -380,7 +380,8 @@ run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.s
 # Coverage moved rather than vanished, so retiring is bookkeeping -- and a REPOINTED line would double-count.
 # ⭐ Corpus paths have moved four times in three days. When a hardcoded path breaks the question is never
 # "does the file exist" but "is the COVERAGE still graded somewhere": deleting on the first answer shrinks
-# the board, deleting on the second is bookkeeping. Two seats reached the same retirement independently.
+# the board, deleting on the second is bookkeeping. Two seats reached the same retirement independently
+# (ceo/hq_B above, seat15 concurrently below -- same diagnosis, same fix, converged without coordination).
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""
