@@ -305,7 +305,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             }
         }
         {
-            std::string fl = std::string(".Lbynamefnzd") + std::to_string((long long)_.nid);
+            std::string fl = std::string(".L") + x86_boxkind() + "_bynamefnzd" + std::to_string((long long)_.nid);
             bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
             if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
             s += x86("directive", ".section .rodata");
@@ -332,7 +332,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
-    std::string fl = std::string(".Lbynamefn") + std::to_string((long long)_.nid);
+    std::string fl = std::string(".L") + x86_boxkind() + "_bynamefn" + std::to_string((long long)_.nid);
     uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
@@ -385,7 +385,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
-    std::string fl = std::string(".Lbynamegenfn") + std::to_string((long long)_.nid);
+    std::string fl = std::string(".L") + x86_boxkind() + "_bynamegenfn" + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");

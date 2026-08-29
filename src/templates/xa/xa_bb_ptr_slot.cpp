@@ -14,6 +14,6 @@ static std::string xa_bb_ptr_slot_text(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_ptr_slot(void) {
-    snprintf(g_emit.bb_ptr_slot_lbl, sizeof g_emit.bb_ptr_slot_lbl, ".Lrtc%d_z", g_flat_node_id++);
+    snprintf(g_emit.bb_ptr_slot_lbl, sizeof g_emit.bb_ptr_slot_lbl, ".L%s_rtc%d_z", x86_boxkind(), g_flat_node_id++);
     bb_emit_x86(xa_bb_ptr_slot_text());
 }

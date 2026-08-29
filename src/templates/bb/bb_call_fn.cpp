@@ -496,7 +496,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
         } else if (!zd_sank) {
         {
-            std::string fl = std::string(".Lrkfnzd") + std::to_string(g_flat_node_id++);
+            std::string fl = std::string(".L") + x86_boxkind() + "_rkfnzd" + std::to_string(g_flat_node_id++);
             s += x86("directive", ".section .rodata");
             s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
             s += x86("directive", ".section .text");
@@ -583,7 +583,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "esi", (long)nargs);
         s += x86("call", dsym, (uint64_t)(uintptr_t)dfp);
     } else {
-        std::string fl = std::string(".Lrkfn") + std::to_string(g_flat_node_id++);
+        std::string fl = std::string(".L") + x86_boxkind() + "_rkfn" + std::to_string(g_flat_node_id++);
         s += x86("directive", ".section .rodata");
         s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
         s += x86("directive", ".section .text");

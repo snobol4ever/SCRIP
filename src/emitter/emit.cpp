@@ -57,6 +57,15 @@ int emit_label_lookup_offset(const char * name)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
+/* BB-LABEL-PREFIX-UNIFORM: a node whose OWN alpha/beta got BALIAS-renamed to a bareword proc name (the
+   n_balias/balias_node/balias_name census at emit.cpp's per-box label loop, e.g. "Push" for a DEFINE'd
+   proc entered by label) must carry THAT same bareword as its internal-label attribution too, or its own
+   `.Lx...` internal labels (resolved via x86_uid_kind) disagree with the port label sitting right next to
+   them in the same box's output. Falls back to the plain op-derived kind when no balias applies. */
+static const char * flat_label_kind_of(IR_t * nd) {
+    if (g_emit_cfg && g_emit_cfg->n_balias > 0) for (int _bi = 0; _bi < g_emit_cfg->n_balias; _bi++) if (g_emit_cfg->balias_node[_bi] == nd) return g_emit_cfg->balias_name[_bi];
+    return flat_label_kind(nd->op);
+}
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);   /* N-2 item 2 step 1 (hq_P s277): defined in src/ir/zeta_storage.c over the EXISTING pz[] registry -- no new state. Returns 1 = callee frame size already known, 0 = NOT YET REGISTERED (forward reference). Branch on the RETURN, never on the value. */
 static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2; if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
@@ -1030,6 +1039,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
+    /* COPY, never point: flat_label_kind_of() may return a pointer into flat_label_kind's own shared
+       static scratch buffer, which a later comment/diagnostic helper (e.g. ZOPN-style operand-note text,
+       itself calling bb_kind_name/flat_label_kind for an unrelated node) can overwrite while THIS node's
+       own template is still being built -- x86_uid_kind must survive that untouched, so it gets its own
+       stable, per-dispatch copy instead of aliasing scratch memory owned by an unrelated call. */
+    snprintf(g_emit.x86_uid_kind_buf, sizeof g_emit.x86_uid_kind_buf, "%s", flat_label_kind_of(nd));
+    g_emit.x86_uid_kind = g_emit.x86_uid_kind_buf;
     g_emit.frame_region = g_emit_cfg ? ((32 + g_emit_cfg->jcon_value_region + 15) & ~15) : 0;
     g_emit.op_sval = (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_VAR_FRAME || nd->op == IR_ASSIGN_FRAME || nd->op == IR_ASSIGN || nd->op == IR_LIT_STRING || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME
                        || nd->op == IR_KW_ICON || nd->op == IR_KW_ICON_GEN || nd->op == IR_KW_SNOBOL4 || nd->op == IR_KW_ASSIGN || nd->op == IR_KW_ASSIGN_SNOBOL4 || nd->op == IR_REV_SWAP || nd->op == IR_FIELD_GET || nd->op == IR_FIELD_VAR || nd->op == IR_SUBSCRIPT || nd->op == IR_ITERATE
@@ -2644,6 +2660,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _flt_uid_burn[4] = {0, 0, 0, 0};
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
     g_emit.flat_fam = fam;
+    g_emit.x86_uid_kind = (const char *)0;
     emit_label_initf(&lbl_α,      "%s_α",      fam);
     emit_label_initf(&lbl_α_body, "%s_α_body", fam);
     emit_label_initf(&lbl_γ,       "%s_γ",      fam);
@@ -3205,6 +3222,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
       if (_sz && g_is_text && _bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name); }
+    g_emit.x86_uid_kind = (const char *)0;
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
     if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);

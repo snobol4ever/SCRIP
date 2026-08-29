@@ -539,6 +539,8 @@ typedef struct {
     struct bb_label_t *          xa_bb_emit_pair_jmp[XA_BB_EMIT_PAIR_MAX];
     int                          xa_bb_emit_pair_n;
     int                          x86_uid;
+    const char *                 x86_uid_kind;
+    char                         x86_uid_kind_buf[48];
     int                          x86_scratch_off;
     int *                        op_arg_slot;
     int                          op_arg_slot_cap;

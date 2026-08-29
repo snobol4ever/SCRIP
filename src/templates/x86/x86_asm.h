@@ -599,6 +599,11 @@ inline int x86_internal_id(int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * L(int n) { static char b[8][8]; static int i; i = (i + 1) & 7; snprintf(b[i], 8, "L%d", n); return b[i]; }
+/* BB-LABEL-PREFIX-UNIFORM: the current box's own kind (n<uid>_<kind>, same string the box's own port
+   labels carry -- see emit.cpp flat_label_kind), for ad hoc box-local label mints outside the L(n)/
+   x86_deflabel_id family (bb_call*.cpp signature/thunk blobs). NULL outside any box dispatch (chain-level
+   XA wrapper code) -- callers fall back to "anon" so a stray chain-level mint never claims a box it is not in. */
+inline const char * x86_boxkind(void) { return _.x86_uid_kind ? _.x86_uid_kind : "anon"; }
 inline std::string x86_internal_name(int n) { return std::string(".Lx") + std::to_string(_.x86_uid) + "_" + std::to_string(n); }
 inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2362,7 +2367,11 @@ inline long x86_ir_num(const std::string & s, size_t & i) { long v = 0; size_t n
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_internal_resolve(const std::string & s) {
     static const char * const x86_greek[4] = { "\xce\xb1", "\xce\xb2", "\xce\xb3", "\xcf\x89" };
-    const char * fam = _.flat_fam ? _.flat_fam : "anon";
+    /* BB-LABEL-PREFIX-UNIFORM (Lon 2026-08-28, scope widened): an internal label belongs to the BOX that
+       minted it, not to the enclosing flat-chain -- _.x86_uid_kind is the current box's own kind (set at
+       walk_bb_node_inner dispatch, reset to NULL at chain start/end so chain-level XA wrapper code, which
+       runs outside any box dispatch, correctly falls back to the chain family instead of a stale box kind). */
+    const char * fam = _.x86_uid_kind ? _.x86_uid_kind : (_.flat_fam ? _.flat_fam : "anon");
     int portof[X86_INTERNAL_MAX]; for (int k = 0; k < X86_INTERNAL_MAX; k++) portof[k] = -1;
     int cur = X86P_ALPHA; size_t n = s.size();
     for (size_t i = 0; i < n; ) {

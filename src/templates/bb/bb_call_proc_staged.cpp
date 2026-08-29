@@ -296,7 +296,7 @@ static std::string bcps_det_arm() {
                                 if (dlo < 0 || dhi != dlo + 8) { sigokz = 0; break; }
                                 soffz[i] = dlo; }
                             if (sigokz) {
-                                std::string snmz = std::string(".Lsig") + std::to_string((long)_.x86_uid) + "z";
+                                std::string snmz = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid) + "z";
                                 const struct bb_label_t * sigl_z = emit_label_intern(snmz.c_str());
                                 std::string sz = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
                                      + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
@@ -518,7 +518,7 @@ static std::string bcps_det_arm() {
                             if (dlo < 0 || dhi != dlo + 8) { sigok = 0; break; }
                             soff[i] = dlo; }
                         if (sigok) {
-                            std::string snm = std::string(".Lsig") + std::to_string((long)_.x86_uid);
+                            std::string snm = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid);
                             const struct bb_label_t * sigl = emit_label_intern(snm.c_str());
                             std::string s = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
                                  + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
