@@ -11,7 +11,6 @@ static std::string xa_bb_ptr_slot_text(void) {
          + x86("comment", std::string(g_emit.bb_ptr_slot_lbl) + ": .quad 0")
          + x86("directive", ".section .text")
          + x86("directive", ".intel_syntax noprefix");
-    return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_bb_ptr_slot(void) {
