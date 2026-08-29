@@ -180,9 +180,16 @@ def run_oracle(oracle_bin, flags, sno_path, timeout):
     """One live oracle invocation, `< /dev/null` like every other scrip/oracle call in this file
     and in test_one_witness.sh (whose exact contract this mirrors: stdout text AND returncode both
     matter -- a witness testing a deliberate error exit is not 'wrong' for exiting non-zero, it is
-    wrong only if scrip's rc/text pair disagrees with the oracle's)."""
-    argv = [oracle_bin] + flags.split() + [str(sno_path)]
-    kind, out, _err, rc = _run_raw(argv, timeout)
+    wrong only if scrip's rc/text pair disagrees with the oracle's).
+    ⛔⭐ ARGV IS THE BARE BASENAME, CWD IS THE FILE'S OWN DIRECTORY (row suite-harness-argv-echoes-a-
+    mktemp-path-so-diagnostic-programs-cannot-be-graded). A diagnostic that echoes its own argv (a
+    SPITBOL ERROR NNN line naming the file being compiled, e.g.) echoes it VERBATIM -- a full path
+    changes every run (mktemp), and even a stable full path differs from what run_m3/run_suite_entry
+    will echo later for the SAME witness. Passing just the name, from the right cwd, is what makes
+    that echoed text reproducible and comparable to a frozen .ref at all."""
+    sno_path = Path(sno_path)
+    argv = [oracle_bin] + flags.split() + [sno_path.name]
+    kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent))
     return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
 
 
@@ -253,7 +260,12 @@ def stdbuf_wrap(paths, argv):
 
 def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None):
     timeout = timeout or paths["timeout"]
-    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", str(sno_path)])
+    # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
+    # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
+    # ERROR NNN line naming the file) would otherwise embed this run's own ever-changing mktemp
+    # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
+    # still resolve to the right file.
+    argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", Path(sno_path).name])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
     # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
@@ -273,9 +285,15 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     Verdict("SKIP", ...) describing where it failed."""
     s_path = tmp_dir / "p.s"
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
+    sno_path = Path(sno_path)
+    # ⛔⭐ SAME FIX AS run_m3, AND THIS CALL HAD NO cwd AT ALL BEFORE (ran from the harness's own cwd,
+    # only "working" because argv carried a full path) -- row suite-harness-argv-echoes-a-mktemp-path-
+    # so-diagnostic-programs-cannot-be-graded. Bare name in argv, explicit cwd so it still resolves
+    # and so a -INCLUDE (compile-time, unlike run_m3's runtime open() concern) resolves relative to
+    # the file's own directory too, not wherever the caller happened to stand.
     with open(s_path, "wb") as f:
-        r = subprocess.run([str(paths["scrip_bin"]), "--compile", str(sno_path)],
-                            stdout=f, stderr=subprocess.DEVNULL, env=env)
+        r = subprocess.run([str(paths["scrip_bin"]), "--compile", sno_path.name],
+                            stdout=f, stderr=subprocess.DEVNULL, env=env, cwd=str(sno_path.parent))
     if r.returncode != 0:
         return Verdict("SKIP", detail="scrip --compile failed")
     o_path = tmp_dir / "p.o"
@@ -509,7 +527,13 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
         one_line = joined + f";* {name}"
         if len(one_line) <= ONE_LINE_CAP:
             with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-                cand = Path(td) / "cand.sno"
+                # ⛔⭐ THE WITNESS'S OWN NAME, NOT A "cand.sno" PLACEHOLDER (row suite-harness-argv-
+                # echoes-a-mktemp-path-so-diagnostic-programs-cannot-be-graded) -- run_suite_entry
+                # (every future regrade of this same entry, once converted) already names its own
+                # temp candidate f"{entry.name}{ext}"; using a DIFFERENT name here would make this
+                # one-time conversion-verification step echo something ongoing grading never will,
+                # even after the argv/cwd fix above makes the echoed text otherwise reproducible.
+                cand = Path(td) / f"{name}.sno"
                 cand.write_text(one_line + "\n")
                 _copy_companions(one_line + "\n", companion_dir, Path(td))
                 cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
@@ -523,7 +547,9 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     # statement-reconstructed form every already-converted family was proven against.
     block_lines = original_text.splitlines() if force_verbatim else multiline_block(statements)
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-        cand = Path(td) / "cand.sno"
+        # ⛔⭐ THE WITNESS'S OWN NAME, NOT A "cand.sno" PLACEHOLDER (row suite-harness-argv-echoes-a-
+        # mktemp-path-so-diagnostic-programs-cannot-be-graded) — matches run_suite_entry's convention.
+        cand = Path(td) / f"{name}.sno"
         block_text = "\n".join(block_lines) + "\n"
         cand.write_text(block_text)
         _copy_companions(block_text, companion_dir, Path(td))
@@ -925,6 +951,14 @@ _INCLUDE_PATTERNS = [
     # the family dir, and the caller only copies a name for which `src_companion.is_file()` holds, so
     # a write target is skipped rather than manufactured.
     re.compile(r'\bopen\s*\(\s*"([^"]+)"'),  # Icon open("X") data companion
+    # ⛔⭐ SNOBOL4's INPUT/OUTPUT file-association functions name a companion as a quoted ARGUMENT, not
+    # via a directive keyword -- INPUT(.holder, 10, , "name.dat") -- so none of the patterns above ever
+    # matched this form at all (row suite-harness-argv-echoes-a-mktemp-path-so-diagnostic-programs-
+    # cannot-be-graded, probe/csnobol4_triage/input_eof_hang.sno: convert_one's own candidate ran
+    # companion-less in a fresh temp dir and got a DIFFERENT bug -- INPUT() on a MISSING file hangs
+    # forever, where the original's genuinely-present-but-empty .dat fails cleanly -- measured, not
+    # assumed). Matches either quote style; SNOBOL4 accepts both interchangeably.
+    re.compile(r'\b(?:INPUT|OUTPUT)\s*\([^)]*["\']([^"\']+)["\']'),
 ]
 
 
@@ -943,11 +977,16 @@ def _companion_files(text):
 
 
 def _copy_companions(text, companion_dir, dest_dir):
-    # ⭐ COMPANION $include/-INCLUDE/open() FILES (tests-consolidate-icon, rung36_jcon_prepro; extended
-    # probe-consolidate-m1-and-small, gim_double_include_once_control): a candidate runs from a FRESH
-    # temp dir, never the family_dir its original loose file lived in, so an include/open directive
-    # naming a real, present companion file fails to resolve there even though the file exists and the
-    # entry is otherwise green. A caller that knows where the family's companion files live (family_dir
+    # ⭐ COMPANION $include/-INCLUDE/open()/INPUT()/OUTPUT() FILES (tests-consolidate-icon,
+    # rung36_jcon_prepro; extended probe-consolidate-m1-and-small, gim_double_include_once_control;
+    # extended again, row suite-harness-argv-echoes-a-mktemp-path-so-diagnostic-programs-cannot-be-
+    # graded): a candidate runs from a FRESH temp dir, never the family_dir its original loose file
+    # lived in, so an include/open/INPUT()/OUTPUT() directive naming a real, present companion file
+    # fails to resolve there even though the file exists and the entry is otherwise green. Concretely:
+    # probe/csnobol4_triage/input_eof_hang.sno's empty .dat companion -- present, its INPUT() fails
+    # cleanly (rc=0, no output); absent, INPUT() never signals failure and the SAME program HANGS
+    # (its own original, pre-reclassification defect, back in full, silently, inside convert_one's own
+    # candidate-verification). A caller that knows where the family's companion files live (family_dir
     # at conversion time, or the suite file's own directory at grading time -- they are the same
     # directory by convention) passes companion_dir; a missing or unreferenced companion is a silent
     # no-op here and surfaces as an ordinary run FAILURE downstream, not a special error -- the same as
