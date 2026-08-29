@@ -3282,6 +3282,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         IR_t * _tt = zd_chase(nodes[i]->γ.node); if (_tt && _tt->op == IR_SUCCEED) { if (_ti >= 0) { _ti = -2; break; } _ti = i; } }
                     if (_mok && _ti >= 0 && nodes[_ti]->op != IR_MATCH_FENCE1 && nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt = betas[_ti];
                 } } } }
+        if (icn_genframe2() && g_emit.flat_gen && g_suspend_resume_slot >= 0)
+            bb_emit_x86(x86("comment", "N-2 MULTI-SUSPEND RESUME (ceo s283c): with more than one suspend STATEMENT the graph beta cannot be a static jump to the FIRST suspend's beta -- resuming after the LAST yield would replay the tail forever (two_susp witness: 1,2 then 2 forever; scan2's 4.3M-line runaway). Every suspend's alpha already seeds FRQ(op_sb) with ITS OWN beta label (bb_suspend x86_lea_tgt TGT1), so the slot always names the last yielder -- dispatch through it. Armed flat_gen only; the static jump below stays for every other graph, byte-identical unarmed.")
+                      + x86("mov", "rax", FRQ(g_suspend_resume_slot)) + x86_jmp_reg("rax"));
+        else
         emit_jmp_label(resume_tgt, JMP_JMP);
     }
     }
