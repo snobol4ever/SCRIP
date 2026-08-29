@@ -46,11 +46,23 @@ local $/; my $s = <>;
 $s =~ s/(?<=[A-Za-z])(\d{3,})_/ (exists $m{$1} ? $m{$1} : ($m{$1} = sprintf("%05d", ++$i))) . "_" /ge;
 print $s;
 PERL
-upd=0; new=0; same=0; exc=0; cerr=0; aerr=0; nd=0; total=0; drift=0
+upd=0; new=0; same=0; exc=0; cerr=0; aerr=0; nd=0; total=0; drift=0; lib=0
 for icn in "$CORPUS"/$GLOB; do
   [ -f "$icn" ] || continue
   total=$((total + 1))
   base="${icn%.icn}"; s="$base.s"; name="$(basename "$base")"
+  # ⛔⭐ A LINK-ONLY LIBRARY IS NOT A FAILING PROGRAM. An .icn with no `procedure main` is a link
+  # input (Icon `link options` / `post` / `shuffle`), never a standalone program -- compiling it
+  # alone CANNOT succeed, so classifying it CERR "genuine compile error" reports a permanent,
+  # unfixable false positive. Measured 2026-08-29 (hq_B): options/post/shuffle each have zero
+  # `procedure main` (queens.icn has 1, for contrast), and those three were 3 of the 23 items this
+  # script's consumer reported as OWED -- inside handoff_status.sh, the ONE sanctioned source of
+  # "HANDOFF COMPLETE". ⭐ THE COST IS NOT THE THREE LINES, IT IS THE OTHER TWENTY: a check that
+  # always cries wolf trains every seat to discount its output, so the REAL owed artifacts sitting
+  # beside them stay unread. The false positives are what make the true positives invisible.
+  if ! grep -qE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' "$icn"; then
+    echo "LIB      $name"; lib=$((lib + 1)); continue
+  fi
   raw="$TMP/$name.raw"; can="$TMP/$name.s"
   if ! timeout 30 "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$raw" 2>"$TMP/err"; then
     if grep -q '\[SMX\]' "$TMP/err"; then echo "REFUSED  $name"; exc=$((exc + 1));
@@ -77,7 +89,7 @@ for icn in "$CORPUS"/$GLOB; do
   if [ "$CHECK" = "1" ]; then echo "WOULD-$label  $name$asmnote";
   else cp "$can" "$s"; echo "$label  $name$asmnote"; fi
 done
-echo "--- icon bench .s: total=$total new=$new updated=$upd unchanged=$same refused=$exc nondet=$nd compile-err=$cerr asm-warn=$aerr ---"
+echo "--- icon bench .s: total=$total new=$new updated=$upd unchanged=$same refused=$exc nondet=$nd lib=$lib compile-err=$cerr asm-warn=$aerr ---"   # lib = link-only inputs with no `procedure main`; not programs, never a compile error
 if [ "$CHECK" = "1" ] && [ "$drift" -gt 0 ]; then
   echo "CHECK: $drift artifact(s) out of date — run scripts/update_icon_bench_asm.sh to refresh."; exit 1
 fi
