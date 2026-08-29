@@ -91,5 +91,4 @@ std::string bb_binop_relop() {
              + x86_gamma()
              + x86_beta_trampoline()
          : x86_bomb("bb_binop_relop: shape mismatch");
-    return std::string();
 }
