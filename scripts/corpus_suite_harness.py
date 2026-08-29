@@ -255,7 +255,17 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None):
     timeout = timeout or paths["timeout"]
     argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", str(sno_path)])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
-    return classify(argv, timeout, expected_text, env=env, stdin_text=stdin_text)
+    # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
+    # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
+    # directory -- that is how a loose file is run by hand and by test_corpus_snobol4.sh. Without
+    # this the harness ran every original from wherever the caller happened to stand, so a program
+    # with a data companion FAILED the convert-blocks "original not green" pre-check and could never
+    # be converted. ⛔ AND THE MESSAGE BLAMED THE WRONG THING: "original file itself is not green"
+    # points the reader at the corpus file, which is green -- measured on rung36_jcon_fncs1.icn,
+    # byte-identical to its .ref when run from its own directory in BOTH modes, FAIL in both from
+    # anywhere else. Consistent for suite entries too: run_suite_entry materializes the entry into a
+    # temp dir and passes THAT path, so parent is the temp dir -- exactly where it copies companions.
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir):
@@ -300,7 +310,9 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
         return skip
     argv = stdbuf_wrap(paths, [str(out_bin)])
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
-    return classify(argv, timeout, expected_text, env=env, stdin_text=stdin_text)
+    # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
+    # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text)
 
 
 def run_ast(paths, src_path, expected_text, timeout=None):
@@ -897,14 +909,30 @@ _INCLUDE_PATTERNS = [
     re.compile(r'\$include\s+"([^"]+)"'),   # Icon
     re.compile(r"-INCLUDE\s+'([^']+)'"),    # SNOBOL4 / Snocone
     re.compile(r'-INCLUDE\s+"([^"]+)"'),    # SNOBOL4 / Snocone, double-quote form
+    # ⭐ AN INCLUDE DIRECTIVE IS NOT THE ONLY WAY A PROGRAM NAMES A COMPANION FILE, and the other way
+    # fails SILENTLY rather than loudly. Icon's open("X") reads a data file relative to the RUNNING
+    # file's directory exactly as $include does, but a missing one does not error -- open() simply
+    # fails, the program keeps going, and the entry grades as wrong-output with rc=0. Measured on
+    # rung36_jcon_fncs1.icn (tests-consolidate-icon): run from its own directory it is byte-identical
+    # to its .expected in BOTH modes; run from an isolated temp dir it prints `----> none` and drops
+    # 15 lines of file content, rc=0 throughout. That is the same false-green this whole mechanism
+    # exists to stop (the `prepro` $include case, cured one file-reference form over), caught here
+    # BEFORE a conversion shipped rather than after one silently failed.
+    # ⛔ Safe by construction for write-opens: open("foo.baz","w") names a file that does not exist in
+    # the family dir, and the caller only copies a name for which `src_companion.is_file()` holds, so
+    # a write target is skipped rather than manufactured.
+    re.compile(r'\bopen\s*\(\s*"([^"]+)"'),  # Icon open("X") data companion
 ]
 
 
-def _companion_includes(text):
-    """Filenames an entry's own include directive names (Icon `$include "X"`, SNOBOL4/Snocone
-    `-INCLUDE 'X'`) -- these resolve relative to the RUNNING file's directory, which a suite entry
-    materialized into an isolated temp dir does not share with its original family_dir unless a
-    caller copies the referenced file in first (see run_suite_entry's companion_dir)."""
+def _companion_files(text):
+    """Filenames an entry names as a companion -- an include directive (Icon `$include "X"`,
+    SNOBOL4/Snocone `-INCLUDE 'X'`) or a literal data open (Icon `open("X")`). All of these resolve
+    relative to the RUNNING file's directory, which a suite entry materialized into an isolated temp
+    dir does not share with its original family_dir unless a caller copies the referenced file in
+    first (see run_suite_entry's companion_dir). ⛔ The two kinds fail DIFFERENTLY when the companion
+    is absent: an include errors out loudly, a data open just fails and lets the program run on to a
+    wrong answer with rc=0 -- so the open case is the one that silently manufactures a green."""
     names = []
     for pat in _INCLUDE_PATTERNS:
         names.extend(pat.findall(text))
@@ -932,7 +960,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         # the same as any other missing dependency a program tries to open.
         if companion_dir:
             import shutil
-            for name in _companion_includes(text):
+            for name in _companion_files(text):
                 src_companion = Path(companion_dir) / name
                 if src_companion.is_file():
                     shutil.copy(src_companion, Path(td) / name)
