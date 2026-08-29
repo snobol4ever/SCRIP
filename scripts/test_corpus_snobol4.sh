@@ -21,6 +21,21 @@ CORPUS="$S4E/corpus"
 # measures M3=20s M4=53s in total, i.e. tens of ms each) rather than beside it.
 # ⛔ The raise alone does NOT remove the ambiguity, it only moves the threshold. The real cure is the third
 # state: see the rc capture in run_test and the TIMEOUT-KILLED refusal near the verdict.
+# ⛔⭐⭐ TIMEOUT HAS TWO CONSUMERS AND THEY DISAGREE ABOUT WHO SET IT (hq_C 2026-08-29, own-goal report;
+# asymmetry measured by hq_B). This script reads it per program, AND corpus_suite_harness.py:120 reads the
+# SAME env var per suite entry (float(os.environ.get("TIMEOUT","10"))). Nobody had documented that.
+# ⛔ THE TRAP IS THE ASYMMETRY, not the sharing:
+#   `TIMEOUT=600 bash scripts/test_corpus_snobol4.sh`  -> puts it in the ENVIRONMENT, so the harness
+#                                                          INHERITS it and every suite entry gets 600s too.
+#   the assignment below                                -> NOT exported, so the harness does NOT see it and
+#                                                          keeps its own default of 10.
+# So the identical name means different things depending on WHERE it was set, and only the command-line form
+# reaches the families. hq_C set 600 believing they were buying immunity from load-manufactured FAILs; it
+# propagated into the harness and made every expected-hang XFAIL entry burn up to 600s PER MODE -- a ~50
+# minute board against 466s here -- and the verdict was IDENTICAL either way, because those entries are XFAIL
+# at 10s and XFAIL at 600s. A large cost for a hazard that did not exist on this population.
+# ⚠️ If you want to change what the FAMILIES get, export it or set it per-call (see the TIMEOUT=30 below).
+# Changing the value here moves only the loose/hardcoded programs.
 TIMEOUT="${TIMEOUT:-120}"
 TMOUT3=0; TMOUT4=0; TMOUT_LIST=""
 INC="${INC:-$CORPUS/include}"
@@ -211,8 +226,16 @@ while IFS= read -r s_sno; do
     field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
     m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
     m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    # ⛔⭐ HANG AND UNPROVEN ARE NOT FAILURES, AND THE HARNESS ALREADY TOLD US SO (hq_C's find). This line
+    # collapsed m3_fail + m3_crash + m3_hang + m3_unproven into one FAIL count -- discarding a distinction
+    # corpus_suite_harness.py had ALREADY computed and printed. That is the same defect just cured in
+    # run_test(), one layer up: the instrument telling you less than it knows. A hang and an unproven entry
+    # were NOT MEASURED; they are neither pass nor fail, and folding them into FAIL makes a contended or
+    # unmeasurable run indistinguishable from a wrong answer.
+    # ⚠️ Both terms are 0 on this population today (the fuzz family's expected hangs are classified XFAIL by
+    # the harness, m3_hang=0), so this changes no verdict today -- it stops the next one from lying.
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u))
     [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
     [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
 done < <(find "$SUITES/crosscheck" -maxdepth 1 -name "*.sno" 2>/dev/null | sort)
@@ -248,8 +271,8 @@ while IFS= read -r family; do
     field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
     m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
     m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))   # hang/unproven are NOT failures -- see the crosscheck block above
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
     [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
     [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:probe/${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
 done < <(find "$SUITES/probe" -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
@@ -288,8 +311,8 @@ while IFS= read -r family; do
     field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
     m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven)
     m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip)
-    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c+m3h+m3u))
-    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+    PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))   # hang/unproven are NOT failures -- see the crosscheck block above
+    PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
     [ "$((m3f+m3c+m3h+m3u))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m3)\n"
     [ "$((m4f+m4c+m4h+m4u))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:${family} (rerun: python3 $HARNESS run $s_sno $s_ref --modes m4)\n"
 done < <(find "$SUITES" -maxdepth 1 -name '*.sno' 2>/dev/null | sort | while IFS= read -r s; do
