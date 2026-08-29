@@ -125,7 +125,7 @@ verified per kernel before timing — a wrong answer is never a fast answer):
 |---|---|:---:|
 | loopsum | 3M iterations | **2.25x** |
 | concat | 200k appends | **22.7x** — SPITBOL grows O(n²) here; a class win, labeled as such |
-| patmatch | 1M iterations | **0.55x** — the named gap: the core pattern lane, under active cure |
+| patmatch | 1M iterations | **0.55x** — the full match *pipeline*: see the resolution below |
 
 **SNOBOL4 priority workloads × vs SPITBOL** (callgrind Ir, slope method — fixed work, no
 startup — SCRIP mode-4, tree `2037a02f`, 2026-08-23; the ruled product target for these
@@ -137,8 +137,14 @@ is 2.00x–3.00x):
 | json — the deserializer, real 631 KB document | 0.422x |
 | claws5 grammar only (pattern engine alone, zero captures) | **1.628x** |
 
-The pattern engine already beats SPITBOL; the open gap is the deferred actions and
-runtime services around it — which is where the cure work is aimed.
+These two pattern numbers are not a contradiction — they cut the same machine at
+different joints, and the split *is* the finding. The bare pattern **engine** —
+scanning, alternation, backtracking, zero captures — is compiled Byrd-box code and
+beats SPITBOL at **1.628x**. The full match **pipeline** — the same engine plus
+captures, deferred actions, and the runtime services they call out to — is behind
+(patmatch 0.55x, pattern_bt 0.45x, string_pattern 0.43x). The compiled part wins;
+the called-out part loses. That is why the cure work targets the runtime services,
+not the codegen.
 
 **SNOBOL4 17-kernel grid × vs SPITBOL** (callgrind Ir/iter, 2026-08-22 tree — restated
 onto the faster axis from that scoreboard's own stated scrip/sbl columns):
