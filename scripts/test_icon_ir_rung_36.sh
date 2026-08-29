@@ -15,11 +15,18 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
+# ⛔ ABSOLUTE, because run() now invokes scrip from the PROGRAM'S OWN directory (see below) and a relative
+# path would resolve against that instead of against this script.
+case "$SCRIP" in /*) : ;; *) SCRIP="$(cd "$(dirname "$SCRIP")" && pwd)/$(basename "$SCRIP")";; esac
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 PASS=0; FAIL=0; XFAIL=0
 
-if [ ! -x "$SCRIP" ];  then echo "SKIP scrip not found at $SCRIP";  exit 0; fi
-if [ ! -d "$CORPUS" ]; then echo "SKIP corpus not found at $CORPUS"; exit 0; fi
+# ⛔ THESE WERE `exit 0` — SKIP-AS-SUCCESS, on the two conditions that make this script measure NOTHING.
+# An unbuilt scrip or a moved corpus made it print one SKIP line and report success, which is the precise
+# defect lib_gate.sh's three exit codes exist to kill ("I checked and it is clean" and "I could not check"
+# must never be the same exit code). rc=2 = UNPROVEN, and it is not a pass.
+if [ ! -x "$SCRIP" ];  then echo "⛔ REFUSES rc=2: scrip not built at $SCRIP — this is NOT a pass; nothing was examined."; exit 2; fi
+if [ ! -d "$CORPUS" ]; then echo "⛔ REFUSES rc=2: corpus not found at $CORPUS — the layout moved; do not read a smaller total as a pass."; exit 2; fi
 
 run() {
     local base="$CORPUS/$1"
@@ -27,10 +34,19 @@ run() {
     [ -f "${base}.expected" ] || { echo "  SKIP  $1 (no .expected)"; return; }
     local stdin_f="${base}.stdin"
     local got want
+    # ⛔⭐ A CORPUS PROGRAM RUNS IN ITS OWN DIRECTORY (seat06, 2026-08-29; same cure corpus_suite_harness.py
+    # already carries as 022f3a00). This ran scrip from whatever cwd it inherited, so any program that opens a
+    # companion by RELATIVE name could not find it. MEASURED on rung36_jcon_fncs1: from an unrelated cwd its
+    # output differs from .expected by 147 lines and the run reads FAIL, with the cause visible in the first
+    # divergent line — `F := open("fncs1.dat") ----> none` instead of `file(fncs1.dat)`; from the corpus
+    # directory the diff is ZERO and it PASSES. ⭐ That single false FAIL is the whole of the long-standing
+    # discrepancy between this script (FAIL=9) and the aggregate board (FAIL=8), which delegates to the harness
+    # and therefore already cd'd. Two numbers for one tree, one of them wrong, and the cause was the cwd.
+    local _pdir _pfile; _pdir="$(dirname "${base}.icn")"; _pfile="$(basename "${base}.icn")"
     if [ -f "$stdin_f" ]; then
-        got=$(timeout 30 "$SCRIP" --run "${base}.icn" < "$stdin_f"  2>/dev/null) || true
+        got=$(cd "$_pdir" && timeout 30 "$SCRIP" --run "$_pfile" < "$stdin_f"  2>/dev/null) || true
     else
-        got=$(timeout 30 "$SCRIP" --run "${base}.icn" < /dev/null   2>/dev/null) || true
+        got=$(cd "$_pdir" && timeout 30 "$SCRIP" --run "$_pfile" < /dev/null   2>/dev/null) || true
     fi
     want=$(cat "${base}.expected")
     if [ "$got" = "$want" ]; then
