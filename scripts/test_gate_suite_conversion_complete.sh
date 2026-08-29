@@ -69,7 +69,20 @@ done
 echo "KEEP.md file(s) found: ${#KEEPFILES[@]}   loose-but-undeclared: $UND"
 if [ "$UND" -ne 0 ]; then
     echo "GATE FAILED -- $UND loose file(s) neither converted nor declared as keepers:"
-    printf "$UNDLIST\n" | head -20
+    # ⛔⭐ THE LIST IS CAPPED AND THE CAP MUST ANNOUNCE ITSELF (hq_B 2026-08-29). This printed 19 names under
+    # a "44 loose file(s)" headline with nothing saying the list was partial, so a seat working from the
+    # printed list fixes what it can see, re-runs, and meets 25 files it was never shown. Same family as
+    # `ls | head -5` read as absence, and as `command -v` answering a narrower question than was asked:
+    # an instrument that truncates silently reports a subset in the shape of a whole.
+    if [ -n "${SUITE_GATE_LIST_ALL:-}" ]; then
+        printf "$UNDLIST\n" | grep -v '^[[:space:]]*$'
+    else
+        printf "$UNDLIST\n" | grep -v '^[[:space:]]*$' | head -20
+        [ "$UND" -gt 20 ] && {
+            echo "     ... and $((UND - 20)) MORE NOT SHOWN -- this list is capped at 20; $UND above is the true count."
+            echo "     Full list: SUITE_GATE_LIST_ALL=1 bash scripts/test_gate_suite_conversion_complete.sh $LANG_DIR"
+        }
+    fi
     echo "     -> convert them, or name each in a KEEP.md WITH ITS REASON. Do not raise an allowance."
     exit 1
 fi
