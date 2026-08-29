@@ -202,7 +202,7 @@ static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL 
 static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_BEGIN || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_cells_on(void) { extern int rt_zeta_port_mode(void); int m = rt_zeta_port_mode(); return m == ZC_PORT_FORTH || m == ZC_PORT_HEAP; }
+static int fc_cells_on(void) { return 1; }
 int fc_cells_active(void) { return fc_cells_on(); }
 static int zls_fc_cell(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd) return 0; { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; } switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -851,7 +851,7 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tables_reset(void) { fct_n = 0; }
-int fc_frameless_fpr_rsp(const IR_t * nd) { extern int rt_zeta_port_mode(void); if (!nd || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
+int fc_frameless_fpr_rsp(const IR_t * nd) { if (!nd) return 0; { long _fk = 0; return !fc_geom(nd, &_fk); } }
 static struct { const char * name; int fb; int fp; int uni; } pz[512];
 static int pz_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -882,11 +882,11 @@ static int zw_nid_listed_c(const char * e, int nid) { if (!e || !*e) return 0; {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long zw_carve_k(const IR_t * nd) {
     static int _ba = -1, _all = -1; static const char * _bo; static const char * _bs;
-    extern int rt_zeta_port_mode(void); extern int bb_node_id(IR_t *); long _d, _k; int _spine;
+    extern int bb_node_id(IR_t *); long _d, _k; int _spine;
     if (_ba < 0) { const char * e = getenv("SCRIP_BB_ALLOC"); _ba = (e && *e == '0') ? 0 : 1; _bo = getenv("SCRIP_BB_ONLY"); _bs = getenv("SCRIP_BB_SKIP"); { const char * a = getenv("SCRIP_BB_ALLOC_ALL"); _all = (a && *a == '0') ? 0 : 1; }    }
     if (!_ba || !nd) return 0;
     _spine = (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET || nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
-    if (_spine || rt_zeta_port_mode() != ZC_PORT_FORTH) return 0;
+    if (_spine) return 0;
     if (!_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT)) return 0;
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd); if (_k <= 0) return 0;
