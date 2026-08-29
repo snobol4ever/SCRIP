@@ -119,6 +119,5 @@ std::string bb_binop_gvar_arith() {
                                 && (_.op_ival == BINOP_ADD || _.op_ival == BINOP_SUB || _.op_ival == BINOP_MUL || _.op_ival == BINOP_DIV || _.op_ival == BINOP_MOD))
                               && !(_.op_off >= 0 && _.op_kind && !strcmp(_.op_kind, "POW") && !_.op_name1 && !_.op_name2 && _.op_sval),
                             x86_bomb("bb_binop_gvar_arith: shape mismatch (dispatch chose this arm but predicate failed)"));
-    return std::string();
 }
 #undef GVA_LD
