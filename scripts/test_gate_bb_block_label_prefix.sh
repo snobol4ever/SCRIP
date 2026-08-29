@@ -25,25 +25,31 @@
 # emit.cpp:3041-3042/3238); _af/_as/_ry/_rt/_sN are REAL box-owned gamma/omega jump targets (emit.cpp
 # node_γ/node_ω assignment at :3074/:3090/:1398/:3095) and are NOT exempt by either test.
 #
-# KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on these until fixed --
+# ⭐ SEAT11 COLLISION -- ADJUDICATED AND MERGED (hq_P 2026-08-29b "MERGE, DO NOT PICK", applied by seat02
+# 2026-08-29): a DEFINE'd procedure's own nested/embedded body (e.g. PATTERN_BT, compiled inline right
+# after its own DEFINE box) is NOT a new block -- hq_P measured on pattern_bt.s that no real
+# `n<digits>_<kind>_<greek>` box port opens between the DEFINE box and the next real box, so the whole
+# span, including the bareword `PATTERN_BT_α/γ/ω` landing pads, is that ONE box's own output; requiring
+# those internal labels to say "PATTERN_BT" instead of "define" was seat05's gate false-flagging real
+# passes, and seat11's gate (recovered at `git show 57ecf03e:...`) had already measured the same thing.
+# lib_bb_block_label_prefix_check.py's bracketing is now seat11's classify() (richer instrument, two-part
+# proof), with seat05's Greek-letter requirement for the _as/_af/_ry/_rt/_sN families layered on as an
+# independent second check exactly as ruled -- see that file's own header for the merge detail.
+#
+# KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on this until fixed --
 # see task bb-label-prefix-uniform.task.md LEDGER for the full ruling and code citations):
-#   - n<N>_<kind>_as / _af / _s<N> / _ry / _rt -- emit.cpp na_s/na_f/fc_sig/ra_y/ra_t: REAL gamma/omega
-#     transition labels, NOT siblings of the exempt _bx debug-symbol-span marker despite the superficially
-#     similar 2-3 letter suffix -- a prior ceo ruling's "_bx (+_af/_as siblings)" phrasing conflated a
-#     naming neighbourhood with a mechanism; corrected and ceo-endorsed, see LEDGER. na_f is genuinely
-#     harder than a rename: it serves as EITHER gamma or omega depending on the CALLING node's own
-#     gamma_is_phi/omega_is_phi, so fixing this is real design work, not mechanical -- not attempted here.
-#   - a DEFINE'd procedure's own nested/embedded body (e.g. PATTERN_BT, compiled inline immediately after
-#     its own DEFINE box) -- UNRESOLVED DISAGREEMENT between two independently-built gates for this same
-#     row, see task LEDGER "SEAT11 COLLISION" entry before touching this. This script's bracketing treats
-#     PATTERN_BT_α (a bare, non-"n<uid>_"-prefixed port label -- the nested graph has its OWN alpha/beta/
-#     gamma/omega ports, same shape as any other graph) as opening a NEW block requiring ITS OWN identity,
-#     so internal labels physically inside it that still say the ENCLOSING "define" box's kind currently
-#     FAIL here. A separate, earlier gate (git show 57ecf03e:scripts/test_gate_bb_block_label_prefix.sh)
-#     reached the opposite conclusion on the identical shape, with its own cited measurement. Applying
-#     hq_P's mechanism test above suggests this script's reading (PATTERN_BT has its own box/ports, so it
-#     needs its own identity) -- but that application is this seat's own reasoning, not a ruling on THIS
-#     specific question, which was never asked.
+#   - n<N>_<kind>_af (emit.cpp na_f) -- na_s/fc_sig/ra_y/ra_t (the other four REAL gamma/omega transition
+#     labels this same ruling covers) are already fixed and pass; na_f is genuinely harder, not merely
+#     unfixed: emit.cpp mints it ONCE per node via the SAME generic pair-define call site regardless of
+#     which greek letter any given caller resolves it through (node_γ when gamma_is_phi, node_ω when
+#     omega_is_phi -- emit.cpp ~3074/~3090), and tracing the φ-tag mint sites in lower_snobol4.c/
+#     lower_icon.c (e.g. lower_snobol4.c:1358-1359) shows a single target CAN receive both a φ-tagged ω
+#     edge (the normal per-arm "try next" edges) and a φ-tagged γ edge (a GOTO node whose own ω also
+#     equals the same target) in the same compiled function -- so unlike na_s/ra_y/ra_t/fc_sig (each a
+#     clean 1:1 or single-port shape), na_f's one physical definition may legitimately be reached through
+#     what look like both port types at once. Neither "two-pass resolve like .Lx<uid>_<n>" nor "pick one
+#     canonical letter" has been shown correct against that shape; do not guess, this is the ~10x-rework
+#     class the row has already paid for twice (see task LEDGER).
 set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$S4E/SCRIP" || exit 2
