@@ -5,7 +5,7 @@
 set -euo pipefail
 
 DRIVER="${1:-/tmp/scrip}"
-JASMIN="$(dirname "$0")/../../../backends/jasmin.jar"
+JASMIN="$(dirname "$0")/../../../interpreters/jasmin.jar"
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 CORPUS="${CORPUS_REPO:-$(cd "$SCRIPT_DIR/../../.." && pwd)/corpus}/icon"
 TMPDIR_OUT="$(mktemp -d)"

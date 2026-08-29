@@ -58,9 +58,9 @@ for test_file in "$SMOKE_DIR"/*.sno; do
 
     # Step 2: Execute JS with node (need to fix require path)
     # Replace relative require with absolute path to sno_runtime.js
-    RT_PATH="$SCRIP/../backends/runtime/js/sno_runtime.js"
+    RT_PATH="$SCRIP/../interpreters/runtime/js/sno_runtime.js"
     if [ ! -f "$RT_PATH" ]; then
-        RT_PATH="$S4E/SCRIP/backends/runtime/js/sno_runtime.js"
+        RT_PATH="$S4E/SCRIP/interpreters/runtime/js/sno_runtime.js"
     fi
     
     if ! node "$js_file" 2>/dev/null; then

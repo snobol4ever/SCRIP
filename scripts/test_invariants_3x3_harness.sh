@@ -14,7 +14,7 @@
 # Environment overrides:
 #   SCRIP_CC      path to scrip binary           (default: <root>/scrip)
 #   CORPUS        path to corpus root               (default: <root>/../corpus)
-#   JASMIN        path to jasmin.jar                (default: <root>/backends/jasmin.jar)
+#   JASMIN        path to jasmin.jar                (default: <root>/interpreters/jasmin.jar)
 #   RT_CACHE      path to persistent archive cache  (default: <root>/out/rt_cache)
 #   TIMEOUT_X86   per-test timeout x86 (s)          (default: 5)
 #   TIMEOUT_JVM   per-test timeout JVM (s)          (default: 10)
@@ -32,7 +32,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP_CC="${SCRIP_CC:-$ROOT/scrip}"
 CORPUS="${CORPUS:-$(cd "$ROOT/../corpus" 2>/dev/null && pwd || echo "")}"
 export CORPUS_REPO="$CORPUS"   # rung scripts use CORPUS_REPO; M-G-INV-FAST-X86-FIX
-JASMIN="${JASMIN:-$ROOT/backends/jasmin.jar}"
+JASMIN="${JASMIN:-$ROOT/interpreters/jasmin.jar}"
 RT_CACHE="${RT_CACHE:-$ROOT/out/rt_cache}"
 RT="$ROOT/src/runtime"
 SCRIP_CC_INC="$ROOT/src/frontend/snobol4"
@@ -353,8 +353,8 @@ run_snobol4_js() {
   fi
 
   local W="$WORK/$cell"; mkdir -p "$W"
-  local SNO_RT="$ROOT/backends/runtime/js/sno_runtime.js"
-  local SNO_ENG="$ROOT/backends/runtime/js/sno_engine.js"
+  local SNO_RT="$ROOT/interpreters/runtime/js/sno_runtime.js"
+  local SNO_ENG="$ROOT/interpreters/runtime/js/sno_engine.js"
 
   local DIRS="hello rung2 rung3 rung4 rung8 rung9 rung10 rung11 arith assign capture concat control data functions keywords library output patterns"
   for dir in $DIRS; do
@@ -872,7 +872,7 @@ run_prolog_wasm() {
   local W="$WORK/$cell"; mkdir -p "$W"
   local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
   local PL_RUNNER="$ROOT/test/wasm/pl_run_wasm.js"
-  local PL_RUNTIME="$ROOT/backends/runtime/wasm/pl_runtime.wasm"
+  local PL_RUNTIME="$ROOT/interpreters/runtime/wasm/pl_runtime.wasm"
   if [[ ! -f "$PL_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi

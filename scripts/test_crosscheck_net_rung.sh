@@ -31,7 +31,7 @@ SCRIP_CC="${SCRIP_CC:-$TINY/scrip}"
 STOP_ON_FAIL="${STOP_ON_FAIL:-0}"
 CACHE_DIR="${CACHE_DIR:-/tmp/SCRIP_net_cache}"
 mkdir -p "$CACHE_DIR"
-HARNESS="$TINY/backends/runtime/net/SnobolHarness.exe"
+HARNESS="$TINY/interpreters/runtime/net/SnobolHarness.exe"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[0;33m'; RESET='\033[0m'
 
