@@ -124,7 +124,7 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_LPAREN) {
         advance(p);
         if (check(p, TK_RPAREN)) { advance(p); return ast_node_new(TT_SEQ_EXPR); }
-        tree_t *first = parse_expr(p);
+        tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);  /* a LEADING omitted slot -- (,2) -- must be seen BEFORE parse_expr, which otherwise dies on the comma. TT_NUL is the shape the list-literal arm below already uses for exactly this. */
         if (check(p, TK_SEMICOL)) {
             tree_t *seq = ast_node_new(TT_SEQ_EXPR);
             push_child(seq, first);
@@ -141,7 +141,8 @@ static tree_t *parse_primary(IcnParser *p) {
             push_child(seq, first);
             while (check(p, TK_COMMA)) {
                 advance(p);
-                if (check(p, TK_RPAREN)) break;
+                if (check(p, TK_RPAREN)) { push_child(seq, ast_node_new(TT_NUL)); break; }   /* TRAILING omitted slot -- (1,) */
+                if (check(p, TK_COMMA)) { push_child(seq, ast_node_new(TT_NUL)); continue; } /* CONSECUTIVE omitted slot -- (1,,2) */
                 push_child(seq, parse_expr(p));
             }
             expect(p, TK_RPAREN, "mutual evaluation");
