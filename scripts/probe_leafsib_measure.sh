@@ -1,13 +1,29 @@
 #!/usr/bin/env bash
 # probe_leafsib_measure.sh - s131 SIBLING WIDENING instrument (GOAL-SNOBOL4-100 R-0 leaf class).
-# Runs corpus/probe/leafsib/ in BOTH media against the checked-in .ref oracle output, under BOTH
+# Runs the leafsib suite in BOTH media against the checked-in .ref oracle output, under BOTH
 # killswitch arms.  A sibling is RED iff its stdout differs from its .ref (a SEGV, an abort, a hang
 # and a silent wrong answer all count the same - the .ref is the only truth).  No pipelines around
 # the compiler: rc is captured directly so a 139 is never laundered into a 0 by `head`.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SIBS="${SIBS:-span tab rtab rem arb bal break breakx arb_flat_red arb_flat_grn bal_flat_red bal_flat_grn}"   # the eight one-per-member siblings, plus the s193 PADDED pairs.  ⛔ RE-MEASURED 2026-08-29 (seat08, pristine, both arms): ALL TWELVE ARE NOW INERT AT HEAD -- the s193 claim that the padded pairs still discriminate the arms (arb_flat_red/bal_flat_red diverging to m4 rc=139 under SCRIP_SPAN_FRAME=0) no longer reproduces; both arms measure 12/12 pass both modes. Not root-caused here (out of this row's lane -- corpus format, not frame codegen); see tests/snobol4/probe/leafsib.README.md's 2026-08-29 section and FINDING-2026-08-29-seat08-leafsib-span-frame-arm-fully-inert.md.
+# ⭐ RE-POINTED 2026-08-29 (seat08, corpus-crosscheck-probe-total-conversion clause 3): corpus/probe/leafsib/
+# is gone -- converted to corpus/tests/snobol4/probe/leafsib.{sno,ref} (corpus-suites-consolidation format,
+# byte-equal-validated both directions, both modes, BOTH killswitch arms before the loose files were deleted).
+# Same idiom as test_gate_fz_release.sh's re-point: extract every entry via corpus_suite_harness.py (the ONE
+# parsing authority) into a scratch dir, then use that exactly as the old loose-file P -- the per-sibling loop
+# below, its env-var-arm sensitivity, and its output format are all byte-for-byte unchanged.
+WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
+SUITE_SNO="$S4E/corpus/tests/snobol4/probe/leafsib.sno"
+SUITE_REF="$S4E/corpus/tests/snobol4/probe/leafsib.ref"
+P="$WORK/leafsib_src"; mkdir -p "$P"
+if [ -f "$SUITE_SNO" ] && [ -f "$SUITE_REF" ]; then
+    while IFS= read -r name; do
+        python3 "$HERE/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" "$name" "$P/$name.sno" --out-ref "$P/$name.ref" >/dev/null 2>&1
+    done < <(python3 "$HERE/corpus_suite_harness.py" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
+fi
+[ -n "$(ls -A "$P" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $P (suite missing or extraction failed)"; exit 2; }
 cd "$(dirname "$0")/.." || exit 1
-P=$S4E/corpus/probe/leafsib
-SIBS="${SIBS:-span tab rtab rem arb bal break breakx arb_flat_red arb_flat_grn bal_flat_red bal_flat_grn}"   # the eight one-per-member siblings, plus the s193 PADDED pairs.  ⛔ THE EIGHT ARE INERT AT HEAD: all eight emit BYTE-IDENTICAL --compile output under BOTH killswitch arms, because they take the STORED road (`t = (... | ARB . I)`) whose cell is already rbp-resident by blob-frame authority, so they are green for a reason unrelated to the switch they exist to test.  The padded pairs put the same leaf on an INLINE ALT arm, where the cell IS a raw flat rsp coordinate, and are the members that still discriminate the arms (row alt-arb-bal-witness, s193).
 case "${SCRIP_SPAN_FRAME-}" in 0) ARM=0;; *) ARM=1;; esac   # ⛔ COMPUTED, NEVER TYPED: this must mirror sn4_span_frame() (emit.cpp) EXACTLY -- `(e && *e == '0') ? 0 : 1`, i.e. UNSET IS ON.  It read `${SCRIP_SPAN_FRAME:-0}` from s131 until s193 and so labelled every default-arm run `=0` after the s188 flip (d3251f23) made unset mean ON: the instrument printed the OFF label over ON-arm numbers for five sessions.
 printf '=== leafsib  SCRIP_SPAN_FRAME=%s ===\n' "$ARM"
 printf '%-14s | %-22s | %-22s\n' "sib" "m3 (--run BINARY)" "m4 (--compile TEXT)"
