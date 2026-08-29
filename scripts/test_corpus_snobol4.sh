@@ -346,6 +346,18 @@ run_test "feat_io_fd_assoc"        "$CORPUS/tests/snobol4/feat/f21_io_fd_assoc.s
 # measuring the distance left. ⛔ SELF-PINNED, never sbl-graded: SPITBOL cannot even LEX the file --
 # sbl -bf dies at the Greek line with ERROR 230 "illegal character" -- so no oracle arm exists.
 # k41_lambda_immediate: retired hardcoded row (ceo s283h, probe total-conversion) -- the witness now lives in the conformance2 SUITE (tests/snobol4/probe/conformance2.sno, entry k41_lambda_immediate_landed) and is graded by the suite loop below; keeping the loose-path row too would double-grade it against a path that no longer exists.
+# ⭐ hq_B, independently and after the fact: ceo's retirement above is CORRECT and the verification is
+# recorded here so nobody re-derives it. corpus/probe was deleted wholesale by corpus c06960a1 (seat16, on
+# Lon's order, closing corpus-crosscheck-probe-total-conversion), which left this hardcoded path dangling and
+# the FLOOR REFUSING rc=2 for every seat until ceo landed the fix. ⛔ This script warns in its own words that
+# retiring an entry PERMANENTLY SHRINKS THE BOARD and must not be the reflex for an unresolvable path -- the
+# usual cause is a cross-repo window whose right action is `git pull` in corpus. VERIFIED that this was NOT
+# that case: the witness survives as `k41_lambda_immediate_landed`, entry 2 of
+# tests/snobol4/probe/conformance2.sno AND of its .ref, a boarded family the probe suite loop already grades.
+# Coverage moved rather than vanished, so retiring is bookkeeping -- and a REPOINTED line would double-count.
+# ⭐ Corpus paths have moved four times in three days. When a hardcoded path breaks the question is never
+# "does the file exist" but "is the COVERAGE still graded somewhere": deleting on the first answer shrinks
+# the board, deleting on the second is bookkeeping. Two seats reached the same retirement independently.
 run_test "demo_calculator_1_match"       "$DEMO/calculator/calculator-1-match.sno"       "$DEMO/calculator/calculator-1-match.ref"       "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_1_match_fence" "$DEMO/calculator/calculator-1-match-fence.sno" "$DEMO/calculator/calculator-1-match-fence.ref" "$DEMO/calculator/calculator.input" ""
 run_test "demo_calculator_2_match"       "$DEMO/calculator/calculator-2-match.sno"       "$DEMO/calculator/calculator-2-match.ref"       "$DEMO/calculator/calculator.input" ""
