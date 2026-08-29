@@ -747,7 +747,7 @@ static std::string bcps_spine_gen_arm() {
         return stage_arg_inline(i, slot, stage_fp);
     })
          + (zf_resume ? std::string("")
-            : (icn_genframe2() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
+            : (icn_gen_regime() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
               ? x86("comment", "row icon-n2-recursive-generator-per-activation-storage: repurpose the pad slot (same 8 bytes, same rsp math as the PL-CALL-ALIGN pad below) to carry the bounded-self-recursion depth instead of leaving it uninitialized. Only reached when the CALLEE is a direct-self-recursive generator and SCRIP_ICN_N2_SELFREC=1 additionally arms it.")
                 + ((g_emit.flat_gen && g_emit.flat_fam && !strcmp(_.op_sval, g_emit.flat_fam))
                    ? x86("comment", "I am the recursive call: read MY OWN depth from the free header slot H+40 (rbp==H for a flat_gen host), bound it against N2_SELFREC_SLOTS, refuse LOUDLY (never silently reuse/corrupt an in-use slot) rather than pass an out-of-range depth forward.")
