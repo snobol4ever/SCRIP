@@ -15,8 +15,8 @@ extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long 
 static char bk_nlb[24];
 static char bk_dlb[24];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long bk_gu() { return _.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL || ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE); }
-static long bk_rangep() { return _.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE; }
+#define bk_gu() (_.op_sa < 0 && (ZC_LIT_GUTS == ZC_LIT_GUTS_UNROLL || ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE))
+#define bk_rangep() (_.op_sa < 0 && ZC_LIT_GUTS == ZC_LIT_GUTS_RANGE)
 static unsigned char bk_rlo[128], bk_rhi[128]; static long bk_rn;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bk_ranges() { unsigned char in[256]; memset(in, 0, 256);
@@ -28,56 +28,56 @@ static void bk_ranges() { unsigned char in[256]; memset(in, 0, 256);
             else { bk_rlo[bk_rn] = bk_rhi[bk_rn] = (unsigned char)b; bk_rn++; }
         }
 }
-static std::string bk_rtest(long i) {
-    return bk_rlo[i] == bk_rhi[i]
-         ? x86("cmp", "esi", (long)bk_rlo[i])
-         + x86("je",  L(1))
-         : x86("mov", "eax", "esi")
-         + x86("sub", "eax", (long)bk_rlo[i])
-         + x86("cmp", "eax", (long)(bk_rhi[i] - bk_rlo[i]))
-         + x86("jbe", L(1));
-}
+#define bk_rtest(i) ( \
+      bk_rlo[i] == bk_rhi[i] \
+    ? x86("cmp", "esi", (long)bk_rlo[i]) \
+    + x86("je",  L(1)) \
+    : x86("mov", "eax", "esi") \
+    + x86("sub", "eax", (long)bk_rlo[i]) \
+    + x86("cmp", "eax", (long)(bk_rhi[i] - bk_rlo[i])) \
+    + x86("jbe", L(1)) \
+)
 static std::string bk_rmemb(long i) { return i >= bk_rn ? std::string() : bk_rtest(i) + bk_rmemb(i + 1); }
-static long bk_gi() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE; }
-static long bk_gc() { return _.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL; }
-static std::string bk_ndl_r8() {
-    return _.op_sa >= 0
-         ? x86("mov", "r8", XSAQ(8))
-         : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb);
-}
-static std::string bk_len_eax() {
-    return _.op_sa >= 0
-         ? x86("mov", "eax", XSAD(4))
-         : x86("mov32", "eax", CSK());
-}
-static std::string bk_ndl_rsi() {
-    return _.op_sa >= 0
-         ? x86("mov", "rsi", XSAQ(8))
-         + x86("mov", "edx", XSAD(4))
-         : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb)
-         + x86("mov32", "edx", CSK());
-}
-static long bk_chainp() { return bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX; }
-static long bk_tablep() { return bk_gu() && !bk_rangep() && !bk_chainp(); }
+#define bk_gi() (_.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_INLINE : ZC_LIT_GUTS == ZC_LIT_GUTS_INLINE)
+#define bk_gc() (_.op_sa >= 0 ? ZC_SPAN_GUTS == ZC_SPAN_GUTS_CALL   : ZC_LIT_GUTS == ZC_LIT_GUTS_CALL)
+#define bk_ndl_r8() ( \
+      _.op_sa >= 0 \
+    ? x86("mov", "r8", XSAQ(8)) \
+    : x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) \
+)
+#define bk_len_eax() ( \
+      _.op_sa >= 0 \
+    ? x86("mov", "eax", XSAD(4)) \
+    : x86("mov32", "eax", CSK()) \
+)
+#define bk_ndl_rsi() ( \
+      _.op_sa >= 0 \
+    ? x86("mov", "rsi", XSAQ(8)) \
+    + x86("mov", "edx", XSAD(4)) \
+    : x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), bk_nlb) \
+    + x86("mov32", "edx", CSK()) \
+)
+#define bk_chainp() (bk_gu() && !bk_rangep() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define bk_tablep() (bk_gu() && !bk_rangep() && !bk_chainp())
 static std::string bk_memb(long i) {
     return i >= CSK() ? std::string()
          : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i])
          + x86("je",  L(1))
          + bk_memb(i + 1);
 }
-static std::string bk_char() {
-    return x86("cmp",   "ecx", "r15d")
-         + x86_omega("jge")
-         + x86("movzx", "esi", "[r13+rcx]")
-         + (bk_rangep() ? bk_rmemb(0)
-          : bk_chainp() ? bk_memb(0)
-          : (sn4_cset32()
-             ? x86("bt",    "[rdi]", "esi")
-             + x86("jc",    L(1))
-             : x86("cmpb0", "[rdi+rsi]", "0")
-             + x86("jnz",   L(1))))
-         + x86("add",   "ecx", (long)1);
-}
+#define bk_char() ( \
+      x86("cmp",   "ecx", "r15d") \
+    + x86_omega("jge") \
+    + x86("movzx", "esi", "[r13+rcx]") \
+    + (bk_rangep() ? bk_rmemb(0) \
+     : bk_chainp() ? bk_memb(0) \
+     : (sn4_cset32() \
+        ? x86("bt",    "[rdi]", "esi") \
+        + x86("jc",    L(1)) \
+        : x86("cmpb0", "[rdi+rsi]", "0") \
+        + x86("jnz",   L(1)))) \
+    + x86("add",   "ecx", (long)1) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
