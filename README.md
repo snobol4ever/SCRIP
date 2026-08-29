@@ -158,16 +158,29 @@ onto the faster axis from that scoreboard's own stated scrip/sbl columns):
 | op_dispatch | **1.19x** | pattern_bt | 0.45x | mixed_workload | 0.34x |
 | arith_loop | **1.03x** | | | roman | 0.20x |
 
-**SNOBOL4 demos × vs SPITBOL** (2026-08-27, whole-program totals *including* startup —
-a different basis, never comparable to the slopes above; every row's answer verified by
-output digest against SPITBOL before timing):
+**SNOBOL4 demos × vs SPITBOL** (2026-08-28, whole-program wall-clock totals, best of
+3 — a different basis, never comparable to the slopes above. Every arm's output is
+byte-verified against its reference on all three engines before timing. Each demo has
+three arms: the full program, its `-match` grammar-only core, and `-match-fence` with
+FENCE control added. Mode 3's total *includes its in-process compile on every run*;
+mode 4 times the prebuilt binary — at these 2–50 ms totals that difference dominates
+the m3 column, so m4 is the like-for-like column against SPITBOL's precompiled runs):
 
-| demo | mode 3 | mode 4 |
-|---|:---:|:---:|
-| claws5 | 0.76x | 0.77x |
-| calculator | 0.35x | 0.48x |
-| treebank | 0.29x | 0.35x |
-| json | 0.25x | 0.41x |
+| arm | m3 | m4 | | arm | m3 | m4 |
+|---|:---:|:---:|---|---|:---:|:---:|
+| claws5 | 0.33x | 0.72x | | calculator-1 | 0.83x | **2.10x** |
+| claws5-match | 0.37x | 0.71x | | calculator-1-match | **3.06x** | **7.44x** |
+| claws5-match-fence | 0.39x | 0.67x | | calculator-1-match-fence | **1.78x** | **3.67x** |
+| json | 0.25x | 0.92x | | calculator-2 | 0.93x | **2.64x** |
+| json-match | 0.29x | 0.74x | | calculator-2-match | 0.42x | 0.85x |
+| json-match-fence | 0.34x | 0.80x | | calculator-2-match-fence | 0.48x | 0.95x |
+| treebank | 0.14x | 0.50x | | | | |
+| treebank-match | 0.47x | 0.71x | | | | |
+| treebank-match-fence | 0.33x | 0.57x | | | | |
+
+The reading: pure-match arms can crush (calculator-1-match at 7.44x), json is within 8%
+of SPITBOL on totals, and the worst full program (treebank, allocation-heavy at 0.50x)
+points at the same GC/allocator lever the profile work has already sized.
 
 **Icon × vs Arizona `iconx`** (10/10 kernels output-identical):
 
