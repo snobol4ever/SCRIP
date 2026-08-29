@@ -976,6 +976,7 @@ def cmd_convert(args):
         if not pairs:
             refuse(f"--skip excluded every discovered pair under {family_dir} -- nothing left to convert")
 
+
     entries = []
     failures = []
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_"))
@@ -1063,6 +1064,19 @@ def cmd_convert_blocks(args):
             refuse(f"--skip excluded every discovered pair under {family_dir} -- nothing left to convert")
 
     entries = []
+    # ⭐ --xfail (hq_P 2026-08-29, row corpus-crosscheck-probe-total-conversion): format (B) had NO way to
+    # carry a KNOWN-RED witness into a suite, while format (A)'s convert_one() has marked xfail=not orig_green
+    # since the xfail/xpass extension landed. That asymmetry was not a policy against XFAIL -- this function's
+    # own docstring only rules out an AUTOMATIC skip-if-red -- but it collided head-on with Lon's 2026-08-28
+    # total-conversion ruling: crosscheck/ must GO, convert-blocks refused every red, so 20 real witnesses had
+    # no path into a suite and no path out of the tree. An explicit, named, reasoned --xfail is the same
+    # discipline --skip already enforces, and it restores parity with the format law, which names an
+    # "XFAIL witness" as a first-class format-(B) block.
+    xfail_names = set(n for n in (args.xfail.split(",") if getattr(args, "xfail", "") else []) if n)
+    if xfail_names:
+        unmatched_x = xfail_names - {p[0].stem for p in pairs}
+        if unmatched_x:
+            refuse(f"--xfail named stem(s) not found among convertible pairs in {family_dir}: {sorted(unmatched_x)}")
     failures = []
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_blocks_"))
     try:
@@ -1077,14 +1091,24 @@ def cmd_convert_blocks(args):
             stdin_path = src.with_suffix(".stdin")
             stdin_text = stdin_path.read_text() if stdin_path.is_file() else None
             orig = run_all_modes(paths, src, expected_text, tmp_root, modes, stdin_text=stdin_text)
-            if any(v.kind != "PASS" for v in orig.values()):
+            orig_green = all(v.kind == "PASS" for v in orig.values())
+            want_xfail = name in xfail_names
+            # ⛔ AN --xfail STEM THAT IS ACTUALLY GREEN IS AN XPASS, AND XPASS IS AS ACTIONABLE AS A FAILURE
+            # (RULES; and measured -- 3 of the 4 .xfail markers in crosscheck/snocone were STALE, their bugs
+            # long fixed and nobody promoted the marker). Refusing here is what stops a stale claim being
+            # laundered into a suite banner where it would then be believed.
+            if want_xfail and orig_green:
+                failures.append((name, "--xfail names this stem but the ORIGINAL IS GREEN (XPASS) -- the marker is stale; drop it from --xfail"))
+                print(f"[{seq}/{len(pairs)}] {name}: FAIL (XPASS -- --xfail names a green original)", file=sys.stderr)
+                continue
+            if not orig_green and not want_xfail:
                 failures.append((name, f"original file itself is not green: {orig}"))
                 print(f"[{seq}/{len(pairs)}] {name}: FAIL (original not green)", file=sys.stderr)
                 continue
             body = src.read_text().splitlines()
             ref_body = expected_text.rstrip("\n").splitlines()
-            entries.append(Entry("block", len(entries) + 1, name, body, ref_body, stdin=stdin_text))
-            print(f"[{seq}/{len(pairs)}] {name}: OK{' (stdin)' if stdin_text is not None else ''}", file=sys.stderr)
+            entries.append(Entry("block", len(entries) + 1, name, body, ref_body, stdin=stdin_text, xfail=want_xfail))
+            print(f"[{seq}/{len(pairs)}] {name}: OK{' XFAIL' if want_xfail else ''}{' (stdin)' if stdin_text is not None else ''}", file=sys.stderr)
     finally:
         import shutil
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -1251,6 +1275,7 @@ def main():
     b.add_argument("out_ref")
     b.add_argument("--modes", default="", help="default: LANG_CONFIGS[lang]['modes']")
     b.add_argument("--skip", default="", help="comma-separated stems to deliberately exclude from this run (left as loose files, never deleted)")
+    b.add_argument("--xfail", default="", help="comma-separated stems whose original is KNOWN-RED: convert them as XFAIL witnesses instead of refusing. Byte-equal-or-no-delete is UNCHANGED -- the candidate must still reproduce the ORIGINAL's exact verdict. REFUSES if a named stem is actually green (that is an XPASS, as actionable as a failure).")
     b.add_argument("--skip-reason", default="", help="mandatory-in-spirit reason printed for every --skip name")
     b.set_defaults(func=cmd_convert_blocks)
 

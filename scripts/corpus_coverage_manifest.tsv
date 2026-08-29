@@ -24,7 +24,11 @@ SUBTREE	tests/icon	GATED	test_icon_all_rungs.sh
 SUBTREE	tests/prolog	GATED	test_corpus_prolog_parser.sh
 SUBTREE	packages/prolog	ROWD	swi-tests-subdirs-invisible
 SUBTREE	tests/snobol4	GATED	test_corpus_snobol4.sh
-SUBTREE	crosscheck/snocone	GATED	test_crosscheck_sc_corpus_rung.sh
+# crosscheck/snocone RETIRED 2026-08-29 (hq_P, corpus-crosscheck-probe-total-conversion): all 181 .sc converted
+# into 30 suite pairs at tests/snocone/crosscheck_*.{sc,ref} -- 163 green + 18 XFAIL witnesses carried through
+# convert-blocks' new --xfail arm. The directory no longer exists, so this SUBTREE line went stale and
+# test_gate_corpus_coverage_classified.sh correctly refused on it. The converted pairs are gated by
+# test_snocone_crosscheck_suites.sh under the tests/snocone SUBTREE line below.
 SUBTREE	tests/pascal	GATED	test_gate_pascal_m3.sh
 SUBTREE	tests/snocone	GATED	test_snocone_parser_fixtures.sh
 SUBTREE	tests/raku	GATED	test_raku_parser_fixtures.sh
