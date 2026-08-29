@@ -348,7 +348,6 @@ void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;
 extern jmp_buf g_core_err_jmp;
 extern int     g_core_err_active;
-extern int     g_core_err_stmt;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_terminal(int code) {
     switch (code) {

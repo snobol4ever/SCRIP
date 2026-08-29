@@ -2033,7 +2033,6 @@ const char *rt_sno_indirect_name(DESCR_t v) {
 #include <setjmp.h>
 jmp_buf g_core_err_jmp;
 int     g_core_err_active = 0;
-int     g_core_err_stmt   = 0;
 int     g_kw_ctx         = 0;
 static const char *core_err_msgs[40] = {
      NULL,
@@ -2100,8 +2099,12 @@ void core_runtime_error(int code, const char *msg) {
           rt_goto_transfer(lbl);
           exit(0);
       } }
-    fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
-            code, g_core_err_stmt, msg ? msg : "");
+    { extern long g_stno;   /* row core-err-stmt-never-advances: g_core_err_stmt never had a writer
+        anywhere in the tree (permanently 0); g_stno (keywords.c's rt_stmt_enter, backing &STNO)
+        already tracks the currently-executing statement correctly, per-statement, in both media --
+        reused per s112 ONE AUTHORITY rather than giving g_core_err_stmt a second, parallel writer. */
+      fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
+              code, (int)g_stno, msg ? msg : ""); }
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
     exit(1);
