@@ -284,7 +284,14 @@ static std::string bb_define_bind() {
     // rip-relative path below stays gated on the SAME `_.lbl_t0` non-null condition, unchanged) -- the
     // `_.lbl_t0 == NULL` stub-fallback branch ("rt_ab_undef_fn_stub", x86_load_got path) is untouched.
     static int _direct_alpha = -1; if (_direct_alpha < 0) { const char * _e = getenv("SCRIP_DEFINE_FN_DIRECT_ALPHA"); _direct_alpha = (_e && *_e == '0') ? 0 : 1; }
-    std::string blbl = _.lbl_t0 ? (_direct_alpha ? (std::string(fname) + "_\xce\xb1") : std::string(_.lbl_t0)) : std::string("rt_ab_undef_fn_stub");
+    // ⛔ hq_P: a REFERENCE and its DEFINITION must be gated on the SAME predicate. `<fname>_α` is emitted ONLY when the
+    // body qualifies as a tiny shim (the identical `!bb_ab_cell_addr && bb_tiny_shim_ok` test the seal below uses, minus
+    // `_m4seal` -- measured: SCRIP_M4_ALPHA_SEAL=0 still defines the label, SCRIP_NO_TINY=1 removes it). The `lea` was gated
+    // on `_.lbl_t0` alone, so a non-tiny body (any DEFINE'd proc calling INPUT/OUTPUT) referenced a label nobody defined and
+    // the object failed to link under PIE: `R_X86_64_PC32 against undefined symbol`. Falling back to `_.lbl_t0` there is the
+    // pre-seat10 behaviour, correct for single-language programs; seat10's polyglot fix is preserved wherever the label exists.
+    int _alpha_defined = (!bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0));
+    std::string blbl = _.lbl_t0 ? ((_direct_alpha && _alpha_defined) ? (std::string(fname) + "_\xce\xb1") : std::string(_.lbl_t0)) : std::string("rt_ab_undef_fn_stub");
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
          + x86_ro_load_q("rdi", 0)
          + x86_ro_load_q("rsi", 1)
