@@ -467,7 +467,7 @@ def has_comment_lines(text):
     return any(line[:1] == "*" for line in text.splitlines())
 
 
-def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
+def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=None):
     """Returns (Entry, report_dict). report_dict always has "ok": bool and "reason": str."""
     name = sno_path.stem
     original_text = sno_path.read_text()
@@ -511,6 +511,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
             with tempfile.TemporaryDirectory(dir=tmp_root) as td:
                 cand = Path(td) / "cand.sno"
                 cand.write_text(one_line + "\n")
+                _copy_companions(one_line + "\n", companion_dir, Path(td))
                 cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
             if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 entry = Entry("line", seq, name, [one_line], expected_text.rstrip("\n"))
@@ -523,7 +524,9 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes):
     block_lines = original_text.splitlines() if force_verbatim else multiline_block(statements)
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
         cand = Path(td) / "cand.sno"
-        cand.write_text("\n".join(block_lines) + "\n")
+        block_text = "\n".join(block_lines) + "\n"
+        cand.write_text(block_text)
+        _copy_companions(block_text, companion_dir, Path(td))
         cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
     if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
         entry = Entry("block", seq, name, block_lines, expected_text.rstrip("\n").splitlines(),
@@ -939,6 +942,34 @@ def _companion_files(text):
     return names
 
 
+def _copy_companions(text, companion_dir, dest_dir):
+    # ⭐ COMPANION $include/-INCLUDE/open() FILES (tests-consolidate-icon, rung36_jcon_prepro; extended
+    # probe-consolidate-m1-and-small, gim_double_include_once_control): a candidate runs from a FRESH
+    # temp dir, never the family_dir its original loose file lived in, so an include/open directive
+    # naming a real, present companion file fails to resolve there even though the file exists and the
+    # entry is otherwise green. A caller that knows where the family's companion files live (family_dir
+    # at conversion time, or the suite file's own directory at grading time -- they are the same
+    # directory by convention) passes companion_dir; a missing or unreferenced companion is a silent
+    # no-op here and surfaces as an ordinary run FAILURE downstream, not a special error -- the same as
+    # any other missing dependency a program tries to open. Shared by every caller that materializes a
+    # candidate into an isolated temp dir (run_suite_entry, convert_one) so the copy logic -- including
+    # the two guards below, each hardened by a real prior failure -- never drifts between them.
+    if not companion_dir:
+        return
+    import shutil
+    for name in _companion_files(text):
+        # an ABSOLUTE reference is the program's own scratch path (e.g. /tmp/rung37_fh_test.txt),
+        # not a companion in the family dir -- Path(dir)/absolute RETURNS the absolute path for
+        # both src and dst, so the copy is file-onto-itself: SameFileError, suite dies boardless
+        # (witness: rung37_all after the icon suite conversion, false FAIL on the icon board)
+        if Path(name).is_absolute():
+            continue
+        src_companion = Path(companion_dir) / name
+        dst_companion = Path(dest_dir) / name
+        if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
+            shutil.copy(src_companion, dst_companion)
+
+
 def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=None):
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
         cand = Path(td) / f"{entry.name}{ext}"
@@ -949,28 +980,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
             text = "\n".join(entry.sno_lines) + "\n"
             expected = "\n".join(entry.ref)
         cand.write_text(text)
-        # ⭐ COMPANION $include/-INCLUDE FILES (tests-consolidate-icon, rung36_jcon_prepro): a suite
-        # entry runs from a FRESH temp dir, never the family_dir its original loose file lived in, so
-        # an include directive naming a real, present companion file (e.g. Icon's `$include
-        # "prepro.dat"`) fails to resolve there even though the file exists and the entry is otherwise
-        # green. A caller that knows where the family's companion files live (family_dir at
-        # conversion time, or the suite file's own directory at grading time -- they are the same
-        # directory by convention) passes companion_dir; a missing or unreferenced companion is a
-        # silent no-op here and surfaces as an ordinary run FAILURE downstream, not a special error --
-        # the same as any other missing dependency a program tries to open.
-        if companion_dir:
-            import shutil
-            for name in _companion_files(text):
-                # an ABSOLUTE reference is the program's own scratch path (e.g. /tmp/rung37_fh_test.txt),
-                # not a companion in the family dir -- Path(dir)/absolute RETURNS the absolute path for
-                # both src and dst, so the copy is file-onto-itself: SameFileError, suite dies boardless
-                # (witness: rung37_all after the icon suite conversion, false FAIL on the icon board)
-                if Path(name).is_absolute():
-                    continue
-                src_companion = Path(companion_dir) / name
-                dst_companion = Path(td) / name
-                if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
-                    shutil.copy(src_companion, dst_companion)
+        _copy_companions(text, companion_dir, Path(td))
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin)
 
 
@@ -1072,7 +1082,7 @@ def cmd_convert(args):
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_"))
     try:
         for seq, (sno, ref) in enumerate(pairs, start=1):
-            entry, report = convert_one(paths, sno, ref, seq, tmp_root, modes)
+            entry, report = convert_one(paths, sno, ref, seq, tmp_root, modes, companion_dir=sno.parent)
             status = "OK" if report["ok"] else "FAIL"
             print(f"[{seq}/{len(pairs)}] {sno.stem}: {status} ({report['reason'][:80]})", file=sys.stderr)
             if entry is not None:
