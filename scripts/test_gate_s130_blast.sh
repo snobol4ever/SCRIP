@@ -30,7 +30,11 @@ compare)
   n=$(wc -l < "$a"); d=$(diff "$a" "$b" | grep -c '^<')
   gate_floor "$n" 1 "recorded programs in tag A"
   echo "s130 blast radius: TOTAL=$n MOVERS=$d"
-  [ "$d" -gt 0 ] && { echo "MOVERS:"; diff "$a" "$b" | grep '^<' | awk '{print "  "$NF}' | head -40; }
+  # ⛔ cap announces itself (hq_B 2026-08-29): MOVERS=$d is printed above, so a shorter list must say so.
+  [ "$d" -gt 0 ] && { echo "MOVERS:";
+    if [ -n "${GATE_LIST_ALL:-}" ]; then diff "$a" "$b" | grep '^<' | awk '{print "  "$NF}';
+    else diff "$a" "$b" | grep '^<' | awk '{print "  "$NF}' | head -40
+         [ "$d" -gt 40 ] && echo "  ... and $((d - 40)) MORE NOT SHOWN -- capped at 40; $d above is the true count. Full list: GATE_LIST_ALL=1"; fi; }
   [ "$d" -eq 0 ] ;;
 *)
   echo "GATE UNPROVEN(2) [s130_blast]: unknown mode '$1'. usage: record <tag> <scrip> <rt.so> | compare <tagA> <tagB>"; exit 2 ;;

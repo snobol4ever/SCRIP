@@ -62,6 +62,19 @@ if [ "$N" -eq 0 ]; then
   exit 0
 fi
 echo "FAIL: LI-FENCE — $N language-tagged source line(s) found in emitter/runtime (outside carve-outs):"
-printf '%s\n' "$VIOL" | head -40
+# ⛔⭐ THE CAP MUST ANNOUNCE ITSELF (hq_B 2026-08-29). This printed 40 lines under a "$N language-tagged
+# source line(s)" headline with nothing saying the list was partial -- measured live at N=1623, so 1583
+# violations were invisible to every reader. Same class cured the same day in
+# test_gate_suite_conversion_complete.sh. A truncation the reader cannot see is not a summary; it is a
+# subset in the shape of a whole.
+if [ -n "${GATE_LIST_ALL:-}" ]; then
+  printf '%s\n' "$VIOL"
+else
+  printf '%s\n' "$VIOL" | head -40
+  [ "$N" -gt 40 ] && {
+    echo "     ... and $((N - 40)) MORE NOT SHOWN -- this list is capped at 40; $N above is the true count."
+    echo "     Full list: GATE_LIST_ALL=1 bash scripts/test_gate_no_lang_names.sh"
+  }
+fi
 echo "--- if any are legitimate (new shared-layer / frontend-contract / assembly term), add them to the ALLOW list in this script with a one-line rationale; otherwise de-name them. ---"
 exit 1

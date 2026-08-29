@@ -74,7 +74,7 @@ if [ "$UND" -ne 0 ]; then
     # printed list fixes what it can see, re-runs, and meets 25 files it was never shown. Same family as
     # `ls | head -5` read as absence, and as `command -v` answering a narrower question than was asked:
     # an instrument that truncates silently reports a subset in the shape of a whole.
-    if [ -n "${SUITE_GATE_LIST_ALL:-}" ]; then
+    if [ -n "${SUITE_GATE_LIST_ALL:-}${GATE_LIST_ALL:-}" ]; then  # GATE_LIST_ALL is the fleet-wide spelling; SUITE_GATE_LIST_ALL kept as an alias
         printf "$UNDLIST\n" | grep -v '^[[:space:]]*$'
     else
         printf "$UNDLIST\n" | grep -v '^[[:space:]]*$' | head -20

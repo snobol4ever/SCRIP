@@ -43,10 +43,17 @@ done
 echo "ON-NULL GATE  env='${ENVS[*]}'  total=$TOTAL  movers=$MOVED  self-nondeterministic=$FLAKY"
 if [ "$FLAKY" -ne 0 ]; then
     echo "-- SELF-NONDETERMINISTIC (a separate defect; these cannot testify about the pass) --"
-    echo "$FLAKIES" | head -20
+    # ⛔ cap announces itself (hq_B 2026-08-29) -- $FLAKY is printed above; the list must not silently be shorter.
+    if [ -n "${GATE_LIST_ALL:-}" ]; then echo "$FLAKIES"; else
+      echo "$FLAKIES" | head -20
+      [ "$FLAKY" -gt 20 ] && echo "     ... and $((FLAKY - 20)) MORE NOT SHOWN -- capped at 20; $FLAKY above is the true count. Full list: GATE_LIST_ALL=1"
+    fi
 fi
 if [ "$MOVED" -ne 0 ]; then
-    echo "$MOVERS" | head -40
+    if [ -n "${GATE_LIST_ALL:-}" ]; then echo "$MOVERS"; else
+      echo "$MOVERS" | head -40
+      [ "$MOVED" -gt 40 ] && echo "     ... and $((MOVED - 40)) MORE NOT SHOWN -- capped at 40; $MOVED above is the true count. Full list: GATE_LIST_ALL=1"
+    fi
     echo "FAIL  the pass PERTURBS the program it measures -- every number it reports is void until this is 0."
     exit 1
 fi
