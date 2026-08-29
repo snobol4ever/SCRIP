@@ -1651,7 +1651,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = -1;
         if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }
         else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }  /* ZLS FALLBACK, mirroring IR_MATCH_LEN: a deferred-EXPRESSION arg (POS(*(2*N))) lowers to a SNO$MKEXPR call owning no bb slot but a real ZLS offset. Every one of these templates ALREADY carries a live op_zres arm; only this caller never fed it, so the shape aborted at drive_unowned instead of emitting the arm built for it. */
         { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : NULL; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
         g_emit.op_leaf_frame_off = leaf_frame_slot(nd);
@@ -1667,7 +1667,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = -1;
         if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }
         else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; { extern int fc_frameless_fpr_rsp(const IR_t *); if (g_zd_arm && fc_frameless_fpr_rsp(a0)) g_emit.op_wpop += 16; } }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
+        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }  /* ZLS FALLBACK, mirroring IR_MATCH_LEN: a deferred-EXPRESSION arg (POS(*(2*N))) lowers to a SNO$MKEXPR call owning no bb slot but a real ZLS offset. Every one of these templates ALREADY carries a live op_zres arm; only this caller never fed it, so the shape aborted at drive_unowned instead of emitting the arm built for it. */
         { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : NULL; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
