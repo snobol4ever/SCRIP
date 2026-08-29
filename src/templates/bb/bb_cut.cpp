@@ -10,5 +10,4 @@ std::string bb_cut() {
                            + x86("comment", "IR_CUT")
                            + x86_gamma()
                            + x86_beta_trampoline();
-    return std::string();
 }
