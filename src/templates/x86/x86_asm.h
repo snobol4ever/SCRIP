@@ -2396,6 +2396,16 @@ inline std::string x86_internal_resolve(const std::string & s) {
        walk_bb_node_inner dispatch, reset to NULL at chain start/end so chain-level XA wrapper code, which
        runs outside any box dispatch, correctly falls back to the chain family instead of a stale box kind). */
     const char * fam = _.x86_uid_kind ? _.x86_uid_kind : (_.flat_fam ? _.flat_fam : "anon");
+    size_t famlen = strlen(fam);
+    /* STEP 2b (seat05 2026-08-29): 7 ad hoc box-level literal-pool mints (bb_call.cpp bynamefn/bynamefnzd/
+       bynamegenfn, bb_call_fn.cpp rkfn/rkfnzd, bb_call_proc_staged.cpp sig/sigz) already bake x86_boxkind()
+       -- the exact same value as `fam` above -- into their own text at mint time, unlike the anonymous
+       .Lx<uid>_<n> family; they only ever lacked the greek infix. Each is minted and referenced back-to-back
+       with zero port transition in between (read in full, all three templates) so unlike .Lx no first-
+       occurrence lock is needed -- the CURRENT port at the position the pattern is matched is correct for
+       that occurrence, always. Longest-tag-first avoids the rkfn/rkfnzd and bynamefn/bynamefnzd prefix
+       collision (a shorter tag would otherwise falsely match inside a longer one's own name). */
+    static const char * const adhoc_tags[] = { "bynamegenfn", "bynamefnzd", "bynamefn", "rkfnzd", "rkfn", "sig" };
     int portof[X86_INTERNAL_MAX]; for (int k = 0; k < X86_INTERNAL_MAX; k++) portof[k] = -1;
     int cur = X86P_ALPHA; size_t n = s.size();
     for (size_t i = 0; i < n; ) {
@@ -2417,6 +2427,19 @@ inline std::string x86_internal_resolve(const std::string & s) {
                 size_t k = j + 1; long ln = x86_ir_num(s, k); int p = (ln < X86_INTERNAL_MAX && portof[ln] >= 0) ? portof[ln] : X86P_ALPHA;
                 out += ".L"; out += fam; out += "_"; out += x86_greek[p]; out += "_"; out += std::to_string(uid); out += "_"; out += std::to_string(ln); i = k; continue;
             }
+        }
+        if (famlen && i + 2 + famlen < n && s[i] == '.' && s[i + 1] == 'L' && s.compare(i + 2, famlen, fam) == 0 && s[i + 2 + famlen] == '_') {
+            size_t tp = i + 2 + famlen + 1; bool hit = false;
+            for (size_t ti = 0; ti < sizeof(adhoc_tags) / sizeof(adhoc_tags[0]) && !hit; ti++) {
+                size_t tl = strlen(adhoc_tags[ti]);
+                if (tp + tl < n && s.compare(tp, tl, adhoc_tags[ti]) == 0 && x86_ir_digit(s[tp + tl])) {
+                    size_t k = tp + tl; size_t dstart = k; x86_ir_num(s, k);
+                    out += ".L"; out += fam; out += "_"; out += x86_greek[cur]; out += "_"; out += adhoc_tags[ti]; out.append(s, dstart, k - dstart);
+                    if (k < n && s[k] == 'z' && !strcmp(adhoc_tags[ti], "sig")) { out += 'z'; k++; }
+                    i = k; hit = true;
+                }
+            }
+            if (hit) continue;
         }
         out += s[i++];
     }
