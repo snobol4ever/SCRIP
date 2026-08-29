@@ -1797,6 +1797,14 @@ atom
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
+    | '[' ']'         { $$=make_call("__rk_arr"); }
+    | '[' expr ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | '[' expr ',' ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | '[' expr ',' arg_list ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | '(' ')'         { $$=make_call("__rk_arr"); }
     | '(' expr ')'    { $$=$2; }
     | '(' expr ',' ')'
