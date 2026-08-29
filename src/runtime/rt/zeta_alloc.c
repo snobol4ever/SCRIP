@@ -151,5 +151,5 @@ int  rt_zc_frame_live(void) { return ZC_FRAME; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_zeta_cstack(void)
 {
-    return (rt_zeta_port_mode() == ZC_PORT_CSTACK || rt_zeta_port_mode() == ZC_PORT_FORTH) ? 1 : 0;
+    return 1;
 }
