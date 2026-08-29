@@ -7,6 +7,17 @@
 # ⭐ AND THE LOSS ACCELERATES, WHICH IS THE PART WORTH UNDERSTANDING: a rank-0 FREE row is the top free row for a share of the fleet that GROWS as other rows get claimed,
 # so the pump runs FASTEST exactly when the fleet is busiest -- the measured curve was 4-in-55min, then 5-in-34min.  Witness + arithmetic: hq_B, .github 43061128.
 #
+# ⭐⭐ AND THE PUMP IS INVISIBLE FROM INSIDE A SINGLE SESSION, WHICH IS WHY IT NEEDED COUNTING RATHER THAN NOTICING (hq_P, adopted into this header at hq_B's
+# suggestion): the umbrella's own owner was ONE OF THE NINE -- served the row, re-scored its board, released, and did not notice. Each session's own work
+# looks locally reasonable: you pull, you measure, you record honestly, you release. The waste exists only in the aggregate, so no participant can see it.
+# ⛔ That is the argument for an instrument over a habit, and it is why "just be careful" was never going to work here.
+#
+# ⚠️ A THIRD CLASS THIS SCRIPT DOES NOT YET NAME (hq_B, 2026-08-29): a PARTIALLY-GATED row, where the gated and the workable parts live in ONE row -- so
+# neither FREE nor PARKED is honest, and both classes below misreport it. `tests-consolidate-prolog` is the worked example: 4 consecutive sessions
+# re-derived the same external block, yet its items 3-7 held real tractable work (measured -- a later pass converted 13 files from exactly those items).
+# ⛔ Parking it would have HIDDEN workable work; leaving it FREE kept re-serving the blocked half. The cure is probably to SPLIT the row, which is a
+# judgement call with an owner and therefore not something an audit may do. Named here so the next reader does not try to force it into Class A or B.
+#
 # ⛔ THIS SCRIPT ONLY REPORTS.  It never edits QUEUE.tsv and never touches a claim -- parking a row is a judgement call with an owner, and an audit that silently re-states
 # the queue would be a second uncheckable authority over the same column.  Fix the row, or fix the DONE-WHEN.
 #
