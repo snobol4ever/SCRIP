@@ -287,6 +287,10 @@ case "$cmd" in check|clear) ;; *)
     for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] || continue; printf '    %s\n' "$(head -1 "$_f")"; done
     printf '    bash SCRIP/scripts/s4e_msg.sh check      <- do this now\n\n'; fi ;;
 esac
+# ⭐ ONE PROTOCOL NUMBER, HOISTED (ceo 2026-08-29, row s4e-clear-needs-protocol-version-guard): next() and clear() both
+# guard on it now, and two inline copies of one value is the drift class this file convicts elsewhere. Bump it HERE and
+# in the shared PROTOCOL-VERSION file together.
+S4E_PROTO=4
 case "$cmd" in
   send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
@@ -326,6 +330,19 @@ case "$cmd" in
          echo "[$ME] inbox: $n message(s)"; : > "$lc"
          for f in "$d"/*.msg; do [ -f "$f" ] || continue; basename "$f" >> "$lc"; echo "--- $(basename "$f")"; cat "$f"; done;;
   clear) d="$PO/$ME/inbox"; lc="$PO/$ME/.last-check"
+         # ⛔⭐ N-guard (ceo 2026-08-29, row s4e-clear-needs-protocol-version-guard, on hq_P's measured hole): clear gets the
+         # SAME refusal next has. The archive cure at the mv below protects only clones that carry it — hq_B's stale clone
+         # ran the old rm path and destroyed 5 read messages with archive/=0 — and the seats most likely to destroy mail
+         # are exactly the stale ones. This guard reaches them through the shared PROTOCOL-VERSION bump: their NEXT already
+         # refuses on version, forcing the pull that brings both the archive cure and this guard. INTERIM LAW (until the
+         # fleet is fully on protocol >= 4): archive/ counts are NOT ground truth for what was cleared.
+         if [ -f "$PO/PROTOCOL-VERSION" ]; then
+           need="$(head -1 "$PO/PROTOCOL-VERSION" | tr -cd '0-9')"; need="${need:-0}"
+           if [ "$S4E_PROTO" -lt "$need" ]; then
+             echo "⛔ REFUSING TO CLEAR — your s4e_msg.sh is PROTOCOL $S4E_PROTO, the fleet is on $need." >&2
+             echo "   A stale clone's clear can DESTROY mail (the pre-archive rm path). Nothing was touched." >&2
+             echo "   Fix, then re-run:  cd \"$S4E/SCRIP\" && git pull --rebase origin main" >&2
+             exit 3; fi; fi
          [ -f "$lc" ] || { echo "⛔ REFUSED: nothing has been read in this seat. Run 'check' first -- clear only removes what check displayed." >&2; exit 2; }
          _cl=0; _kept=0; _fail=0
          for f in "$d"/*.msg; do [ -f "$f" ] || continue; _b="$(basename "$f")"
@@ -702,7 +719,7 @@ case "$cmd" in
          # must fail. So the authority is the SHARED postoffice, which no clone can be behind: PROTOCOL-VERSION there
          # is the required protocol, S4E_PROTO below is this script's own, and next() REFUSES rather than dispatching
          # from a picker it cannot vouch for. A seat that mis-locks a row removes it from the whole fleet's reach.
-         S4E_PROTO=3
+         # (S4E_PROTO is hoisted above the case dispatch — one number, two guards: this one and clear's.)
          if [ -f "$PO/PROTOCOL-VERSION" ]; then
            need="$(head -1 "$PO/PROTOCOL-VERSION" | tr -cd '0-9')"; need="${need:-0}"
            if [ "$S4E_PROTO" -lt "$need" ]; then
@@ -726,7 +743,8 @@ case "$cmd" in
              printf '      ⭐ THE BATON IS THE TASK FILE, NOT THIS PRINTOUT — read GOAL + DONE-WHEN + the ONE ## NEXT block,\n'
              printf '      work THAT, then rewrite ## NEXT before you stop. Questions go in ## QA, receipts in ## LEDGER.\n'
              printf '      ⛔ the current block is the FIRST ^## NEXT — demote the one you replace to ## SUPERSEDED-NEXT\n'
-             printf '      (baton-one-next-block-gate, ceo ruling 2026-08-29; a few live batons still predate this).\n'; fi
+             printf '      (baton-one-next-block-gate, ceo ruling 2026-08-29; a few live batons still predate this).\n'
+             printf '      ⛔ a baton with NO ## NEXT block: distill one from GOAL + the latest ledger, write it, THEN work.\n'; fi
            # ⭐ V2-2: QUEUE.tsv is an INDEX (rank·topic·owner·state), not a brief store. Fields 3 and 4 are
            # owner and state now, so printing them as "brief:"/"first:" would announce "brief: unassigned".
            # The baton is the content; the index only says who owns it and what state it is in.
