@@ -389,6 +389,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_SUB KW_GATHER KW_TAKE KW_RETURN KW_EXIT
 %token KW_CONSTANT
 %token KW_ENUM
+%token KW_JOIN
 %token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
 %token KW_LOOP KW_LAST KW_NEXT
@@ -1606,11 +1607,18 @@ meth_name
     | KW_RETURN  { $$=strdup("return"); }
     | KW_EXISTS  { $$=strdup("exists"); }
     | KW_DELETE  { $$=strdup("delete"); }
+    | KW_JOIN    { $$=strdup("join"); }
     | TESTOP     { $$=$1; }
     ;
 postfix_expr : call_expr { $$=$1; } ;
 call_expr
-    : IDENT '(' arg_list ')'
+    : KW_JOIN expr ',' arg_list
+        { tree_t *e=make_call("join");
+          expr_add_child(e, $2);
+          ExprList *args=$4;
+          if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
+          $$=e; }
+    | IDENT '(' arg_list ')'
         { tree_t *e=make_call($1);
           ExprList *args=$3;
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
