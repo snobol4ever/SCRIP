@@ -1346,6 +1346,7 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_icon_stage2(const tree_t *prog) {
+    int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -1386,7 +1387,7 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
     }
     lower_icon_resolve_call_kinds();
     { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_ICN_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
-      if (_zf) for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
+      if (_zf) for (int _gi = _icn_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     { for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) { int _bi = g_stage2.proc_table[_pi].bb_idx; if (_bi >= 0 && g_stage2.proc_table[_pi].is_generator && g_stage2.bbp.table[_bi] && g_stage2.bbp.table[_bi]->zframe_graph) g_stage2.bbp.table[_bi]->icn_zframe_gen = 1; } }
     return &g_stage2;
 }
