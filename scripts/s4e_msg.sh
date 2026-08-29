@@ -104,6 +104,30 @@ s4e_blocker_done() {
     grep -qP "^[0-9]+\t\Q$b\E\t" "$PO/QUEUE.done.tsv" 2>/dev/null
 }
 
+# ⭐ s4e-done-does-not-clear-annotation (ceo 2026-08-29, hq_B's "your call" ask). SELF-CLEAR (above) earns
+# its keep and stays; this is the ESCAPE HATCH for the case it measurably got wrong: hq_B found
+# `snocone-parser-fixture-ast-drift-ruling` self-clear a dependent while its OWN ledger and the blocker's
+# both said, in bold, "closing this row must not be read as clearing it" for that one dependent (the fix
+# does not reach family 5) — a counter-finding written in PROSE changed nothing, because the dispatcher
+# reads only the thin QUEUE.tsv record, never the baton text. So the annotation lives where the dispatcher
+# already looks: the BLOCKER's own state column, spelled `DOES-NOT-CLEAR:<dep1>[,<dep2>,...]` appended
+# after its base state (e.g. `DONE:DOES-NOT-CLEAR:snocone-parser-fixture-family5`). ⛔ Deliberately NOT a
+# check of `s4e_blocker_done` above — that function's own law is "presence in the claim/QUEUE.done.tsv is
+# the WHOLE done-ness signal, never the state column" (the state column is stale on ~57% of landed rows).
+# This function answers a DIFFERENT question (did the blocker's author name ME as an exception), which is
+# the one place the state column IS the authority per ceo's ruling — the two never overlap in what they
+# certify, and neither should read the other's evidence.
+s4e_does_not_clear() {   # <blocker-topic> <dependent-topic> -> rc 0 iff blocker's row names dependent
+    local blk="${1:-}" dep="${2:-}" st names
+    [ -n "$blk" ] && [ -n "$dep" ] || return 1
+    st="$(s4e_row_state "$blk")"
+    case "$st" in *DOES-NOT-CLEAR:*) ;; *) return 1;; esac
+    names="${st#*DOES-NOT-CLEAR:}"          # everything after the marker...
+    case "$names" in *:*) names="${names%%:*}";; esac   # ...up to a further ':'-clause, if any follows
+    case ",$names," in *",$dep,"*) return 0;; esac
+    return 1
+}
+
 # ⭐⭐ picker-dependency-and-boomerang-blindness (hq_B, 2026-08-28) — THREE CURES FOR ONE SYMPTOM: THE PICKER
 # CANNOT SEE A DEPENDENCY A HUMAN KNOWS, so every seat re-pays the discovery cost. hq_P's census measured FOUR
 # instances IN ONE DAY. All three cures below are MECHANISM-level; a per-row fix is precisely what we did four
@@ -674,7 +698,12 @@ case "$cmd" in
               # skips any topic that has a claim file at all) while still reading FREE to any human scanning the
               # queue. ⛔ THE FIX IS CLOSING THE WINDOW, NEVER WIDENING THE PICKER: making `next` serve DONE-claimed
               # rows would reopen landed work. The column is now MIRRORED FROM the claim, which is the authority.
-              if s4e_set_row_state "$topic" DONE; then echo "  (QUEUE.tsv state -> DONE; claim and column now agree)"
+              # ⭐ s4e-done-does-not-clear-annotation: S4E_DONE_DOES_NOT_CLEAR="dep1[,dep2,...]" appends the
+              # machine-read exception list (see s4e_does_not_clear() above) to the state this DONE writes.
+              # Optional and rare — most closes clear every dependent, which is why self-clear earns its keep.
+              _dnc="${S4E_DONE_DOES_NOT_CLEAR:-}"; _dstate="DONE"
+              [ -n "$_dnc" ] && _dstate="DONE:DOES-NOT-CLEAR:$_dnc"
+              if s4e_set_row_state "$topic" "$_dstate"; then echo "  (QUEUE.tsv state -> $_dstate; claim and column now agree)"
               else echo "  (no live QUEUE.tsv row for $topic — nothing to mirror; the claim is the record)"; fi
               s4e_mark_row "$topic" DONE
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
@@ -804,7 +833,13 @@ case "$cmd" in
            case "$step" in
              BLOCKED-ON:*|PARKED-AWAITING:*)
                blk="${step#*:}"
-               if s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE
+               if s4e_blocker_done "$blk" && s4e_does_not_clear "$blk" "$topic"; then
+                 # ⭐ s4e-done-does-not-clear-annotation: the blocker IS done, but named THIS topic as an
+                 # exception -- honour it instead of the ordinary self-clear. Print the annotation itself,
+                 # not just a verdict, per the row's own DONE-WHEN ("prints the annotation text").
+                 printf '⛔ %s reached DONE but its state explicitly excludes %s from self-clear (DOES-NOT-CLEAR) — staying %s.\n' "$blk" "$topic" "$step" >&2
+                 printf '   %s state: %s\n' "$blk" "$(s4e_row_state "$blk")" >&2
+               elif s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE
                # ⭐ CURE 1 — DEPENDENCY INVERSION (picker-dependency-and-boomerang-blindness). The blocker is
                # un-DONE, so the old code skipped this row and walked on down the rank order — which is how a
                # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
