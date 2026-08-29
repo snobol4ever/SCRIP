@@ -45,7 +45,20 @@ done
 echo "  pl_interp_sweep done ($(wc -l < "$PLSWEEP") files)"
 # snocone per-file interp sweep (test/snocone + corpus/crosscheck/snocone)
 SCOSWEEP="$OUT/sco_interp_sweep.txt"; : > "$SCOSWEEP"
-{ find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find $S4E/corpus/crosscheck/snocone -name '*.sc' 2>/dev/null; } | sort | while read -r f; do
+# ⛔ 2026-08-29 (hq_P, corpus-crosscheck-probe-total-conversion): corpus/crosscheck/snocone is being
+# converted to suite pairs under corpus/tests/snocone/crosscheck_*.{sc,ref}. A suite file is NEVER run
+# whole, so it cannot join this per-file sweep -- and the old form's bare `2>/dev/null` glob meant a
+# shrinking tree contributed fewer rows with NO signal at all (181 -> 20 in one commit). The population
+# is now COUNTED and PRINTED, and a zero population REFUSES rather than baking an empty baseline.
+SCO_SRCS=$( { find "$REPO/test/snocone" -name '*.sc' 2>/dev/null; find "$S4E/corpus/crosscheck/snocone" -name '*.sc' 2>/dev/null; } | sort )
+SCO_N=$(printf '%s\n' "$SCO_SRCS" | grep -c . || true)
+echo "  sco_interp_sweep population: $SCO_N loose .sc (converted families are graded as suites by test_invariants_3x3_harness.sh's snocone_x86 cell, not swept here)"
+if [ "$SCO_N" -eq 0 ]; then
+    echo "  REFUSE (rc=2): sco_interp_sweep found zero loose .sc -- cannot bake a baseline from an empty population" >&2
+    exit 2
+fi
+printf '%s\n' "$SCO_SRCS" | while read -r f; do
+    [ -n "$f" ] || continue
     out=$(timeout 8 "$SCRIP" --run "$f" < /dev/null 2>/dev/null); rc=$?
     printf '%s rc=%d md5=%s\n' "${f#$REPO/}" "$rc" "$(printf '%s' "$out" | md5sum | cut -d' ' -f1)" >> "$SCOSWEEP"
 done

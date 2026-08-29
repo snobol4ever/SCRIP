@@ -776,35 +776,44 @@ run_prolog_jvm() {
 run_snocone_x86() {
   local cell="snocone_x86"
   local pass=0 fail=0
-  if [[ -z "$CORPUS" || ! -d "$CORPUS/crosscheck/snocone" ]]; then
-    echo "SKIP" > "$RESULTS/${cell}_status"; return
+  # ⛔ RE-POINTED 2026-08-29 (hq_P, corpus-crosscheck-probe-total-conversion): this cell used to
+  # walk a hardcoded list of 28 $CORPUS/crosscheck/snocone/rungA01..rungB12 directories. Those
+  # families are now converted suite pairs at $CORPUS/tests/snocone/crosscheck_<fam>.{sc,ref}, and
+  # the loose dirs that survive hold ONLY the deliberately-excluded red witnesses. Left alone the
+  # old form graded 10 dirs of pure reds instead of 28 mostly-green families -- and the two guards
+  # above it (`! -d crosscheck/snocone` and an empty dir_args) both wrote SKIP, so the shrinkage
+  # would have been SILENT. RULES: a test that cannot measure REFUSES, never skip-as-success.
+  local SUITE_DIR="$CORPUS/tests/snocone"
+  local HARNESS="$ROOT/scripts/corpus_suite_harness.py"
+  if [[ -z "$CORPUS" || ! -f "$HARNESS" ]]; then
+    echo "  FAIL $cell cannot-measure: CORPUS or corpus_suite_harness.py missing (refusing, not skipping)"
+    echo 0 > "$RESULTS/${cell}_pass"; echo 1 > "$RESULTS/${cell}_fail"; return
   fi
-  local SC_RUNNER="$ROOT/scripts/test_crosscheck_sc_corpus_rung.sh"
-  if [[ ! -f "$SC_RUNNER" ]]; then
-    echo "SKIP" > "$RESULTS/${cell}_status"; return
+  local suites=("$SUITE_DIR"/crosscheck_*.sc)
+  if [[ ! -f "${suites[0]}" ]]; then
+    echo "  FAIL $cell cannot-measure: no crosscheck_*.sc suites under $SUITE_DIR (refusing, not skipping)"
+    echo 0 > "$RESULTS/${cell}_pass"; echo 1 > "$RESULTS/${cell}_fail"; return
   fi
-  local DIRS="rungA01 rungA02 rungA03 rungA04 rungA05 rungA06 rungA07 rungA08 rungA09 rungA10 rungA11 rungA12 rungA13 rungA14 rungA15 rungA16 rungB01 rungB02 rungB03 rungB04 rungB05 rungB06 rungB07 rungB08 rungB09 rungB10 rungB11 rungB12"
-  local dir_args=()
-  for d in $DIRS; do
-    local full="$CORPUS/crosscheck/snocone/$d"
-    [[ -d "$full" ]] && dir_args+=("$full")
-  done
-  if [[ ${#dir_args[@]} -eq 0 ]]; then
-    echo "SKIP" > "$RESULTS/${cell}_status"; return
-  fi
-  local raw stripped
-  raw=$(SCRIP_CC="$SCRIP_CC" bash "$SC_RUNNER" "${dir_args[@]}" 2>/dev/null) || true
-  stripped=$(echo "$raw" | sed 's/\x1b\[[0-9;]*m//g')
-  # trailing space in the anchor matters: the runner's own summary trailer line
-  # ("FAILURES", no per-test name after it) otherwise collides with '^FAIL'.
-  pass=$(echo "$stripped" | grep -c '^PASS ' 2>/dev/null | tr -d '[:space:]'); pass=${pass:-0}
-  fail=$(echo "$stripped" | grep -c '^FAIL ' 2>/dev/null | tr -d '[:space:]'); fail=${fail:-0}
-  # propagate individual FAIL lines for visibility
-  echo "$stripped" | grep '^FAIL' | while IFS= read -r ln; do
-    echo "  FAIL $cell ${ln#FAIL }"
+  local s fam board b_pass b_bad
+  for s in "${suites[@]}"; do
+    fam=$(basename "$s" .sc)
+    [[ -f "${s%.sc}.ref" ]] || { echo "  FAIL $cell $fam: suite .sc present but .ref missing"; fail=$((fail+1)); continue; }
+    board=$(python3 "$HARNESS" run "$s" "${s%.sc}.ref" --lang snocone --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD')
+    if [[ -z "$board" ]]; then
+      echo "  FAIL $cell $fam: harness emitted no SUITE_BOARD (cannot measure)"; fail=$((fail+1)); continue
+    fi
+    b_pass=0; b_bad=0
+    for m in m3 m4; do
+      b_pass=$((b_pass + $(echo "$board" | grep -oP "${m}_pass=\K[0-9]+")))
+      for k in fail crash hang unproven; do
+        b_bad=$((b_bad + $(echo "$board" | grep -oP "${m}_${k}=\K[0-9]+")))
+      done
+    done
+    pass=$((pass + b_pass)); fail=$((fail + b_bad))
+    [[ "$b_bad" -eq 0 ]] || echo "  FAIL $cell $fam: $b_bad non-pass verdict(s)"
   done
   echo "$pass" > "$RESULTS/${cell}_pass"
-  echo "$fail"  > "$RESULTS/${cell}_fail"
+  echo "$fail" > "$RESULTS/${cell}_fail"
 }
 
 # ── Serial dispatch — filtered by requested cells ─────────────────────────────
