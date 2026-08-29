@@ -893,15 +893,49 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None):
     return entries
 
 
-def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno"):
+_INCLUDE_PATTERNS = [
+    re.compile(r'\$include\s+"([^"]+)"'),   # Icon
+    re.compile(r"-INCLUDE\s+'([^']+)'"),    # SNOBOL4 / Snocone
+    re.compile(r'-INCLUDE\s+"([^"]+)"'),    # SNOBOL4 / Snocone, double-quote form
+]
+
+
+def _companion_includes(text):
+    """Filenames an entry's own include directive names (Icon `$include "X"`, SNOBOL4/Snocone
+    `-INCLUDE 'X'`) -- these resolve relative to the RUNNING file's directory, which a suite entry
+    materialized into an isolated temp dir does not share with its original family_dir unless a
+    caller copies the referenced file in first (see run_suite_entry's companion_dir)."""
+    names = []
+    for pat in _INCLUDE_PATTERNS:
+        names.extend(pat.findall(text))
+    return names
+
+
+def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=None):
     with tempfile.TemporaryDirectory(dir=tmp_root) as td:
         cand = Path(td) / f"{entry.name}{ext}"
         if entry.kind == "line":
-            cand.write_text(entry.sno_lines[0] + "\n")
+            text = entry.sno_lines[0] + "\n"
             expected = entry.ref
         else:
-            cand.write_text("\n".join(entry.sno_lines) + "\n")
+            text = "\n".join(entry.sno_lines) + "\n"
             expected = "\n".join(entry.ref)
+        cand.write_text(text)
+        # ⭐ COMPANION $include/-INCLUDE FILES (tests-consolidate-icon, rung36_jcon_prepro): a suite
+        # entry runs from a FRESH temp dir, never the family_dir its original loose file lived in, so
+        # an include directive naming a real, present companion file (e.g. Icon's `$include
+        # "prepro.dat"`) fails to resolve there even though the file exists and the entry is otherwise
+        # green. A caller that knows where the family's companion files live (family_dir at
+        # conversion time, or the suite file's own directory at grading time -- they are the same
+        # directory by convention) passes companion_dir; a missing or unreferenced companion is a
+        # silent no-op here and surfaces as an ordinary run FAILURE downstream, not a special error --
+        # the same as any other missing dependency a program tries to open.
+        if companion_dir:
+            import shutil
+            for name in _companion_includes(text):
+                src_companion = Path(companion_dir) / name
+                if src_companion.is_file():
+                    shutil.copy(src_companion, Path(td) / name)
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin)
 
 
@@ -1033,7 +1067,7 @@ def cmd_convert(args):
     try:
         for (sno, ref), written in zip(pairs, reread):
             orig_verdicts = run_all_modes(paths, sno, ref.read_text(), tmp_root, modes)
-            suite_verdicts = run_suite_entry(paths, written, tmp_root, modes)
+            suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, companion_dir=sno.parent)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 mismatches.append((sno.stem, orig_verdicts, suite_verdicts))
     finally:
@@ -1164,7 +1198,7 @@ def cmd_convert_blocks(args):
             orig_stdin_path = src.with_suffix(".stdin")
             orig_stdin_text = orig_stdin_path.read_text() if orig_stdin_path.is_file() else None
             orig_verdicts = run_all_modes(paths, src, ref.read_text(), tmp_root, modes, stdin_text=orig_stdin_text)
-            suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, ext=ext)
+            suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, ext=ext, companion_dir=src.parent)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 mismatches.append((src.stem, orig_verdicts, suite_verdicts))
     finally:
@@ -1204,7 +1238,7 @@ def cmd_run(args):
     fails = []
     try:
         for e in entries:
-            verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext)
+            verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
             for m in modes:
                 kind = verdicts[m].kind
                 # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
