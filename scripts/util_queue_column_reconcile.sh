@@ -31,7 +31,7 @@ set -u
 PO="${S4E_POST:-/home/resources/postoffice}"; Q="$PO/QUEUE.tsv"; FIX=0
 [ "${1:-}" = "--fix" ] && FIX=1
 [ -f "$Q" ] || { echo "⛔ no QUEUE.tsv at $Q" >&2; exit 2; }
-a_rows=""; a_n=0; b_n=0; b_res=0; b_str=0
+a_rows=""; a_n=0; b_n=0; b_res=0; b_str=0; b_restr=0
 while IFS=$'\t' read -r rank topic owner state rest; do
   case "${rank:-}" in ''|\#*) continue;; esac
   [ -n "${topic:-}" ] || continue
@@ -46,6 +46,13 @@ while IFS=$'\t' read -r rank topic owner state rest; do
     esac
   elif [ ! -f "$c" ]; then
     case "${state:-}" in
+      RESTRICTED:*)
+        # ⭐ THE DURABLE RESERVATION (hq_P, SCRIP d1deda52, on ceo's ruling). A RESTRICTED:<x> row has no claim
+        # file BY DESIGN and that is not a defect: the picker serves it to <x> and skips it for everyone else,
+        # and unlike the ASSIGNED-as-reservation spelling it SURVIVES `unclaim` by construction -- restoring the
+        # restriction instead of freeing the row. So it is reported, never counted as a problem.
+        b_n=$((b_n+1)); b_restr=$((b_restr+1))
+        printf '  ✅ B-RESTRICTED rank %-3s %-50s col=%-16s owner=%-6s  durable reservation — survives unclaim; nothing to do\n' "$rank" "$topic" "$state" "${owner:-<empty>}";;
       ASSIGNED*|LOCKED*|RUNNING*|CLAIMED*)
         b_n=$((b_n+1))
         if [ -f "$PO/released/$topic.release" ]; then
@@ -60,7 +67,7 @@ while IFS=$'\t' read -r rank topic owner state rest; do
 done < "$Q"
 printf '\nQUEUE COLUMN RECONCILE: A(illegible, repairable)=%s   B(unservable, owner must decide)=%s\n' "$a_n" "$b_n"
 if [ "$b_n" -gt 0 ]; then
-  printf '   of which: B-RESERVED=%s (likely deliberate — leave alone)   B-STRANDED=%s (likely a lost lock)\n' "$b_res" "$b_str"
+  printf '   of which: B-RESTRICTED=%s (durable, nothing to do)   B-RESERVED=%s (deliberate but FRAGILE)   B-STRANDED=%s (likely a lost lock)\n' "$b_restr" "$b_res" "$b_str"
   printf '⛔ NO SEAT CAN BE SERVED EITHER KIND, but they want OPPOSITE treatment and this script will not guess:\n'
   printf '   B-RESERVED is how an HQ-only row is held (the picker ignores the owner column; only state is\n'
   printf '     load-bearing), so "unservable by a seat" is the POINT. Do not park these to FREE to tidy them.\n'
@@ -78,8 +85,16 @@ if [ "$b_n" -gt 0 ]; then
   # because the defect lived in a TRANSITION. (The durable cure -- a distinct RESTRICTED:<x> spelling rather
   # than special-casing ASSIGNED:<hq> inside unclaim -- is hq_P's recommendation and ceo's ruling to make.)
   printf '     ⚠ B-RESERVED IS FRAGILE: `unclaim` drives the column to FREE even over ASSIGNED:<hq>, so a\n'
-  printf '       reservation is destroyed by any correct release and is preserved only by `park`. This census\n'
-  printf '       is a SNAPSHOT — a row reserved here can be FREE and under way within minutes, nobody at fault.\n'
+  printf '       reservation in that spelling is destroyed by any correct release and is preserved only by\n'
+  printf '       `park`. This census is a SNAPSHOT — such a row can be FREE and under way within minutes.\n'
+  # ⭐ THE WARNING NOW NAMES THE CURE, NOT JUST THE HAZARD (hq_P's ask, after RESTRICTED:<x> landed in
+  # d1deda52). The fragility line above is still true but it is true of a SHRINKING set: a reservation
+  # spelled RESTRICTED:<x> survives unclaim by construction, which was the entire point of minting it. An
+  # instrument that warns about a hazard while a durable alternative exists, and does not name it, is
+  # leaving the reader to rediscover the fix -- so this points at the spelling instead.
+  printf '     ✅ THE DURABLE SPELLING IS `park <topic> RESTRICTED:<owner>` — it survives unclaim by\n'
+  printf '       construction. If a B-RESERVED row above is a deliberate hold, RE-SPELL IT RESTRICTED and it\n'
+  printf '       stops being a snapshot. Prefer that over ASSIGNED:<hq>-as-reservation for any new hold.\n'
   printf '   B-STRANDED is a genuine marooning: `park <topic> FREE` returns it to the picker, or\n'
   printf '     `assign <seat> <topic>` locks it properly.\n'
   printf '   ⭐ The split is a HEURISTIC (presence of a released/ receipt), not a proof. Ask the owner before\n'
