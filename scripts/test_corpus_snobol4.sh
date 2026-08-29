@@ -111,7 +111,30 @@ while IFS= read -r sno; do
     [ ! -f "$ref" ] && continue
     label=$(basename "$sno" .sno)
     run_test "$label" "$sno" "$ref" "$input" ""
-done < <(find "$CORPUS/crosscheck" -name "*.sno" | sort)
+done < <(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort)
+# ⛔⭐ THE LOOSE CROSSCHECK TREE IS GONE, AND ITS ABSENCE HAS TWO CAUSES THAT LOOK IDENTICAL HERE
+# (hq_B 2026-08-29, on seat16's report of `find: corpus/crosscheck: No such file or directory`).
+#   (a) CONVERTED -- every loose file became a suite family under $CORPUS/tests/snobol4/crosscheck, which the
+#       suite block below discovers and grades. Correct end state; the loop above SHOULD find nothing.
+#   (b) MOVED/RENAMED -- the layout shifted again and this path is simply stale, in which case the board loses
+#       the whole subtree and still prints FAIL=0.
+# The $DEMO/$BEAUTY guard above already refuses (b) for its two subtrees, with the right words: "A clean
+# numerator over a shrunken denominator is the most dangerous shape a board has, and corpus paths have moved
+# three times in two days, so this WILL happen again." It happened again, to the ONE subtree not in that list.
+# ⛔ So crosscheck gets the same refusal, conditioned on the distinguisher the other two do not need: absence of
+# the loose tree is acceptable ONLY when the converted families are actually present to be graded instead.
+if [ ! -d "$CORPUS/crosscheck" ]; then
+    _cc_conv="$CORPUS/tests/snobol4/crosscheck"
+    if [ -d "$_cc_conv" ] && [ "$(find "$_cc_conv" -name '*.sno' 2>/dev/null | wc -l)" -gt 0 ]; then
+        echo "note: loose crosscheck tree is absent and its converted families ARE present ($(find "$_cc_conv" -name '*.sno' | wc -l) family file(s) at ${_cc_conv#$S4E/}) — graded by the suite block below, not skipped."
+    else
+        echo "⛔ GATE REFUSES: corpus subtree missing: $CORPUS/crosscheck"
+        echo "   AND no converted crosscheck families exist at $_cc_conv either, so this board would grade a"
+        echo "   NARROWER DENOMINATOR and still print FAIL=0. The corpus layout moved. Repoint this script;"
+        echo "   do NOT read a smaller total as a pass."
+        exit 2
+    fi
+fi
 
 # ── Suite families (corpus-suites-consolidation) ────────────────────────────────
 # ⭐ A converted family's loose files are gone (the crosscheck loop above simply stops finding
