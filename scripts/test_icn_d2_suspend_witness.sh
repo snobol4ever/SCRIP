@@ -78,6 +78,14 @@ end
 procedure main()
    every write(outer());
 end'
+mkw suspend_scan 'procedure gen()
+   local word; local line;
+   line := "aa bb cc";
+   line ? { while tab(upto(&letters)) do { word := tab(many(&letters)); suspend word } }
+end
+procedure main()
+   every write(gen());
+end'
 mkw suspend_after 'procedure gen()
    suspend 1;
    write("after");
@@ -96,7 +104,7 @@ end'
 mkw ctl_every 'procedure main()
    every write(1 to 3);
 end'
-WITNESSES="suspend_single suspend_multi suspend_loop suspend_nested suspend_after ctl_return ctl_every"
+WITNESSES="suspend_single suspend_multi suspend_loop suspend_nested suspend_after suspend_scan ctl_return ctl_every"
 # ---------------------------------------------------------------------------------------------------------------------
 # classify <expected-file> <got-file> <rc> -> CORRECT | WRONG | CRASH ; three states, never two.
 classify() { local exp="$1" got="$2" rc="$3"
