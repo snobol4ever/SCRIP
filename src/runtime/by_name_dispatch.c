@@ -301,7 +301,7 @@ int rt_builtin_is_known(const char *name)
         "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
-        "die", "script_die",
+        "die", "script_die", "srand",
         "callsame", "nextsame", "callwith",
         "__multi_call", "__param_check", "__blk_ref", "__blk_invoke",
         "TIME", "DATE",
@@ -564,6 +564,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
     if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
+    if (!strcmp(meth, "rand")) { *out = REALVAL((double)rand() / RAND_MAX * to_real(recv)); return 1; }
     if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) {
         int truthy; if (IS_INT_fn(recv)) truthy = (recv.i != 0); else if (IS_REAL_fn(recv)) truthy = (recv.r != 0.0); else truthy = (n > 0);
         *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1;
@@ -3432,6 +3433,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern void rt_script_die_surface(const char *msg);
         rt_script_die_surface(m);
         *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "srand") && nargs == 1) {
+        long seed = IS_INT_fn(args[0]) ? (long)args[0].i : (IS_REAL_fn(args[0]) ? (long)args[0].r : 0);
+        srand((unsigned int)seed);
+        *out = INTVAL(seed); return 1;
     }
     if (!strcmp(fn, "callsame") || !strcmp(fn, "nextsame") || !strcmp(fn, "callwith")) {
         if (g_redisp_top <= 0) { *out = FAILDESCR; return 1; }
