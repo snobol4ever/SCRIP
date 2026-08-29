@@ -108,7 +108,17 @@ end'
 # extensively pre-cure (rc=139, 5/5, plus a killswitch-off control) but that this INTEGRATED spelling was born
 # post-cure and had never been seen red THROUGH THIS SCRIPT. Those are different claims: the first proves the
 # SHAPE is detectable, the second proves THIS FILE'S OWN GRADING PATH reaches it.
-# MEASURED on a pre-cure tree (SCRIP 68046fa3; `grep -c rt_genp_spine_enter_n2 src/templates/bb/bb_call_value.cpp`
+# ⛔⭐ NAMING AN ABSENT SYMBOL MANUFACTURES EVIDENCE OF ITS PRESENCE — a defect hq_B created here and then
+# fell for (2026-08-29). The cure ceo's FINDING credits is identified by a symbol that HAS NEVER EXISTED IN
+# ANY SOURCE FILE, in any commit. Writing that name into this comment made it grep-findable, and a later
+# `git log --all -S<symbol>` returned exactly one hit — THIS COMMENT — which read as 'it was committed once'.
+# seat03 measured it correctly and independently (suspend_apply CRASH 5/5 both modes) and said the cure never
+# landed; they were right. Four documents now name that symbol and NONE of them is an implementation.
+# ⭐ THE RULE: when you record that something is ABSENT, do not spell its identifier in a way that a search
+# for the identifier will find and count as a sighting. Describe it instead, or mark the mention as prose.
+# The symbol in question is the N-2 spine-enter entrypoint named in that FINDING; it is deliberately NOT
+# spelled here. Check for the cure by BEHAVIOUR (run this script) rather than by grepping for a name.
+# MEASURED on a pre-cure tree (SCRIP 68046fa3; the cure's symbol absent from src/templates/bb/bb_call_value.cpp,
 # = 0, i.e. the cure demonstrably absent), running this script unmodified:
 #     suspend_apply    m3=CRASH   (crash 2/2  ) m4=CRASH   (crash 2/2  ) m3=m4     -> ⛔ NOT GREEN
 # So the slot is live, reaches the compiler, and can report failure on exactly the shape it was added for.
