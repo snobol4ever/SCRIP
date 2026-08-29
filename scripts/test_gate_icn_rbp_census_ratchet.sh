@@ -57,6 +57,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
 ICN_C_BASELINE="${ICN_C_BASELINE:-0}"
+ICN_E_BASELINE="${ICN_E_BASELINE:-961}"   # ⭐ CLASS E ratchet (Lon grant 2026-08-29): ζ-ACTIVATION refs in region-resident generator frames -- never-rising; set at flip-time measurement, lowered manually in the landing commit like C.
 PY="$HERE/util_icn_rbp_census.py"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$BENCH" ] || { echo "⛔ REFUSED-TO-GRADE no Icon benchmark corpus at $BENCH"; exit 2; }
@@ -77,6 +78,7 @@ OUT=$(SCRIP="$SCRIP" python3 "$PY" "${ICN_FILES[@]}" 2>&1); RC=$?
 printf '%s\n' "$OUT"
 C=$(printf '%s\n' "$OUT" | sed -n 's/^RATCHET_C=\([0-9]*\)$/\1/p' | tail -1)
 A=$(printf '%s\n' "$OUT" | sed -n 's/^CEREMONY_A=\([0-9]*\)$/\1/p' | tail -1)
+E=$(printf '%s\n' "$OUT" | sed -n 's/^ACTIVATION_E=\([0-9]*\)$/\1/p' | tail -1)
 [ -n "$C" ] || { echo "GATE FAIL: census produced no RATCHET_C line"; exit 2; }
 echo
 if [ "$RC" -ne 0 ]; then
@@ -93,6 +95,16 @@ if [ "$C" -lt "$ICN_C_BASELINE" ]; then
     echo "  -> lower ICN_C_BASELINE to $C in THIS commit (manual; parallel sessions share this file)."
 else
     echo "RATCHET OK: C_data=$C == baseline."
+fi
+[ -n "$E" ] || { echo "GATE FAIL: census produced no ACTIVATION_E line (fifth class missing -- census/gate version skew)"; exit 2; }
+if [ "$E" -gt "$ICN_E_BASELINE" ]; then
+    echo "GATE FAIL: RATCHET E_activation=$E > baseline=$ICN_E_BASELINE (+$((E-ICN_E_BASELINE)))."
+    exit 1
+fi
+if [ "$E" -lt "$ICN_E_BASELINE" ]; then
+    echo "RATCHET OK, TIGHTEN: E_activation=$E < baseline=$ICN_E_BASELINE -- lower ICN_E_BASELINE to $E in THIS commit."
+else
+    echo "RATCHET OK: E_activation=$E == baseline."
 fi
 if [ -n "$ICN_A_EXPECT" ]; then
     if [ "$A" -ne "$ICN_A_EXPECT" ]; then

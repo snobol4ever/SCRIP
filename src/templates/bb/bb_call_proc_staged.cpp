@@ -724,7 +724,7 @@ static std::string bcps_spine_gen_arm() {
      * g_emit_cfg->all[] finds, so the offset/base it returns actually describes THIS call. MEASURED true on
      * suspend_single (off=0 base=144) and same_gen_twice (off=0/96, base=240 both calls, matching the selftest exactly).
      * (2) g_emit.flat_lcl_proc is true for every host in the four flat_lcl_proc-hosted D2 shapes -- but FALSE for
-     * suspend_nested's outer()->inner() call, because outer() is itself flat_gen and icn_genframe2()'s flat_gen prologue
+     * suspend_nested's outer()->inner() call, because outer() is itself flat_gen and icn_gen_regime()'s flat_gen prologue
      * arm (emit.cpp ~2832) never calls icn_gen_host_reserve() -- confirmed by grep, zero hits in that arm's span.
      * ⛔ THIS IS A REAL GAP, NOT AN IMPLEMENTATION DETAIL: a generator calling another generator has no reservation
      * mechanism at all yet. Extending icn_gen_host_reserve() to the flat_gen arm is its own piece of work, not step 3's.
@@ -735,8 +735,8 @@ static std::string bcps_spine_gen_arm() {
      * caught at design time), so the guard is the SUM, not the offset. ⛔ A site that cannot supply a region under arming BOMBS loudly (rt_bomb at run time) rather than letting the shared prologue read
      * garbage at [rsp+16] -- that silent-wild-rbp is exactly the shape s282 ruled UNSOUND in option (a). flat_gen-hosted calls (suspend_nested) land here until the transitive-reserve follow-on row. */
     int n2_base = -1, n2_off = -1, n2_res = 0, n2_fb = -1;
-    if (icn_genframe2()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
-    if (icn_genframe2() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");   /* the beta label must still be DEFINED -- a later box's beta chain jumps to it (suspend_nested: outer's suspend beta resumes the inner call), and an early return without it dies as an unresolved forward reference at bb_emit_end instead of as this bomb */
+    if (icn_gen_regime()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
+    if (icn_gen_regime() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");   /* the beta label must still be DEFINED -- a later box's beta chain jumps to it (suspend_nested: outer's suspend beta resumes the inner call), and an early return without it dies as an unresolved forward reference at bb_emit_end instead of as this bomb */
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     return x86_alpha()
          + x86_scan_sync_out()
@@ -757,12 +757,12 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-         + IF(icn_genframe2(), x86("comment", "N-2 STEP 3 REGION HAND-OFF (ceo s283): push the callee's region slice address as the third word above the wire pair -- it lands at [entry rsp+16] where the new alpha reads it. Depth arithmetic: pad+L7 = 16 bytes are already down since the carve, so the slice [carve + base + off] is [rsp + base + off + 16] HERE; this constant is verifiable in the .s and breaks loudly (bomb'd alpha reads garbage) if a push is ever added between L7 and this point. Alignment: one extra 8B word flips nothing that matters -- the ABI-sensitive calls (open_det above, args_install inside the callee) keep their old mod-16 classes because the callee no longer subs its ft (alpha carves nothing).")
+         + IF(icn_gen_regime(), x86("comment", "N-2 STEP 3 REGION HAND-OFF (ceo s283): push the callee's region slice address as the third word above the wire pair -- it lands at [entry rsp+16] where the new alpha reads it. Depth arithmetic: pad+L7 = 16 bytes are already down since the carve, so the slice [carve + base + off] is [rsp + base + off + 16] HERE; this constant is verifiable in the .s and breaks loudly (bomb'd alpha reads garbage) if a push is ever added between L7 and this point. Alignment: one extra 8B word flips nothing that matters -- the ABI-sensitive calls (open_det above, args_install inside the callee) keep their old mod-16 classes because the callee no longer subs its ft (alpha carves nothing).")
               + x86("comment", "N-2 TRANSITIVE (seat06 2026-08-29): a FLAT_GEN caller has no stack carve to be RSP-relative INTO -- its own storage is RBP-relative (rbp=H, item 1 rebase + STEP 3 region-resident alpha), fixed regardless of the pad/L7 pushes just above, so no +16 depth-tracking applies the way it does for a flat_lcl_proc caller's RSP-relative slice.")
               + (g_emit.flat_gen ? x86("lea", "rcx", RDQ("rbp", n2_base + n2_off)) : x86("lea", "rcx", RDQ("rsp", n2_base + n2_off + 16))) + x86("push", "rcx"))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
-         + (icn_genframe2()
+         + (icn_gen_regime()
             ? /* N-2 STEP 3 (ceo s283): L(3) is still the SHARED landing and al still tells a RETIRE (DT_FAIL, arrives with rsp ALREADY restored to the anchor by the retire arm) from a SUSPEND (arrives on the
                * generator's scratch rsp with rdx = the region header H). Both arms now run every FRQ at TRUE depth (rsp = carve), which buries the old trio of depth defects this landing carried: the suspend
                * arm joined 8 low so FRQ(act) read [carve+56] (garbage), both banks wrote [carve+64] -- the act FLAG -- while beta read [carve+72], and the epilogue calls ran 8-misaligned on the suspend path
@@ -882,7 +882,7 @@ static std::string bcps_spine_gen_arm() {
                      + x86_omega("je")
                      + x86_gamma();
               })()
-            : (icn_genframe2()
+            : (icn_gen_regime()
                ? x86("comment", "N-2 STEP 3 BETA (ceo s283): the banked token is the region header H, not a stack record. Re-create the generator's body rsp from the ANCHOR -- [H+24] is the caller's pre-pad rsp0 and the body ran 40 below it at first entry (pad+L7+region+wire pair), so anchor-40 IS first-entry depth and parity, per activation, per call site -- then jump the resume label stored at [H+32] with the token in rax for the resume landing's one-instruction rbp repoint. The old form (mov rsp,[record]; jmp [rsp]) read a stack record the caller's own calls had already scribbled over.")
                  + x86("mov", "rax", FRQ(act + 8))
                  + x86("mov", "rsp", RDQ("rax", 24))

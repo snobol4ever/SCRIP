@@ -47,6 +47,13 @@ CEREM_RE = re.compile(
 # VALUE is not a frame reference (class D scratch; the `mov rcx, rbp` wire-adopt marshal) --
 # counting either makes zero unreachable, the exact failure mode FLATDISP-9 was written to fix.
 DATA_RE = re.compile(r'\[\s*rbp\s*[+\-]')
+# ⭐ CLASS E (the FIFTH CLASS -- Lon's grant 2026-08-29, ceo landing): ζ-ACTIVATION refs inside a
+# REGION-RESIDENT generator activation frame.  The N-2 alpha establishes rbp by pointing it INTO the
+# host-carved region -- `lea rbp, [rax + ft]` -- not by seeding it from rsp, so without this class
+# every generator ζ ref would read as class-C-without-a-seed, i.e. DRIFT, and the zero-assert would
+# convict the ruled design.  E is counted SEPARATELY and ratchets under its own never-rising baseline
+# (ICN_E_BASELINE in the gate); C_data stays a zero-assert everywhere a generator frame is absent.
+GENSEED_RE = re.compile(r'\blea\s+rbp\s*,\s*(qword ptr\s*)?\[\s*rax\s*\+\s*\d+\s*\]')
 
 
 def regions(lines):
@@ -68,10 +75,11 @@ def regions(lines):
 
 def census(path):
     lines = open(path, encoding='utf-8', errors='replace').read().splitlines()
-    a = c = d = drift = 0
+    a = c = d = e = drift = 0
     offenders = []
     for name, body in regions(lines):
         seeded = any(SEED_RE.search(l) for l in body)
+        genseeded = any(GENSEED_RE.search(l) for l in body)
         for l in body:
             if CLASSD_RE.search(l):
                 d += 1
@@ -80,11 +88,14 @@ def census(path):
                 a += 1
                 continue
             if DATA_RE.search(l):
+                if genseeded:
+                    e += 1
+                    continue
                 c += 1
                 if not seeded:
                     drift += 1
                     offenders.append((name, l.strip()))
-    return a, c, d, drift, offenders
+    return a, c, d, e, drift, offenders
 
 
 def main():
@@ -93,7 +104,7 @@ def main():
     if not files:
         print("usage: util_icn_rbp_census.py <prog.icn|prog.s> ...", file=sys.stderr)
         return 2
-    tA = tC = tD = tDrift = 0
+    tA = tC = tD = tE = tDrift = 0
     all_off = []
     for f in files:
         if f.endswith('.s'):
@@ -105,18 +116,19 @@ def main():
                 r = subprocess.run([scrip, '--compile', f], stdout=fh,
                                    stderr=subprocess.DEVNULL, timeout=180)
             sp = tmp.name
-        a, c, d, drift, off = census(sp)
-        tA += a; tC += c; tD += d; tDrift += drift
+        a, c, d, e, drift, off = census(sp)
+        tA += a; tC += c; tD += d; tE += e; tDrift += drift
         for o in off:
             all_off.append((os.path.basename(f),) + o)
-        print("%-34s A_ceremony=%-5d C_data=%-6d D_scratch=%-3d drift=%-4d %s"
-              % (os.path.basename(f), a, c, d, drift, 'OK' if drift == 0 else '<-- DRIFT'))
+        print("%-34s A_ceremony=%-5d C_data=%-6d D_scratch=%-3d E_activation=%-5d drift=%-4d %s"
+              % (os.path.basename(f), a, c, d, e, drift, 'OK' if drift == 0 else '<-- DRIFT'))
         if tmp:
             os.unlink(tmp.name)
-    print("TOTAL A_ceremony=%d  C_data=%d  D_scratch=%d  DRIFT=%d"
-          % (tA, tC, tD, tDrift))
+    print("TOTAL A_ceremony=%d  C_data=%d  D_scratch=%d  E_activation=%d  DRIFT=%d"
+          % (tA, tC, tD, tE, tDrift))
     print("RATCHET_C=%d" % tC)
     print("CEREMONY_A=%d" % tA)
+    print("ACTIVATION_E=%d" % tE)
     if all_off:
         print("\nDRIFT -- class-C refs in regions whose prologue never seeded rbp:")
         for fn, rg, l in all_off[:40]:

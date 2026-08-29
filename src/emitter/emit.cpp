@@ -2859,7 +2859,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
         if (g_emit_cfg && g_emit_cfg->pl_cells_graph && g_emit.flat_all_zd) { int _plk = 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && zd_wl_kind(_nd)) _plk += zd_k(_nd); } if (_plk > 0) { bb_emit_x86(x86("sub", "rsp", (long)_plk)); } }
-    } else if (icn_genframe2() && g_emit.flat_gen) {
+    } else if (icn_gen_regime() && g_emit.flat_gen) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
@@ -3245,7 +3245,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
         if (g_emit.flat_pat) {
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
-        } else if (icn_genframe2() && g_emit.flat_gen) {
+        } else if (icn_gen_regime() && g_emit.flat_gen) {
             bb_emit_x86(x86("comment", "N-2 STEP 3 RESUME LANDING (ceo s283): beta re-enters with rax = the region header H (the banked token) and rsp already re-created at rsp0-40 = first-entry body depth (beta does mov rsp,[H+24]; sub rsp,40 before jumping [H+32]). Nothing lives on the machine stack any more -- no 4-word record to discard, no [rsp+24] to read -- so the landing is one instruction: repoint rbp at the header and fall through into the body. ⛔ The landing must NOT release the frame: yielding is not returning (Lon s195).")
                       + x86("mov", "rbp", "rax"));
         } else {
@@ -3296,7 +3296,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         IR_t * _tt = zd_chase(nodes[i]->γ.node); if (_tt && _tt->op == IR_SUCCEED) { if (_ti >= 0) { _ti = -2; break; } _ti = i; } }
                     if (_mok && _ti >= 0 && nodes[_ti]->op != IR_MATCH_FENCE1 && nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt = betas[_ti];
                 } } } }
-        if (icn_genframe2() && g_emit.flat_gen && g_suspend_resume_slot >= 0)
+        if (icn_gen_regime() && g_emit.flat_gen && g_suspend_resume_slot >= 0)
             bb_emit_x86(x86("comment", "N-2 MULTI-SUSPEND RESUME (ceo s283c): with more than one suspend STATEMENT the graph beta cannot be a static jump to the FIRST suspend's beta -- resuming after the LAST yield would replay the tail forever (two_susp witness: 1,2 then 2 forever; scan2's 4.3M-line runaway). Every suspend's alpha already seeds FRQ(op_sb) with ITS OWN beta label (bb_suspend x86_lea_tgt TGT1), so the slot always names the last yielder -- dispatch through it. Armed flat_gen only; the static jump below stays for every other graph, byte-identical unarmed.")
                       + x86("mov", "rax", FRQ(g_suspend_resume_slot)) + x86_jmp_reg("rax"));
         else
@@ -3337,7 +3337,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (icn_genframe2() && g_emit.flat_gen) {
+    else if (icn_gen_regime() && g_emit.flat_gen) {
         bb_emit_x86(x86("comment", "N-2 STEP 3 SUSPEND (ceo s283): yielding KEEPS the frame -- and the frame is the REGION now, so nothing is pushed. The record collapses into the header: store the resume label at [H+32], hand the caller H itself as the token in rdx (the landing banks it into FRQ(act+8) and reads the yielded descriptor from [H-ft], the frame's return slot -- the value path s273 measured missing), restore the caller's rbp from [H+0], and jump gamma read from [H+8]. gamma/omega/anchor survive IN THE REGION for every later yield -- the old stack copies died the moment the caller ran, which is why suspend_multi's second yield read garbage ports.")
                   + x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
@@ -3357,7 +3357,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }
-    else if (icn_genframe2() && g_emit.flat_gen) {
+    else if (icn_gen_regime() && g_emit.flat_gen) {
         bb_emit_x86(x86("comment", "N-2 STEP 3 RETIRE (ceo s283): exhaustion restores the caller's world entirely from the region header -- rsp from the ANCHOR at [H+24] (= caller pre-pad rsp0, so the landing's retire arm releases NOTHING), caller rbp from [H+0], and jumps the gamma wire from [H+8] carrying DT_FAIL in al, which is how the shared landing tells a retirement from a yield. ⛔ No ret: after the first suspend the stack words the old ret popped are long dead -- the region is the only storage whose contents this exit may trust. The region itself is the HOST's to reuse; nothing is freed here.")
                   + x86("mov", "rcx", RDQ("rbp", 8))
                   + x86("mov", "rsp", RDQ("rbp", 24))
