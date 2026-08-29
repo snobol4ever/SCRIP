@@ -52,6 +52,8 @@ PYEOF
 cd "$W"
 REPS="${REPS:-20}"
 PROGS="${PROGS:-claws5-match treebank-match json-match calculator-1-match calculator-2-match}"
+_pcount=0; for _p in $PROGS; do _pcount=$((_pcount+1)); done   # ${VAR:-default} only substitutes on unset-or-empty-string; PROGS=" " (whitespace) survives it, and every `for p in $PROGS` loop below then word-splits to zero iterations while the script exits 0 -- silent, contentless success is worse than a printed all-zero table (row bench-sno-match4-progs-space-evasion)
+[ "$_pcount" -gt 0 ] || { echo "⛔ REFUSING: PROGS is empty or whitespace-only after defaulting -- nothing to benchmark." >&2; exit 3; }
 for p in $PROGS; do mkrep "$D/$p.sno" "$W/$p-rep.sno" "$REPS"; done
 for p in $PROGS; do "$SCRIP" --compile "$W/$p-rep.sno" > "$W/$p.s" 2>/dev/null; gcc -no-pie "$W/$p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$p.prog" 2>/dev/null || { echo "$p BUILD FAIL"; exit 1; }; done
 for p in $PROGS; do IN=$(input_of $p)
