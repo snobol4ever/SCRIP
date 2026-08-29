@@ -59,18 +59,32 @@ gate_stamp() {
         printf ' %s=%s%s' "$_r" "$_h" "$_dirty"
     done
     printf '  measured %s\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
-    # ⛔⭐ AND THE MACHINE, BECAUSE A TIMING-DEPENDENT VERDICT IS MACHINE-RELATIVE AS WELL AS TREE-RELATIVE
-    # (hq_C's ask, 2026-08-29, hitting it live on fuzz-nondeterminism-rootcause). Any gate or runner with a
-    # `timeout` in it can return rc=124, and rc=124 is THE TIMEOUT FIRING, not a property of the program --
-    # it is a function of how loaded this box is. hq_C measured load 20-22 on 16 cores with ~20 seat roots
-    # and three concurrent pristine builds; re-measured here at 23.83. On a box like that a witness can flip
-    # rc 0 vs 124 with no code change at all, and the reader cannot tell the program from the fleet.
+    # ⛔⭐ AND THE MACHINE, BECAUSE A TIMING-DEPENDENT VERDICT IS MACHINE-RELATIVE AS WELL AS TREE-RELATIVE.
+    # ⚠️ READ THE PROVENANCE BEFORE CITING THIS. It was asked for by hq_C against fuzz-nondeterminism-rootcause,
+    # where a witness appeared to flip rc 0 vs 124 with no code change. hq_C THEN RETRACTED THAT CASE ON THEIR
+    # OWN MEASUREMENT and told me before I could build on it: a duration histogram (N=8, 20s ceiling, mode 3)
+    # put fz_red_m1b at 0.02s x2 vs >=20.01s x6 and fz_segv_24 at 0.02s x4 vs >=20.01s x4 -- NOTHING near the
+    # 8s boundary. A load-induced timeout clusters durations AROUND the boundary; those sit at 0.02s or run
+    # past any ceiling offered. The hang is genuine and unbounded, and load was irrelevant to it.
+    # ⭐ THE FEATURE STAYS, ON DIFFERENT AND INDEPENDENTLY MEASURED EVIDENCE -- not on the retracted case, and
+    # this comment says so rather than quietly keeping the old justification. Measured here the same session:
+    # test_corpus_snobol4.sh reported TIME TOTAL=487s where CLAUDE.md documents that board at ~28s, a 17x
+    # spread on one box at load ~22/16 cores. A timeout tuned to the documented figure would SIGTERM a fully
+    # green board and read as a hang. That is the real case, it is this file's own kind of instrument, and it
+    # is why the stamp is worth its two lines.
+    # ⛔ WHAT hq_C'S RETRACTION ACTUALLY PROVED IS SHARPER THAN THE ASK, AND IT IS NOT ABOUT LOAD: rc=124 is
+    # byte-identical whether a program needs 8.1 seconds or forever, so the code has no capacity to
+    # distinguish its two causes and every reader supplies the one they already believe -- six sessions read
+    # a timeout code and inferred a hang, and were right by luck. ONLY A DURATION DISTRIBUTION SEPARATES THEM.
+    # So the honest lesson is that an rc is not a measurement of time; if a verdict depends on duration,
+    # RECORD THE DURATION. This stamp records the machine, which is the cheap half; the expensive half belongs
+    # in whatever instrument is doing the timing.
     # ⭐ A NUMBER'S TREE IS PART OF ITS LABEL; FOR A TIMING-DEPENDENT NUMBER THE MACHINE STATE IS TOO, and
     # omitting it is the same omission wearing a clock. The ratio is what matters, so nproc is printed beside
     # the load rather than leaving the reader to guess the core count of a box they may never see.
     local _la _np
     _la="$(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null)"; _np="$(nproc 2>/dev/null)"
-    [ -n "$_la" ] && printf '    machine: load %s on %s core(s) — rc=124 anywhere in this run is a TIMEOUT, and timeouts are load-dependent\n' "$_la" "${_np:-?}"
+    [ -n "$_la" ] && printf '    machine: load %s on %s core(s) — an rc=124 in this run is a TIMEOUT FIRING, which is not by itself evidence of a hang: it cannot distinguish "needs 8.1s" from "never finishes". If a verdict turns on duration, record the duration.\n' "$_la" "${_np:-?}"
 }
 # gate_require <path> <what-it-is> -- a prerequisite that must exist.  Absent => UNPROVEN(2), never SKIP-0.
 gate_require() {
