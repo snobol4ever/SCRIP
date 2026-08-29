@@ -873,49 +873,99 @@ inline int icn_gen_zeta_ft() {   /* ⭐⭐ N-2 ITEM 1 (hq_P s276): RE-HOME GENER
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);   /* N-2 step 2b: defined in src/ir/zeta_storage.c over the EXISTING pz[] registry. Branch on the RETURN (1 = known, 0 = forward reference), never on the value. */
 extern "C" int rt_proc_is_registered(const char * name);
 extern "C" int rt_proc_is_generator(const char * name);
+extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);   /* N-2 transitive reserve (seat06 2026-08-29): defined in src/driver/scrip.c over g_stage2 -- the one place the emitter reaches cross-graph. NULL on an unknown name. */
+extern "C" int emit_graph_has_suspend(IR_graph_t * g);   /* defined in emit.cpp, inside its file-wide extern "C" block (hence extern "C" here too, matching every other cross-declared emit.cpp function in this file) -- the SAME rule g_emit.flat_gen itself uses (is_generator && has-suspend), reused here rather than re-derived, so "is this callee ALSO a flat_gen host" can never drift from what the callee's own emission will actually decide. */
+#define N2_RESERVE_MAX_DEPTH 32
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐⭐ N-2 TRANSITIVE-RESERVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): THE RECURSIVE CORE, shared by all three consumers below (reserve/offset/selftest) so the
+   per-callee arithmetic can never drift between them again -- the exact failure this file's own comments name twice already (the 240-vs-144 carve/release drift, the off=0/off=-1 predicate-drift
+   catch). reserve(g) = SUM over g's registered-generator call nodes of (align16(ft_callee) + 48 + reserve(callee)), where reserve(callee) recurses ONLY when callee's own graph would itself emit
+   with the flat_gen (region-nesting) prologue -- never for a zframe_graph callee, which uses a wholly different storage protocol this row does not touch, and whose registered ft is already its
+   complete self-contained size. ⛔ VISITED IS THE CURRENT RECURSION PATH, NOT AN EVER-SEEN SET: two sibling call sites legitimately calling the SAME leaf generator twice must each be summed
+   (icn_gen_host_reserve()'s own SUM-NOT-MAX law) -- a path-scoped set added-before-recurse/removed-after-return is what tells that apart from actual self/mutual recursion, which GOAL explicitly
+   rules out of THIS formula ("a recursive generator's activations cannot share one static slice; per-activation storage is a separate design, do not fold it in"). A cycle is treated exactly like
+   a forward reference already is: the WHOLE host's reservation refuses (returns 0 in icn_gen_host_reserve, -1 in the offset scan) rather than silently omitting just the cyclic branch's bytes --
+   omitting only that branch would under-reserve by exactly that branch's size, the silent-too-small class ceo refused worst-case reservation over, arriving through a new door. */
+static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited);   /* forward: the pair below is mutually recursive */
+static int icn_gen_host_reserve_walk(IR_graph_t * g, const char ** visited, int nvisited, int * out_total) {
+    if (!g) { *out_total = 0; return 1; }
+    int total = 0;
+    for (int i = 0; i < g->n; i++) {
+        IR_t * hn = g->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        const char * cn = IR_LIT(hn).sval;
+        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+        int bytes = 0;
+        if (!icn_gen_host_slice(cn, &bytes, visited, nvisited)) return 0;   /* forward-ref or cycle anywhere below: the WHOLE host refuses, per the comment above */
+        total += bytes;
+    }
+    *out_total = total; return 1;
+}
+static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited) {
+    int fb = -1;
+    if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;   /* forward reference: not yet registered */
+    for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) return 0;   /* cn is its own ancestor on this path: cycle, refuse loudly by the caller */
+    int sub = 0;
+    IR_graph_t * cg = n2_graph_by_proc_name(cn);
+    if (cg && emit_graph_has_suspend(cg) && !cg->zframe_graph) {   /* recurse only when cn's OWN graph would itself emit flat_gen -- mirrors g_emit.flat_gen's own rule plus the zframe-wins priority the prologue if/else-if chain gives it (emit.cpp ~2829) */
+        if (nvisited >= N2_RESERVE_MAX_DEPTH) return 0;   /* depth cap, refused loudly by the caller -- never silently truncated */
+        const char * nv[N2_RESERVE_MAX_DEPTH]; int k = 0;
+        for (; k < nvisited; k++) nv[k] = visited[k];
+        nv[k++] = cn;
+        if (!icn_gen_host_reserve_walk(cg, nv, k, &sub)) return 0;
+    }
+    *out_bytes = (((fb + 15) & ~15) + 48) + sub; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 STEP 2b (hq_P s278): THE HOST RESERVATION -- bytes THIS graph must add to its own α carve to hold the activation frames of the suspend-generators it directly calls, or 0. ⛔⭐ IT LIVES IN THIS HEADER FOR THE SAME REASON icn_genframe2() DOES, AND I LEARNED IT THE HARD WAY: the α carve is emitted from the DRIVER (emit.cpp) while the γ/ω releases are emitted from a template into libscrip_rt.so -- TWO LINK UNITS. Defining it in emit.cpp linked clean for the driver and died `undefined reference to icn_gen_host_reserve(char const*)` when the RT tried to call it. ⛔⛔ THE CARVE AND THE RELEASE MUST DERIVE THIS FROM ONE FUNCTION: they were two copies of one formula and they DRIFTED -- measured on a proc host, armed carve 240 / release 144, with `jmp qword ptr [rsp]` then reading a wrong return address. Armed-only, so it never shipped broken, but it would have surfaced when items 3-4 armed the path and read as THEIR defect. ⭐ Pure function of g_emit_cfg + the gate, so both sides may call it and nothing is stored -- no new global. ⛔ A FORWARD REFERENCE RESERVES NOTHING AND SAYS SO: step 1 measured that a host which is itself a proc calling a generator declared LATER is not yet registered; reading that as 0 would hand step 3 a carve silently too small, the class ceo refused worst-case reservation over. `prefix` non-NULL announces that refusal; the epilogues pass NULL so one graph reports once. ⛔ SUM, NOT MAX: two generators live at once each need their own region. */
     if (!icn_genframe2() || !g_emit_cfg) return 0;
-    int total = 0, forward = 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) {
-        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        { const char * cn = IR_LIT(hn).sval;
-          if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) total += (((fb + 15) & ~15) + 48); else forward++; } }   /* N-2 STEP 3 (ceo s283): +48 = the region HEADER above the callee's ft bytes -- [H+0]=saved caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR (caller pre-pad rsp0) [H+32]=resume label [H+40]=spare/16B-align. The slice is [R, R+ft+48) with H=R+ft; the generator runs with rbp=H so every FRQ/ZOPQ spelling from item 1 lands inside the region unchanged. ⛔ ALL THREE SCANS IN THIS HEADER (reserve/offset/selftest) MUST CARRY THE SAME PER-CALLEE ARITHMETIC -- two copies of one formula drift, every time (the 240-vs-144 lesson above). */
+    /* N-2 TRANSITIVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): NOW RECURSIVE. The +48-header-per-callee
+       arithmetic is unchanged (see icn_gen_host_slice/icn_gen_host_reserve_walk above, the ONE place it is written down for all
+       three consumers of this file); the addition is + reserve(callee), walked through n2_graph_by_proc_name. Seeded with
+       g_emit.flat_fam (this host's own bare name, already computed once per chain -- no new global) so DIRECT self-recursion is
+       caught the same way as transitive/mutual recursion: as a cycle on the current path, never an ever-seen set, so two sibling
+       call sites legitimately sharing one leaf generator still SUM (unchanged law, see the shared core's own comment). */
+    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
+    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
+    int total = 0;
+    if (!icn_gen_host_reserve_walk(g_emit_cfg, visited, nv, &total)) {
+        if (prefix) fprintf(stderr, "[GENHOST] ⛔ host=%s RESERVES NOTHING: a generator callee (direct or transitive) is not yet registered (forward reference) or is recursive/cyclic (unsupported -- per-activation storage is a separate design, GOAL). A partial carve would be silently too small.\n", prefix);
+        return 0;
     }
-    if (forward) { if (prefix) fprintf(stderr, "[GENHOST] \u26d4 host=%s RESERVES NOTHING: %d generator callee(s) not yet registered (forward reference). A partial carve would be silently too small.\n", prefix, forward); return 0; }
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserved(void) {   /* ⛔⭐ N-2 ITEM 3 (hq_P s282, UPDATED 2026-08-29): DID **THIS** HOST ACTUALLY RESERVE? -- the question icn_gen_host_reserve_offset() was answering by assumption. icn_gen_host_reserve() is now called from BOTH non-zframe arms of the three-arm prologue chain: `if (zframe_graph)` :2829 (never reserves) / `else if (icn_genframe2() && flat_gen)` :2832 (N-2 item 3 flat_gen half, 2026-08-29 -- mirrors the flat_lcl_proc arm's own reservation computation) / `else if (flat_lcl_proc)` :2845 (step 2b). A graph can be flat_gen AND flat_lcl_proc at once (emit.cpp:3535-3536 sets flat_lcl_proc under `_gfr && icn_cells_graph`), in which case the flat_gen arm wins because it is tested first -- so `flat_lcl_proc` ALONE IS NOT THE PREDICATE, and neither arm may be assumed silent without checking emit.cpp directly. ⛔⛔ THIS MIRRORS AN else-if CHAIN IN ANOTHER TRANSLATION UNIT AND THERE IS NO COMPILER CHECK THAT IT STILL DOES: if a fifth arm is added, or either reserve call moves, THIS PREDICATE MUST MOVE WITH IT -- caught ONE session late here: extending the flat_gen arm's carve without updating this function was measured live via SCRIP_N2_OFFSET_SELFTEST=1 (host=proc_outer on nested.icn: expect_off=0, got_off=-1, MISMATCH) before it shipped. test_icn_n2_host_reserved_agrees.sh is the canary -- it compares this predicate against the carve actually emitted; its witness assertions were updated in the same commit to expect BOTH host kinds to answer now, not just flat_lcl_proc. */
+inline int icn_gen_host_reserved(void) {   /* N-2 ITEM 3 (hq_P s282), FLIPPED (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): DID THIS HOST ACTUALLY RESERVE? Host-KIND predicate (which prologue arm ran: emit.cpp's if/else-if chain at ~2829, zframe first / flat_gen second / flat_lcl_proc third), not a per-compile success/failure flag -- a forward-reference or cycle is caught by icn_gen_host_reserve()/icn_gen_host_reserve_offset() returning 0/-1 on THIS specific query, same as it always was for flat_lcl_proc. The flat_gen arm now answers 1 like flat_lcl_proc always has: the region-resident carve this row adds gives a flat_gen host real reserved bytes to hand its own generator callees, so the "no reservation mechanism at all" refusal this arm existed to enforce (ceo s283, superseding 06d4852f) no longer applies. test_icn_n2_host_reserved_agrees.sh is the canary -- it compares this predicate against the carve actually emitted. */
     if (g_emit.zframe_graph) return 0;
-    if (icn_genframe2() && g_emit.flat_gen) return 0;   /* ⛔ N-2 STEP 3 (ceo s283): REFUSAL RESTORED, superseding 06d4852f's return-1 -- under the region-resident alpha a flat_gen host carves NOTHING on the stack, so answering here would hand the call site an rsp-relative base into storage that does not exist (wild region pointer, the exact class the s282 mixed-caller witness proved). seat01's predicate-drift catch (landing the carve without this mirror ships a live inconsistency) was CORRECT and is preserved in spirit: this mirror moves in the SAME commit as the arm again, in the refusing direction. Flips back to 1 only when icon-n2-flat-gen-host-transitive-reserve lands the region-nested reserve. */
+    if (icn_genframe2() && g_emit.flat_gen) return 1;
     return g_emit.flat_lcl_proc ? 1 : 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node, int * base_out = 0) {   /* N-2 ITEM 3 PREP (seat01, 2026-08-28): PER-CALLEE OFFSET WITHIN icn_gen_host_reserve()'s summed region -- that function answers "how many bytes total", never "which slice is THIS call site's". \u26d4 KEYED ON NODE IDENTITY, NEVER ON CALLEE NAME: the same generator proc called twice in one host is two independent live activations under SUM-not-max (see icn_gen_host_reserve()'s own comment), so a name-keyed lookup would hand both call sites the SAME offset. \u2b50 Walks g_emit_cfg->all[] with the IDENTICAL predicate icn_gen_host_reserve() uses, in the SAME order -- two independently-written scans over the same array is exactly the shape that drifted once already (that function's own comment names the carve/release incident); MEASURE the two agree before trusting either in a new consumer, never assume it from matching source. Landed INERT: zero call sites reference this yet. Returns -1 (never a guessed offset) if call_node is not a registered-generator call in this graph, or if a forward-referenced callee sits before it in scan order -- a partial answer is exactly the silently-too-small class the forward-reference guard already exists to refuse.
-       \u2b50\u2b50 EXTENDED (seat01, 2026-08-28, second pass, per hq_P's LEDGER-s281 answer): also exposes the host's OWN carve base via `base_out`, so carve, release, offset AND base all derive from ONE function instead of a second copy of `flat_frame_bytes + (np+nl)*16` living in a template -- exactly the shape that drifted 240-vs-144 once already (see icn_gen_host_reserve()'s own comment). hq_P's retraction is binding here: emit.cpp's `host_frame_base` local is computed and explicitly discarded (`(void)host_frame_base`), never recorded or exported, so a caller in a DIFFERENT translation unit re-deriving it independently would be relying on `g_emit.flat_frame_bytes`/`g_emit_cfg->nparams`/`nlocals` still holding their host-\u03b1 values at a later, unverified point -- the same unverifiable-by-construction premise that was wrong at step 1b (`ft` "obviously" 0, measured 96). Centralizing here removes that premise: there is exactly one place this arithmetic is written down for step 3 to consume. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node, int * base_out = 0) {   /* N-2 ITEM 3 (seat01 2026-08-28), EXTENDED RECURSIVE + HOST-KIND-AWARE BASE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): PER-CALLEE OFFSET WITHIN icn_gen_host_reserve()'s summed region. KEYED ON NODE IDENTITY, NEVER CALLEE NAME (SUM-not-max: two calls to the same generator are two independent live activations, a name-keyed lookup would hand both the SAME offset). Walks g_emit_cfg->all[] with the IDENTICAL predicate icn_gen_host_reserve() uses, in the SAME order, and now shares its EXACT per-callee byte arithmetic too via icn_gen_host_slice -- not a second copy of it -- so recursion and cycle-refusal apply here identically to the total, never independently re-derived. ⛔ base_out IS HOST-KIND-AWARE, and getting this wrong is a wild-pointer bug, not a cosmetic one: a flat_lcl_proc host's OWN storage is RSP-relative (its region sits inside its own stack carve, base = frame_total before the reserve growth, unchanged from before this row), but a flat_gen host carves NOTHING on the stack -- its rbp IS H (item 1's rebase + N-2 STEP 3's region-resident alpha, emit.cpp ~2841), and its nested-callee slices start immediately past its OWN 48-byte header at rbp+48, a CONSTANT independent of frame_total/nparams/nlocals (none of which describe a flat_gen host's storage at all). Returns -1 (never a guessed offset) if call_node is not a registered-generator call in this graph, or if a forward-referenced or cyclic generator callee sits before it in scan order. */
     if (base_out) *base_out = -1;
     if (!icn_genframe2() || !g_emit_cfg || !call_node) return -1;
-    if (!icn_gen_host_reserved()) return -1;   /* ⛔⛔⭐ N-2 ITEM 3 (hq_P s282) -- THE FUNCTION WAS VIOLATING ITS OWN DOCUMENTED CONTRACT, AND MEASURED, NOT REASONED: on suspend_nested the inner() call site from flat_gen host outer() returned `off=0 base=128`, and on a two-caller witness the SAME generator returned `off=0 base=128` from its flat_gen host and `off=128 base=240` from its flat_lcl_proc host. ⛔ THE SCAN ABOVE IS HOST-KIND-BLIND: it walks g_emit_cfg->all[] and hands back an offset into a region THIS host never carved. Zero is the most dangerous possible answer here -- it is indistinguishable from a correct first-slot answer, so a step-3 consumer would carve at base+0 of a region that does not exist and corrupt the host frame, surfacing three layers away. That is the exact plausible-zero class this rung has already been bitten by twice (step 1 `hosts=0`, step 1b `ft` "obviously" 0 and measured 96). ⛔ THE RECORD SAID OTHERWISE: LEDGER-seat01 states this "correctly returns -1 ... because nothing was ever reserved for it". It does not, and did not; the refusal is added HERE. ⭐ INERT BY CONSTRUCTION -- this function has no emission consumer yet (the two references are a getenv diagnostic and the selftest), so no emitted byte can move; proven by .s byte-identity across all four frontends rather than argued. */
-    if (base_out) *base_out = g_emit.flat_frame_bytes + ((g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16);
+    if (!icn_gen_host_reserved()) return -1;
+    if (base_out) *base_out = g_emit.flat_gen ? 48 : (g_emit.flat_frame_bytes + ((g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16));
+    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
+    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
     int off = 0;
     for (int i = 0; i < g_emit_cfg->n; i++) {
         IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
         if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        { const char * cn = IR_LIT(hn).sval;
-          if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-          if (hn == call_node) return off;
-          { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) off += (((fb + 15) & ~15) + 48);   /* N-2 step 3: ft + 48-byte header per slice -- MUST match icn_gen_host_reserve()'s arithmetic above */
-            else { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] \u26d4 host=%s a forward-referenced generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; } }
-        }
+        const char * cn = IR_LIT(hn).sval;
+        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+        if (hn == call_node) return off;
+        { int bytes = 0; if (!icn_gen_host_slice(cn, &bytes, visited, nv)) { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] host=%s a forward-referenced or recursive/cyclic generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; }
+          off += bytes; }
     }
     return -1;   /* call_node was never seen as a registered-generator call in this graph's own scan */
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3 PREP (seat01, 2026-08-28): PROVES icn_gen_host_reserve_offset() against icn_gen_host_reserve()'s own total AND against an INDEPENDENTLY-accumulated local expectation -- a check that only re-derives the function under test is not a proof (RULES.md TWO-PART PROOF). getenv-gated (SCRIP_N2_OFFSET_SELFTEST), stderr only, zero emission effect -- inert by construction, same as N-2 step 1's own diagnostic. */
+inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3 PREP (seat01 2026-08-28), RECURSIVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): PROVES icn_gen_host_reserve_offset() against icn_gen_host_reserve()'s own total AND against an INDEPENDENTLY-accumulated expectation -- a check that only re-derives the function under test is not a proof (RULES.md TWO-PART PROOF). The independent accumulation now calls icn_gen_host_slice too (not a hand-rolled shadow of the arithmetic): with reserve() transitive, a shadow copy of just the direct-callee formula would systematically DISAGREE the moment any witness has a nested generator call, proving nothing about the case this row exists for. getenv-gated (SCRIP_N2_OFFSET_SELFTEST), stderr only, zero emission effect -- inert by construction, same as N-2 step 1's own diagnostic. */
     if (!icn_genframe2() || !g_emit_cfg) return;
     int total = icn_gen_host_reserve(0);
+    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
+    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
     int expect = 0, calls = 0, mismatches = 0;
     for (int i = 0; i < g_emit_cfg->n; i++) {
         IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
@@ -924,10 +974,10 @@ inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3
         if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
         int got = icn_gen_host_reserve_offset(0, hn);
         calls++;
-        if (got != expect) { mismatches++; fprintf(stderr, "[GENHOST-SELFTEST] ⛔ host=%s call#%d name=%s expect_off=%d got_off=%d MISMATCH\n", prefix ? prefix : "?", calls, cn, expect, got); }
-        { int fb = -1; if (emit_patzeta_frame_reserve(cn, &fb) && fb > 0) expect += (((fb + 15) & ~15) + 48); }   /* N-2 step 3: ft + 48-byte header -- the independent accumulation must mirror the reserve arithmetic or the selftest proves nothing */
+        if (got != expect) { mismatches++; fprintf(stderr, "[GENHOST-SELFTEST] host=%s call#%d name=%s expect_off=%d got_off=%d MISMATCH\n", prefix ? prefix : "?", calls, cn, expect, got); }
+        { int bytes = 0; if (icn_gen_host_slice(cn, &bytes, visited, nv)) expect += bytes; }
     }
-    if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "⛔ DISAGREE", mismatches);
+    if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "DISAGREE", mismatches);
 }
 inline int x86_zop_regime(int off) { if (x86_zstorage() == ZC_STORAGE_FRAME_R12) return 1; if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }

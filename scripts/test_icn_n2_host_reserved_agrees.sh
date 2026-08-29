@@ -1,24 +1,34 @@
 #!/usr/bin/env bash
-# test_icn_n2_host_reserved_agrees.sh -- N-2 item 3: THE HOST-RESERVED REFUSAL invariant (hq_P 2026-08-28).
+# test_icn_n2_host_reserved_agrees.sh -- N-2 item 3: THE HOST-RESERVED AGREEMENT invariant (hq_P 2026-08-28).
 #
-# THE CLAIM UNDER TEST:  icn_gen_host_reserve_offset() answers ONLY for a host that actually carved a reservation,
-# and REFUSES (-1/-1) for one that did not.  icn_gen_host_reserve() is called from exactly one place (emit.cpp:2852),
-# inside the THIRD arm of a three-arm prologue chain -- if (zframe_graph) :2829 / else if (icn_genframe2() &&
-# flat_gen) :2832 / else if (flat_lcl_proc) :2845 -- so a graph taking either of the first two arms reserves NOTHING.
+# THE CLAIM UNDER TEST:  icn_gen_host_reserve_offset() answers (off>=0, base>=0) for exactly the host kinds
+# icn_gen_host_reserved() says reserve, and REFUSES (-1/-1) for the rest.  icn_gen_host_reserve() is called from
+# BOTH non-zframe arms of the three-arm prologue chain -- if (zframe_graph) :2829 (never reserves) / else if
+# (icn_genframe2() && flat_gen) :2832 (icon-n2-flat-gen-host-transitive-reserve) / else if (flat_lcl_proc) :2845
+# (step 2b) -- so a graph taking the FIRST arm reserves nothing; the other two both do.
 #
 # ⛔ WHY THIS IS A GATE.  Before the s282 cure the scan was HOST-KIND-BLIND and returned a plausible `off=0 base=128`
-# for a flat_gen host: MEASURED on suspend_nested's inner(), and on a two-caller witness the SAME generator answered
-# `off=0 base=128` from its flat_gen host and `off=128 base=240` from its flat_lcl_proc host.  Zero is the most
-# dangerous answer available -- indistinguishable from a correct first-slot answer -- so a step-3 consumer would carve
-# into a region that was never reserved and corrupt the host frame three layers from the edit.
+# for a flat_gen host that had never carved anything: MEASURED on suspend_nested's inner(), and on a two-caller
+# witness the SAME generator answered `off=0 base=128` from its flat_gen host and `off=128 base=240` from its
+# flat_lcl_proc host. Zero is the most dangerous answer available -- indistinguishable from a correct first-slot
+# answer -- so a step-3 consumer would carve into a region that was never reserved and corrupt the host frame three
+# layers from the edit.
 # ⛔ AND THE PREDICATE MIRRORS AN else-if CHAIN IN ANOTHER TRANSLATION UNIT WITH NO COMPILER CHECK THAT IT STILL DOES.
-# That is precisely what rots silently: add a fourth arm before :2845, or move the reserve call, and the predicate is
-# wrong with nothing to say so.  This gate is that missing check.
+# That is precisely what rots silently: add a fourth arm, or move either reserve call, and the predicate is wrong
+# with nothing to say so. This gate is that missing check.
 #
-# ⛔ CONTRACT HISTORY (ceo s283, 2026-08-29): 06d4852f briefly flipped this gate to "both host kinds ANSWER" alongside
-# the flat_gen-arm stack reserve; BOTH are superseded by the region-resident alpha (a flat_gen host carves nothing on
-# the stack, so answering would hand out a base into storage that does not exist). The REFUSAL contract below is
-# RESTORED and flips only when icon-n2-flat-gen-host-transitive-reserve lands the region-nested reserve.
+# ⛔ CONTRACT HISTORY.
+#   1. hq_P s282: BOTH host kinds ANSWER (the original, unconditional shape, before the region-resident redesign).
+#   2. ceo s283, 2026-08-29: 06d4852f's flat_gen-arm stack reserve is superseded by the region-resident alpha (a
+#      flat_gen host carves nothing on the stack under that design, so answering would hand out a base into storage
+#      that does not exist) -- contract NARROWED to flat_lcl_proc-only-answers, flat_gen REFUSES, until the
+#      transitive reserve lands.
+#   3. seat06, 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve: contract RESTORED to BOTH-KINDS-ANSWER --
+#      icn_gen_host_reserve() is now recursive (reserve(g) = SUM(align16(ft_callee)+48+reserve(callee))) and a
+#      flat_gen host's region IS big enough for its own generator callees, carved by ITS OWN caller under the SAME
+#      recursive formula. base is now HOST-KIND-AWARE (icn_gen_host_reserve_offset): RSP-relative for flat_lcl_proc
+#      (unchanged), RBP-relative (rbp=H, constant 48 past the host's own header, no pad/L7 depth tracking) for
+#      flat_gen. This is state 1's contract again, reached by a different, load-bearing mechanism, not a reversion.
 # THREE STATES:  rc=0 invariant holds  |  rc=1 violated  |  rc=2 could not measure (never skip-as-success)
 set -u
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd); root=$(cd "$here/.." && pwd); cd "$root" || exit 2
@@ -38,24 +48,24 @@ done
 grep -a 'N2-STEP3-DBG' "$tmp/all.log" > "$tmp/dbg.txt" 2>/dev/null
 sites=$(wc -l < "$tmp/dbg.txt")
 [ "$sites" -gt 0 ] || { echo "⛔ REFUSE: zero generator call sites observed -- the diagnostic did not fire, so nothing was measured (an empty denominator is not a pass)"; exit 2; }
-# ⛔ BOTH CLASSES MUST BE PRESENT.  A run that saw only reserving hosts cannot have exercised the refusal at all, and
-# would pass while the cure was entirely absent -- untested-where-it-matters is not a pass.
-resv=$(awk '/host_flat_lcl_proc=1/' "$tmp/dbg.txt" | wc -l)
-nonr=$(awk '/host_flat_lcl_proc=0/' "$tmp/dbg.txt" | wc -l)
-[ "$resv" -gt 0 ] || { echo "⛔ REFUSE: no reserving (flat_lcl_proc) host observed -- cannot test the answering path"; exit 2; }
-[ "$nonr" -gt 0 ] || { echo "⛔ REFUSE: no non-reserving (flat_gen) host observed -- cannot test the REFUSAL path, which is the whole point of this gate"; exit 2; }
+# ⛔ BOTH CLASSES MUST BE PRESENT.  A run that saw only one host kind cannot have exercised both arithmetic paths
+# (RSP-relative base vs RBP-relative base) at all, and would pass while one of them was entirely untested.
+lclp=$(awk '/host_flat_lcl_proc=1/' "$tmp/dbg.txt" | wc -l)
+genh=$(awk '/host_flat_lcl_proc=0/' "$tmp/dbg.txt" | wc -l)
+[ "$lclp" -gt 0 ] || { echo "⛔ REFUSE: no flat_lcl_proc host observed -- cannot test the RSP-relative base path"; exit 2; }
+[ "$genh" -gt 0 ] || { echo "⛔ REFUSE: no flat_gen host observed -- cannot test the RBP-relative base path, which is this row's whole point"; exit 2; }
 bad=0
 while read -r line; do
     lcl=$(sed -n 's/.*host_flat_lcl_proc=\([0-9-]*\).*/\1/p' <<<"$line")
     off=$(sed -n 's/.*off=\([0-9-]*\).*/\1/p' <<<"$line")
     bse=$(sed -n 's/.*base=\([0-9-]*\).*/\1/p' <<<"$line")
-    if [ "$lcl" = 0 ]; then
-        if [ "$off" != -1 ] || [ "$bse" != -1 ]; then echo "⛔ FAIL: non-reserving host answered off=$off base=$bse (must be -1/-1): $line"; bad=$((bad+1)); fi
-    else
-        if [ "$off" = -1 ] || [ "$bse" = -1 ]; then echo "⛔ FAIL: reserving host REFUSED off=$off base=$bse (must answer): $line"; bad=$((bad+1)); fi
-    fi
+    # BOTH-KINDS-ANSWER (contract state 3): every registered-generator call site observed here comes from a host that
+    # actually reserves (flat_lcl_proc OR flat_gen; a zframe host would never reach this template's N-2 branch at
+    # all, so lcl is only ever 0 or 1 in this witness set) -- so every line must answer, never refuse.
+    if [ "$off" = -1 ] || [ "$bse" = -1 ]; then echo "⛔ FAIL: host (flat_lcl_proc=$lcl) REFUSED off=$off base=$bse (must answer under BOTH-KINDS-ANSWER): $line"; bad=$((bad+1)); fi
+    if [ "$lcl" = 0 ] && [ "$bse" != 48 ]; then echo "⛔ FAIL: flat_gen host answered base=$bse, expected the CONSTANT 48 (rbp+48, past its own header) every time: $line"; bad=$((bad+1)); fi
 done < "$tmp/dbg.txt"
-echo "=== N-2 HOST-RESERVED REFUSAL GATE: sites=$sites reserving=$resv non-reserving=$nonr violations=$bad ==="
+echo "=== N-2 HOST-RESERVED AGREEMENT GATE: sites=$sites flat_lcl_proc=$lclp flat_gen=$genh violations=$bad ==="
 [ "$bad" -eq 0 ] || { echo "⛔ FAIL: $bad site(s) disagree with icn_gen_host_reserved()"; exit 1; }
-echo "✅ PASS: every non-reserving host refuses (-1/-1); every reserving host answers"
+echo "✅ PASS: every host (either kind) answers; flat_gen bases are the constant 48"
 exit 0
