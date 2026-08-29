@@ -27,5 +27,4 @@ std::string bb_cell_ite() {
          + x86_jcc_tgt("je", X86T_TGT0)
          + x86_jmp_tgt(X86T_TGT1))
          + IF(_.op_parts_ival[0] >= 0 && (_.op_sa < 0 || _.op_sa > 3), x86_bomb("bb_cell_ite: unknown aspect"));
-    return std::string();
 }
