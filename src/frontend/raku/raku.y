@@ -528,6 +528,12 @@ stmt
     | KW_EXIT ';'
         { tree_t *c=make_call("__rk_exit"); tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0;
           expr_add_child(c,z); $$=c; }
+    | KW_EXIT expr KW_IF expr ';'
+        { tree_t *c=make_call("__rk_exit"); expr_add_child(c,$2);
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$4); expr_add_child(e,seq1(c)); $$=e; }
+    | KW_EXIT expr KW_UNLESS expr ';'
+        { tree_t *c=make_call("__rk_exit"); expr_add_child(c,$2);
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$4); ast_push(e,seq1(c)); $$=e; }
     | VAR_SCALAR '=' expr ';'
         { $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
