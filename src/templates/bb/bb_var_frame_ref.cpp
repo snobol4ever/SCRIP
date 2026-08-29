@@ -27,5 +27,4 @@ std::string bb_var_frame_ref() {
              + x86("mov",     FRQ(_.op_off + 8), "rcx")
              + x86_gamma()
              + x86_beta_trampoline();
-    return std::string();
 }
