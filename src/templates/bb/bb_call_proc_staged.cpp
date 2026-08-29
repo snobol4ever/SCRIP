@@ -746,7 +746,21 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
-         + (zf_resume ? std::string("") : x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN: pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.") + x86_lea_id("rax", 7) + x86("push", "rax"))
+         + (zf_resume ? std::string("")
+            : (icn_genframe2() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
+              ? x86("comment", "row icon-n2-recursive-generator-per-activation-storage: repurpose the pad slot (same 8 bytes, same rsp math as the PL-CALL-ALIGN pad below) to carry the bounded-self-recursion depth instead of leaving it uninitialized. Only reached when the CALLEE is a direct-self-recursive generator and SCRIP_ICN_N2_SELFREC=1 additionally arms it.")
+                + ((g_emit.flat_gen && g_emit.flat_fam && !strcmp(_.op_sval, g_emit.flat_fam))
+                   ? x86("comment", "I am the recursive call: read MY OWN depth from the free header slot H+40 (rbp==H for a flat_gen host), bound it against N2_SELFREC_SLOTS, refuse LOUDLY (never silently reuse/corrupt an in-use slot) rather than pass an out-of-range depth forward.")
+                     + x86("mov", "rax", RDQ("rbp", 40))
+                     + x86("add", "rax", 1L)
+                     + x86("cmp", "rax", (long)N2_SELFREC_SLOTS)
+                     + x86("jl", L(30))
+                     + x86_bomb("N-2 bounded self-recursion: depth exceeds the reserved N2_SELFREC_SLOTS table -- refusing loudly rather than silently reusing an in-use activation slot (row icon-n2-recursive-generator-per-activation-storage; N is a fixed bound sized over one measured workload, see N2_SELFREC_SLOTS' own comment before widening it)")
+                     + x86("def", L(30))
+                     + x86("push", "rax")
+                   : x86("comment", "first (non-recursive) call into a bounded-self-recursive generator: seed depth 0.")
+                     + x86_lea_id("rax", 0) + x86("push", "rax"))
+              : x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN: pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.") + x86_lea_id("rax", 7) + x86("push", "rax"))
          + (gi_idx >= 0
             ? x86("mov32", "edi", (long)gi_idx)
             + x86("mov32", "esi", (long)_.op_ival)

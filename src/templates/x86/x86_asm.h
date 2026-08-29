@@ -878,6 +878,28 @@ extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);   /* N-2 trans
 extern "C" int emit_graph_has_suspend(IR_graph_t * g);   /* defined in emit.cpp, inside its file-wide extern "C" block (hence extern "C" here too, matching every other cross-declared emit.cpp function in this file) -- the SAME rule g_emit.flat_gen itself uses (is_generator && has-suspend), reused here rather than re-derived, so "is this callee ALSO a flat_gen host" can never drift from what the callee's own emission will actually decide. */
 #define N2_RESERVE_MAX_DEPTH 32
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define N2_SELFREC_SLOTS 64   /* row icon-n2-recursive-generator-per-activation-storage: bounded DIRECT-self-recursive generator storage (gedwalk-shaped -- a generator whose own graph calls itself,
+   never general mutual/multi-hop recursion, which this deliberately does not attempt). N is a FIXED table size, never tuned to fit one input (hq_B ruling, 2026-08-29, on seat10's measured
+   gedwalk-on-geddump.dat max depth 4): sized an order of magnitude+ over that single measurement, not "comfortably over" it -- the cost of a larger N is bytes, the cost of being one deeper than N
+   is a refused run, so the legitimacy of this bound comes from the REFUSAL below being loud, never from the number 64 itself. Cite the 4 if this is ever widened. */
+inline int icn_genframe2_selfrec() {   /* additional to icn_genframe2() -- default OFF, independently armed, so icn_genframe2()'s existing graded/armed boards are byte-identical whether or not this
+   is also set: every read of this function is additionally gated behind icn_genframe2() itself, never called alone. SCRIP_ICN_N2_SELFREC=1 arms it. */
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_N2_SELFREC"); v = (e && *e == '1') ? 1 : 0; } return v;
+}
+inline int icn_gen_is_selfrec(const char * name) {   /* does the named generator's OWN graph call itself directly (not transitively through another proc)? Property of the CALLEE, checked identically
+   at the call site (to decide what depth value to pass) and in the callee's own prologue (to decide whether to consume it) -- ONE function, never two copies, the exact two-copies-drift class this
+   file's own comments document repeatedly. NULL/unregistered/non-generator all answer 0, never guessed. */
+    if (!name || !name[0] || !rt_proc_is_registered(name) || !rt_proc_is_generator(name)) return 0;
+    IR_graph_t * g = n2_graph_by_proc_name(name); if (!g) return 0;
+    for (int i = 0; i < g->n; i++) {
+        IR_t * hn = g->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        const char * cn = IR_LIT(hn).sval;
+        if (cn && cn[0] && !strcmp(cn, name)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐⭐ N-2 TRANSITIVE-RESERVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): THE RECURSIVE CORE, shared by all three consumers below (reserve/offset/selftest) so the
    per-callee arithmetic can never drift between them again -- the exact failure this file's own comments name twice already (the 240-vs-144 carve/release drift, the off=0/off=-1 predicate-drift
    catch). reserve(g) = SUM over g's registered-generator call nodes of (align16(ft_callee) + 48 + reserve(callee)), where reserve(callee) recurses ONLY when callee's own graph would itself emit
@@ -905,7 +927,14 @@ static int icn_gen_host_reserve_walk(IR_graph_t * g, const char ** visited, int 
 static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited) {
     int fb = -1;
     if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;   /* forward reference: not yet registered */
-    for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) return 0;   /* cn is its own ancestor on this path: cycle, refuse loudly by the caller */
+    for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) {
+        /* row icon-n2-recursive-generator-per-activation-storage: i==nvisited-1 means the MOST RECENT ancestor on this path is cn itself -- cn calls itself DIRECTLY (gedwalk-shaped), not through
+           an intermediary. That is the one narrow shape N2_SELFREC_SLOTS is sized for; a deeper i (mutual/multi-hop cycle) still refuses below exactly as before -- general recursion is explicitly
+           out of scope (GOAL, this row and the parent rung). Bounded reservation: N slots total; this call contributes N-1 (the outer, non-cyclic caller already contributed the 1st via the normal
+           align16(fb)+48 arithmetic below, so the two sum to exactly N -- never re-derive N here, it must match the ONE runtime bound icn_genframe2_selfrec()'s call site/prologue pair also use). */
+        if (icn_genframe2_selfrec() && i == nvisited - 1) { *out_bytes = (N2_SELFREC_SLOTS - 1) * (((fb + 15) & ~15) + 48); return 1; }
+        return 0;   /* cn is its own ancestor on this path: cycle, refuse loudly by the caller */
+    }
     int sub = 0;
     IR_graph_t * cg = n2_graph_by_proc_name(cn);
     if (cg && emit_graph_has_suspend(cg) && !cg->zframe_graph) {   /* recurse only when cn's OWN graph would itself emit flat_gen -- mirrors g_emit.flat_gen's own rule plus the zframe-wins priority the prologue if/else-if chain gives it (emit.cpp ~2829) */

@@ -2874,6 +2874,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rcx", RDQ("rsp", 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
                   + x86("lea", "rcx", RDQ("rsp", 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
+                  + IF(icn_genframe2_selfrec() && g_emit_cfg && icn_gen_is_selfrec(g_emit.flat_fam),
+                       x86("comment", "row icon-n2-recursive-generator-per-activation-storage: bank the caller-passed depth (repurposed pad slot, [entry rsp+32] -- see bb_call_proc_staged.cpp's matching push) into the free header slot H+40, so a deeper recursive call FROM this activation can read it back and bound itself.")
+                       + x86("mov", "rcx", RDQ("rsp", 32)) + x86("mov", RDQ("rax", frame_total + 40), "rcx"))
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rdi", "rax") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
