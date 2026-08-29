@@ -2397,7 +2397,7 @@ int g_protected_pat_vars_armed = 0;
    guard must be the slow path's OWN condition rather than a different function that merely looks equivalent -- NV_PTR_fn answers "where does this name live", which was read as "may I write it here".
    ⛔ g_call_fastpath_off IS RE-READ ON EVERY CALL, NOT LATCHED: it flips 0->1 the moment any INPUT()/OUTPUT() associates a variable, which can happen long after a cell was cached.  It never flips back
    (core.c sets only `= 1`), so a hit needs no generation counter -- but it does need this test, every time. */
-DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
+__attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
     if (!_var_init_done) _var_init();
     if (g_call_fastpath_off || !name || name[0] == '&') return (DESCR_t *)0;
     NV_t *e = _var_find_cached(name);
