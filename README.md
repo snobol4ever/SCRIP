@@ -153,7 +153,7 @@ both modes** (1299 programs and suite entries at that day's tree); `beauty.sno` 
 SNOBOL4 beautifier written in SNOBOL4 — reproduces itself byte-identically through the
 compiler in both modes; per-language checks that day: Pascal suites 96/96 both modes
 (and the loose-program set deterministic at 150/154), Icon smoke 14/14 both modes,
-Snocone 5/5, Rebus 4/4, Prolog 4/5, Raku parser suite 83/83. Denominators grow as the
+Snocone 5/5, Rebus 4/4, Prolog 5/5 in all three modes (multiclause backtracking cured that evening; rung ladders 12/15, from 3/15), Raku parser suite 83/83. Denominators grow as the
 corpus consolidates; the boards print their own totals.
 
 ## License
