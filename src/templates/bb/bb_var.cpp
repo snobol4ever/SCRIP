@@ -32,5 +32,4 @@ std::string bb_var() {
          + x86_gamma()
          + x86_beta_trampoline() :
            x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)");
-    return std::string();
 }
