@@ -102,7 +102,7 @@ Six of the seven frontends also exist a second time, as real Snocone source that
 SCRIP itself compiles and runs — [`bootstrap/parser_<lang>.sc`](bootstrap) (SNOBOL4,
 Snocone, Icon, Prolog, Rebus, Raku), sharing one small hand-written runtime under the
 same directory. This is not a claim that `scrip` bootstraps itself: the frontends it
-ships with today (`src/frontend/`, below) are hand-written C built with flex/yacc;
+ships with today (`src/parsers/`, below) are hand-written C built with flex/yacc;
 `bootstrap/` is a second, self-hosted implementation living alongside them — evidence
 the language is expressive enough to write a parser in, and fast enough to run one.
 Running them today hits a known parse regression in the shared runtime — tracked, not
@@ -126,7 +126,7 @@ of the five platforms named above.
 ## Layout
 
 ```
-src/frontend/   seven parsers (snobol4 icon prolog snocone rebus raku pascal)
+src/parsers/   seven parsers (snobol4 icon prolog snocone rebus raku pascal)
 src/lower/      language → IR lowering
 src/optimizer/  always-on IR optimizer
 src/emitter/    IR → machine code (both modes)
