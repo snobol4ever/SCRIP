@@ -388,6 +388,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_MY KW_SAY KW_PRINT KW_IF KW_ELSE KW_ELSIF KW_WHILE KW_FOR
 %token KW_SUB KW_GATHER KW_TAKE KW_RETURN KW_EXIT
 %token KW_CONSTANT
+%token KW_ENUM
 %token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
 %token KW_LOOP KW_LAST KW_NEXT
@@ -544,6 +545,14 @@ stmt
         { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); free($3); }
     | KW_MY KW_CONSTANT VAR_SCALAR '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($3), $5); free($3); }
+    | KW_ENUM IDENT WORDLIST ';'
+        { ExprList *l=exprlist_new(); char *s=$3; int idx=0;
+          while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
+            while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1);
+            memcpy(tok,w,L); tok[L]='\0';
+            tree_t *val=ast_node_new(TT_ILIT); val->v.ival=idx++;
+            exprlist_append(l, expr_binary(TT_ASSIGN, var_node(tok), val)); free(tok); }
+          free($2); free($3); $$ = make_seq(l); }
     | TESTOP ';'
         { $$=make_call(testop_rt($1)); free($1); }
     | TESTOP '(' arg_list ')' ';'

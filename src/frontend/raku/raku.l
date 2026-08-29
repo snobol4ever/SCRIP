@@ -66,6 +66,7 @@ WS       [ \t\r]
 "default"       { return KW_DEFAULT; }
 "sub"           { return KW_SUB; }
 "constant"      { return KW_CONSTANT; }
+"enum"          { return KW_ENUM; }
 "gather"        { return KW_GATHER; }
 "take"          { return KW_TAKE; }
 "return"        { return KW_RETURN; }
