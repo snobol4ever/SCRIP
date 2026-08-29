@@ -1307,7 +1307,7 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
-                if (strcmp(pname, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }
+                if (strcmp(pname, "main") == 0) { if (main_bb_idx < 0) main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;
@@ -1746,7 +1746,7 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
-                if (strcmp(pname, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }
+                if (strcmp(pname, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; continue; }   /* ⛔ KNOWN-IDENTICAL BUG, DELIBERATELY NOT FIXED HERE (seat01 2026-08-29, row m3-passes-m4-fails-three-polyglot-demos): same last-wins collision as the mode-4 site above, guarded there. Not symmetric on purpose: mode-3 and mode-4 apparently register procs in a different relative order for the same polyglot source (both are "buggy" today yet disagree on which main wins for demo03/04/08/09), so guarding THIS site too is NOT inert -- measured `test_gate_polyglot_demos.sh` m3 PASS 6->3 (demo03/04/08/09 newly crash), a materially bigger/different regression than the mode-4-only fix hq_C's land-it ruling was measured against (m4 PASS 4->3, demo03+demo08 named). Routed as a fresh, explicitly-scoped follow-up rather than folded into this commit silently. */
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;
