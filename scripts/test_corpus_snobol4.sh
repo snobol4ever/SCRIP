@@ -165,7 +165,13 @@ if [ ! -d "$CORPUS/crosscheck" ]; then
         echo "note: loose crosscheck tree is absent and its entries live in the MASTER suite (one-flat-suite ruling) — graded by the master block below, not skipped."
     else
         echo "⛔ GATE REFUSES: corpus subtree missing: $CORPUS/crosscheck"
-        echo "   AND no converted crosscheck families exist at $_cc_conv either, so this board would grade a"
+        # ⛔⭐ THIS MESSAGE USED TO NAME $_cc_conv, A VARIABLE THAT NO LONGER EXISTS. The guard was repointed at
+        # the MASTER when crosscheck was absorbed into it, but the refusal text kept citing the old
+        # directory variable -- and with no `set -u` an undefined name expands to EMPTY, so the refusal read
+        # "...exist at " and pointed the reader nowhere. ⭐ Error paths are the least-exercised code in any
+        # instrument, so a stale reference there survives every green run and only surfaces on the day
+        # something is already wrong -- degrading the diagnostic exactly when the diagnostic is all you have.
+        echo "   AND the master suite at $_cc_master carries no crosscheck_ entries either, so this board would grade a"
         echo "   NARROWER DENOMINATOR and still print FAIL=0. The corpus layout moved. Repoint this script;"
         echo "   do NOT read a smaller total as a pass."
         exit 2
