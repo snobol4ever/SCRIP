@@ -2495,6 +2495,8 @@ int emit_match_begin_frame_extra(const IR_t * match_begin_nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return emit_arbno_rbp() ? 32 : 16;    if (op == IR_TO) return 32;    if (op == IR_DISJUNCTION && nd->n_operands > 0) return 32;    return (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||    op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_MOVE_LABEL || op == IR_GLIT || op == IR_GCC || op == IR_GALT || op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) || (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_map_on(void) { static int _m = -1; if (_m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); _m = (e && *e == '1') ? 1 : 0; } return _m; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (nodes[k]->op == IR_CMP_TEST && zd_chase(nodes[k]->ω.node) == t) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
@@ -2510,6 +2512,14 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     int * claim = (int *)alloca(sizeof(int) * (size_t)n); int * run = (int *)alloca(sizeof(int) * (size_t)n); int * rpos = (int *)alloca(sizeof(int) * (size_t)n); unsigned char * aent = (unsigned char *)alloca((size_t)n);
     unsigned char * cm = (unsigned char *)alloca((size_t)n); int * wl = (int *)alloca(sizeof(int) * (size_t)n);
     for (int i = 0; i < n; i++) { claim[i] = -1; rpos[i] = -1; }
+    { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] GRAPH n=%d -- i= is this nodes[] array, NOT a --dump-ir slot; g/o/ops resolve into the SAME array\n", n);
+        for (int i = 0; i < n; i++) { IR_t * gt = zd_chase(nodes[i]->γ.node); IR_t * ot = zd_chase(nodes[i]->ω.node); int gi = -1, oi = -1;
+            for (int k = 0; k < n; k++) { if (nodes[k] == gt) gi = k; if (nodes[k] == ot) oi = k; }
+            fprintf(stderr, "[ZD-MAP] i=%-3d %-22s nops=%d ops=[", i, bb_op_name(nodes[i]->op), nodes[i]->n_operands);
+            for (int a = 0; a < nodes[i]->n_operands; a++) { int pi = -1;
+                for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->operands[a]) { pi = k; break; }
+                fprintf(stderr, "%s%d", a ? "," : "", pi); }
+            fprintf(stderr, "] g=%d o=%d lit/nameptr=%lld src=%s\n", gi, oi, (long long)IR_LIT(nodes[i]).ival, bb_src_of(nodes[i]) ? bb_src_of(nodes[i]) : "-"); } } }
     for (int pass = 0; pass < 2; pass++) {
     for (int hi = 0; hi < n; hi++) {
         if (pass == 0) { if (!(hi == 0 || bb_src_of(nodes[hi]))) continue; }
@@ -2595,6 +2605,9 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                  if (_cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op; int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop))); const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0; fprintf(stderr, "[CALL-DIAG] REFUSE blocker op=%s(%d) callee=%s rl=%d badi=%d narg=%d\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-", rl, badi, _is_call ? (int)_bn->n_operands : -1); } } }
     }
     }
+    { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
+        for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d\n",
+            i, bb_op_name(nodes[i]->op), claim[i], rpos[i], (int)zon[i], zout[i], zgpop[i], zwpop[i], zarm ? zarm[i] : -1); } }
 }
 typedef struct { IR_t * t; int d0; int nd; int multi; } zdw_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
