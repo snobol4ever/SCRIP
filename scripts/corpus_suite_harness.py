@@ -260,7 +260,7 @@ def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
     return "RAN", r.stdout, r.stderr, r.returncode
 
 
-def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None):
+def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0):
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
     if kind == "HANG":
         return Verdict("HANG", out, err, None, detail=f"exceeded {timeout}s")
@@ -270,7 +270,23 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None):
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
     got = out.decode("utf-8", "replace").rstrip("\n")
     exp = expected_text.rstrip("\n") if expected_text is not None else None
+    # ⛔⭐ A POSITIVE NONZERO rc IS NOT A PASS UNLESS IT WAS DECLARED (hq_C ruling 2026-08-30, on seat15's
+    # find; corpus-suites-consolidation.task.md § VACUOUS PASS ON POSITIVE rc). Until now only a NEGATIVE rc
+    # was inspected (the CRASH arm above) and a positive one fell straight through to the text compare. The
+    # witness: snobol4 `simple_output_63` ends in lowercase `end`, SCRIP rejects it rc=1 with the diagnostic
+    # on STDERR, stdout is empty, and its .ref is EMPTY -- so got == exp == "" and it scored PASS on every
+    # run since it was absorbed, reported as a promotable XPASS. A program that cannot compile was passing.
+    # ⛔ A BLANKET rc==0 REQUIREMENT WOULD BE WRONG, and that is why this is declared and not inferred:
+    # prolog's assertz_directive_2/3/4 and asserta_assertz_directive_1 PASS with NON-EMPTY matching refs and
+    # rc=1 BY DESIGN -- the failure-driven-loop family (ARCH-LANGUAGES.md § FAILURE-DRIVEN LOOP WITH NO
+    # FALLBACK CLAUSE). Blanket-gating turns four correct entries red. Blast radius censused before landing:
+    # snobol4 1 (the defect), prolog 4 (declared below), and ZERO in icon/raku/rebus/snocone/pascal (seat15).
+    # ⭐ Declared-not-derived, same principle as the `modes` column: "rc!=0 plus an empty ref" is a heuristic
+    # that is right on today's two languages and silently wrong on the next one.
     if exp is not None and got == exp:
+        if rc is not None and rc != want_rc:
+            return Verdict("FAIL", out, err, rc,
+                           detail=f"output matched but rc={rc}, expected {want_rc} (declare want_rc if this is correct)")
         return Verdict("PASS", out, err, rc)
     return Verdict("FAIL", out, err, rc, detail="output mismatch" if exp is not None else "no expected text")
 
@@ -281,7 +297,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -300,7 +316,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None):
     # byte-identical to its .ref when run from its own directory in BOTH modes, FAIL in both from
     # anywhere else. Consistent for suite entries too: run_suite_entry materializes the entry into a
     # temp dir and passes THAT path, so parent is the temp dir -- exactly where it copies companions.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir):
@@ -341,7 +357,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -353,16 +369,16 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc)
 
 
-def run_ast(paths, src_path, expected_text, timeout=None):
+def run_ast(paths, src_path, expected_text, timeout=None, want_rc=0):
     """Grading mode for parser-ladder families: `scrip --dump-ast`, diffed as text -- same
     classify() used by run_m3/run_m4, just a different argv. No compile/link step, so it is fast
     and language-agnostic (dispatch is by src_path's own extension, same as scrip --run/--compile)."""
     timeout = timeout or paths["timeout"]
     argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--dump-ast", str(src_path)])
-    return classify(argv, timeout, expected_text)
+    return classify(argv, timeout, expected_text, want_rc=want_rc)
 
 
 # ============================================================= discovery ===
@@ -479,7 +495,7 @@ def banner_re_for(comment_open, comment_close):
 # ============================================================= conversion ===
 class Entry:
     def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None, xfail=False,
-                 xfail_reason=None):
+                 xfail_reason=None, want_rc=0):
         self.kind = kind          # "line" or "block"
         self.seq = seq
         self.name = name
@@ -492,6 +508,8 @@ class Entry:
                                    # cmd_run buckets these as XFAIL/XPASS instead of FAIL, so a
                                    # pre-existing, documented-red witness doesn't poison a caller's
                                    # FAIL=0 gate. See corpus-suites-consolidation.task.md amendment log.
+        self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
+                                   # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
         self.xfail_reason = xfail_reason  # str: WHY this entry is expected red, or None. Carried in the
                                    # family.xfail sidecar, NEVER in the banner -- boolean and reason live in
                                    # different layers (see the reason-sidecar section). ⛔ DOCUMENTATION ONLY:
@@ -605,17 +623,17 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0):
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
-        out["ast"] = run_ast(paths, sno_path, expected_text)
+        out["ast"] = run_ast(paths, sno_path, expected_text, want_rc=want_rc)
     return out
 
 
@@ -837,6 +855,50 @@ def write_stdin_sidecar(entries, out_in, comment_open, comment_close):
 # comment-free witnesses converted that way and must keep converting that way), so every existing
 # suite keeps its current verdicts byte-for-byte. The refusals below are for the INCOHERENT cases
 # only: a reason naming no entry, and a reason on an entry that is not marked XFAIL.
+def sidecar_wantrc_path(src_path):
+    """The declared-exit-code sidecar for a suite is ALWAYS <family>.wantrc beside <family>.sno/.ref --
+    discovered, never passed as a flag, identical to sidecar_in_path()/sidecar_xfail_path(). Absent -> None
+    -> every entry expects rc 0. ⭐ Discovery rather than a flag is the whole point: every existing consumer
+    -- boards, gates, runners -- picks the declaration up with ZERO changes to its own argv, so an entry that
+    legitimately exits nonzero cannot silently be graded by a caller nobody remembered to update."""
+    cand = Path(src_path).with_suffix(".wantrc")
+    return str(cand) if cand.is_file() else None
+
+
+def read_wantrc_sidecar(w_path, entries):
+    """Attach declared exit codes to entries BY NAME. Format is one `name<TAB>rc` per line; blank lines and
+    `#` comments ignored. ⛔ REFUSES on a declaration naming no entry -- the shape a rename or a half-finished
+    conversion produces, and the same refusal read_xfail_sidecar makes for the same reason: a declaration that
+    matches nothing is either a typo or a stale leftover, and both silently withdraw a guarantee.
+    ⛔ REFUSES on rc 0 declared explicitly: 0 is the default, so an explicit 0 is either a misunderstanding of
+    the format or a no-op someone will later read as meaningful."""
+    if not w_path or not os.path.isfile(w_path):
+        return
+    by_name = {e.name: e for e in entries}
+    unknown = []
+    for raw in open(w_path, encoding="utf-8"):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) != 2:
+            raise ValueError(f"{w_path}: expected 'name<TAB>rc', got: {line!r}")
+        name, rc_s = parts[0].strip(), parts[1].strip()
+        try:
+            rc = int(rc_s)
+        except ValueError:
+            raise ValueError(f"{w_path}: rc must be an integer for {name!r}, got {rc_s!r}")
+        if rc == 0:
+            raise ValueError(f"{w_path}: {name!r} declares rc=0, which is already the default -- "
+                             f"remove the line rather than restating it")
+        if name not in by_name:
+            unknown.append(name)
+            continue
+        by_name[name].want_rc = rc
+    if unknown:
+        raise ValueError(f"{w_path}: declarations with no matching entry: {unknown}")
+
+
 def sidecar_xfail_path(src_path):
     """The reason sidecar for a suite is ALWAYS <family>.xfail beside <family>.sno/.ref --
     discovered, never passed as a flag, identical to sidecar_in_path(). Absent -> None."""
@@ -913,7 +975,7 @@ def _is_entry_start(line):
     return bool(ONE_LINE_TAG_RE.search(line))
 
 
-def read_suite(sno_path, ref_path, in_path=None, x_path=None):
+def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None):
     """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
     the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
     one or more one-line entries (no banner of their own, e.g. gc.sno's 210_gc_deep_nesting -> 211/212/213
@@ -1003,10 +1065,11 @@ def read_suite(sno_path, ref_path, in_path=None, x_path=None):
         i = j
     read_stdin_sidecar(in_path, BANNER_RE, entries)
     read_xfail_sidecar(x_path, BANNER_RE, entries)
+    read_wantrc_sidecar(w_path, entries)
     return entries
 
 
-def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None):
+def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w_path=None):
     """read_suite() for a format-(B)-ONLY family: every entry is a banner-delimited block, so
     there is no one-line/block interleaving to detect (unlike read_suite() above, which also
     carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
@@ -1038,6 +1101,7 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None):
         entries.append(Entry("block", seq, name, body, ref_lines[seg_start:ri], xfail=xfail))
     read_stdin_sidecar(in_path, banner_re, entries)
     read_xfail_sidecar(x_path, banner_re, entries)
+    read_wantrc_sidecar(w_path, entries)
     return entries
 
 
@@ -1153,7 +1217,8 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
             expected = "\n".join(entry.ref)
         cand.write_text(text)
         _copy_companions(text, companion_dir, Path(td))
-        return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin)
+        return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
+                             want_rc=getattr(entry, 'want_rc', 0))
 
 
 # ================================================================== CLI ===
@@ -1524,7 +1589,7 @@ def cmd_convert_blocks(args):
     # was never created, and sidecar_in_path's is_file() check correctly degrades to None (-> /dev/null),
     # same auto-discovery cmd_run's --lang path already uses (ZERO argv changes for any caller).
     reread = read_block_suite(args.out_src, args.out_ref, banner_re,
-                              in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src))
+                              in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src), w_path=sidecar_wantrc_path(args.out_src))
     # ⛔ MATCH BY NAME, NEVER BY POSITION -- same fix as cmd_convert, applied defensively here too
     # (format-B-only means this path is not currently exposed to write_suite's line-then-block
     # reorder, but a positional zip between two independently-built lists is the same latent class
@@ -1583,12 +1648,12 @@ def cmd_run(args):
         modes = (args.modes or cfg["modes"]).split(",")
         banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
         entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno),
-                                   x_path=sidecar_xfail_path(args.sno))
+                                   x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
     else:
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
-                             x_path=sidecar_xfail_path(args.sno))
+                             x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
