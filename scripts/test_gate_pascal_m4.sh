@@ -4,12 +4,13 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/master/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/master/ALL.ref}"
+MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
+MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas) -- see test_gate_pascal_m3.sh
 # for the full rationale (kept byte-identical in substance between the two files, same reason as before).
-# ⛔ PATH CORRECTED (seat11, 2026-08-30, row pascal-restore-prezeta) -- see test_gate_pascal_m3.sh for the
-# full explanation; kept byte-identical in substance between the two files, same reason as before.
+# ⛔ REVERTED BACK TO THE FLAT PATH (seat04, 2026-08-30) after a stale-checkout mixup briefly pointed this at
+# the already-deleted `master/` subdir -- see test_gate_pascal_m3.sh for the full timeline (kept
+# byte-identical in substance between the two files, same reason as before).
 # ⛔ HAND-MAINTAINED -- keep byte-identical to test_gate_pascal_m3.sh's STDIN_FAMILIES list.
 STDIN_FAMILIES="read1 read2 read3 read4 pb35"
 RESULTS="${RESULTS:-/tmp/m4_results.tsv}"
@@ -82,8 +83,14 @@ else
 fi
 
 echo "M4: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (master: $MASTER_EXAMINED entries, $MASTER_PASS pass / $MASTER_FAIL fail; stdin-loose: $EXAMINED examined)"
-if [ $EXAMINED -eq 0 ] && [ $MASTER_EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 stdin-loose files and 0 master entries examined under $CORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
+# ⛔ MASTER_EXAMINED refuses ON ITS OWN (seat11's finding, see test_gate_pascal_m3.sh) -- the stdin-loose loop
+# always examines >0, so a master-path defect used to hide completely behind it.
+if [ $MASTER_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 master entries examined under $MASTER_SRC / $MASTER_REF -- path defect or unpopulated master, not a clean pass (this arm cannot hide behind the other)" >&2
+    exit 2
+fi
+if [ $EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 stdin-loose files examined under $CORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
     exit 2
 fi
 [ $FAIL -eq 0 ]

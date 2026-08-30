@@ -4,21 +4,23 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/master/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/master/ALL.ref}"
+MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
+MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas): the old dual mechanism
 # (a loose-*.pas loop + a hand-maintained SUITE_FAMILIES list over crosscheck/) is retired now that
 # util_build_master_suite.py --lang pascal absorbs both shapes into ONE flat ALL.pas/ALL.ref, matching
 # test_corpus_snobol4.sh's own cutover. `pcom`/`pint` are gone (confirmed absent, the old skip is dropped).
-# ⛔ PATH CORRECTED (seat11, 2026-08-30, row pascal-restore-prezeta): seat04's commit pointed MASTER_SRC/REF
-# at $CORPUS/ALL.pas (repo root) -- that path has NEVER existed in corpus history (git log confirms); the
-# builder has only ever written tests/pascal/master/ALL.{pas,ref} (Pascal is still in the master/-subdir
-# staging state, unlike SNOBOL4's already-flat tests/snobol4/). Neither gate's own UNPROVEN guard caught
-# this, because the STDIN_FAMILIES loop (m3: +benchmark witnesses too) always examines >0 entries, so
-# MASTER_EXAMINED silently sitting at 0 never tripped the all-arms-zero refusal -- the master's ~150 entries
-# were dropped from every board since ee2a24df with no signal at all. Fixing the path, not the layout: the
-# actual root-vs-master/ flattening is pascal-master-flatten-and-scrip-test-pas's own scope (seat04/hq_P),
-# not this row's.
+# ⛔ REVERTED BACK TO THE FLAT PATH (seat04, 2026-08-30) after seat11 (`94c98593`, row pascal-restore-prezeta,
+# genuinely well-intentioned) repointed this at `$CORPUS/master/ALL.pas`, believing the flat path "has never
+# existed" -- it existed on origin/main a full 30 minutes before that commit (corpus `066a680bb`, 20:16:32,
+# vs. `94c98593` at 20:43:53); seat11's own `master/` subdir had already been deleted in that same commit as
+# superseded, so their fix pointed the gate at a path that was freshly GONE, not one that had never arrived.
+# Read as a stale/unpulled local corpus checkout at the time they investigated, not a real conflict.
+# ⭐ WHAT SEAT11 FOUND THAT STAYS FIXED, independent of the path mixup: this gate's own all-arms-zero refusal
+# (below) could not have caught the master silently grading 0 entries, because the STDIN_FAMILIES loop (and
+# on m3 the benchmark-witness section) always examines >0 -- exactly the kind of "measured fine" vs. "could
+# not measure" collision RULES.md's own gate-witness law exists to forbid. MASTER_EXAMINED now refuses
+# independently, not just as part of the combined check.
 # ⛔ FIVE entries stay loose PERMANENTLY, not a residue of this repoint: read1-4 and pb35 read real stdin,
 # and the suite format has no stdin-input concept (hq_C's SNOBOL4-side ruling, 2026-08-24 — see KEEP.md
 # section 1). The master builder independently reaches the same conclusion (ALL.excluded.txt names all 5).
@@ -121,8 +123,15 @@ fi
 
 echo "M3: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (master: $MASTER_EXAMINED entries, $MASTER_PASS pass / $MASTER_FAIL fail; stdin-loose: $EXAMINED examined)"
 echo "M3 witnesses (benchmarks/pascal): EXAMINED=$W_EXAMINED PASS=$W_PASS FAIL=$W_FAIL XFAIL_STALE=$W_STALE"
-if [ $EXAMINED -eq 0 ] && [ $MASTER_EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 stdin-loose files, 0 master entries and 0 benchmark witnesses examined under $CORPUS / $WCORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
+# ⛔ MASTER_EXAMINED refuses ON ITS OWN, not only when every arm is zero (seat11's finding): the stdin-loose
+# loop and the benchmark witnesses both always examine >0, so a master-path defect used to hide completely
+# behind them -- ~150 entries silently dropped from the board with a clean-looking exit code either way.
+if [ $MASTER_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 master entries examined under $MASTER_SRC / $MASTER_REF -- path defect or unpopulated master, not a clean pass (this arm cannot hide behind the other two)" >&2
+    exit 2
+fi
+if [ $EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 stdin-loose files and 0 benchmark witnesses examined under $CORPUS / $WCORPUS -- corpus-path typo or unpopulated clone, not a clean pass" >&2
     exit 2
 fi
 [ $FAIL -eq 0 ]
