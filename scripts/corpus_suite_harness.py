@@ -1144,6 +1144,24 @@ def cmd_capture_oracle_refs(args):
             agree = (v.kind == "PASS") and (v.returncode == ora_rc)
             agreements.append(f"{m}={'AGREE' if agree else f'{v.kind}(rc={v.returncode} vs oracle {ora_rc})'}")
             all_agree = all_agree and agree
+        # ⛔⭐⭐ REFUSE TO MINT AN EMPTY REF, WHATEVER THE REASON. Two independent routes to the same failure
+        # were found tonight, hours apart, by two different seats:
+        #   hq_P  -- rung36_jcon_recogn ran with NO STDIN; all three arms agreed on empty.
+        #   seat05 -- swipl's `-g halt` fires before/instead of a `:- initialization(main,main)` goal, so the
+        #             ORACLE produces empty for a whole class of prolog programs that run fine bare.
+        # Different causes, IDENTICAL SIGNATURE: every arm agrees, and what they agree on is NOTHING.
+        # ⭐ So the guard belongs on the SIGNATURE, not on either cause. An existence check for a stdin
+        # companion cannot see seat05's case (there is no companion), and a swipl-flag fix cannot see hq_P's.
+        # Empty-agreement is the observable both share, and it will be the observable of the third route
+        # nobody has found yet.
+        # ⛔ A legitimately-silent program is the acceptable cost: its ref is one line to author deliberately,
+        # whereas a vacuous ref grades its file against nothing FOREVER and reads as coverage. Refusing costs
+        # a human a minute; minting costs a suite its meaning, silently and permanently.
+        if all_agree and not ora_text.strip():
+            red.append((src.stem, "REFUSED: all arms agreed on EMPTY output -- agreement on nothing is not "
+                                  "agreement; mint a ref by hand if this program is genuinely silent"))
+            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (all arms agree, but on EMPTY output)", file=sys.stderr)
+            continue
         if all_agree:
             ref_path.write_text(ora_text + "\n")
             green.append(src.stem)
