@@ -33,6 +33,34 @@ if [ -f "$SNO" ] && [ -f "$REF" ]; then
     PASS=$((PASS+p)); FAIL=$((FAIL+f+c+h+u))
 fi
 
+# ⛔⭐⭐ ABSORBED ARM (hq_B 2026-08-30, hq_C's RETIRE-DO-NOT-RESTORE ruling). This family's witnesses
+# were CONSOLIDATED into the one flat suite (corpus fdbe8ff8 verify+delete, THE ONE-FLAT-SUITE
+# RULING) -- they were never lost, they were RENAMED, and every grader here kept looking for the
+# old loose files and silently graded only the remainder. MEASURED: rung13 lost ALL FIVE and
+# graded ZERO; rung14 kept 2 of 5; rung15 kept 4 of 5. Nine gradings were invisible.
+# ⛔ KEYED ON THE `origin` COLUMN, NOT ON THE ENTRY NAME AND NOT ON THE FAMILY-NAME PREFIX.
+# `origin` is the durable provenance link back to this rung and survives renames; the entry names
+# did NOT (rung13_assertz -> assertz_directive_1, _assertz_atom -> _2, _assertz_compound -> _3,
+# _static_dynamic_mix -> _4, _asserta_order -> asserta_assertz_directive_1). A census keyed on the
+# old names reports the coverage as DELETED when it is intact -- that wrong-key search is exactly
+# what produced a false alarm here, and the harness's own extract-family docstring is explicit that
+# family membership comes from the CSV, never from a name convention.
+ALLP="$CORPUS/ALL.pl"; ALLR="$CORPUS/ALL.ref"; ALLC="$CORPUS/ALL.csv"
+if [ -f "$ALLP" ] && [ -f "$ALLR" ] && [ -f "$ALLC" ]; then
+    _absdir="$(mktemp -d)"
+    for _fam in $(python3 -c "import csv,sys; print(chr(10).join(sorted({r['family'] for r in csv.DictReader(open(sys.argv[1])) if r['origin'].startswith(sys.argv[2])})))" "$ALLC" "$FAMILY"); do
+        python3 "$HERE/corpus_suite_harness.py" extract-family "$ALLP" "$ALLR" "$ALLC" "$_fam" "$_absdir/e.pl" "$_absdir/e.ref" >/dev/null 2>&1 || continue
+        _out=$(timeout 120 python3 "$HERE/corpus_suite_harness.py" run "$_absdir/e.pl" "$_absdir/e.ref" --lang prolog --modes m3 2>&1)
+        echo "$_out" | grep -v '^SUITE_BOARD' | sed "s/^/  [absorbed $_fam] /"
+        _b=$(echo "$_out" | grep '^SUITE_BOARD')
+        _p=$(echo "$_b" | grep -oP 'm3_pass=\K[0-9]+'); _f=$(echo "$_b" | grep -oP 'm3_fail=\K[0-9]+')
+        _c=$(echo "$_b" | grep -oP 'm3_crash=\K[0-9]+'); _h=$(echo "$_b" | grep -oP 'm3_hang=\K[0-9]+')
+        _u=$(echo "$_b" | grep -oP 'm3_unproven=\K[0-9]+')
+        PASS=$((PASS+${_p:-0})); FAIL=$((FAIL+${_f:-0}+${_c:-0}+${_h:-0}+${_u:-0}))
+    done
+    rm -rf "$_absdir"
+fi
+
 shopt -s nullglob
 for f in "$CORPUS"/rung13_assertz_*.pl; do
     ref="${f%.pl}.expected"
