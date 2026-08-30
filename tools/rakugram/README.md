@@ -6,12 +6,37 @@ the measured case. The replacement is a *translation* of Rakudo's official gramm
 (`src/Perl6/Grammar.nqp`) into recursive descent — bounded and mechanical, where construct-by-construct
 patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL per pass against 924.
 
-**Rung 1 (here): the READER + CENSUS. No code is emitted yet — deliberately.** The point is to cost the
-port by measurement before building it.
+**Rung 1: the READER + CENSUS** (`nqp_read.py`). **Rung 2: the AST + TRANSLATABILITY LADDER**
+(`nqp_ast.py`). No code is emitted yet — deliberately. The point is to cost the port by measurement
+before building it.
 
 ```bash
-python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]
+python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
+python3 tools/rakugram/nqp_ast.py  [path/to/Grammar.nqp]   # rung 2: parse bodies into an AST
 ```
+
+## ⭐⭐ THE ANSWER: 87.9% of the official grammar is mechanically translatable
+
+Measured over 721 productions (2 excluded as contaminated, reported not hidden). Each row is
+cumulative — the work needed to reach that line:
+
+| reachable by | productions | cumulative |
+|---|---|---|
+| **mechanical today** | 508 | **70.5%** |
+| + finishing the reader's residue | 53 | **77.8%** |
+| + complex `:my` (a *local variable* — natural in RD, impossible in bison) | 33 | **82.4%** |
+| + regex modifiers (`:i`, `:s`, `:dba(...)`) | 40 | **87.9%** |
+| **REAL semantic work (`$*W`, `nqp::`, dynamic parse vars)** | **87** | 100% |
+
+Two refinements that moved this number and are worth keeping, because the naive count understates it
+badly. Of 238 embedded `{...}` code blocks, **49% are either empty (a capture flush) or pure
+error/panic reporting** — they change no parse decision, so a *parser* can stub them; only a full
+compiler needs them. And `:my` reads as a blocker only against a bison baseline: in recursive descent a
+parse-time local is just a local.
+
+⛔ **The residue is not evenly hard.** The 87 semantic productions plus `EXPR`/`O` are the real build,
+and `EXPR`/`O` is where Raku's operator table is **extended at parse time** — that is a Pratt parser
+over a mutable table, and it is the single component that makes the whole language non-LALR.
 
 ## What it reports, and what the numbers mean
 
