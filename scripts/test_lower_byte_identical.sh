@@ -21,6 +21,38 @@ PASS=0; FAIL=0; SKIP=0
 BAKE=0
 [ "${1:-}" = "--bake" ] && BAKE=1
 
+# ⛔⭐⭐ THIS GATE MEASURES NOTHING AND HAS SAID "PASS" WHILE DOING SO. Measured 2026-08-30 (hq_B):
+#   · `--dump-sm` IS NOT A FLAG. `grep -c dump-sm src/driver/scrip.c` = 0. Every unrecognised argument
+#     falls through to being treated as a FILENAME, so every case here runs
+#     `scrip --dump-sm <path>` -> "scrip: cannot open '--dump-sm'" on stderr, rc=1, EMPTY stdout.
+#   · ALL 30 BAKED BASELINE HASHES ARE d41d8cd98f00b204e9800998ecf8427e, WHICH IS md5 OF THE EMPTY
+#     STRING. Not some of them. All thirty.
+#   · So the compare loop hashes empty output and finds it equal to a baked empty hash, forever, for
+#     every frontend, whatever the compiler does. Its "PASS=5 FAIL=0" was five empties matching five empties.
+# ⭐⭐ AND THE BAKE STEP IS WHY IT SURVIVED: --bake runs the SAME broken invocation and writes what
+# it gets. A baseline generated through the instrument it is meant to check cannot disagree with it -- the
+# defect is laundered into the expected values and the gate becomes perfectly self-consistent and perfectly
+# empty. Any bake-and-compare gate has this hole; the cure is that the bake step must assert its output is
+# non-trivial before writing it, which is the same "agreement on nothing is not agreement" law the corpus
+# harness already carries three copies of.
+# ⚠ A second defect hid the first: 25 of the 30 paths went stale in the corpus re-grid and the loop
+# SKIPPED them, so only 5 cases ran. Had all 30 resolved it would have printed "PASS=30 FAIL=0" and read as
+# a comprehensive six-frontend gate. The six icon/prolog paths are repointed below (demo/ -> demos/); the
+# other 19 are absorbed into their language masters and every one is recoverable by ORIGIN through
+# lib_master_extract.sh -- e.g. feat__f01_core_labels_goto, parser__arr_get, corpus__sc1_literals.
+# ⛔ REFUSING rather than being deleted, because the QUESTION is legitimate and someone has to rule on
+# it: SR-1 wants a post-lowering byte-identity check, and the SM dump it was written against in 2026-05 is
+# gone. The successor is `--dump-ir` (or `--dump-bb`), but pinning IR hashes as goldens is a DESIGN call
+# with a live precedent against it (RULES: .s artifacts must never be wired into a gate), so it is not one
+# to make silently inside a repair. Row: sr1-lower-gate-instrument-is-gone-rebase-or-retire.
+echo "⛔ GATE REFUSES: this gate's instrument does not exist." >&2
+echo "   --dump-sm is not a scrip flag (0 occurrences in src/driver/scrip.c); it is parsed as a FILENAME," >&2
+echo "   so every case produced empty stdout, and all 30 baked baseline hashes are md5(\"\")." >&2
+echo "   A green run here has never been evidence of anything. See the banner in this file." >&2
+echo "   FIX: rebase SR-1 onto --dump-ir/--dump-bb and re-bake with a non-trivial-output assertion, or" >&2
+echo "        retire SR-1 and drop demos/{icon,prolog} from corpus_coverage_manifest.tsv's GATED bucket." >&2
+exit 2
+
 if [ ! -x "$SCRIP" ]; then
     echo "SKIP scrip not built at $SCRIP"
     exit 0
@@ -49,14 +81,14 @@ declare -a PROGRAMS=(
     "sno_f10  --dump-sm  $CORPUS/tests/snobol4/feat/f10_io_basic.sno"
 
     # Icon
-    "icn_family    --dump-sm  $CORPUS/tests/icon/demo/family_icon.icn"
-    "icn_parser    --dump-sm  $CORPUS/tests/icon/demo/icon_parser.icn"
-    "icn_recog     --dump-sm  $CORPUS/tests/icon/demo/icon_recognizer.icn"
+    "icn_family    --dump-sm  $CORPUS/demos/icon/demo/family_icon.icn"
+    "icn_parser    --dump-sm  $CORPUS/demos/icon/demo/icon_parser.icn"
+    "icn_recog     --dump-sm  $CORPUS/demos/icon/demo/icon_recognizer.icn"
 
     # Prolog
-    "pl_family     --dump-sm  $CORPUS/tests/prolog/demo/family_prolog.pl"
-    "pl_parser     --dump-sm  $CORPUS/tests/prolog/demo/prolog_parser.pl"
-    "pl_recog      --dump-sm  $CORPUS/tests/prolog/demo/prolog_recognizer.pl"
+    "pl_family     --dump-sm  $CORPUS/demos/prolog/family_prolog.pl"
+    "pl_parser     --dump-sm  $CORPUS/demos/prolog/prolog_parser.pl"
+    "pl_recog      --dump-sm  $CORPUS/demos/prolog/prolog_recognizer.pl"
 
     # Raku
     "rk_arith_add  --dump-sm  $CORPUS/tests/raku/parser/arith_add.raku"

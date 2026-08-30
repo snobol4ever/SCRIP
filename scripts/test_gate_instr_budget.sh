@@ -71,8 +71,11 @@ set -u
 SCRIP_BIN="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS_ROOT="${CORPUS:-$S4E/corpus}"
-DEMO="$CORPUS_ROOT/demo/snobol4"
-BEAUTY_DIR="$CORPUS_ROOT/demo/snobol4/beauty"
+# ⛔ demo/ -> demos/ (corpus re-grid). Dead since the rename; this gate refused correctly and named
+# the exact missing file ("scrip: cannot open .../corpus/demo/snobol4/roman/roman.sno"), which is why it
+# cost minutes rather than months -- unlike its two neighbours, which went green instead.
+DEMO="$CORPUS_ROOT/demos/snobol4"
+BEAUTY_DIR="$CORPUS_ROOT/demos/snobol4/beauty"
 BENCH="$CORPUS_ROOT/benchmarks/snobol4"
 
 TOL_PCT="${TOL_PCT:-2}"

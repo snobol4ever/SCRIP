@@ -36,14 +36,14 @@ SUBTREE	benchmarks/prolog	GATED	test_bench_prolog_4way.sh
 SUBTREE	tests/rebus	GATED	test_crosscheck_rebus.sh
 SUBTREE	benchmarks/icon	GATED	test_icon_bench_corpus.sh
 SUBTREE	benchmarks/snobol4	GATED	test_bench_snobol4_timed.sh
-SUBTREE	demo/snobol4	GATED	test_corpus_snobol4.sh
+SUBTREE	demos/snobol4	GATED	test_corpus_snobol4.sh
 SUBTREE	library	GATED	test_corpus_snobol4.sh
-SUBTREE	demo/snocone	GATED	test_crosscheck_snocone.sh
+SUBTREE	demos/snocone	GATED	test_crosscheck_snocone.sh
 SUBTREE	packages/icon	GATED	test_gate_icn_scan.sh
 SUBTREE	benchmarks/pascal	ROWD	pascal-m4-registered-dispatch-segv
 SUBTREE	benchmarks/raku	ROWD	bench-rivals-raku-pascal
-SUBTREE	demo/prolog	GATED	test_lower_byte_identical.sh
-SUBTREE	demo/icon	GATED	test_lower_byte_identical.sh
+SUBTREE	demos/prolog	GATED	test_lower_byte_identical.sh
+SUBTREE	demos/icon	GATED	test_lower_byte_identical.sh
 # crosscheck/beauty RETIRED 2026-08-27: seat08's crosscheck-finish (corpus 96283343) converted its two loose
 # .sno into tests/snobol4/crosscheck/beauty.{sno,ref}. The directory survives but holds ZERO program files now --
 # only .input/.ref fixtures -- so it is no longer a live subtree. The gate caught this drift within hours of the
@@ -52,6 +52,6 @@ SUBTREE	demo/icon	GATED	test_lower_byte_identical.sh
 # moved to tests/snobol4/coverage/ (KEEP.md fixture -- IR-node-coverage witness, not runtime-gradeable; see that KEEP.md).
 # corpus/crosscheck/ now holds nothing at all -- this was its last SUBTREE entry. tests/snobol4 (below) already covers
 # the new location; no new line needed.
-SUBTREE	demo/scrip	ROWD	scrip-demo-harness-unwired
+SUBTREE	demos/scrip	ROWD	scrip-demo-harness-unwired
 EXCLUDE	archive	EXCLUDED	archived bisection scratch and retired probes, provenance in corpus/archive/*/README -- not gradeable, not test material; archived rather than deleted so a regressed cure can bisect against them
 EXCLUDE	packages/pascal	EXCLUDED	third-party Pascal-P4 reference compiler (pcom.pas/pint.pas/ppp.pas + grammar), ETH Zurich 1976, Free Pascal/Delphi port by Christophe Staiesse 2013; provenance in packages/pascal/README.md -- imported upstream, never converted/graded

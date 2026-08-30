@@ -64,11 +64,18 @@ xcheck "while" "$T"
 rm -f "$T"
 
 # Beauty-sc subsystems
-BEAUTY=${CORPUS:-$S4E/corpus}/demo/snocone/beauty/test
+# ⛔⭐ demo/ -> demos/ (corpus re-grid). This path had been dead since the rename and the loop
+# below DROPPED ALL FOUR beauty subsystems SILENTLY -- `[ -f ] && xcheck` with no else, not even a SKIP
+# count. The gate printed "PASS=4 FAIL=0 SKIP=0" and exited 0 while running half the cases it names.
+# ⭐ A silent drop is worse than a skip and far worse than a failure: the summary line is not merely
+# incomplete, it is CONFIDENT -- SKIP=0 positively asserts that nothing was left out. Counting the miss is
+# what makes the denominator honest, so the else branch below is the real fix and the path is only the cause.
+BEAUTY=${CORPUS:-$S4E/corpus}/demos/snocone/beauty/test
 for subsys in assign fence global arith; do
     f="$BEAUTY/test_$subsys.sc"
     ref="$BEAUTY/test_$subsys.ref"
-    [ -f "$f" ] && xcheck "beauty_$subsys" "$f" "$ref"
+    if [ -f "$f" ]; then xcheck "beauty_$subsys" "$f" "$ref"
+    else echo "  SKIP beauty_$subsys (missing: $f)"; SKIP=$((SKIP+1)); fi
 done
 
 echo ""
