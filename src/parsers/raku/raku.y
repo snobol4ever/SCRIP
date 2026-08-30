@@ -1765,6 +1765,8 @@ call_expr
         { tree_t *d=ast_node_new(TT_DIE); expr_add_child(d,$2); $$=d; }
     | KW_MAP closure expr
         { tree_t *c = ast_node_new(TT_MAP);  ast_push(c, $2); ast_push(c, $3); $$ = c; }
+    | KW_MAP closure ',' expr
+        { tree_t *c = ast_node_new(TT_MAP);  ast_push(c, $2); ast_push(c, $4); $$ = c; }
     | KW_GREP closure expr
         { tree_t *c = ast_node_new(TT_GREP); ast_push(c, $2); ast_push(c, $3); $$ = c; }
     | KW_SORT expr
