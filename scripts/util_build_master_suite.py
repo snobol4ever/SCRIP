@@ -530,6 +530,32 @@ def main():
     for _a in sys.argv[1:]:
         if _a.startswith("--allow-drop-origin="):
             allow_drop |= {x for x in _a.split("=", 1)[1].split(",") if x}
+    # ⭐ --family <prefix> / --only fam,fam SCOPE --delete-absorbed TO A SUBSET (row
+    # master-builder-delete-absorbed-family-selector, ceo mint 2026-08-30, on hq_P's measurement:
+    # --delete-absorbed is all-or-nothing per LANGUAGE while FLEET-16 splits one language's
+    # consolidation across seats -- icon has 208 verified-deletable families of which 153 are
+    # parser_* under a live seat lock, so the one authorized delete command would wipe another
+    # seat's working set and nobody could safely run it). Filters the SAME-INVOCATION `verified`
+    # list computed below -- never a second, independently-derived notion of "absorbed" -- so the
+    # byte-equal-or-no-delete guarantee is identical to plain --delete-absorbed, just scoped.
+    family_prefix = None
+    only_families = None
+    for i, a in enumerate(sys.argv[1:]):
+        if a == "--family" and i + 2 <= len(sys.argv[1:]):
+            family_prefix = sys.argv[i + 2]
+        elif a.startswith("--family="):
+            family_prefix = a.split("=", 1)[1]
+        elif a == "--only" and i + 2 <= len(sys.argv[1:]):
+            only_families = set(sys.argv[i + 2].split(","))
+        elif a.startswith("--only="):
+            only_families = set(a.split("=", 1)[1].split(","))
+    if family_prefix and only_families:
+        sys.stderr.write("REFUSED: --family and --only are alternatives, not both at once -- ambiguous which one selects.\n")
+        raise SystemExit(2)
+    if (family_prefix or only_families) and not delete_absorbed:
+        sys.stderr.write("REFUSED: --family/--only scope what --delete-absorbed deletes -- pass --delete-absorbed too, "
+                          "or drop the selector for a plain dry run (a selector with nothing to delete is a no-op that looks like a typo).\n")
+        raise SystemExit(2)
     if "--split-write" in sys.argv[1:]:
         raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, "--write" in sys.argv[1:]))
     included, all_entries, per_family = [], [], {}
@@ -1032,11 +1058,34 @@ def main():
         except Exception:
             ok = False
         (verified if ok else unverified).append((fam, sno, ref))
-    print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d" % (len(verified), len(unverified)), file=sys.stderr)
+    # ⭐ FILTER, NEVER RE-DERIVE: to_delete is a SUBSET of this same run's `verified` list, computed
+    # by the identical byte-equal-or-no-delete loop above -- a family excluded by the selector is
+    # left exactly as untouched as an UNVERIFIED one, never a second, weaker verification path.
+    if family_prefix is not None:
+        to_delete = [t for t in verified if t[0].startswith(family_prefix)]
+        selector_label = "--family %r" % family_prefix
+    elif only_families is not None:
+        to_delete = [t for t in verified if t[0] in only_families]
+        selector_label = "--only %s" % ",".join(sorted(only_families))
+    else:
+        to_delete = verified
+        selector_label = None
+    # ⛔ A SELECTOR MATCHING ZERO VERIFIED FAMILIES REFUSES rc=2 (DONE-WHEN, this row) -- a typo'd
+    # prefix or a misspelled name would otherwise silently delete nothing while --delete-absorbed
+    # still exits 0, which reads exactly like success. Checked even in dry-run mode (no --delete-
+    # absorbed cannot reach here at all per the refusal above, so this only ever gates a real delete).
+    if selector_label is not None and not to_delete:
+        sys.stderr.write("REFUSED: %s matches zero of the %d verified families this run -- nothing to delete.\n" % (selector_label, len(verified)))
+        raise SystemExit(2)
+    if selector_label is not None:
+        print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d; SELECTED by %s: %d (of the %d verified -- the rest stay, verified but out of scope this run)"
+              % (len(verified), len(unverified), selector_label, len(to_delete), len(verified)), file=sys.stderr)
+    else:
+        print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d" % (len(verified), len(unverified)), file=sys.stderr)
     if delete_absorbed:
         n = 0
         touched_dirs = set()
-        for fam, sno, ref in verified:
+        for fam, sno, ref in to_delete:
             os.remove(sno)
             os.remove(ref)
             for sc in (sno[:-len(EXT)] + ".in", sno[:-len(EXT)] + ".xfail"):
