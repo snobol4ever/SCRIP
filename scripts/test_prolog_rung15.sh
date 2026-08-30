@@ -50,4 +50,21 @@ done
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
+# ⛔⭐ ZERO-GRADED IS A REFUSAL, NOT A PASS (hq_B 2026-08-30). BOTH witness arms above are
+# conditional -- the consolidated suite pair on [ -f "$SNO" ] && [ -f "$REF" ], the loose
+# siblings on a `shopt -s nullglob` loop -- so a corpus deletion empties BOTH silently and the
+# bare `[ "$FAIL" -eq 0 ]` below then reported GREEN having measured nothing at all.
+# ⛔ MEASURED, not theoretical: corpus fdbe8ff8 ("delete 226 confirmed-redundant source files")
+# removed all five rung13_assertz witnesses; test_prolog_rung13.sh then exited rc=0 with
+# PASS=0 FAIL=0 -- and it is the FIRST conjunct of the DONE-WHEN of rank-0 keystone row
+# prolog-pz4-gamma-retain-activation-frames, so that row's acceptance criterion had a
+# vacuously-true term for anyone who ran it. The other rung graders (rung16+) already refuse
+# via their own suite-not-found guard; this family only checked [ -d "$CORPUS" ], which is the
+# DIRECTORY, never a witness. RULES.md: a test that cannot measure REFUSES with rc=2 --
+# never skip-as-success. The guard asks the question that actually matters (did anything get
+# graded), not whether one particular file exists, because this family has TWO witness sources.
+if [ $((PASS+FAIL)) -eq 0 ]; then
+    echo "REFUSE (rc=2): $FAMILY graded ZERO witnesses -- looked for suite pair $SNO / $REF and loose $CORPUS/${FAMILY}_*.pl, found neither. Cannot measure, not a pass."
+    exit 2
+fi
 [ "$FAIL" -eq 0 ]
