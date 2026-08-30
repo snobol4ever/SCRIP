@@ -522,8 +522,9 @@ hooks:
 # thing this target can actually do is done, and the missing script is now named out loud
 # instead of surfacing as a bare rc=127.
 setup: hooks
-	@if [ -f $(ROOT)/setup.sh ]; then bash $(ROOT)/setup.sh; \
-	else echo "⛔ setup.sh ABSENT at $(ROOT)/setup.sh -- this target has no bootstrap script in this tree. The hooks step above DID run. Fix or delete this target; it is not silently ignored."; exit 1; fi
+	@# setup.sh never existed in this tree (hq_B measured the dead path 2026-08-30); the bootstrap IS these two scripts, called directly so the README's `make setup` line is true rather than a rc=127 grave.
+	bash $(ROOT)/scripts/install_system_packages.sh
+	bash $(ROOT)/scripts/build_official_oracles.sh
 
 # ── Test targets ──────────────────────────────────────────────────────────────
 # (the old --run corpus runners were removed with the interpreter; the live

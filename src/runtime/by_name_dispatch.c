@@ -4757,6 +4757,10 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl(fn, args, nargs, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐ bidlen is the emitter's pre-resolved (strlen(fn) << 16) | bid_of(fn,len); NEGATIVE means "resolve it yourself" -- see the note on try_call_builtin_by_name_bl. */
+/* ⛔⛔ TRIPWIRE (hq_P 2026-08-30, FINDING cd4830a2): THIS FUNCTION'S FRAME SIZE IS LOAD-BEARING FOR AN UNRELATED BUG. Emitted FENCE-branch code trusts a fixed rsp-relative offset across this call with nothing
+   tracking accumulated depth (row calling-convention-depth-tracked), so whether SNOBOL4 FENCE programs SIGSEGV is an arbitrary function of THIS frame's layout -- measured: adding volatile char pad[16] here
+   reproduces the crash byte-identically on a tree with zero other changes (8/32/40 bytes clean, 16/24/48/56/64+ SEGV). If you reshape this frame and FENCE entries start crashing, YOUR CHANGE IS NOT THE BUG --
+   it is the perturbation; do not bisect yourself into a revert (that already happened once, df800d2c). The tripwire dies when the convention row lands depth tracking. */
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
