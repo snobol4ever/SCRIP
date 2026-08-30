@@ -8,7 +8,7 @@ set -euo pipefail
 SNO="${1:?Usage: build_snobol4_x86.sh <file.sno>}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RT="$DIR/src/runtime"
-INC="${INC:-$S4E/corpus/library}"
+INC="${INC:-$S4E/corpus/include}"
 SCRIP_CC="${SCRIP_CC:-$DIR/scrip}"
 WORK=$(mktemp -d /tmp/snobol4_asm_XXXXXX)
 trap 'rm -rf "$WORK"' EXIT

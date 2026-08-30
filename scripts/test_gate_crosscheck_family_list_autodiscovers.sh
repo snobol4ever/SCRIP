@@ -24,7 +24,7 @@ trap 'rm -rf "$GATE_WORK"' EXIT
 ROOT="$GATE_WORK/root"
 PROBE="zzz_gate_probe_$$"
 mkdir -p "$ROOT/corpus/demos/snobol4" "$ROOT/corpus/tests/snobol4/beauty_suite" "$ROOT/corpus/crosscheck" \
-         "$ROOT/corpus/library" "$ROOT/corpus/tests/snobol4/crosscheck"
+         "$ROOT/corpus/include" "$ROOT/corpus/tests/snobol4/crosscheck"
 printf ' OUTPUT = "GATE_PROBE_OK";END;* %s\n' "$PROBE" > "$ROOT/corpus/tests/snobol4/crosscheck/${PROBE}.sno"
 printf 'GATE_PROBE_OK\n' > "$ROOT/corpus/tests/snobol4/crosscheck/${PROBE}.ref"
 

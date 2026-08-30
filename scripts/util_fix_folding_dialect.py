@@ -11,7 +11,7 @@ DECISION PROCEDURE (per program):
              the program produced BEFORE the edit.  Otherwise REVERT and report.
 ⛔ TWO DIRECTORIES ARE NEVER OPENED, BY CONSTRUCTION (OFF_LIMITS below, enforced in closure() so the
    walk never descends and in the write loop as a belt): corpus/lon/ (RULES.md ABSOLUTE --
-   do not run, do not read) and corpus/library/ (HQ interim s191 -- inherits the do-not-read
+   do not run, do not read) and corpus/include/ (HQ interim s191 -- inherits the do-not-read
    half pending Lon's credential ruling).  Both locks are READ locks, not just write locks: closure()
    open()s every file it reaches, and a secret read into a transcript has been copied somewhere new.
    CONSEQUENCE, STATED SO IT IS NOT MISREAD AS A BUG: a gimpel program whose fix needs an uppercased
