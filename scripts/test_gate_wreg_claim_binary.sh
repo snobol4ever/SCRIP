@@ -27,9 +27,11 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE"
 # library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
-# conversion) -- each SET member below is materialized on demand via the harness's `extract`.
-SUITE_SNO=$S4E/corpus/tests/snobol4/probe/bb_probes.sno
-SUITE_REF=$S4E/corpus/tests/snobol4/probe/bb_probes.ref
+# conversion) -- each SET member below is materialized on demand. ⭐ RE-POINTED 2026-08-30 (seat12,
+# repo-wide dead-suite-path consumer sweep): that per-family bb_probes.{sno,ref} pair was itself
+# absorbed into THE ONE FLAT MASTER and deleted; lib_master_extract.sh now extracts each SET member
+# by its ALL.csv origin ("probe_bb_probes__<name>") instead.
+. "$HERE/scripts/lib_master_extract.sh"
 SET=(D09 D10 D11 D12 D13 G19 G20 H21 H24 H25 N12 N17 X01 X02 X03 X04 X05 X06 X11)
 [ "${1:-}" = "--quick" ] && SET=(D09 D12 X02)
 command -v gdb >/dev/null || { echo "SETUP: gdb missing (apt-get install -y --no-install-recommends gdb)"; exit 2; }
@@ -61,7 +63,7 @@ ALLOW
 fail=0; total_slabs=0; total_hits=0
 for p in "${SET[@]}"; do
     sno="$TMP/probes/$p.sno"; mkdir -p "$TMP/probes"
-    python3 "$HERE/scripts/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" "$p" "$sno" >/dev/null 2>&1
+    master_extract_origin "probe_bb_probes__$p" "$sno" >/dev/null 2>&1
     [ -f "$sno" ] || { echo "SETUP: missing $sno (extract failed for entry $p)"; exit 2; }
     d="$TMP/$p"; mkdir -p "$d"
     # gdb script: dump every seal with an incrementing convenience var

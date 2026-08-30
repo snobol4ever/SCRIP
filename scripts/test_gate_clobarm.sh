@@ -23,14 +23,13 @@ gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip 
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 if [ -z "${DIR:-}" ]; then
-    SUITE_SNO="${SUITE_SNO:-$S4E/corpus/tests/snobol4/probe/clobarm.sno}"
-    SUITE_REF="${SUITE_REF:-$S4E/corpus/tests/snobol4/probe/clobarm.ref}"
+    # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): clobarm.{sno,ref}
+    # (itself a 2026-08-29 re-point onto the per-family suite pair) was absorbed into THE ONE FLAT
+    # MASTER and deleted; lib_master_extract.sh materializes the "probe_clobarm" family's origins
+    # back into a loose-file dir, same idiom this file's own header already documents.
+    . "$HERE/lib_master_extract.sh"
     DIR="$WORK/clobarm_src"; mkdir -p "$DIR"
-    if [ -f "$SUITE_SNO" ] && [ -f "$SUITE_REF" ]; then
-        while IFS= read -r name; do
-            python3 "$HERE/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" "$name" "$DIR/$name.sno" --out-ref "$DIR/$name.ref" >/dev/null 2>&1
-        done < <(python3 "$HERE/corpus_suite_harness.py" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
-    fi
+    master_extract_family probe_clobarm "$DIR" 2>/dev/null
 fi
 [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $DIR (suite missing or extraction failed)"; exit 2; }
 for f in "$DIR"/*.sno; do

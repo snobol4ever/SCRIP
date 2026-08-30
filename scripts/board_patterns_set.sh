@@ -20,10 +20,20 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 SCRIP=${SCRIP_BIN:-$(cd "$(dirname "$0")/.." && pwd)/scrip}
-DIR=${PAT_CORPUS:-$S4A/work/corpus/crosscheck/patterns}
 SNAPDIR=${BOARD_SNAPS:-$S4A/work/board_snaps}
 PER=${PAT_TIMEOUT:-30}
 mkdir -p "$SNAPDIR"
+# ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
+# is gone -- absorbed into THE ONE FLAT MASTER. An explicit PAT_CORPUS override is honored as-is; the
+# default now materializes the "crosscheck_patterns" family via lib_master_extract.sh into a
+# persistent scratch dir under SNAPDIR so repeated snap/diff invocations reuse the same extraction.
+if [ -n "${PAT_CORPUS:-}" ]; then
+  DIR="$PAT_CORPUS"
+else
+  . "$(cd "$(dirname "$0")" && pwd)/lib_master_extract.sh"
+  DIR="$SNAPDIR/crosscheck_patterns_src"
+  [ -d "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { mkdir -p "$DIR"; master_extract_family crosscheck_patterns "$DIR" 2>/dev/null; }
+fi
 
 snap() {
   local tag="$1"

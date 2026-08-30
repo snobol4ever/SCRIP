@@ -20,25 +20,29 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root; S4E_HOME overrides
 set -u
 SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
-HARNESS="${HARNESS:-$SCRIP_DIR/scripts/corpus_suite_harness.py}"
-SUITE_SNO="${SUITE_SNO:-$S4E/corpus/tests/snobol4/probe/passthru.sno}"
-SUITE_REF="${SUITE_REF:-$S4E/corpus/tests/snobol4/probe/passthru.ref}"
+# ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): the passthru.{sno,ref}
+# per-family suite pair this script used to read (itself a 2026-08-28 re-point) was absorbed into
+# THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}, Lon's one-flat-suite ruling) and deleted.
+# lib_master_extract.sh (the ONE authority for this, per its own header) now materializes each
+# origin "probe_passthru__<oldname>" back into a standalone .sno/.ref pair -- same idiom every other
+# re-pointed consumer in this sweep uses.
+. "$SCRIP_DIR/scripts/lib_master_extract.sh"
 MODE="${1:-both}"
 FILT="${2:-}"
 TMO="${TMO:-8}"
-if [ ! -f "$SUITE_SNO" ] || [ ! -f "$SUITE_REF" ]; then echo "⛔ GATE REFUSES: suite file missing ($SUITE_SNO)"; exit 2; fi
-if ! command -v python3 >/dev/null 2>&1; then echo "⛔ GATE REFUSES: python3 not found"; exit 2; fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-mapfile -t NAMES < <(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF") || { echo "⛔ GATE REFUSES: could not list suite entries ($SUITE_SNO)"; exit 2; }
-[ "${#NAMES[@]}" -eq 0 ] && { echo "⛔ GATE REFUSES: suite file has zero entries ($SUITE_SNO)"; exit 2; }
 EX="$W/extracted"; mkdir -p "$EX"
-extract_fail=0
-for base in "${NAMES[@]}"; do
+extract_fail=0; n=0
+while IFS= read -r o; do
+  [ -n "$o" ] || continue
+  base="${o#probe_passthru__}"
   [ -n "$FILT" ] && case "$base" in *"$FILT"*) ;; *) continue;; esac
-  python3 "$HARNESS" extract "$SUITE_SNO" "$SUITE_REF" "$base" "$EX/$base.sno" --out-ref "$EX/$base.ref" >/dev/null 2>&1 \
+  n=$((n+1))
+  master_extract_origin "$o" "$EX/$base.sno" "$EX/$base.ref" \
     || { echo "⚠️  extract FAILED for $base" >&2; extract_fail=$((extract_fail+1)); }
-done
-[ "$extract_fail" -gt 0 ] && echo "⚠️  $extract_fail/${#NAMES[@]} entries failed to extract -- board below is incomplete" >&2
+done < <(master_origins_of_family probe_passthru)
+[ "$n" -eq 0 ] && { echo "⛔ GATE REFUSES: zero probe_passthru entries found in the master (family absent, or renamed again)"; exit 2; }
+[ "$extract_fail" -gt 0 ] && echo "⚠️  $extract_fail/$n entries failed to extract -- board below is incomplete" >&2
 one_shot() {
   local f="$1" mode="$2" ref="$3" out rc
   if [ "$mode" = m3 ]; then

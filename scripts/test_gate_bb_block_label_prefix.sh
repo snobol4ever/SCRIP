@@ -57,6 +57,11 @@ CORPUS="$S4E/corpus"
 SCRIP_BIN=./scrip
 WITDIR="$(mktemp -d)"
 trap 'rm -rf "$WITDIR"' EXIT
+# ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): tests/snobol4/probe/indirect.sno
+# was absorbed into THE ONE FLAT MASTER and deleted; lib_master_extract.sh materializes it back out
+# by origin ("probe_indirect__indirect_pattern_operand").
+. "$S4E/SCRIP/scripts/lib_master_extract.sh"
+master_extract_origin probe_indirect__indirect_pattern_operand "$WITDIR/indirect.sno" >/dev/null 2>&1
 # ⚠️ SCOPE, READ BEFORE ADDING A WITNESS: porter.sno and beauty.sno were tried and dropped (seat05
 # 2026-08-29). Both are large/heavily-optimized enough that some straight-line boxes' own alpha port
 # label is optimizer-elided (nothing jumps to it directly, so dead-label elimination removes it) while
@@ -68,7 +73,7 @@ trap 'rm -rf "$WITDIR"' EXIT
 # disabling that optimization for gate purposes -- out of scope for this pass. Keep this witness list to
 # programs whose bracketing has been manually spot-checked clean; a bigger/newer witness needs the same
 # spot-check before joining this list, not just "it compiles".
-WITNESSES="$CORPUS/benchmarks/snobol4/pattern_bt.sno $CORPUS/tests/icon/generators.icn $CORPUS/tests/snobol4/probe/indirect.sno"
+WITNESSES="$CORPUS/benchmarks/snobol4/pattern_bt.sno $CORPUS/tests/icon/generators.icn $WITDIR/indirect.sno"
 fail=0
 total_defs=0
 for f in $WITNESSES; do

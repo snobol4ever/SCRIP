@@ -6,10 +6,19 @@
 # Usage: bash scripts/test_board_wreg_byset.sh [off|on|both]   (default both; run one arm at a time under short tool timeouts)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 SCRIP=${SCRIP_BIN:-$S4E/SCRIP/scrip}
-DIR=${WREG_CORPUS:-$S4E/corpus/crosscheck/patterns}
 OUT=${WREG_OUT:-/tmp/wreg_board.$$}
 PER=${WREG_TIMEOUT:-15}
 mkdir -p "$OUT"
+# ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
+# is gone -- absorbed into THE ONE FLAT MASTER. An explicit WREG_CORPUS override is honored as-is;
+# the default now materializes the "crosscheck_patterns" family via lib_master_extract.sh.
+if [ -n "${WREG_CORPUS:-}" ]; then
+  DIR="$WREG_CORPUS"
+else
+  . "$S4E/SCRIP/scripts/lib_master_extract.sh"
+  DIR="$OUT/crosscheck_patterns_src"; mkdir -p "$DIR"
+  master_extract_family crosscheck_patterns "$DIR" 2>/dev/null
+fi
 run_arm() {
   local val="$1" tag="$2"
   : > "$OUT/pass.$tag"; : > "$OUT/fail.$tag"

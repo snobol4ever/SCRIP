@@ -21,31 +21,19 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 FILES=("$@")
 if [ ${#FILES[@]} -eq 0 ]; then
-    # ⭐ RE-POINTED 2026-08-28 (seat08, probe-consolidate-passthru): the ptc grid used to live as loose
-    # corpus/probe/passthru/ptc*.sno files; it now lives in corpus/tests/snobol4/probe/passthru.{sno,ref}
-    # (corpus-suites-consolidation format). Extract the ptc-prefixed entries via corpus_suite_harness.py
-    # (the ONE parsing authority) into a scratch dir so the rest of this script's file-list contract is
-    # unchanged.
-    # ⭐ RE-POINTED 2026-08-29 (seat16, corpus-crosscheck-probe-total-conversion clause 3): retry/ is now
-    # converted too -- corpus/probe/retry/*.sno -> corpus/tests/snobol4/probe/retry.{sno,ref}. Same
-    # extraction idiom, same scratch-dir contract; nothing downstream of $FILES changed.
-    HARNESS="$S4E/SCRIP/scripts/corpus_suite_harness.py"
-    SUITE_SNO="$S4E/corpus/tests/snobol4/probe/passthru.sno"
-    SUITE_REF="$S4E/corpus/tests/snobol4/probe/passthru.ref"
+    # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): the passthru.{sno,ref}
+    # and retry.{sno,ref} per-family suite pairs this comment used to name (2026-08-28/29 re-points)
+    # were themselves absorbed into THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}) and deleted.
+    # lib_master_extract.sh now materializes both families back out of the master by origin, same
+    # scratch-dir contract as before -- nothing downstream of $FILES changed.
+    . "$S4E/SCRIP/scripts/lib_master_extract.sh"
     PTC_TMP="$TMP/ptc_grid"; mkdir -p "$PTC_TMP"
-    if [ -f "$SUITE_SNO" ] && [ -f "$SUITE_REF" ]; then
-        while IFS= read -r name; do
-            case "$name" in ptc*) python3 "$HARNESS" extract "$SUITE_SNO" "$SUITE_REF" "$name" "$PTC_TMP/$name.sno" >/dev/null 2>&1 ;; esac
-        done < <(python3 "$HARNESS" list "$SUITE_SNO" "$SUITE_REF" 2>/dev/null)
-    fi
-    RETRY_SNO="$S4E/corpus/tests/snobol4/probe/retry.sno"
-    RETRY_REF="$S4E/corpus/tests/snobol4/probe/retry.ref"
+    while IFS= read -r o; do
+        base="${o#probe_passthru__}"
+        case "$base" in ptc*) master_extract_origin "$o" "$PTC_TMP/$base.sno" >/dev/null 2>&1 ;; esac
+    done < <(master_origins_of_family probe_passthru)
     RETRY_TMP="$TMP/retry_family"; mkdir -p "$RETRY_TMP"
-    if [ -f "$RETRY_SNO" ] && [ -f "$RETRY_REF" ]; then
-        while IFS= read -r name; do
-            python3 "$HARNESS" extract "$RETRY_SNO" "$RETRY_REF" "$name" "$RETRY_TMP/$name.sno" >/dev/null 2>&1
-        done < <(python3 "$HARNESS" list "$RETRY_SNO" "$RETRY_REF" 2>/dev/null)
-    fi
+    master_extract_family probe_retry "$RETRY_TMP" 2>/dev/null
     FILES=( "$PTC_TMP"/*.sno "$RETRY_TMP"/*.sno )
 fi
 n=0

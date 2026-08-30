@@ -15,7 +15,12 @@ set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
 DEMO="${DEMO:-$S4E/corpus/demos/snobol4/json}"
-PROBE="${PROBE:-$S4E/corpus/probe/json_fence_jstrbody_cas}"
+# ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): corpus/probe/ was
+# deleted wholesale (corpus-crosscheck-probe-total-conversion); these two .ref files are part of the
+# un-absorbable residue and now live as flat probe_loose_-prefixed files directly under tests/snobol4/.
+PROBE="${PROBE:-$S4E/corpus/tests/snobol4}"
+JFJC_JSON_REF="probe_loose_json_fence_jstrbody_cas_citm_catalog_json.ref"
+JFJC_MF_REF="probe_loose_json_fence_jstrbody_cas_citm_catalog_match_fence.ref"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 
@@ -24,7 +29,7 @@ if [ ! -x "$SCRIP" ]; then
   echo "JSON-FENCE-JSTRBODY-CAS GATE: PASS=0 FAIL=0 REFUSED"
   exit 2
 fi
-if [ ! -f "$DEMO/citm_catalog.json" ] || [ ! -f "$PROBE/citm_catalog_json.ref" ] || [ ! -f "$PROBE/citm_catalog_match_fence.ref" ]; then
+if [ ! -f "$DEMO/citm_catalog.json" ] || [ ! -f "$PROBE/$JFJC_JSON_REF" ] || [ ! -f "$PROBE/$JFJC_MF_REF" ]; then
   echo "  REFUSED TO GRADE: missing input or ref under $DEMO / $PROBE"
   echo "JSON-FENCE-JSTRBODY-CAS GATE: PASS=0 FAIL=0 REFUSED"
   exit 2
@@ -36,16 +41,16 @@ gcc -no-pie /tmp/gate_jfjc_json.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthr
 gcc -no-pie /tmp/gate_jfjc_jmf.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o /tmp/gate_jfjc_jmf.bin 2>/dev/null
 
 timeout 60 "$SCRIP" --run "$DEMO/json.sno" < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m3_json.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m3_json.txt "$PROBE/citm_catalog_json.ref" > /dev/null 2>&1; chk $? "m3 json.sno matches oracle on citm_catalog.json"
+diff -q /tmp/gate_jfjc_m3_json.txt "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m3 json.sno matches oracle on citm_catalog.json"
 
 timeout 60 /tmp/gate_jfjc_json.bin < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m4_json.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m4_json.txt "$PROBE/citm_catalog_json.ref" > /dev/null 2>&1; chk $? "m4 json.sno matches oracle on citm_catalog.json"
+diff -q /tmp/gate_jfjc_m4_json.txt "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m4 json.sno matches oracle on citm_catalog.json"
 
 timeout 60 "$SCRIP" --run "$DEMO/json-match-fence.sno" < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m3_jmf.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m3_jmf.txt "$PROBE/citm_catalog_match_fence.ref" > /dev/null 2>&1; chk $? "m3 json-match-fence.sno matches oracle on citm_catalog.json"
+diff -q /tmp/gate_jfjc_m3_jmf.txt "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m3 json-match-fence.sno matches oracle on citm_catalog.json"
 
 timeout 60 /tmp/gate_jfjc_jmf.bin < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m4_jmf.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m4_jmf.txt "$PROBE/citm_catalog_match_fence.ref" > /dev/null 2>&1; chk $? "m4 json-match-fence.sno matches oracle on citm_catalog.json"
+diff -q /tmp/gate_jfjc_m4_jmf.txt "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m4 json-match-fence.sno matches oracle on citm_catalog.json"
 
 # ⭐ REGRESSION LOCK, NOT JUST A CORRECTNESS CHECK: jstrbody's FENCE must still be textually present at both
 # sites -- a future edit that silently drops it would still pass the byte-identical checks above (small/no
