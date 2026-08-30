@@ -7,11 +7,17 @@ companions/SNO_LIB/byte-comparison semantics match the real gate exactly (a bare
 --only NAME: check a single entry, exit 0 iff it still PASSes under both bypass arms (this is
 the acceptance test for optimizer-off-path-segvs-so-the-emergency-bypass-is-not-a-correct-path.task.md).
 
-No --only: full census across every non-xfail entry, prints a summary and optionally writes a
-per-entry CSV with --out. Always exits 0 in this mode -- informational, not a blocking gate.
-Promoting it to a fleet gate (wiring into make test) is a separate decision for HQ/ceo: as of
-the 2026-08-29 census, SCRIP_OPT=0 regresses 176/1494 graded entries and SCRIP_ZD=0 regresses
-289/1494, so a strict gate would be permanently red until the underlying defect(s) are cured.
+No --only, no --gate: full census across every non-xfail entry, prints a summary and optionally
+writes a per-entry CSV with --out. Always exits 0 in this mode -- informational.
+
+--gate: PINNED-WATERMARK check (hq_P ruling 2026-08-29, topic ruling-watermark-not-blocking-and-
+the-doctrine-question-underneath). NOT a FAIL=0 bar on the bypass arms -- a gate nobody can satisfy
+gets disabled within a week. Instead: the DEFAULT arm is a hard 0-failures bar (exit 1 if it breaks,
+independent of the bypass flags entirely); each bypass arm may regress AT MOST its pinned watermark
+(exit 1 if either grows past it); and the graded population must match the pinned denominator or the
+ratio silently means something else (exit 2, REFUSE, if the corpus reshuffled since the pins were
+set). Called by scripts/test_gate_optbypass_watermark.sh. Exit codes follow lib_gate.sh convention:
+0 CLEAN, 1 VIOLATION, 2 UNPROVEN/REFUSE.
 """
 import argparse
 import concurrent.futures
@@ -63,6 +69,10 @@ def main():
     ap.add_argument("--only", default="", help="check a single entry name; exit 0 iff it still PASSes under both bypass arms")
     ap.add_argument("--out", default="", help="write the full per-entry CSV here (full-census mode only)")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--gate", action="store_true", help="pinned-watermark check -- see module docstring")
+    ap.add_argument("--pinned-population", type=int, default=1494, dest="pinned_population")
+    ap.add_argument("--pinned-opt0-max", type=int, default=176, dest="pinned_opt0_max")
+    ap.add_argument("--pinned-zd0-max", type=int, default=291, dest="pinned_zd0_max")
     args = ap.parse_args()
 
     paths = h.resolve_paths()
@@ -89,6 +99,15 @@ def main():
 
     graded = [e for e in entries if not e.xfail]
     print(f"total entries={len(entries)} graded(non-xfail)={len(graded)} xfail={len(entries)-len(graded)}", file=sys.stderr)
+
+    if args.gate and len(graded) != args.pinned_population:
+        print(f"⛔ REFUSE(2) [optbypass_watermark]: graded population is {len(graded)}, but the watermark was "
+              f"pinned against {args.pinned_population}. The corpus reshuffled since the pin was set (this tree "
+              f"churns FAST -- CLAUDE.md). A different denominator makes the ratio mean something else, so this "
+              f"is refused rather than compared. Re-run with --out to re-measure, then ask hq_P/ceo to re-pin "
+              f"--pinned-population/--pinned-opt0-max/--pinned-zd0-max in test_gate_optbypass_watermark.sh.")
+        sys.exit(2)
+
     t0 = time.time()
     default_r = run_arm(paths, entries, None, companion_dir, args.workers)
     opt0_r = run_arm(paths, entries, "SCRIP_OPT", companion_dir, args.workers)
@@ -118,6 +137,28 @@ def main():
     zd0_reg, zd0_sig = summarize(zd0_r)
     opt0_names = {n for n, *_ in opt0_reg}
     zd0_names = {n for n, *_ in zd0_reg}
+
+    if args.gate:
+        violations = []
+        if default_fail_ct != 0:
+            violations.append(f"DEFAULT arm (no bypass flags -- the shipped compiler) has {default_fail_ct} "
+                               f"failure(s) out of {len(graded)}. This is a hard bar independent of the "
+                               f"watermark, and it just broke.")
+        if len(opt0_reg) > args.pinned_opt0_max:
+            violations.append(f"SCRIP_OPT=0 regresses {len(opt0_reg)}/{len(graded)}, above the pinned "
+                               f"watermark of {args.pinned_opt0_max}.")
+        if len(zd0_reg) > args.pinned_zd0_max:
+            violations.append(f"SCRIP_ZD=0 regresses {len(zd0_reg)}/{len(graded)}, above the pinned "
+                               f"watermark of {args.pinned_zd0_max}.")
+        if violations:
+            print("⛔ VIOLATION(1) [optbypass_watermark]:")
+            for v in violations:
+                print(f"    - {v}")
+            sys.exit(1)
+        print(f"✅ OK [optbypass_watermark]: DEFAULT 0/{len(graded)} (hard). "
+              f"SCRIP_OPT=0 {len(opt0_reg)}/{len(graded)} (watermark <= {args.pinned_opt0_max}). "
+              f"SCRIP_ZD=0 {len(zd0_reg)}/{len(graded)} (watermark <= {args.pinned_zd0_max}).")
+        sys.exit(0)
 
     print("\n===== SUMMARY =====")
     print(f"graded population: {len(graded)}  default-arm control failures: {default_fail_ct}")
