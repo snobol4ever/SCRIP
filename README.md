@@ -38,11 +38,11 @@ The frontend is chosen by file extension:
 | `.raku`| Raku | Rakudo |
 | `.pas` | Pascal (ISO 7185) | Free Pascal (`fpc -Miso`) |
 
-SNOBOL4 is complete. Icon passes its own smoke and rung ladders clean in both modes
-and is graded against the official Arizona and JCON vendor test suites — the measured
-boards, including how far the JCON-compiler self-host currently gets, are in the Icon
-status section below. Prolog is experimental; Rebus,
-Raku, and Pascal are newer frontiers, benchmarked as they land (see Benchmarks below).
+Where each language stands is measured, not asserted: **Language status** below has a
+section per language — master-suite coverage, vendor-suite boards (Icon is graded
+against the official Arizona and JCON test suites, including how far the
+JCON-compiler self-host gets), and every benchmark grid, with the gaps stated as
+gaps.
 Correctness is not asserted, it is diffed: every test runs against its language's
 reference implementation, byte for byte.
 
@@ -153,13 +153,40 @@ never regress), `test_smoke_*` (per-language smokes), `board_*` / `bench_*`
 [`corpus`](https://github.com/snobol4ever/corpus) repository — SCRIP's scripts expect
 it checked out beside this repo.
 
-## Benchmarks — measured, labeled, gaps included
+## Language status — coverage and benchmarks
 
-Speed claims follow the house fact rules: the unit is a multiple on the faster axis
-(`reference time / SCRIP time` — above 1.00x SCRIP is ahead, below 1.00x behind), rows
-in one grid share one instrument, and a number's tree and date are part of its label.
-Measured 2026-08-27 (wall clock, scaled fixed work, `-O0` runtime, output agreement
-verified per kernel before timing — a wrong answer is never a fast answer):
+One section per language: what the test suites measure today, and where speed stands.
+Numbers follow the house fact rules — coverage counts name their suite and denominator;
+speed is a multiple on the faster axis (`reference time / SCRIP time` — above 1.00x
+SCRIP is ahead, below 1.00x behind), rows in one grid share one instrument, and a
+number's tree and date are part of its label. A missing grid is stated as missing,
+never guessed. The seven-language summary, generated from the corpus masters and each
+language's own floor gate (tree SCRIP `4d8a5595` / corpus `7f253b6a4`, 2026-08-30):
+
+| Language | Master suite (`corpus/tests/<lang>/ALL.csv`) | Floor gate, fresh |
+|---|---|---|
+| SNOBOL4 | 1726 entries, 80 xfail | corpus board m3 **PASS=1672 FAIL=0** · m4 **PASS=1672 FAIL=0** SKIP=0 MISSING=0 |
+| Icon | 534 entries, 1 xfail | rung ladder PASS=260 FAIL=8 XFAIL=28 / 297 · smoke 14/14 both modes |
+| Prolog | 371 entries, 9 xfail | smoke 5/5 both modes |
+| Raku | 129 entries, 14 xfail | master run m3 **PASS=724 FAIL=0** / 724 (m4 identical) |
+| Pascal | 149 entries | m3 PASS=161 FAIL=2 · m4 PASS=153 FAIL=1 (suites watermark 96/96) |
+| Snocone | 273 entries, 24 xfail | smoke 5/5 |
+| Rebus | 48 entries | smoke 4/4 |
+
+### SNOBOL4 / SPITBOL
+
+**Coverage.** The complete frontend. The broad corpus board runs **FAIL=0 in both
+modes** (1672 programs and suite entries, 2026-08-30); the 1726-entry master suite
+carries 80 xfails, each a named, tracked defect — never a silent skip. Correctness is
+triangulated four ways on the vendored **snoflake fixture suite** (180 self-describing
+programs): SCRIP in both modes, SPITBOL, and CSNOBOL4 side by side, so a failure is
+attributed to a real defect, a dialect difference, or a broken fixture by measurement
+(`scripts/test_snoflake_suite.sh`). And `beauty.sno`, the SNOBOL4 pretty-printer
+written in SNOBOL4, reproduces itself byte-for-byte in both modes.
+
+**Benchmarks.** Measured 2026-08-27 (wall clock, scaled fixed work, `-O0` runtime,
+output agreement verified per kernel before timing — a wrong answer is never a fast
+answer):
 
 **SNOBOL4 × vs SPITBOL x64** (19/19 kernels output-identical; scaled trio):
 
@@ -224,7 +251,14 @@ The reading: pure-match arms can crush (calculator-1-match at 7.44x), json is wi
 of SPITBOL on totals, and the worst full program (treebank, allocation-heavy at 0.50x)
 points at the same GC/allocator lever the profile work has already sized.
 
-**Icon × vs Arizona `iconx`** (10/10 kernels output-identical):
+### Icon
+
+**Coverage.** The smoke is clean at 14/14 in both modes, and the 297-rung ladder
+reads PASS=260 FAIL=8 XFAIL=28 (2026-08-30) — every FAIL and XFAIL a named, tracked
+defect, and the ladder count moves as rungs land. The vendor-suite boards and the JCON self-host
+distance follow the benchmark grid below.
+
+**Benchmarks.** **× vs Arizona `iconx`** (10/10 kernels output-identical, 2026-08-27):
 
 | kernel | × | kernel | × |
 |---|:---:|---|:---:|
@@ -234,9 +268,7 @@ points at the same GC/allocator lever the profile work has already sized.
 | concat_table | **2.64x** | concat_intvar | 0.72x |
 | concat_strvar | **2.39x** | | |
 
-### Icon status, measured
-
-Icon is graded against the two official vendor test suites, vendored in the corpus and
+**Vendor test suites.** Icon is graded against the two official vendor test suites, vendored in the corpus and
 mechanically converted to SCRIP's explicit-semicolon dialect (`.std` oracles untouched
 — the conversion changes no semantics, so PASS/FAIL measures the engine, and REJECT
 names a real front-end parse gap). Measured 2026-08-30, SCRIP `508eeed5` / corpus
@@ -263,26 +295,62 @@ literals but delivers frame-resident variables as `&null` (Icon law: `create` co
 current local values); `create` re-runs global initialization over the shared global
 plane (Icon law: globals are untouched); and per-activation storage for recursive
 generators (in flight as its own row). When the first lands, classes flow.
-tree, all modes); its rivals speed grid, and Raku's and Pascal's, are the frontier —
-they get published here the same way, measured with named instruments, when they land.
 
-Correctness is also triangulated against independent implementations: the vendored
-**snoflake fixture suite** (180 self-describing programs from the
-[snoflake](https://github.com/atdt/snoflake) project) runs four arms side by side —
-SCRIP in both modes, SPITBOL, and CSNOBOL4 — so a failure is attributed to a real
-defect, a dialect difference, or a broken fixture by measurement, never by guess
-(`scripts/test_snoflake_suite.sh`).
+### Prolog
 
-Status, reverified 2026-08-29 (tree `7817f370`, pristine build): the SNOBOL4 corpus
-suite runs **FAIL=0 in both modes** (1299 programs and suite entries); the
-language-identity and medium-invisibility invariant checks are both clean, and
-`beauty.sno`'s self-reproduction (above) still holds in both modes. Per-language
-checks as of 2026-08-28: Pascal
-suites 96/96 both modes (and the loose-program set deterministic at 150/154), Icon
-smoke 14/14 both modes, Snocone 5/5, Rebus 4/4, Prolog 5/5 in all three modes
-(multiclause backtracking cured that evening; its parser-conformance suite at 12/15,
-up from 3/15), Raku parser suite 83/83. Denominators grow as the corpus consolidates;
-each script prints its own totals.
+**Coverage.** Graded against GNU Prolog and SWI-Prolog. The 371-entry master suite
+carries 9 xfails; the smoke is 5/5 in both modes (2026-08-30), and the
+parser-conformance suite reads 12/15 (2026-08-28, up from 3/15 after the multiclause
+backtracking cure). Prolog structure rides the same Byrd-box engine as everything
+else — no separate term interpreter.
+
+**Benchmarks.** The rivals grid (× vs `gprolog` and `swipl`, both installed; kernel
+coverage gate green) is the frontier — it gets published here the same way, measured
+with named instruments, when it lands. No number is quoted before then.
+
+### Raku
+
+**Coverage.** The 129-entry master expands to 724 graded runs and reads
+**PASS=724 FAIL=0** in both modes (2026-08-30; the full run needs over a minute of
+wall clock — a short timeout reads as a hang and is not a red). Parser suite 83/83
+(2026-08-28); 14 xfails tracked in the master.
+
+**Benchmarks.** A first kernel set with Rakudo-produced references is vendored under
+`corpus/benchmarks/raku/`; the rivals grid is blocked on real-world syntax gaps in
+the frontend (tracked as its own row) and lands after those clear.
+
+### Pascal
+
+**Coverage.** Oracle is Free Pascal (`fpc -Miso`) — every `.ref` regenerated from the
+oracle, never from SCRIP's own output, with a per-file exception list. The 96-family
+suites watermark holds in both modes; on the 149-entry master the fresh gates read
+m3 PASS=161 FAIL=2 · m4 PASS=153 FAIL=1 (2026-08-30) — the residue is a known
+nondeterministic loose-set class, tracked as its own row — and the benchmark
+witnesses read 8/10.
+
+**Benchmarks.** The `fpc` rivals grid is the frontier, same rules as Prolog's.
+
+### Snocone
+
+**Coverage.** Koenig's structured SNOBOL4, lowering into the same engine as SNOBOL4
+itself. Master suite 273 entries, 24 xfail; smoke 5/5 (2026-08-30) and crosscheck 8/8
+(2026-08-28, re-proven on a pristine build).
+
+**Benchmarks.** No separate grid — Snocone compiles into the SNOBOL4 engine, so the
+SPITBOL grids above are its speed story; a Snocone kernel set would re-measure the
+same boxes.
+
+### Rebus
+
+**Coverage.** Master suite 48 entries; smoke 4/4 (2026-08-30). Graded through the
+SNOBOL4 oracle path (SPITBOL x64) by construction.
+
+**Benchmarks.** None yet — the smallest frontend, benchmarked as it grows.
+
+Across all seven: the language-identity and medium-invisibility invariant gates are
+clean at the same tree, and denominators grow as the corpus consolidates — each
+script prints its own totals, and a printed total always outranks a number remembered
+from this page.
 
 ## Credits
 
