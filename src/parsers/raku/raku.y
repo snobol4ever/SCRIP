@@ -1526,6 +1526,8 @@ expr
           expr_add_child(g, $2);
           $$ = g;
       }
+    | tern_expr OP_FATARROW expr
+        { tree_t *c = make_call("__rk_pair"); expr_add_child(c, $1); expr_add_child(c, $3); $$ = c; }
     | tern_expr            { $$=$1; }
     ;
 tern_expr

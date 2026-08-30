@@ -600,6 +600,33 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
+    if (!strcmp(meth, "trans") && nmargs >= 1) {
+        /* Str.trans(@from => @to): substring-replace scan, matched against the "one Pair, list-key,
+           list-value" shape __rk_pair builds -- the combined SOH-joined element list is split evenly
+           in half by COUNT (first half = FROM patterns, second half = TO replacements, zipped by
+           position). Not general Raku .trans (no multi-pair lists, no character ranges) -- the
+           minimal version the one real caller (string-escape.raku) needs. */
+        const char *lst = VARVAL_fn(margs[0]); if (!lst) lst = "";
+        int total = lst[0] ? 1 : 0; for (const char *p = lst; *p; p++) if (*p == SOH) total++;
+        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_ws_alloc(n + 1); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
+        int half = total / 2; if (half > 128) half = 128;
+        const char *from[128]; size_t fromlen[128]; const char *to[128]; size_t tolen[128];
+        size_t maxto = 1; int idx = 0; const char *seg = lst;
+        for (;;) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (idx < half) { from[idx] = seg; fromlen[idx] = L; }
+            else if (idx - half < 128) { to[idx - half] = seg; tolen[idx - half] = L; if (L > maxto) maxto = L; }
+            idx++; if (!nx) break; seg = nx + 1;
+        }
+        char *r = (char *)rt_ws_alloc(n * maxto + n + 1); size_t op = 0, i = 0;
+        while (i < n) {
+            int matched = -1;
+            for (int k = 0; k < half; k++) { if (fromlen[k] > 0 && i + fromlen[k] <= n && memcmp(s + i, from[k], fromlen[k]) == 0) { matched = k; break; } }
+            if (matched >= 0) { memcpy(r + op, to[matched], tolen[matched]); op += tolen[matched]; i += fromlen[matched]; }
+            else { r[op++] = s[i++]; }
+        }
+        r[op] = '\0'; *out = STRVAL(r); return 1;
+    }
     if (!strcmp(meth, "join")) {
         const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0;
         for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_ws_alloc(n + (size_t)nsep * sl + 1); int op = 0;
@@ -2893,6 +2920,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_arr") && nargs >= 0) {
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         *out = rt_make_flat_agg(args, nargs); return 1;
+    }
+    if (!strcmp(fn, "__rk_pair") && nargs == 2) {
+        /* general expr OP_FATARROW expr: no Pair value type exists in this runtime, so this builds
+           the minimal thing the one real caller (.trans, below) needs -- key and value concatenated
+           via rt_make_nested_agg (SOH-joined, no flattening of either side's own internal SOH
+           structure), which .trans splits back in half by COUNT. Correct specifically for the
+           "one Pair, list-key, list-value, zipped element-wise" shape real Raku also uses for
+           .trans(@from => @to) -- not a general Pair (no .key/.value accessors, not usable as a
+           hash key), per this row's own "minimal version this needs" discipline. */
+        *out = rt_make_nested_agg(args, 2); return 1;
     }
     if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
         extern const char *rt_proc_pname(const char *name, int k);
