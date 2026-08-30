@@ -838,9 +838,12 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                rt_sxt_match keys on exact base-pointer equality, so a delta-0 slice whose base IS the current extend
                owner would inherit the OWNER'S length (g_sxt_len, not ours) and str_concat would then append at the
                wrong offset -- a wrong answer, not a crash.  Breaking the owner costs one compare and one store.
-           ⛔ len == 0 IS NEVER A SLICE: descr_slen reads slen 0 as "ask strlen", so a zero-length slice would report
-           the whole remainder of the subject.  The empty capture keeps the allocated path, where its terminator is
-           real.
+           ⛔ len == 0 IS NEVER A SLICE.  ⚠️ ITS REASON CHANGED UNDER IT 2026-08-30 AND THE GUARD DID NOT: this used
+           to read "descr_slen reads slen 0 as ask-strlen, so a zero-length slice would report the whole remainder of
+           the subject".  That is now FALSE -- slen 0 means EMPTY, full stop (Lon's length-authority ruling, RULES.md
+           FACT RULE) -- so the old hazard cannot occur.  The guard STAYS because a zero-length slice is pointless
+           either way (nothing to avoid copying) and the empty capture's allocated path has a real terminator.
+           Corrected in the open rather than silently, per the correct-procedure-false-explanation FACT RULE.
            ⛔⭐ A DEFERRED '*' ARM NEVER TAKES THE SLICE (beauty self-host regression, bisected to this commit's
            original form).  The star arm below runs USER SNOBOL CODE with this descriptor as input, and that code can
            start its own matches, reassign the source variable, or read further input -- each of which can move or
