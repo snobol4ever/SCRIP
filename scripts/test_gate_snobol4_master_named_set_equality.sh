@@ -57,6 +57,18 @@ derive_family() {
     echo "$norm"
 }
 
+# ⛔ EXACT SUFFIX, NOT SUBSTRING. This check was `grep -qF "__$base"` -- a CONTAINS test, while the
+# method comment above it (and the whole proof) claims "ends with". The two disagree on exactly the
+# case that matters: a deleted leaf whose name is a PREFIX of a surviving sibling's name is reported
+# accounted-for by a match against the SIBLING. Measured, hq_C 2026-08-30: 48 of 1370 (a)-matches held
+# only under the loose reading; 47 were genuine intermediate suites that (b) catches anyway, and 1 --
+# probe/m1/m1_include_sort_loop, matched against the surviving twin ...sort_loop_inline -- was a real,
+# uncited retirement this gate was papering over. Fixed-string suffix compare, so a basename carrying
+# regex metacharacters cannot silently widen the test the way an unescaped grep -E would.
+origin_suffix_match() {
+    awk -v s="$1" 'length($0) >= length(s) && substr($0, length($0)-length(s)+1) == s { f=1; exit } END { exit !f }' "$2"
+}
+
 total=0; accounted_a=0; accounted_b=0; accounted_c=0; gap=0
 for c in $commits; do
     deleted_sno=$(git show --diff-filter=D --name-only --pretty=format: "$c" -- 'tests/snobol4/*.sno' 'probe/*.sno' 'crosscheck/*.sno' 2>/dev/null | grep -v '^$')
@@ -68,7 +80,7 @@ for c in $commits; do
         git show --diff-filter=D --name-only --pretty=format: "$c" -- "$ref" 2>/dev/null | grep -q "^${ref}$" || continue
         total=$((total+1))
         fam=$(derive_family "$f")
-        if grep -qF "__${base}" "$ORIGINS"; then accounted_a=$((accounted_a+1))
+        if origin_suffix_match "__${base}" "$ORIGINS"; then accounted_a=$((accounted_a+1))
         elif grep -qxF "$fam" "$FAMILIES"; then accounted_b=$((accounted_b+1))
         elif grep -qxF "$base" "$EXCLUDED" || grep -q "probe_loose_.*${base}$" "$EXCLUDED"; then accounted_c=$((accounted_c+1))
         else gap=$((gap+1)); echo -e "$c\t$f\t(derived family: $fam)" >> "$GAPFILE"
