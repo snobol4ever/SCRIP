@@ -467,9 +467,17 @@ RTX_ENDF(rt_patstk_lazy_init)
  * rtx_icnrel.s's "PORT != FIX ... BECAUSE THAT IS WHAT THE C TAIL DOES" (superseded the same day by hq_C): a
  * comment that AUTHORISES rather than merely describes is strictly worse stale, because a reader who checks it
  * comes away convinced.
- * ⚠️ NOT RE-MEASURED: the Icon twin (s217-ICN, "arr.slen == 0 on 100% of arrivals").  The cause was the SAME
- * STRVAL, so it is very likely inverted too -- but that is an inference, not a measurement, and the Icon arm must
- * be re-censused before any Icon RTX rung is keyed on slen.
+ * ✅ RE-MEASURED 2026-08-30 (hq_C) -- THE ICON TWIN IS INVERTED TOO, AND THIS IS A MEASUREMENT, NOT THE INFERENCE
+ * THAT STOOD HERE.  The line this replaces read: "NOT RE-MEASURED: the Icon twin (s217-ICN, 'arr.slen == 0 on 100%
+ * of arrivals') ... very likely inverted too -- but that is an inference, not a measurement, and the Icon arm must
+ * be re-censused before any Icon RTX rung is keyed on slen."  hq_P was right to refuse to claim it: repeating the
+ * note's own two-language claim on one language's evidence is precisely the error this block records.
+ * CENSUS: a temporary counter in c_rt_subscript_var (pattern_match.c) over 9 Icon corpus programs --
+ *   populated = 2,050,029   zero = 1   cset-tag = 0     (against s217-ICN's "zero on 100% of arrivals")
+ * ⚠️ SAMPLING CAVEAT, stated because it bounds the claim: the counter sits in the C FALLBACK, so it sees arrivals
+ * the RTX arm DECLINED, not all arrivals.  That is the right population for "would a C-side slen read find a
+ * length", and it is not a claim about the fast arm's own traffic.
+ * ⇒ The cross-language prohibition is now lifted on BOTH halves, each on its own language's evidence.
  *
  * ARMS, AS MEASURED (interposer classifying rdi/rsi per call, 2,000,001 arrivals, pattern_bt at K=2M):
  *   ARM-FAST-B  DT_S . s != NULL . slen == 0 . *s != 0   -> 2,000,001 (100%).  Inlined here; L = strlen(s).
