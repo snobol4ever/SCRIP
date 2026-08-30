@@ -14,7 +14,25 @@ H="$HERE/corpus_suite_harness.py"
 [ -f "$H" ] || { echo "REFUSE (rc=2): corpus_suite_harness.py not found at $H -- cannot measure, not a pass"; exit 2; }
 shopt -s nullglob
 suites=("$D"/crosscheck_*.sc)
-[ "${#suites[@]}" -gt 0 ] || { echo "REFUSE (rc=2): no crosscheck_*.sc suites under $D -- cannot measure, not a pass"; exit 2; }
+# ⛔⭐ ABSORBED FALLBACK (hq_B 2026-08-30, row graders-denominator-audit-six-families). The loose
+# crosscheck_*.{sc,ref} suite pairs were consolidated into the one flat ALL.* set, so this gate's
+# refusal below had become PERMANENT -- and unlike the icon twins, this one IS a real coverage hole:
+# MEASURED, 181 of snocone's 273 ALL.csv entries carry a crosscheck origin across 30 families, and the
+# only other grader over ALL.sc (test_snocone_corpus_suite.sh) grades TEN. So ~181 entries were graded
+# by nothing at all while this gate said "cannot measure" and nobody re-examined it -- the ranked-cover
+# law exactly: a refusal is neither audited like a green nor triaged like a red.
+# ⛔ Keyed on the `origin` column, the durable provenance link that survives consolidation's renames,
+# never on the entry name. Materialized per family into a temp dir named <family>.sc/.ref so the loop
+# below -- and its fam label, its m3,m4 modes and its xfail accounting -- runs completely unchanged.
+if [ "${#suites[@]}" -eq 0 ] && [ -f "$D/ALL.sc" ] && [ -f "$D/ALL.ref" ] && [ -f "$D/ALL.csv" ]; then
+    _abs="$(mktemp -d)"; trap 'rm -rf "$_abs"' EXIT
+    for _fam in $(python3 -c "import csv,sys; print(chr(10).join(sorted({r['family'] for r in csv.DictReader(open(sys.argv[1])) if 'crosscheck' in (r['origin'] or '')})))" "$D/ALL.csv"); do
+        python3 "$H" extract-family "$D/ALL.sc" "$D/ALL.ref" "$D/ALL.csv" "$_fam" "$_abs/$_fam.sc" "$_abs/$_fam.ref" >/dev/null 2>&1 || true
+    done
+    suites=("$_abs"/*.sc)
+    [ "${#suites[@]}" -gt 0 ] && echo "  [absorbed] materialized ${#suites[@]} crosscheck family/families out of the flat ALL.* set"
+fi
+[ "${#suites[@]}" -gt 0 ] || { echo "REFUSE (rc=2): no crosscheck_*.sc suites under $D and none recoverable from $D/ALL.* -- cannot measure, not a pass"; exit 2; }
 
 echo "=== snocone crosscheck suites (${#suites[@]} families) ==="
 TOT=0; PASS=0; XFAIL=0; BAD=0
