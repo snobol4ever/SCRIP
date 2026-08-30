@@ -312,26 +312,49 @@ Prolog-to-WAM compiler): 45 compile as library modules; 15 carry entry points an
 run against real `gprolog` — **6 match, 9 differ**; 2 fail to parse
 (`scripts/test_prolog_gnu_suite.sh`, 2026-08-30).
 
-**Benchmarks.** First grid, measured 2026-08-30 on the classic van Roy kernels
-(vendored under `corpus/benchmarks/prolog/`; whole-program wall clock including
-startup, best of 5, every timed arm's output byte-verified against the reference
-first). Arms: SCRIP mode-4 binary · GNU Prolog compiled native (`gplc`) · SWI-Prolog
-(`swipl -q -s … -t halt`). At these 3–50 ms totals interpreter startup is a real part
-of the SWI column — that is the nature of a totals basis, stated rather than hidden:
+**Benchmarks.** Measured 2026-08-30 on the classic van Roy kernels (vendored under
+`corpus/benchmarks/prolog/`), on the **two-number basis** (`RULES.md` § THE TWO-NUMBER
+BENCHMARK BASIS): each kernel self-times its **work** and reports it to `stderr`, so
+`stdout` stays byte-comparable and every arm's output is verified against the
+reference before it is timed at all. Startup/finish **overhead** is reported
+separately instead of being folded into the number. Best of 5.
 
-| kernel | × vs gplc | × vs swipl | kernel | × vs gplc | × vs swipl |
+⛔ **This grid replaces an earlier one that read the other way, and the correction is
+the point.** The previous grid timed **whole-program totals** and reported SCRIP ahead
+of SWI-Prolog on all ten kernels (up to 3.87x). On work time it is ahead on **one**.
+Nothing regressed: the totals were measuring **SWI-Prolog's ~31 ms interpreter
+startup**, and eight of these ten kernels do **under 300 µs** of actual work — under
+1% of that startup. A basis that lets startup dominate by two orders of magnitude was
+reporting the rival's process model, not this compiler's speed.
+
+| kernel | work µs | × vs swipl | kernel | work µs | × vs swipl |
 |---|:---:|:---:|---|:---:|:---:|
-| deriv | **1.32x** | **3.11x** | log10 | 0.91x | **2.53x** |
-| divide10 | **1.13x** | **3.87x** | times10 | 0.87x | **2.87x** |
-| derive | 0.95x | **2.77x** | cal | 0.86x | **2.71x** |
-| ops8 | 0.83x | **2.57x** | sendmore | 0.45x | **1.36x** |
-| tak | 0.40x | **1.89x** | fib | 0.36x | **1.29x** |
+| tak | 20072 | **1.51x** | fib | 5195 | 0.39x |
+| sendmore | 9278 | 0.55x | ops8 | 112 | 0.04x |
+| cal | 29 | 0.48x | log10 | 73 | 0.04x |
+| deriv | 125 | 0.04x | times10 | 207 | 0.03x |
+| divide10 | 141 | 0.03x | derive | 269 | 0.03x |
 
-The reading: ahead of SWI-Prolog on all ten, and trading blows with GNU Prolog's
-native compiler — near parity on the term-rewriting kernels, behind on the deep-
-recursion ones (fib, tak, sendmore), which names the next lever. Twelve further
-kernels in the set are not timed because SCRIP's output does not yet match the
-reference — a wrong answer is never timed.
+**Overhead, the second number** (external total − self-timed work, best of 5): SCRIP
+mode-4 binary **≈ 4.7–5.6 ms** · SWI-Prolog **≈ 31 ms** · GNU Prolog (`gplc`) native
+≈ 1–2 ms. SCRIP's startup advantage over SWI-Prolog is real and large — it is simply
+a *different* number from how fast the compiled code runs, which is exactly why the
+basis separates them.
+
+⛔ **The GNU Prolog work column is REFUSED, not estimated.** `gprolog`'s finest wall
+clock is `real_time/1` at **1 ms**, and eight of these ten kernels do less than 1 ms
+of work — their `work_us` reads exactly **0**. A zero denominator yields no multiple,
+and neither "infinitely fast" nor "call it one tick" is a number anyone may publish.
+Only `tak` (4 ticks) and `sendmore` (1 tick) register at all. The fix is the
+fixed-iteration angle, not a fabricated floor; until then this column is a stated gap
+rather than a filled-in guess.
+
+**The reading:** ahead of GNU Prolog on startup, far ahead of SWI-Prolog on startup,
+and — on work — competitive only on the deep-recursion kernel (`tak`), with the
+term-rewriting kernels running 20–35x slower than SWI-Prolog. That inverts the old
+grid's conclusion and names the real lever. Twelve further kernels are not timed
+because SCRIP's output does not yet match the reference — a wrong answer is never
+timed.
 
 ### Raku
 
