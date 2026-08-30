@@ -1377,15 +1377,15 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (!subj) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
             const tree_t *gt = subj->c[0];
-            /* prolog_lower.c wraps a bare `:- dynamic/use_module/module/ensure_loaded/discontiguous/
-               meta_predicate/begin_tests/end_tests/nb_setval Goal.` directive into a synthetic
-               `pj_dir_<N> :- Goal.` helper plus an `initialization(pj_dir_<N>)` statement, purely so the
-               helper still gets registered -- these are not user-authored deferred goals and were never
-               individually called before (only ever accidentally selected as "main" by the old last-wins
-               scalar, and only when nothing real followed them); chaining them as real calls surfaces an
-               unrelated by-name dispatch gap, so they are excluded from the goal list here. */
-            int pl_is_synth_dir = gt && gt->v.sval && !strncmp(gt->v.sval, "pj_dir_", 7);
-            if (pl_is_synth_dir) continue;
+            /* prolog_lower.c wraps a bare `:- Goal.` load directive into a synthetic `pj_dir_<N> :- Goal.`
+               helper plus an `initialization(pj_dir_<N>)` statement. These USED to be excluded here, with the
+               rationale that chaining them as by-name calls surfaced a dispatch gap -- but the accumulator
+               below resolves every goal and INLINES its clause body (never a by-name call), so that hazard is
+               gone, and the exclusion had become the row prolog-load-directives-dropped-when-main-exists:
+               with any real initialization goal present, every load directive (begin_tests, assertz, dynamic
+               setup...) silently never ran -- plunit registered zero tests off exactly this. They now ride the
+               chain at their source position, which reproduces load order: directives fire in file order,
+               ahead of a trailing initialization(main). */
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
                 if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = gt;
             }
@@ -1404,33 +1404,28 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
            bookkeeping uses (e.g. a plain `main :- ...` picked up via `:- initialization(main).`) can never
            collide with a live by-name dispatch cell; this mirrors the single-goal path's own pre-existing
            inline-not-call semantics, just threaded across every accumulated goal instead of only the last. */
+        /* ⭐ rows prolog-failed-initialization-goal-exits-1-silently + prolog-failed-initialization-goal-
+           exits-1-where-swipl-exits-0 + the plunit-registers-zero-tests witness: reference load semantics run
+           each directive/initialization goal INDEPENDENTLY -- a failing `:- use_module(...)` warns and loading
+           CONTINUES, and a failed initialization goal warns (naming that goal) with exit 0. The old comma
+           chain aborted every goal after the first failure (one unsupported use_module emptied the whole
+           plunit registry) and exited 1. Each goal now wraps as `(Body ; warn-and-continue)` individually:
+           the warning names ITS goal, the goals after it always run, the synthetic clause always succeeds
+           (rc 0, matching swipl). Cross-goal backtracking does not exist in the reference semantics -- each
+           goal is its own top-level query -- so per-goal isolation is the correct behavior, and no `->` cut
+           is needed: a failing Body simply falls to the warn arm. */
         const tree_t *body = NULL;
         for (int i = pl_init_ngoals_acc - 1; i >= 0; i--) {
             const tree_t *b = pl_init_resolve_body(pl_init_goals_acc[i]);
             if (!b) continue;
-            body = body ? pl_synth_fnc2(",", b, body) : b;
+            char msg[256]; char *nm = pl_init_goal_name(pl_init_goals_acc[i]);
+            snprintf(msg, sizeof msg, "Warning: initialization goal failed: %s\n", nm ? nm : "?");
+            free(nm);
+            tree_t *warn = pl_synth_fnc2("write", pl_synth_qlit("user_error"), pl_synth_qlit(strdup(msg)));
+            tree_t *wrapped = pl_synth_fnc2(";", (tree_t *) b, pl_synth_fnc2(",", warn, pl_synth_qlit("true")));
+            body = body ? pl_synth_fnc2(",", wrapped, (tree_t *) body) : (const tree_t *) wrapped;
         }
         if (body) {
-            /* ⭐ row prolog-failed-initialization-goal-exits-1-silently: today this exits rc=1 with ZERO
-               diagnostic (SWI warns and names the goal). Wrap with a plain ';' -- never '->' -- so it adds
-               no choice point and cuts nothing: every solution the chain would otherwise offer is tried
-               completely unchanged, and the warning fires only once the chain is genuinely exhausted, on
-               the exact path that already led to silent rc=1 -- so the existing rc is untouched too.
-               Scope: names every chained goal (comma-joined) rather than isolating exactly which one of
-               several exhausted, since only a single-goal chain is the reported witness and per-goal
-               isolation would need a cut (`->`) that changes cross-goal backtracking -- out of scope here. */
-            char msg[512]; int off = snprintf(msg, sizeof msg, "Warning: initialization goal failed: ");
-            if (off < 0) off = 0; if ((size_t) off >= sizeof msg) off = (int) sizeof msg - 1;
-            for (int i = 0; i < pl_init_ngoals_acc && (size_t) off + 1 < sizeof msg; i++) {
-                char *nm = pl_init_goal_name(pl_init_goals_acc[i]);
-                int n = snprintf(msg + off, sizeof msg - (size_t) off, "%s%s", i ? ", " : "", nm);
-                free(nm);
-                if (n > 0) off += n;
-                if ((size_t) off >= sizeof msg) off = (int) sizeof msg - 1;
-            }
-            if ((size_t) off + 1 < sizeof msg) { msg[off] = '\n'; msg[off + 1] = '\0'; }
-            tree_t *warn = pl_synth_fnc2("write", pl_synth_qlit("user_error"), pl_synth_qlit(strdup(msg)));
-            body = pl_synth_fnc2(";", body, pl_synth_fnc2(",", warn, pl_synth_qlit("fail")));
             tree_t *cl = ast_node_new(TT_CLAUSE);
             cl->v.sval = (char *) "$init_chain/0"; cl->v.dval = 0.0;
             ast_push(cl, (tree_t *) body);
