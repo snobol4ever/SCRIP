@@ -56,13 +56,13 @@ if [ ! -d "$CORPUS" ]; then
     exit 0
 fi
 
-PASS=0; FAIL=0; XFAIL=0; BADEXIT=0; MISSING=0
+PASS=0; FAIL=0; XFAIL=0; XPASS=0; BADEXIT=0; MISSING=0
 declare -a SUITE_FILES=()
 # converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
 is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
 
 # rung36 per-category tally (sidecar map at corpus/rung36_categories.txt)
-declare -A R36_CAT_P R36_CAT_F R36_CAT_X
+declare -A R36_CAT_P R36_CAT_F R36_CAT_X R36_CAT_XP
 R36_MAP_FILE="$CORPUS/rung36_categories.txt"
 declare -A R36_NAME_TO_CAT
 if [ -f "$R36_MAP_FILE" ]; then
@@ -72,6 +72,7 @@ if [ -f "$R36_MAP_FILE" ]; then
         R36_CAT_P["$r36_cat"]=${R36_CAT_P["$r36_cat"]:-0}
         R36_CAT_F["$r36_cat"]=${R36_CAT_F["$r36_cat"]:-0}
         R36_CAT_X["$r36_cat"]=${R36_CAT_X["$r36_cat"]:-0}
+        R36_CAT_XP["$r36_cat"]=${R36_CAT_XP["$r36_cat"]:-0}
     done < "$R36_MAP_FILE"
 fi
 
@@ -86,6 +87,7 @@ r36_tally() {
                 FAIL)    R36_CAT_F["$cat"]=$((${R36_CAT_F["$cat"]:-0}+1)) ;;
                 BADEXIT) R36_CAT_F["$cat"]=$((${R36_CAT_F["$cat"]:-0}+1)) ;;
                 XFAIL) R36_CAT_X["$cat"]=$((${R36_CAT_X["$cat"]:-0}+1)) ;;
+                XPASS) R36_CAT_XP["$cat"]=$((${R36_CAT_XP["$cat"]:-0}+1)) ;;
             esac
             ;;
     esac
@@ -103,12 +105,14 @@ run_one() {
         MISSING=$((MISSING+1))
         return 0
     fi
-    if [ -f "${base}.xfail" ]; then
-        echo "XFAIL $name"
-        XFAIL=$((XFAIL+1))
-        r36_tally "$name" XFAIL
-        return 0
-    fi
+    # ⭐ XPASS DETECTION (seat15, xpass-promotion-xfail-hygiene, 2026-08-29): an .xfail marker records a
+    # PAST verdict, not a licence to stop checking it. This used to `return` here without ever running the
+    # program, so a fix landing upstream could NEVER be detected -- the instrument had ZERO capacity to
+    # ever say XPASS (the never-say-YES defect RULES.md's TWO-PART PROOF law names), identically to the
+    # gap fixed the same day in this file's twin, test_icon_rung_suite.sh. Now it always runs; is_xfail
+    # only reinterprets the verdict below, it never skips measuring it.
+    local is_xfail=0
+    [ -f "${base}.xfail" ] && is_xfail=1
     local stdin_file="${base}.stdin"
     local tdir tfn
     tdir=$(dirname "$icn"); tfn=$(basename "$icn")
@@ -128,6 +132,18 @@ run_one() {
     fi
     [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
     want=$(cat "$exp")
+    if [ "$is_xfail" = 1 ]; then
+        if [ "$got" = "$want" ] && [ "$rc" = "$want_rc" ]; then
+            echo "XPASS $name (marked XFAIL but now genuinely passes -- STALE MARKER, promote it: rm ${base}.xfail)"
+            XPASS=$((XPASS+1))
+            r36_tally "$name" XPASS
+        else
+            echo "XFAIL $name"
+            XFAIL=$((XFAIL+1))
+            r36_tally "$name" XFAIL
+        fi
+        return 0
+    fi
     if [ "$got" = "$want" ] && [ "$rc" != "$want_rc" ]; then
         echo "BADEXIT $name (stdout correct, exit $rc, expected $want_rc)"
         BADEXIT=$((BADEXIT+1))
@@ -191,25 +207,36 @@ for icn in "${SUITE_FILES[@]}"; do
     sxfail=$(echo "$board" | grep -oP 'm3_xfail=\K[0-9]+') || true
     sxpass=$(echo "$board" | grep -oP 'm3_xpass=\K[0-9]+') || true
     # XPASS (a witness marked XFAIL that actually passed -- stale marker) is surfaced as loudly as
-    # FAIL, same rationale as the harness's own docstring: exactly as actionable, opposite sign.
-    sbad=$((sfail+scrash+shang+sunproven+sxpass))
-    echo "SUITE $sfname: pass=$spass xfail=$sxfail bad=$sbad"
-    PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail))
+    # FAIL, through its own top-line bucket rather than folded anonymously into FAIL -- FAIL means
+    # "broken", XPASS means "already fixed, paperwork owed" (xpass-promotion-xfail-hygiene, matched
+    # to the identical change in test_icon_rung_suite.sh the same day). Inert today: no Icon family
+    # is suite-converted yet, so SUITE_FILES is empty in practice.
+    sbad=$((sfail+scrash+shang+sunproven))
+    echo "SUITE $sfname: pass=$spass xfail=$sxfail bad=$sbad xpass=$sxpass"
+    PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail)); XPASS=$((XPASS+sxpass))
 done
 
 echo "--- rung36 by category ---"
 {
-    for cat in "${!R36_CAT_P[@]}" "${!R36_CAT_F[@]}" "${!R36_CAT_X[@]}"; do echo "$cat"; done
+    for cat in "${!R36_CAT_P[@]}" "${!R36_CAT_F[@]}" "${!R36_CAT_X[@]}" "${!R36_CAT_XP[@]}"; do echo "$cat"; done
 } | sort -u | while read -r cat; do
     [ -z "$cat" ] && continue
     p=${R36_CAT_P[$cat]:-0}
     f=${R36_CAT_F[$cat]:-0}
     x=${R36_CAT_X[$cat]:-0}
-    total=$((p+f+x))
-    printf "  rung36_%-12s  total=%2d  PASS=%2d  FAIL=%2d  XFAIL=%2d\n" "$cat" "$total" "$p" "$f" "$x"
+    xp=${R36_CAT_XP[$cat]:-0}
+    total=$((p+f+x+xp))
+    line=$(printf "  rung36_%-12s  total=%2d  PASS=%2d  FAIL=%2d  XFAIL=%2d" "$cat" "$total" "$p" "$f" "$x")
+    [ "$xp" -gt 0 ] && line="$line  XPASS=$xp"
+    echo "$line"
 done
 
-echo "--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAIL MISSING=$MISSING TOTAL=$((PASS+FAIL+BADEXIT+XFAIL)) ---"
+# XPASS only appears when nonzero (same convention as BADEXIT) -- it is the rare, good-news case;
+# printing "XPASS=0" on every green board forever would just be noise on top of noise.
+summary_line="--- Icon --run: PASS=$PASS FAIL=$FAIL BADEXIT=$BADEXIT XFAIL=$XFAIL"
+[ "$XPASS" -gt 0 ] && summary_line="$summary_line XPASS=$XPASS"
+summary_line="$summary_line MISSING=$MISSING TOTAL=$((PASS+FAIL+BADEXIT+XFAIL+XPASS)) ---"
+echo "$summary_line"
 if [ "$BADEXIT" -gt 0 ]; then
     echo "--- BADEXIT = stdout matched .expected but the process exit status did not. Before hq_P s272 these"
     echo "--- counted as PASS (rc was discarded), which is why this board previously read PASS=$((PASS+BADEXIT))."

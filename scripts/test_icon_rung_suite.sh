@@ -134,9 +134,9 @@ collect_files() {
 # run the whole collected set in one mode; sets MODE_FAIL=1 on any FAIL
 run_corpus() {
     local mode="$1"
-    local PASS=0 FAIL=0 XFAIL=0 REFUSED=0 BADEXIT=0 MISSING=0
+    local PASS=0 FAIL=0 XFAIL=0 XPASS=0 REFUSED=0 BADEXIT=0 MISSING=0
     MODE_FAIL=0
-    local icn base name exp got want errf rc want_rc
+    local icn base name exp got want errf rc want_rc is_xfail
     errf="$WORK/err.txt"
     for icn in "${FILES[@]}"; do
         exp="${icn%.icn}.expected"
@@ -146,14 +146,22 @@ run_corpus() {
             [ "$VERBOSE" = 1 ] && echo "MISSING $name (no .expected oracle)"
             MISSING=$((MISSING+1)); MODE_FAIL=1; continue
         fi
-        if [ -f "${base}.xfail" ]; then
-            [ "$VERBOSE" = 1 ] && echo "XFAIL $name"
-            XFAIL=$((XFAIL+1)); continue
-        fi
+        # ⭐ XPASS DETECTION (seat15, xpass-promotion-xfail-hygiene, 2026-08-29): an .xfail marker records a
+        # PAST verdict, not a licence to stop checking it. This used to `continue` here without ever running
+        # the program, so a fix landing upstream could NEVER be detected -- the instrument had ZERO capacity
+        # to ever say XPASS, the exact never-say-YES defect RULES.md's TWO-PART PROOF law names. Now it runs
+        # unconditionally and only reinterprets the verdict below: a marked-xfail entry that genuinely passes
+        # is XPASS (stale marker, promote it), never silently re-absorbed as XFAIL.
+        is_xfail=0
+        [ -f "${base}.xfail" ] && is_xfail=1
         : > "$errf"
         got=$(run_prog "$mode" "$icn" 8 "$errf"); rc=$?
         # loud-refuse -> REFUSED (expected mid-Ground-Zero, NOT a FAIL). interp never refuses.
         if [ "$mode" != interp ] && grep -qE "$SMX_SIG" "$errf"; then
+            if [ "$is_xfail" = 1 ]; then
+                [ "$VERBOSE" = 1 ] && echo "XFAIL $name (REFUSED -- unmeasured this mode)"
+                XFAIL=$((XFAIL+1)); continue
+            fi
             [ "$VERBOSE" = 1 ] && echo "REFUSED $name"
             REFUSED=$((REFUSED+1)); continue
         fi
@@ -170,6 +178,10 @@ run_corpus() {
         [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
         want=$(cat "$exp")
         if [ "$rc" -ne "$want_rc" ]; then
+            if [ "$is_xfail" = 1 ]; then
+                [ "$VERBOSE" = 1 ] && echo "XFAIL $name (rc=$rc, expected $want_rc -- still red)"
+                XFAIL=$((XFAIL+1)); continue
+            fi
             if [ "$got" = "$want" ]; then
                 [ "$VERBOSE" = 1 ] && echo "BADEXIT $name (stdout correct, exit $rc, expected $want_rc)"
                 BADEXIT=$((BADEXIT+1)); MODE_FAIL=1
@@ -180,15 +192,25 @@ run_corpus() {
             continue
         fi
         if [ "$got" = "$want" ]; then
-            [ "$VERBOSE" = 1 ] && echo "PASS $name"
-            PASS=$((PASS+1))
-        else
-            if [ "$VERBOSE" = 1 ]; then
-                echo "FAIL $name"
-                echo "  want: $(echo "$want" | tr '\n' '|')"
-                echo "  got:  $(echo "$got"  | tr '\n' '|')"
+            if [ "$is_xfail" = 1 ]; then
+                echo "XPASS $name (marked XFAIL but now genuinely passes -- STALE MARKER, promote it: rm ${base}.xfail)"
+                XPASS=$((XPASS+1)); MODE_FAIL=1
+            else
+                [ "$VERBOSE" = 1 ] && echo "PASS $name"
+                PASS=$((PASS+1))
             fi
-            FAIL=$((FAIL+1)); MODE_FAIL=1
+        else
+            if [ "$is_xfail" = 1 ]; then
+                [ "$VERBOSE" = 1 ] && echo "XFAIL $name"
+                XFAIL=$((XFAIL+1))
+            else
+                if [ "$VERBOSE" = 1 ]; then
+                    echo "FAIL $name"
+                    echo "  want: $(echo "$want" | tr '\n' '|')"
+                    echo "  got:  $(echo "$got"  | tr '\n' '|')"
+                fi
+                FAIL=$((FAIL+1)); MODE_FAIL=1
+            fi
         fi
     done
     # suite-format families (see header note): fold each converted family's board into these same
@@ -212,18 +234,26 @@ run_corpus() {
         sxfail=$(echo "$board" | grep -oP "${hmode}_xfail=\K[0-9]+")
         sxpass=$(echo "$board" | grep -oP "${hmode}_xpass=\K[0-9]+")
         # XPASS (a witness marked XFAIL that actually passed -- stale marker) is surfaced as loudly
-        # as FAIL, same rationale as the harness's own docstring: exactly as actionable, opposite sign.
-        sbad=$((sfail+scrash+shang+sunproven+sxpass))
-        [ "$VERBOSE" = 1 ] && echo "SUITE $sfname ($mode): pass=$spass xfail=$sxfail bad=$sbad"
-        PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail))
-        [ "$sbad" -gt 0 ] && MODE_FAIL=1
+        # as FAIL and trips MODE_FAIL the same way, but through its OWN top-line bucket rather than
+        # folded anonymously into FAIL -- FAIL means "broken", XPASS means "already fixed, paperwork
+        # owed", and collapsing the two into one number is the named A-SIGNAL-REACHABLE-BY-TWO-CAUSES
+        # defect (RULES.md) wearing this file's own costume. Kept consistent with the loose-file path's
+        # XPASS bucket below even though no Icon family is suite-converted yet (SUITE_FILES is empty
+        # today, so this is currently inert, not a behavior change) -- see xpass-promotion-xfail-hygiene.
+        sbad=$((sfail+scrash+shang+sunproven))
+        [ "$VERBOSE" = 1 ] && echo "SUITE $sfname ($mode): pass=$spass xfail=$sxfail bad=$sbad xpass=$sxpass"
+        PASS=$((PASS+spass)); FAIL=$((FAIL+sbad)); XFAIL=$((XFAIL+sxfail)); XPASS=$((XPASS+sxpass))
+        { [ "$sbad" -gt 0 ] || [ "$sxpass" -gt 0 ]; } && MODE_FAIL=1
     done
     # ⭐ Byte-identical to the pre-BADEXIT summary whenever BADEXIT=0 (true for the whole corpus today) —
     # the field is inserted only when it has something to say, same convention this file already used for
     # REFUSED, so no board number or downstream grep changes until a sidecar file actually exists.
-    local total=$((PASS+FAIL+XFAIL)) line="PASS=$PASS FAIL=$FAIL"
+    local total=$((PASS+FAIL+XFAIL+XPASS)) line="PASS=$PASS FAIL=$FAIL"
     if [ "$BADEXIT" -gt 0 ]; then line="$line BADEXIT=$BADEXIT"; total=$((total+BADEXIT)); fi
     line="$line XFAIL=$XFAIL"
+    # XPASS only appears when nonzero (same convention as BADEXIT/REFUSED/MISSING) -- it is the good-news,
+    # rare case, and printing "XPASS=0" on every green board forever would just be noise on top of noise.
+    if [ "$XPASS" -gt 0 ]; then line="$line XPASS=$XPASS"; fi
     if [ "$REFUSED" -gt 0 ]; then line="$line REFUSED=$REFUSED"; total=$((total+REFUSED)); fi
     if [ "$MISSING" -gt 0 ]; then line="$line MISSING=$MISSING"; fi
     echo "--- Icon ($mode): $line TOTAL=$total ---"
