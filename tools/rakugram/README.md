@@ -7,14 +7,37 @@ the measured case. The replacement is a *translation* of Rakudo's official gramm
 patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL per pass against 924.
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
-· **Rung 3: C EMITTER** (`nqp_emit.py`).
+· **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
+gated by `scripts/test_gate_rakugram_precedence.sh`.
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
 python3 tools/rakugram/nqp_ast.py  [path/to/Grammar.nqp]   # rung 2: parse bodies into an AST
 python3 tools/rakugram/nqp_emit.py [Grammar.nqp] [out.c]   # rung 3: emit C recursive descent
 gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: compiles clean
+python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
+bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
+
+## Rung 4 status — `EXPR`/`O` is built and proven
+
+31 precedence levels and 198 operators (164 infix, 24 prefix, 6 postfix) extracted from Grammar.nqp
+into a **heap-backed, runtime-mutable** table plus a Pratt loop. The gate proves three things:
+
+| | check |
+|---|---|
+| precedence | `2 + 3 * 4` → `(2 + (3 * 4))` |
+| associativity | `1 - 2 - 3` → `((1 - 2) - 3)` · `2 ** 3 ** 2` → `(2 ** (3 ** 2))` |
+| **parse-time extension** | install `fo` at `tA=` *at runtime* → `1 + 2 fo 3` → `(1 + (2 fo 3))` |
+
+⛔ **Precedence is a STRING compared with `strcmp`, not an integer, and that is load-bearing.** A new
+level can always be minted BETWEEN two existing ones by extending the string (`"t=" < "tA=" < "u="`) —
+which is exactly how `is tighter(&infix:<+>)` is implementable. Integers have no room between 20 and
+21; strings always have room. "Cleaning this up" into an int rank is the one refactor that would break
+user-defined operators, and it would still pass every test built from a frozen table.
+
+⛔ **Associativity is invisible to a syntax-only test** — a parser folding `1-2-3` as `1-(2-3)` accepts
+exactly the same language. The gate asserts tree SHAPE for that reason.
 
 ## Rung 3 status — the emitter produces C that compiles
 
