@@ -4,10 +4,12 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
+MASTER_SRC="${MASTER_SRC:-$CORPUS/master/ALL.pas}"
+MASTER_REF="${MASTER_REF:-$CORPUS/master/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas) -- see test_gate_pascal_m3.sh
 # for the full rationale (kept byte-identical in substance between the two files, same reason as before).
+# ⛔ PATH CORRECTED (seat11, 2026-08-30, row pascal-restore-prezeta) -- see test_gate_pascal_m3.sh for the
+# full explanation; kept byte-identical in substance between the two files, same reason as before.
 # ⛔ HAND-MAINTAINED -- keep byte-identical to test_gate_pascal_m3.sh's STDIN_FAMILIES list.
 STDIN_FAMILIES="read1 read2 read3 read4 pb35"
 RESULTS="${RESULTS:-/tmp/m4_results.tsv}"

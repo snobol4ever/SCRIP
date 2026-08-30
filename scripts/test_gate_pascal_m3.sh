@@ -4,12 +4,21 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
+MASTER_SRC="${MASTER_SRC:-$CORPUS/master/ALL.pas}"
+MASTER_REF="${MASTER_REF:-$CORPUS/master/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas): the old dual mechanism
 # (a loose-*.pas loop + a hand-maintained SUITE_FAMILIES list over crosscheck/) is retired now that
 # util_build_master_suite.py --lang pascal absorbs both shapes into ONE flat ALL.pas/ALL.ref, matching
 # test_corpus_snobol4.sh's own cutover. `pcom`/`pint` are gone (confirmed absent, the old skip is dropped).
+# ⛔ PATH CORRECTED (seat11, 2026-08-30, row pascal-restore-prezeta): seat04's commit pointed MASTER_SRC/REF
+# at $CORPUS/ALL.pas (repo root) -- that path has NEVER existed in corpus history (git log confirms); the
+# builder has only ever written tests/pascal/master/ALL.{pas,ref} (Pascal is still in the master/-subdir
+# staging state, unlike SNOBOL4's already-flat tests/snobol4/). Neither gate's own UNPROVEN guard caught
+# this, because the STDIN_FAMILIES loop (m3: +benchmark witnesses too) always examines >0 entries, so
+# MASTER_EXAMINED silently sitting at 0 never tripped the all-arms-zero refusal -- the master's ~150 entries
+# were dropped from every board since ee2a24df with no signal at all. Fixing the path, not the layout: the
+# actual root-vs-master/ flattening is pascal-master-flatten-and-scrip-test-pas's own scope (seat04/hq_P),
+# not this row's.
 # ⛔ FIVE entries stay loose PERMANENTLY, not a residue of this repoint: read1-4 and pb35 read real stdin,
 # and the suite format has no stdin-input concept (hq_C's SNOBOL4-side ruling, 2026-08-24 — see KEEP.md
 # section 1). The master builder independently reaches the same conclusion (ALL.excluded.txt names all 5).
