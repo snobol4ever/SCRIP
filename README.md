@@ -155,34 +155,43 @@ it checked out beside this repo.
 
 ## Language status — coverage and benchmarks
 
-One section per language: what the test suites measure today, and where speed stands.
-Numbers follow the house fact rules — coverage counts name their suite and denominator;
-speed is a multiple on the faster axis (`reference time / SCRIP time` — above 1.00x
-SCRIP is ahead, below 1.00x behind), rows in one grid share one instrument, and a
-number's tree and date are part of its label. A missing grid is stated as missing,
-never guessed. The seven-language summary, generated from the corpus masters and each
-language's own floor gate (tree SCRIP `4d8a5595` / corpus `7f253b6a4`, 2026-08-30):
+One section per language: what the third-party test suites measure today, and where
+speed stands. **Feature coverage is stated only in third-party numbers** — each
+language is graded against its reference implementation's own published test suite,
+vendored unmodified, so the denominator is one nobody here chose. SCRIP's internal
+suites gate regressions but are deliberately not quoted as coverage: there is no
+visibility on how much of a language an in-house suite spans. Benchmarks stay —
+every kernel and demo is individually checkable against its named oracle. Speed is a
+multiple on the faster axis (`reference time / SCRIP time` — above 1.00x SCRIP is
+ahead, below 1.00x behind), rows in one grid share one instrument, and a number's
+tree and date are part of its label. A missing number is stated as missing, never
+guessed. Summary, measured 2026-08-30 (tree SCRIP `30b95323` / corpus `7f253b6a4`):
 
-| Language | Master suite (`corpus/tests/<lang>/ALL.csv`) | Floor gate, fresh |
-|---|---|---|
-| SNOBOL4 | 1726 entries, 80 xfail | corpus board m3 **PASS=1672 FAIL=0** · m4 **PASS=1672 FAIL=0** SKIP=0 MISSING=0 |
-| Icon | 534 entries, 1 xfail | rung ladder PASS=260 FAIL=8 XFAIL=28 / 297 · smoke 14/14 both modes |
-| Prolog | 371 entries, 9 xfail | smoke 5/5 both modes |
-| Raku | 129 entries, 14 xfail | master run m3 **PASS=724 FAIL=0** / 724 (m4 identical) |
-| Pascal | 149 entries | m3 PASS=161 FAIL=2 · m4 PASS=153 FAIL=1 (suites watermark 96/96) |
-| Snocone | 273 entries, 24 xfail | smoke 5/5 |
-| Rebus | 48 entries | smoke 4/4 |
+| Language | Third-party suite | mode 3 | mode 4 |
+|---|---|---|---|
+| SNOBOL4 | snoflake fixtures (180; CSNOBOL4 home dialect — see the controls) | PASS=77 FAIL=96 | PASS=77 FAIL=47 (+50 cc-skip) |
+| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=32 FAIL=41 REJECT=16 | identical |
+| Icon | JCON test suite (82 gradable) | PASS=34 FAIL=23 REJECT=14 CRASH=9 HANG=2 | PASS=32 FAIL=28 REJECT=14 CRASH=6 HANG=2 |
+| Prolog | GNU Prolog vendor tree (62 files) | 3 of 4 self-contained pass; 56 are library-bound, 2 rejected | — |
+| Raku | Roast (official spec tests, 986 in-tier 6.c files) | PASS=3 FAIL=9 PARSE-FAIL=927 NO-TAP=4 CRASH=2 (41 missing) | — |
+| Pascal | FPC test suite (181 vendored) | PASS=119 FAIL=62 | PASS=119 FAIL=62 |
+| Snocone | none exists (see section) | — | — |
+| Rebus | none exists (see section) | — | — |
 
 ### SNOBOL4 / SPITBOL
 
-**Coverage.** The complete frontend. The broad corpus board runs **FAIL=0 in both
-modes** (1672 programs and suite entries, 2026-08-30); the 1726-entry master suite
-carries 80 xfails, each a named, tracked defect — never a silent skip. Correctness is
-triangulated four ways on the vendored **snoflake fixture suite** (180 self-describing
-programs): SCRIP in both modes, SPITBOL, and CSNOBOL4 side by side, so a failure is
-attributed to a real defect, a dialect difference, or a broken fixture by measurement
-(`scripts/test_snoflake_suite.sh`). And `beauty.sno`, the SNOBOL4 pretty-printer
-written in SNOBOL4, reproduces itself byte-for-byte in both modes.
+**Coverage** (third-party): the vendored **snoflake fixture suite** — 180
+self-describing programs from the [snoflake](https://github.com/atdt/snoflake)
+project, written in CSNOBOL4's home dialect — runs four arms side by side
+(`scripts/test_snoflake_suite.sh`, 2026-08-30): SCRIP m3 PASS=77 FAIL=96 · m4
+PASS=77 FAIL=47 (+50 cc-skip), with the two oracle arms as controls — **SPITBOL
+itself passes only 107/173 of it** (dialect distance, not defect count) and CSNOBOL4,
+its home implementation, 168/5. Read SCRIP's number against the SPITBOL control, not
+against 180. Phil Budne's CSNOBOL4 test suite (120 reference pairs) is also vendored;
+it grades against `csnobol4`, and its board is published once that oracle is wired
+into the flag authority. And `beauty.sno`, the SNOBOL4 pretty-printer written in
+SNOBOL4, reproduces itself byte-for-byte in both modes — one program, individually
+checkable.
 
 **Benchmarks.** Measured 2026-08-27 (wall clock, scaled fixed work, `-O0` runtime,
 output agreement verified per kernel before timing — a wrong answer is never a fast
@@ -253,9 +262,8 @@ points at the same GC/allocator lever the profile work has already sized.
 
 ### Icon
 
-**Coverage.** The smoke is clean at 14/14 in both modes, and the 297-rung ladder
-reads PASS=260 FAIL=8 XFAIL=28 (2026-08-30) — every FAIL and XFAIL a named, tracked
-defect, and the ladder count moves as rungs land. The vendor-suite boards and the JCON self-host
+**Coverage** (third-party): the two official vendor suites below — Arizona's own
+test set and JCON's — are the coverage story; the boards follow the benchmark grid. The vendor-suite boards and the JCON self-host
 distance follow the benchmark grid below.
 
 **Benchmarks.** **× vs Arizona `iconx`** (10/10 kernels output-identical, 2026-08-27):
@@ -280,11 +288,9 @@ names a real front-end parse gap). Measured 2026-08-30, SCRIP `508eeed5` / corpu
 | JCON test suite | m3 | 34 | 23 | 14 | 9 | 2 | 82 |
 | JCON test suite | m4 | 32 | 28 | 14 | 6 | 2 | 82 |
 
-These are unmodified real-world Icon programs exercising the full language surface;
-the in-house Icon smoke and rung ladders (14/14 smoke, both modes; the rung suite's
-own board) stay the regression floor. Runners:
-`scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` — each prints
-its own totals and names every non-PASS.
+These are unmodified real-world Icon programs exercising the full language surface.
+Runners: `scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` —
+each prints its own totals and names every non-PASS.
 
 **Self-host distance, measured the same day:** SCRIP compiles the 17-module JCON
 translator — a production Icon compiler, `jtran`, written in Icon — into one native
@@ -298,11 +304,14 @@ generators (in flight as its own row). When the first lands, classes flow.
 
 ### Prolog
 
-**Coverage.** Graded against GNU Prolog and SWI-Prolog. The 371-entry master suite
-carries 9 xfails; the smoke is 5/5 in both modes (2026-08-30), and the
-parser-conformance suite reads 12/15 (2026-08-28, up from 3/15 after the multiclause
-backtracking cure). Prolog structure rides the same Byrd-box engine as everything
-else — no separate term interpreter.
+**Coverage** (third-party): GNU Prolog's vendored test tree holds 62 files, of which
+56 depend on the gprolog library/build machinery and 4 are self-contained gradable
+programs — **3 of those 4 pass** (2 more are rejected by a documented parse-hang
+class). SWI-Prolog's test suite is vendored but its extraction harness currently
+grades nothing (a tracked defect — the suite's subdirectories are invisible to it),
+so no SWI number is quoted until the instrument measures. Both denominators are
+honest and small; growing them is the coverage work. Prolog structure rides the same
+Byrd-box engine as everything else — no separate term interpreter.
 
 **Benchmarks.** The rivals grid (× vs `gprolog` and `swipl`, both installed; kernel
 coverage gate green) is the frontier — it gets published here the same way, measured
@@ -310,10 +319,14 @@ with named instruments, when it lands. No number is quoted before then.
 
 ### Raku
 
-**Coverage.** The 129-entry master expands to 724 graded runs and reads
-**PASS=724 FAIL=0** in both modes (2026-08-30; the full run needs over a minute of
-wall clock — a short timeout reads as a hang and is not a red). Parser suite 83/83
-(2026-08-28); 14 xfails tracked in the master.
+**Coverage** (third-party): graded against **Roast**, Raku's official specification
+test suite, run whole (`scripts/raku_roast_scoreboard.sh`, 986 in-tier 6.c files,
+2026-08-30): **PASS=3 FAIL=9 PARSE-FAIL=927 NO-TAP=4 CRASH=2**, 41 missing. That
+0.3% is the honest number: the frontend today accepts a deliberate working subset of
+Raku, and idiomatic spec-test Raku is overwhelmingly outside it — the parse-fail
+column *is* the roadmap, and this board is the instrument the Raku ladder is graded
+by. Per-section results live in `.github/RAKU-COVERAGE.md`, regenerated by the same
+script.
 
 **Benchmarks.** A first kernel set with Rakudo-produced references is vendored under
 `corpus/benchmarks/raku/`; the rivals grid is blocked on real-world syntax gaps in
@@ -321,20 +334,22 @@ the frontend (tracked as its own row) and lands after those clear.
 
 ### Pascal
 
-**Coverage.** Oracle is Free Pascal (`fpc -Miso`) — every `.ref` regenerated from the
-oracle, never from SCRIP's own output, with a per-file exception list. The 96-family
-suites watermark holds in both modes; on the 149-entry master the fresh gates read
-m3 PASS=161 FAIL=2 · m4 PASS=153 FAIL=1 (2026-08-30) — the residue is a known
-nondeterministic loose-set class, tracked as its own row — and the benchmark
-witnesses read 8/10.
+**Coverage** (third-party): graded against the **Free Pascal compiler's own test
+suite**, vendored (181 programs; `scripts/test_pascal_fpc_suite.sh`, 2026-08-30):
+**PASS=119 FAIL=62 in both modes**, identical failure sets — the misses are shared
+semantic gaps, not per-mode flakiness. The oracle everywhere is `fpc -Miso`: every
+reference output is produced by fpc, never by SCRIP's own output (with a per-file
+exception list where fpc itself cannot run a program).
 
 **Benchmarks.** The `fpc` rivals grid is the frontier, same rules as Prolog's.
 
 ### Snocone
 
-**Coverage.** Koenig's structured SNOBOL4, lowering into the same engine as SNOBOL4
-itself. Master suite 273 entries, 24 xfail; smoke 5/5 (2026-08-30) and crosscheck 8/8
-(2026-08-28, re-proven on a pristine build).
+**Coverage** (third-party): none exists to grade against — Snocone is Koenig's
+structured SNOBOL4 (Bell Labs TR 124) and no independent implementation ships a test
+suite. Its programs lower into the same engine as SNOBOL4 and are graded through the
+SPITBOL oracle; the paper's own examples are the closest thing to vendor tests and
+are in the corpus.
 
 **Benchmarks.** No separate grid — Snocone compiles into the SNOBOL4 engine, so the
 SPITBOL grids above are its speed story; a Snocone kernel set would re-measure the
@@ -342,15 +357,15 @@ same boxes.
 
 ### Rebus
 
-**Coverage.** Master suite 48 entries; smoke 4/4 (2026-08-30). Graded through the
-SNOBOL4 oracle path (SPITBOL x64) by construction.
+**Coverage** (third-party): none exists — Rebus has no independent implementation to
+borrow a suite from. Its programs are graded through the SNOBOL4 oracle path
+(SPITBOL x64) by construction.
 
 **Benchmarks.** None yet — the smallest frontend, benchmarked as it grows.
 
-Across all seven: the language-identity and medium-invisibility invariant gates are
-clean at the same tree, and denominators grow as the corpus consolidates — each
-script prints its own totals, and a printed total always outranks a number remembered
-from this page.
+Across all seven: every number above comes from a named script grading against a
+third-party suite or oracle — run it and it prints its own totals, and a printed
+total always outranks a number remembered from this page.
 
 ## Credits
 
