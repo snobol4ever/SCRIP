@@ -45,36 +45,83 @@ mkscratch() {  # $1 = dest root; copies the live language tree under it
     cp -r "$LIVE/." "$1/corpus/tests/snobol4/" 2>/dev/null
 }
 
-echo "== A. NEGATIVE: a would-collapse rebuild must REFUSE rc=2 and write nothing"
+echo "== A. NEGATIVE: a rebuild that would LOSE a known origin must REFUSE rc=2 and name it"
+# ⛔⭐ THIS ARM WAS REWRITTEN 2026-08-30 BECAUSE IT HAD GONE VACUOUSLY GREEN, AND THE REASON IS THE LESSON.
+# The original arm copied the LIVE tree and expected the builder's `len(pairs)*4 < len(base)` ratio guard to
+# fire. It did, the day it was written. Then the ratio guard was CORRECTLY RETIRED (SCRIP 85e120b8, 89646b4c)
+# for reasons measured by others: a count cannot detect a SUBSTITUTION, the ratio false-refused icon's
+# ordinary merge (1 new pair over 534 entries), and it missed hq_P's partial cutover entirely because
+# surviving sources keep the RATIO healthy while a disjoint subset has no source at all. The replacement is
+# an ORIGIN-SET check -- every origin the master is known to hold must still be in the master about to be
+# written -- which is strictly better.
+# ⛔ SO THE ARM DID NOT CATCH A REGRESSION. IT ASSERTED A MECHANISM THAT NO LONGER EXISTS, and when the
+# mechanism was improved the arm stopped exercising anything and PASSED. seat13 caught it on an unmodified
+# builder while regression-testing something unrelated.
+# ⭐ THE FIX IS NOT A BETTER FIXTURE, IT IS A BETTER SUBJECT: pin the PROPERTY (a rebuild must not silently
+# lose entries), never the IMPLEMENTATION (this particular arithmetic). A gate written against a mechanism
+# expires the moment the mechanism improves, and it expires SILENTLY -- green, not red.
 mkscratch "$W/a"
-before="$(md5sum "$W/a/corpus/tests/snobol4/ALL.sno" | cut -d' ' -f1)"
-out="$(S4E_HOME="$W/a" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
-after="$(md5sum "$W/a/corpus/tests/snobol4/ALL.sno" | cut -d' ' -f1)"
-if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'COLLAPSE'; then good "refused rc=2 naming COLLAPSE"
-else bad "expected rc=2 with a COLLAPSE message, got rc=$rc"; fi
-if [ "$before" = "$after" ]; then good "master byte-identical after the refusal (nothing written)"
-else bad "⛔ THE MASTER CHANGED during a refusal — the guard wrote before checking"; fi
-
-echo "== B. POSITIVE: the guard must be able to say YES"
-mkscratch "$W/b"
-python3 - "$W/b/corpus/tests/snobol4" <<'PY'
+python3 - "$W/a/corpus/tests/snobol4" <<'PYA'
 import sys, os
 sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
 import corpus_suite_harness as h
 T = sys.argv[1]; p = os.path.join(T, "ALL.sno")
 es = h.read_suite(p, os.path.join(T, "ALL.ref"),
                   in_path=h.sidecar_in_path(p), x_path=h.sidecar_xfail_path(p))
-h.write_suite(es[:3], p, os.path.join(T, "ALL.ref"))
-# ⛔ the sidecars still name entries that no longer exist; read_stdin_sidecar REFUSES on that (correctly),
-# so a fixture that leaves them behind tests the sidecar guard instead of the shrink guard.
-for f in ("ALL.in", "ALL.xfail"):
-    q = os.path.join(T, f)
-    if os.path.exists(q): os.remove(q)
-PY
+# ⛔ drop only entries with NO sidecar references: an entry carrying an xfail reason or stdin trips the
+# sidecar guards FIRST (they refuse on a block naming no entry -- correctly), and the fixture would then
+# test those guards instead of the origin check. Reaching a late guard means satisfying every earlier one.
+drop = [e for e in es if not e.xfail and not e.stdin][:5]
+names = {e.name for e in drop}
+h.write_suite([e for e in es if e.name not in names], p, os.path.join(T, "ALL.ref"))
+PYA
+before="$(md5sum "$W/a/corpus/tests/snobol4/ALL.csv" | cut -d' ' -f1)"
+out="$(S4E_HOME="$W/a" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
+after="$(md5sum "$W/a/corpus/tests/snobol4/ALL.csv" | cut -d' ' -f1)"
+if [ "$rc" -eq 2 ]; then good "refused rc=2 on a rebuild that would drop known origins"
+else bad "expected rc=2 when known origins would be lost, got rc=$rc — the loss guard did not fire"; fi
+if printf '%s' "$out" | grep -qE 'probe_|__'; then good "named the specific origins it would have lost"
+else bad "refused without naming what it lost — a refusal nobody can act on"; fi
+if [ "$before" = "$after" ]; then good "ALL.csv byte-identical after the refusal (nothing written)"
+else bad "⛔ THE CSV CHANGED during a refusal — and the CSV is the only record that made the refusal possible"; fi
+
+# ⛔ COUNT REAL ENTRIES, NOT A GREP PROXY. `grep -c ';END;*'` counts only format-A LINE entries; the
+# two-line witness below absorbs as a BLOCK, so the proxy read 816 -> 816 and the arm reported "proceeded
+# without doing the work" while the builder had correctly absorbed it (1726 -> 1727). A marker count is a
+# proxy for the thing, and it silently answers a narrower question than the one asked.
+count_entries() {  # $1 = language dir
+    python3 - "$1" <<'PYC'
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
+import corpus_suite_harness as h
+T = sys.argv[1]; p = os.path.join(T, "ALL.sno")
+try:
+    es = h.read_suite(p, os.path.join(T, "ALL.ref"),
+                      in_path=h.sidecar_in_path(p), x_path=h.sidecar_xfail_path(p))
+    print(len(es))
+except Exception:
+    print(-1)
+PYC
+}
+echo "== B. POSITIVE: a rebuild that loses nothing must PROCEED (the guard can say YES)"
+# ⛔ THIS ARM WAS ALSO WRITTEN AGAINST THE RETIRED RATIO GUARD and failed the moment arm A was fixed: it
+# SHRANK the scratch master to 3 entries to make `pairs*4 >= base` true. Under the origin-set guard that
+# fixture is precisely the thing that must REFUSE -- it drops 1723 known origins. The old positive arm had
+# become a second negative arm wearing the wrong label, which is worse than no positive arm at all: it
+# would have reported "the guard cannot say YES" forever while the guard was working perfectly.
+# ⭐ The property a positive arm must show is not "a small master accepts pairs" but "a rebuild that LOSES
+# NOTHING proceeds". So: keep the master whole, add ONE genuinely new pair, expect it absorbed.
+mkscratch "$W/b"
+find "$W/b/corpus/tests/snobol4" -name '*.sno' ! -name 'ALL.sno' -delete 2>/dev/null
+printf '\tOUTPUT = "brandnew"\nEND\n' > "$W/b/corpus/tests/snobol4/zz_gate_brandnew.sno"
+printf 'brandnew\n'                     > "$W/b/corpus/tests/snobol4/zz_gate_brandnew.ref"
+n_before="$(count_entries "$W/b/corpus/tests/snobol4")"
 out="$(S4E_HOME="$W/b" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
-n="$(grep -c ';END;\*' "$W/b/corpus/tests/snobol4/ALL.sno" 2>/dev/null || echo 0)"
-if [ "$rc" -eq 0 ]; then good "proceeded rc=0 on a legitimately-absorbing tree (master now ${n} line-entries)"
-else bad "expected rc=0 when pairs*4 >= base, got rc=$rc — the guard cannot say YES"; fi
+n_after="$(count_entries "$W/b/corpus/tests/snobol4")"
+if [ "$rc" -eq 0 ]; then good "proceeded rc=0 on a rebuild that loses nothing"
+else bad "expected rc=0 when no origin is lost, got rc=$rc — the guard cannot say YES"; fi
+if [ "$n_after" -gt "$n_before" ]; then good "absorbed the new pair (${n_before} -> ${n_after} entries)"
+else bad "rc=0 but nothing was absorbed (${n_before} -> ${n_after}) — proceeding without doing the work"; fi
 
 echo "== C. ORDERING: zero pairs over a healthy master is SUCCESS, not collapse"
 mkscratch "$W/c"
