@@ -555,6 +555,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
             IR_t * asn0 = build(cx, IR_ASSIGN, lx, lx); IR_LIT(asn0).sval = (char *) "__break_result";
             ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
+            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;   /* slice-4 leave chain — same contract as the expression arm below; a bare break crossing scan envs must restore the outer env before the loop's exit path runs in it */
+                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+                *res = tgt; return tgt; }
             *res = nullv; return nullv;
         } else {
             IR_t * cur_exit = cx->loop_exit;
@@ -569,6 +572,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
             { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
             cx->loop_break_beta = cx->beta;   /* unconditional: is_resumable() on the TREE misses paren-wrapped generators (measured: (1 to 5) is TT-grouped); the post-lower beta is the truth — a non-resumable expr leaves a beta that resumes-to-fail, which is correct */
+            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;   /* icon-scan-env-value-residue slice 4 (ceo): break crossing scan envs opened inside the loop body must LEAVE them BEFORE its expression evaluates — proven against iconx by execution: `every write("12345" ? repeat { "67890" ? { write(move(1)); break upto(&digits)}})` yields 6,1..5 (upto runs on the OUTER subject at the OUTER pos), ours yielded 6,2..5 (the inner env). Resumption also stays in the outer env — the crossed envs are DEAD, never re-entered — so the leaves are final (dval 3.0 → sb=3, rt_scan_leave_ns): an rt_scan_leave here would bank one scan_saved entry per break that nothing ever pops, the slice-3 leak class. Chain innermost-first before the expr entry, the TT_LOOP_NEXT recipe. Multi-level break (break break) across scan envs still leaves only the innermost loop's crossings — loop_stk carries no per-level scan depth. */
+                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+                *res = tgt; return tgt; }
             *res = en; return en;
         }
     }
@@ -592,7 +598,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = ini; return ini; }
     case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
-        if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, ω, &ev); if (is_resumable(t->c[0])) eβ = cx->beta; }
+        if (t->n > 0 && t->c[0]) { cx->beta = ω; e_entry = lower(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }   /* icon-scan-env-value-residue slice 4 (ceo): the post-lower beta is the truth, same lesson as break's line above — is_resumable() on the TREE said no for `suspend move(1)` (movers are not in icn_call_allow_gen), so resume skipped the call's β and the mover's data-backtrack r14 restore NEVER RAN across the suspend boundary (proven against iconx: foo(){suspend move(1); write("B")} driven by every left &pos 2 where iconx restores 1; scan2's non-local hunk is this shape). The call lowering already publishes the mover's own β (its is_cursor_mover arm) and a non-resumable expr leaves a beta that resumes-to-fail, which is correct. cx->beta reset to ω first: a literal publishes nothing and a stale beta would misroute. */
         ir_operand_push(sn, ev);
         IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); }
         else rrt = eβ ? eβ : γ;
