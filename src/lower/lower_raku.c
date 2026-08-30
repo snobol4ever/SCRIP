@@ -440,6 +440,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_GATHER: return rk_excise(cx, γ, ω, res);
     case TT_MAP: return rk_excise(cx, γ, ω, res);
     case TT_GREP: return rk_excise(cx, γ, ω, res);
+    case TT_REVERSE: return rk_excise(cx, γ, ω, res);
     case TT_FOR_RANGE: if (t->n > 3 && t->c[0] && t->c[0]->t == TT_VAR) {
         IR_t * va = build(cx, IR_ASSIGN, NULL, ω); IR_LIT(va).sval = t->c[0]->v.sval;
         IR_t * to = build(cx, IR_TO, va, γ); IR_LIT(to).sval = "ag";

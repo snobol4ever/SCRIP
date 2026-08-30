@@ -83,6 +83,7 @@ WS       [ \t\r]
 "map"           { return KW_MAP; }
 "grep"          { return KW_GREP; }
 "sort"          { return KW_SORT; }
+"reverse"       { return KW_REVERSE; }
 "try"           { return KW_TRY; }
 "catch"         { return KW_CATCH; }
 "CATCH"         { return KW_CATCH; }
@@ -186,6 +187,7 @@ WS       [ \t\r]
 "$*STDOUT"      { raku_yylval.ival = 1; return VAR_FH; }
 "$*STDERR"      { raku_yylval.ival = 2; return VAR_FH; }
 "$"[0-9]+       { raku_yylval.ival = atoi(yytext+1); return VAR_CAPTURE; }
+"$["            { return DOLLAR_LBRACKET; }
 "$<"[a-zA-Z][a-zA-Z0-9_]*">" {
     int len = strlen(yytext)-3;
     char *nm = malloc(len+1); memcpy(nm,yytext+2,len); nm[len]='\0';

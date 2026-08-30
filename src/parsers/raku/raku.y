@@ -411,6 +411,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
 %token <sval> VAR_ARRAY_TWIGIL VAR_HASH_TWIGIL
 %token CARET
+%token DOLLAR_LBRACKET
 %token <ival> VAR_CAPTURE
 %token <ival> VAR_FH
 %token <sval> VAR_NAMED_CAPTURE
@@ -424,7 +425,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_GIVEN KW_WHEN KW_DEFAULT KW_WITH KW_WITHOUT
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
 %token KW_LOOP KW_LAST KW_NEXT
-%token KW_MAP KW_GREP KW_SORT
+%token KW_MAP KW_GREP KW_SORT KW_REVERSE
 %token KW_TRY KW_CATCH KW_DIE
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
 %token KW_ROLE
@@ -1637,6 +1638,7 @@ scalar_list
 meth_name
     : IDENT      { $$=$1; }
     | KW_SORT    { $$=strdup("sort"); }
+    | KW_REVERSE { $$=strdup("reverse"); }
     | KW_MAP     { $$=strdup("map"); }
     | KW_GREP    { $$=strdup("grep"); }
     | KW_SAY     { $$=strdup("say"); }
@@ -1775,6 +1777,8 @@ call_expr
         { tree_t *c = ast_node_new(TT_SORT); ast_push(c, $2); $$ = c; }
     | KW_SORT closure expr
         { tree_t *c = ast_node_new(TT_SORT); ast_push(c, $2); ast_push(c, $3); $$ = c; }
+    | KW_REVERSE expr
+        { tree_t *c = ast_node_new(TT_REVERSE); ast_push(c, $2); $$ = c; }
     | atom           { $$=$1; }
     ;
 arg_list
@@ -1851,6 +1855,14 @@ atom
     | '[' expr ',' ']'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
     | '[' expr ',' arg_list ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
+    | DOLLAR_LBRACKET ']'  { $$=make_call("__rk_arr"); }
+    | DOLLAR_LBRACKET expr ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | DOLLAR_LBRACKET expr ',' ']'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | DOLLAR_LBRACKET expr ',' arg_list ']'
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | '(' ')'         { $$=make_call("__rk_arr"); }
