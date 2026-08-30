@@ -243,6 +243,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$set_prolog_flag")) return 1;
     if (!strcmp(name, "$current_output") || !strcmp(name, "$current_input")) return 1;
     if (!strcmp(name, "$wall_ms")) return 1;
+    if (!strcmp(name, "$wall_us")) return 1;
     if (!strcmp(name, "$set_output") || !strcmp(name, "$set_input")) return 1;
     if (!strcmp(name, "$flush_output") || !strcmp(name, "$flush_output1")) return 1;
     if (!strcmp(name, "$open") || !strcmp(name, "$close")) return 1;
@@ -1883,6 +1884,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
            predicate from a per-engine prelude (swipl statistics(walltime), gprolog real_time). */
         struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
         DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000 + (int64_t)_ts.tv_nsec / 1000000);
+        if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$wall_us") && nargs == 1) {
+        /* ⛔⭐ MICROSECOND SIBLING OF wall_ms (hq_B 2026-08-30, row bench-grids-rebase-to-two-number-basis,
+           on ceo's measured granularity datum). CLOCK_MONOTONIC reads 1 ns nominal with a ~20 ns
+           back-to-back floor (vDSO, no syscall), so the clock is nowhere near the limit -- but INTEGER
+           MILLISECONDS ARE. The string-escape kernel works in ~3 ms, i.e. THREE TICKS: that is not a
+           measurement, it is a rounding, and a published multiple built on it inherits ~33% quantization
+           before any real variance. Microseconds put ~3000 ticks under the fastest kernel and cost the
+           same single clock_gettime.
+           ⛔ wall_ms IS DELIBERATELY LEFT IN PLACE, NOT REPLACED: it is already used and tested
+           (cdcc6b89) and the rival preludes mirror it (swipl statistics(walltime), gprolog real_time) --
+           both of which are MILLISECOND sources. So the ms entry point stays honest for cross-engine
+           arms whose floor really is 1 ms, and the us entry point serves SCRIP-side work timing. The
+           per-engine precision floor is stated in the basis line rather than papered over: a multiple
+           whose denominator is quantized at 1 ms while its numerator is measured at 1 us is not a
+           comparison, and saying so costs less than defending it later. */
+        struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
+        DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000000 + (int64_t)_ts.tv_nsec / 1000);
         if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$current_output") && nargs == 1) {
@@ -4441,7 +4461,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
         { "write", 2, "$write2" }, { "nl", 1, "$nl1" }, { "halt", 0, "$halt0" }, { "halt", 1, "$halt1" },
-        { "wall_ms", 1, "$wall_ms" },
+        { "wall_ms", 1, "$wall_ms" }, { "wall_us", 1, "$wall_us" },
         { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
         { "see", 1, "$see" }, { "seeing", 1, "$seeing" }, { "seen", 0, "$seen" },
         { "tell", 1, "$tell" }, { "telling", 1, "$telling" }, { "told", 0, "$told" },
