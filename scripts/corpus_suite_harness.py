@@ -121,7 +121,7 @@ def resolve_paths():
         "scrip_bin": Path(os.environ.get("SCRIP", str(scrip_root / "scrip"))),
         "rt_dir": Path(os.environ.get("RT_DIR", str(scrip_root / "out"))),
         "corpus": s4e_home / "corpus",
-        "inc": Path(os.environ.get("INC", str(s4e_home / "corpus" / "include"))),
+        "inc": Path(os.environ.get("INC", str(s4e_home / "corpus" / "library"))),
         "scrip_root": scrip_root,
         "timeout": float(os.environ.get("TIMEOUT", "10")),
         "stdbuf_bin": _which("stdbuf"),

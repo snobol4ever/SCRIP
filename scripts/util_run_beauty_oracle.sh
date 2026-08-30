@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # util_run_beauty_oracle.sh — run SPITBOL oracle on beauty.sno for a given input.
 #
-# -INCLUDE files resolve from corpus/include (the canonical SNOBOL4 include home).
+# -INCLUDE files resolve from corpus/library (the canonical SNOBOL4 include home).
 # Outputs beautified SNOBOL4 to stdout.
 #
 # Usage:

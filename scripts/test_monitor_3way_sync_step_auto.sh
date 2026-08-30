@@ -83,7 +83,7 @@ CSNOBOL4="$S4A/csnobol4/snobol4"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 SNO4_REPO="${SNO4_REPO:-$S4A/snobol4dotnet}"
 SNO4_DLL="${SNO4_DLL:-$SNO4_REPO/Snobol4/bin/Release/net10.0/Snobol4.dll}"
-INC="${INC:-$S4E/corpus/include}"
+INC="${INC:-$S4E/corpus/library}"
 
 TIMEOUT="${MONITOR_TIMEOUT:-15}"
 SCRIP_ONLY="${SCRIP_ONLY:-0}"
