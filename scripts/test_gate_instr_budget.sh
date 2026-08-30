@@ -105,7 +105,35 @@ TOL_PCT="${TOL_PCT:-2}"
 # independent methodologies (this ladder; seat06's --separate-callers=2 profile showing NV_GET_fn'rt_defer_nv_read gone from
 # the hot-line list) agree.  Receipts: FINDING-2026-08-24-seat06-defer-nv-read-by-pointer-already-landed-repin.md.
 # Watermarks: RT_OPT=-O0, measured on a `make pristine` build.  Re-pin with the FINDING that changed them.
-ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-10224491}"
+# ⭐⭐ RE-PINNED 2026-08-30 hq_P (hq_B routed it after repointing this gate's dead corpus path, SCRIP 3fa3f557 —
+# it had been REFUSING rc=2 for the demo/ -> demos/ re-grid while two neighbouring gates hit the same missing
+# directory and went GREEN instead). Three watermarks were stale LOW and could not detect a regression short of
+# catastrophe — green by construction, which is the vacuous-gate shape with a number instead of a hash:
+#     roman         10224491 -> 8225814
+#     table_access  11879659 -> 10249870
+#     array_sum     10912565 -> 9287873
+# Measured RT_OPT=-O0, mode-4, `make` at SCRIP a9defbae, all three correctness arms OK, TOL_PCT=2%.
+# ⭐ DETERMINISM CHARACTERISED, NOT ASSUMED (hq_B raised machine load as a caveat and left the judgment here).
+# LOAD-INSENSITIVE: four runs at load 7.29/16 gave byte-identical Ir for all four programs, and three of the
+# four sat within 0.015% of hq_B's independent run on a different tree. Ir is an instruction count, so load
+# cannot move it — confirmed rather than asserted.
+# ⛔ BUT IT IS ENVIRONMENT-SIZE SENSITIVE, and I nearly published "byte-identical" before noticing: a run with
+# ONE extra environment variable set reads roman at 8228588 instead of 8225814 (+2774, +0.034%), and lengthening
+# that variable's VALUE moves it again (8228592). Measured deliberately once the negative-test run — which sets
+# ROMAN_IR_WATERMARK in the env — came back 987 higher than the four clean runs. Same env-size sensitivity this
+# project already documented for the Defect C witnesses; the stack shifts, the instruction count follows.
+# ✅ CONSEQUENCE FOR THESE PINS: 0.034% against TOL_PCT=2% is two orders of magnitude inside tolerance, so the
+# watermarks are safe to pin and safe to check from a different shell. ⛔ But do NOT chase a few-thousand-Ir
+# "regression" between environments, and do not tighten TOL_PCT toward 0.1% without re-measuring this spread —
+# a tolerance below the environment noise floor turns this gate into a flake.
+# ⛔⛔ BEAUTY IS DELIBERATELY *NOT* RE-PINNED, AND ITS BUDGET IS NOT STALE — THE MEASUREMENT IS BROKEN.
+# The arm fails its own precondition: `beauty.sno < beauty.sno` no longer reaches the Milestone-1 fixed point.
+# It emits "Parse Error" at line 8 and produces 10 lines against beauty.sno's 618, dying at the -INCLUDE block.
+# So Ir=299,962,038 is the cost of a program that stops after ten lines, not a 6x improvement over 1,897,159,187.
+# ⛔ Re-pinning it down would freeze a BROKEN program's cost as the target, and the eventual real FIX would then
+# read as a ~6x REGRESSION and fail this gate. The budget stays where it is until the fixed point is restored;
+# the arm's own FAIL line is the correct signal in the meantime. Routed as its own finding.
+ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-8225814}"
 # ⛔⭐ BEAUTY RE-PINNED 2026-08-24 hq_P s272 as a WORKLOAD REBASE, NOT A WIN: 2,215,545,392 -> 1,897,159,187 (SCRIP `22971235`).
 # The gate reported -14.4% "improved; consider re-pinning down" and that invitation was a TRAP: beauty.sno was HAND-EDITED by
 # Lon the same day (corpus b131a913d, the DECLARED_CONSTANT beauty.sno deleted; then e63689fae, Lon's 4-line edit), 630 -> 618
@@ -135,8 +163,8 @@ BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1897159187}"
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
 # TABLE_ACCESS re-pinned 2026-08-27 (seat12, row perf-table-subscript-fastpath lever 2, post subscript+assign fusion
 # for T[I]=v -- bb_assign_var_sub.cpp/c_rt_table_assign_fast): 12986443 -> 11879659.  Reproduced twice, identical.
-TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-11879659}"
-ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-10912565}"
+TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-10249870}"
+ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-9287873}"
 
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "GATE FAIL(2): libscrip_rt.so not built at $RT_DIR"; exit 2; }
