@@ -157,6 +157,22 @@ icont_bin() {
     fi
     printf '%s\n' "$c"
 }
+# ⭐ THE ONE-STEP DRIVER (hq_P 2026-08-30, FLEET-16 all-hands consolidation). `icon <file>` COMPILES AND RUNS
+# in a single invocation, which is what an oracle caller with a one-shot `[bin] + flags + [name]` contract needs
+# -- corpus_suite_harness.py's run_oracle() is exactly that shape, so capture-oracle-refs could not drive the
+# two-step icont/iconx pair at all. Same shared tree, same loud-refusal contract as its two siblings above.
+# ⛔ This does NOT deprecate icont_bin/iconx_bin: a BENCHMARK must keep the compile and the run separate so it
+# times only the run, and this driver folds the two together by design. Grading wants one step; timing wants two.
+icon_bin() {
+    local c="/home/resources/icon-master/bin/icon"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE SHARED ICON ORACLE (icon, one-step driver) IS MISSING: %s\n" "$c" >&2
+        printf "   Grading an Icon harness with it absent prints a full, plausible, entirely false all-FAIL table.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'icon' on PATH -- fix the shared tree, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
 iconx_bin() {
     local c="/home/resources/icon-master/bin/iconx"
     if [ ! -x "$c" ]; then

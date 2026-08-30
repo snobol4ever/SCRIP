@@ -173,7 +173,22 @@ def resolve_oracle_bin(paths, lang=""):
         if not bin_path:
             refuse(f"unexpected empty output from swipl_bin: {r.stdout!r}")
         return bin_path, "-q -g halt"
-    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog so far)")
+    if lang == "icon":
+        # ⭐ THE ONE-STEP DRIVER, NOT icont/iconx (hq_P 2026-08-30). run_oracle()'s contract is a SINGLE
+        # invocation -- `[bin] + flags + [name]` in the file's own directory -- and Icon is classically a
+        # two-step compile-then-run, which is why this language could not be wired here before. The shared
+        # tree ships `icon`, which compiles and runs in one shot, so it fits the existing contract with no
+        # change to run_oracle. Resolved through lib_oracle_flags.sh's icon_bin(), never a hand-built path:
+        # every oracle in this project lives OFF PATH by design, so `command -v icon` would answer the wrong
+        # question and under-report silently.
+        r = subprocess.run(["bash", "-c", f". '{lib}' && icon_bin"], capture_output=True, text=True)
+        if r.returncode != 0:
+            refuse(f"lib_oracle_flags.sh refused (icon_bin): {r.stderr.strip()}")
+        bin_path = r.stdout.strip()
+        if not bin_path:
+            refuse(f"unexpected empty output from icon_bin: {r.stdout!r}")
+        return bin_path, ""   # no flags: `icon <file>` is the whole invocation
+    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon so far)")
 
 
 def run_oracle(oracle_bin, flags, sno_path, timeout):
