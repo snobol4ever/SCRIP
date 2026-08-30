@@ -2921,6 +2921,19 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         *out = rt_make_flat_agg(args, nargs); return 1;
     }
+    if (!strcmp(fn, "__rk_materialize") && nargs == 1) {
+        /* row raku-eager-materialization-family (seat06 2026-08-30): a generator's yield count is
+           unknown until it finishes, so a drive-loop collects yields into a list()/put() DT_DATA
+           accumulator; but every Raku array consumer (.elems above, .sum, iteration) reads the
+           OTHER, SOH-joined-flat-STRVAL shape rt_make_flat_agg/__rk_arr produce -- the two are not
+           interchangeable (checked, not assumed: elems() here counts SOH bytes in a string, it does
+           not branch on DT_DATA at all). This is the one-time conversion between them, called once
+           when the drive loop reaches its ω (generator exhausted). */
+        DESCR_t *a = 0; int n = 0;
+        if (!rt_lv_is_list(args[0], &a, &n)) return 0;
+        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+        *out = rt_make_flat_agg(a, n); return 1;
+    }
     if (!strcmp(fn, "__rk_pair") && nargs == 2) {
         /* general expr OP_FATARROW expr: no Pair value type exists in this runtime, so this builds
            the minimal thing the one real caller (.trans, below) needs -- key and value concatenated
