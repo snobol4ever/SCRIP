@@ -588,8 +588,25 @@ def main():
     with open(os.path.join(OUTDIR, "ALL.excluded.txt"), "w") as f:
         for fam, why in excluded:
             f.write("%s\t%s\n" % (fam, why))
-    print("MASTER SUITE: %d entries from %d families -> %s" % (len(all_entries), len(included), OUTDIR), file=sys.stderr)
-    print("EXCLUDED (loud, see ALL.excluded.txt): %d" % len(excluded), file=sys.stderr)
+    # ⛔⭐ SEPARATE "ALREADY PRESENT" FROM "CANNOT ABSORB" (hq_P, 2026-08-30, on the dedupe landing; the
+    # confusing case measured by hq_B on rebus). After dedupe, an idempotent no-op rebuild records every
+    # already-absorbed family as an exclusion -- so it printed "48 entries from 0 FAMILIES" with
+    # "EXCLUDED: 34", which is self-contradictory on its face and reads as a total absorption failure. The
+    # real absorption run had written EXCLUDED: 0.
+    # ⭐ THIS IS THE DOUBLING TELL POINTING THE OTHER WAY, and that makes it more expensive rather than less:
+    # a summary number moving for a benign reason. The doubling moved the REASSURING way and hid a bug; this
+    # moves the ALARMING way and will cost a seat an investigation. Sixteen of them are running this builder
+    # right now, so the two exclusion CLASSES must not share one count.
+    _already = [(f, w) for f, w in excluded if w.startswith("already in the master")]
+    _cannot  = [(f, w) for f, w in excluded if not w.startswith("already in the master")]
+    if included:
+        print("MASTER SUITE: %d entries from %d families -> %s" % (len(all_entries), len(included), OUTDIR), file=sys.stderr)
+    else:
+        print("MASTER SUITE: %d entries, NOTHING NEW ABSORBED (idempotent rebuild) -> %s" % (len(all_entries), OUTDIR), file=sys.stderr)
+    if _already:
+        print("ALREADY PRESENT (not a failure -- the same entries rebuilt): %d family(ies)" % len(_already), file=sys.stderr)
+    print("CANNOT ABSORB (loud, see ALL.excluded.txt): %d" % len(_cannot), file=sys.stderr)
+    excluded = _cannot + _already   # file keeps both, cannot-absorb first so the real problems read first
     for fam, why in excluded:
         print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
     print("attribute columns: %d" % (6 + len(COLS)), file=sys.stderr)
