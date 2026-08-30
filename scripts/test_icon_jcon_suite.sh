@@ -100,6 +100,7 @@ run_mode() {
         [ -f "$icn" ] || continue
         std="${icn%.icn}.std"
         [ -f "$std" ] || continue   # no-oracle source (link*/load*/tpp*) — excluded, not MISSING
+        case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
         outfile="$WORK/out.txt"
         kind=$(run_one "$mode" "$icn" "$std" "$outfile")
         name=$(basename "$icn" .icn)

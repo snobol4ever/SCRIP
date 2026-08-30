@@ -106,6 +106,8 @@ static void skip_ws(IcnLexer *lx) {
             continue;
         }
         if (lex_cur(lx) == '$') {
+            char nx = lex_peek1(lx);
+            if (nx == '(' || nx == ')' || nx == '<' || nx == '>') break;   /* digraph tokens $( $) $< $> -- lex_one owns them */
             while (lex_cur(lx) && lex_cur(lx) != '\n')
                 lex_advance(lx);
             continue;
@@ -445,6 +447,10 @@ static IcnToken lex_one(IcnLexer *lx) {
                 lex_advance(lx);
                 if (lex_cur(lx) == '=') {
                     lex_advance(lx);
+                    if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
+                        lex_advance(lx); lex_advance(lx);
+                        return make_tok(TK_AUGIDENTICAL, line, col);
+                    }
                     return make_tok(TK_IDENTICAL, line, col);
                 }
                 if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
@@ -463,7 +469,14 @@ static IcnToken lex_one(IcnLexer *lx) {
                 lex_advance(lx);
                 if (lex_cur(lx) == '=') {
                     lex_advance(lx);
-                    if (lex_cur(lx) == '=') { lex_advance(lx); return make_tok(TK_NOTIDENT, line, col); }
+                    if (lex_cur(lx) == '=') {
+                        lex_advance(lx);
+                        if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
+                            lex_advance(lx); lex_advance(lx);
+                            return make_tok(TK_AUGNOTIDENT, line, col);
+                        }
+                        return make_tok(TK_NOTIDENT, line, col);
+                    }
                     if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
                         lex_advance(lx); lex_advance(lx);
                         return make_tok(TK_AUGSNE, line, col);
@@ -480,7 +493,14 @@ static IcnToken lex_one(IcnLexer *lx) {
         case '|':
             if (lex_cur(lx) == '|') {
                 lex_advance(lx);
-                if (lex_cur(lx) == '|') { lex_advance(lx); return make_tok(TK_LCONCAT, line, col); }
+                if (lex_cur(lx) == '|') {
+                    lex_advance(lx);
+                    if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
+                        lex_advance(lx); lex_advance(lx);
+                        return make_tok(TK_AUGLCONCAT, line, col);
+                    }
+                    return make_tok(TK_LCONCAT, line, col);
+                }
                 if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
                     lex_advance(lx); lex_advance(lx);
                     return make_tok(TK_AUGCONCAT, line, col);
@@ -495,7 +515,12 @@ static IcnToken lex_one(IcnLexer *lx) {
                 return make_tok(TK_ASSIGN, line, col);
             }
             return make_tok(TK_COLON, line, col);
-        case '&': return make_tok(TK_AND, line, col);
+        case '&':
+            if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
+                lex_advance(lx); lex_advance(lx);
+                return make_tok(TK_AUGAND, line, col);
+            }
+            return make_tok(TK_AND, line, col);
         case '\\': return make_tok(TK_BACKSLASH, line, col);
         case '!': return make_tok(TK_BANG, line, col);
         case '?':
@@ -504,7 +529,12 @@ static IcnToken lex_one(IcnLexer *lx) {
                 return make_tok(TK_AUGSCAN, line, col);
             }
             return make_tok(TK_QMARK, line, col);
-        case '@': return make_tok(TK_AT, line, col);
+        case '@':
+            if (lex_cur(lx) == ':' && lex_peek1(lx) == '=') {
+                lex_advance(lx); lex_advance(lx);
+                return make_tok(TK_AUGAT, line, col);
+            }
+            return make_tok(TK_AT, line, col);
         case '.':
             if (isdigit((unsigned char)lex_cur(lx))) {
                 lx->pos--; lx->col--;
@@ -519,6 +549,14 @@ static IcnToken lex_one(IcnLexer *lx) {
         case ']': return make_tok(TK_RBRACK, line, col);
         case ',': return make_tok(TK_COMMA, line, col);
         case ';': return make_tok(TK_SEMICOL, line, col);
+        case '$':
+            /* alternate token forms (Icon digraphs): $( { · $) } · $< [ · $> ] */
+            if (lex_cur(lx) == '(') { lex_advance(lx); return make_tok(TK_LBRACE, line, col); }
+            if (lex_cur(lx) == ')') { lex_advance(lx); return make_tok(TK_RBRACE, line, col); }
+            if (lex_cur(lx) == '<') { lex_advance(lx); return make_tok(TK_LBRACK, line, col); }
+            if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_RBRACK, line, col); }
+            while (lex_cur(lx) && lex_cur(lx) != '\n') lex_advance(lx);   /* stray directive residue */
+            return lex_one(lx);
         default: {
             char msg[64];
             snprintf(msg, sizeof(msg), "unexpected character '%c' (0x%02x)", c, (unsigned char)c);
@@ -578,13 +616,62 @@ static char *pp_expand(const char *body, const PpDef *defs, int ndefs) {
     return cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pp_defined(const PpDef *defs, int ndefs, const char *s, size_t len) {
+    for (int k = ndefs - 1; k >= 0; k--)
+        if (defs[k].name[0] && strlen(defs[k].name) == len && !strncmp(defs[k].name, s, len)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef *defs, int *ndefs, int depth) {
     size_t i = 0, n = strlen(src); int at_bol = 1;
+    int pp_cond[64]; int pp_cn = 0; int pp_live = 1;
     while (i < n) {
         char c = src[i];
         if (at_bol && c == '$') {
             size_t j = i + 1;
             while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+            if (j >= n || !(isalpha((unsigned char)src[j]) || src[j] == '_')) {
+                /* not a directive: $( $) $< $> digraphs and stray $ pass through to the lexer */
+                if (pp_live) buf_push(out, olen, ocap, c);
+                i++; at_bol = 0; continue;
+            }
+            /* conditional directives run even inside a suppressed region (they nest) */
+            if ((j + 5 <= n && !strncmp(src + j, "ifdef", 5) && (j + 5 == n || !pp_word_char(src[j + 5]))) ||
+                (j + 6 <= n && !strncmp(src + j, "ifndef", 6) && (j + 6 == n || !pp_word_char(src[j + 6])))) {
+                int neg = (src[j + 2] == 'n');
+                j += neg ? 6 : 5; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+                size_t ns = j; while (j < n && pp_word_char(src[j])) j++;
+                int have = pp_defined(defs, *ndefs, src + ns, j - ns);
+                if (pp_cn < 64) pp_cond[pp_cn++] = neg ? !have : have;
+                pp_live = 1; for (int k = 0; k < pp_cn; k++) pp_live = pp_live && pp_cond[k];
+                while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
+                continue;
+            }
+            if (j + 4 <= n && !strncmp(src + j, "else", 4) && (j + 4 == n || !pp_word_char(src[j + 4]))) {
+                if (pp_cn > 0) pp_cond[pp_cn - 1] = !pp_cond[pp_cn - 1];
+                pp_live = 1; for (int k = 0; k < pp_cn; k++) pp_live = pp_live && pp_cond[k];
+                while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
+                continue;
+            }
+            if (j + 5 <= n && !strncmp(src + j, "endif", 5) && (j + 5 == n || !pp_word_char(src[j + 5]))) {
+                if (pp_cn > 0) pp_cn--;
+                pp_live = 1; for (int k = 0; k < pp_cn; k++) pp_live = pp_live && pp_cond[k];
+                while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
+                continue;
+            }
+            if (pp_live && j + 5 <= n && !strncmp(src + j, "undef", 5) && (j + 5 == n || !pp_word_char(src[j + 5]))) {
+                j += 5; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
+                size_t ns = j; while (j < n && pp_word_char(src[j])) j++;
+                for (int k = *ndefs - 1; k >= 0; k--)
+                    if (defs[k].name[0] && strlen(defs[k].name) == j - ns && !strncmp(defs[k].name, src + ns, j - ns)) defs[k].name[0] = '\0';
+                while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
+                continue;
+            }
+            if (!pp_live || (j + 5 <= n && !strncmp(src + j, "error", 5) && (j + 5 == n || !pp_word_char(src[j + 5])))) {
+                /* suppressed directive, or $error in a live region: blank the line ($error's diagnostic is the preprocessor's own concern, not program output) */
+                while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
+                continue;
+            }
             if (j + 6 <= n && !strncmp(src + j, "define", 6) && (j + 6 == n || !pp_word_char(src[j + 6]))) {
                 j += 6; while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
                 size_t ns = j; while (j < n && pp_word_char(src[j])) j++;
@@ -624,6 +711,11 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
             }
             while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
             continue;
+        }
+        if (!pp_live) {   /* suppressed region: keep only the newlines so line numbers survive */
+            if (c == '\n') { buf_push(out, olen, ocap, '\n'); at_bol = 1; }
+            else at_bol = (at_bol && (c == ' ' || c == '\t'));
+            i++; continue;
         }
         if (c == '#') { while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, src[i++]); } continue; }
         if (c == '"' || c == '\'') { char q = c; buf_push(out, olen, ocap, src[i++]);
@@ -707,6 +799,11 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_AUGMOD:    return "%:=";
         case TK_AUGPOW:    return "^:=";
         case TK_AUGCONCAT: return "||:=";
+        case TK_AUGLCONCAT: return "|||:=";
+        case TK_AUGAT: return "@:=";
+        case TK_AUGIDENTICAL: return "===:=";
+        case TK_AUGNOTIDENT: return "~===:=";
+        case TK_AUGAND: return "&:=";
         case TK_AUGCSET_UNION: return "++:=";
         case TK_AUGCSET_DIFF:  return "--:=";
         case TK_AUGCSET_INTER: return "**:=";
