@@ -7,14 +7,30 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
-WITNESS_DIR="${WITNESS_DIR:-$S4E/corpus/tests/snobol4/probe_loose/errpath}"
 TIMEOUT="${TIMEOUT:-10}"
 . "$(dirname "$0")/lib_gate.sh"
 . "$(dirname "$0")/lib_oracle_flags.sh"
+. "$(dirname "$0")/lib_master_extract.sh"
 gate_require_exec "$SCRIP" "the scrip compiler"
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 SBL="$(sbl_correctness_bin)" || exit 2
 FLAGS="$(sbl_lang_flags)"
+# ⛔ WITNESS_DIR IS ASSEMBLED, NOT ONE FIXED TREE (row dead-suite-path-consumer-sweep): the old
+# probe/errpath/ directory this script hardcoded is gone. The probe-conversion commit (corpus
+# c06960a12) split this exact cluster of 13 witnesses in two -- 10 stayed loose residue, renamed
+# with a probe_loose_errpath_ prefix directly under tests/snobol4/; 3 (wrong_arity, undef_var_arith,
+# subscript_range) were promoted into the validated ALL.csv master suite (family probe_errpath) and
+# no longer exist as standalone files anywhere -- confirmed via corpus git log --diff-filter=D before
+# assuming a plain repoint would work. An explicit WITNESS_DIR override is honoured as-is, unchanged.
+if [ -z "${WITNESS_DIR:-}" ]; then
+    WITNESS_DIR="$(mktemp -d)"
+    trap 'rm -rf "$WITNESS_DIR"' EXIT
+    for f in "$S4E"/corpus/tests/snobol4/probe_loose_errpath_*.sno; do
+        [ -f "$f" ] || continue
+        cp "$f" "$WITNESS_DIR/$(basename "$f" | sed 's/^probe_loose_errpath_//')"
+    done
+    master_extract_family probe_errpath "$WITNESS_DIR" || { echo "GATE UNPROVEN(2) [test_error_paths_vs_oracle]: could not extract the probe_errpath family from the master suite"; exit 2; }
+fi
 # name  verdict  rationale (kept short; full narrative in the FINDING)
 read -r -d '' TABLE <<'TSV' || true
 undef_var_arith	SAME	null-valued operand coerces to 0 in both engines, identical accepted result
