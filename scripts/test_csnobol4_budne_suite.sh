@@ -19,7 +19,24 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-15}"
 SUITE="$CORPUS/packages/snobol4/csnobol4_suite"
-FENCE="$CORPUS/crosscheck/patterns"
+# ⛔ crosscheck/patterns/ is GONE -- converted into tests/snobol4/ALL.{sno,ref,csv} (corpus da0987478
+# lineage, row dead-suite-path-consumer-sweep). Extract the 10 named FENCE origins by ORIGIN (never
+# re-point at a surviving directory -- that would grade a different population and look green either
+# way, hq_P's FINDING-2026-08-30 on this exact class). Origins confirmed against ALL.csv before use;
+# numbers 058-067 match this script's own documented "10 FENCE crosscheck tests (058-067)" comment
+# above exactly -- other *_pat_fence* origins exist in the corpus now (added after this script was
+# written) but are deliberately NOT included here, to keep this fix a repoint, not a scope change.
+FENCE="$(mktemp -d)"
+trap 'rm -rf "$FENCE"' EXIT
+FENCE_ORIGINS="crosscheck_patterns__058_pat_fence_keyword crosscheck_patterns__059_pat_fence_fn_basic crosscheck_patterns__060_pat_fence_fn_fail crosscheck_patterns__061_pat_fence_fn_seal crosscheck_patterns__062_pat_fence_fn_outer crosscheck_patterns__063_pat_fence_fn_optional crosscheck_patterns__064_pat_fence_fn_capture crosscheck_patterns__065_pat_fence_fn_decimal crosscheck_patterns__066_pat_fence_fn_nested crosscheck_patterns__067_pat_fence_fn_vs_kw"
+if source "$HERE/lib_master_extract.sh" 2>/dev/null; then
+    for o in $FENCE_ORIGINS; do
+        n="${o#crosscheck_patterns__}"
+        master_extract_origin "$o" "$FENCE/$n.sno" "$FENCE/$n.ref" || echo "WARN: could not extract $o from the master" >&2
+    done
+else
+    echo "WARN: lib_master_extract.sh unavailable, FENCE crosscheck tests will not run" >&2
+fi
 
 # ── corpus guard ──────────────────────────────────────────────────────────────
 if [ ! -d "$CORPUS" ]; then
