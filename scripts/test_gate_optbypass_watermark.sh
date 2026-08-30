@@ -40,8 +40,22 @@ gate_require_exec "$ROOT/scrip" "scrip binary"
 gate_require "$ROOT/../corpus/tests/snobol4/ALL.sno" "master SNOBOL4 suite"
 gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 
+# ⭐ RE-PINNED 2026-08-30 hq_P on hq_B's fresh census (SCRIP 8640e02b / corpus 6a8e86d8, wall 287s, load ~3-4/16).
+# The gate REFUSED correctly beforehand -- population 1649 vs a pin of 1494 -- and named its own fix rather than
+# grading a different corpus against an old bar. That refusal is the pinned-DENOMINATOR arm doing its job.
+#   graded population 1649 (1726 entries - 77 xfail) . DEFAULT-ARM CONTROL FAILURES: 0/1649
+#   SCRIP_OPT=0 187/1649 {FAIL 132, CRASH -11 49, CRASH -6 6}
+#   SCRIP_ZD=0  306/1649 {FAIL 175, CRASH -11 119, HANG 4, CRASH -7 1, CRASH -6 7}
+#   overlap shared=52, opt0_only=135, zd0_only=254 -- still two largely independent populations
+# ⭐⭐ BOTH ARMS IMPROVED AS RATIOS AND THE RAW COUNTS HIDE IT (hq_B's point, kept because a re-pin is exactly
+# where this gets buried): opt0 11.78% -> 11.34%, zd0 19.48% -> 18.56%. The counts went UP only because the
+# corpus grew 1494 -> 1649. ⛔ Never read a rising watermark here as a regression without dividing by the
+# population first -- that is the whole reason the denominator is pinned alongside the maxima.
+# ⛔ THIS IS A WATERMARK, NOT A TARGET: it fails on REGRESSION above the pin, never on being below it, and it
+# must never become a permanently-red blocking gate (hq_P ruling, ceo ratified). The DEFAULT arm's 0 is the
+# only hard bar; the other two are drift detectors for an invariant that is currently unenforced, not enforced.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1494 --pinned-opt0-max 176 --pinned-zd0-max 291
+  --pinned-population 1649 --pinned-opt0-max 187 --pinned-zd0-max 306
 rc=$?
 
 gate_stamp
