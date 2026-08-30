@@ -485,7 +485,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl
 %type <node> pair_list
 %type <list> scalar_list
-%type <sval> is_clauses meth_name
+%type <sval> is_clauses meth_name pkg_name
 %type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
 %right OP_TERNARY1 OP_TERNARY2
@@ -1120,8 +1120,12 @@ method_body
           tree_t *gen=expr_unary(TT_ITERATE,$6); gen->v.sval=(char*)intern("_");
           tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
     ;
+pkg_name
+    : IDENT  { $$=$1; }
+    | QIDENT { $$=$1; }
+    ;
 class_decl
-    : KW_CLASS IDENT is_clauses '{' class_body_list '}'
+    : KW_CLASS pkg_name is_clauses '{' class_body_list '}'
         {
             const char *cname = intern($2); free($2);
             ExprList *body = $5;
@@ -1137,7 +1141,7 @@ class_decl
         }
     ;
 role_decl
-    : KW_ROLE IDENT '{' class_body_list '}'
+    : KW_ROLE pkg_name '{' class_body_list '}'
         {
             const char *rname = intern($2); free($2);
             ExprList *body = $4;
@@ -1365,7 +1369,7 @@ class_body_list
           $$ = exprlist_append($1, e); }
     ;
 grammar_decl
-    : KW_GRAMMAR IDENT '{' grammar_body_list '}'
+    : KW_GRAMMAR pkg_name '{' grammar_body_list '}'
         {
             const char *gname = intern($2); free($2);
             ExprList *body = $4;
