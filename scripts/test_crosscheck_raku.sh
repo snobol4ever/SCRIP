@@ -74,12 +74,39 @@ xcheck "concat" "$T"
 rm -f "$T"
 
 # Raku corpus rung files
-RUNGS=$S4E/SCRIP/test/raku
-for f in "$RUNGS"/*.raku; do
-    [ -f "$f" ] || continue
-    ref="${f%.raku}.ref"
-    xcheck "$(basename $f .raku)" "$f" "$ref"
-done
+# ⛔⭐ THIS PATH WENT STALE AND THE SCRIPT REPORTED GREEN ANYWAY (seat05, 2026-08-30). SCRIP/test/raku moved to
+# corpus/tests/scrip_test/raku in the consolidation. The glob then matched NOTHING, `[ -f ] || continue`
+# swallowed it silently, and the script printed "PASS=4 FAIL=0 SKIP=0" rc=0 -- four inline smoke cases
+# standing in for 51 rung files. ⭐ A SMALL, CLEAN, PLAUSIBLE COUNT HIDING A POPULATION COLLAPSE: RULES.md
+# § INSTRUMENT LAWS SIXTH BATCH clause 3, and the reason it survived is that 4/4 green looks like a pass and
+# nobody remembers the denominator should be 55.
+# ⛔ REPOINTING ALONE WOULD NOT HAVE BEEN ENOUGH, which is why this refuses instead: the 47 .raku files at
+# the new location have ZERO .ref siblings, so the rung arm cannot oracle-diff even when it finds them. A
+# script that "works" after a path fix while grading nothing is the same defect with a fresh path.
+RUNGS=$S4E/corpus/tests/scrip_test/raku
+_rung_n=0
+if [ -d "$RUNGS" ]; then
+    for f in "$RUNGS"/*.raku; do
+        [ -f "$f" ] || continue
+        _rung_n=$((_rung_n+1))
+        ref="${f%.raku}.ref"
+        [ -f "$ref" ] || continue
+        xcheck "$(basename $f .raku)" "$f" "$ref"
+        _rung_graded=$((${_rung_graded:-0}+1))
+    done
+fi
+if [ ! -d "$RUNGS" ]; then
+    echo "⛔ REFUSES rc=2: the raku rung corpus is absent at $RUNGS -- this script would grade only its"
+    echo "   inline smoke cases and print a clean PASS. A smaller total is NOT a pass; repoint or retire"
+    echo "   this script deliberately." >&2
+    exit 2
+fi
+if [ "${_rung_graded:-0}" -eq 0 ]; then
+    echo "⛔ REFUSES rc=2: found $_rung_n rung file(s) at $RUNGS but ZERO have a .ref sibling, so the rung"
+    echo "   arm graded NOTHING and the PASS below would describe only the inline smoke cases."
+    echo "   Mint refs (capture-oracle-refs) or retire this arm -- do not read the smaller total as green." >&2
+    exit 2
+fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"
