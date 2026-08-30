@@ -18,12 +18,35 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-GCDIR="$CORPUS/crosscheck/gc"
-TIMEOUT="${TIMEOUT:-60}"
+TIMEOUT="${TIMEOUT:-180}"   # ⛔ was 60 (row dead-suite-path-consumer-sweep): once GCDIR pointed at a real
+# population again, 213_gc_exhaustion_churn/214_gc_exhaustion_live_set FAILed at higher stress -- looked
+# like a hang at first. Confirmed NOT a bug, same shape as FINDING-2026-08-28-seat06-gc-stress-three-
+# demos (demo_porter): SCRIP_GC_STRESS=1/7 forces collection every 1st/7th alloc, and this witness's 30k-
+# iteration churn loop is genuinely, not pathologically, slower under that -- measured 213 @ STRESS=25
+# 24.1s (suite's own arm, already passing), @ STRESS=7 77.9s CORRECT output (rc=0, byte-identical to
+# .ref) under a manual 240s timeout, run 3x at the OLD 60s budget with 100% FAIL(rc=124) every time. 180s
+# is >2x the one CONFIRMED worst case (matching the porter finding's own margin convention), enough to
+# turn the STRESS=7 cell green. ⛔ STRESS=1 (the suite's most extreme arm) was NOT waited out to
+# completion this session -- extrapolating linearly from the STRESS=25->STRESS=7 scaling it plausibly
+# needs several more minutes, and a live process check confirmed genuine CPU-bound progress (99.8% CPU,
+# not stuck) rather than an infinite loop, but that is evidence pointing the same direction, not a
+# confirmed number. STRESS=1 may still FAIL(rc=124) under this budget for these two witnesses -- if so,
+# that is this same non-bug, unconfirmed only in its exact duration, not a new defect. Widen further (or
+# split GC_STRESS=1 into its own longer-budget arm) only after an actual measured completion time.
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
-if [ ! -d "$GCDIR" ]; then echo "SKIP no gc corpus at $GCDIR"; exit 0; fi
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
+# ⛔ GCDIR IS EXTRACTED, NOT A FIXED TREE (row dead-suite-path-consumer-sweep): corpus/crosscheck/gc/ is
+# gone -- corpus-suites-consolidation converted its 15 files into the master suite, family crosscheck_gc
+# (confirmed: 15 origins, matching the conversion commit's own count, not assumed). The old "SKIP no gc
+# corpus" fallback was skip-as-success on a genuinely-present population -- RULES.md's own standing rule
+# is that a check which cannot measure must REFUSE, never quietly pass; an explicit GCDIR override still
+# runs the old loose-directory path unchanged, for anyone testing against a hand-built tree.
+if [ -z "${GCDIR:-}" ]; then
+    GCDIR="$WORKDIR/gc_src"
+    . "$HERE/lib_master_extract.sh"
+    master_extract_family crosscheck_gc "$GCDIR" || { echo "GATE UNPROVEN(2) [test_gc_stress_suite]: could not extract the crosscheck_gc family from the master suite"; exit 2; }
+fi
 echo "=== GC stress suite — corpus/crosscheck/gc x {plain,S25,S7,S1} x {m3,m4} ==="
 TOTAL_FAIL=0
 for sno in "$GCDIR"/*.sno; do
