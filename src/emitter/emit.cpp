@@ -753,9 +753,13 @@ static int fence0_release_bytes(const IR_t * nd) {
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int blob_fence_frame_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_FENCE_FRAME"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
+    /* ⛔⭐ s284 hq_C, MEASURED ON fz_segv_09: INSIDE A BLOB ACTIVATION FRAME THE ζ-SPINE HAS ZERO CAPACITY, SO A U2 WATERMARK THERE IS NOT "A DIFFERENT PLANE", IT IS A GUARANTEED COLLISION.  A stored-pattern blob carves exactly blob_head_bytes() + 16*count: the head holds the WIRE-STACK banked pair at [rbp-8]/[rbp-16] plus rdx/casmark, and frame_slot_off hands the cells out from -(head+8) DOWNWARD, so every byte between rsp and rbp is already owned.  bb_match_fence1's fence_u2_frame arm writes `mov [rsp + op_off], rsp` and `[rsp + op_off + 32]` -- and op_off is planned in the spine plane, which inside a blob has no carve of its own.  On fz_segv_09 (P = FENCE((FENCE(POS(2)) *G0 | LEN(3)))) that resolved to [rsp+64] = [rbp-8], overwriting the banked γ the blob had just saved from [rbp+8]; PAT$1_γ then read it back and `jmp rcx` jumped to a STACK address (SIGILL/SIGSEGV, 0x7ffffffedf78+2).  The second write, [rsp+96], landed on the CALLER's pushed rbp.  ⭐ Note what makes this invisible: nothing is out of bounds -- both stores hit mapped, writable, plausible stack, and the fault surfaces one indirect jump later in a different function.  emit.cpp's own R-4(b) banner already names "FENCE1 watermark" as a thing the blob frame exists to own; fence_frame_candidate simply never asked whether it was IN one.  Killswitch SCRIP_BLOB_FENCE_FRAME=0 restores the (broken) spine arm for bisection. */
+    if (blob_fence_frame_on() && IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if (blob_frame_scope()) return 1; }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
     for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
