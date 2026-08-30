@@ -1553,9 +1553,9 @@ DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
     g_plw_unwind_floor = (char *)__builtin_frame_address(0);
     rt_gc_point_arr(args, 1, (const char **)0);
     { DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = 0; w.s = cs; plw_bind(c, w); out = w; }
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; plw_bind(c, w); out = w; }
       else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
-      else { DESCR_t w; w.v = DT_S; w.slen = 0; w.s = cs; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
+      else { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
     g_plw_unwind_floor = fl;
     return out;
 }

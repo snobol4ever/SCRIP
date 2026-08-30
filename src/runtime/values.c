@@ -12,7 +12,7 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     int bs_str = (b.v == DT_S || b.v == DT_SNUL);
     if (as_str && bs_str) {
         const char *s1 = a.s ? a.s : ""; size_t l1 = (a.slen > 0 && a.slen != 0xFFFFFFFFu) ? (size_t)a.slen : strlen(s1);
-        const char *s2 = b.s ? b.s : ""; size_t l2 = (b.slen > 0 && b.slen != 0xFFFFFFFFu) ? (size_t)b.slen : strlen(s2);
+        const char *s2 = b.s ? b.s : ""; size_t l2 = (b.slen != 0xFFFFFFFFu) ? (size_t)b.slen : __builtin_strlen(s2);   /* CSET tag is the only non-count */
         return (l1 == l2 && memcmp(s1, s2, l1) == 0);
     }
     int a_cset = (a.v == DT_S && a.slen == 0xFFFFFFFFu);

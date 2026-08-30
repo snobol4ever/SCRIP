@@ -198,7 +198,7 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(cons
   cset used as a table/set key (`t[cset(s)] := v`) reached this function with slen==0xFFFFFFFF, which was returned AS THE LENGTH, and the 8-byte hashing loop
   below then walked ~4GB past the string into unmapped memory: SIGSEGV, not a wrong answer, for every program keying a table by a cset. Minimal repro:
   `t := table(); t[cset("ab")] := "X"` crashes both m3 and m4; `t["ab"] := "X"` (no cset) survives -- isolates the sentinel, not string keys generally. */
-static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen && k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)strlen(k->s) : 0u); }
+static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)__builtin_strlen(k->s) : 0u); }   /* carried length; 0xFFFFFFFF is the CSET TAG, not a count (Lon 2026-08-30) */
 /*⭐⭐ WORD-AT-A-TIME, NOT BYTE-AT-A-TIME (hq_P s264, measured on CLAWS5).  djb2 is one byte per iteration and the ASM twin compiled to ELEVEN instructions per byte
    (test/je/movzx/mov/shl/add/xor/mov/inc/dec/jmp), so hashing a 4-character tag cost ~50 Ir before a single bucket was touched.  MEASURED: table_find_pair_d was
    13.02% of the entire claws5 run at 92 Ir/call over 109,360 calls per parse, and the byte loop was the majority of it.  This reads EIGHT bytes per multiply.

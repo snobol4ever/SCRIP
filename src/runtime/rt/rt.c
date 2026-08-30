@@ -140,7 +140,7 @@ void rt_gvar_assign_str(const char *name, const char *str)
     rt_gc_point((DESCR_t *)0, &str);
     d.v    = DT_S;
     d.s    = (char *)(str ? str : "");
-    d.slen = (uint32_t)strlen(d.s);
+    d.slen = descr_cstrlen(d.s);   /* C-STRING BOUNDARY: str arrives as a C string, so measure ONCE here and carry it */
     NV_SET_fn(name ? name : "", d);
     if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
@@ -290,13 +290,13 @@ void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     int tc = (int)(codes & 0xffff);
     int nc = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
-    if (v.v == DT_S && v.s) { uint32_t n = (v.slen && v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)strlen(v.s); if (n) { *out = v; out->slen = n; return; } }
+    if (v.v == DT_S && v.s) { uint32_t n = (v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)__builtin_strlen(v.s); if (n) { *out = v; out->slen = n; return; } }
     if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
-    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = (uint32_t)strlen(v.s); return; }
+    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return; }   /* a NAME is a C string -- boundary, measured once */
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
-        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = (uint32_t)strlen(out->s); return; }
+        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return; }   /* VARVAL_fn yields a C string -- boundary */
     if (tc) core_runtime_error(tc, rt_coerce_errmsg(tc));
     out->v = DT_S; out->s = (char *)""; out->slen = 0;
 }
@@ -1990,7 +1990,7 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
     if (v.v == DT_T) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
     if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
     if (v.v == DT_S) {
-        size_t n = v.slen ? (size_t)v.slen : (v.s ? strlen(v.s) : 0);
+        size_t n = descr_slen(v);
         DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
     }
     if (v.v == DT_DATA && v.u) {

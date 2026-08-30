@@ -327,7 +327,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         return 0;
     }
     if (arr.v == DT_S && arr.s) {
-        int slen = (int)strlen(arr.s);
+        int slen = (int)descr_slen(arr);   /* ⛔ was strlen(arr.s): truncated at an embedded NUL and read a slice past its end (Lon 2026-08-30) */
         int i = (int)to_int(idx);
         if (i < 0) i = slen + 1 + i;
         if (i < 1 || i > slen) { core_runtime_error(3, NULL); return 0; }

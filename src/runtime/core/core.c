@@ -306,7 +306,7 @@ void mon_emit_value_bin(const char *name, DESCR_t val) {
     int64_t i_buf; double r_buf;
     switch (type) {
         case MWT_STRING: case MWT_NAME:
-            if (val.s) { vlen = val.slen ? val.slen : (uint32_t)strlen(val.s); vp = vlen ? (const void *)val.s : NULL; } break;
+            if (val.s) { vlen = val.slen; vp = vlen ? (const void *)val.s : NULL; } break;
         case MWT_INTEGER: { int64_t iv = val.i; unsigned char *p = (unsigned char *)&i_buf;
             for (int k = 0; k < 8; k++) p[k] = (unsigned char)((iv >> (k*8)) & 0xff); vp = &i_buf; vlen = 8; break; }
         case MWT_REAL: { memcpy(&r_buf, &val.r, sizeof(r_buf)); vp = &r_buf; vlen = 8; break; }
@@ -318,7 +318,7 @@ void mon_emit_value_bin(const char *name, DESCR_t val) {
 static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
     if (a.v == DT_S && a.s) {
         *out_p   = a.s;
-        *out_len = a.slen ? (int)a.slen : (int)strlen(a.s);
+        *out_len = (int)a.slen;
     } else {
         *out_p = NULL; *out_len = 0;
     }
@@ -489,7 +489,7 @@ void comm_var(const char *name, DESCR_t val) {
             case MWT_STRING:
             case MWT_NAME:
                 if (val.s) {
-                    vlen = val.slen ? (uint32_t)val.slen : (uint32_t)strlen(val.s);
+                    vlen = (uint32_t)val.slen;
                     vp   = (vlen > 0) ? (const void *)val.s : NULL;
                 }
                 break;
@@ -2030,7 +2030,7 @@ char *c_VARVAL_fn(DESCR_t v) {
 const char *rt_sno_indirect_name(DESCR_t v) {
     if (v.v != DT_N && v.v != DT_FAIL) {
         DESCR_t s = VARVAL_d_fn(v);
-        size_t n = (s.v == DT_S && s.slen && s.slen != 0xFFFFFFFFu) ? (size_t)s.slen : (s.s ? strlen(s.s) : 0);
+        size_t n = descr_slen(s);
         int refused = (s.v == DT_FAIL || s.v == DT_SNUL || (s.v == DT_S && n == 0));
         const char *ks = refused ? getenv("SCRIP_IND_NAME") : 0;
         if (refused && !(ks && *ks == '0')) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); return 0; }

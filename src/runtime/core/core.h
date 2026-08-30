@@ -7,11 +7,26 @@
 #include <stdlib.h>
 #include "descr.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔⭐⭐ LENGTH AUTHORITY IS THE CARRIED .slen -- NEVER strlen ON A VALUE'S BYTES (Lon, in-chat, 2026-08-30,
+   verbatim in substance: "Remove all strlen on the DESCR .s that is totally INVALID and not performant.  A NUL
+   character is a valid string element.").  Both halves of that are load-bearing.  INVALID: SNOBOL4/SPITBOL
+   strings are COUNTED, so NUL is an ordinary member of &ALPHABET and a value may legitimately contain one --
+   strlen answers a question about C strings, not about our values, and it truncates at the first embedded NUL.
+   NOT PERFORMANT: it is an O(n) rescan of bytes whose length was already known to whoever built the descriptor.
+   ⭐ THE CURE IS TO MEASURE ONCE AT CONSTRUCTION, NOT ON DEMAND: STRVAL below carries the length in, so this
+   function only READS it.  For a string literal __builtin_strlen constant-folds, so the carried form is strictly
+   cheaper than the old on-demand strlen as well as correct.
+   ⛔ THE slen == 0 "ASK strlen" SENTINEL IS RETIRED: slen == 0 now means the value IS EMPTY, full stop.  A value
+   with an embedded NUL must be built with BSTRVAL (which carries an explicit count); STRVAL's contract is and
+   always was "this argument is a C string".
+   ⚠️ THE CSET SENTINEL IS THE ONE SURVIVOR AND IT IS NOT AN OVERSIGHT: slen == 0xFFFFFFFF is a TYPE TAG, not a
+   length, so a cset has nowhere to carry a count -- its length authority is kw_cset_len (rt.c), and a cset whose
+   member set includes NUL is a separate representation question that this change does not touch. */
+static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
-        if (d.slen == 0xFFFFFFFFu) return d.s ? strlen(d.s) : 0;
-        if (d.slen) return (size_t)d.slen;
-        return d.s ? strlen(d.s) : 0;
+        if (d.slen == 0xFFFFFFFFu) return d.s ? __builtin_strlen(d.s) : 0;   /* CSET: tag, not a count -- see above */
+        return (size_t)d.slen;
     }
     return 0;
 }
@@ -37,7 +52,7 @@ static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
     return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
 }
 #define NULVCL    ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
-#define STRVAL(s_) ((DESCR_t){ .v = DT_S,  .slen = 0, .s = (s_) })
+#define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })   /* measures ONCE, here; folds to a constant for a literal */
 #define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
 #define INTVAL(i_) ((DESCR_t){ .v = DT_I,  .i = (i_) })
 #define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })

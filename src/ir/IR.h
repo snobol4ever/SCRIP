@@ -15,7 +15,7 @@
 #  define REALVAL(r_)  ((DESCR_t){ .v = DT_R, .r = (double)(r_) })
 #endif
 #ifndef STRVAL
-#  define STRVAL(s_)   ((DESCR_t){ .v = DT_S, .slen = 0, .s = (s_) })
+#  define STRVAL(s_)   __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = _sv_ ? (uint32_t)__builtin_strlen(_sv_) : 0u, .s = _sv_ }; })   /* length carried at construction -- Lon 2026-08-30, see core.h */
 #endif
 typedef enum {
     IR_ACTIVATE,
