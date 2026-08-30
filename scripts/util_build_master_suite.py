@@ -792,37 +792,51 @@ def main():
         print("mode: declared for all %d families" % len(_fams), file=sys.stderr)
     # -- BYTE-EQUAL-OR-NO-DELETE (the house law, applied to absorption): every absorbed source pair is re-read FRESH
     # from disk and compared entry-by-entry against the written master. A family that does not verify is NEVER deleted.
-    # Verification is implemented for snobol4 (the language whose sources this session deletes); dialect masters keep
-    # their sources until their own verification lands -- an unverified family is simply never deleted, loudly.
+    # ⭐ GENERALISED PAST SNOBOL4 (seat05, 2026-08-30, on the ceo all-hands consolidation directive): this used to gate
+    # on `ok = lang == "snobol4"`, so EVERY non-snobol4 family landed in `unverified` unconditionally, regardless of
+    # whether it actually matched -- --delete-absorbed could never delete a single prolog/raku/snocone/rebus file, not
+    # because anything failed to verify, but because verification was never attempted for them at all. That silent
+    # short-circuit is now gone: every language re-reads its pair with the SAME dialect reader `main()` used to absorb
+    # it in the first place (read_block_suite, falling back to read_suite for a genuine one-line-dialect pair -- the
+    # identical fallback used at absorption time above) and compares entry-by-entry, same fields, same failure-closed
+    # `except Exception: ok = False`. snobol4's own "plain" (whole-file, non-suite) absorption keeps its dedicated
+    # whole-file comparison unchanged -- that shape does not exist for any other language (mode is always "suite"
+    # outside the snobol4 branch, see main()'s absorption loop above), so it is untouched, not generalised.
     by_origin = {}
     for e, flags, text in rows:
         by_origin[e.origin] = e
     verified, unverified = [], []
     for fam, sno, ref, mode in absorbed_files:
-        ok = lang == "snobol4"
-        if ok:
-            try:
-                if mode == "plain":
-                    e = by_origin.get("%s__%s" % (fam, os.path.basename(sno)[:-len(EXT)]))
-                    ok = e is not None and e.sno_lines == open(sno).read().splitlines() and \
-                        (e.ref if isinstance(e.ref, list) else str(e.ref).split("\n")) == open(ref).read().splitlines()
+        ok = True
+        try:
+            if lang == "snobol4" and mode == "plain":
+                e = by_origin.get("%s__%s" % (fam, os.path.basename(sno)[:-len(EXT)]))
+                ok = e is not None and e.sno_lines == open(sno).read().splitlines() and \
+                    (e.ref if isinstance(e.ref, list) else str(e.ref).split("\n")) == open(ref).read().splitlines()
+            else:
+                if lang == "snobol4":
+                    reread = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 else:
-                    for se in h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno)):
-                        e = by_origin.get("%s__%s" % (fam, se.name))
-                        if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
+                    try:
+                        reread = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC))
+                    except Exception:
+                        reread = h.read_suite(sno, ref)   # a genuine one-line-dialect pair, matching absorption's own fallback
+                for se in reread:
+                    e = by_origin.get("%s__%s" % (fam, se.name))
+                    if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
+                        ok = False
+                        break
+                    if e.kind == "line":
+                        strip = lambda ln, nm: ln[: -len(";* %s" % nm)] if ln.endswith(";* %s" % nm) else ln
+                        if strip(e.sno_lines[0], e.name) != strip(se.sno_lines[0], se.name) or e.ref != se.ref:
                             ok = False
                             break
-                        if e.kind == "line":
-                            strip = lambda ln, nm: ln[: -len(";* %s" % nm)] if ln.endswith(";* %s" % nm) else ln
-                            if strip(e.sno_lines[0], e.name) != strip(se.sno_lines[0], se.name) or e.ref != se.ref:
-                                ok = False
-                                break
-                        else:
-                            if e.sno_lines != se.sno_lines or e.ref != se.ref or bool(e.xfail) != bool(se.xfail):
-                                ok = False
-                                break
-            except Exception:
-                ok = False
+                    else:
+                        if e.sno_lines != se.sno_lines or e.ref != se.ref or bool(e.xfail) != bool(se.xfail):
+                            ok = False
+                            break
+        except Exception:
+            ok = False
         (verified if ok else unverified).append((fam, sno, ref))
     print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d" % (len(verified), len(unverified)), file=sys.stderr)
     if delete_absorbed:
