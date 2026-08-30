@@ -52,6 +52,7 @@ static int flat_length(const tree_t *e, int budget) {
     total = 1 + klen;
     if (e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->t != TT_QLIT && e->t != TT_CSET && e->t != TT_CLAUSE && e->t != TT_SUB_DECL && e->t != TT_REGEX_DECL && e->t != TT_AUGOP)
         total += 1 + (int)strlen(e->v.sval);
+    else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { tree_e op = augop_binop_tt((int)e->v.ival); total += 1 + (int)strlen(tt_e_name[op]); }
     if (e->n == 0) return total + 1;
     for (int i = 0; i < e->n; i++) {
         total += 1 + flat_length(e->c[i], budget - total);
@@ -81,12 +82,14 @@ static void print_node(const tree_t * e, FILE * f, int depth) {
         fputc('(', f); fputs(kname, f);
         if (e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->t != TT_QLIT && e->t != TT_CSET && e->t != TT_CLAUSE && e->t != TT_SUB_DECL && e->t != TT_REGEX_DECL && e->t != TT_AUGOP) { fputc(' ', f); fputs(e->v.sval, f); }
         else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
+        else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
         for (i = 0; i < e->n; i++) { fputc(' ', f); print_node(e->c[i], f, depth + 1); }
         fputc(')', f);
         return;
     }
     fputc('(', f); fputs(kname, f);
     if (e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->t != TT_QLIT && e->t != TT_CSET && e->t != TT_CLAUSE && e->t != TT_SUB_DECL && e->t != TT_REGEX_DECL && e->t != TT_AUGOP) { fputc(' ', f); fputs(e->v.sval, f); }
+    else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
     if (e->n == 0) { fputc(')', f); return; }
     for (i = 0; i < e->n; i++) {
         fputc('\n', f); print_indent(depth + 1, f); print_node(e->c[i], f, depth + 1);
