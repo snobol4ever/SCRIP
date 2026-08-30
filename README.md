@@ -162,8 +162,8 @@ that produced it. Summary, measured 2026-08-30:
 | Language | Third-party suite | mode 3 | mode 4 |
 |---|---|---|---|
 | SNOBOL4 | snoflake fixtures (180; CSNOBOL4 home dialect — see the controls) | PASS=77 FAIL=96 | PASS=77 FAIL=47 (50 skipped at the link step) |
-| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=38 FAIL=51 REJECT=0 | PASS=39 FAIL=50 REJECT=0 |
-| Icon | JCON test suite (81 gradable) | PASS=40 FAIL=25 REJECT=0 CRASH=14 HANG=2 | PASS=38 FAIL=34 REJECT=0 CRASH=7 HANG=2 |
+| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=38 FAIL=51 | PASS=39 FAIL=50 |
+| Icon | JCON test suite (81 gradable) | PASS=40 FAIL=25 CRASH=14 HANG=2 | PASS=38 FAIL=34 CRASH=7 HANG=2 |
 | Prolog | SWI-Prolog plunit suite (114) | PASS=92 FAIL=22 (80%) | — |
 | Prolog | GNU Prolog source tree (62 files) | 45 compile as libraries; 15 run: 6 match, 9 differ; 2 parse-fail | — |
 | Raku | Roast (official spec tests, 986 in-tier 6.c files) | PASS=3 FAIL=9 PARSE-FAIL=927 NO-TAP=4 CRASH=2 (41 missing) | — |
@@ -272,29 +272,28 @@ grid below.
 | concat_table | **2.64x** | concat_intvar | 0.72x |
 | concat_strvar | **2.39x** | | |
 
-**Vendor test suites.** Icon is graded against the two official vendor test suites, vendored in the corpus and
-mechanically converted to SCRIP's explicit-semicolon dialect (`.std` oracles untouched
-— the conversion changes no semantics, so PASS/FAIL measures the engine, and REJECT
-names a real front-end parse gap). Measured 2026-08-30, both native modes:
+**Vendor test suites.** Icon is graded against the two official vendor test suites,
+vendored in the corpus and mechanically converted to SCRIP's explicit-semicolon
+dialect (`.std` oracles untouched — the conversion changes no semantics, so PASS/FAIL
+measures the engine). Every program in both suites parses. Measured 2026-08-30, both
+native modes:
 
-| suite | mode | PASS | FAIL | REJECT | CRASH | HANG | of |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| Arizona Icon v9.5 `general/` | m3 | 38 | 51 | **0** | — | — | 89 |
-| Arizona Icon v9.5 `general/` | m4 | 39 | 50 | **0** | — | — | 89 |
-| JCON test suite | m3 | 40 | 25 | **0** | 14 | 2 | 81 |
-| JCON test suite | m4 | 38 | 34 | **0** | 7 | 2 | 81 |
+| suite | mode | PASS | FAIL | CRASH | HANG | of |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| Arizona Icon v9.5 `general/` | m3 | 38 | 51 | — | — | 89 |
+| Arizona Icon v9.5 `general/` | m4 | 39 | 50 | — | — | 89 |
+| JCON test suite | m3 | 40 | 25 | 14 | 2 | 81 |
+| JCON test suite | m4 | 38 | 34 | 7 | 2 | 81 |
 
-Every program in both suites now parses — the REJECT class is closed (one JCON file,
-`tpp`, is excluded by name: its reference output is preprocessor text over
-deliberately invalid Icon, ungradable by execution).
+(One JCON file, `tpp`, is excluded by name: its reference output is preprocessor text
+over deliberately invalid Icon, ungradable by execution.)
 
 Verdicts: **PASS** — runs, output byte-identical to the vendor reference. **FAIL** —
-runs, output differs (a wrong answer). **REJECT** — the front end does not parse the
-program at all, so nothing runs (a syntax-coverage gap, not a wrong answer).
-**CRASH** — dies on a signal. **HANG** — exceeds the 20-second limit. These are
-unmodified real-world Icon programs exercising the full language surface. Runners:
-`scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` — each
-prints its own totals and names every non-PASS.
+runs, output differs (a wrong answer). **CRASH** — dies on a signal. **HANG** —
+exceeds the 20-second limit. These are unmodified real-world Icon programs exercising
+the full language surface. Runners: `scripts/test_icon_arizona_suite.sh`,
+`scripts/test_icon_jcon_suite.sh` — each prints its own totals and names every
+non-PASS.
 
 **Self-host:** SCRIP compiles the 17-module JCON translator — a production Icon
 compiler, `jtran`, written in Icon — into one native x86-64 binary (656K lines of
