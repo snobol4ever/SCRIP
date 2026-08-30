@@ -38,7 +38,10 @@ The frontend is chosen by file extension:
 | `.raku`| Raku | Rakudo |
 | `.pas` | Pascal (ISO 7185) | Free Pascal (`fpc -Miso`) |
 
-SNOBOL4 is complete; Icon is in active development; Prolog is experimental; Rebus,
+SNOBOL4 is complete. Icon passes its own smoke and rung ladders clean in both modes
+and is graded against the official Arizona and JCON vendor test suites — the measured
+boards, including how far the JCON-compiler self-host currently gets, are in the Icon
+status section below. Prolog is experimental; Rebus,
 Raku, and Pascal are newer frontiers, benchmarked as they land (see Benchmarks below).
 Correctness is not asserted, it is diffed: every test runs against its language's
 reference implementation, byte for byte.
@@ -231,7 +234,35 @@ points at the same GC/allocator lever the profile work has already sized.
 | concat_table | **2.64x** | concat_intvar | 0.72x |
 | concat_strvar | **2.39x** | | |
 
-Prolog is graded for correctness against GNU Prolog and SWI-Prolog (204-program test
+### Icon status, measured
+
+Icon is graded against the two official vendor test suites, vendored in the corpus and
+mechanically converted to SCRIP's explicit-semicolon dialect (`.std` oracles untouched
+— the conversion changes no semantics, so PASS/FAIL measures the engine, and REJECT
+names a real front-end parse gap). Measured 2026-08-30, SCRIP `508eeed5` / corpus
+`6f60900b2`, `-O0`, both native modes:
+
+| suite | mode | PASS | FAIL | REJECT | CRASH | HANG | of |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| Arizona Icon v9.5 `general/` | m3 = m4 | 32 | 41 | 16 | — | — | 89 |
+| JCON test suite | m3 | 34 | 23 | 14 | 9 | 2 | 82 |
+| JCON test suite | m4 | 32 | 28 | 14 | 6 | 2 | 82 |
+
+These are unmodified real-world Icon programs exercising the full language surface;
+the in-house Icon smoke and rung ladders (14/14 smoke, both modes; the rung suite's
+own board) stay the regression floor. Runners:
+`scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` — each prints
+its own totals and names every non-PASS.
+
+**Self-host distance, measured the same day:** SCRIP compiles the 17-module JCON
+translator — a production Icon compiler, `jtran`, written in Icon — into one native
+x86-64 binary (656K lines of generated asm), and that binary starts and drives its
+full `preproc → yylex → parse → ast2ir → bc_File` pipeline. Class-file output is
+blocked on three engine gaps, each held by a minimal witness: a created call passes
+literals but delivers frame-resident variables as `&null` (Icon law: `create` copies
+current local values); `create` re-runs global initialization over the shared global
+plane (Icon law: globals are untouched); and per-activation storage for recursive
+generators (in flight as its own row). When the first lands, classes flow.
 tree, all modes); its rivals speed grid, and Raku's and Pascal's, are the frontier —
 they get published here the same way, measured with named instruments, when they land.
 
