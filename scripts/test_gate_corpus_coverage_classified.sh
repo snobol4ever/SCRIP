@@ -6,7 +6,7 @@
 # was a refusal stub (`false`) -- trap #1, a DONE-WHEN that can never say YES.  This is that sentence as a command.
 #
 # ⭐ WHAT IT PROVES: TOTALITY -- every subtree of the live corpus carries a classification, and every classification
-# still resolves.  A new corpus subtree (corpus/demo/scrip/ went unnoticed for 10 passes), a renamed one (the s272 re-grid
+# still resolves.  A new corpus subtree (corpus/demos/scrip/ went unnoticed for 10 passes), a renamed one (the s272 re-grid
 # stranded STEP 5's paths), a harness deleted out from under an entry, or a row marked DONE while its subtree is still
 # ungated -- each turns this gate RED and NAMES the offender.
 # ⛔ WHAT IT DOES NOT PROVE: that a named harness genuinely sweeps its subtree.  A harness can exist and be vacuous

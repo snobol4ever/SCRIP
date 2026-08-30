@@ -21,7 +21,7 @@ d_crosscheck()  { find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | wc -l; }
 # conversion) -- counts its entries via the harness (ONE AUTHORITY for the suite grammar) instead
 # of a loose-file find, since the suite text file is no longer one file per test.
 d_probebb()     { awk -F, 'NR>1 && $4=="probe_bb_probes"' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # counts master entries by origin-family (zero-subfolders cutover)
-d_demo()        { find "$CORPUS/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
+d_demo()        { find "$CORPUS/demos" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)

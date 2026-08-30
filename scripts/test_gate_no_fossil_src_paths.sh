@@ -4,7 +4,7 @@
 # A FOSSIL PATH is a default path VALUE, hardcoded into a scripts/*.sh variable assignment, that
 # points at a corpus directory which no longer exists on disk. Motivation, all measured 2026-08-24:
 # the demo/corpus tree was repointed five times in one day; `INC` still defaults to
-# `$CORPUS/demo/inc` in at least six scripts, and `corpus/demo/inc` does not exist (the includes
+# `$CORPUS/demos/inc` in at least six scripts, and `corpus/demos/inc` does not exist (the includes
 # live at `corpus/include`); `CORPUS-LOCATIONS.md` described a layout the s271-s272 reorg dissolved.
 # A script that silently resolves its corpus dir to a smaller-or-empty set (or fails a `[ -d ]`
 # check nobody is watching) does not FAIL loudly — it just quietly grades less than it claims to,

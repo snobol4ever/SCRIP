@@ -21,6 +21,6 @@ while IFS= read -r f; do
     if [ -z "$s" ]; then m="EMPTY_OR_FAIL"; else m=$(printf '%s' "$s" | md5sum | cut -d' ' -f1); fi
     printf '%s\t%s\n' "$m" "${f#$CORPUS/}" >> "$OUT"
     n=$((n+1))
-done < <(find "$CORPUS/probe" "$CORPUS/demo" -name '*.sno' | sort)
+done < <(find "$CORPUS/probe" "$CORPUS/demos" -name '*.sno' | sort)
 sort -o "$OUT" "$OUT"
 echo "swept=$n arm=$ARM out=$OUT"

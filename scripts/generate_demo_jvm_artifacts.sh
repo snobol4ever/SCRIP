@@ -4,7 +4,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")}" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-DEMO_DIR="${DEMO_DIR:-$S4E/corpus/demo}"
+DEMO_DIR="${DEMO_DIR:-$S4E/corpus/demos}"
 JASM="${JASMIN:-$HERE/../miscellaneous/jasmin.jar}"
 
 echo "Generating JVM artifacts for SNOBOL4 demo programs..."

@@ -12,8 +12,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 . "$SCRIPT_DIR/lib_oracle_flags.sh"                                     # icont_bin(): the ONE authority for the Icon oracle path -- it is NOT on PATH, and bare `icont` reads as "no Icon oracle exists"
 ICONT=$(icont_bin) || { echo "ERROR: Icon oracle unresolvable -- refusing rather than printing a false all-crash table"; exit 2; }
 
-# ⛔ RESOLVE BY SEARCH, REFUSE ON UNRESOLVABLE. These two sources moved to corpus/demo/icon/demo/ in the
-# 2026-08-24 corpus re-grid; the old hardcoded corpus/demo/scrip/ path had additionally been resolving through
+# ⛔ RESOLVE BY SEARCH, REFUSE ON UNRESOLVABLE. These two sources moved to corpus/demos/icon/demo/ in the
+# 2026-08-24 corpus re-grid; the old hardcoded corpus/demos/scrip/ path had additionally been resolving through
 # $REPO_ROOT/.. = /home (one level above the seat root), so it could never have matched even before the move.
 icn_src() {                                                             # $1 = basename to find under the corpus
     local hit; hit=$(find "$S4E/corpus" -name "$1" -type f 2>/dev/null | sort | head -1)

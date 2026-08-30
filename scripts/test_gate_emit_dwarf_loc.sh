@@ -18,7 +18,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-DEMO="${DEMO:-$ROOT/../corpus/demo/snobol4/roman/roman.sno}"
+DEMO="${DEMO:-$ROOT/../corpus/demos/snobol4/roman/roman.sno}"
 refuse() { echo "⛔ REFUSED TO GRADE: $*" >&2; exit 2; }
 fail()   { echo "⛔ FAIL: $*" >&2; exit 1; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- build first"

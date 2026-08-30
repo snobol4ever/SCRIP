@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-DEMO="$CORPUS/demo"
+DEMO="$CORPUS/demos"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP  scrip not found: $SCRIP"; exit 0; fi
 if [ ! -d "$DEMO" ]; then echo "SKIP  corpus demo dir not found: $DEMO"; exit 0; fi
@@ -37,7 +37,7 @@ DEMOS="roman wordcount claws5 treebank \
        treebank-match treebank-match-fence"
 # ⛔⭐⭐ RESOLVE EACH NAME TO ITS PATH -- THE FLAT `$f.sno` LOOKUP THIS REPLACED HAD BEEN SILENTLY
 # REGENERATING NOTHING SINCE THE s272 CORPUS RE-GRID (hq_P, 2026-08-27).  The re-grid moved demos from
-# corpus/demo/<name>.sno to corpus/demo/snobol4/<family>/<name>.sno.  This loop cd'd to corpus/demo and
+# corpus/demos/<name>.sno to corpus/demos/snobol4/<family>/<name>.sno.  This loop cd'd to corpus/demos and
 # tested `[ -f "$f.sno" ]`, so after the move EVERY one of the 21 sanctioned names failed that test, took
 # the `continue`, and the script then printed "No changes -- demo artifacts already current."
 # ⛔ THAT IS A FALSE GREEN, NOT A GAP: the script reported SUCCESS while doing NOTHING, so the handoff rule

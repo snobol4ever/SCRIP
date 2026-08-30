@@ -5,7 +5,7 @@
 # on `.`-capture (PAT . X) and pattern-substitute (S 'pat' = 'rep') —
 # the two cases the existing b_vrs-only fire-point did NOT cover.
 #
-# Reuses corpus/demo/csn_bridge_c/probe_c.sno so the
+# Reuses corpus/demos/csn_bridge_c/probe_c.sno so the
 # CSN and SPL bridges can be cross-validated against the same probe.
 #
 # Per RULES.md self-contained scripts: paths derived from $0; corpus path
@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 MONITOR_DIR="${MONITOR_DIR:-$HERE/monitor}"
-PROBE="$CORPUS/demo/csn_bridge_c/probe_c.sno"
+PROBE="$CORPUS/demos/csn_bridge_c/probe_c.sno"
 
 EXPECTED_RECORDS=6   # SN-26-bridge-coverage-f: +3 LABEL records (2 top-level + END)
 

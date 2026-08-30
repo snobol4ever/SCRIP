@@ -13,7 +13,7 @@
 #
 # Options:
 #   --input FILE       SNOBOL4 source to beautify
-#                      (default: corpus/demo/snobol4/beauty/beauty.sno)
+#                      (default: corpus/demos/snobol4/beauty/beauty.sno)
 #   --mode MODE        scrip mode: --run | --run | --run
 #                      (default: --run)
 #   --timeout N        seconds for scrip run (default: 30)
@@ -75,7 +75,7 @@ done
 
 # --- Resolve paths ----------------------------------------------------------
 SC_DIR="$CORPUS/library"
-SNO_DIR="$CORPUS/demo/snobol4/beauty"
+SNO_DIR="$CORPUS/demos/snobol4/beauty"
 [[ -z "$INPUT" ]] && INPUT="$SNO_DIR/beauty.sno"
 
 [[ -x "$SCRIP"   ]] || { echo "FAIL scrip not found: $SCRIP"     >&2; exit 2; }
@@ -97,7 +97,7 @@ for f in "${LIB_FILES[@]}"; do
     [[ -f "$p" ]] || { echo "FAIL lib not found: $p" >&2; exit 2; }
     LIBS+=("$p")
 done
-DRIVER="$CORPUS/demo/snobol4/beauty/beauty.sc"
+DRIVER="$CORPUS/demos/snobol4/beauty/beauty.sc"
 [[ -f "$DRIVER" ]] || { echo "FAIL driver not found: $DRIVER" >&2; exit 2; }
 
 # --- Run scrip --------------------------------------------------------------

@@ -38,9 +38,9 @@
 # TIMEOUT / assembler-rejected line can sail past a caller that only checks $?. And a
 # script that finds ZERO of its expected inputs reports "No changes" — indistinguishable
 # from genuinely current unless something also checks that inputs were found at all
-# (empirically true right now for demo: corpus/demo was reorganized into per-family
+# (empirically true right now for demo: corpus/demos was reorganized into per-family
 # subfolders at s272 — commit db20f3cf, "demo/ grouped into per-family subfolders" — and
-# util_regen_demo_s_artifacts.sh still assumes flat corpus/demo/<name>.sno, so every
+# util_regen_demo_s_artifacts.sh still assumes flat corpus/demos/<name>.sno, so every
 # entry SKIPs and it reports "No changes" having looked at nothing). This script greps
 # each captured log for its own trouble vocabulary rather than trusting $? alone, and
 # treats "found nothing to check" as a DISTINCT, always-reported condition — never
@@ -140,7 +140,7 @@ fi
 demo_missing="$(grep -c 'no \.sno$' "$out" || true)"
 if [ "$demo_missing" -gt 0 ]; then
   trouble_total=$((trouble_total + demo_missing))
-  report+=("demo: $demo_missing source(s) NOT FOUND at the expected flat path — corpus/demo was reorganized into per-family subfolders (commit db20f3cf) and this script was not updated to match; its 'No changes' verdict is NOT trustworthy, it never found the sources to compare. This is a script-repair item, not something a regen run can fix — flagged, not fixed, by this row.")
+  report+=("demo: $demo_missing source(s) NOT FOUND at the expected flat path — corpus/demos was reorganized into per-family subfolders (commit db20f3cf) and this script was not updated to match; its 'No changes' verdict is NOT trustworthy, it never found the sources to compare. This is a script-repair item, not something a regen run can fix — flagged, not fixed, by this row.")
 fi
 demo_trouble="$(grep -cE 'compile failed|empty emit|assembler-rejected' "$out" || true)"
 if [ "$demo_trouble" -gt 0 ]; then

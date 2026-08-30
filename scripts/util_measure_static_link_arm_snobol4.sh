@@ -15,7 +15,7 @@ set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-DEMO="${DEMO_DIR:-$S4E/corpus/demo/snobol4}"
+DEMO="${DEMO_DIR:-$S4E/corpus/demos/snobol4}"
 . "$HERE/lib_static_link_snobol4.sh" || { echo "⛔ REFUSING: cannot load lib_static_link_snobol4.sh -- the ONE static-link-arm authority." >&2; exit 3; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSING: scrip not built at $SCRIP" >&2; exit 3; }
 RT_A="$(static_rt_archive "$ROOT")" || { echo "⛔ REFUSING: STATIC arm unavailable -- out/libscrip_rt.a could not be built (make libscrip_rt_static)" >&2; exit 3; }

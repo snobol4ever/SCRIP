@@ -7,7 +7,7 @@
 #   bash scripts/util_beauty_m1_reduce.sh 'Parse=...' 'Stmt=...'    # arbitrary overrides
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; SIB="$(cd "$ROOT/.." && pwd)"
-SCRIP="$ROOT/scrip"; SRC="$SIB/corpus/demo"
+SCRIP="$ROOT/scrip"; SRC="$SIB/corpus/demos"
 [ -x "$SCRIP" ] || { echo "no $SCRIP -- run make first"; exit 2; }
 [ -d "$SRC" ]   || { echo "no $SRC"; exit 2; }
 RED=( 'Parse=*Stmt ("'"'"'Stmt'"'"'" & 7) nl' 'Stmt=*Label *Label' "Label=epsilon ~ 'Label'" )

@@ -7,7 +7,7 @@
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 OUTDIR="${HERE}/../out"
-TESTD="${HERE}/../test"
+TESTD="${HERE}/../../corpus/tests/scrip_test"   # re-pointed: SCRIP/test moved to corpus (repo-boundary ruling)
 P3=0; F3=0; P4=0; F4=0
 EXPECTED=$'TRI: mainline alive\nTRI: DOUBLE(21) = 42'
 

@@ -63,7 +63,7 @@ SCRIP="$S4E/SCRIP/scrip"
 SBL="$S4A/x64/bin/sbl"
 BDIR="$S4E/corpus/crosscheck/beauty"
 SRC="$BDIR/beauty.sno"
-CLASSIC="$S4E/corpus/demo/snobol4/beauty/beauty.sno"   # frozen pre-BEAUTY-CN snapshot, portable SPITBOL -- see header. Pinned like corpus/generated/, never hand-edited.
+CLASSIC="$S4E/corpus/demos/snobol4/beauty/beauty.sno"   # frozen pre-BEAUTY-CN snapshot, portable SPITBOL -- see header. Pinned like corpus/generated/, never hand-edited.
 MODES=both; RUNGS=""; BISECT=0
 while [ $# -gt 0 ]; do case "$1" in
     --modes) MODES="$2"; shift 2;; --rungs) RUNGS="$2"; shift 2;; --bisect) BISECT=1; shift;;

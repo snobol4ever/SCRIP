@@ -40,7 +40,7 @@ TIMEOUT="${TIMEOUT:-120}"
 TMOUT3=0; TMOUT4=0; TMOUT_LIST=""
 INC="${INC:-$CORPUS/include}"
 BEAUTY="${BEAUTY:-$CORPUS/tests/snobol4/beauty_suite}"
-DEMO="${DEMO:-$CORPUS/demo/snobol4}"
+DEMO="${DEMO:-$CORPUS/demos/snobol4}"
 
 # ⛔⛔⛔ s272 hq_C (CEO audit correction 2) — A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT.
 # These two arms printed SKIP and exited 0, so a box with no compiler built, or no corpus cloned, reported

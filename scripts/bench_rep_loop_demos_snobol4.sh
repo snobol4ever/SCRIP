@@ -34,7 +34,7 @@ set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-D="${DEMO_DIR:-$S4E/corpus/demo/snobol4}"
+D="${DEMO_DIR:-$S4E/corpus/demos/snobol4}"
 MK="${MKREP:-$HERE/mkrep_demo_fixture.py}"
 TARGET_MS="${TARGET_MS:-800}"     # bracket window we ramp toward
 TOL="${TOL:-8}"                   # % convergence tolerance between successive ramp steps

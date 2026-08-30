@@ -42,7 +42,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-D="${DEMO_DIR:-$S4E/corpus/demo/snobol4}"
+D="${DEMO_DIR:-$S4E/corpus/demos/snobol4}"
 SCALETSV="${DEMO_SCALE:-$D/DEMO-SCALE.tsv}"
 TOL="${TOL_PCT:-15}"
 BUDGET_MS="${BUDGET_MS:-3000}"

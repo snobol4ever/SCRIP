@@ -16,8 +16,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # the sibling root (same computation $S4E performs above it) -- the old "$REPO_ROOT/../corpus/..." had one extra
 # ".." that escaped the sibling root entirely, so PARSER_SRC/RECOG_SRC pointed nowhere real regardless of extension.
 # Using $S4E directly (already computed, same value) instead of re-deriving REPO_ROOT for this.
-PARSER_SRC="$S4E/corpus/demo/prolog/prolog_parser.pl"
-RECOG_SRC="$S4E/corpus/demo/prolog/prolog_recognizer.pl"
+PARSER_SRC="$S4E/corpus/demos/prolog/prolog_parser.pl"
+RECOG_SRC="$S4E/corpus/demos/prolog/prolog_recognizer.pl"
 
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then

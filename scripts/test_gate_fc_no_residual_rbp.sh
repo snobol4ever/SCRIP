@@ -100,7 +100,7 @@ while IFS= read -r f; do
   else                       cls=OK
   fi
   printf '%s\t%s\t%s\n' "$cls" "$m" "$(basename "$f")" >> "$tmp"
-done < <(find "$CORPUS/demo" "$CORPUS/feat" -name '*.sno' 2>/dev/null | sort)
+done < <(find "$CORPUS/demos" "$CORPUS/feat" -name '*.sno' 2>/dev/null | sort)
 ok_n=$(awk -F'\t' '$1=="OK"{c++} END{print c+0}' "$tmp")
 ok_m=$(awk -F'\t' '$1=="OK"{s+=$2} END{print s+0}' "$tmp")
 fail=0

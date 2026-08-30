@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # JSON-FENCE-JSTRBODY-CAS GATE -- row fence-jstrbody-cas item 1 (FENCE after jkey/jstring's closing quote,
-# corpus/demo/snobol4/json/{json.sno,json-match-fence.sno}), graded on its own real DONE-WHEN target:
-# the full 1.7MB corpus/demo/snobol4/json/citm_catalog.json, both files, both modes, byte-identical to the
+# corpus/demos/snobol4/json/{json.sno,json-match-fence.sno}), graded on its own real DONE-WHEN target:
+# the full 1.7MB corpus/demos/snobol4/json/citm_catalog.json, both files, both modes, byte-identical to the
 # correctness oracle (sbl_correctness_bin, -bf per lib_oracle_flags.sh -- the s189 authority, never -b alone).
 # Refs minted this session from a clean oracle run (rc=0, ~0.2s wall, match_ms=240 -- FENCE keeps this cheap;
 # maxdepth=8 matches hq_P's independent citm measurement in FINDING-2026-08-23-hq_P-fence0-blob-floor-...).
@@ -14,7 +14,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-DEMO="${DEMO:-$S4E/corpus/demo/snobol4/json}"
+DEMO="${DEMO:-$S4E/corpus/demos/snobol4/json}"
 PROBE="${PROBE:-$S4E/corpus/probe/json_fence_jstrbody_cas}"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }

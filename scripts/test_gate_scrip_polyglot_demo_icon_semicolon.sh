@@ -14,9 +14,9 @@ fail() { echo "⛔ NOT DONE: $*" >&2; exit 1; }
 [ -x "$SCRIP" ] || fail "scrip not built at $SCRIP -- run 'make pristine' in SCRIP/ first"
 
 for d in demo05 demo07 demo08 demo09 demo10; do
-    src="$(ls "$CORPUS/demo/scrip/$d"/*.scrip 2>/dev/null | head -1)"
-    exp="$(ls "$CORPUS/demo/scrip/$d"/*.expected 2>/dev/null | head -1)"
-    [ -f "$src" ] && [ -f "$exp" ] || fail "$d: witness or .expected not found under $CORPUS/demo/scrip/$d"
+    src="$(ls "$CORPUS/demos/scrip/$d"/*.scrip 2>/dev/null | head -1)"
+    exp="$(ls "$CORPUS/demos/scrip/$d"/*.expected 2>/dev/null | head -1)"
+    [ -f "$src" ] && [ -f "$exp" ] || fail "$d: witness or .expected not found under $CORPUS/demos/scrip/$d"
     actual="$(timeout 8 "$SCRIP" --run "$src" < /dev/null 2>/tmp/_scrip_demo_semi_err)"
     expected="$(cat "$exp")"
     [ "$actual" = "$expected" ] || fail "$d: output mismatch -- expected=[$expected] actual=[$actual] stderr=$(cat /tmp/_scrip_demo_semi_err)"

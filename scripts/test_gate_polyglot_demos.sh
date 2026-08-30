@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_polyglot_demos.sh -- DONE-WHEN for polyglot-scrip-demos-10-working.
-# Sweeps all 10 corpus/demo/scrip/demoNN/*.scrip polyglot demos in BOTH modes (m3 --run, m4
+# Sweeps all 10 corpus/demos/scrip/demoNN/*.scrip polyglot demos in BOTH modes (m3 --run, m4
 # --compile) against their .expected files. Prints "m3 PASS=N" / "m4 PASS=N" lines (the
 # umbrella's own DONE-WHEN greps for these verbatim) and exits 0 only when both read 10.
 #
@@ -9,9 +9,9 @@
 # PATH NOTE (corrected AGAIN 2026-08-29, seat10) -- THIS PATH HAS NOW ROUND-TRIPPED: demo/scrip ->
 # scrip -> demo/scrip, all within about one day. seat15 (earlier 2026-08-29) verified corpus/scrip/
 # was current and pointed DEMO_DIR there; a later same-day Lon-ordered move (corpus commit
-# `23e65c0e`, "MOVE scrip/ -> demo/scrip/") relocated it back to corpus/demo/scrip/ before seat15's
+# `23e65c0e`, "MOVE scrip/ -> demo/scrip/") relocated it back to corpus/demos/scrip/ before seat15's
 # fix ever got exercised by a session after that move landed. Verified THIS session, fresh:
-# corpus/demo/scrip/demoNN/ exists (10 dirs, each one *.scrip + *.expected); corpus/scrip/ does
+# corpus/demos/scrip/demoNN/ exists (10 dirs, each one *.scrip + *.expected); corpus/scrip/ does
 # NOT exist. ⛔ DO NOT "fix" this back to corpus/scrip/ on the strength of seat15's comment alone --
 # that comment was correct when written and is not now. If this gate starts reporting UNPROVEN(2)
 # unexpectedly, run `find corpus -ipath '*demoNN*'` AND `git log --oneline -3 -- <the dir it's
@@ -22,7 +22,7 @@ set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 OUTDIR="${OUTDIR:-$S4E/SCRIP/out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-DEMO_DIR="$CORPUS/demo/scrip"
+DEMO_DIR="$CORPUS/demos/scrip"
 TIMEOUT=8
 
 if [ ! -x "$SCRIP" ]; then
