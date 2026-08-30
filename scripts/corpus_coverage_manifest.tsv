@@ -53,6 +53,7 @@ SUBTREE	demos/icon	GATED	test_lower_byte_identical.sh
 # corpus/crosscheck/ now holds nothing at all -- this was its last SUBTREE entry. tests/snobol4 (below) already covers
 # the new location; no new line needed.
 SUBTREE	demos/scrip	ROWD	scrip-demo-harness-unwired
+SUBTREE	benchmarks/snocone	ROWD	snocone-demo-trailing-comma-locals-parse-gap
 # tests/scrip_test is TRANSIENT STAGING, not a stable corpus location: SCRIP/test was moved here wholesale
 # (2026-08-29, "11a36c87", repo-boundary ruling, 594 files) and the ceo all-hands-consolidation broadcast the
 # same day split its per-language drain across seats (seat03=icon, hq_B+seat05=prolog, seat06=raku,
