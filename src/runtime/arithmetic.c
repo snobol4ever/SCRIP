@@ -265,7 +265,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
-            extern const char *real_str(double r, char *buf, int bufsz);
+            extern const char *icon_real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;
             if (a.v == DT_T && a.tbl && a.tbl->is_set && b.v == DT_T && b.tbl && b.tbl->is_set) {
                 if (op == BINOP_CUNION) return TABLE_VAL(set_union(a.tbl, b.tbl));
@@ -274,11 +274,11 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
             }
             if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";
             else if (IS_INT_fn(a))  { snprintf(_ab, sizeof _ab, "%lld", (long long)a.i); as = _ab; }
-            else if (IS_REAL_fn(a)) { real_str(a.r, _ab, sizeof _ab); as = _ab; }
+            else if (IS_REAL_fn(a)) { icon_real_str(a.r, _ab, sizeof _ab); as = _ab; }
             else { as = VARVAL_fn(a); if (!as) as = ""; }
             if (IS_CSET_fn(b) || b.v == DT_S || b.v == DT_SNUL) bs = b.s ? b.s : "";
             else if (IS_INT_fn(b))  { snprintf(_bb, sizeof _bb, "%lld", (long long)b.i); bs = _bb; }
-            else if (IS_REAL_fn(b)) { real_str(b.r, _bb, sizeof _bb); bs = _bb; }
+            else if (IS_REAL_fn(b)) { icon_real_str(b.r, _bb, sizeof _bb); bs = _bb; }
             else { bs = VARVAL_fn(b); if (!bs) bs = ""; }
             extern int kw_cset_len(const char *);
             int aslen = IS_CSET_fn(a) ? kw_cset_len(as) : -1; if (aslen < 0) aslen = (int)strlen(as);
@@ -292,12 +292,12 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_cset_compl(DESCR_t a) {
-    extern const char *real_str(double r, char *buf, int bufsz);
+    extern const char *icon_real_str(double r, char *buf, int bufsz);
     char _cbuf[64]; const char *raw;
     if (IS_FAIL_fn(a)) return FAILDESCR;
     if (IS_CSET_fn(a)) raw = a.s ? a.s : "";
     else if (IS_INT_fn(a))  { snprintf(_cbuf, sizeof _cbuf, "%lld", (long long)a.i); raw = _cbuf; }
-    else if (IS_REAL_fn(a)) { real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
+    else if (IS_REAL_fn(a)) { icon_real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
     else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
     /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops at the first byte-0
        member, so a correctly-built &ascii/&cset (now legitimately starting with chr(0)) reads as

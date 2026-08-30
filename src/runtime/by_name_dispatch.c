@@ -7159,7 +7159,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (fn[0]=='~' && fn[1]=='\0') {
             const char *s=NULL; int slen=-1;
             if (IS_INT_fn(a)) { char *nb=rt_ws_alloc(32); snprintf(nb,32,"%lld",(long long)a.i); s=nb; }
-            else if (IS_REAL_fn(a)) { char *nb=rt_ws_alloc(64); real_str(a.r,nb,64); s=nb; }
+            else if (IS_REAL_fn(a)) { char *nb=rt_ws_alloc(64); icon_real_str(a.r,nb,64); s=nb; }
             else { s=VARVAL_fn(a); if (IS_CSET_fn(a)) slen=kw_cset_len(s); }
             if(!s) s="";
             /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops scanning at the
@@ -7239,10 +7239,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             char _lbuf[64], _rbuf[64];
             const char *la, *ra;
             if (IS_INT_fn(l))       { snprintf(_lbuf,sizeof _lbuf,"%lld",(long long)l.i); la=_lbuf; }
-            else if (IS_REAL_fn(l)) { real_str(l.r,_lbuf,sizeof _lbuf); la=_lbuf; }
+            else if (IS_REAL_fn(l)) { icon_real_str(l.r,_lbuf,sizeof _lbuf); la=_lbuf; }
             else                    { la=VARVAL_fn(l); if(!la) la=""; }
             if (IS_INT_fn(r))       { snprintf(_rbuf,sizeof _rbuf,"%lld",(long long)r.i); ra=_rbuf; }
-            else if (IS_REAL_fn(r)) { real_str(r.r,_rbuf,sizeof _rbuf); ra=_rbuf; }
+            else if (IS_REAL_fn(r)) { icon_real_str(r.r,_rbuf,sizeof _rbuf); ra=_rbuf; }
             else                    { ra=VARVAL_fn(r); if(!ra) ra=""; }
             int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : -1; if (lalen < 0) lalen = (int)strlen(la);
             int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : -1; if (ralen < 0) ralen = (int)strlen(ra);
