@@ -276,9 +276,13 @@ names a real front-end parse gap). Measured 2026-08-30, both native modes:
 | JCON test suite | m3 | 34 | 23 | 14 | 9 | 2 | 82 |
 | JCON test suite | m4 | 32 | 28 | 14 | 6 | 2 | 82 |
 
-These are unmodified real-world Icon programs exercising the full language surface.
-Runners: `scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` —
-each prints its own totals and names every non-PASS.
+Verdicts: **PASS** — runs, output byte-identical to the vendor reference. **FAIL** —
+runs, output differs (a wrong answer). **REJECT** — the front end does not parse the
+program at all, so nothing runs (a syntax-coverage gap, not a wrong answer).
+**CRASH** — dies on a signal. **HANG** — exceeds the 20-second limit. These are
+unmodified real-world Icon programs exercising the full language surface. Runners:
+`scripts/test_icon_arizona_suite.sh`, `scripts/test_icon_jcon_suite.sh` — each
+prints its own totals and names every non-PASS.
 
 **Self-host:** SCRIP compiles the 17-module JCON translator — a production Icon
 compiler, `jtran`, written in Icon — into one native x86-64 binary (656K lines of
