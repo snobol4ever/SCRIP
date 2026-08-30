@@ -2107,7 +2107,6 @@ inline int icn_genframe2() {   /* N-2 (hq_P s271): the generator ACTIVATION-FRAM
 inline int icn_gen_regime() {   /* ⛔⛔ THE ICON-ONLY KEY (ceo s283f, minutes after the default flip): flat_gen alone is NOT Icon-only -- a PROLOG suspend graph satisfies is_generator&&has_suspend and, once the gate defaulted ON, took the region-resident alpha whose caller half exists only in Icon's bcps template: prolog smoke went 5/5 -> 3/5 BOTH MODES, restored by the killswitch (A/B measured). icn_cells_graph's only setters are lower_icon.c, so this predicate is the regime key every generator-protocol site uses INSTEAD of bare icn_genframe2(); the bare switch survives only as the killswitch input here. */
     return icn_genframe2() && g_emit_cfg && g_emit_cfg->icn_cells_graph;
 }
-
 inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zdp_rbp_frames() {

@@ -769,9 +769,11 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov32", "edi", (long)DT_FAIL) + x86("mov32", "esi", 0L)
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
-            : bcps_wire_land(_.op_sval)
-              + (x86("mov", FRQ(act + 8), "rsp")
-                 + x86("add", "rsp", 16L)))
+            : ((pl_zf_resume && emit_pl_gamma_retain())
+               ? x86_bomb("bb_call_proc_staged: PZ-4 clause (c) LANDING is scaffolded but deliberately refuses to run (seat05 2026-08-30) -- MEASURED, not theoretical: emit_patzeta_frame_reserve()'s registered value for a callee (fact/1: 400) does not match its actual zframe_graph carve emitted by xa_flat_zframe_epilogue_γ_str (fact/1: 384; observed delta 16 == (nparams+nlocals)*16). The pz[] registry uniformly stores flat_frame_bytes+(nparams+nlocals)*16 (src/driver/scrip.c's own registration comment: 'fp term = (np+nl)*16, MIRRORING the callee alpha's own frame_total'), which is correct ONLY for an icn_cells_graph callee, whose OWN epilogue (xa_flat.cpp:366-367) adds that same term back in -- a pure Prolog zframe_graph callee's epilogue does NOT add it (that `if` is icn_cells_graph-gated), so the registry overstates a Prolog carve by exactly (nparams+nlocals)*16 bytes, silently, for every callee this reads. No rt_proc_nlocals()-by-name accessor exists to correct for it cheaply and safely from this file today. Restoring the wrong byte count here corrupts every FRQ()-relative address downstream (confirmed: SIGSEGV) -- refusing loudly is strictly better than that. Fix needs EITHER a real nlocals-by-name accessor to subtract the term for zframe_graph-non-icn_cells_graph callees, OR a second registry entry that never adds it -- a shared-code decision, not this call site's to make alone. The pl_zf_resume-scoped gating above IS correct and verified (see FINDING) -- only this arithmetic is unresolved.")
+               : bcps_wire_land(_.op_sval)
+                 + (x86("mov", FRQ(act + 8), "rsp")
+                    + x86("add", "rsp", 16L))))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -809,6 +811,22 @@ static std::string bcps_spine_gen_arm() {
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
          + (pl_zf_resume
             ? ( [&]() -> std::string {
+                /* PZ-4 clause (c) RETRY (seat05 2026-08-30): NOT landed this pass, deliberately. The intended
+                 * shape (restore rsp from FRQ(act+8), jmp [rax+zf_cont_off] straight into the callee's own
+                 * resume continuation -- no re-invocation, no mailbox -- mirroring icn_gen_regime()'s own
+                 * restore+jmp roughly fifty lines below) is BLOCKED for two independent reasons, both real
+                 * and both diagnosed, neither resolved: (1) it depends on the landing-side byte-count fix,
+                 * which is itself refused-with-a-bomb above (see the landing site a few lines up in this
+                 * function) -- so even a working retry would run on a poisoned base; (2) inserting ANY new
+                 * early-return branch at this exact position -- verified even with a bare x86_bomb() call,
+                 * with and without an added x86_gamma() port-bookkeeping call -- produces
+                 * "bb_emit_end: 1 unresolved forward reference(s), label=''" at final emission, a SCRIP-
+                 * internal box/port bookkeeping issue not yet root-caused (the landing-side bomb, at a
+                 * DIFFERENT position in the same function, does NOT trigger it -- isolated by direct A/B,
+                 * not assumed). Left as the pre-existing mailbox code, UNCHANGED, so the flag stays
+                 * COMPILABLE end to end; the landing-side bomb (confirmed working, see above) makes this
+                 * branch unreachable at runtime for any program that ever suspends, so nothing is lost by
+                 * leaving it as-is for this pass. See the FINDING for the full isolation trail. */
                 uint64_t _pop3_fp; { void *(*_f)(long *, long *) = rt_pl_cp_pop3; _pop3_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 uint64_t _set_fp; { void (*_f)(void *, long, long, int, int) = rt_pl_zf_resume_set; _set_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 return x86("comment", "PL-FR-4 zframe β: pop triple, set pending resume, re-enter callee α")
