@@ -409,6 +409,12 @@ def main():
             raise SystemExit(0)
         sys.stderr.write("REFUSED: zero absorbable pairs under %s and no master present -- nothing to build from.\n" % ROOT)
         raise SystemExit(2)
+    # ⛔⛔ DEDUPE BY ORIGIN AT MERGE TIME (hq_B, measured on rebus: every rebuild DOUBLED the master, 174->348,
+    # every origin exactly twice -- the exact opposite failure of the clobber merge-mode was added to fix, and the
+    # more dangerous one: a bigger board reads as progress). An absorbed pair whose origins ALREADY exist in the
+    # base is the SAME entry rebuilt (its source should have been deleted after absorption): skip it LOUDLY, never
+    # append a twin. Origin is the ready-made key -- unique per source entry by construction.
+    base_origins = {e.origin for e in base_entries}
     for fam, sno, ref, dir_companions in pairs:
         entries = None
         mode = "suite"
@@ -489,6 +495,10 @@ def main():
         for e in entries:
             e.origin = "%s__%s" % (fam, e.name)
             e.src_mode = mode
+        _dup = [e.origin for e in entries if e.origin in base_origins]
+        if _dup:
+            excluded.append((fam, "already in the master (%d of %d origins present) -- the same entry rebuilt, not a new one; source pair left in place for inspection, NOT re-absorbed and NOT deleted" % (len(_dup), len(entries))))
+            continue
         per_family[fam] = len(entries)
         all_entries.extend(entries)
         absorbed_files.append((fam, sno, ref, mode))
