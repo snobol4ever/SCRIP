@@ -455,6 +455,22 @@ RTX_ENDF(rt_patstk_lazy_init)
  * worth more than this collapse.  Recorded rather than acted on, same discipline as RTX-5's "an asm port would
  * faithfully reproduce a poor algorithm at high speed."
  *
+ * ✅✅ SUPERSEDED 2026-08-30 (hq_P) -- THE LOWER-SIDE RUNG LANDED AND THIS PROHIBITION IS LIFTED.  SCRIP 85b877d4
+ * (Lon's length-authority ruling, RULES.md FACT RULE "the length is carried, never measured") changed STRVAL itself
+ * to measure ONCE at construction and carry the count, so the premise above -- "STRVAL mints DT_S with .slen = 0,
+ * and only BSTRVAL populates it" -- IS NO LONGER TRUE.  RE-MEASURED HERE on pattern_bt: rt_match_enter takes 1000
+ * arrivals and ARM-FAST-B fires ZERO of them, against the 100% recorded above.  The 2,000,001 strlens the note
+ * called "worth more than this collapse" are already gone, as a side effect of a CORRECTNESS landing.
+ * ⛔⛔ AND THAT IS WHY THIS BLOCK IS SUPERSEDED IN PLACE RATHER THAN DELETED: a prohibition of the form "X is
+ * forbidden UNTIL Y" is A DEPENDENCY ON Y THAT NOTHING LINKS TO Y.  When Y landed, nothing pointed here, and the
+ * text went on forbidding -- with a measured 100% beside it -- something that had become free.  Same family as
+ * rtx_icnrel.s's "PORT != FIX ... BECAUSE THAT IS WHAT THE C TAIL DOES" (superseded the same day by hq_C): a
+ * comment that AUTHORISES rather than merely describes is strictly worse stale, because a reader who checks it
+ * comes away convinced.
+ * ⚠️ NOT RE-MEASURED: the Icon twin (s217-ICN, "arr.slen == 0 on 100% of arrivals").  The cause was the SAME
+ * STRVAL, so it is very likely inverted too -- but that is an inference, not a measurement, and the Icon arm must
+ * be re-censused before any Icon RTX rung is keyed on slen.
+ *
  * ARMS, AS MEASURED (interposer classifying rdi/rsi per call, 2,000,001 arrivals, pattern_bt at K=2M):
  *   ARM-FAST-B  DT_S . s != NULL . slen == 0 . *s != 0   -> 2,000,001 (100%).  Inlined here; L = strlen(s).
  *   ARM-FAST-A  DT_S . s != NULL . slen != 0             ->         0.  Inlined anyway (one branch): L = slen,
