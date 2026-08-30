@@ -75,15 +75,6 @@ int   rt_get_cut_flag(void);
 long rt_arith(int lk, long li, const char *ls,
                   int rk, long ri, const char *rs, const char *op);
 void rt_init_arbno(void **slot_ptr, void *child_fn);
-typedef struct {
-    void (*push)       (const DESCR_t *d);
-    void (*pop)        (DESCR_t *out);
-    void (*peek)       (DESCR_t *out);
-    int  (*depth)      (void);
-    void (*set_depth)  (int n);
-    int  (*get_last_ok)(void);
-    void (*set_last_ok)(int x);
-} rt_vstack_ops_t;
 #include "bb_box.h"
 void rt_proc_register(const char *name, const char **pnames, int nparams);
 void rt_proc_set_fn(const char *name, bb_box_fn fn);
