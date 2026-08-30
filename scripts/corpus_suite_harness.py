@@ -1491,11 +1491,21 @@ def cmd_extract(args):
         if _lc.get("ext") == _ext:
             _copen, _cclose = _lc.get("comment_open", "*"), _lc.get("comment_close", "")
             break
+    # ⛔⭐⭐ A ROUND TRIP THAT DOES NOT CARRY EVERY FIELD THE GRADER READS IS NOT A ROUND TRIP (row
+    # suite-harness-xfail-extract-round-trip, hq_P finding 2026-08-30, seat15 landing). Neither reader was
+    # ever given in_path/x_path here, so e.stdin and e.xfail_reason came back None for EVERY extracted
+    # entry regardless of what the suite actually carries -- exactly the same hole 4cc1ccbb closed in
+    # util_build_master_suite.py's deletion verifier, one consumer over. MEASURED live and dangerous:
+    # snobol4's ALL.in has 9 stdin-bearing entries; a stdin-starved program routinely exits rc=0 with
+    # EMPTY output (identical exit code to a fed run), so nothing about the run distinguishes the two --
+    # only carrying the field does. 21 scripts route through lib_master_extract.sh -> this function.
+    _in_path = sidecar_in_path(args.sno)
+    _x_path = sidecar_xfail_path(args.sno)
     try:
-        entries = read_block_suite(args.sno, args.ref, banner_re_for(_copen, _cclose))
+        entries = read_block_suite(args.sno, args.ref, banner_re_for(_copen, _cclose), in_path=_in_path, x_path=_x_path)
     except Exception as _block_err:
         try:
-            entries = read_suite(args.sno, args.ref)
+            entries = read_suite(args.sno, args.ref, in_path=_in_path, x_path=_x_path)
         except Exception as _line_err:
             print(f"⛔ REFUSED: {args.sno} reads as neither dialect.\n"
                   f"   as a BLOCK-only family : {type(_block_err).__name__}: {_block_err}\n"
@@ -1512,6 +1522,19 @@ def cmd_extract(args):
         if args.out_ref:
             ref_text = e.ref if e.kind == "line" else "\n".join(e.ref)
             Path(args.out_ref).write_text(ref_text + "\n")
+        # ⛔ REFUSE, never silently drop: an entry that needs stdin and is materialized without it is not
+        # the witness the suite graded -- it is a DIFFERENT program that happens to share source text. A
+        # stdin-starved SNOBOL4 program typically still exits rc=0 (INPUT read failure is not fatal by
+        # default), so the caller gets a clean-looking run of the wrong thing, not a loud error.
+        if e.stdin is not None:
+            if not args.out_in:
+                refuse(f"{args.name!r} carries stdin ({len(e.stdin)} byte(s)) but --out-in was not given -- "
+                       f"materializing it without stdin would silently grade a DIFFERENT witness than the "
+                       f"one the suite actually graded (a stdin-starved run commonly still exits rc=0). "
+                       f"Pass --out-in <path> and feed it to whatever runs {args.out_sno!r}.")
+            Path(args.out_in).write_text(e.stdin)
+        if args.out_xfail and e.xfail_reason:
+            Path(args.out_xfail).write_text(e.xfail_reason + "\n")
         return
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
@@ -1564,12 +1587,14 @@ def main():
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.set_defaults(func=cmd_run)
 
-    e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref) file")
+    e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref/.in/.xfail) file")
     e.add_argument("sno")
     e.add_argument("ref")
     e.add_argument("name")
     e.add_argument("out_sno")
     e.add_argument("--out-ref", default="", dest="out_ref")
+    e.add_argument("--out-in", default="", dest="out_in", help="required if the entry carries stdin -- REFUSES rather than silently materializing a stdin-bearing entry without it")
+    e.add_argument("--out-xfail", default="", dest="out_xfail", help="optional: write the entry's xfail reason here if it has one (documentation only, never affects grading)")
     e.set_defaults(func=cmd_extract)
 
     l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")

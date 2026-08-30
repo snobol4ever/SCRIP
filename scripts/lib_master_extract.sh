@@ -28,13 +28,22 @@ master_origins_of_family() {
     awk -F, -v f="$1" 'NR>1 && $4==f{print $3}' "$MASTER_CSV"
 }
 master_extract_name() {
+    # ⛔⭐ ALWAYS REQUEST --out-in (row suite-harness-xfail-extract-round-trip, seat15 2026-08-30): the
+    # harness now REFUSES (rc=3) to extract a stdin-bearing entry without it -- correctly, since a
+    # stdin-starved SNOBOL4 program routinely still exits rc=0, so a caller that dropped the field got a
+    # clean-looking run of a DIFFERENT witness than the one actually graded. Passing this unconditionally
+    # costs nothing for a non-stdin entry (the harness only creates the file when e.stdin is not None) and
+    # means every one of this function's 21 existing callers keeps working, transparently, with the correct
+    # input from now on instead of a silent wrong answer.
     local name="$1" out="$2" ref="${3:-}"
     [ -f "$MASTER_SNO" ] && [ -f "$MASTER_REF" ] || { _me_refuse "master pair missing at $MASTER_SNO"; return 2; }
-    if [ -n "$ref" ]; then
-        python3 "$_ME_HERE/corpus_suite_harness.py" extract "$MASTER_SNO" "$MASTER_REF" "$name" "$out" --out-ref "$ref" >/dev/null 2>&1 || { _me_refuse "extract '$name' failed"; return 2; }
-    else
-        python3 "$_ME_HERE/corpus_suite_harness.py" extract "$MASTER_SNO" "$MASTER_REF" "$name" "$out" >/dev/null 2>&1 || { _me_refuse "extract '$name' failed"; return 2; }
-    fi
+    local args=("$MASTER_SNO" "$MASTER_REF" "$name" "$out" --out-in "${out%.sno}.in")
+    [ -n "$ref" ] && args+=(--out-ref "$ref")
+    # ⛔ THE OLD >/dev/null 2>&1 SWALLOWED THE HARNESS'S OWN REFUSAL REASON, leaving only a generic "failed"
+    # -- exactly the message a caller would need to see to learn THIS entry needs --out-in in the first
+    # place. Capture stderr, fold it into the refusal instead of discarding it.
+    local err
+    err=$(python3 "$_ME_HERE/corpus_suite_harness.py" extract "${args[@]}" 2>&1 >/dev/null) || { _me_refuse "extract '$name' failed: $err"; return 2; }
 }
 master_extract_origin() {
     local o="$1" out="$2" ref="${3:-}" n
