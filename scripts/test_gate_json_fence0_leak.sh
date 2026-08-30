@@ -20,9 +20,25 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-DEMO="${DEMO:-$S4E/corpus/demos}"
-PROBE="${PROBE:-$S4E/corpus/tests/snobol4/probe_loose/json_fence0_leak}"
+DEMO="${DEMO:-$S4E/corpus/demos/snobol4}"   # composed below as "$DEMO/json/json.sno" -- corpus/demos/ itself
+                                             # resolves (so the fossil-path gate's bare-default check misses
+                                             # this), but the language-segment nesting added since means the
+                                             # COMPOSED path needs the /snobol4/ this default was missing
 pass=0; fail=0
+# ⛔ PROBE IS ASSEMBLED, NOT ONE FIXED TREE (row dead-suite-path-consumer-sweep): the old
+# probe_loose/json_fence0_leak/ directory is gone. The two witnesses now live split across two
+# different locations by extension -- .ref stayed flat under tests/snobol4/ (prefixed
+# probe_loose_json_fence0_leak_), .json landed under tests/snobol4/config/ (same prefix) -- confirmed
+# by find, not assumed from one directory. An explicit PROBE override is honoured as-is, unchanged.
+if [ -z "${PROBE:-}" ]; then
+    PROBE="$(mktemp -d)"
+    trap 'rm -rf "$PROBE"' EXIT
+    for f in "$S4E"/corpus/tests/snobol4/probe_loose_json_fence0_leak_*.ref \
+             "$S4E"/corpus/tests/snobol4/config/probe_loose_json_fence0_leak_*.json; do
+        [ -f "$f" ] || continue
+        cp "$f" "$PROBE/$(basename "$f" | sed 's/^probe_loose_json_fence0_leak_//')"
+    done
+fi
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 
 if [ ! -x "$SCRIP" ]; then
