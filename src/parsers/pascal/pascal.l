@@ -5,10 +5,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)malloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
+}
+/* ISO 7185: Pascal identifiers are case-insensitive; fpc -Miso (the oracle) accepts any casing.
+ * Canonicalize to lowercase HERE, once, so every downstream strcmp (builtin recognition in
+ * pascal.y, symbol-table lookups) is case-insensitive for free. String literals go through
+ * pascal_raw_dup directly and are never touched -- only this identifier path lowercases. */
+static char *pascal_lower_dup(const char *s, int n) {
+    char *b = pascal_raw_dup(s, n);
+    for (int i = 0; i < n; i++) b[i] = (char)tolower((unsigned char)b[i]);
+    return b;
 }
 void pascal_lex_error(const char *msg) { fprintf(stderr, "pascal lex error line %d: %s\n", pascal_yylineno, msg); }
 int  pascal_get_lineno(void) { return pascal_yylineno; }
@@ -16,6 +26,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option noyywrap noinput nounput
 %option prefix="pascal_yy"
 %option yylineno
+%option caseless
 %x COMMENT BRACE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -76,7 +87,7 @@ ALNUM    [A-Za-z0-9_]
                           pascal_strbuf[pascal_strpos] = '\0';
                           pascal_yylval.str = pascal_raw_dup(pascal_strbuf, pascal_strpos);
                           return STRINGCONST; }
-{ALPHA}{ALNUM}*         { pascal_yylval.str = pascal_raw_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
+{ALPHA}{ALNUM}*         { pascal_yylval.str = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 ":="                    { return BECOMES; }
 ".."                    { return DOTDOT; }
 "<="                    { return LEOP; }

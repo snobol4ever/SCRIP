@@ -75,8 +75,11 @@ echo "DONE — commit .y/.l sources and generated .tab.c/.tab.h/.lex.c together"
 
 # ── pascal parser: pascal.y → pascal.tab.c + pascal.tab.h ───────────────────
 # (PB-0..PB-3, session 2026-06-02 — 7th frontend. Grammar adapted from the
-# MIT-licensed pascalp.y syntactic reference; case-sensitive lowercase-only P4
-# subset. One expected dangling-else shift/reduce conflict, same as pascalp.y.)
+# MIT-licensed pascalp.y syntactic reference. One expected dangling-else
+# shift/reduce conflict, same as pascalp.y. Case-insensitive per ISO 7185 and
+# the fpc -Miso oracle (pascal.l: %option caseless + IDENT lowercased at the
+# lexer boundary, row pascal-identifiers-must-be-case-insensitive-writeln-only-lowercase
+# 2026-08-30 -- was lowercase-only before that, a real defect, not a design choice).
 PASCAL="$SCRIP/src/parsers/pascal"
 echo "GEN pascal.tab.c from pascal.y"
 cd "$PASCAL"
