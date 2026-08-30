@@ -342,8 +342,24 @@ test suite, run whole (`scripts/raku_roast_scoreboard.sh`, 986 in-tier 6.c files
 frontend today accepts a deliberate working subset of Raku; idiomatic spec-test Raku
 is overwhelmingly outside it, and the parse-fail column is the roadmap.
 
-**Benchmarks.** A first kernel set with Rakudo-produced references is vendored under
-`corpus/benchmarks/raku/`; the rivals grid is not yet measured.
+**Benchmarks.** First grid, measured 2026-08-30 on the vendored kernel set
+(`corpus/benchmarks/raku/`, 18 kernels with Rakudo-produced references; whole-program
+wall clock, best of 3, both arms' output byte-verified first; SCRIP mode-4 binary vs
+`raku` — Rakudo 2026.05):
+
+| kernel | SCRIP | Rakudo | × |
+|---|---:|---:|:---:|
+| string-escape | 3.6 ms | 201 ms | **55.9x** |
+| send-more-money-loops | 0.18 s | 1.64 s | **9.24x** |
+| point_class_add1 | 10.4 s | 4.25 s | 0.41x |
+| point_class_add | 12.1 s | 1.63 s | 0.14x |
+
+At string-escape's size Rakudo's column is mostly interpreter startup; the other
+three are seconds-scale and measure the engines. The split reads clean: loop-and-
+integer work crushes, object/method-heavy work is behind. The other 14 kernels are
+not yet timed — each blocker is a named, diagnosed defect (a map/grep code-path gap
+covering four of them, array parameters passed by copy instead of aliased, rational-
+number semantics, five parser constructs, one crash) and the grid grows as they land.
 
 ### Pascal
 
