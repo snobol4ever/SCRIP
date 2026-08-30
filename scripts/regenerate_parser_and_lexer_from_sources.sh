@@ -24,6 +24,29 @@ for tool in bison flex; do
 done
 echo "OK  bison $(bison --version | head -1 | awk '{print $NF}'), flex $(flex --version | awk '{print $NF}')"
 
+# ── bison must WORK, not merely be on PATH ──────────────────────────────────
+# `command -v bison` answers "is it on PATH", never "can it generate". Measured
+# 2026-08-30 (hq_C): bison 3.8.2 on PATH, --print-datadir naming a directory that
+# did not exist, so every generate died with
+#   bison: /usr/share/bison/m4sugar/m4sugar.m4: cannot open: No such file or directory
+# AFTER printing the grammar's conflict summary — so it looked like it had run.
+# Resolve a usable skeleton dir, then prove it on a throwaway grammar.
+if [ ! -f "$(bison --print-datadir 2>/dev/null)/m4sugar/m4sugar.m4" ]; then
+    for d in "$HOME/.local/share/bison" /tmp/flexbison/root/usr/share/bison /usr/local/share/bison; do
+        [ -f "$d/m4sugar/m4sugar.m4" ] && { export BISON_PKGDATADIR="$d"; break; }
+    done
+fi
+_bt=$(mktemp -d)
+printf '%%%%\ns: ;\n' > "$_bt/t.y"
+if bison -o "$_bt/t.c" "$_bt/t.y" 2>"$_bt/err" && [ -s "$_bt/t.c" ]; then
+    echo "OK  bison generates (datadir $(bison --print-datadir 2>/dev/null)${BISON_PKGDATADIR:+ -> $BISON_PKGDATADIR})"
+else
+    echo "FAIL bison is on PATH but cannot generate — $(head -1 "$_bt/err")"
+    echo "     no skeleton dir found; install bison's data files or set BISON_PKGDATADIR"
+    rm -rf "$_bt"; exit 1
+fi
+rm -rf "$_bt"
+
 # ── snobol4 parser: snobol4.y → snobol4.tab.c + snobol4.tab.h ───────────────
 echo "GEN snobol4.tab.c from snobol4.y"
 cd "$SNO"
