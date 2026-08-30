@@ -676,7 +676,17 @@ def sidecar_in_path(src_path):
     then picks stdin up with ZERO changes to its own argv, so a converted stdin-bearing family
     cannot silently run without its input just because one caller was not updated. Absent file ->
     None -> /dev/null, identical to pre-stdin behaviour."""
+    # ⛔⭐ BOTH SPELLINGS, because the corpus uses both (ceo amendment, 2026-08-30). This resolver knew only
+    # `.in`, while loose sources carry `.input` (word_count.input, binary_trees.input, rung37_fh_test.input).
+    # A stdin-bearing pair whose sidecar was spelled `.input` therefore resolved to None -> /dev/null, and the
+    # entry graded as though it had no input -- a WRONG ANSWER wearing a verdict, not a failure.
+    # ⭐ Found by a positive control rather than by reading: planting a sidecar beside a real pair and watching
+    # ALL.in stay absent. `.in` is tried first so nothing that resolves today changes.
     cand = Path(src_path).with_suffix(".in")
+    if not cand.is_file():
+        _alt = Path(src_path).with_suffix(".input")
+        if _alt.is_file():
+            cand = _alt
     return str(cand) if cand.is_file() else None
 
 

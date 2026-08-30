@@ -608,13 +608,35 @@ def main():
                 excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
                 continue
             if not any(_bre.match(_l) for _l in _slines):
+                # ⛔⭐ STDIN GUARD, GENERALISED (ceo amendment on seat04's finding, 2026-08-30). This check
+                # existed ONLY on the snobol4 path, so every dialect absorbed a stdin-reading program with NO
+                # sidecar -- seat04 measured pascal read1-4 absorbed and grading against /dev/null. An entry
+                # that silently reads nothing where it should read its input does not fail loudly; it produces
+                # a WRONG ANSWER that looks like a verdict. Checks BOTH sidecar spellings and the config/
+                # folder the flat layout puts companions in.
+                _stem = sno[:-len(EXT)]
+                _cfgdir = os.path.join(os.path.dirname(sno), "config")
+                _base = os.path.basename(_stem)
+                if any(os.path.isfile(x) for x in (_stem + ".input", _stem + ".in",
+                                                   os.path.join(_cfgdir, _base + ".input"),
+                                                   os.path.join(_cfgdir, _base + ".in"))):
+                    excluded.append((fam, "stdin sidecar (.in/.input) -- stays as files until the stdin-sections format extension lands"))
+                    continue
                 mode = "plain"   # ⚠️ auto-XFAIL-by-source-verdict is NOT applied on this path yet, so a
                                  # pre-existing red absorbs as a visible FAIL rather than a silent XFAIL --
                                  # the loud direction, and a named follow-up rather than a silent difference.
                 entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines)]
             else:
+                # ⛔⭐ READ THE SIDECARS, exactly as the snobol4 path does. This call passed no in_path/x_path,
+                # so a dialect SUITE pair's stdin and xfail sidecars were silently DROPPED -- the entries
+                # absorbed and then graded against /dev/null. My first patch guarded only the PLAIN path, and
+                # the positive control caught it: planting a .input beside a rebus source excluded NOTHING,
+                # and snocone/rebus already carried three real sidecars the build had absorbed regardless.
+                # ⭐ A guard that cannot be made to fire is not a guard -- the excluded-count of 0 was the tell,
+                # and it was only visible because the count was checked against a planted case rather than read.
                 try:
-                    entries = h.read_block_suite(sno, ref, _bre)
+                    entries = h.read_block_suite(sno, ref, _bre,
+                                                 in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 except Exception as e:
                     excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
                     continue
@@ -698,8 +720,20 @@ def main():
             os.remove(out_x)
         reread = h.read_suite(out_sno, out_ref, in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
     else:
+        # ⛔⭐ THE SIDECAR WRITERS WERE SNOBOL4-ONLY TOO (ceo amendment). A dialect master got no ALL.in and no
+        # ALL.xfail, so any absorbed stdin-carrying entry lost its input and any xfail lost its marker -- both
+        # silently. The writers are already parameterised by comment leader; the dialect branch simply never
+        # called them. Re-read WITH the sidecars, or the round-trip check verifies a file the grader will not
+        # actually use.
         h.write_block_suite(all_entries, out_sno, out_ref, _CO, _CC)
-        reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC))
+        out_in = os.path.join(OUTDIR, "ALL.in")
+        out_x = os.path.join(OUTDIR, "ALL.xfail")
+        if not h.write_stdin_sidecar(all_entries, out_in, _CO, _CC) and os.path.exists(out_in):
+            os.remove(out_in)
+        if not h.write_xfail_sidecar(all_entries, out_x, _CO, _CC) and os.path.exists(out_x):
+            os.remove(out_x)
+        reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC),
+                                    in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
     import shutil
     for cf, srcf in sorted(companion_copies.items()):
         shutil.copy2(srcf, os.path.join(OUTDIR, cf))
