@@ -18,6 +18,8 @@ extern "C" void *rt_gen_get_omega_wire(void *gen_fb);
 extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 extern int g_rt_fragment_emit;
+extern int * const rt_k_level_p;
+extern int64_t kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -421,6 +423,18 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; NON-CONSUMING jmp through the caller-pushed gamma wire at [rsp+0] -- the caller's own landing releases the pair (bcps_wire_land), never this exit. Guarded to the Icon (icn_cells_graph) case only -- xa_flat_class_zf() also admits pure zframe_graph (Prolog/Raku/Pascal), whose callee side this rung never touched. SCRIP_ICN_WIRE_STACK=0 restores the [kt-24] header byte-exactly.")
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
+             + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): decrement rt_k_level/kw_fnclevel on this class's own exit, mirroring bb_define_activate's leave_env pair verbatim (bb_define.cpp:185-193). rax is SAVED/RESTORED around this block -- confirmed via asm-diff + direct trace (fact_dcα's own success landing does `jmp r12` with NO fresh success tag, so whatever this exit leaves in AL is exactly what the caller's `cmp al,104` check reads; clobbering it with an unrelated GOT address broke every non-trivial call site, caught by the Icon rung board before landing, never assume a register is free just because no comment claims it). Entry-side increment still NOT YET LANDED -- see FINDING-2026-08-30-seat01-icon-level-exact-fix-sites-located-implementation-ready.md.")
+             + x86("push", "rax")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+             + x86("mov", "rax", RDQ("rax", 0))
+             + x86("mov", "ecx", RDD("rax", 0))
+             + x86("movsxd", "rcx", "ecx")
+             + x86("sub", "rcx", (long)1)
+             + x86("mov", RDD("rax", 0), "ecx")
+             + x86("sub", "rcx", (long)1)
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+             + x86("mov", RDQ("rax", 0), "rcx")
+             + x86("pop", "rax")
              + x86("add", "rsp", (long)kt)
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
@@ -461,6 +475,18 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     }
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
+             + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): same decrement as epilogue-γ, twin arm -- see that comment for the full rationale, the confirmed register-preservation bug this rax save/restore fixes, and what is still owed (the entry-side increment).")
+             + x86("push", "rax")
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+             + x86("mov", "rax", RDQ("rax", 0))
+             + x86("mov", "ecx", RDD("rax", 0))
+             + x86("movsxd", "rcx", "ecx")
+             + x86("sub", "rcx", (long)1)
+             + x86("mov", RDD("rax", 0), "ecx")
+             + x86("sub", "rcx", (long)1)
+             + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+             + x86("mov", RDQ("rax", 0), "rcx")
+             + x86("pop", "rax")
              + x86("add", "rsp", (long)kt)
              + bb_glue_wire_ω();
     if (zf_pas_nest_graph())
