@@ -262,11 +262,11 @@ static void eval_chain_enter_only(eval_chain_fn fn) {
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_chain_run_guarded(eval_chain_fn fn) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n;
     static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
     if (!_ef) { eval_chain_enter_only(fn); return 1; }
     int my = g_core_errjmp_n++; long esv = g_error; g_error = -1;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
+    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
     eval_chain_enter_only(fn);
     g_core_errjmp_n = my; g_error = esv; return 1;
 }

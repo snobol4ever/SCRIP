@@ -1,5 +1,4 @@
 #include "core.h"
-#include <setjmp.h>
 #include "sil_macros.h"
 #include "rt/rt.h"
 #include "rt/gc_heap.h"
@@ -206,7 +205,7 @@ int operand_is_real_str(DESCR_t v) {
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
         switch (op) {
             case BINOP_ADD: return INTVAL(a.i + b.i);
@@ -219,20 +218,23 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     }
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, op);
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl(a, b, op);
     g_core_errjmp_n = my;
     return r;
 }
+/* setjmp-per-builtin-call (perf row): __builtin_setjmp/__builtin_longjmp throughout arithmetic.c -- see the note
+   beside core_runtime_error's longjmp in core.c for the full rationale; g_core_errjmp_stk's type change there
+   (jmp_buf[64] -> void*[64][5]) is what every extern declaration below must match. */
 #define RT_BINOP_ENTRY(fn, code, fast) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
+    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n; \
     if (a.v == DT_I && b.v == DT_I) { fast } \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, code); \
     int my = g_core_errjmp_n; \
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; } \
+    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; } \
     g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl(a, b, code); \
     g_core_errjmp_n = my; \

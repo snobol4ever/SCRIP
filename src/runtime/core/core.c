@@ -2094,7 +2094,7 @@ static const char *core_err_msgs[40] = {
 void core_runtime_error(int code, const char *msg) {
     if (!msg && code >= 1 && code <= 39)
         msg = core_err_msgs[code];
-    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    { extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
       if (g_error != 0 && g_core_errjmp_n > 0) {
@@ -2102,7 +2102,11 @@ void core_runtime_error(int code, const char *msg) {
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
-          longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+          /* setjmp-per-builtin-call (perf row): __builtin_setjmp/__builtin_longjmp replace POSIX setjmp/longjmp here --
+             same call sites, same recovery granularity, no semantic change (every setjmp call site in the tree checks
+             only truthiness of the return, never the numeric code, so the GCC-builtin's fixed "1" costs nothing).
+             __builtin_longjmp's own contract requires the second arg to be exactly 1. */
+          __builtin_longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 1);
       } }
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern void rt_goto_transfer(const char *name);
       if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
@@ -2123,7 +2127,7 @@ void core_runtime_error(int code, const char *msg) {
     if (core_err_is_fatal(code))    exit(1);
     exit(1);
 }
-jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
+void *g_core_errjmp_stk[64][5]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n) {
@@ -2137,7 +2141,7 @@ int core_icn_error(int code, DESCR_t val) {
     if (g_error != 0) {
         if (g_error > 0) g_error--;
         g_icn_errnumber = code; g_icn_errtext = icn_errmsg(code); g_icn_errvalue = val; g_icn_err_valid = 1;
-        if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+        if (g_core_errjmp_n > 0) __builtin_longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 1);
         return 1;
     }
     fprintf(stderr, "\nRun-time error %d\n%s\n", code, icn_errmsg(code));
