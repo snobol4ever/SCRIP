@@ -529,6 +529,27 @@ def main():
         for e in base_entries:
             e.origin = _csv_origin.get(e.name) or ("master__%s" % e.name)
             e.src_mode = "base"
+    # THE DANGEROUS CONDITION IS pairs << base, NOT pairs == 0 (hq_P 2026-08-30, reproduced by seat14;
+    # both reverted). Measured on snobol4, which is CUT OVER -- sources retired, the master IS the source:
+    # 21 loose pairs remain, 19 correctly refused, leaving TWO absorbable. This guard fired only at ZERO, so
+    # 2 walked past and the rebuild produced a master of 2 entries where 1576 had been -- the floor's own
+    # input, destroyed by a build that reported success.
+    # AND IT WAS hq_B's LAW THAT AIMED PEOPLE AT IT: "a guard change requires a CLEAN rebuild" is right for a
+    # language with live sources and catastrophic for a cut-over one, because "clean" means deleting ALL.*
+    # and THE SAFETY NET IS THE MASTER ITSELF. hq_P: clobber-by-guard-rebuild is clobber wearing the law as
+    # cover.
+    # Same shape as the dedupe/clobber pair: ONE AXIS, a correct point in the middle, BOTH ENDS SHIPPING
+    # SILENTLY -- too many entries (accumulation) and too few (collapse) each read as an ordinary success.
+    # A predicate that tests only one end of an axis is half a guard.
+    if base_entries and len(pairs) * 4 < len(base_entries):
+        sys.stderr.write(
+            "\u26d4 REFUSED: this rebuild would absorb only %d pair(s) over an existing master of %d entries.\n"
+            "   That is a COLLAPSE, not a rebuild -- almost certainly a cut-over language whose sources are\n"
+            "   retired, where the master IS the source and nothing on disk can rebuild it.\n"
+            "   Nothing has been written; the existing master is untouched.\n"
+            "   \u26d4 Do NOT fix this by deleting ALL.* and re-running -- on a cut-over language that\n"
+            "      deletes the only copy. Rebuild in a scratch copy first if you truly mean it.\n" % (len(pairs), len(base_entries)))
+        raise SystemExit(2)
     if not pairs:
         if base_entries:
             print("MASTER CURRENT: %d entries, zero new absorbable pairs under %s -- nothing to do." % (len(base_entries), ROOT), file=sys.stderr)
