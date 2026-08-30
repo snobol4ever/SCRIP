@@ -580,8 +580,16 @@ int is_numeric_like(DESCR_t d) {
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = rt_cstr_d(d);
-        while (*s == ' ' || *s == '\t') s++;
-        if (!*s) return 1;
+        /* ⛔ WAS `while (*s==' '||*s=='\t') s++; if (!*s) return 1;` -- a FIRST-BYTE test standing in for
+           EMPTINESS, and it is the site that made `CHAR(0) '5' + 1` answer 1 where SPITBOL raises ERROR 001.
+           The empty (or all-blank) value IS numeric 0; a value that merely BEGINS with NUL is not, and a value
+           with an embedded NUL is not a numeric string at all -- strtod would silently stop at it. Length
+           authority is the carried .slen (Lon 2026-08-30, RULES.md FACT RULE). */
+        size_t _n = descr_slen(d), _i = 0;
+        while (_i < _n && (s[_i] == ' ' || s[_i] == '\t')) _i++;
+        if (_i == _n) return 1;                                   /* empty or all-blank IS numeric 0 */
+        if (memchr(s + _i, '\0', _n - _i)) return 0;   /* strtod/rt_plain_int_str would stop at an interior NUL and silently accept a PREFIX as the whole value */
+        s += _i;
         if (rt_plain_int_str(s)) return 1;   /* ⭐ see rt_plain_int_str in core.h -- strtod was 8.81% of mixed_workload */
         char *end;
         strtod(s, &end);

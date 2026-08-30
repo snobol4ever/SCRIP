@@ -250,8 +250,13 @@ RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
-    if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || !a.s[0])) a = INTVAL(0);
-    if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || !b.s[0])) b = INTVAL(0);
+    /* ⛔ WAS `!a.s[0]`, AN ORACLE-DIFFED WRONG ANSWER: that asks whether the FIRST BYTE is NUL, not whether the
+       value is EMPTY, so `CHAR(0) '5'` (2 chars, not numeric) coerced to INTVAL(0) and `x + 1` quietly answered 1
+       where SPITBOL raises ERROR 001 "addition left operand is not numeric".  The empty string IS 0 here; a value
+       that merely BEGINS with NUL is not.  Length authority is the carried .slen (Lon 2026-08-30, RULES.md FACT
+       RULE); this is the hand-inlined strlen assumption hq_C named after curing its twin in descr_identical. */
+    if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
+    if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
     if (!csop && (!is_numeric_like(a) || !is_numeric_like(b))) return FAILDESCR;   /* Appendix D 1 -- reuses the GT/LT/EQ family's own numeric-string validator (core.c) instead of letting to_real/to_int's strtod/strtoll silently read a non-numeric string as 0 */
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);

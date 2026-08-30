@@ -382,7 +382,7 @@ void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     else if (v.v == DT_I) { r = (double)v.i; ok = 1; }
     else if (v.v == DT_SNUL) { r = 0.0; ok = 1; }
     else if (v.v == DT_S && v.s) {
-        if (!v.s[0]) { r = 0.0; ok = 1; }
+        if (descr_slen(v) == 0) { r = 0.0; ok = 1; }   /* ⛔ was `!v.s[0]`: first-byte-NUL is not emptiness -- see arithmetic.c */
         else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; double d = strtod(p, &ep);
                if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = d; ok = 1; } } } }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));

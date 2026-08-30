@@ -6587,7 +6587,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
         if (v.v == DT_SNUL) { *out = FAILDESCR; return 1; }
-        if (v.v == DT_S && (!v.s || v.s[0]=='\0')) { *out = FAILDESCR; return 1; }
+        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = FAILDESCR; return 1; }   /* first-byte-NUL is not emptiness */
         *out = v; return 1;
     }
     L_bidjmp_6088: ;
@@ -6617,7 +6617,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
         if (v.v == DT_SNUL) { *out = NULVCL; return 1; }
-        if (v.v == DT_S && (!v.s || v.s[0]=='\0')) { *out = NULVCL; return 1; }
+        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = NULVCL; return 1; }   /* first-byte-NUL is not emptiness */
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_6115: ;
