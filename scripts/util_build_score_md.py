@@ -99,7 +99,12 @@ def run_gate(lang, fake_missing=False):
     out = (p.stdout or "") + "\n" + (p.stderr or "")
     m = g["pattern"].search(out)
     if not m:
-        return "UNPROVEN(2): gate ran (rc=%d) but its output did not match the expected pattern -- format may have drifted; refusing to guess a number" % p.returncode
+        # Surface the gate's OWN stated reason when it gave one (a REFUSES/UNPROVEN line is more useful
+        # than a generic "didn't match" -- this is exactly what caught the live corpus/demos vs corpus/demo
+        # path mismatch during this row's own build) -- never fabricate a number either way.
+        first_line = next((ln.strip() for ln in out.splitlines() if ln.strip()), "")
+        reason = (": %s" % first_line) if first_line else ""
+        return "UNPROVEN(2): gate ran (rc=%d), output did not match the expected pattern%s" % (p.returncode, reason)
     return g["format"](m)
 
 
@@ -121,18 +126,26 @@ def selftest():
     # trusting a single row of its own output -- prove it can say "not measured" (UNPROVEN, on a
     # deliberately-broken gate) AND that it can say "measured" (a real PASS/FAIL, on a real gate).
     ok = True
-    missing = run_gate("snobol4", fake_missing=True)
+    # ⛔ The positive-control arm below deliberately does NOT use snobol4: it is picked to be the smallest,
+    # fastest gate this table knows (a smoke test, seconds not minutes) precisely so this generator's OWN
+    # mechanism is proven independent of any ONE language's gate happening to be healthy this week. Coupling
+    # a tool's self-test to a specific language's external gate health is an accidental dependency, not a
+    # deliberate one -- caught live during this row's own build when test_corpus_snobol4.sh started
+    # refusing (a real, separately-flagged corpus/demos path defect, hq_C `snobol4-floor-gate-refuses-demos-
+    # vs-demo-path-mismatch`) and took this selftest down with it for a reason that had nothing to do with
+    # this generator.
+    missing = run_gate("rebus", fake_missing=True)
     if not missing.startswith("UNPROVEN(2)"):
         print("SELFTEST FAIL: a missing gate script did not refuse loudly -- got: %r" % missing)
         ok = False
     else:
         print("SELFTEST: missing-gate arm correctly UNPROVEN -- %s" % missing)
-    real = run_gate("snobol4")
+    real = run_gate("rebus")
     if real.startswith("UNPROVEN"):
-        print("SELFTEST FAIL: the real snobol4 gate could not be measured at all -- got: %r" % real)
+        print("SELFTEST FAIL: the real rebus gate could not be measured at all -- got: %r" % real)
         ok = False
     else:
-        print("SELFTEST: real snobol4 gate produced a measured result -- %s" % real)
+        print("SELFTEST: real rebus gate produced a measured result -- %s" % real)
     unwired = run_gate("no-such-language")
     if "no gate wired" not in unwired:
         print("SELFTEST FAIL: an unwired language did not refuse cleanly -- got: %r" % unwired)
