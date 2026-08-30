@@ -10,6 +10,11 @@ static const char * g_rk_class_names[RK_GRAM_MAX];
 static int          g_rk_class_n = 0;
 static char         g_rk_multi_names[RK_GRAM_MAX][128];
 static int          g_rk_multi_n = 0;
+/* row raku-silent-wrong-answers: marked at PARSE time in raku.y (rk_mark_arrlit_scalar), not here --
+   lower_rblock below walks a statement list BACKWARD (continuation-passing box construction), so a
+   lower-time mark on an earlier statement is not yet set when a later statement's TT_SAY is lowered
+   first. Parsing is naturally forward, so the parser has no such ordering hazard. */
+extern int rk_is_arrlit_scalar(const char * nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_multi_n; i++) if (!strcmp(g_rk_multi_names[i], nm)) return 1; return 0; }
 static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base) || g_rk_multi_n >= RK_GRAM_MAX) return; snprintf(g_rk_multi_names[g_rk_multi_n++], 128, "%s", base); }
@@ -262,7 +267,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "arr_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_USE_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); *res = nd; return nd; }
-    case TT_SAY: case TT_SAY_FH: return lower_rcall(cx, t, "rk_write", 0, γ, ω, res);
+    case TT_SAY: case TT_SAY_FH:
+        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR && rk_is_arrlit_scalar(t->c[0]->v.sval))
+            return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);
+        return lower_rcall(cx, t, "rk_write", 0, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "rk_writes", 0, γ, ω, res);
     case TT_DIE: return lower_rcall(cx, t, "die", 0, γ, ω, res);
     case TT_TRY: {

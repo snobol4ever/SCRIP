@@ -58,6 +58,25 @@ static int rk_is_array_name(const char *bare) {
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return 1;
     return 0;
 }
+/* row raku-silent-wrong-answers: bare scalar names seen as the LHS of "name = [...]" (array-composer
+   RHS, tagged __rk_arr_lit below) so TT_SAY (lower_raku.c) can gist them bracketed like a real Array --
+   marked here at PARSE time (not in lower_raku.c) because lower_rblock walks statements BACKWARD
+   (continuation-passing box construction), so a lower-time mark on stmt 1 is not yet visible when
+   stmt 3's TT_SAY is lowered first; parsing is naturally forward, so parse-time marking has no such
+   ordering hazard. Deliberately NOT flow-sensitive (whole-compilation-unit fact, matching rk_array_names'
+   own precedent above) -- a later reassignment to a List does not un-mark; out of scope for this pass. */
+const char *rk_arrlit_scalars[RK_ARRNAME_MAX];
+int rk_arrlit_scalars_n = 0;
+int rk_is_arrlit_scalar(const char *bare) {
+    if (!bare) return 0;
+    for (int i = 0; i < rk_arrlit_scalars_n; i++) if (!strcmp(rk_arrlit_scalars[i], bare)) return 1;
+    return 0;
+}
+static void rk_mark_arrlit_scalar(const char *bare, const tree_t *rhs) {
+    if (!bare || !rhs || rhs->t != TT_FNC || !rhs->v.sval || strcmp(rhs->v.sval, "__rk_arr_lit")) return;
+    if (rk_is_arrlit_scalar(bare) || rk_arrlit_scalars_n >= RK_ARRNAME_MAX) return;
+    rk_arrlit_scalars[rk_arrlit_scalars_n++] = intern(bare);
+}
 static tree_t *var_node(const char *name) {
     const char *bare = strip_sigil(name);
     if (name && name[0] == '@') rk_mark_array_name(bare);
@@ -501,7 +520,7 @@ stmt_list
     ;
 stmt
     : KW_MY VAR_SCALAR '=' expr ';'
-        { $$ = expr_binary(TT_ASSIGN, var_node($2), rk_scalar_rhs($4)); }
+        { rk_mark_arrlit_scalar(strip_sigil($2), $4); $$ = expr_binary(TT_ASSIGN, var_node($2), rk_scalar_rhs($4)); }
     | KW_MY VAR_SCALAR ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), ast_node_new(TT_NUL)); }
     | KW_MY '(' scalar_list ')' '=' expr ';'
@@ -634,7 +653,7 @@ stmt
         { tree_t *c=make_call("__rk_exit"); expr_add_child(c,$2);
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$4); ast_push(e,seq1(c)); $$=e; }
     | VAR_SCALAR '=' expr ';'
-        { $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
+        { rk_mark_arrlit_scalar(strip_sigil($1), $3); $$=expr_binary(TT_ASSIGN,var_node($1),rk_scalar_rhs($3)); }
     | VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
@@ -1849,21 +1868,21 @@ atom
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval = (char *)intern(rk_tw_bare($1)); free($1);
           $$ = fe; }
-    | '[' ']'         { $$=make_call("__rk_arr"); }
+    | '[' ']'         { $$=make_call("__rk_arr_lit"); }
     | '[' expr ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
     | '[' expr ',' ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
     | '[' expr ',' arg_list ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
-    | DOLLAR_LBRACKET ']'  { $$=make_call("__rk_arr"); }
+    | DOLLAR_LBRACKET ']'  { $$=make_call("__rk_arr_lit"); }
     | DOLLAR_LBRACKET expr ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
     | DOLLAR_LBRACKET expr ',' ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
     | DOLLAR_LBRACKET expr ',' arg_list ']'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | '(' ')'         { $$=make_call("__rk_arr"); }
     | '(' expr ')'    { $$=$2; }

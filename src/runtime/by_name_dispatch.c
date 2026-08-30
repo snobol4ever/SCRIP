@@ -274,11 +274,11 @@ int rt_builtin_is_known(const char *name)
         "[]",
         "__apply__",
         "MAKELIST",
-        "__rk_arr", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
+        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "rk_write", "rk_writes", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "rk_write", "rk_writes", "rk_write_arr", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -2917,7 +2917,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int cnt = 1; for (const char *p = cur; *p; p++) if (*p == SOH) cnt++;
         *out = INTVAL(cnt); return 1;
     }
-    if (!strcmp(fn, "__rk_arr") && nargs >= 0) {
+    if ((!strcmp(fn, "__rk_arr") || !strcmp(fn, "__rk_arr_lit")) && nargs >= 0) {
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         *out = rt_make_flat_agg(args, nargs); return 1;
     }
@@ -3006,6 +3006,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else tmp[_ri] = args[_ri];
         }
         *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
+    }
+    if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        size_t n = strlen(cur); char *buf = rt_ws_alloc(n + 3); size_t p = 0;
+        buf[p++] = '[';
+        for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
+        buf[p++] = ']'; buf[p] = '\0';
+        DESCR_t tmp1 = STRVAL(buf);
+        *out = rt_call_arr("write", &tmp1, 1); return 1;
     }
     if (!strcmp(fn, "__rk_div") && nargs == 2) {
         extern void rt_script_die_surface(const char *msg);
