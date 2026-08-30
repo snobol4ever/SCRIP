@@ -522,6 +522,14 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
     _modes_decl = read_modes_decl(ROOT)   # declared, never derived -- absent family => UNKNOWN
     delete_absorbed = "--delete-absorbed" in sys.argv[1:]
+    # ⛔ SURGICAL AND NAMED, never a blanket --force. A deliberate retirement is spelled out origin by
+    # origin so it lands in the shell history and the commit that performs it, which is the floor doctrine's
+    # own shape ("only an attributed retirement may lower it"). A single flag that switched the whole check
+    # off would be used once in a hurry and never removed.
+    allow_drop = set()
+    for _a in sys.argv[1:]:
+        if _a.startswith("--allow-drop-origin="):
+            allow_drop |= {x for x in _a.split("=", 1)[1].split(",") if x}
     if "--split-write" in sys.argv[1:]:
         raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, "--write" in sys.argv[1:]))
     included, all_entries, per_family = [], [], {}
@@ -536,6 +544,21 @@ def main():
     master_sno_path = os.path.join(OUTDIR, "ALL" + EXT)
     master_csv_path = os.path.join(OUTDIR, "ALL.csv")
     base_entries = []
+    # ⛔⭐⭐ ALL.csv IS READ UNCONDITIONALLY, AND THAT IS THE WHOLE POINT OF READING IT HERE. It used to be
+    # loaded inside the `if the suite pair exists` block below, which made the provenance record exactly as
+    # deletable as the thing it is provenance FOR. MEASURED (hq_B 2026-08-30, on hq_P's partial-cutover
+    # report): `rm ALL.icn ALL.ref` on tests/icon while ALL.csv SURVIVES rebuilds the master at 437 entries
+    # from 209 families over a committed 534/308, exits 0, calls it "MASTER SUITE: 437 entries", and
+    # overwrites ALL.csv in the same act -- so the only record of the 97 destroyed entries is destroyed by
+    # the write that destroyed them.
+    # ⭐ A record that dies with its subject cannot testify about it. Loading it here, before any branch on
+    # whether the suite pair still exists, is what lets the origin check below survive a partial deletion.
+    csv_origins = set()
+    if os.path.isfile(master_csv_path):
+        for _row in csv.DictReader(open(master_csv_path)):
+            _o = (_row.get("origin") or "").strip()
+            if _o:
+                csv_origins.add(_o)
     if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
         if lang == "snobol4":
             base_entries = h.read_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"),
@@ -733,45 +756,50 @@ def main():
                     h.refuse("companion basename collision with different content: %s (from %s)" % (cf, src_dir))
                 companion_copies[cf] = srcf
     # feature scan first (names are DERIVED from features), then the descriptive rename with numbered uniqueness
-    # ⛔⭐⭐ THE COLLAPSE REFUSAL, AND IT COUNTS ENTRIES AGAINST ENTRIES. It lived ~150 lines up and read
-    # `len(pairs) * 4 < len(base_entries)` -- a PAIR count against an ENTRY count, two different units.
-    # ⭐ THE CALIBRATION, NOT THE BRANCH, WAS THE SNOBOL4-SPECIFIC PART (hq_P 2026-08-30, on seat06's
-    # raku measurement). SNOBOL4's one-liner-heavy tree runs about 1:1 pair-to-entry, so a pair count is a
-    # fine proxy THERE and nowhere else: in the banner-block format one pair legitimately carries a whole
-    # family. Measured false refusals -- raku 15 pairs / 97 entries, snocone 34 / 264; icon (208/434),
-    # pascal (58/149) and rebus (34/48) happened to sit above the 4x line and passed, which is luck, not
-    # correctness. A perfect 1:1 correspondence was reading as a collapse and refusing the rebuild.
-    # ⛔ NOT cured by exempting the block-format languages: that is a per-op filter over a shared node and
-    # would leave the identical latent bug for whatever format lands next. The unit is the fix.
-    # ⭐ The 4x ratio is unchanged and the direction of caution is unchanged: this guard is one end of an
-    # axis whose other end is the dedupe/accumulation check below, and BOTH ends ship silently otherwise.
-    # It is deliberately safer to false-refuse (costs a seat an hour) than to miss (cost: 1576 entries).
-    # ⛔ STILL DOES NOT COVER THE DELETE-FIRST PATH: `rm ALL.*` empties base_entries, so this is skipped
-    # entirely -- the guard reads the very thing a "clean rebuild" removes (hq_P, 2026-08-30; the builder
-    # owning its own --clean is row snobol4-master-guard-sync-and-builder-shrink-refusal, hq_C).
-    # ⛔⭐⭐ AND `all_entries` MUST BE NON-EMPTY FOR THIS TO BE A COLLAPSE AT ALL -- fixing only the unit
-    # trades one false refusal for another (measured 2026-08-30, hq_B, on a scratch copy of both trees):
-    # raku and snocone absorb 15 and 34 pairs into ZERO NEW ENTRIES, because every origin is already in
-    # the master. That is the IDEMPOTENT REBUILD -- the same state icon/rebus/pascal reach and report as
-    # "NOTHING NEW ABSORBED", exiting 0 -- and `0 * 4 < 97` refuses it just as `15 * 4 < 97` did.
-    # ⭐ The reasoning is already written down twenty lines up for `not pairs`, and it transfers exactly:
-    # with nothing NEW to append, `all_entries = base_entries + []` rewrites the master AS ITSELF, so the
-    # builder cannot produce a smaller master no matter what the ratio says. The dangerous case is still
-    # strictly `0 < new << base`: something to write, far too little of it.
-    # ⛔ NOTE WHY THE OLD PREDICATE LET icon/pascal/rebus THROUGH -- 208*4>434, 58*4>149, 34*4>48. They
-    # passed on their PAIR count and then took the idempotent exit anyway. A guard that admits the right
-    # cases for the wrong reason is not confirmed by their green: three languages agreeing meant only that
-    # three trees happened to sit above an arbitrary line.
-    if base_entries and all_entries and len(all_entries) * 4 < len(base_entries):
+    # ⛔⭐⭐ THE COLLAPSE REFUSAL IS AN ORIGIN-SET CHECK, NOT A COUNT. It was `len(pairs)*4 < len(base)`,
+    # then `len(all_entries)*4 < len(base)` with a non-empty guard, and BOTH were wrong in both directions.
+    # The count era is worth keeping in view because each fix looked complete and each one was a calibration:
+    #   · pairs vs entries -- different UNITS. snobol4's one-liner tree runs ~1:1 so a pair count proxies
+    #     fine THERE and nowhere else; in the banner-block format one pair carries a whole family. False
+    #     refusals: raku 15 pairs/97 entries, snocone 34/264. (seat06 found it, hq_P swept it.)
+    #   · then zero-new read as a collapse -- but `all_entries = base + []` rewrites the master AS ITSELF.
+    #   · and even fixed, it FALSE-REFUSED icon's ordinary merge rebuild: 209 pairs, 208 already absorbed,
+    #     1 genuinely new over a 534-entry master. 1*4 < 534. Benign growth, refused. Measured, not argued.
+    #   · while STILL missing the real thing: hq_P's partial cutover. 209 surviving pairs materialize 437
+    #     entries against a committed 534 -- not `<<` by any ratio anyone would dare set, because the
+    #     surviving sources keep the RATIO healthy while a disjoint SUBSET has no source at all.
+    # ⭐⭐ THE DURABLE FORM, AND IT IS hq_P's: A COUNT CANNOT DETECT A SUBSTITUTION. 437 vs 534 happens to
+    # differ; absorb 100 while another seat adds 100 elsewhere and the totals MATCH while the content is
+    # entirely different. Identity is the question, so identity is the check: any origin the master is known
+    # to hold must still be in the master about to be written. No threshold, nothing to calibrate per
+    # language, and it names what it lost instead of reporting a ratio nobody can act on.
+    # ⛔ KNOWN comes from TWO independent records deliberately -- ALL.csv (read above, survives deleting the
+    # suite pair) and the base entries read back out of the suite itself. Their union means a LOSSY SUITE
+    # READ is caught too: if read_suite ever swallows entries again (it has), base is short, the CSV is not,
+    # and the rebuild refuses instead of quietly writing the smaller master.
+    # ⛔ STILL NOT COVERED, and no in-process check can cover it: a FULL `rm ALL.*` destroys both records at
+    # once, so there is nothing left to compare against. That is why the builder must own its own deletion
+    # (hq_P's --clean; row snobol4-master-guard-sync-and-builder-shrink-refusal, hq_C). This check shrinks
+    # that hole from "any clean rebuild" to "a full ALL.* wipe", it does not close it.
+    written_origins = {e.origin for e in base_entries} | {e.origin for e in all_entries}
+    known_origins = csv_origins | {e.origin for e in base_entries}
+    dropped = sorted(known_origins - written_origins - allow_drop)
+    if dropped:
+        _shown = dropped[:15]
         sys.stderr.write(
-            "\u26d4 REFUSED: this rebuild would absorb only %d entrie(s) (from %d pair(s)) over an existing\n"
-            "   master of %d entries.\n"
-            "   That is a COLLAPSE, not a rebuild -- almost certainly a cut-over language whose sources are\n"
-            "   retired, where the master IS the source and nothing on disk can rebuild it.\n"
+            "\u26d4 REFUSED: this rebuild would DROP %d origin(s) the master already holds.\n"
             "   Nothing has been written; the existing master is untouched.\n"
-            "   \u26d4 Do NOT fix this by deleting ALL.* and re-running -- on a cut-over language that\n"
-            "      deletes the only copy. Rebuild in a scratch copy first if you truly mean it.\n"
-            % (len(all_entries), len(pairs), len(base_entries)))
+            "   An origin present in ALL.csv or in the current master, with no source under %s that\n"
+            "   rebuilds it, means those entries exist ONLY in the master -- absorbed from outside this\n"
+            "   tree, or their sources retired. Rebuilding writes a master without them.\n"
+            "   Dropped origin(s)%s:\n%s\n"
+            "   \u26d4 Do NOT 'fix' this by deleting ALL.* -- that destroys the CSV too, and the CSV is the\n"
+            "      only reason this refusal was possible. Rebuild into a scratch tree and diff.\n"
+            "   \u2705 If a retirement is DELIBERATE, name each one: --allow-drop-origin=<a>[,<b>...]\n"
+            "      Surgical and attributable, per the floor doctrine -- never a blanket override.\n"
+            % (len(dropped), ROOT,
+               "" if len(dropped) <= 15 else " (first 15 of %d)" % len(dropped),
+               "\n".join("     " + o for o in _shown)))
         raise SystemExit(2)
     counters = {}
     all_entries = base_entries + all_entries
