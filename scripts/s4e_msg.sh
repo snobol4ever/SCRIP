@@ -76,6 +76,10 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
 ME="$(s4e_canon "$ME")"
+# release-verbs-refuse-on-unfolded-authority-mail (hq_C 2026-08-30): s4e_unfolded_authority_mail /
+# s4e_release_guard_note, used by unclaim/park below. Sourced relative to this script's own
+# directory, not cwd, since these subcommands are invoked from anywhere.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_release_guard.sh"
 # ⭐ SHARED BY next() AND banner() (fix-dispatch-bus-two-failure-modes, s266). Resolve a topic's QUEUE.tsv
 # rank, or a large sentinel when the row is absent/orphaned. Hoisted to top level (was a next()-local
 # function) so both commands sort candidates the SAME deterministic way instead of each falling back to
@@ -526,6 +530,16 @@ case "$cmd" in
            if [ -n "$_rst" ] && s4e_restricted_to "$_rst" >/dev/null; then s4e_set_row_state "$topic" "$_rst" || true
            else s4e_set_row_state "$topic" "FREE" || true; fi; }
          b="$PO/tasks/$topic.task.md"
+         # release-verbs-refuse-on-unfolded-authority-mail: MUST run before anything below touches the
+         # baton's own mtime -- the guard's whole signal is "was the baton written since the mail
+         # arrived", so checking it after this verb's own RELEASED-line append would always see a
+         # freshly-touched file and could never fire. WARN, never block (a stranded seat is worse than
+         # a stale flag) -- but write the pointer INTO the baton, since a message in this terminal is
+         # exactly what already failed to reach the artifact twice before.
+         if s4e_unfolded_authority_mail "$ME" "$topic"; then
+             echo "⚠ authority mail arrived after this claim was taken and the baton was not touched since -- appended a pointer to it, re-read before trusting this row's own NEXT block" >&2
+             s4e_release_guard_note "$topic" unclaim "$ME"
+         fi
          [ -f "$b" ] && printf '\n- %s **RELEASED** by %s — %s (claim removed; row returns to the picker)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$why" >> "$b"
          s4e_mark_row "$topic" RELEASED
          # ⭐ picker-dependency-and-boomerang-blindness CURE 2 — leave a RECEIPT so the picker can tell "this row
@@ -608,6 +622,12 @@ case "$cmd" in
              if [ "${S4E_PARK_FORCE:-0}" != "1" ]; then echo "⛔ REFUSED: $topic is claimed RUNNING by $hold — a park is not an eviction. Ask them, or S4E_PARK_FORCE=1 to park AROUND the claim (it is preserved)."; exit 1; fi
              printf 'PARKED-AROUND by %s %s (claim preserved; holder done still works)\n' "$ME" "$(date -u +%Y-%m-%dT%H:%MZ)" >> "$c"; echo "  (claim held by $hold PRESERVED — parked around it)"
          elif [ -f "$c" ] && ! grep -q '^DONE$' "$c" ; then
+             # release-verbs-refuse-on-unfolded-authority-mail: check BEFORE the claim (and its timestamp)
+             # is removed below. WARN, never block, same reasoning as unclaim's own wiring.
+             if s4e_unfolded_authority_mail "$ME" "$topic"; then
+                 echo "⚠ authority mail arrived after this claim was taken and the baton was not touched since -- appended a pointer to it, re-read before trusting this row's own NEXT block" >&2
+                 s4e_release_guard_note "$topic" park "$ME"
+             fi
              rm -f "$c"; echo "  (cleared my own holding claim — the state column carries this now, not a lock)"
          fi
          # ⭐ picker-dependency-and-boomerang-blindness CURE 3 — A GOVERNANCE GATE IS NOT LIFTED BY `park FREE`.
