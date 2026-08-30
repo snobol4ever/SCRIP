@@ -179,6 +179,18 @@ static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
     tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
 }
+static tree_t *rk_numeric_ctx(tree_t *e) {
+    /* unary '+' (numeric context): an array numifies to its element count -- same
+       array-name-table check rk_range_ex already uses for ^@grid. Non-array operands are
+       already numeric in every corpus usage seen so far, so '+' on them is a pass-through
+       identity rather than a general (unbuilt) numify -- minimal version this needs, not a
+       general one, per this row's own standing discipline. */
+    if (e && e->t == TT_VAR && rk_is_array_name(e->v.sval)) {
+        tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, e); ast_push(el, leaf_sval(TT_QLIT, "elems"));
+        return el;
+    }
+    return e;
+}
 static tree_t *rk_arr_rhs(tree_t *rhs) {
     if (!rhs || rhs->t != TT_TO || rhs->n < 2) return rhs;
     tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]);
@@ -1602,6 +1614,7 @@ mul_expr
     ;
 unary_expr
     : '-' unary_expr %prec UMINUS  { $$=expr_unary(TT_MNS,$2); }
+    | '+' unary_expr %prec UMINUS  { $$=rk_numeric_ctx($2); }
     | '!' unary_expr               { $$=expr_unary(TT_NOT,$2); }
     | CARET unary_expr             { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; $$=rk_range_ex(z,$2); }
     | OP_REDUCE unary_expr
