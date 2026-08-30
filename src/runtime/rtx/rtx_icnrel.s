@@ -43,9 +43,18 @@
  *   - either string is a JUNCTION (first byte 0x03)              -> bail (junction_collapse stays in C)
  *   - either operand is a CSET (slen == 0xFFFFFFFF) on EQV       -> bail (cset_resolve stays in C)
  *   - any op outside the two measured-live families              -> bail
- * PORT != FIX: the string arm reproduces strcmp's NUL-terminated, slen-IGNORING semantics exactly,
- * because that is what the C tail does. Making it slen-aware would be a behaviour change wearing a
- * port's clothes, which is the defect class GOAL-ICON-RTX.md names on RTX-9.
+ * ⛔ SUPERSEDED 2026-08-30 (hq_C). This block used to read: "PORT != FIX: the string arm reproduces
+ * strcmp's NUL-terminated, slen-IGNORING semantics exactly, BECAUSE THAT IS WHAT THE C TAIL DOES.
+ * Making it slen-aware would be a behaviour change wearing a port's clothes." That was CORRECT when
+ * written and is now FALSE: Lon ruled a NUL is a valid string element, and the C tail has since been
+ * made length-aware (values.c descr_identical, core.c is_numeric_like + siblings, lower_common.c's
+ * BINOP_S* arm, by_name_dispatch.c's relop tail). This arm was then the ONLY code still preserving
+ * the retired semantics, and it hid the defect from three separate C fixes -- each of which was
+ * correct, landed, and changed nothing observable, because 59.8% of arrivals never reach C at all.
+ * ⭐ THE LESSON, and it is why the comment mattered more than the code: A PORT'S FIDELITY CLAUSE IS
+ * A DEPENDENCY ON THE THING IT COPIED. "Because that is what the C tail does" is true only until the
+ * C tail changes, and nothing links the two. When you fix a C path, grep the RTX/asm twins for a
+ * comment justifying itself by reference to that path.
  *
  * Registers: rdi = lhs (slen<<32)|v, rsi = lhs value, rdx = rhs (slen<<32)|v, rcx = rhs value,
  * r8d = op. Returns int in eax. All five argument registers are preserved on every bail path.
@@ -117,20 +126,35 @@ RTX_FUNC(rt_jct_relop)
     je      .Lbail
     cmp     byte ptr [rcx], 3
     je      .Lbail
-/* Inline strcmp: compare until a difference or a shared terminator, then set eax to the sign in the
- * same three-way sense strcmp reports. r9/r10 walk, r11d/eax hold the two bytes. */
+/* Inline LENGTH-AWARE compare (memcmp over min(la,lb), then order by length) -- NOT strcmp, which
+ * stops at the first NUL and would call `char(0) || "abc"` equal to "". No bail is reachable from
+ * here on, so rdi/rdx/rsi/rcx are free to clobber (every .Lbail above this point still has them
+ * untouched). r9/r10 walk, rcx counts, rdi/rdx hold the two lengths, r11d/eax hold the two bytes so
+ * the .Lstrdiff sign block below is reused unchanged. */
     mov     r9, rsi
     mov     r10, rcx
+    shr     rdi, 32                 /* la */
+    shr     rdx, 32                 /* lb */
+    mov     rcx, rdi
+    cmp     rcx, rdx
+    cmova   rcx, rdx                /* rcx = min(la, lb), unsigned */
 .Lstrloop:
+    test    rcx, rcx
+    jz      .Lstrtail
     movzx   r11d, byte ptr [r9]
     movzx   eax, byte ptr [r10]
     cmp     r11d, eax
     jne     .Lstrdiff
-    test    r11d, r11d
-    jz      .Lstreq
     inc     r9
     inc     r10
+    dec     rcx
     jmp     .Lstrloop
+.Lstrtail:
+/* Common prefix equal over min(la,lb): the shorter string sorts first, equal lengths sort equal. */
+    cmp     rdi, rdx
+    jb      .Lless
+    ja      .Lstrgt
+    jmp     .Lstreq
 .Lstreq:
 /* Equal strings: c == 0. SEQ SLE SGE succeed, SNE SLT SGT fail. */
     xor     eax, eax
@@ -146,6 +170,7 @@ RTX_FUNC(rt_jct_relop)
  * r11d holds lhs byte, eax holds rhs byte; below == lhs < rhs. */
     cmp     r11d, eax
     jb      .Lless
+.Lstrgt:
 /* lhs > rhs: SGT SGE SNE succeed. */
     xor     eax, eax
     cmp     r8d, OP_SGT

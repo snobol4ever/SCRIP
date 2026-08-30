@@ -4989,7 +4989,19 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
         return 0;
     }
     { const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs); if (!a) a=""; if (!b) b="";
-      int c = strcmp(a, b);
+      /* ⛔ strcmp() STOPS AT THE FIRST NUL, and a NUL is a valid string element (Lon 2026-08-30).
+         This is the string-relational half of the same defect cured in values.c/descr_identical and
+         core.c/is_numeric_like: measured, Icon `char(0) || "abc" == ""` answered TRUE while *x
+         answered 4, and icont/iconx correctly says they differ. It reaches EVERY language, since
+         BINOP_S{EQ,NE,LT,LE,GT,GE} is the shared string-comparison sink.
+         Use the CARRIED length -- but only when VARVAL_fn actually handed back the descriptor's own
+         bytes (`== lhs.s`). When it coerced (an int, a real, a cset tag), what it returned is a
+         freshly built C string whose length is not in .slen, and strlen is then correct. */
+      size_t la = (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu && a == lhs.s) ? (size_t)lhs.slen : strlen(a);
+      size_t lb = (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu && b == rhs.s) ? (size_t)rhs.slen : strlen(b);
+      size_t lm = la < lb ? la : lb;
+      int c = lm ? memcmp(a, b, lm) : 0;
+      if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
       switch (op) { case BINOP_EQ: case BINOP_SEQ: return c==0; case BINOP_NE: case BINOP_SNE: return c!=0;
                     case BINOP_LT: case BINOP_SLT: return c<0;  case BINOP_LE: case BINOP_SLE: return c<=0;
                     case BINOP_GT: case BINOP_SGT: return c>0;  case BINOP_GE: case BINOP_SGE: return c>=0; }
