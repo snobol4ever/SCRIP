@@ -99,7 +99,18 @@ EOF
 # ── Icon ─────────────────────────────────────────────────────────────────────
 echo "=== Icon ==="
 
-file_test "ICN: hello" "$ROOT/../corpus/tests/scrip_test/icon/hello.icn" "Hello, World!"
+# ⭐ seat03 2026-08-30: hello.icn/palindrome.icn were absorbed into the icon master
+# (icon-scrip-test-icn-absorption) -- materialize them fresh via lib_master_extract.sh rather than
+# reading loose tests/scrip_test/icon/... files that may no longer be on disk.
+MASTER_DIR="$ICN_CORPUS" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
+ICN_EXTRACT_DIR="$(mktemp -d)"
+trap 'rm -rf "$ICN_EXTRACT_DIR"' EXIT
+master_extract_origin "scrip_test_icon_hello__hello" "$ICN_EXTRACT_DIR/hello.icn" \
+    || { echo "  FAIL ICN: hello (could not extract from icon master)"; FAIL=$((FAIL+1)); }
+master_extract_origin "scrip_test_icon_palindrome__palindrome" "$ICN_EXTRACT_DIR/palindrome.icn" \
+    || { echo "  FAIL ICN: palindrome (could not extract from icon master)"; FAIL=$((FAIL+1)); }
+
+file_test "ICN: hello" "$ICN_EXTRACT_DIR/hello.icn" "Hello, World!"
 
 icn "ICN: 1 to 5" "$(printf '1\n2\n3\n4\n5')" << 'EOF'
 procedure main()
@@ -115,7 +126,7 @@ EOF
 
 echo "  SKIP ICN: user proc suspend (AST_FNC coroutine — post-U-17, wired in U-18)"
 
-file_test "ICN: palindrome" "$ROOT/../corpus/tests/scrip_test/icon/palindrome.icn" "$(printf 'yes\nno\nyes')"
+file_test "ICN: palindrome" "$ICN_EXTRACT_DIR/palindrome.icn" "$(printf 'yes\nno\nyes')"
 
 if [ -f "$ICN_CORPUS/rung01_paper_compound.icn" ]; then
     expected=$(cat "$ICN_CORPUS/rung01_paper_compound.expected" 2>/dev/null)

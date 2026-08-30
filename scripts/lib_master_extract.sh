@@ -10,13 +10,28 @@
 #   master_origins_of_family <family>                -> every origin whose family column matches
 # All lookups go through ALL.csv (never a second parser of the suite grammar); extraction goes through
 # corpus_suite_harness.py extract (the ONE authority). Missing entry/master -> rc=2 REFUSAL, never silence.
+# ⛔⭐ MULTI-LANGUAGE (seat03 2026-08-30, HALF-GENERALIZED-CONTRACT CHECK per corpus-suites-
+# consolidation.task.md): the extension was hardcoded to .sno, so every function here silently
+# assumed SNOBOL4 -- grepped this whole file for the old discriminator before adding MASTER_EXT,
+# per that law. corpus_suite_harness.py's own extract/extract-family commands already detect the
+# reader (line vs block) from the file SUFFIX, so the shell side only needed a suffix knob, not a
+# second code path. Default stays ".sno" so all 21 existing SNOBOL4 callers are byte-identical;
+# icon callers set MASTER_EXT=.icn (and MASTER_DIR=$S4E/corpus/tests/icon) before sourcing/calling.
 _ME_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _ME_S4E="${S4E_HOME:-$(cd "$_ME_HERE/../.." && pwd)}"
 MASTER_DIR="${MASTER_DIR:-$_ME_S4E/corpus/tests/snobol4}"
-MASTER_SNO="$MASTER_DIR/ALL.sno"
+MASTER_EXT="${MASTER_EXT:-.sno}"
+MASTER_SNO="$MASTER_DIR/ALL$MASTER_EXT"
 MASTER_REF="$MASTER_DIR/ALL.ref"
 MASTER_CSV="$MASTER_DIR/ALL.csv"
 _me_refuse() { echo "⛔ REFUSE(lib_master_extract): $*" >&2; return 2; }
+# ⛔ DERIVE THE EXTENSION FROM MASTER_SNO, NEVER READ $MASTER_EXT DIRECTLY OUTSIDE THIS FILE'S OWN
+# TOP LEVEL (seat03 2026-08-30). A caller's `MASTER_DIR=... MASTER_EXT=... source lib_master_extract.sh`
+# only exports MASTER_EXT for the DURATION of that one `source` command -- MASTER_SNO/MASTER_DIR get
+# baked in correctly (plain assignments made WHILE sourcing, so they persist as ordinary shell vars
+# afterward), but a bare $MASTER_EXT read later, inside a function called on a SEPARATE line, sees it
+# unset again and (under a caller's `set -u`) aborts. MASTER_SNO is always reliable; extract from it.
+_me_ext() { local s="$MASTER_SNO"; printf '%s\n' ".${s##*.}"; }
 master_entry_for_origin() {
     [ -f "$MASTER_CSV" ] || { _me_refuse "no master CSV at $MASTER_CSV"; return 2; }
     local n; n=$(awk -F, -v o="$1" '$3==o{print $2; exit}' "$MASTER_CSV")
@@ -37,7 +52,7 @@ master_extract_name() {
     # input from now on instead of a silent wrong answer.
     local name="$1" out="$2" ref="${3:-}"
     [ -f "$MASTER_SNO" ] && [ -f "$MASTER_REF" ] || { _me_refuse "master pair missing at $MASTER_SNO"; return 2; }
-    local args=("$MASTER_SNO" "$MASTER_REF" "$name" "$out" --out-in "${out%.sno}.in")
+    local args=("$MASTER_SNO" "$MASTER_REF" "$name" "$out" --out-in "${out%.*}.in")
     [ -n "$ref" ] && args+=(--out-ref "$ref")
     # ⛔ THE OLD >/dev/null 2>&1 SWALLOWED THE HARNESS'S OWN REFUSAL REASON, leaving only a generic "failed"
     # -- exactly the message a caller would need to see to learn THIS entry needs --out-in in the first
@@ -50,6 +65,27 @@ master_extract_origin() {
     n=$(master_entry_for_origin "$o") || return 2
     master_extract_name "$n" "$out" "$ref"
 }
+master_origins_by_prefix() {
+    # ⭐ seat03 2026-08-30: added for absorptions where each source file got its OWN family column
+    # (one-file-per-family, e.g. a numbered audit battery) rather than one shared family across many
+    # files -- master_origins_of_family can't group these, since there is no single family value to
+    # match. Matches the CSV's origin column by a literal string PREFIX instead.
+    [ -f "$MASTER_CSV" ] || { _me_refuse "no master CSV at $MASTER_CSV"; return 2; }
+    awk -F, -v p="$1" 'NR>1 && index($3,p)==1{print $3}' "$MASTER_CSV"
+}
+master_extract_origin_prefix() {
+    # materialize EVERY entry whose ORIGIN starts with a prefix as loose <old-name>$MASTER_EXT/.ref
+    # pairs into a dir -- the prefix-matching sibling of master_extract_family, for the one-family-
+    # per-file absorption shape (see master_origins_by_prefix above).
+    local prefix="$1" dir="$2" o old rc=0
+    mkdir -p "$dir" || return 2
+    while IFS= read -r o; do
+        [ -n "$o" ] || continue
+        old="${o#*__}"
+        master_extract_origin "$o" "$dir/$old$(_me_ext)" "$dir/$old.ref" || rc=2
+    done < <(master_origins_by_prefix "$prefix")
+    return $rc
+}
 master_extract_family() {
     # materialize EVERY entry of one origin-family as loose <old-name>.sno/.ref pairs into a dir --
     # the bridge for gates whose logic iterates per-file the way the old per-family trees did.
@@ -58,7 +94,7 @@ master_extract_family() {
     while IFS= read -r o; do
         [ -n "$o" ] || continue
         old="${o#${fam}__}"
-        master_extract_origin "$o" "$dir/$old.sno" "$dir/$old.ref" || rc=2
+        master_extract_origin "$o" "$dir/$old$(_me_ext)" "$dir/$old.ref" || rc=2
     done < <(master_origins_of_family "$fam")
     return $rc
 }

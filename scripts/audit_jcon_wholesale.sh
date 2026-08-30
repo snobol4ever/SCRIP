@@ -19,7 +19,25 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
-SCRIP="$ROOT/scrip"; RT="$ROOT/out"; DIR="$ROOT/../corpus/tests/scrip_test/icon/jcon_audit"
+SCRIP="$ROOT/scrip"; RT="$ROOT/out"
+# ⭐ seat03 2026-08-30: the 94 jcon_audit probes were absorbed into the icon master
+# (icon-scrip-test-icn-absorption) EXCEPT 3 genuine scrip-vs-oracle disagreements, which were
+# relocated to corpus/tests/icon/unresolved/ (see its KEEP.md) once tests/scrip_test/icon/ was
+# otherwise fully drained -- this audit's own coverage must include both: 91 extracted fresh from
+# the master, plus the 3 permanent-residue files, combined into one scratch dir so the rest of this
+# script (which globs [0-9][0-9]_*.icn and expects a sibling .expected) is unchanged below this point.
+DIR="$(mktemp -d)"
+MASTER_DIR="$ROOT/../corpus/tests/icon" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
+master_extract_origin_prefix "scrip_test_icon_jcon_audit_" "$DIR" >/dev/null || { echo "AUDIT REFUSED: could not extract jcon_audit probes from the icon master"; exit 2; }
+for f in "$DIR"/*.ref; do [ -f "$f" ] && cp "$f" "${f%.ref}.expected"; done
+UNRESOLVED="$ROOT/../corpus/tests/icon/unresolved"
+for f in "$UNRESOLVED"/jcon_audit_*.icn; do
+    [ -f "$f" ] || continue
+    b="$(basename "$f" .icn)"; b="${b#jcon_audit_}"
+    cp "$f" "$DIR/$b.icn"
+    [ -f "$UNRESOLVED/jcon_audit_${b}.expected" ] && cp "$UNRESOLVED/jcon_audit_${b}.expected" "$DIR/$b.expected"
+done
+trap 'rm -rf "$DIR"' EXIT
 FILTER="${1:-}"
 ICONT="${ICONT:-}"
 if [ -z "$ICONT" ]; then for c in $S4A/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi

@@ -21,8 +21,17 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-WITNESS="$HERE/../../corpus/tests/scrip_test/icon/zk5_global_cells_zero.icn"
-EXPECTED="$HERE/../../corpus/tests/scrip_test/icon/zk5_global_cells_zero.expected"
+# ⭐ seat03 2026-08-30: re-pointed off the loose tests/scrip_test/icon/... original (absorbed into
+# the icon master, icon-scrip-test-icn-absorption) -- materialize it fresh via lib_master_extract.sh
+# rather than reading a file that may no longer be on disk. The master's oracle-verified .ref IS
+# this witness's .expected (same semantic role: the pinned correct output).
+MASTER_DIR="$HERE/../../corpus/tests/icon" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
+EXTRACT_DIR="$(mktemp -d)"
+trap 'rm -rf "$EXTRACT_DIR"' EXIT
+WITNESS="$EXTRACT_DIR/zk5_global_cells_zero.icn"
+EXPECTED="$EXTRACT_DIR/zk5_global_cells_zero.expected"
+master_extract_origin "scrip_test_icon_zk5_global_cells_zero__zk5_global_cells_zero" "$WITNESS" "$EXPECTED" \
+    || { echo "GATE FAIL: could not extract zk5_global_cells_zero witness from the icon master"; exit 1; }
 FAIL=0
 
 [ -x "$SCRIP" ] || { echo "GATE SKIP: scrip not built at $SCRIP"; exit 0; }

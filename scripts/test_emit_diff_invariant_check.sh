@@ -40,8 +40,12 @@ if [[ -n "${CORPUS:-}" ]]; then
   TEST_PRO="$CORPUS/tests/prolog"
   TEST_REB="$CORPUS/tests/rebus"
 else
+  # ⭐ seat03 2026-08-30: TEST_ICN was pointing at tests/scrip_test/icon, the SAME "legacy... no
+  # longer populated" shape this very comment already warns about for the other three -- icon's
+  # scrip_test residue is being absorbed/drained (icon-scrip-test-icn-absorption), so this fallback
+  # matches the $CORPUS-set branch above instead of a transient staging path that shrinks over time.
   TEST_SNO="$ROOT/../corpus/tests/scrip_test/snobol4"
-  TEST_ICN="$ROOT/../corpus/tests/scrip_test/icon"
+  TEST_ICN="$ROOT/../corpus/tests/icon"
   TEST_PRO="$ROOT/../corpus/tests/scrip_test/prolog"
   TEST_REB="$ROOT/../corpus/tests/scrip_test/rebus"
 fi

@@ -61,8 +61,18 @@ run_expect_agree "snobol4: arith_add" \
     "$ROOT/../corpus/tests/scrip_test/snobol4/arith_new/023_arith_add.sno"
 
 # --- Icon ---
-run_expect_agree "icon: hello" \
-    "$ROOT/../corpus/tests/scrip_test/icon/hello.icn"
+# ⭐ seat03 2026-08-30: hello.icn was absorbed into the icon master (icon-scrip-test-icn-absorption)
+# -- materialize it fresh via lib_master_extract.sh rather than reading a loose file that may no
+# longer be on disk.
+MASTER_DIR="$ROOT/../corpus/tests/icon" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
+_ICN_HELLO_DIR="$(mktemp -d)"
+trap 'rm -rf "$_ICN_HELLO_DIR"' EXIT
+if master_extract_origin "scrip_test_icon_hello__hello" "$_ICN_HELLO_DIR/hello.icn"; then
+    run_expect_agree "icon: hello" "$_ICN_HELLO_DIR/hello.icn"
+else
+    echo "  FAIL icon: hello (could not extract from icon master)"
+    FAIL=$((FAIL + 1))
+fi
 
 # --- Snocone ---
 run_expect_agree "snocone: fence" \
