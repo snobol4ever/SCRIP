@@ -35,7 +35,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd 
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
 DIR="${FUZZ_DIR:-$ROOT/corpus/tests/snobol4/probe_loose/fuzz}"
 N="${N:-10}"; TIMEOUT="${TIMEOUT:-8s}"; MODES="${MODES:-m3 m4}"
-[ -d "$DIR" ]                   || { echo "⛔ REFUSE(rc=2): witness dir missing: $DIR"; exit 2; }
+[ -d "$DIR" ]                   || { echo "⛔ REFUSE(rc=2): witness dir missing: $DIR"; echo "   The one-flat-suite cutover (corpus c06960a1) ABSORBED 4 of the 5 witnesses into the master suite"; echo "   under new names and deleted this directory; only fz_red_m4b survives as a loose pair. The witnesses"; echo "   are not gone, only unreachable BY PATH. Materialize the full set and point FUZZ_DIR at it:"; echo "       FUZZ_DIR=\"\$(bash scripts/util_fuzz_witness_materialize.sh)\" bash scripts/$(basename "$0")"; exit 2; }
 [ -x "$SCRIP" ]                 || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP — build first (make)"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 case "$N" in ''|*[!0-9]*) echo "⛔ REFUSE(rc=2): N must be a positive integer, got '$N'"; exit 2;; esac
