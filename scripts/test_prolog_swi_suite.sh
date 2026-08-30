@@ -41,7 +41,7 @@ printf 'main :- run_tests.\n:- initialization(main).\n' > "$WRAP"
 
 PASS=0; FAIL=0; TOTAL=0
 
-for f in "$SWIT"/test_*.pl; do
+for f in $(find "$SWIT" -name "*.pl" | sort); do   # RECURSIVE (row swi-tests-subdirs-invisible, Lon direct 2026-08-30): the flat test_*.pl glob saw 18 of 249 -- 21 subdirs + test.pl were structurally invisible
     base=$(basename "$f" .pl)
     ref="$SWIT/${base}.ref"
     [ -f "$ref" ] || continue
