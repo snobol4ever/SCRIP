@@ -12,6 +12,13 @@
 #                                                        the one MAIN dispatch — one transfer per run either way.]
 #   src/runtime/rt/rt_coexpr.c scrip_coexpr_trampoline_entry — sanctioned per-thread MAIN (jmp not call,
 #                                                        fresh pthread stack, never returns).
+#   src/driver/scrip.c        icn_zf_main_call         — THIRD mutually-exclusive MAIN branch (row
+#                                                        c-to-bb-unledgered-scrip-c-57, seat15 2026-08-30):
+#                                                        the `_zframe_graph && !_icn_cells_graph` arm, same
+#                                                        one-MAIN-per-run dispatch, own raw-asm shim only
+#                                                        because it needs register state (r12 from a fixed
+#                                                        slab address, esi/r14d zeroed) the other MAIN arms'
+#                                                        rt_outer_call helpers don't set up.
 # DETECTED SHAPES: (a) member fn-ptr α calls `->fn(fb, 0)` / `->fn((void *)fb, 0)`; (b) bare bb_box_fn β
 # resumes `fn((void *)fb, 1)`; (c) inline-asm `call *%rax` into the slab (the EVAL shim); (d) bare MAIN-shape
 # `fn(rt_frame(), 0)`; (e) RIDERS — C (non-emitted, non-decl) callers of the V4/V5 trampoline API outside rt.c.
@@ -73,6 +80,14 @@ while IFS=: read -r f l shape; do
     case "$f:$fn" in
         src/driver/scrip.c:main|src/driver/scrip.c:m3_enter_with_rbx) continue ;;
         src/runtime/rt/rt_coexpr.c:scrip_coexpr_trampoline_entry) continue ;;
+        # ⭐ THIRD SANCTIONED MAIN SITE (row c-to-bb-unledgered-scrip-c-57, seat15 2026-08-30): NOT dead
+        # Icon scaffolding -- verified actively called (scrip.c main(), the `_zframe_graph &&
+        # !_icn_cells_graph` branch) as a THIRD mutually-exclusive MAIN-transfer arm alongside the two
+        # already-sanctioned ones, all under the same one-MAIN-per-run dispatch (every arm reaches the
+        # same `goto run_done`). It needs its own raw-asm shim rather than routing through
+        # rt_outer_call/rt_outer_call_delta0 because it sets up a distinct register state before the
+        # `jmp *%rax` (r12 seeded from a fixed slab address, esi/r14d zeroed) that those helpers do not.
+        src/driver/scrip.c:icn_zf_main_call) continue ;;
     esac
     echo "$f:$l:$fn:$shape"
 done < "$RAW" | sort -t: -k1,1 -k2,2n -u > "$TMP"
@@ -91,7 +106,7 @@ ledger_of() { # enclosing function -> ledger group
 }
 
 echo "=== NCB GATE — C→BB transfers outside the sanctioned MAIN sites ==="
-echo "    sanctioned: scrip.c:main (2 exclusive MAIN branches + m3_enter_with_rbx) · rt_coexpr.c:scrip_coexpr_trampoline_entry"
+echo "    sanctioned: scrip.c:main (2 exclusive MAIN branches + m3_enter_with_rbx) · rt_coexpr.c:scrip_coexpr_trampoline_entry · scrip.c:icn_zf_main_call (3rd MAIN branch)"
 VGRPS=""
 UNLEDGERED=0
 for V in V1 V2 V3 V4 V5 V6 V7 UNLEDGERED; do
