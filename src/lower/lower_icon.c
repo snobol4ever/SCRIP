@@ -734,6 +734,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
         int scan_body_lo = cx->g->n;
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
+        IR_t * body_beta = cx->beta;   /* a loop body publishes its break-expression's resume chain here (loop_break_beta); captured BEFORE the subject reset so it can cross the scan boundary */
         for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
@@ -743,7 +744,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(enter, sr);
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
-        cx->beta = (bv && icn_gen_wiring(bv)) ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
+        int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
+        if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);   /* operand[2]: the emitter's resume-target pass reads it when bv itself is not gen-wired (a loop's __break_result IR_VAR) */
+        cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
         *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {

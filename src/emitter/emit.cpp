@@ -3183,6 +3183,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                shared by SNOBOL4/Prolog/Raku) - same gap as the IR_SUSPEND dobody check just above, same local fix:
                widen the check at this Icon-only IR_SCAN site rather than the shared classifier. */
             if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
+            if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; for (int k = 0; k < n; k++) if (nodes[k] == bb2) { g_scan_body_beta = betas[k]; break; } }
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];
