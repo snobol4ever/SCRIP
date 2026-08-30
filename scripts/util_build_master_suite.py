@@ -645,7 +645,25 @@ def main():
             e.src_mode = mode
         _dup = [e.origin for e in entries if e.origin in base_origins]
         if _dup:
-            excluded.append((fam, "already in the master (%d of %d origins present) -- the same entry rebuilt, not a new one; source pair left in place for inspection, NOT re-absorbed and NOT deleted" % (len(_dup), len(entries))))
+            if len(_dup) == len(entries):
+                # ⭐ FULL-DUPLICATE FAMILIES ARE ELIGIBLE FOR DELETE, NOT JUST EXCLUSION (seat05, 2026-08-30,
+                # on the prolog verify+delete row). Every one of THIS family's origins already lives in the
+                # base -- not appended a second time (all_entries/included/per_family untouched, so the
+                # written master and its entry count are unaffected) -- but the source pair is still a
+                # deletion CANDIDATE: fed into absorbed_files exactly like a fresh absorption, so the
+                # existing BYTE-EQUAL-OR-NO-DELETE loop below re-reads it fresh and compares against the
+                # ALREADY-PRESENT base entry (by_origin resolves to that entry either way, since nothing new
+                # was added under the same origin). A rebuild that matches deletes; one that doesn't stays,
+                # loudly, same failure-closed guarantee as a fresh absorption -- this never trusts the origin
+                # match alone as proof of identical content.
+                absorbed_files.append((fam, sno, ref, mode))
+                excluded.append((fam, "already in the master (%d of %d origins present) -- rebuild of an existing entry, not a new one; NOT re-appended to the output, ELIGIBLE for deletion below once its content re-verifies against the existing entry" % (len(_dup), len(entries))))
+            else:
+                # Mixed family: some origins new, some already present. Not absorbed (would silently drop
+                # the already-present half) and not a deletion candidate (would silently drop the new half)
+                # -- stays exactly as excluded families always have, needs per-entry handling this pass
+                # doesn't build.
+                excluded.append((fam, "PARTIAL origin overlap (%d of %d origins already in the master) -- mixed new/existing family, left untouched; needs per-entry handling, not this pass's shape" % (len(_dup), len(entries))))
             continue
         per_family[fam] = len(entries)
         all_entries.extend(entries)
@@ -830,14 +848,31 @@ def main():
                 if lang == "snobol4":
                     reread = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 else:
-                    # ⛔ THE DIALECT RE-READ DROPPED THE SIDECARS TOO, so the `se.stdin` compared below was
-                    # always None and the stdin check downstream compared None to None and passed. Read them,
-                    # exactly as the snobol4 branch does -- the verification must load what the grader loads.
-                    try:
-                        reread = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC),
+                    # ⛔⭐ RE-READ WITH THE SAME BANNER-PRESENCE DISCRIMINATOR ABSORPTION USES, NOT A TRY/EXCEPT
+                    # FALLBACK (seat05, 2026-08-30 -- this was the try/read_block_suite/except/read_suite shape
+                    # absorption ITSELF used when this verification code was first written; hq_B's 13c186ea
+                    # rewrote absorption to decide by banner presence instead, and this comparison silently went
+                    # stale against it -- the two-independent-copies-of-one-decision class RULES.md's TRANSCRIPTION
+                    # rule warns about, just inside one file instead of across two). MEASURED, not assumed: a
+                    # genuinely byte-identical banner-less block family (rung05_backtrack_backtrack, content
+                    # confirmed identical by hand) read WRONG under the old try/except -- read_block_suite raising
+                    # on a bannerless file, the except then handing a multi-line prolog program to read_suite
+                    # (SNOBOL4's ONE-LINE reader), producing garbage that never matched. Mirrors main()'s own
+                    # discriminator exactly. ⛔ SIDECARS TOO (hq_C, same night, in-conflict with this rewrite --
+                    # folded in rather than reverted): the dialect re-read must load what the grader loads, or
+                    # `se.stdin` is always None and a real stdin mismatch compares None==None and passes. The
+                    # banner-PRESENT arm below passes in_path/x_path exactly as hq_C's fix does; the banner-
+                    # ABSENT arm needs no sidecar load at all, because absorption's own STDIN GUARD above
+                    # (search "STDIN GUARD, GENERALISED") already refuses any bannerless file that HAS one
+                    # before it can ever reach absorbed_files -- there is structurally nothing to load.
+                    _bre_v = h.banner_re_for(_CO, _CC)
+                    _slines_v = open(sno, encoding="utf-8", errors="replace").read().splitlines()
+                    _rlines_v = open(ref, encoding="utf-8", errors="replace").read().splitlines()
+                    if not any(_bre_v.match(_l) for _l in _slines_v):
+                        reread = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines_v, _rlines_v)]
+                    else:
+                        reread = h.read_block_suite(sno, ref, _bre_v,
                                                     in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
-                    except Exception:
-                        reread = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 for se in reread:
                     e = by_origin.get("%s__%s" % (fam, se.name))
                     if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
