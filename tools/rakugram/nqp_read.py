@@ -17,7 +17,18 @@ import re, sys, json, collections
 # ---------------------------------------------------------------------------------------------
 # Declaration scanner: pull `[proto] token|rule|regex NAME[:sym<X>] { BODY }` with brace matching.
 # ---------------------------------------------------------------------------------------------
-DECL = re.compile(r'^(?P<ind>\s*)(?P<proto>proto\s+)?(?P<kind>token|rule|regex)\s+(?P<name>[^\s{]+)\s*\{')
+# ⛔ A DECLARATION MAY CARRY A PARAMETER LIST, and missing that drops it SILENTLY -- the name simply
+# fails to match and the production is never scanned at all. Measured 2026-08-30: 56 of 743
+# declarations are parameterized, and they are the grammar's SPINE -- statementlist, statement,
+# xblock, babble, quibble. With them missing, a call-graph walk from comp_unit reached 12 rules and
+# reported 181 "unreachable" definitions, which reads as a fact about the grammar rather than a bug
+# in the reader. ⭐ A DROPPED DECLARATION DOES NOT LOOK LIKE AN ERROR, IT LOOKS LIKE A SMALLER
+# GRAMMAR. Parameters may nest one level (`token foo($x, @y?)`).
+# Two ordered alternatives, and the ORDER matters: try `name {` first, because an operator name may
+# itself contain parens (`token infix:sym<(&)>`), and a parameter-first pattern swallows those.
+DECL = re.compile(r'^(?P<ind>\s*)(?P<proto>proto\s+)?(?P<kind>token|rule|regex)\s+'
+                  r'(?:(?P<name>[^\s{]+)\s*\{'
+                  r'|(?P<pname>[^\s({]+)\s*(?P<params>\((?:[^()]|\([^()]*\))*\))\s*\{)')
 
 def _match_brace(src, start):
     r"""Brace-match from src[start]=='{' to its closer. Returns index of the closing '}' or -1.
@@ -79,7 +90,7 @@ def scan_decls(src):
         endln = src.count('\n', 0, close)
         limit = starts[k+1][0] if k + 1 < len(starts) else len(lines)
         if endln >= limit: disagree += 1
-        nm = m.group('name'); sym = None
+        nm = m.group('name') or m.group('pname'); sym = None
         sm = re.match(r'([^:]+):sym[<«](.*)[>»]$', nm)
         if sm: nm, sym = sm.group(1), sm.group(2)
         out.append(dict(kind=m.group('kind'), name=nm, sym=sym, proto=bool(m.group('proto')),

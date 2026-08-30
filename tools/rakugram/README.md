@@ -8,7 +8,7 @@ patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL pe
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
 · **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
-gated by `scripts/test_gate_rakugram_precedence.sh`.
+gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`).
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
@@ -18,6 +18,24 @@ gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: 
 python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
 bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
+
+## Rung 5 status — what actually has to be hand-written
+
+A call-graph walk from `comp_unit` reaches **180 rules** (132 defined in Grammar.nqp, 48 inherited);
+74 definitions are unreachable from the entry point and are **not** work to do.
+
+Of the 48 inherited-and-reachable: **13 are diagnostics** (`panic`, `sorry`, `obs`, `NYI` … — they
+change no parse decision, so a parser stubs them), **2 are already built** (`EXPR`, `O`, rung 4), and
+**33 are real rules**, led by `ws` (25 distinct callers), `sym` (22), `ident`, `variable`, `nibble`,
+`decint`/`hexint`/`octint`/`binint`, `before`/`after`, `typename`, `routine_def`.
+
+⛔ **THE GRAMMAR'S CALL GRAPH IS NOT STATICALLY CONNECTED.** `comp_unit` reaches the entire program
+through `<statementlist=.FOREIGN_LANG($*MAIN, 'statementlist', 1)>` — dispatching to a rule **by name,
+as a string, at run time** (the slang mechanism; 27 such sites). A plain walk reports 12 reachable
+rules and 199 "unreachable" definitions, which reads as a fact about the grammar rather than a limit
+of the instrument. `nqp_reach.py` follows the string targets. ⭐ Note this is the *same* non-static
+property as the parse-time-extensible operator table, appearing in the RULE graph instead of the
+operators — a second independent reason a fixed table cannot express this language.
 
 ## Rung 4 status — `EXPR`/`O` is built and proven
 
@@ -55,18 +73,24 @@ graph gets connected. **Nothing here parses real Raku yet** — the 77 inherited
 failure is indistinguishable from one that ran and correctly declined — the parser would be
 confidently wrong instead of loudly incomplete.
 
-## ⭐⭐ THE ANSWER: 87.9% of the official grammar is mechanically translatable
+## ⭐⭐ THE ANSWER: 86.7% of the official grammar is mechanically translatable
 
-Measured over 721 productions (2 excluded as contaminated, reported not hidden). Each row is
-cumulative — the work needed to reach that line:
+Measured over **739** productions (of 741; 2 excluded as contaminated, reported not hidden). Each row
+is cumulative — the work needed to reach that line:
 
 | reachable by | productions | cumulative |
 |---|---|---|
-| **mechanical today** | 508 | **70.5%** |
-| + finishing the reader's residue | 53 | **77.8%** |
-| + complex `:my` (a *local variable* — natural in RD, impossible in bison) | 33 | **82.4%** |
-| + regex modifiers (`:i`, `:s`, `:dba(...)`) | 40 | **87.9%** |
-| **REAL semantic work (`$*W`, `nqp::`, dynamic parse vars)** | **87** | 100% |
+| **mechanical today** | 477 | **64.5%** |
+| + finishing the reader's residue | 87 | **76.3%** |
+| + complex `:my` (a *local variable* — natural in RD, impossible in bison) | 34 | **80.9%** |
+| + regex modifiers (`:i`, `:s`, `:dba(...)`) | 43 | **86.7%** |
+| **REAL semantic work (`$*W`, `nqp::`, dynamic parse vars)** | **98** | 100% |
+
+⚠️ **These numbers supersede an earlier 87.9% over 721 productions.** That population was wrong: the
+declaration scanner did not match a parameterized head (`rule statementlist($*statement_level = 0) {`)
+and silently dropped **56 declarations** — including the grammar's spine (`statementlist`, `statement`,
+`xblock`, `quibble`). ⛔ **A dropped declaration does not look like an error, it looks like a smaller
+grammar.** The conclusion is unchanged; the figure moved 1.2 points.
 
 Two refinements that moved this number and are worth keeping, because the naive count understates it
 badly. Of 238 embedded `{...}` code blocks, **49% are either empty (a capture flush) or pure
