@@ -728,6 +728,19 @@ inline std::string x86_asm_str_escape(const char * s) {
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_asm_str_escape(const char * s, size_t len) {
+    std::string o;
+    for (size_t i = 0; i < len; ++i) {
+        char c = s[i];
+        if (c == '\\' || c == '"') { o += '\\'; o += c; }
+        else if (c == '\n')        { o += "\\n"; }
+        else if (c == '\t')        { o += "\\t"; }
+        else if (c == '\0')        { o += "\\000"; }
+        else                        o += c;
+    }
+    return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_ro_seal_str(int n, const char * lit) {
     const char * s = lit ? lit : "";
     if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)s));
@@ -1621,7 +1634,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
         return std::string();
     }
-    if (!strcmp(mnem, ".string")) return MEDIUM_BINARY ? std::string() : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
+    if (!strcmp(mnem, ".string")) {
+        if (MEDIUM_BINARY) return std::string();
+        return xb.tag == 2
+             ? (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "", (size_t)xb.u) + "\"\n")
+             : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
+    }
     if (!strcmp(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
     if (!strcmp(mnem, "cqo")) return x86_cqo();
     if (!strcmp(mnem, "rep_stosb")) return x86_rep_stosb();

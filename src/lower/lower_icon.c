@@ -424,7 +424,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
         tree_t * callee;
         if (lhs && lhs->t == TT_VAR && lhs->v.sval && lhs->v.sval[0] != '&' && !icn_is_local(cx, lhs->v.sval)) {
-            callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval;
+            /* ast_node_new() callocs, so a freshly-synthesized TT_QLIT starts slen=0 -- TT_QLIT's own
+               lowering (below, case TT_QLIT) attaches this as the literal's true length via
+               icn_attach_lit_len(), so an unset slen silently attaches length 0 for a real N-byte
+               procedure name. Dormant while nothing consumed that length for content (M4's .string
+               used to escape by NUL-scan regardless); icn-cset-embedded-nul-four-layer-gap follow-up
+               (a) made the byte count load-bearing, which is what surfaced this. Identifiers never
+               contain embedded NUL, so strlen() is exact here. */
+            callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval);
         } else callee = (tree_t *) lhs;
         IR_t * cr = NULL; IR_t * ce = lower(cx, callee, NULL, ω, &cr);
         IR_t * prevβ = cx->beta;

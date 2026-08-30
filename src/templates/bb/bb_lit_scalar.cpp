@@ -46,8 +46,7 @@ std::string bb_lit_scalar() {
              + x86("mov",    ls_rq(0), lit_tag_imm((long)DT_S))
              + x86("note",   ZRESN())
              + (_.op_a_node_kind >= 0
-                 ? IF_M3(x86("mov", ls_rd(4), (long)_.op_a_ival_sg))
-                 + IF_M4(x86("mov", ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0)))
+                 ? x86("mov", ls_rd(4), (long)_.op_a_ival_sg)
                  : x86("mov",    ls_rd(4), (long)(_.op_sval ? strlen(_.op_sval) : 0)))
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
@@ -58,7 +57,9 @@ std::string bb_lit_scalar() {
              + x86("def",    L(0))
              + x86(".quad",  LS(0), _.op_sval ? _.op_sval : "")
              + x86("label",  LS(0))
-             + x86(".string", _.op_sval ? _.op_sval : "")
+             + (_.op_a_node_kind >= 0
+                 ? x86(".string", _.op_sval ? _.op_sval : "", (unsigned long)_.op_a_ival_sg)
+                 : x86(".string", _.op_sval ? _.op_sval : ""))
          : _.op_node_kind == (int)IR_LIT_NAME && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_NAME")
              + x86_alpha()
@@ -77,6 +78,10 @@ std::string bb_lit_scalar() {
              + x86("label",  LS(0))
              + x86(".string", _.op_sval ? _.op_sval : "")
          : _.op_node_kind == (int)IR_LIT_CHARSET && (_.op_off >= 0 || _.op_zres)
+         /* icn-cset-embedded-nul-four-layer-gap: true length (lower_icon.c icn_attach_lit_len, Icon-only)
+            is baked/registered/escaped in BOTH modes now -- BINARY's pointer was always exact, and TEXT's
+            .string (x86_asm_str_escape's length-aware overload) no longer truncates at an embedded \0, so
+            its assembled buffer is equally exact. .slen itself stays the CSETVAL -1 identity sentinel. */
          ? x86("comment", "IR_LIT_CHARSET")
              + x86_alpha()
              + x86("note",   ZRESN())
@@ -88,20 +93,22 @@ std::string bb_lit_scalar() {
              + x86("mov",    ls_rq(8), "rax")
              + ls_dual(0) + ls_dual(8)
              + (_.op_a_node_kind >= 0
-                 ? IF_M3(x86("push", "rax")
+                 ? x86("push", "rax")
                        + x86("push", "rdx")
                        + x86("mov", "rdi", ROQ(0))
                        + x86("mov", "rsi", (long)_.op_a_ival_sg)
                        + x86("call", "rt_icn_cset_register", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_icn_cset_register)
                        + x86("pop", "rdx")
-                       + x86("pop", "rax"))
+                       + x86("pop", "rax")
                  : std::string())
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
              + x86(".quad",  LS(0), _.op_sval ? _.op_sval : "")
              + x86("label",  LS(0))
-             + x86(".string", _.op_sval ? _.op_sval : "")
+             + (_.op_a_node_kind >= 0
+                 ? x86(".string", _.op_sval ? _.op_sval : "", (unsigned long)_.op_a_ival_sg)
+                 : x86(".string", _.op_sval ? _.op_sval : ""))
          : _.op_node_kind == (int)IR_LIT_REAL && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_REAL")
              + x86_alpha()
