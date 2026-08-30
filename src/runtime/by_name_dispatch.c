@@ -242,6 +242,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$stream_property")) return 1;
     if (!strcmp(name, "$set_prolog_flag")) return 1;
     if (!strcmp(name, "$current_output") || !strcmp(name, "$current_input")) return 1;
+    if (!strcmp(name, "$wall_ms")) return 1;
     if (!strcmp(name, "$set_output") || !strcmp(name, "$set_input")) return 1;
     if (!strcmp(name, "$flush_output") || !strcmp(name, "$flush_output1")) return 1;
     if (!strcmp(name, "$open") || !strcmp(name, "$close")) return 1;
@@ -1875,6 +1876,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern int rt_pl_set_prolog_flag(DESCR_t, DESCR_t);
         if (rt_pl_set_prolog_flag(args[0], args[1])) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1; }
         *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "$wall_ms") && nargs == 1) {
+        /* bench basis (Lon 2026-08-30): benchmarks self-time at start and finish so startup/finish overhead
+           is REPORTED SEPARATELY, never buried in the work number. Monotonic ms; rivals get the same
+           predicate from a per-engine prelude (swipl statistics(walltime), gprolog real_time). */
+        struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
+        DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000 + (int64_t)_ts.tv_nsec / 1000000);
+        if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$current_output") && nargs == 1) {
         extern int fh_current_output(void);
@@ -4432,6 +4441,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "open", 3, "$open" }, { "open", 4, "$open" }, { "close", 1, "$close" }, { "close", 2, "$close" },
         { "writeq", 2, "$writeq2" }, { "write_canonical", 2, "$write_canonical2" }, { "write_term", 3, "$write_term3" }, { "format", 3, "$format3" },
         { "write", 2, "$write2" }, { "nl", 1, "$nl1" }, { "halt", 0, "$halt0" }, { "halt", 1, "$halt1" },
+        { "wall_ms", 1, "$wall_ms" },
         { "display", 1, "$display" }, { "display", 2, "$display2" }, { "print", 2, "$print2" },
         { "see", 1, "$see" }, { "seeing", 1, "$seeing" }, { "seen", 0, "$seen" },
         { "tell", 1, "$tell" }, { "telling", 1, "$telling" }, { "told", 0, "$told" },
