@@ -123,8 +123,7 @@ collect_files() {
                  "$CORPUS"/rung1[0-9]_*.icn \
                  "$CORPUS"/rung2[0-9]_*.icn \
                  "$CORPUS"/rung3[0-5]_*.icn \
-                 "$CORPUS"/rung36_*.icn \
-                 "$CORPUS"/rung37_*.icn; do
+                 "$CORPUS"/rung3[6-9]_*.icn; do
             [ -f "$f" ] || continue
             if is_suite_file "$f"; then SUITE_FILES+=("$f"); else FILES+=("$f"); fi
         done

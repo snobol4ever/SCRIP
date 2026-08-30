@@ -291,7 +291,9 @@ static tree_t *parse_repalt(IcnParser *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_limit(IcnParser *p) {
-    tree_t *n = parse_repalt(p);
+    /* limitation sits ABOVE the whole prefix layer: |1 \ 3 is LIMIT(REPALT(1),3), never REPALT(LIMIT(1,3)) --
+       the inverted chain emitted a consumer wire into a singleton operand's never-emitted β (rung13_repalt, s284) */
+    tree_t *n = parse_unary(p);
     if (!n) return NULL;
     if (check(p, TK_BACKSLASH)) {
         advance(p);
@@ -327,11 +329,11 @@ static tree_t *parse_unary(IcnParser *p) {
         tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
         tree_t *tfn = ast_node_new(TT_FNC); push_child(tfn, e_leaf_sval(TT_VAR, "tab", -1)); push_child(tfn, mfn);
         return tfn; }
-    return parse_limit(p);
+    return parse_repalt(p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_pow(IcnParser *p) {
-    tree_t *n = parse_unary(p);
+    tree_t *n = parse_limit(p);
     if (!n) return NULL;
     if (check(p, TK_CARET)) {
         advance(p);
