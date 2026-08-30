@@ -198,6 +198,15 @@ WS       [ \t\r]
 "@!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_ARRAY_TWIGIL; }
 "%."{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
 "%!"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_HASH_TWIGIL; }
+"$?LINE"        { raku_yylval.ival = raku_yylineno; return LIT_INT; }
+"$*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$?"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$^"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$="{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$~"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$!"            { raku_yylval.sval = strdup("$!"); return VAR_SCALAR; }
+"@*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
+"%*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
 "$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
 "**@"{ALPHA}{ALNUM}* { raku_yylval.sval = strdup(yytext+2); return SLURPY_LOL; }
 "*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_POS; }
@@ -206,6 +215,7 @@ WS       [ \t\r]
 "@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
 "\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
+{ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = strdup(yytext); return QIDENT; }
 {ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
 "\""            { raku_strpos = 0; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {

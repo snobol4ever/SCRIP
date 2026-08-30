@@ -528,181 +528,182 @@ enum yysymbol_kind_t
   YYSYMBOL_VAR_HASH = 12,                  /* VAR_HASH  */
   YYSYMBOL_VAR_TWIGIL = 13,                /* VAR_TWIGIL  */
   YYSYMBOL_IDENT = 14,                     /* IDENT  */
-  YYSYMBOL_VAR_ARRAY_TWIGIL = 15,          /* VAR_ARRAY_TWIGIL  */
-  YYSYMBOL_VAR_HASH_TWIGIL = 16,           /* VAR_HASH_TWIGIL  */
-  YYSYMBOL_CARET = 17,                     /* CARET  */
-  YYSYMBOL_DOLLAR_LBRACKET = 18,           /* DOLLAR_LBRACKET  */
-  YYSYMBOL_VAR_CAPTURE = 19,               /* VAR_CAPTURE  */
-  YYSYMBOL_VAR_FH = 20,                    /* VAR_FH  */
-  YYSYMBOL_VAR_NAMED_CAPTURE = 21,         /* VAR_NAMED_CAPTURE  */
-  YYSYMBOL_KW_USE = 22,                    /* KW_USE  */
-  YYSYMBOL_TESTOP = 23,                    /* TESTOP  */
-  YYSYMBOL_KW_MY = 24,                     /* KW_MY  */
-  YYSYMBOL_KW_SAY = 25,                    /* KW_SAY  */
-  YYSYMBOL_KW_PRINT = 26,                  /* KW_PRINT  */
-  YYSYMBOL_KW_IF = 27,                     /* KW_IF  */
-  YYSYMBOL_KW_ELSE = 28,                   /* KW_ELSE  */
-  YYSYMBOL_KW_ELSIF = 29,                  /* KW_ELSIF  */
-  YYSYMBOL_KW_WHILE = 30,                  /* KW_WHILE  */
-  YYSYMBOL_KW_FOR = 31,                    /* KW_FOR  */
-  YYSYMBOL_KW_SUB = 32,                    /* KW_SUB  */
-  YYSYMBOL_KW_GATHER = 33,                 /* KW_GATHER  */
-  YYSYMBOL_KW_TAKE = 34,                   /* KW_TAKE  */
-  YYSYMBOL_KW_RETURN = 35,                 /* KW_RETURN  */
-  YYSYMBOL_KW_EXIT = 36,                   /* KW_EXIT  */
-  YYSYMBOL_KW_CONSTANT = 37,               /* KW_CONSTANT  */
-  YYSYMBOL_KW_ENUM = 38,                   /* KW_ENUM  */
-  YYSYMBOL_KW_JOIN = 39,                   /* KW_JOIN  */
-  YYSYMBOL_KW_GIVEN = 40,                  /* KW_GIVEN  */
-  YYSYMBOL_KW_WHEN = 41,                   /* KW_WHEN  */
-  YYSYMBOL_KW_DEFAULT = 42,                /* KW_DEFAULT  */
-  YYSYMBOL_KW_WITH = 43,                   /* KW_WITH  */
-  YYSYMBOL_KW_WITHOUT = 44,                /* KW_WITHOUT  */
-  YYSYMBOL_KW_EXISTS = 45,                 /* KW_EXISTS  */
-  YYSYMBOL_KW_DELETE = 46,                 /* KW_DELETE  */
-  YYSYMBOL_KW_UNLESS = 47,                 /* KW_UNLESS  */
-  YYSYMBOL_KW_UNTIL = 48,                  /* KW_UNTIL  */
-  YYSYMBOL_KW_REPEAT = 49,                 /* KW_REPEAT  */
-  YYSYMBOL_KW_LOOP = 50,                   /* KW_LOOP  */
-  YYSYMBOL_KW_LAST = 51,                   /* KW_LAST  */
-  YYSYMBOL_KW_NEXT = 52,                   /* KW_NEXT  */
-  YYSYMBOL_KW_MAP = 53,                    /* KW_MAP  */
-  YYSYMBOL_KW_GREP = 54,                   /* KW_GREP  */
-  YYSYMBOL_KW_SORT = 55,                   /* KW_SORT  */
-  YYSYMBOL_KW_REVERSE = 56,                /* KW_REVERSE  */
-  YYSYMBOL_KW_TRY = 57,                    /* KW_TRY  */
-  YYSYMBOL_KW_CATCH = 58,                  /* KW_CATCH  */
-  YYSYMBOL_KW_DIE = 59,                    /* KW_DIE  */
-  YYSYMBOL_KW_CLASS = 60,                  /* KW_CLASS  */
-  YYSYMBOL_KW_METHOD = 61,                 /* KW_METHOD  */
-  YYSYMBOL_KW_HAS = 62,                    /* KW_HAS  */
-  YYSYMBOL_KW_NEW = 63,                    /* KW_NEW  */
-  YYSYMBOL_KW_ROLE = 64,                   /* KW_ROLE  */
-  YYSYMBOL_KW_MULTI = 65,                  /* KW_MULTI  */
-  YYSYMBOL_KW_PROTO = 66,                  /* KW_PROTO  */
-  YYSYMBOL_OP_NAME = 67,                   /* OP_NAME  */
-  YYSYMBOL_OP_REDUCE = 68,                 /* OP_REDUCE  */
-  YYSYMBOL_ARR_ALL_SLICE = 69,             /* ARR_ALL_SLICE  */
-  YYSYMBOL_SLURPY_POS = 70,                /* SLURPY_POS  */
-  YYSYMBOL_SLURPY_LOL = 71,                /* SLURPY_LOL  */
-  YYSYMBOL_SLURPY_NAMED = 72,              /* SLURPY_NAMED  */
-  YYSYMBOL_KW_HANDLES = 73,                /* KW_HANDLES  */
-  YYSYMBOL_WORDLIST = 74,                  /* WORDLIST  */
-  YYSYMBOL_OP_COLON_D = 75,                /* OP_COLON_D  */
-  YYSYMBOL_OP_COLON_U = 76,                /* OP_COLON_U  */
-  YYSYMBOL_YADA = 77,                      /* YADA  */
-  YYSYMBOL_KW_GRAMMAR = 78,                /* KW_GRAMMAR  */
-  YYSYMBOL_KW_TOKEN = 79,                  /* KW_TOKEN  */
-  YYSYMBOL_KW_RULE = 80,                   /* KW_RULE  */
-  YYSYMBOL_KW_REGEX = 81,                  /* KW_REGEX  */
-  YYSYMBOL_OP_FATARROW = 82,               /* OP_FATARROW  */
-  YYSYMBOL_OP_RANGE = 83,                  /* OP_RANGE  */
-  YYSYMBOL_OP_RANGE_EX = 84,               /* OP_RANGE_EX  */
-  YYSYMBOL_OP_ARROW = 85,                  /* OP_ARROW  */
-  YYSYMBOL_OP_EQ = 86,                     /* OP_EQ  */
-  YYSYMBOL_OP_NE = 87,                     /* OP_NE  */
-  YYSYMBOL_OP_LE = 88,                     /* OP_LE  */
-  YYSYMBOL_OP_GE = 89,                     /* OP_GE  */
-  YYSYMBOL_OP_SEQ = 90,                    /* OP_SEQ  */
-  YYSYMBOL_OP_SNE = 91,                    /* OP_SNE  */
-  YYSYMBOL_OP_SLT = 92,                    /* OP_SLT  */
-  YYSYMBOL_OP_SLE = 93,                    /* OP_SLE  */
-  YYSYMBOL_OP_SGT = 94,                    /* OP_SGT  */
-  YYSYMBOL_OP_SGE = 95,                    /* OP_SGE  */
-  YYSYMBOL_OP_AND = 96,                    /* OP_AND  */
-  YYSYMBOL_OP_OR = 97,                     /* OP_OR  */
-  YYSYMBOL_OP_TERNARY1 = 98,               /* OP_TERNARY1  */
-  YYSYMBOL_OP_TERNARY2 = 99,               /* OP_TERNARY2  */
-  YYSYMBOL_OP_BIND = 100,                  /* OP_BIND  */
-  YYSYMBOL_OP_DOTEQ = 101,                 /* OP_DOTEQ  */
-  YYSYMBOL_OP_SMATCH = 102,                /* OP_SMATCH  */
-  YYSYMBOL_OP_INC = 103,                   /* OP_INC  */
-  YYSYMBOL_OP_DEC = 104,                   /* OP_DEC  */
-  YYSYMBOL_OP_ADD_EQ = 105,                /* OP_ADD_EQ  */
-  YYSYMBOL_OP_SUB_EQ = 106,                /* OP_SUB_EQ  */
-  YYSYMBOL_OP_MUL_EQ = 107,                /* OP_MUL_EQ  */
-  YYSYMBOL_OP_DIV_EQ = 108,                /* OP_DIV_EQ  */
-  YYSYMBOL_OP_CAT_EQ = 109,                /* OP_CAT_EQ  */
-  YYSYMBOL_OP_DOR = 110,                   /* OP_DOR  */
-  YYSYMBOL_OP_DIV = 111,                   /* OP_DIV  */
-  YYSYMBOL_OP_BAND = 112,                  /* OP_BAND  */
-  YYSYMBOL_OP_SHL = 113,                   /* OP_SHL  */
-  YYSYMBOL_OP_DIVIS = 114,                 /* OP_DIVIS  */
-  YYSYMBOL_OP_REP_X = 115,                 /* OP_REP_X  */
-  YYSYMBOL_OP_REP_XX = 116,                /* OP_REP_XX  */
-  YYSYMBOL_OP_POW = 117,                   /* OP_POW  */
-  YYSYMBOL_118_ = 118,                     /* '='  */
-  YYSYMBOL_119_ = 119,                     /* '!'  */
-  YYSYMBOL_120_ = 120,                     /* '<'  */
-  YYSYMBOL_121_ = 121,                     /* '>'  */
-  YYSYMBOL_122_ = 122,                     /* '|'  */
-  YYSYMBOL_123_ = 123,                     /* '&'  */
-  YYSYMBOL_124_ = 124,                     /* '~'  */
-  YYSYMBOL_125_ = 125,                     /* '+'  */
-  YYSYMBOL_126_ = 126,                     /* '-'  */
-  YYSYMBOL_127_ = 127,                     /* '*'  */
-  YYSYMBOL_128_ = 128,                     /* '/'  */
-  YYSYMBOL_129_ = 129,                     /* '%'  */
-  YYSYMBOL_UMINUS = 130,                   /* UMINUS  */
-  YYSYMBOL_131_ = 131,                     /* '.'  */
-  YYSYMBOL_132_ = 132,                     /* ';'  */
-  YYSYMBOL_133_ = 133,                     /* '('  */
-  YYSYMBOL_134_ = 134,                     /* ')'  */
-  YYSYMBOL_135_ = 135,                     /* ','  */
-  YYSYMBOL_136_ = 136,                     /* '['  */
-  YYSYMBOL_137_ = 137,                     /* ']'  */
-  YYSYMBOL_138_ = 138,                     /* '{'  */
-  YYSYMBOL_139_ = 139,                     /* '}'  */
-  YYSYMBOL_140_ = 140,                     /* ':'  */
-  YYSYMBOL_YYACCEPT = 141,                 /* $accept  */
-  YYSYMBOL_program = 142,                  /* program  */
-  YYSYMBOL_stmt_list = 143,                /* stmt_list  */
-  YYSYMBOL_stmt = 144,                     /* stmt  */
-  YYSYMBOL_if_stmt = 145,                  /* if_stmt  */
-  YYSYMBOL_elsif_tail = 146,               /* elsif_tail  */
-  YYSYMBOL_while_stmt = 147,               /* while_stmt  */
-  YYSYMBOL_unless_stmt = 148,              /* unless_stmt  */
-  YYSYMBOL_until_stmt = 149,               /* until_stmt  */
-  YYSYMBOL_repeat_stmt = 150,              /* repeat_stmt  */
-  YYSYMBOL_loop_stmt = 151,                /* loop_stmt  */
-  YYSYMBOL_loop_incr = 152,                /* loop_incr  */
-  YYSYMBOL_for_stmt = 153,                 /* for_stmt  */
-  YYSYMBOL_given_stmt = 154,               /* given_stmt  */
-  YYSYMBOL_when_list = 155,                /* when_list  */
-  YYSYMBOL_sub_decl = 156,                 /* sub_decl  */
-  YYSYMBOL_scalar_methcall = 157,          /* scalar_methcall  */
-  YYSYMBOL_sub_body = 158,                 /* sub_body  */
-  YYSYMBOL_method_body = 159,              /* method_body  */
-  YYSYMBOL_class_decl = 160,               /* class_decl  */
-  YYSYMBOL_role_decl = 161,                /* role_decl  */
-  YYSYMBOL_is_clauses = 162,               /* is_clauses  */
-  YYSYMBOL_class_body_list = 163,          /* class_body_list  */
-  YYSYMBOL_grammar_decl = 164,             /* grammar_decl  */
-  YYSYMBOL_grammar_body_list = 165,        /* grammar_body_list  */
-  YYSYMBOL_named_arg_list = 166,           /* named_arg_list  */
-  YYSYMBOL_pair_list = 167,                /* pair_list  */
-  YYSYMBOL_param_list = 168,               /* param_list  */
-  YYSYMBOL_block = 169,                    /* block  */
-  YYSYMBOL_closure = 170,                  /* closure  */
-  YYSYMBOL_expr = 171,                     /* expr  */
-  YYSYMBOL_tern_expr = 172,                /* tern_expr  */
-  YYSYMBOL_cmp_expr = 173,                 /* cmp_expr  */
-  YYSYMBOL_divis_expr = 174,               /* divis_expr  */
-  YYSYMBOL_jct_expr = 175,                 /* jct_expr  */
-  YYSYMBOL_dor_expr = 176,                 /* dor_expr  */
-  YYSYMBOL_range_expr = 177,               /* range_expr  */
-  YYSYMBOL_add_expr = 178,                 /* add_expr  */
-  YYSYMBOL_repl_expr = 179,                /* repl_expr  */
-  YYSYMBOL_addsub_expr = 180,              /* addsub_expr  */
-  YYSYMBOL_mul_expr = 181,                 /* mul_expr  */
-  YYSYMBOL_unary_expr = 182,               /* unary_expr  */
-  YYSYMBOL_pow_expr = 183,                 /* pow_expr  */
-  YYSYMBOL_scalar_list = 184,              /* scalar_list  */
-  YYSYMBOL_meth_name = 185,                /* meth_name  */
-  YYSYMBOL_postfix_expr = 186,             /* postfix_expr  */
-  YYSYMBOL_call_expr = 187,                /* call_expr  */
-  YYSYMBOL_arg_list = 188,                 /* arg_list  */
-  YYSYMBOL_atom = 189                      /* atom  */
+  YYSYMBOL_QIDENT = 15,                    /* QIDENT  */
+  YYSYMBOL_VAR_ARRAY_TWIGIL = 16,          /* VAR_ARRAY_TWIGIL  */
+  YYSYMBOL_VAR_HASH_TWIGIL = 17,           /* VAR_HASH_TWIGIL  */
+  YYSYMBOL_CARET = 18,                     /* CARET  */
+  YYSYMBOL_DOLLAR_LBRACKET = 19,           /* DOLLAR_LBRACKET  */
+  YYSYMBOL_VAR_CAPTURE = 20,               /* VAR_CAPTURE  */
+  YYSYMBOL_VAR_FH = 21,                    /* VAR_FH  */
+  YYSYMBOL_VAR_NAMED_CAPTURE = 22,         /* VAR_NAMED_CAPTURE  */
+  YYSYMBOL_KW_USE = 23,                    /* KW_USE  */
+  YYSYMBOL_TESTOP = 24,                    /* TESTOP  */
+  YYSYMBOL_KW_MY = 25,                     /* KW_MY  */
+  YYSYMBOL_KW_SAY = 26,                    /* KW_SAY  */
+  YYSYMBOL_KW_PRINT = 27,                  /* KW_PRINT  */
+  YYSYMBOL_KW_IF = 28,                     /* KW_IF  */
+  YYSYMBOL_KW_ELSE = 29,                   /* KW_ELSE  */
+  YYSYMBOL_KW_ELSIF = 30,                  /* KW_ELSIF  */
+  YYSYMBOL_KW_WHILE = 31,                  /* KW_WHILE  */
+  YYSYMBOL_KW_FOR = 32,                    /* KW_FOR  */
+  YYSYMBOL_KW_SUB = 33,                    /* KW_SUB  */
+  YYSYMBOL_KW_GATHER = 34,                 /* KW_GATHER  */
+  YYSYMBOL_KW_TAKE = 35,                   /* KW_TAKE  */
+  YYSYMBOL_KW_RETURN = 36,                 /* KW_RETURN  */
+  YYSYMBOL_KW_EXIT = 37,                   /* KW_EXIT  */
+  YYSYMBOL_KW_CONSTANT = 38,               /* KW_CONSTANT  */
+  YYSYMBOL_KW_ENUM = 39,                   /* KW_ENUM  */
+  YYSYMBOL_KW_JOIN = 40,                   /* KW_JOIN  */
+  YYSYMBOL_KW_GIVEN = 41,                  /* KW_GIVEN  */
+  YYSYMBOL_KW_WHEN = 42,                   /* KW_WHEN  */
+  YYSYMBOL_KW_DEFAULT = 43,                /* KW_DEFAULT  */
+  YYSYMBOL_KW_WITH = 44,                   /* KW_WITH  */
+  YYSYMBOL_KW_WITHOUT = 45,                /* KW_WITHOUT  */
+  YYSYMBOL_KW_EXISTS = 46,                 /* KW_EXISTS  */
+  YYSYMBOL_KW_DELETE = 47,                 /* KW_DELETE  */
+  YYSYMBOL_KW_UNLESS = 48,                 /* KW_UNLESS  */
+  YYSYMBOL_KW_UNTIL = 49,                  /* KW_UNTIL  */
+  YYSYMBOL_KW_REPEAT = 50,                 /* KW_REPEAT  */
+  YYSYMBOL_KW_LOOP = 51,                   /* KW_LOOP  */
+  YYSYMBOL_KW_LAST = 52,                   /* KW_LAST  */
+  YYSYMBOL_KW_NEXT = 53,                   /* KW_NEXT  */
+  YYSYMBOL_KW_MAP = 54,                    /* KW_MAP  */
+  YYSYMBOL_KW_GREP = 55,                   /* KW_GREP  */
+  YYSYMBOL_KW_SORT = 56,                   /* KW_SORT  */
+  YYSYMBOL_KW_REVERSE = 57,                /* KW_REVERSE  */
+  YYSYMBOL_KW_TRY = 58,                    /* KW_TRY  */
+  YYSYMBOL_KW_CATCH = 59,                  /* KW_CATCH  */
+  YYSYMBOL_KW_DIE = 60,                    /* KW_DIE  */
+  YYSYMBOL_KW_CLASS = 61,                  /* KW_CLASS  */
+  YYSYMBOL_KW_METHOD = 62,                 /* KW_METHOD  */
+  YYSYMBOL_KW_HAS = 63,                    /* KW_HAS  */
+  YYSYMBOL_KW_NEW = 64,                    /* KW_NEW  */
+  YYSYMBOL_KW_ROLE = 65,                   /* KW_ROLE  */
+  YYSYMBOL_KW_MULTI = 66,                  /* KW_MULTI  */
+  YYSYMBOL_KW_PROTO = 67,                  /* KW_PROTO  */
+  YYSYMBOL_OP_NAME = 68,                   /* OP_NAME  */
+  YYSYMBOL_OP_REDUCE = 69,                 /* OP_REDUCE  */
+  YYSYMBOL_ARR_ALL_SLICE = 70,             /* ARR_ALL_SLICE  */
+  YYSYMBOL_SLURPY_POS = 71,                /* SLURPY_POS  */
+  YYSYMBOL_SLURPY_LOL = 72,                /* SLURPY_LOL  */
+  YYSYMBOL_SLURPY_NAMED = 73,              /* SLURPY_NAMED  */
+  YYSYMBOL_KW_HANDLES = 74,                /* KW_HANDLES  */
+  YYSYMBOL_WORDLIST = 75,                  /* WORDLIST  */
+  YYSYMBOL_OP_COLON_D = 76,                /* OP_COLON_D  */
+  YYSYMBOL_OP_COLON_U = 77,                /* OP_COLON_U  */
+  YYSYMBOL_YADA = 78,                      /* YADA  */
+  YYSYMBOL_KW_GRAMMAR = 79,                /* KW_GRAMMAR  */
+  YYSYMBOL_KW_TOKEN = 80,                  /* KW_TOKEN  */
+  YYSYMBOL_KW_RULE = 81,                   /* KW_RULE  */
+  YYSYMBOL_KW_REGEX = 82,                  /* KW_REGEX  */
+  YYSYMBOL_OP_FATARROW = 83,               /* OP_FATARROW  */
+  YYSYMBOL_OP_RANGE = 84,                  /* OP_RANGE  */
+  YYSYMBOL_OP_RANGE_EX = 85,               /* OP_RANGE_EX  */
+  YYSYMBOL_OP_ARROW = 86,                  /* OP_ARROW  */
+  YYSYMBOL_OP_EQ = 87,                     /* OP_EQ  */
+  YYSYMBOL_OP_NE = 88,                     /* OP_NE  */
+  YYSYMBOL_OP_LE = 89,                     /* OP_LE  */
+  YYSYMBOL_OP_GE = 90,                     /* OP_GE  */
+  YYSYMBOL_OP_SEQ = 91,                    /* OP_SEQ  */
+  YYSYMBOL_OP_SNE = 92,                    /* OP_SNE  */
+  YYSYMBOL_OP_SLT = 93,                    /* OP_SLT  */
+  YYSYMBOL_OP_SLE = 94,                    /* OP_SLE  */
+  YYSYMBOL_OP_SGT = 95,                    /* OP_SGT  */
+  YYSYMBOL_OP_SGE = 96,                    /* OP_SGE  */
+  YYSYMBOL_OP_AND = 97,                    /* OP_AND  */
+  YYSYMBOL_OP_OR = 98,                     /* OP_OR  */
+  YYSYMBOL_OP_TERNARY1 = 99,               /* OP_TERNARY1  */
+  YYSYMBOL_OP_TERNARY2 = 100,              /* OP_TERNARY2  */
+  YYSYMBOL_OP_BIND = 101,                  /* OP_BIND  */
+  YYSYMBOL_OP_DOTEQ = 102,                 /* OP_DOTEQ  */
+  YYSYMBOL_OP_SMATCH = 103,                /* OP_SMATCH  */
+  YYSYMBOL_OP_INC = 104,                   /* OP_INC  */
+  YYSYMBOL_OP_DEC = 105,                   /* OP_DEC  */
+  YYSYMBOL_OP_ADD_EQ = 106,                /* OP_ADD_EQ  */
+  YYSYMBOL_OP_SUB_EQ = 107,                /* OP_SUB_EQ  */
+  YYSYMBOL_OP_MUL_EQ = 108,                /* OP_MUL_EQ  */
+  YYSYMBOL_OP_DIV_EQ = 109,                /* OP_DIV_EQ  */
+  YYSYMBOL_OP_CAT_EQ = 110,                /* OP_CAT_EQ  */
+  YYSYMBOL_OP_DOR = 111,                   /* OP_DOR  */
+  YYSYMBOL_OP_DIV = 112,                   /* OP_DIV  */
+  YYSYMBOL_OP_BAND = 113,                  /* OP_BAND  */
+  YYSYMBOL_OP_SHL = 114,                   /* OP_SHL  */
+  YYSYMBOL_OP_DIVIS = 115,                 /* OP_DIVIS  */
+  YYSYMBOL_OP_REP_X = 116,                 /* OP_REP_X  */
+  YYSYMBOL_OP_REP_XX = 117,                /* OP_REP_XX  */
+  YYSYMBOL_OP_POW = 118,                   /* OP_POW  */
+  YYSYMBOL_119_ = 119,                     /* '='  */
+  YYSYMBOL_120_ = 120,                     /* '!'  */
+  YYSYMBOL_121_ = 121,                     /* '<'  */
+  YYSYMBOL_122_ = 122,                     /* '>'  */
+  YYSYMBOL_123_ = 123,                     /* '|'  */
+  YYSYMBOL_124_ = 124,                     /* '&'  */
+  YYSYMBOL_125_ = 125,                     /* '~'  */
+  YYSYMBOL_126_ = 126,                     /* '+'  */
+  YYSYMBOL_127_ = 127,                     /* '-'  */
+  YYSYMBOL_128_ = 128,                     /* '*'  */
+  YYSYMBOL_129_ = 129,                     /* '/'  */
+  YYSYMBOL_130_ = 130,                     /* '%'  */
+  YYSYMBOL_UMINUS = 131,                   /* UMINUS  */
+  YYSYMBOL_132_ = 132,                     /* '.'  */
+  YYSYMBOL_133_ = 133,                     /* ';'  */
+  YYSYMBOL_134_ = 134,                     /* '('  */
+  YYSYMBOL_135_ = 135,                     /* ')'  */
+  YYSYMBOL_136_ = 136,                     /* ','  */
+  YYSYMBOL_137_ = 137,                     /* '['  */
+  YYSYMBOL_138_ = 138,                     /* ']'  */
+  YYSYMBOL_139_ = 139,                     /* '{'  */
+  YYSYMBOL_140_ = 140,                     /* '}'  */
+  YYSYMBOL_141_ = 141,                     /* ':'  */
+  YYSYMBOL_YYACCEPT = 142,                 /* $accept  */
+  YYSYMBOL_program = 143,                  /* program  */
+  YYSYMBOL_stmt_list = 144,                /* stmt_list  */
+  YYSYMBOL_stmt = 145,                     /* stmt  */
+  YYSYMBOL_if_stmt = 146,                  /* if_stmt  */
+  YYSYMBOL_elsif_tail = 147,               /* elsif_tail  */
+  YYSYMBOL_while_stmt = 148,               /* while_stmt  */
+  YYSYMBOL_unless_stmt = 149,              /* unless_stmt  */
+  YYSYMBOL_until_stmt = 150,               /* until_stmt  */
+  YYSYMBOL_repeat_stmt = 151,              /* repeat_stmt  */
+  YYSYMBOL_loop_stmt = 152,                /* loop_stmt  */
+  YYSYMBOL_loop_incr = 153,                /* loop_incr  */
+  YYSYMBOL_for_stmt = 154,                 /* for_stmt  */
+  YYSYMBOL_given_stmt = 155,               /* given_stmt  */
+  YYSYMBOL_when_list = 156,                /* when_list  */
+  YYSYMBOL_sub_decl = 157,                 /* sub_decl  */
+  YYSYMBOL_scalar_methcall = 158,          /* scalar_methcall  */
+  YYSYMBOL_sub_body = 159,                 /* sub_body  */
+  YYSYMBOL_method_body = 160,              /* method_body  */
+  YYSYMBOL_class_decl = 161,               /* class_decl  */
+  YYSYMBOL_role_decl = 162,                /* role_decl  */
+  YYSYMBOL_is_clauses = 163,               /* is_clauses  */
+  YYSYMBOL_class_body_list = 164,          /* class_body_list  */
+  YYSYMBOL_grammar_decl = 165,             /* grammar_decl  */
+  YYSYMBOL_grammar_body_list = 166,        /* grammar_body_list  */
+  YYSYMBOL_named_arg_list = 167,           /* named_arg_list  */
+  YYSYMBOL_pair_list = 168,                /* pair_list  */
+  YYSYMBOL_param_list = 169,               /* param_list  */
+  YYSYMBOL_block = 170,                    /* block  */
+  YYSYMBOL_closure = 171,                  /* closure  */
+  YYSYMBOL_expr = 172,                     /* expr  */
+  YYSYMBOL_tern_expr = 173,                /* tern_expr  */
+  YYSYMBOL_cmp_expr = 174,                 /* cmp_expr  */
+  YYSYMBOL_divis_expr = 175,               /* divis_expr  */
+  YYSYMBOL_jct_expr = 176,                 /* jct_expr  */
+  YYSYMBOL_dor_expr = 177,                 /* dor_expr  */
+  YYSYMBOL_range_expr = 178,               /* range_expr  */
+  YYSYMBOL_add_expr = 179,                 /* add_expr  */
+  YYSYMBOL_repl_expr = 180,                /* repl_expr  */
+  YYSYMBOL_addsub_expr = 181,              /* addsub_expr  */
+  YYSYMBOL_mul_expr = 182,                 /* mul_expr  */
+  YYSYMBOL_unary_expr = 183,               /* unary_expr  */
+  YYSYMBOL_pow_expr = 184,                 /* pow_expr  */
+  YYSYMBOL_scalar_list = 185,              /* scalar_list  */
+  YYSYMBOL_meth_name = 186,                /* meth_name  */
+  YYSYMBOL_postfix_expr = 187,             /* postfix_expr  */
+  YYSYMBOL_call_expr = 188,                /* call_expr  */
+  YYSYMBOL_arg_list = 189,                 /* arg_list  */
+  YYSYMBOL_atom = 190                      /* atom  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -1030,19 +1031,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  3
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   5068
+#define YYLAST   5233
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  141
+#define YYNTOKENS  142
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  49
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  473
+#define YYNRULES  476
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  1189
+#define YYNSTATES  1195
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   373
+#define YYMAXUTOK   374
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -1059,16 +1060,16 @@ static const yytype_uint8 yytranslate[] =
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,   119,     2,     2,     2,   129,   123,     2,
-     133,   134,   127,   125,   135,   126,   131,   128,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,   140,   132,
-     120,   118,   121,     2,     2,     2,     2,     2,     2,     2,
+       2,     2,     2,   120,     2,     2,     2,   130,   124,     2,
+     134,   135,   128,   126,   136,   127,   132,   129,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     2,   141,   133,
+     121,   119,   122,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,   136,     2,   137,     2,     2,     2,     2,     2,     2,
+       2,   137,     2,   138,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,   138,   122,   139,   124,     2,     2,     2,
+       2,     2,     2,   139,   123,   140,   125,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -1093,61 +1094,61 @@ static const yytype_uint8 yytranslate[] =
       85,    86,    87,    88,    89,    90,    91,    92,    93,    94,
       95,    96,    97,    98,    99,   100,   101,   102,   103,   104,
      105,   106,   107,   108,   109,   110,   111,   112,   113,   114,
-     115,   116,   117,   130
+     115,   116,   117,   118,   131
 };
 
 #if RAKU_YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   507,   507,   518,   519,   522,   524,   526,   528,   532,
-     534,   536,   538,   540,   544,   548,   550,   554,   558,   560,
-     562,   564,   566,   568,   572,   576,   578,   580,   582,   584,
-     586,   588,   590,   592,   594,   602,   604,   606,   608,   610,
-     612,   614,   617,   620,   622,   625,   628,   630,   634,   636,
-     638,   641,   644,   646,   649,   652,   655,   657,   662,   666,
-     670,   675,   679,   680,   682,   684,   686,   688,   691,   693,
-     695,   697,   700,   703,   706,   709,   712,   714,   716,   718,
-     720,   723,   725,   727,   729,   732,   735,   739,   742,   744,
-     746,   748,   751,   754,   757,   760,   763,   766,   769,   770,
-     771,   772,   773,   774,   775,   777,   779,   781,   783,   784,
-     785,   786,   787,   788,   789,   791,   793,   795,   797,   798,
-     799,   800,   803,   805,   807,   809,   811,   813,   815,   817,
-     821,   823,   825,   827,   829,   831,   835,   837,   841,   843,
-     845,   847,   851,   853,   857,   859,   861,   865,   867,   869,
-     873,   876,   882,   888,   893,   899,   904,   909,   917,   928,
-     929,   935,   943,   949,   955,   963,   969,   975,   984,   991,
-    1000,  1009,  1018,  1025,  1032,  1033,  1036,  1039,  1041,  1043,
-    1045,  1047,  1049,  1051,  1053,  1056,  1058,  1060,  1062,  1065,
-    1068,  1074,  1075,  1076,  1079,  1082,  1084,  1086,  1088,  1090,
-    1092,  1094,  1096,  1099,  1101,  1103,  1105,  1108,  1111,  1117,
-    1133,  1148,  1149,  1161,  1175,  1176,  1179,  1182,  1185,  1188,
-    1191,  1194,  1197,  1200,  1203,  1206,  1209,  1212,  1219,  1226,
-    1233,  1240,  1244,  1248,  1252,  1256,  1263,  1270,  1277,  1284,
-    1294,  1302,  1310,  1319,  1326,  1333,  1343,  1351,  1361,  1376,
-    1377,  1382,  1387,  1394,  1398,  1402,  1406,  1412,  1414,  1416,
-    1418,  1422,  1423,  1424,  1425,  1426,  1427,  1428,  1429,  1430,
-    1431,  1432,  1433,  1434,  1435,  1436,  1437,  1438,  1439,  1440,
-    1441,  1442,  1443,  1446,  1447,  1448,  1450,  1452,  1454,  1456,
-    1458,  1461,  1463,  1465,  1467,  1469,  1472,  1475,  1479,  1482,
-    1485,  1488,  1490,  1494,  1497,  1500,  1503,  1506,  1509,  1511,
-    1513,  1515,  1517,  1519,  1521,  1523,  1525,  1529,  1532,  1533,
-    1534,  1535,  1536,  1537,  1538,  1539,  1544,  1549,  1551,  1554,
-    1556,  1559,  1560,  1561,  1562,  1563,  1564,  1565,  1566,  1567,
-    1568,  1569,  1570,  1571,  1572,  1573,  1579,  1585,  1591,  1594,
-    1595,  1598,  1599,  1600,  1603,  1605,  1608,  1609,  1610,  1613,
-    1614,  1617,  1618,  1619,  1622,  1623,  1624,  1627,  1628,  1629,
-    1630,  1631,  1633,  1635,  1638,  1639,  1640,  1641,  1642,  1647,
-    1650,  1651,  1654,  1655,  1658,  1659,  1660,  1661,  1662,  1663,
-    1664,  1665,  1666,  1667,  1668,  1669,  1670,  1672,  1674,  1680,
-    1685,  1686,  1688,  1690,  1695,  1697,  1703,  1709,  1713,  1717,
-    1722,  1729,  1734,  1740,  1746,  1753,  1760,  1765,  1770,  1777,
-    1782,  1787,  1789,  1791,  1793,  1795,  1797,  1799,  1801,  1804,
-    1805,  1806,  1809,  1810,  1811,  1812,  1821,  1822,  1823,  1824,
-    1825,  1826,  1827,  1828,  1829,  1833,  1837,  1840,  1842,  1844,
-    1846,  1848,  1850,  1852,  1854,  1856,  1858,  1859,  1863,  1867,
-    1871,  1872,  1874,  1876,  1879,  1880,  1882,  1884,  1887,  1888,
-    1889,  1891,  1894,  1895
+       0,   508,   508,   519,   520,   523,   525,   527,   529,   533,
+     535,   537,   539,   541,   545,   549,   551,   555,   559,   561,
+     563,   565,   567,   569,   573,   577,   579,   581,   583,   585,
+     587,   589,   591,   593,   595,   597,   599,   601,   609,   611,
+     613,   615,   617,   619,   621,   624,   627,   629,   632,   635,
+     637,   641,   643,   645,   648,   651,   653,   656,   659,   662,
+     664,   669,   673,   677,   682,   686,   687,   689,   691,   693,
+     695,   698,   700,   702,   704,   707,   710,   713,   716,   719,
+     721,   723,   725,   727,   730,   732,   734,   736,   739,   742,
+     746,   749,   751,   753,   755,   758,   761,   764,   767,   770,
+     773,   776,   777,   778,   779,   780,   781,   782,   784,   786,
+     788,   790,   791,   792,   793,   794,   795,   796,   798,   800,
+     802,   804,   805,   806,   807,   810,   812,   814,   816,   818,
+     820,   822,   824,   828,   830,   832,   834,   836,   838,   842,
+     844,   848,   850,   852,   854,   858,   860,   864,   866,   868,
+     872,   874,   876,   880,   883,   889,   895,   900,   906,   911,
+     916,   924,   935,   936,   942,   950,   956,   962,   970,   976,
+     982,   991,   998,  1007,  1016,  1025,  1032,  1039,  1040,  1043,
+    1046,  1048,  1050,  1052,  1054,  1056,  1058,  1060,  1063,  1065,
+    1067,  1069,  1072,  1075,  1081,  1082,  1083,  1086,  1089,  1091,
+    1093,  1095,  1097,  1099,  1101,  1103,  1106,  1108,  1110,  1112,
+    1115,  1118,  1124,  1140,  1155,  1156,  1168,  1182,  1183,  1186,
+    1189,  1192,  1195,  1198,  1201,  1204,  1207,  1210,  1213,  1216,
+    1219,  1226,  1233,  1240,  1247,  1251,  1255,  1259,  1263,  1270,
+    1277,  1284,  1291,  1301,  1309,  1317,  1326,  1333,  1340,  1350,
+    1358,  1368,  1383,  1384,  1389,  1394,  1401,  1405,  1409,  1413,
+    1419,  1421,  1423,  1425,  1429,  1430,  1431,  1432,  1433,  1434,
+    1435,  1436,  1437,  1438,  1439,  1440,  1441,  1442,  1443,  1444,
+    1445,  1446,  1447,  1448,  1449,  1450,  1453,  1454,  1455,  1457,
+    1459,  1461,  1463,  1465,  1468,  1470,  1472,  1474,  1476,  1479,
+    1482,  1486,  1489,  1492,  1495,  1497,  1501,  1504,  1507,  1510,
+    1513,  1516,  1518,  1520,  1522,  1524,  1526,  1528,  1530,  1532,
+    1536,  1539,  1540,  1541,  1542,  1543,  1544,  1545,  1546,  1551,
+    1556,  1558,  1561,  1563,  1566,  1567,  1568,  1569,  1570,  1571,
+    1572,  1573,  1574,  1575,  1576,  1577,  1578,  1579,  1580,  1586,
+    1592,  1598,  1601,  1602,  1605,  1606,  1607,  1610,  1612,  1615,
+    1616,  1617,  1620,  1621,  1624,  1625,  1626,  1629,  1630,  1631,
+    1634,  1635,  1636,  1637,  1638,  1640,  1642,  1645,  1646,  1647,
+    1648,  1649,  1654,  1657,  1658,  1661,  1662,  1665,  1666,  1667,
+    1668,  1669,  1670,  1671,  1672,  1673,  1674,  1675,  1676,  1677,
+    1679,  1681,  1687,  1692,  1693,  1695,  1697,  1702,  1704,  1710,
+    1716,  1720,  1724,  1729,  1736,  1741,  1747,  1753,  1760,  1767,
+    1772,  1777,  1784,  1789,  1794,  1796,  1798,  1800,  1802,  1804,
+    1806,  1808,  1811,  1812,  1813,  1816,  1817,  1818,  1819,  1828,
+    1829,  1830,  1831,  1832,  1833,  1834,  1835,  1836,  1840,  1844,
+    1847,  1849,  1851,  1853,  1855,  1857,  1859,  1861,  1863,  1865,
+    1866,  1870,  1874,  1878,  1879,  1881,  1883,  1886,  1887,  1889,
+    1891,  1894,  1895,  1896,  1898,  1901,  1902
 };
 #endif
 
@@ -1166,7 +1167,7 @@ static const char *const yytname[] =
   "\"end of file\"", "error", "\"invalid token\"", "LIT_INT", "LIT_FLOAT",
   "LIT_STR", "LIT_INTERP_STR", "LIT_REGEX", "LIT_MATCH_GLOBAL",
   "LIT_SUBST", "VAR_SCALAR", "VAR_ARRAY", "VAR_HASH", "VAR_TWIGIL",
-  "IDENT", "VAR_ARRAY_TWIGIL", "VAR_HASH_TWIGIL", "CARET",
+  "IDENT", "QIDENT", "VAR_ARRAY_TWIGIL", "VAR_HASH_TWIGIL", "CARET",
   "DOLLAR_LBRACKET", "VAR_CAPTURE", "VAR_FH", "VAR_NAMED_CAPTURE",
   "KW_USE", "TESTOP", "KW_MY", "KW_SAY", "KW_PRINT", "KW_IF", "KW_ELSE",
   "KW_ELSIF", "KW_WHILE", "KW_FOR", "KW_SUB", "KW_GATHER", "KW_TAKE",
@@ -1206,12 +1207,12 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-857)
+#define YYPACT_NINF (-877)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-473)
+#define YYTABLE_NINF (-476)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -1220,125 +1221,126 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-    -857,    10,  2199,  -857,  -857,  -857,  -857,  -857,   604,   -74,
-     -62,   -65,    -3,  -857,  -857,  4930,  2294,  -857,  -857,  -857,
-      56,  2369,   362,  3955,  4030,  4105,  4180,  4255,     2,   -14,
-    4255,  2444,  2519,    96,    64,  4255,  4255,   150,   183,  4330,
-    4405,    30,   -91,    72,   123,    65,    65,  4480,  4255,    30,
-      30,  4255,   212,   231,    53,  4930,  -857,  -857,   299,   328,
-     350,  4930,  4930,  4930,  -857,  2594,  2670,   226,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,   618,  -857,
-    -857,  -857,   713,   654,   284,   632,   774,   396,   273,  -857,
-     -44,   802,   448,   306,  -857,  -857,   270,   265,   285,   451,
-    -857,  -857,  4255,  4255,  4255,  4255,  4255,  4255,   461,  2745,
-    4555,  2821,   480,  4255,  4255,   353,   122,  1115,   127,   269,
-     129,  -857,   135,    30,  2896,  -857,  -857,   908,   136,  -857,
-     174,   374,  -857,  2972,  -857,   205,   246,   275,   277,   921,
-     522,   218,   532,  2896,   612,  2896,    41,  2896,    30,  2896,
-      30,    11,   116,   252,  -857,  -857,  -857,   314,  -857,   216,
-    -857,   217,   446,   474,   397,   453,   468,   137,   184,  2896,
-      30,  2896,    30,   305,  3048,  -857,  4255,  4255,  -857,  4255,
-    4255,  -857,  4255,  3123,  4255,  3198,  4255,  -857,  -857,   572,
-    -857,  -857,  -857,   516,   530,    17,  -857,   540,  -857,  -857,
-    -857,  -857,  -857,   752,  -857,   807,   828,  -857,   301,   552,
-    1543,  4255,  4255,  4255,  4255,  4255,  4255,  4255,  4255,  -857,
-    4255,  4255,  4255,  4255,  4255,  4255,  4255,  4255,  -857,  4255,
-    4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,
-    4930,  4930,  4930,  4930,  4930,   931,  4930,  4930,  4930,  4930,
-    4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,  4930,
-    4930,  4930,  4930,  4930,   930,   881,   841,   568,   583,   616,
-     626,   640,   650,   143,  -857,   846,  2896,   470,   863,   415,
-     615,   565,   652,  -857,   631,   780,   665,   -10,  -857,   808,
-     856,   858,  2821,   831,  4255,  4255,  4255,  4255,  4255,  4255,
-    4255,  4255,  3273,  -857,  -857,   721,   807,   861,  -857,  4255,
-    4255,  -857,  4630,  -857,  4705,  -857,   293,   297,   319,   307,
-     744,   755,  -857,   865,   888,  4255,  4255,  4255,  4255,  4255,
-    4255,  4255,  -857,  4255,   890,  4255,  4255,  -857,  4255,   893,
-    1001,   902,  -857,   879,  4255,  -857,  4930,  4930,    45,  -857,
-    -857,  -857,  4255,  4255,  4255,  -857,  4255,  4255,  -857,  4255,
-    4255,   767,  4255,  -857,   889,  4255,   897,  4255,   904,   886,
-     923,  -857,  4255,  4255,   911,   813,   818,   822,   826,   836,
-     839,  4255,  -857,  -857,  -857,    30,    13,  -857,    55,   849,
-     864,  -857,  -857,  3348,   883,  1008,  3424,  -857,  -857,   901,
-     225,   239,   913,  3955,  4030,  4255,  1912,     5,   259,  -857,
-     383,   903,   916,   938,   940,   985,   992,  1005,  1014,  1021,
-    1035,  1053,  1056,  1060,  1061,  1062,  1064,  -857,   950,   950,
-     950,   950,   950,   950,   999,   950,   950,   950,   950,   950,
-     950,   950,   950,  -857,  -857,  -857,   396,  -857,  -857,  -857,
-    1073,  1073,   802,   448,   448,   306,   306,  -857,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,   941,  1184,  1069,
-    -857,  3499,  -857,  -857,  -857,  -857,  -857,  -857,  4255,  3575,
-    -857,   926,  -857,  4255,  4255,  4255,  4255,  1085,  1086,  1087,
-    -857,  3651,  -857,  1253,  4255,  1075,  -857,    -8,  -857,  1405,
-     419,  1088,  1067,  -857,  -857,  -857,  -857,  -857,  -857,  -857,
-    -857,   485,  -857,  1078,  -857,  1079,  2896,   542,  1125,   156,
-    3727,   582,  1080,  4255,  -857,  4780,  -857,  4255,  -857,    63,
-    -857,  4255,  4255,  1095,  3348,  1082,  1083,  1084,  1089,  1090,
-    1091,  1092,   685,  3348,  1093,  1094,   716,    30,   -18,  4855,
-    -857,    30,    30,   101,   -70,    -6,    -5,  -857,    16,  -857,
-    -857,  -857,  1097,   928,  1680,   717,  1096,  1098,  1100,  1101,
-    1104,  1105,  -857,  1103,    19,  1099,  1106,  1108,  1107,    30,
-      30,    30,  1110,  1111,  1121,  4255,  -857,  -857,  -857,  -857,
-    -857,  -857,  -857,  1203,  1230,  -857,    25,  1097,   932,    83,
-     489,   236,  -857,   934,  4255,  -857,  -857,   590,  1233,  2821,
-    4255,  4255,   412,    24,   349,  -857,   359,  4255,  4255,  -857,
-    4255,  4255,  -857,  4255,  4255,  4255,  4255,  4255,  4255,  4255,
-    4255,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  4930,  3803,
-    -857,  1329,  1118,   942,  1120,  -857,   945,  3348,   739,  1117,
-    1123,   681,  4255,  4255,  4255,  -857,   947,  -857,   949,   951,
-    -857,  4255,  1179,  1248,   953,  -857,  -857,  -857,  -857,  -857,
-    -857,   955,  -857,  4255,  4255,  4255,   957,  -857,   187,  -857,
-    1143,  2896,   740,  1145,  1097,   960,  1146,  1147,  4255,   962,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,   966,  -857,
-    -857,  -857,  1074,  -857,  -857,  2896,    30,  -857,  -857,  1266,
-    -857,  1270,  1271,  1268,  4255,  1165,  1274,  1277,  -857,  1097,
-     515,  3955,  4030,  1987,  -857,   430,  -857,  -857,  -857,  -857,
-    -857,  -857,  -857,  4255,    30,  -857,  -857,  -857,  1156,  1157,
-    1262,  -857,  -857,  -857,  -857,  4255,  1159,  -857,  -857,   208,
-     720,   909,  1232,  -857,  -857,  1097,  1097,   973,   975,  1280,
-    1281,  1282,  -857,  -857,  1169,  -857,   251,   842,  1158,   -89,
-    4255,  4255,  4255,  4255,  4255,  4255,  -857,  -857,  -857,  -857,
-      66,   200,   289,   378,   382,   388,   391,   402,   406,   414,
-     416,   426,  -857,  -857,   977,  -857,   979,   981,  -857,  1170,
-    -857,  -857,   988,  -857,  -857,  -857,  -857,  1171,  1172,  1173,
-    -857,  -857,  -857,  1176,  4255,  1178,  -857,  3348,   758,  -857,
-    -857,  1181,  1234,  1235,  -857,  1015,  -857,  4255,  -857,  -857,
-    1097,  -857,  -857,   759,  1182,  1183,   -18,  -857,  1017,  1127,
-      30,    30,    30,  -857,  -857,  4255,  -857,  -857,  -857,    -4,
-    -857,    85,  -857,  -857,  -857,   436,   309,  -857,   365,  4255,
-    4255,  4255,  4255,  4255,  4255,  4255,  4255,  -857,    30,  1180,
-    -857,  -857,    30,  1186,  4255,  -857,   363,   399,    34,    75,
-     936,  1188,  1191,   930,  -857,  -857,  1097,  1097,  1317,  1318,
-    1319,  -857,  4255,  3879,  1210,  1211,  -857,   438,   457,   458,
-     471,   472,   475,  -857,  -857,  -857,  -857,  -857,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  1198,
-    -857,  -857,  -857,  -857,  -857,  4255,  1027,  -857,  -857,  4255,
-    4255,  3348,   773,  -857,  -857,  4255,  -857,  -857,  -857,  -857,
-      30,    30,  -857,  -857,  -857,  -857,  -857,  1322,  4255,  1213,
-    1327,  1328,  4255,  4255,  4255,  -857,  -857,  -857,   476,   508,
-     512,   514,   518,   528,   537,   548,  -857,  -857,  -857,  4255,
-    1217,  -857,   180,  1275,  -857,   248,  -857,  1339,  1340,  1223,
-    4255,  -857,  1344,  1345,  1228,  4255,  -857,   115,   173,  1231,
-    1237,  -857,  -857,   647,  -857,  -857,  -857,  -857,  -857,   550,
-    1225,  1029,  4255,  4255,  -857,  -857,  -857,  -857,  -857,  -857,
-    -857,  1236,  1239,  -857,  -857,  1031,  -857,   777,  1144,  -857,
-    -857,  -857,  4255,  -857,  -857,   556,   564,   594,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  1241,    30,  1227,  1041,
-    1238,  1817,  1227,  1043,  1243,  1244,  -857,  1249,  1258,  1260,
-    -857,  1263,  1352,  1353,  1267,  4255,  -857,  1366,  1380,  1269,
-    4255,  -857,  -857,  -857,   274,  -857,  -857,  -857,  1265,   599,
-     610,  -857,  -857,  1273,  -857,    30,  -857,  -857,  -857,  -857,
-    -857,  4255,  -857,  -857,  1227,  -857,  3955,  4030,  2062,  -857,
-     536,  -857,  1227,  -857,  -857,  -857,  -857,  -857,  -857,  1295,
-    1296,  -857,  1297,  1298,  1299,  -857,  1303,  1227,  1045,  -857,
-    -857,  -857,  -857,  -857,  1272,  -857,   551,   315,  -857,   373,
-    4255,  4255,  4255,  4255,  4255,  4255,  4255,  4255,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  1227,    30,  4255,
-    4255,  4255,  -857,  -857,  -857,   628,   629,   630,   638,   639,
-     680,   682,   699,  -857,  -857,   707,   711,   715,  -857,  -857,
-    -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857,  -857
+    -877,    85,  2211,  -877,  -877,  -877,  -877,  -877,   549,   112,
+     162,    17,    -1,  -877,  -877,  5094,  2307,  -877,  -877,  -877,
+     529,  2382,    29,  4119,  4194,  4269,  4344,  4419,     6,   -14,
+    4419,  2457,  2532,   769,   153,  4419,  4419,   174,   206,  4494,
+    4569,    88,   -55,    28,    58,   109,   109,  4644,  4419,    88,
+      88,  4419,   288,   296,    74,  5094,  -877,  -877,   305,   269,
+     311,  5094,  5094,  5094,  -877,  2607,  2683,   312,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,   487,  -877,
+    -877,  -877,   736,   536,   264,   505,   697,   523,   241,  -877,
+     115,   545,   447,   797,  -877,  -877,   278,   315,   342,   368,
+    -877,  -877,  4419,  4419,  4419,  4419,  4419,  4419,   441,  2758,
+    4719,  2834,   478,  4419,  4419,   387,   259,  1121,   128,   364,
+     250,  -877,   464,    88,  2909,  -877,  -877,   584,   265,  -877,
+     793,  2985,  3060,  -877,  3135,  -877,   227,   224,   326,   344,
+     958,   595,   831,   612,  2909,   450,  2909,    70,  2909,    88,
+    2909,    88,    11,   120,   -19,  -877,  -877,  -877,   284,  -877,
+      62,  -877,   159,   509,   517,   627,   516,   558,   271,   277,
+    2909,    88,  2909,    88,   372,  3211,  -877,  4419,  4419,  -877,
+    4419,  4419,  -877,  4419,  3286,  4419,  3361,  4419,  -877,  -877,
+     664,  -877,  -877,  -877,   589,   619,    45,  -877,   643,  -877,
+    -877,  -877,  -877,  -877,   667,  -877,   544,   575,  -877,   825,
+     678,  1551,  4419,  4419,  4419,  4419,  4419,  4419,  4419,  4419,
+    -877,  4419,  4419,  4419,  4419,  4419,  4419,  4419,  4419,  -877,
+    4419,  5094,  5094,  5094,  5094,  5094,  5094,  5094,  5094,  5094,
+    5094,  5094,  5094,  5094,  5094,  5094,   966,  5094,  5094,  5094,
+    5094,  5094,  5094,  5094,  5094,  5094,  5094,  5094,  5094,  5094,
+    5094,  5094,  5094,  5094,  5094,   867,   695,   606,   707,   709,
+     713,   743,   764,   775,   257,  -877,   598,  2909,   497,   679,
+     828,   790,   806,   838,  -877,   857,   989,   882,   -15,  -877,
+    1011,   784,   815,  2834,  1054,  4419,  4419,  4419,  4419,  4419,
+    4419,  4419,  4419,  3437,  -877,  -877,   960,  -877,   971,   976,
+     544,   859,  -877,  4419,  4419,  -877,  4794,  -877,  4869,  -877,
+     366,   394,   405,   179,   977,   994,  -877,   861,   863,  4419,
+    4419,  4419,  4419,  4419,  4419,  4419,  -877,  4419,   866,  4419,
+    4419,  -877,  4419,   870,   978,   893,  -877,  1068,  4419,  -877,
+    5094,  5094,     2,  -877,  -877,  -877,  4419,  4419,  4419,  -877,
+    4419,  4419,  -877,  4419,  4419,   984,  4419,  -877,  1114,  4419,
+    1115,  4419,   895,  1101,   897,  -877,  4419,  4419,  1126,  1019,
+    1020,  1023,  1024,  1025,  1022,  4419,  -877,  -877,  -877,    88,
+      12,  -877,    21,  1026,  1032,  -877,  -877,  3512,  1040,  1158,
+    3588,  -877,  -877,   833,   299,   323,  1050,  4119,  4194,  4419,
+    1923,    32,   106,  -877,   383,  1038,  1039,  1041,  1046,  1047,
+    1051,  1052,  1053,  1055,  1056,  1059,  1061,  1062,  1064,  1065,
+    1067,  -877,  1058,  1058,  1058,  1058,  1058,  1058,  1070,  1058,
+    1058,  1058,  1058,  1058,  1058,  1058,  1058,  -877,  -877,  -877,
+     523,  -877,  -877,  -877,  1076,  1076,   545,   447,   447,   797,
+     797,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  1049,  1173,  1073,  -877,  3663,  -877,  -877,  -877,  -877,
+    -877,  -877,  4419,  3739,  -877,   899,  -877,  4419,  4419,  4419,
+    4419,  1074,  1083,  1087,  -877,  3815,  -877,  1260,  4419,  1075,
+    -877,    -6,  -877,  1412,   846,  1086,  1077,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877,   847,  -877,  -877,  -877,  1078,
+    -877,  1079,  2909,   534,  1127,   183,  3891,   631,  1080,  4419,
+    -877,  4944,  -877,  4419,  -877,    55,  -877,  4419,  4419,  1095,
+    3512,  1082,  1085,  1088,  1089,  1090,  1094,  1096,   651,  3512,
+    1097,  1099,   759,    88,    14,  5019,  -877,    88,    88,    38,
+     -42,   -38,    -5,  -877,   161,  -877,  -877,  -877,  1098,   901,
+    1689,   763,  1100,  1103,  1105,  1106,  1107,  1109,  -877,  1092,
+      53,  1112,  1104,  1123,  1110,    88,    88,    88,  1113,  1116,
+    1124,  4419,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  1202,
+    1205,  -877,   208,  1098,   903,    67,   432,   353,  -877,   905,
+    4419,  -877,  -877,   850,  1237,  2834,  4419,  4419,   237,    22,
+     389,  -877,   260,  4419,  4419,  -877,  4419,  4419,  -877,  4419,
+    4419,  4419,  4419,  4419,  4419,  4419,  4419,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  5094,  3967,  -877,  1336,  1119,   907,
+    1120,  -877,   909,  3512,   782,  1129,  1130,   851,  4419,  4419,
+    4419,  -877,   912,  -877,   914,   916,  -877,  4419,  1171,  1243,
+     918,  -877,  -877,  -877,  -877,  -877,  -877,   920,  -877,  4419,
+    4419,  4419,   922,  -877,    77,  -877,  1128,  2909,   811,  1136,
+    1098,   924,  1142,  1150,  4419,   926,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,   928,  -877,  -877,  -877,  1037,  -877,
+    -877,  2909,    88,  -877,  -877,  1249,  -877,  1274,  1275,  1272,
+    4419,  1168,  1278,  1279,  -877,  1098,   577,  4119,  4194,  1998,
+    -877,   409,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  4419,
+      88,  -877,  -877,  -877,  1157,  1159,  1262,  -877,  -877,  -877,
+    -877,  4419,  1162,  -877,  -877,   279,   660,   541,  1234,  -877,
+    -877,  1098,  1098,   935,   937,  1283,  1284,  1285,  -877,  -877,
+    1169,  -877,   304,   854,  1161,   -82,  4419,  4419,  4419,  4419,
+    4419,  4419,  -877,  -877,  -877,  -877,   -17,    56,   333,   339,
+     367,   369,   393,   407,   419,   429,   449,   457,  -877,  -877,
+     939,  -877,   941,   945,  -877,  1172,  -877,  -877,   947,  -877,
+    -877,  -877,  -877,  1174,  1175,  1176,  -877,  -877,  -877,  1177,
+    4419,  1179,  -877,  3512,   812,  -877,  -877,  1178,  1227,  1235,
+    -877,   950,  -877,  4419,  -877,  -877,  1098,  -877,  -877,   822,
+    1186,  1188,    14,  -877,   952,  1060,    88,    88,    88,  -877,
+    -877,  4419,  -877,  -877,  -877,    33,  -877,   274,  -877,  -877,
+    -877,   381,    24,  -877,   261,  4419,  4419,  4419,  4419,  4419,
+    4419,  4419,  4419,  -877,    88,  1182,  -877,  -877,    88,  1190,
+    4419,  -877,   422,   431,    47,    75,   600,  1191,  1192,   867,
+    -877,  -877,  1098,  1098,  1319,  1320,  1321,  -877,  4419,  4043,
+    1212,  1213,  -877,   468,   481,   531,   532,   533,   542,  -877,
+    -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877,  1200,  -877,  -877,  -877,  -877,
+    -877,  4419,   956,  -877,  -877,  4419,  4419,  3512,   823,  -877,
+    -877,  4419,  -877,  -877,  -877,  -877,    88,    88,  -877,  -877,
+    -877,  -877,  -877,  1322,  4419,  1215,  1327,  1328,  4419,  4419,
+    4419,  -877,  -877,  -877,   568,   587,   592,   603,   604,   621,
+     622,   625,  -877,  -877,  -877,  4419,  1208,  -877,   187,  1266,
+    -877,   233,  -877,  1331,  1337,  1226,  4419,  -877,  1346,  1347,
+    1229,  4419,  -877,   262,   266,  1230,  1233,  -877,  -877,   437,
+    -877,  -877,  -877,  -877,  -877,   626,  1228,   959,  4419,  4419,
+    -877,  -877,  -877,  -877,  -877,  -877,  -877,  1232,  1238,  -877,
+    -877,   963,  -877,   824,  1071,  -877,  -877,  -877,  4419,  -877,
+    -877,   645,   671,   674,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  1239,    88,  1236,   967,  1241,  1827,  1236,   972,
+    1240,  1244,  -877,  1245,  1246,  1250,  -877,  1251,  1360,  1371,
+    1255,  4419,  -877,  1375,  1384,  1269,  4419,  -877,  -877,  -877,
+     253,  -877,  -877,  -877,  1263,   675,   676,  -877,  -877,  1276,
+    -877,    88,  -877,  -877,  -877,  -877,  -877,  4419,  -877,  -877,
+    1236,  -877,  4119,  4194,  2073,  -877,   420,  -877,  1236,  -877,
+    -877,  -877,  -877,  -877,  -877,  1277,  1280,  -877,  1281,  1286,
+    1287,  -877,  1288,  1236,   979,  -877,  -877,  -877,  -877,  -877,
+    1273,  -877,   439,   213,  -877,   316,  4419,  4419,  4419,  4419,
+    4419,  4419,  4419,  4419,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  1236,    88,  4419,  4419,  4419,  -877,  -877,
+    -877,   677,   703,   704,   722,   723,   734,   737,   738,  -877,
+    -877,   739,   740,   742,  -877,  -877,  -877,  -877,  -877,  -877,
+    -877,  -877,  -877,  -877,  -877
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1346,145 +1348,146 @@ static const yytype_int16 yypact[] =
    means the default is an error.  */
 static const yytype_int16 yydefact[] =
 {
-       3,     0,     2,     1,   432,   433,   434,   436,   437,   442,
-     443,   457,   456,   458,   459,     0,     0,   444,   445,   446,
+       3,     0,     2,     1,   435,   436,   437,   439,   440,   445,
+     446,   460,   459,   461,   462,     0,     0,   447,   448,   449,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,   451,   435,     0,     0,
-       0,     0,     0,     0,    99,     0,     0,     3,     4,   100,
-     101,   108,   109,   110,   111,   102,   103,   118,     0,   119,
-     120,   121,   107,     0,   328,   330,   348,   350,   353,   355,
-     358,   360,   363,   366,   373,   379,   381,   397,   428,     0,
-     440,   441,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,   437,   442,
-     443,   457,   456,     0,     0,   472,   377,   437,   442,   464,
-       0,     0,    35,     0,   429,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,   454,   438,     0,     0,
+       0,     0,     0,     0,   102,     0,     0,     3,     4,   103,
+     104,   111,   112,   113,   114,   105,   106,   121,     0,   122,
+     123,   124,   110,     0,   331,   333,   351,   353,   356,   358,
+     361,   363,   366,   369,   376,   382,   384,   400,   431,     0,
+     443,   444,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,   440,   445,
+     446,   460,   459,     0,     0,   475,   380,   440,   445,   467,
+       0,     0,     0,    38,     0,   432,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,   358,     0,   473,   326,   325,     0,    49,     0,
-      53,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,   144,     0,   147,     0,     0,   112,     0,
-       0,   113,     0,     0,     0,     3,     0,   425,   427,   104,
-     106,   421,   211,     0,     0,     0,   378,     0,   438,   439,
-     376,   375,   374,   437,   468,     0,     0,   460,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,    62,
-       0,     0,     0,     0,     0,     0,     0,     0,    98,     0,
+       0,     0,     0,   361,     0,   476,   329,   328,     0,    52,
+       0,    56,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,   147,     0,   150,     0,     0,   115,
+       0,     0,   116,     0,     0,     0,     3,     0,   428,   430,
+     107,   109,   424,   214,     0,     0,     0,   381,     0,   441,
+     442,   379,   378,   377,   440,   471,     0,     0,   463,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+      65,     0,     0,     0,     0,     0,     0,     0,     0,   101,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,   320,   321,   322,
-     323,   324,   318,     0,   404,     0,     0,   319,     0,     0,
-       0,     0,     0,    39,   409,     0,   408,   456,   400,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,   323,   324,
+     325,   326,   327,   321,     0,   407,     0,     0,   322,     0,
+       0,     0,     0,     0,    42,   412,     0,   411,   459,   403,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,   465,    29,   468,     0,     0,    38,   431,
-       0,     6,     0,    10,     0,    11,     0,     0,     0,     0,
-       0,     0,   382,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,    40,     0,     0,     0,     0,    43,     0,     0,
-     125,     0,   137,     0,     0,   156,     0,     0,     0,     3,
-     163,    46,     0,     0,     0,    48,     0,     0,    52,     0,
-       0,     0,     0,   159,     0,     0,     0,     0,     0,   140,
-       0,   143,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,   422,   424,   426,     0,     0,   214,     0,     0,
-       0,   249,   469,     0,     0,     0,     0,   461,   284,   437,
-     442,   443,   457,     0,     0,     0,     0,     0,     0,   283,
+       0,     0,     0,     0,   468,    29,     0,    31,     0,   471,
+       0,     0,    41,   434,     0,     6,     0,    10,     0,    11,
+       0,     0,     0,     0,     0,     0,   385,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,    43,     0,     0,     0,
+       0,    46,     0,     0,   128,     0,   140,     0,     0,   159,
+       0,     0,     0,     3,   166,    49,     0,     0,     0,    51,
+       0,     0,    55,     0,     0,     0,     0,   162,     0,     0,
+       0,     0,     0,   143,     0,   146,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,   425,   427,   429,     0,
+       0,   217,     0,     0,     0,   252,   472,     0,     0,     0,
+       0,   464,   287,   440,   445,   446,   460,     0,     0,     0,
+       0,     0,     0,   286,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,   327,   333,   334,
-     337,   338,   331,   332,     0,   335,   336,   339,   340,   341,
-     342,   343,   344,   345,   346,   347,   349,   351,   352,   354,
-     356,   357,   359,   361,   362,   364,   365,   370,   371,   372,
-     367,   368,   369,   380,   384,   396,   389,   390,   391,   392,
-     395,   393,   394,   387,   388,   385,   386,   420,     0,   417,
-      59,     0,    93,    94,    95,    96,    97,    56,     0,     0,
-     403,     0,    15,     0,     0,     0,     0,   447,   452,   453,
-      61,     0,   412,     0,     0,     0,   401,     0,   399,   431,
-       0,     0,     0,   320,   321,   322,   323,   324,   318,   319,
-     466,     0,    37,     0,   430,     0,     0,     0,   434,   456,
-       0,     0,     0,     0,    26,     0,    27,     0,    28,     0,
-     166,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,   469,     0,     0,
-     128,   469,     0,     0,   356,   357,   261,   264,     0,   277,
-     279,   281,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,    34,   398,     0,     0,     0,     0,     0,   469,
-       0,   469,     0,     0,     0,     0,   114,   115,   116,   117,
-     317,   423,   105,     0,     0,   214,     0,     0,     0,     0,
-       0,     0,   470,     0,     0,   383,   462,     0,     0,     0,
-       0,     0,     0,     0,     0,   310,     0,     0,     0,   311,
-       0,     0,   312,     0,     0,     0,     0,     0,     0,     0,
-       0,   285,    63,    65,    67,    70,    68,    69,    64,    66,
-      76,    78,    80,    83,    81,    82,    77,    79,     0,     0,
-     413,     0,     0,     0,     0,   173,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,   411,     0,   407,     0,     0,
-     253,     0,     0,     0,     0,   447,   452,   453,   467,    36,
-       5,     0,    12,     0,     0,     0,     0,    19,     0,    18,
+       0,   330,   336,   337,   340,   341,   334,   335,     0,   338,
+     339,   342,   343,   344,   345,   346,   347,   348,   349,   350,
+     352,   354,   355,   357,   359,   360,   362,   364,   365,   367,
+     368,   373,   374,   375,   370,   371,   372,   383,   387,   399,
+     392,   393,   394,   395,   398,   396,   397,   390,   391,   388,
+     389,   423,     0,   420,    62,     0,    96,    97,    98,    99,
+     100,    59,     0,     0,   406,     0,    15,     0,     0,     0,
+       0,   450,   455,   456,    64,     0,   415,     0,     0,     0,
+     404,     0,   402,   434,     0,     0,     0,   323,   324,   325,
+     326,   327,   321,   322,   469,     0,    30,    32,    40,     0,
+     433,     0,     0,     0,   437,   459,     0,     0,     0,     0,
+      26,     0,    27,     0,    28,     0,   169,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-      84,    87,    86,    90,    88,    89,    85,    41,     0,    91,
-      92,    44,   122,   127,   126,     0,     0,   136,   153,     0,
-     155,     0,     0,     0,     0,   266,     0,     0,   162,     0,
-       0,     0,     0,     0,   174,     0,    47,    50,    51,    54,
-      55,    31,    30,     0,     0,   157,   454,   455,     0,     0,
-     138,   141,   142,   145,   146,     0,     0,   212,   213,     0,
-       0,     0,     0,   210,   171,     0,     0,     0,     0,     0,
-       0,     0,   248,   471,     0,   463,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,   294,   301,   308,   309,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,   329,   419,     0,   416,     0,     0,    58,     0,
-      60,   172,     0,    16,   450,   449,   448,     0,     0,     0,
-     410,   405,   406,     0,     0,     0,   402,     0,     0,   258,
-     257,     0,     0,     0,    21,     0,    22,     0,    25,   165,
-       0,    33,    32,     0,   471,   471,     0,   129,     0,   130,
-       0,     0,     0,   262,   273,     0,   267,   268,   161,   269,
-     265,     0,   278,   280,   282,     0,     0,   177,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,   175,     0,     0,
-      74,    75,     0,     0,     0,   209,     0,     0,     0,     0,
-       0,     0,     0,     0,   170,   168,     0,     0,     0,     0,
-       0,     9,     0,     0,   447,   453,   305,     0,     0,     0,
-       0,     0,     0,   313,   314,   315,   316,   286,   288,   290,
-     293,   291,   292,   287,   289,   418,   415,   414,    57,   471,
-      71,    72,    73,   254,   255,     0,     0,    13,    20,     0,
-       0,     0,     0,   164,     7,     0,    42,    45,   124,   123,
-     469,     0,   134,   154,   151,   152,   275,     0,     0,   270,
-       0,     0,     0,     0,     0,   178,   179,   176,     0,     0,
-       0,     0,     0,     0,     0,     0,   160,   158,   139,     0,
-       0,   150,     0,     3,   244,     0,   241,     0,     0,     0,
-       0,   220,     0,     0,     0,     0,   215,     0,     0,     0,
-       0,   216,   217,     0,   167,   169,   250,   251,   252,     0,
-     173,     0,     0,     0,   295,   297,   300,   298,   299,   296,
-      17,     0,   471,   260,   259,     0,    23,     0,   131,   132,
-     263,   274,     0,   271,   272,     0,     0,     0,   180,   182,
-     184,   187,   185,   186,   181,   183,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,   231,     0,     0,     0,
-     232,     0,     0,     0,     0,     0,   222,     0,     0,     0,
-       0,   221,   218,   219,     0,   247,   304,   303,   172,     0,
-       0,   256,    14,   471,     8,     0,   135,   276,   188,   190,
-     189,     0,   149,   243,     0,   192,     0,     0,     0,   191,
-       0,   240,     0,   229,   230,   224,   227,   228,   223,     0,
-       0,   233,     0,     0,     0,   234,     0,     0,     0,   302,
-     306,   307,    24,   133,     0,   242,     0,     0,   195,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,   193,   239,
-     237,   238,   226,   235,   236,   225,   246,     0,     0,     0,
-       0,     0,   196,   197,   194,     0,     0,     0,     0,     0,
-       0,     0,     0,   245,   148,     0,     0,     0,   198,   200,
-     202,   205,   203,   204,   199,   201,   206,   208,   207
+       0,     0,     0,   472,     0,     0,   131,   472,     0,     0,
+     359,   360,   264,   267,     0,   280,   282,   284,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,    37,   401,
+       0,     0,     0,     0,     0,   472,     0,   472,     0,     0,
+       0,     0,   117,   118,   119,   120,   320,   426,   108,     0,
+       0,   217,     0,     0,     0,     0,     0,     0,   473,     0,
+       0,   386,   465,     0,     0,     0,     0,     0,     0,     0,
+       0,   313,     0,     0,     0,   314,     0,     0,   315,     0,
+       0,     0,     0,     0,     0,     0,     0,   288,    66,    68,
+      70,    73,    71,    72,    67,    69,    79,    81,    83,    86,
+      84,    85,    80,    82,     0,     0,   416,     0,     0,     0,
+       0,   176,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,   414,     0,   410,     0,     0,   256,     0,     0,     0,
+       0,   450,   455,   456,   470,    39,     5,     0,    12,     0,
+       0,     0,     0,    19,     0,    18,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,    87,    90,    89,    93,
+      91,    92,    88,    44,     0,    94,    95,    47,   125,   130,
+     129,     0,     0,   139,   156,     0,   158,     0,     0,     0,
+       0,   269,     0,     0,   165,     0,     0,     0,     0,     0,
+     177,     0,    50,    53,    54,    57,    58,    34,    33,     0,
+       0,   160,   457,   458,     0,     0,   141,   144,   145,   148,
+     149,     0,     0,   215,   216,     0,     0,     0,     0,   213,
+     174,     0,     0,     0,     0,     0,     0,     0,   251,   474,
+       0,   466,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,   297,   304,   311,   312,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,   332,   422,
+       0,   419,     0,     0,    61,     0,    63,   175,     0,    16,
+     453,   452,   451,     0,     0,     0,   413,   408,   409,     0,
+       0,     0,   405,     0,     0,   261,   260,     0,     0,     0,
+      21,     0,    22,     0,    25,   168,     0,    36,    35,     0,
+     474,   474,     0,   132,     0,   133,     0,     0,     0,   265,
+     276,     0,   270,   271,   164,   272,   268,     0,   281,   283,
+     285,     0,     0,   180,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,   178,     0,     0,    77,    78,     0,     0,
+       0,   212,     0,     0,     0,     0,     0,     0,     0,     0,
+     173,   171,     0,     0,     0,     0,     0,     9,     0,     0,
+     450,   456,   308,     0,     0,     0,     0,     0,     0,   316,
+     317,   318,   319,   289,   291,   293,   296,   294,   295,   290,
+     292,   421,   418,   417,    60,   474,    74,    75,    76,   257,
+     258,     0,     0,    13,    20,     0,     0,     0,     0,   167,
+       7,     0,    45,    48,   127,   126,   472,     0,   137,   157,
+     154,   155,   278,     0,     0,   273,     0,     0,     0,     0,
+       0,   181,   182,   179,     0,     0,     0,     0,     0,     0,
+       0,     0,   163,   161,   142,     0,     0,   153,     0,     3,
+     247,     0,   244,     0,     0,     0,     0,   223,     0,     0,
+       0,     0,   218,     0,     0,     0,     0,   219,   220,     0,
+     170,   172,   253,   254,   255,     0,   176,     0,     0,     0,
+     298,   300,   303,   301,   302,   299,    17,     0,   474,   263,
+     262,     0,    23,     0,   134,   135,   266,   277,     0,   274,
+     275,     0,     0,     0,   183,   185,   187,   190,   188,   189,
+     184,   186,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,   234,     0,     0,     0,   235,     0,     0,     0,
+       0,     0,   225,     0,     0,     0,     0,   224,   221,   222,
+       0,   250,   307,   306,   175,     0,     0,   259,    14,   474,
+       8,     0,   138,   279,   191,   193,   192,     0,   152,   246,
+       0,   195,     0,     0,     0,   194,     0,   243,     0,   232,
+     233,   227,   230,   231,   226,     0,     0,   236,     0,     0,
+       0,   237,     0,     0,     0,   305,   309,   310,    24,   136,
+       0,   245,     0,     0,   198,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,   196,   242,   240,   241,   229,   238,
+     239,   228,   249,     0,     0,     0,     0,     0,   199,   200,
+     197,     0,     0,     0,     0,     0,     0,     0,     0,   248,
+     151,     0,     0,     0,   201,   203,   205,   208,   206,   207,
+     202,   204,   209,   211,   210
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-    -857,  -857,     1,  -857,  -554,  -717,  -857,  -857,  -857,  -857,
-    -857,   311,  1373,  -857,  -857,  -857,  -857,  -307,  -856,  -857,
-    -857,  -857,   809,  -857,  -857,  -496,   877,  -368,   339,  1135,
-      -2,  -234,  -857,   812,  1167,  -857,   712,   -16,  1187,   933,
-     935,    20,  -857,  1294,  -262,  -857,  -857,   120,  -857
+    -877,  -877,     1,  -877,  -559,  -724,  -877,  -877,  -877,  -877,
+    -877,   300,  1383,  -877,  -877,  -877,  -877,  -306,  -876,  -877,
+    -877,  -877,   816,  -877,  -877,  -498,   900,  -386,   337,  1072,
+      -2,  -234,  -877,   779,  1195,  -877,   731,   -16,  1184,   868,
+     864,    -8,  -877,  1292,  -264,  -877,  -877,   263,  -877
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int16 yydefgoto[] =
 {
-       0,     1,   210,    68,    69,   560,    70,    71,    72,    73,
-      74,   990,    75,    76,   584,    77,    78,   350,   994,    79,
-      80,   386,   606,    81,   611,   290,   531,   573,   125,   183,
-     134,    84,    85,    86,    87,    88,    89,    90,    91,    92,
-      93,    94,    95,   206,   477,    96,    97,   135,    98
+       0,     1,   211,    68,    69,   566,    70,    71,    72,    73,
+      74,   996,    75,    76,   590,    77,    78,   354,  1000,    79,
+      80,   390,   612,    81,   617,   291,   537,   579,   125,   184,
+     135,    84,    85,    86,    87,    88,    89,    90,    91,    92,
+      93,    94,    95,   207,   481,    96,    97,   136,    98
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1492,178 +1495,179 @@ static const yytype_int16 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      83,     2,   434,   479,   723,   857,   682,   678,   115,    25,
-       3,   152,   540,   684,   130,   731,   153,    27,   733,   967,
-     608,   144,   146,   148,   150,   151,   735,   603,   157,   159,
-     161,   389,   627,   165,   166,   126,   604,   170,   172,   250,
-     251,   996,   174,   500,   110,   187,   188,    67,   997,   191,
-     916,   335,   628,   114,   252,   566,   567,   998,   112,   568,
-     753,   754,   111,   205,   208,   566,   567,   194,   335,   568,
-     131,   336,   504,   566,   567,   196,   113,   568,   164,   732,
-     252,   200,   201,   202,   390,   195,   770,   771,   336,  1002,
-     772,   736,   737,   566,   567,   969,   343,   568,  1003,   176,
-     267,   268,   269,   270,   271,   272,   162,   999,   277,   279,
-     163,   281,   282,   734,   968,   569,   570,   571,   252,   177,
-      67,   116,   205,   117,    67,   569,   570,   571,   116,  1072,
-     117,   306,   683,   569,   570,   571,   284,   178,  1073,   285,
-      67,   324,   962,   334,   629,   339,   344,   341,  1004,    67,
-     179,   605,  1000,   569,   570,   571,   337,  1085,   755,   338,
-     970,   971,   167,   797,   773,   816,  1001,   368,    67,   370,
-     180,   705,   375,   337,   376,   377,   338,   378,   379,   572,
-     380,   382,   383,   380,   384,   286,   729,  1077,  1074,   607,
-     566,   567,   842,  1005,   568,   168,  1078,   704,   596,   346,
-     347,   843,  1103,   182,   178,   923,  1111,  1006,   410,   411,
-     412,   413,   414,   415,   416,   417,   418,   776,   419,   420,
-     421,   422,   423,   424,   425,   426,   192,   427,   320,   275,
-     100,   101,   321,  1075,   450,   451,   309,   291,   695,    67,
-     252,   777,   778,   353,   356,   193,  1079,  1076,  1135,   293,
-     569,   570,   571,   307,   301,   181,  1149,   364,   566,   567,
-     109,   488,   568,   354,   357,   738,   116,   294,   117,   770,
-     771,  1156,   292,   772,   491,   365,   489,   457,   458,   459,
-     460,   461,   462,   463,   566,   567,   630,   116,   568,   117,
-     510,  1080,   512,   513,   514,   515,   516,   517,   518,   519,
-     774,  1173,   958,   209,   366,  1081,   631,   524,   525,   302,
-     527,   303,   532,   197,  1058,   779,   780,   781,   569,   570,
-     571,  1096,   367,   545,   546,   547,   548,   549,   550,   551,
-     564,   565,   597,   554,   555,   372,   335,   308,   198,   924,
-     309,    82,   335,   110,   569,   570,   571,   895,   355,   358,
-     574,   576,   577,   373,   578,   579,   336,   580,   581,   112,
-     199,   619,   336,   586,   310,   588,   229,   154,   156,   912,
-     592,   593,   136,   137,   138,   782,   139,   620,   311,   601,
-     173,   175,  1062,   249,   913,   348,   353,   263,   189,   190,
-     349,   181,   353,   312,   140,   314,   264,   849,   632,   141,
-     353,   622,   623,   624,   626,   292,   354,   313,  1127,   315,
-     633,   533,   354,   634,   635,   535,   265,   257,   258,   259,
-     354,   598,   521,   636,   812,   534,   637,   638,   925,   536,
-     639,   640,   868,   260,   261,   262,   396,   537,   397,   790,
-     539,   337,   326,   791,   338,   349,   351,   337,   976,   352,
-     338,   538,   792,   552,  1163,   793,   794,   879,   556,   795,
-     880,   881,   154,   972,   563,   266,   326,   973,   904,   905,
-     882,   361,   575,   883,   884,   273,   328,   885,   886,   329,
-     330,   351,   583,   974,   352,   283,   664,   340,   798,   342,
-     345,   355,   669,   670,   280,   142,   992,   355,   799,   566,
-     567,   993,   680,   568,   977,   355,   304,   524,   897,   369,
-     599,   371,  1164,   613,   650,   228,   617,   926,   247,   248,
-     651,   927,   641,   652,   691,   869,   870,   928,   205,   871,
-     929,   700,   995,   702,   653,   703,   319,   993,   654,   706,
-     707,   930,   322,   953,   332,   931,   655,   333,   656,    82,
-     496,   796,   497,   932,   496,   933,   685,   726,   657,   569,
-     570,   571,   228,  1140,   359,   934,  1141,  1142,   332,   887,
-     710,   333,   745,   255,   256,   975,  1143,  1024,  1159,  1144,
-    1145,   326,  1160,  1146,  1147,   872,   873,   874,   362,   712,
-     713,   328,   360,   766,   329,   330,  1025,  1026,  1161,  1014,
-    1015,   663,   492,   714,   715,   493,   363,   716,   650,   666,
-    1027,  1028,   784,   668,  1029,  1048,   671,   787,   788,   789,
-     309,   676,   688,   679,  1059,   800,   801,  1063,   802,   803,
-     385,   804,   805,   806,   807,   808,   809,   810,   811,   325,
-     651,  1013,   326,   327,   652,   211,   653,  1049,   212,   213,
-     654,  1050,   328,  1051,   387,   329,   330,  1052,   214,   331,
-     655,   215,   216,   388,   709,   217,   218,  1053,   228,   656,
-     827,   828,   829,   718,   692,  1148,  1054,   693,   391,   833,
-     657,   220,   820,   332,   221,   222,   333,  1055,   710,  1086,
-    1162,   398,   839,   840,   223,  1098,   712,   224,   225,   845,
-     482,   226,   227,  1099,   499,    99,   853,   100,   101,   102,
-     103,   104,   105,   106,   697,   483,  1128,   698,   230,   231,
-     232,   233,   107,   858,   602,   309,   716,   785,   234,   235,
-     236,   940,   864,  1100,   464,   108,   498,   109,  1130,   875,
-     876,   878,   942,   465,   332,   466,   467,   333,   484,  1131,
-     219,   888,   237,   238,   468,   469,  -472,  -472,   485,   470,
-     650,   651,   652,   893,   501,   471,   472,  1178,  1179,  1180,
-     653,   654,   486,   473,   474,   475,   476,  1181,  1182,   814,
-    1084,   817,   487,   896,   500,   993,   228,   822,   917,   918,
-     919,   920,   921,   922,   502,  -472,  -472,  -472,   503,  -472,
-    -472,  -472,  -472,  -472,  -472,  -472,  -472,  -472,  -472,  -472,
-    -472,  -472,   655,   838,   656,  -472,   309,   717,   826,  1183,
-     309,  1184,   505,  -472,  -472,  -472,  -472,  -472,  -472,  -472,
-    -472,   657,   944,  -472,  -472,  -472,  -472,  -472,  1185,   710,
-    -472,  -472,  -472,   712,  -472,   511,  1186,   716,   721,   746,
-    1187,   309,   309,   522,  1188,   100,   101,   295,   296,   297,
-     298,   299,   541,   966,   239,   240,   241,   242,   243,   244,
-     300,   823,   846,   542,   309,   847,   245,   978,   979,   980,
-     981,   982,   983,   984,   985,   109,  -382,  -382,   246,   562,
-     947,   954,   991,   309,   955,   464,   722,   724,   478,   582,
-     727,   728,   730,   585,   465,  1036,   466,   467,   309,  1094,
-    1019,   587,   309,    82,   590,   468,   469,   253,   254,   898,
-     470,   594,   899,   900,   901,   902,   471,   472,   760,   761,
-     762,   316,   317,   318,   473,   474,   475,   476,   443,   444,
-     445,   392,   393,  1031,   464,   595,  1007,  1033,  1034,  1008,
-     596,  1009,  1010,   465,   597,   466,   467,   946,   598,   447,
-     448,   449,   394,   395,   468,   469,  1041,   952,   599,   470,
-    1045,  1046,  1047,   480,   481,   471,   472,   496,   600,   914,
-     490,   309,   609,   473,   474,   475,   476,  1056,   494,   495,
-     506,   507,   508,   509,  1061,   523,   309,   610,  1067,   543,
-     395,   614,    99,  1071,   100,   101,   102,   103,   104,   105,
-     106,   100,   101,   295,   296,   297,   298,   299,   615,   107,
-    1089,  1090,   392,   544,   392,   553,   300,   557,   393,   558,
-     559,   621,   618,  1021,   109,   642,   561,   393,   589,   393,
-    1097,   109,   428,   429,   430,   431,   432,   433,   643,   435,
-     436,   437,   438,   439,   440,   441,   442,   591,   393,  1110,
-     392,   667,   739,   740,   246,   859,   775,   740,   783,   309,
-     644,  1035,   645,  1122,   659,  1037,   819,   309,  1126,   821,
-     309,   830,   309,   831,   507,   832,   309,   836,   507,   392,
-     837,   841,   698,   889,   850,   740,   854,   309,   658,   991,
-     855,   309,   856,   559,  1136,  1137,  1139,   906,   740,   907,
-     740,   935,   309,   936,   507,   937,   309,   646,     4,     5,
-       6,     7,   939,   309,   647,   127,   128,   120,   121,   287,
-      13,    14,    15,    16,    17,    18,    19,   648,  1165,  1166,
-    1167,  1168,  1169,  1170,  1171,  1172,   649,   123,    29,   392,
-     951,   960,   393,   650,    35,   961,   559,  1175,  1176,  1177,
-      37,  1032,   309,  1088,   309,  1093,   309,   651,    45,    46,
-      47,    48,  1095,   559,    51,  1104,   740,  1112,   740,  1157,
-     740,   184,   186,    55,    56,   652,   453,   454,   653,    57,
-     455,   456,   654,   655,   656,   959,   657,   252,   660,   963,
-     964,   965,   661,   672,   673,   674,   687,   694,   681,   686,
-     689,   690,   699,   708,   710,   711,   712,   767,    59,    60,
-     756,   713,   714,   715,   716,   719,   720,   986,   747,   758,
-     748,   988,   749,   750,    61,   349,   751,   752,   309,   765,
-      62,    63,   763,   764,   768,   757,   759,   786,   124,   288,
-     818,    66,   820,    67,   824,   289,     4,     5,     6,     7,
-     825,   834,   835,   127,   128,   120,   121,   287,    13,    14,
-      15,    16,    17,    18,    19,   844,   860,   848,   851,   852,
-     861,   862,   863,   865,   866,   123,    29,   867,   890,   891,
-     892,   894,    35,   903,   908,   909,   910,   915,    37,  1038,
-    1039,   911,   938,   940,   941,   942,    45,    46,    47,    48,
-     943,   945,    51,   948,   956,   957,   949,   950,   989,   987,
-    1011,    55,    56,  1012,  1016,  1017,  1018,    57,  1022,  1023,
-    1030,  1042,     4,     5,     6,     7,  1040,  1043,  1044,   127,
-     128,   120,   121,   287,    13,    14,    15,    16,    17,    18,
-      19,  1057,  1060,  1064,  1065,  1066,    59,    60,  1068,  1069,
-    1070,   123,    29,  1082,  1087,   993,  1119,  1120,    35,  1083,
-    1091,  1092,    61,  1101,    37,  1113,  1114,  1105,    62,    63,
-    1123,  1115,    45,    46,    47,    48,   124,   677,    51,    66,
-    1116,    67,  1117,   289,  1124,  1118,  1102,    55,    56,  1121,
-      82,  1125,   155,    57,  1129,  1132,  1158,   696,     4,     5,
-       6,     7,  1134,   446,   769,   127,   128,   120,   121,   287,
-      13,    14,    15,    16,    17,    18,    19,  1150,  1151,  1152,
-    1153,  1154,    59,    60,  1133,  1155,   323,   123,    29,   452,
-       0,     0,     0,     0,    35,     0,     0,     0,    61,     0,
-      37,     0,     0,     0,    62,    63,     0,     0,    45,    46,
-      47,    48,   124,   815,    51,    66,     0,    67,     0,   289,
-       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,  1174,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,    59,    60,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,    61,     0,     0,     0,     0,     0,
-      62,    63,     0,     0,     0,     0,     0,     0,   124,     0,
-       0,    66,     0,    67,     0,   289,     4,     5,     6,     7,
-       0,     0,     0,   399,   400,   401,   402,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    22,   403,   404,
-      25,     0,     0,    26,    27,    28,    29,   405,   406,    32,
-      33,    34,    35,    36,     0,     0,     0,     0,    37,    38,
-      39,    40,    41,    42,   407,   408,    45,    46,    47,    48,
-      49,    50,    51,    52,     0,     0,     0,    53,    54,     0,
+      83,     2,   483,   438,   863,   729,   614,   126,   688,   684,
+     115,   153,   572,   573,   130,   690,   574,   546,    27,   739,
+     154,   145,   147,   149,   151,   152,   609,  1002,   158,   160,
+     162,   572,   573,   166,   167,   574,   610,   171,   173,   137,
+     138,   139,    25,   140,   737,   188,   189,   197,   738,   192,
+     339,   504,   339,   201,   202,   203,   177,   973,   922,   393,
+     633,  1003,   141,   206,   209,   572,   573,   142,   508,   574,
+     340,  1004,   340,   575,   576,   577,   178,   572,   573,   175,
+     634,   574,   848,   253,    67,     3,   180,   253,   195,  1008,
+     357,   849,   575,   576,   577,   759,   760,   347,   339,  1009,
+     268,   269,   270,   271,   272,   273,   181,   196,   278,   280,
+     358,   282,   283,   394,   740,   352,   602,   116,   340,   117,
+     353,  1005,   206,   929,   735,    67,   575,   576,   577,   306,
+     308,   116,   310,   117,   636,   689,   114,   578,   575,   576,
+     577,   968,   328,  1091,   338,    67,   343,   348,   345,  1010,
+      67,   611,   974,    67,   637,   341,   613,   341,   342,   711,
+     342,   179,   803,   143,   982,   179,  1006,   165,   372,   822,
+     374,   741,   635,   379,   313,   380,   381,    67,   382,   383,
+    1007,   384,   386,   387,   384,   388,   168,   360,  1109,   603,
+     710,   182,  1117,   761,  1011,   359,   930,   572,   573,   251,
+     252,   574,   782,   341,   350,   351,   342,   361,  1012,   414,
+     415,   416,   417,   418,   419,   420,   421,   422,   169,   423,
+     424,   425,   426,   427,   428,   429,   430,    67,   431,   783,
+     784,   110,   100,   101,  1141,   454,   455,   742,   743,   182,
+     253,   339,  1155,   572,   573,   253,   638,   574,   183,   111,
+     461,   462,   463,   464,   465,   466,   467,  1162,   575,   576,
+     577,   340,   109,   572,   573,   796,   701,   574,   330,   797,
+     776,   777,   744,   285,   778,   495,  1078,   286,   798,   199,
+    1083,   799,   800,   112,   975,   801,  1079,  1179,   357,   357,
+    1084,   514,   362,   516,   517,   518,   519,   520,   521,   522,
+     523,   113,   193,   964,   575,   576,   577,   780,   358,   358,
+     194,   530,   531,   545,   533,   116,   538,   117,   353,   198,
+    1102,   200,  1064,   287,   575,   576,   577,   551,   552,   553,
+     554,   555,   556,   557,   570,   571,  1080,   560,   561,    82,
+    1085,   776,   777,   314,   357,   778,   341,   230,   779,   342,
+     976,   977,   250,  1169,   580,   582,   583,   315,   584,   585,
+     312,   586,   587,   313,   358,   155,   157,   592,  1068,   594,
+     336,   294,   276,   337,   598,   599,   492,   802,   174,   176,
+     292,  1081,   267,   607,   302,  1086,   190,   191,  1133,   295,
+     210,   493,   368,   359,   359,  1082,   264,   311,   370,  1087,
+     805,   983,   293,   376,   855,   628,   629,   630,   632,   978,
+     369,   639,   330,   979,   640,   641,   371,   355,   110,   901,
+     356,   377,   332,   918,   642,   333,   334,   643,   644,   980,
+     818,   645,   646,   785,   786,   787,   625,   885,   919,   874,
+     886,   887,   572,   573,   112,   316,   574,   265,  1146,   359,
+     888,  1147,  1148,   889,   890,   274,  1170,   891,   892,   317,
+     155,  1149,   626,   318,  1150,  1151,   604,  1165,  1152,  1153,
+     330,  1166,   605,   931,   266,   910,   911,   319,   329,   932,
+     332,   330,   331,   333,   334,   539,   344,  1167,   346,   349,
+     670,   332,   281,   788,   333,   334,   675,   676,   335,   540,
+     656,   293,   657,   575,   576,   577,   686,   933,   373,   934,
+     375,   530,   903,   541,   336,   212,   229,   337,   213,   214,
+     284,   981,   355,   647,   543,   356,   658,   542,   215,   804,
+     697,   216,   217,   935,   206,   218,   219,   706,   544,   708,
+     659,   709,   229,   131,   132,   712,   713,   936,    82,   893,
+     959,   904,   660,   229,   905,   906,   998,   907,   908,   937,
+    1154,   999,   661,   732,   221,  1001,   525,   222,   223,   938,
+     999,  1090,   336,   256,   257,   337,   999,   224,   751,  1168,
+     225,   226,   662,   336,   227,   228,   337,   875,   876,   939,
+     663,   877,   231,   232,   233,   234,   116,   940,   117,   772,
+     558,   716,   235,   236,   237,   562,  1020,  1021,  1030,   323,
+    1013,   569,  1065,  1014,   718,  1069,  1015,  1016,   790,   581,
+     220,  1031,   326,   793,   794,   795,   238,   239,   363,   589,
+     496,   806,   807,   497,   808,   809,   364,   810,   811,   812,
+     813,   814,   815,   816,   817,  1019,   248,   249,   878,   879,
+     880,    99,   366,   100,   101,   102,   103,   104,   105,   106,
+     619,   254,   255,   623,   719,   720,   721,   698,   107,   229,
+     699,  1032,  1033,  1034,   468,   722,   833,   834,   835,   396,
+     397,   108,  1035,   109,   469,   839,   470,   471,   100,   101,
+     296,   297,   298,   299,   300,   472,   473,   367,   845,   846,
+     474,   656,   365,   301,  1134,   851,   475,   476,  1054,   468,
+     398,   399,   859,   482,   477,   478,   479,   480,   109,   469,
+     657,   470,   471,   389,   902,   658,   608,  1055,   391,   864,
+     472,   473,  1056,   494,   313,   474,   659,   660,   870,   484,
+     485,   475,   476,  1057,  1058,   881,   882,   884,   669,   477,
+     478,   479,   480,   392,   661,   662,   672,   894,   663,   826,
+     674,  1059,  1060,   677,   703,  1061,  1092,   704,   682,   899,
+     685,   100,   101,   296,   297,   298,   299,   300,   716,   163,
+    -475,  -475,   395,   164,   723,  1104,   301,   313,   240,   241,
+     242,   243,   244,   245,   923,   924,   925,   926,   927,   928,
+     246,   109,  -385,  -385,   718,   498,   499,   722,   946,   948,
+     656,  1105,   247,   715,  1106,  1136,  1137,  1184,   402,  -475,
+    -475,  -475,   724,  -475,  -475,  -475,  -475,  -475,  -475,  -475,
+    -475,  -475,  -475,  -475,  -475,  -475,   657,   658,   950,  -475,
+     486,   324,   487,  1185,  1186,   325,   488,  -475,  -475,  -475,
+    -475,  -475,  -475,  -475,  -475,   659,   660,  -475,  -475,  -475,
+    -475,  -475,  1187,  1188,  -475,  -475,  -475,   661,  -475,   972,
+     662,   663,   716,   718,  1189,   722,   489,  1190,  1191,  1192,
+    1193,   468,  1194,   984,   985,   986,   987,   988,   989,   990,
+     991,   469,   727,   470,   471,   313,   752,   490,   997,   313,
+     728,   730,   472,   473,   733,   734,   736,   474,   491,   258,
+     259,   260,   502,   475,   476,   829,  1025,    82,   313,   510,
+     511,   477,   478,   479,   480,   261,   262,   263,   820,   303,
+     823,   304,   766,   767,   768,    99,   828,   100,   101,   102,
+     103,   104,   105,   106,   852,   953,   503,   853,   313,  1037,
+     512,   513,   107,  1039,  1040,   960,  1042,  1100,   961,   313,
+     313,   400,   844,   401,   500,   624,   501,   109,   320,   321,
+     322,   504,  1047,   447,   448,   449,  1051,  1052,  1053,   451,
+     452,   453,   500,   313,   691,   694,   313,   313,   791,   832,
+     500,   505,   920,  1062,   529,   313,   549,   399,   396,   550,
+    1067,   396,   559,   506,  1073,   563,   397,   564,   565,  1077,
+     432,   433,   434,   435,   436,   437,   507,   439,   440,   441,
+     442,   443,   444,   445,   446,   509,  1095,  1096,   567,   397,
+     595,   397,   597,   397,   396,   673,   745,   746,   781,   746,
+     789,   313,   825,   313,   827,   313,  1103,   836,   313,   837,
+     511,   838,   313,   842,   511,   396,   843,   847,   704,   856,
+     746,   860,   313,   861,   313,  1116,   862,   565,   515,   865,
+     912,   746,   913,   746,   941,   313,   942,   511,   568,  1128,
+     943,   313,   945,   313,  1132,   396,   957,   966,   397,   967,
+     565,  1038,   313,   526,  1094,   313,   547,   895,  1099,   313,
+    1101,   565,  1110,   746,   527,   997,   952,  1118,   746,   528,
+    1142,  1143,  1145,   548,  1163,   746,   958,   588,   185,   187,
+     459,   460,   457,   458,     4,     5,     6,     7,   591,   593,
+     596,   127,   128,   120,   121,   288,   600,    13,    14,    15,
+      16,    17,    18,    19,  1171,  1172,  1173,  1174,  1175,  1176,
+    1177,  1178,   601,   602,   123,    29,   603,   604,   605,   620,
+     615,    35,   606,  1181,  1182,  1183,   616,    37,   621,   627,
+     664,   648,   649,   247,   650,    45,    46,    47,    48,   651,
+     652,    51,  1027,   665,   653,   654,   655,   666,   656,   657,
+      55,    56,   658,   678,   659,   660,    57,   661,   662,   965,
+     663,   253,   679,   969,   970,   971,   680,   667,   692,   687,
+     700,   695,   696,   705,   714,   716,   773,   693,   717,   774,
+    1041,   718,   719,   720,  1043,    59,    60,   721,   313,   722,
+     725,   992,   726,   753,   762,   994,   754,   353,   755,   756,
+     757,    61,   758,   771,   763,   764,   769,    62,    63,   770,
+     765,   792,   824,   826,   840,   124,   289,   841,    66,   866,
+      67,   850,   290,     4,     5,     6,     7,   830,   831,   854,
+     127,   128,   120,   121,   288,   857,    13,    14,    15,    16,
+      17,    18,    19,   858,   867,   868,   869,   871,   872,   873,
+     896,   898,   897,   123,    29,   900,   909,   914,   915,   916,
+      35,   921,   917,  1044,  1045,   944,    37,   946,   947,   948,
+     955,   954,   949,   951,    45,    46,    47,    48,   956,   962,
+      51,   963,   993,   995,  1017,  1018,  1022,  1023,  1024,    55,
+      56,  1028,  1029,  1036,  1048,    57,  1046,  1049,  1050,     4,
+       5,     6,     7,  1063,  1066,  1070,   127,   128,   120,   121,
+     288,  1071,    13,    14,    15,    16,    17,    18,    19,  1072,
+    1074,  1075,  1076,  1088,    59,    60,  1089,  1097,  1093,   123,
+      29,  1098,  1107,  1119,  1125,   999,    35,  1120,  1121,  1122,
+      61,  1111,    37,  1123,  1124,  1126,    62,    63,  1127,  1129,
+      45,    46,    47,    48,   124,   683,    51,    66,  1130,    67,
+    1108,   290,  1131,  1135,    82,    55,    56,  1140,  1164,  1138,
+    1156,    57,   156,  1157,  1158,     4,     5,     6,     7,  1159,
+    1160,  1161,   127,   128,   120,   121,   288,   775,    13,    14,
+      15,    16,    17,    18,    19,   327,   702,   456,  1139,     0,
+      59,    60,   450,     0,     0,   123,    29,     0,     0,     0,
+       0,     0,    35,     0,     0,     0,    61,     0,    37,     0,
+       0,     0,    62,    63,     0,     0,    45,    46,    47,    48,
+     124,   821,    51,    66,     0,    67,     0,   290,     0,     0,
        0,    55,    56,     0,     0,     0,     0,    57,     0,     0,
-       0,    58,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,  1180,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,    59,    60,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,    61,     0,     0,     0,     0,     0,    62,    63,
-       0,     0,     0,     0,     0,    64,    65,     0,     0,    66,
-       0,    67,   409,     4,     5,     6,     7,     0,     0,     0,
-       8,     9,    10,    11,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    22,   741,   742,    25,     0,     0,
-      26,    27,    28,    29,    30,   743,    32,    33,    34,    35,
+       0,     0,     0,     0,     0,     0,   124,     0,     0,    66,
+       0,    67,     0,   290,     4,     5,     6,     7,     0,     0,
+       0,   403,   404,   405,   406,    12,     0,    13,    14,    15,
+      16,    17,    18,    19,    20,    21,    22,   407,   408,    25,
+       0,     0,    26,    27,    28,    29,   409,   410,    32,    33,
+      34,    35,    36,     0,     0,     0,     0,    37,    38,    39,
+      40,    41,    42,   411,   412,    45,    46,    47,    48,    49,
+      50,    51,    52,     0,     0,     0,    53,    54,     0,     0,
+      55,    56,     0,     0,     0,     0,    57,     0,     0,     0,
+      58,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,    59,    60,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,    61,     0,     0,     0,     0,     0,    62,    63,     0,
+       0,     0,     0,     0,    64,    65,     0,     0,    66,     0,
+      67,   413,     4,     5,     6,     7,     0,     0,     0,     8,
+       9,    10,    11,    12,     0,    13,    14,    15,    16,    17,
+      18,    19,    20,    21,    22,   747,   748,    25,     0,     0,
+      26,    27,    28,    29,    30,   749,    32,    33,    34,    35,
       36,     0,     0,     0,     0,    37,    38,    39,    40,    41,
       42,    43,    44,    45,    46,    47,    48,    49,    50,    51,
       52,     0,     0,     0,    53,    54,     0,     0,    55,    56,
@@ -1673,1021 +1677,1055 @@ static const yytype_int16 yytable[] =
        0,     0,     0,    59,    60,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,    61,
        0,     0,     0,     0,     0,    62,    63,     0,     0,     0,
-       0,     0,    64,    65,     0,     0,    66,     0,    67,   744,
+       0,     0,    64,    65,     0,     0,    66,     0,    67,   750,
        4,     5,     6,     7,     0,     0,     0,     8,     9,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    22,  1106,  1107,    25,     0,     0,    26,    27,    28,
-      29,    30,  1108,    32,    33,    34,    35,    36,     0,     0,
-       0,     0,    37,    38,    39,    40,    41,    42,    43,    44,
-      45,    46,    47,    48,    49,    50,    51,    52,     0,     0,
-       0,    53,    54,     0,     0,    55,    56,     0,     0,     0,
-       0,    57,     0,     0,     0,    58,     0,     0,     0,     0,
+      11,    12,     0,    13,    14,    15,    16,    17,    18,    19,
+      20,    21,    22,  1112,  1113,    25,     0,     0,    26,    27,
+      28,    29,    30,  1114,    32,    33,    34,    35,    36,     0,
+       0,     0,     0,    37,    38,    39,    40,    41,    42,    43,
+      44,    45,    46,    47,    48,    49,    50,    51,    52,     0,
+       0,     0,    53,    54,     0,     0,    55,    56,     0,     0,
+       0,     0,    57,     0,     0,     0,    58,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     4,     5,     6,     7,     0,
-      59,    60,   127,   128,   120,   121,   122,    13,    14,    15,
-      16,    17,    18,    19,     0,     0,    61,     0,     0,     0,
-       0,     0,    62,    63,   123,    29,     0,     0,     0,    64,
-      65,    35,     0,    66,     0,    67,  1109,    37,     0,     0,
-       0,     0,     0,     0,     0,    45,    46,    47,    48,     0,
-       0,    51,     0,     0,     0,     0,     0,     0,     0,     0,
-      55,    56,     0,     0,     0,     0,    57,     0,     0,     0,
-       4,     5,     6,     7,     0,     0,     0,   127,   128,   120,
-     121,   122,    13,    14,    15,    16,    17,    18,    19,     0,
-       0,     0,     0,     0,     0,    59,    60,     0,     0,   123,
-      29,     0,     0,     0,     0,     0,    35,     0,     0,     0,
-       0,    61,    37,     0,     0,     0,     0,    62,    63,     0,
-      45,    46,    47,    48,   158,   124,    51,     0,    66,     0,
-      67,   625,     0,     0,     0,    55,    56,     0,     0,     0,
-       0,    57,     0,     0,     0,     4,     5,     6,     7,     0,
-       0,     0,   127,   128,   120,   121,   122,    13,    14,    15,
-      16,    17,    18,    19,     0,     0,     0,     0,     0,     0,
-      59,    60,     0,     0,   123,    29,     0,     0,     0,     0,
-       0,    35,     0,     0,     0,     0,    61,    37,     0,     0,
-       0,     0,    62,    63,     0,    45,    46,    47,    48,   158,
-     124,    51,     0,    66,     0,    67,   877,     0,     0,     0,
-      55,    56,     0,     0,     0,     0,    57,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,    59,    60,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,    61,     0,     0,     0,     0,     0,    62,    63,     0,
-       0,     0,     0,     0,   158,   124,     0,     0,    66,     0,
-      67,  1138,     4,     5,     6,     7,     0,     0,     0,     8,
-       9,    10,    11,    12,    13,    14,    15,    16,    17,    18,
-      19,    20,    21,    22,    23,    24,    25,     0,     0,    26,
-      27,    28,    29,    30,    31,    32,    33,    34,    35,    36,
-       0,     0,     0,     0,    37,    38,    39,    40,    41,    42,
-      43,    44,    45,    46,    47,    48,    49,    50,    51,    52,
-       0,     0,     0,    53,    54,     0,     0,    55,    56,     0,
-       0,     0,     0,    57,     0,     0,     0,    58,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     4,     5,     6,
-       7,     0,    59,    60,   127,   128,   120,   121,   122,    13,
-      14,    15,    16,    17,    18,    19,     0,     0,    61,     0,
-       0,     0,     0,     0,    62,    63,   123,    29,     0,     0,
-       0,    64,    65,    35,     0,    66,     0,    67,     0,    37,
+       0,     0,     0,     0,     0,     0,     4,     5,     6,     7,
+       0,    59,    60,   127,   128,   120,   121,   122,     0,    13,
+      14,    15,    16,    17,    18,    19,     0,    61,     0,     0,
+       0,     0,     0,    62,    63,     0,   123,    29,     0,     0,
+      64,    65,     0,    35,    66,     0,    67,  1115,     0,    37,
        0,     0,     0,     0,     0,     0,     0,    45,    46,    47,
       48,     0,     0,    51,     0,     0,     0,     0,     0,     0,
        0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
-       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
-     128,   120,   121,   122,    13,    14,    15,    16,    17,    18,
+       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
+     120,   121,   122,     0,    13,    14,    15,    16,    17,    18,
       19,     0,     0,     0,     0,     0,     0,    59,    60,     0,
        0,   123,    29,     0,     0,     0,     0,     0,    35,     0,
        0,     0,     0,    61,    37,     0,     0,     0,     0,    62,
-      63,     0,    45,    46,    47,    48,     0,   124,    51,     0,
-      66,   129,    67,     0,     0,     0,     0,    55,    56,     0,
-       0,     0,     0,    57,     0,     0,     0,     4,     5,     6,
-       7,     0,     0,     0,   127,   128,   120,   121,   122,    13,
+      63,     0,    45,    46,    47,    48,   159,   124,    51,     0,
+      66,     0,    67,   631,     0,     0,     0,    55,    56,     0,
+       0,     0,     0,    57,     0,     0,     4,     5,     6,     7,
+       0,     0,     0,   127,   128,   120,   121,   122,     0,    13,
       14,    15,    16,    17,    18,    19,     0,     0,     0,     0,
        0,     0,    59,    60,     0,     0,   123,    29,     0,     0,
        0,     0,     0,    35,     0,     0,     0,     0,    61,    37,
        0,     0,     0,     0,    62,    63,     0,    45,    46,    47,
-      48,   132,   133,    51,     0,    66,     0,    67,     0,     0,
+      48,   159,   124,    51,     0,    66,     0,    67,   883,     0,
        0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
-       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
-     128,   120,   121,   122,    13,    14,    15,    16,    17,    18,
-      19,     0,     0,     0,     0,     0,     0,    59,    60,     0,
-       0,   123,    29,     0,     0,     0,     0,     0,    35,     0,
-       0,     0,     0,    61,    37,     0,     0,     0,     0,    62,
-      63,     0,    45,    46,    47,    48,   158,   124,    51,     0,
-      66,     0,    67,     0,     0,     0,     0,    55,    56,     0,
-       0,     0,     0,    57,     0,     0,     0,     4,     5,     6,
-       7,     0,     0,     0,   203,   128,   120,   121,   122,    13,
-      14,    15,    16,    17,    18,    19,     0,     0,     0,     0,
-       0,     0,    59,    60,     0,     0,   123,    29,     0,     0,
-       0,     0,     0,    35,     0,     0,     0,     0,    61,    37,
-       0,     0,     0,     0,    62,    63,     0,    45,    46,    47,
-      48,   160,   124,    51,     0,    66,     0,    67,     0,     0,
-       0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
-      18,    19,     0,     0,     0,     0,     0,    59,    60,     0,
-       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
-       0,     0,     0,    61,     0,    37,     0,     0,     0,    62,
-      63,     0,     0,    45,    46,    47,    48,   124,   204,    51,
-      66,     0,    67,     0,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
-      13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
-       0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
-       0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
-      37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   124,    51,     0,    66,   207,    67,     0,
-       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     0,     4,     5,     6,     7,     0,     0,
-       0,   127,   128,   120,   121,   122,    13,    14,    15,    16,
-      17,    18,    19,     0,     0,     0,     0,     0,    59,    60,
-       0,     0,     0,   123,    29,     0,     0,     0,     0,     0,
-      35,     0,     0,     0,    61,     0,    37,     0,     0,     0,
-      62,    63,     0,     0,    45,    46,    47,    48,   124,   274,
-      51,    66,     0,    67,     0,     0,     0,     0,     0,    55,
-      56,     0,     0,     0,     0,    57,     0,     0,     0,     4,
-       5,     6,     7,     0,     0,     0,   127,   128,   120,   121,
-     122,    13,    14,    15,    16,    17,    18,    19,     0,     0,
-       0,     0,     0,     0,    59,    60,     0,     0,   123,    29,
-       0,     0,     0,     0,     0,    35,     0,     0,     0,     0,
-      61,    37,     0,     0,     0,     0,    62,    63,   278,    45,
-      46,    47,    48,     0,   124,    51,     0,    66,     0,    67,
-       0,     0,     0,     0,    55,    56,     0,     0,     0,     0,
-      57,     0,     0,     0,     0,     4,     5,     6,     7,     0,
-       0,     0,   127,   128,   120,   121,   122,    13,    14,    15,
-      16,    17,    18,    19,     0,     0,     0,     0,     0,    59,
-      60,     0,     0,     0,   123,    29,     0,     0,     0,     0,
-       0,    35,     0,     0,     0,    61,     0,    37,     0,     0,
-       0,    62,    63,     0,     0,    45,    46,    47,    48,   124,
-     204,    51,    66,     0,    67,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,    59,    60,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,    61,     0,     0,     0,     0,     0,    62,
+      63,     0,     0,     0,     0,     0,   159,   124,     0,     0,
+      66,     0,    67,  1144,     4,     5,     6,     7,     0,     0,
+       0,     8,     9,    10,    11,    12,     0,    13,    14,    15,
+      16,    17,    18,    19,    20,    21,    22,    23,    24,    25,
+       0,     0,    26,    27,    28,    29,    30,    31,    32,    33,
+      34,    35,    36,     0,     0,     0,     0,    37,    38,    39,
+      40,    41,    42,    43,    44,    45,    46,    47,    48,    49,
+      50,    51,    52,     0,     0,     0,    53,    54,     0,     0,
       55,    56,     0,     0,     0,     0,    57,     0,     0,     0,
-       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
-     120,   121,   122,    13,    14,    15,    16,    17,    18,    19,
-       0,     0,   374,     0,     0,    59,    60,     0,     0,     0,
-     123,    29,     0,     0,     0,     0,     0,    35,     0,     0,
-       0,    61,     0,    37,     0,     0,     0,    62,    63,     0,
-       0,    45,    46,    47,    48,   124,   305,    51,    66,     0,
-      67,     0,     0,     0,     0,     0,    55,    56,     0,     0,
-       0,     0,    57,     0,     0,     0,     4,     5,     6,     7,
-       0,     0,     0,   127,   128,   120,   121,   122,    13,    14,
+      58,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       4,     5,     6,     7,     0,    59,    60,   127,   128,   120,
+     121,   122,     0,    13,    14,    15,    16,    17,    18,    19,
+       0,    61,     0,     0,     0,     0,     0,    62,    63,     0,
+     123,    29,     0,     0,    64,    65,     0,    35,    66,     0,
+      67,     0,     0,    37,     0,     0,     0,     0,     0,     0,
+       0,    45,    46,    47,    48,     0,     0,    51,     0,     0,
+       0,     0,     0,     0,     0,     0,    55,    56,     0,     0,
+       0,     0,    57,     0,     0,     4,     5,     6,     7,     0,
+       0,     0,   127,   128,   120,   121,   122,     0,    13,    14,
       15,    16,    17,    18,    19,     0,     0,     0,     0,     0,
        0,    59,    60,     0,     0,   123,    29,     0,     0,     0,
        0,     0,    35,     0,     0,     0,     0,    61,    37,     0,
        0,     0,     0,    62,    63,     0,    45,    46,    47,    48,
-       0,   124,    51,     0,    66,     0,    67,     0,     0,     0,
+       0,   124,    51,     0,    66,   129,    67,     0,     0,     0,
        0,    55,    56,     0,     0,     0,     0,    57,     0,     0,
-       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
-     120,   121,   122,    13,    14,    15,    16,    17,    18,    19,
+       4,     5,     6,     7,     0,     0,     0,   127,   128,   120,
+     121,   122,     0,    13,    14,    15,    16,    17,    18,    19,
        0,     0,     0,     0,     0,     0,    59,    60,     0,     0,
      123,    29,     0,     0,     0,     0,     0,    35,     0,     0,
        0,     0,    61,    37,     0,     0,     0,     0,    62,    63,
-       0,    45,    46,    47,    48,     0,   124,    51,   381,    66,
+       0,    45,    46,    47,    48,   133,   134,    51,     0,    66,
        0,    67,     0,     0,     0,     0,    55,    56,     0,     0,
-       0,     0,    57,     0,     0,   209,     4,     5,     6,     7,
-       0,     0,     0,   127,   128,   120,   121,   122,    13,    14,
+       0,     0,    57,     0,     0,     4,     5,     6,     7,     0,
+       0,     0,   127,   128,   120,   121,   122,     0,    13,    14,
       15,    16,    17,    18,    19,     0,     0,     0,     0,     0,
        0,    59,    60,     0,     0,   123,    29,     0,     0,     0,
        0,     0,    35,     0,     0,     0,     0,    61,    37,     0,
        0,     0,     0,    62,    63,     0,    45,    46,    47,    48,
-       0,   124,    51,     0,    66,     0,    67,     0,     0,     0,
+     159,   124,    51,     0,    66,     0,    67,     0,     0,     0,
        0,    55,    56,     0,     0,     0,     0,    57,     0,     0,
-       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
-     120,   121,   122,    13,    14,    15,    16,    17,    18,    19,
+       4,     5,     6,     7,     0,     0,     0,   204,   128,   120,
+     121,   122,     0,    13,    14,    15,    16,    17,    18,    19,
        0,     0,     0,     0,     0,     0,    59,    60,     0,     0,
      123,    29,     0,     0,     0,     0,     0,    35,     0,     0,
        0,     0,    61,    37,     0,     0,     0,     0,    62,    63,
-       0,    45,    46,    47,    48,     0,   124,    51,     0,    66,
-     520,    67,     0,     0,     0,     0,    55,    56,     0,     0,
-       0,     0,    57,     0,     0,     0,     0,     4,     5,     6,
-       7,     0,     0,     0,   127,   128,   120,   121,   122,    13,
+       0,    45,    46,    47,    48,   161,   124,    51,     0,    66,
+       0,    67,     0,     0,     0,     0,    55,    56,     0,     0,
+       0,     0,    57,     0,     0,     0,     4,     5,     6,     7,
+       0,     0,     0,   127,   128,   120,   121,   122,     0,    13,
       14,    15,    16,    17,    18,    19,     0,     0,     0,     0,
        0,    59,    60,     0,     0,     0,   123,    29,     0,     0,
        0,     0,     0,    35,     0,     0,     0,    61,     0,    37,
        0,     0,     0,    62,    63,     0,     0,    45,    46,    47,
-      48,   124,   612,    51,    66,     0,    67,     0,     0,     0,
+      48,   124,   205,    51,    66,     0,    67,     0,     0,     0,
        0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
-       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
-     128,   120,   121,   122,    13,    14,    15,    16,    17,    18,
+       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
+     120,   121,   122,     0,    13,    14,    15,    16,    17,    18,
       19,     0,     0,     0,     0,     0,     0,    59,    60,     0,
        0,   123,    29,     0,     0,     0,     0,     0,    35,     0,
        0,     0,     0,    61,    37,     0,     0,     0,     0,    62,
       63,     0,    45,    46,    47,    48,     0,   124,    51,     0,
-      66,   616,    67,     0,     0,     0,     0,    55,    56,     0,
-       0,     0,     0,    57,     0,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+      66,   208,    67,     0,     0,     0,     0,    55,    56,     0,
+       0,     0,     0,    57,     0,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
        0,     0,    59,    60,     0,     0,     0,   123,    29,     0,
        0,     0,     0,     0,    35,     0,     0,     0,    61,     0,
       37,     0,     0,     0,    62,    63,     0,     0,    45,    46,
-      47,    48,   124,   662,    51,    66,     0,    67,     0,     0,
+      47,    48,   124,   275,    51,    66,     0,    67,     0,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     0,     4,     5,     6,     7,     0,     0,
-       0,   127,   128,   120,   121,   122,    13,    14,    15,    16,
-      17,    18,    19,     0,     0,     0,     0,     0,    59,    60,
-       0,     0,     0,   123,    29,     0,     0,     0,     0,     0,
-      35,     0,     0,     0,    61,     0,    37,     0,     0,     0,
-      62,    63,     0,     0,    45,    46,    47,    48,   124,   665,
-      51,    66,     0,    67,     0,     0,     0,     0,     0,    55,
-      56,     0,     0,     0,     0,    57,     0,     0,     0,     0,
-       4,     5,   528,     7,     0,     0,     0,   127,   128,   120,
-     121,   529,    13,    14,    15,    16,    17,    18,    19,     0,
-       0,     0,     0,     0,    59,    60,     0,     0,     0,   123,
-      29,     0,     0,     0,     0,     0,    35,     0,     0,     0,
-      61,     0,    37,     0,     0,     0,    62,    63,     0,     0,
-      45,    46,    47,    48,   124,   675,    51,    66,     0,    67,
-       0,     0,     0,     0,     0,    55,    56,     0,     0,     0,
-       0,    57,     0,     0,     0,     0,     4,     5,     6,     7,
-       0,     0,     0,   127,   128,   120,   121,   122,    13,    14,
-      15,    16,    17,    18,    19,     0,     0,     0,     0,     0,
-      59,    60,     0,     0,     0,   123,    29,     0,     0,     0,
-       0,     0,    35,     0,     0,     0,    61,     0,    37,     0,
-       0,     0,    62,    63,     0,     0,    45,    46,    47,    48,
-     124,   204,    51,    66,     0,    67,     0,     0,     0,     0,
-       0,    55,    56,     0,     0,     0,     0,    57,     0,     0,
        0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
-     128,   120,   121,   122,    13,    14,    15,    16,    17,    18,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
+      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
+       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
+       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
+      62,    63,   279,    45,    46,    47,    48,     0,   124,    51,
+       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
+       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,    13,    14,    15,    16,    17,    18,    19,     0,     0,
+       0,     0,     0,    59,    60,     0,     0,     0,   123,    29,
+       0,     0,     0,     0,     0,    35,     0,     0,     0,    61,
+       0,    37,     0,     0,     0,    62,    63,     0,     0,    45,
+      46,    47,    48,   124,   205,    51,    66,     0,    67,     0,
+       0,     0,     0,     0,    55,    56,     0,     0,     0,     0,
+      57,     0,     0,     4,     5,     6,     7,     0,     0,     0,
+     127,   128,   120,   121,   122,     0,    13,    14,    15,    16,
+      17,    18,    19,     0,     0,     0,     0,     0,     0,    59,
+      60,     0,     0,   123,    29,     0,     0,     0,     0,     0,
+      35,     0,     0,     0,     0,    61,    37,     0,     0,     0,
+       0,    62,    63,     0,    45,    46,    47,    48,   305,   124,
+      51,     0,    66,     0,    67,     0,     0,     0,     0,    55,
+      56,     0,     0,     0,     0,    57,     0,     0,     4,     5,
+       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,    13,    14,    15,    16,    17,    18,    19,     0,     0,
+       0,     0,     0,     0,    59,    60,     0,     0,   123,    29,
+       0,     0,     0,     0,     0,    35,     0,     0,     0,     0,
+      61,    37,     0,     0,     0,     0,    62,    63,     0,    45,
+      46,    47,    48,   307,   124,    51,     0,    66,     0,    67,
+       0,     0,     0,     0,    55,    56,     0,     0,     0,     0,
+      57,     0,     0,     0,     4,     5,     6,     7,     0,     0,
+       0,   127,   128,   120,   121,   122,     0,    13,    14,    15,
+      16,    17,    18,    19,     0,     0,   378,     0,     0,    59,
+      60,     0,     0,     0,   123,    29,     0,     0,     0,     0,
+       0,    35,     0,     0,     0,    61,     0,    37,     0,     0,
+       0,    62,    63,     0,     0,    45,    46,    47,    48,   124,
+     309,    51,    66,     0,    67,     0,     0,     0,     0,     0,
+      55,    56,     0,     0,     0,     0,    57,     0,     0,     4,
+       5,     6,     7,     0,     0,     0,   127,   128,   120,   121,
+     122,     0,    13,    14,    15,    16,    17,    18,    19,     0,
+       0,     0,     0,     0,     0,    59,    60,     0,     0,   123,
+      29,     0,     0,     0,     0,     0,    35,     0,     0,     0,
+       0,    61,    37,     0,     0,     0,     0,    62,    63,     0,
+      45,    46,    47,    48,     0,   124,    51,     0,    66,     0,
+      67,     0,     0,     0,     0,    55,    56,     0,     0,     0,
+       0,    57,     0,     0,     4,     5,     6,     7,     0,     0,
+       0,   127,   128,   120,   121,   122,     0,    13,    14,    15,
+      16,    17,    18,    19,     0,     0,     0,     0,     0,     0,
+      59,    60,     0,     0,   123,    29,     0,     0,     0,     0,
+       0,    35,     0,     0,     0,     0,    61,    37,     0,     0,
+       0,     0,    62,    63,     0,    45,    46,    47,    48,     0,
+     124,    51,   385,    66,     0,    67,     0,     0,     0,     0,
+      55,    56,     0,     0,     0,     0,    57,     0,     0,   210,
+       4,     5,     6,     7,     0,     0,     0,   127,   128,   120,
+     121,   122,     0,    13,    14,    15,    16,    17,    18,    19,
+       0,     0,     0,     0,     0,    59,    60,     0,     0,     0,
+     123,    29,     0,     0,     0,     0,     0,    35,     0,     0,
+       0,    61,     0,    37,     0,     0,     0,    62,    63,     0,
+       0,    45,    46,    47,    48,   124,     0,    51,    66,     0,
+      67,     0,     0,     0,     0,     0,    55,    56,     0,     0,
+       0,     0,    57,     0,     0,     4,     5,     6,     7,     0,
+       0,     0,   127,   128,   120,   121,   122,     0,    13,    14,
+      15,    16,    17,    18,    19,     0,     0,     0,     0,     0,
+       0,    59,    60,     0,     0,   123,    29,     0,     0,     0,
+       0,     0,    35,     0,     0,     0,     0,    61,    37,     0,
+       0,     0,     0,    62,    63,     0,    45,    46,    47,    48,
+       0,   124,    51,     0,    66,   524,    67,     0,     0,     0,
+       0,    55,    56,     0,     0,     0,     0,    57,     0,     0,
+       0,     4,     5,     6,     7,     0,     0,     0,   127,   128,
+     120,   121,   122,     0,    13,    14,    15,    16,    17,    18,
       19,     0,     0,     0,     0,     0,    59,    60,     0,     0,
        0,   123,    29,     0,     0,     0,     0,     0,    35,     0,
        0,     0,    61,     0,    37,     0,     0,     0,    62,    63,
-       0,     0,    45,    46,    47,    48,   124,   813,    51,    66,
+       0,     0,    45,    46,    47,    48,   124,   618,    51,    66,
        0,    67,     0,     0,     0,     0,     0,    55,    56,     0,
-       0,     0,     0,    57,     0,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
-      13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
-       0,     0,    59,    60,     0,     0,     0,   123,    29,     0,
-       0,     0,     0,     0,    35,     0,     0,     0,    61,     0,
-      37,     0,     0,     0,    62,    63,     0,     0,    45,    46,
-      47,    48,   124,  1020,    51,    66,     0,    67,     0,     0,
-       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
-      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
+       0,     0,     0,    57,     0,     0,     4,     5,     6,     7,
+       0,     0,     0,   127,   128,   120,   121,   122,     0,    13,
+      14,    15,    16,    17,    18,    19,     0,     0,     0,     0,
+       0,     0,    59,    60,     0,     0,   123,    29,     0,     0,
+       0,     0,     0,    35,     0,     0,     0,     0,    61,    37,
+       0,     0,     0,     0,    62,    63,     0,    45,    46,    47,
+      48,     0,   124,    51,     0,    66,   622,    67,     0,     0,
+       0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
+      18,    19,     0,     0,     0,     0,     0,    59,    60,     0,
        0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
-       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   143,    51,
-       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,    61,     0,    37,     0,     0,     0,    62,
+      63,     0,     0,    45,    46,    47,    48,   124,   668,    51,
+      66,     0,    67,     0,     0,     0,     0,     0,    55,    56,
        0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
        6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,    13,    14,    15,    16,    17,    18,    19,     0,     0,
+       0,     0,     0,    59,    60,     0,     0,     0,   123,    29,
+       0,     0,     0,     0,     0,    35,     0,     0,     0,    61,
+       0,    37,     0,     0,     0,    62,    63,     0,     0,    45,
+      46,    47,    48,   124,   671,    51,    66,     0,    67,     0,
+       0,     0,     0,     0,    55,    56,     0,     0,     0,     0,
+      57,     0,     0,     0,     4,     5,   534,     7,     0,     0,
+       0,   127,   128,   120,   121,   535,     0,    13,    14,    15,
+      16,    17,    18,    19,     0,     0,     0,     0,     0,    59,
+      60,     0,     0,     0,   123,    29,     0,     0,     0,     0,
+       0,    35,     0,     0,     0,    61,     0,    37,     0,     0,
+       0,    62,    63,     0,     0,    45,    46,    47,    48,   124,
+     681,    51,    66,     0,    67,     0,     0,     0,     0,     0,
+      55,    56,     0,     0,     0,     0,    57,     0,     0,     0,
+       4,     5,     6,     7,     0,     0,     0,   127,   128,   120,
+     121,   122,     0,    13,    14,    15,    16,    17,    18,    19,
+       0,     0,     0,     0,     0,    59,    60,     0,     0,     0,
+     123,    29,     0,     0,     0,     0,     0,    35,     0,     0,
+       0,    61,     0,    37,     0,     0,     0,    62,    63,     0,
+       0,    45,    46,    47,    48,   124,   205,    51,    66,     0,
+      67,     0,     0,     0,     0,     0,    55,    56,     0,     0,
+       0,     0,    57,     0,     0,     0,     4,     5,     6,     7,
+       0,     0,     0,   127,   128,   120,   121,   122,     0,    13,
+      14,    15,    16,    17,    18,    19,     0,     0,     0,     0,
+       0,    59,    60,     0,     0,     0,   123,    29,     0,     0,
+       0,     0,     0,    35,     0,     0,     0,    61,     0,    37,
+       0,     0,     0,    62,    63,     0,     0,    45,    46,    47,
+      48,   124,   819,    51,    66,     0,    67,     0,     0,     0,
+       0,     0,    55,    56,     0,     0,     0,     0,    57,     0,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
+      18,    19,     0,     0,     0,     0,     0,    59,    60,     0,
+       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
+       0,     0,     0,    61,     0,    37,     0,     0,     0,    62,
+      63,     0,     0,    45,    46,    47,    48,   124,  1026,    51,
+      66,     0,    67,     0,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
        0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
        0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
       37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   145,    51,     0,    66,     0,    67,     0,
+      47,    48,     0,   144,    51,     0,    66,     0,    67,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
       18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
        0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
        0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   147,    51,
+      62,    63,     0,    45,    46,    47,    48,     0,   146,    51,
        0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
        0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
        0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
       37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   149,    51,     0,    66,     0,    67,     0,
+      47,    48,     0,   148,    51,     0,    66,     0,    67,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
+      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
+       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
+       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
+      62,    63,     0,    45,    46,    47,    48,     0,   150,    51,
+       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
+      13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
+       0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
+       0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
+      37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
+      47,    48,     0,   124,    51,     0,    66,     0,    67,     0,
+       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
+      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
+       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
+       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
+      62,    63,     0,    45,    46,    47,    48,     0,   170,    51,
+       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
+      13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
+       0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
+       0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
+      37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
+      47,    48,     0,   172,    51,     0,    66,     0,    67,     0,
+       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
       18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
        0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
        0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
       62,    63,     0,    45,    46,    47,    48,     0,   124,    51,
-       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,    66,     0,   186,     0,     0,     0,     0,    55,    56,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
        0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
        0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
       37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   169,    51,     0,    66,     0,    67,     0,
+      47,    48,     0,   277,    51,     0,    66,     0,    67,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
+       0,     0,     4,     5,   534,     7,     0,     0,     0,   127,
+     128,   120,   121,   535,     0,    13,    14,    15,    16,    17,
       18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
        0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
        0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   171,    51,
+      62,    63,     0,    45,    46,    47,    48,     0,   532,    51,
        0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   127,   128,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
        0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
        0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
       37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   124,    51,     0,    66,     0,   185,     0,
+      47,    48,     0,   536,    51,     0,    66,     0,    67,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
+       0,     0,     4,     5,     6,     7,     0,     0,     0,   127,
+     128,   120,   121,   122,     0,    13,    14,    15,    16,    17,
       18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
        0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
        0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   276,    51,
+      62,    63,     0,    45,    46,    47,    48,     0,   707,    51,
        0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-     528,     7,     0,     0,     0,   127,   128,   120,   121,   529,
+       0,     0,     0,     0,    57,     0,     0,     4,     5,     6,
+       7,     0,     0,     0,   118,   119,   120,   121,   122,     0,
       13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
-       0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
+       0,     0,     0,    59,    60,     0,     0,   123,     0,     0,
        0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
       37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   526,    51,     0,    66,     0,    67,     0,
+      47,    48,     0,   731,    51,     0,    66,     0,    67,     0,
        0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     127,   128,   120,   121,   122,    13,    14,    15,    16,    17,
-      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
-       0,     0,   123,    29,     0,     0,     0,     0,     0,    35,
-       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   530,    51,
-       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     4,     5,
-       6,     7,     0,     0,     0,   127,   128,   120,   121,   122,
-      13,    14,    15,    16,    17,    18,    19,     0,     0,     0,
-       0,     0,     0,    59,    60,     0,     0,   123,    29,     0,
-       0,     0,     0,     0,    35,     0,     0,     0,     0,    61,
-      37,     0,     0,     0,     0,    62,    63,     0,    45,    46,
-      47,    48,     0,   701,    51,     0,    66,     0,    67,     0,
-       0,     0,     0,    55,    56,     0,     0,     0,     0,    57,
-       0,     0,     0,     4,     5,     6,     7,     0,     0,     0,
-     118,   119,   120,   121,   122,    13,    14,    15,    16,    17,
-      18,    19,     0,     0,     0,     0,     0,     0,    59,    60,
-       0,     0,   123,     0,     0,     0,     0,     0,     0,    35,
-       0,     0,     0,     0,    61,    37,     0,     0,     0,     0,
-      62,    63,     0,    45,    46,    47,    48,     0,   725,    51,
-       0,    66,     0,    67,     0,     0,     0,     0,    55,    56,
-       0,     0,     0,     0,    57,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,    59,    60,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,    61,
-       0,     0,     0,     0,     0,    62,    63,     0,     0,     0,
-       0,     0,     0,   124,     0,     0,    66,     0,    67
+       0,     0,     0,     0,     0,     0,     0,     0,    59,    60,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,    61,     0,     0,     0,     0,     0,
+      62,    63,     0,     0,     0,     0,     0,     0,   124,     0,
+       0,    66,     0,    67
 };
 
 static const yytype_int16 yycheck[] =
 {
-       2,     0,   236,   265,   558,   722,    14,   503,    11,    27,
-       0,    27,   319,   509,    16,    85,    14,    31,    23,    23,
-     388,    23,    24,    25,    26,    27,    10,    14,    30,    31,
-      32,    14,    27,    35,    36,    15,    23,    39,    40,    83,
-      84,   897,   133,   132,   118,    47,    48,   138,    14,    51,
-     139,    27,    47,   118,   124,    10,    11,    23,   120,    14,
-      41,    42,   136,    65,    66,    10,    11,    14,    27,    14,
-      14,    47,    82,    10,    11,    55,   138,    14,    14,    85,
-     124,    61,    62,    63,    67,    32,    61,    62,    47,    14,
-      65,    75,    76,    10,    11,    10,    85,    14,    23,    27,
-     102,   103,   104,   105,   106,   107,    10,    73,   110,   111,
-      14,   113,   114,   118,   118,    70,    71,    72,   124,    47,
-     138,   131,   124,   133,   138,    70,    71,    72,   131,    14,
-     133,   133,   140,    70,    71,    72,    14,   132,    23,    17,
-     138,   143,   859,   145,   139,   147,   135,   149,    73,   138,
-      27,   138,   118,    70,    71,    72,   132,  1013,   139,   135,
-      75,    76,    12,   139,   139,   661,   132,   169,   138,   171,
-      47,   539,   174,   132,   176,   177,   135,   179,   180,   134,
-     182,   183,   184,   185,   186,    63,    85,    14,    73,   134,
-      10,    11,     5,   118,    14,    12,    23,   134,   132,    83,
-      84,    14,  1058,   138,   132,   139,  1062,   132,   210,   211,
-     212,   213,   214,   215,   216,   217,   218,   134,   220,   221,
-     222,   223,   224,   225,   226,   227,    14,   229,    10,   109,
-     103,   104,    14,   118,   250,   251,   135,   117,    82,   138,
-     124,   609,   610,    27,    27,    14,    73,   132,  1104,   120,
-      70,    71,    72,   133,   118,   132,  1112,   120,    10,    11,
-     133,   118,    14,    47,    47,   572,   131,   138,   133,    61,
-      62,  1127,   136,    65,   276,   138,   133,   257,   258,   259,
-     260,   261,   262,   263,    10,    11,    27,   131,    14,   133,
-     292,   118,   294,   295,   296,   297,   298,   299,   300,   301,
-     607,  1157,   856,    77,   120,   132,    47,   309,   310,   135,
-     312,   137,   314,    14,   134,    79,    80,    81,    70,    71,
-      72,  1038,   138,   325,   326,   327,   328,   329,   330,   331,
-     346,   347,   132,   335,   336,    30,    27,   132,    10,   139,
-     135,     2,    27,   118,    70,    71,    72,   139,   132,   132,
-     349,   353,   354,    48,   356,   357,    47,   359,   360,   120,
-      10,   136,    47,   365,   118,   367,    82,    28,    29,   118,
-     372,   373,    10,    11,    12,   139,    14,   138,   132,   381,
-      41,    42,   134,   110,   133,   133,    27,   117,    49,    50,
-     138,   132,    27,   118,    32,   118,   131,   704,   139,    37,
-      27,   403,   404,   405,   406,   136,    47,   132,   134,   132,
-      27,   118,    47,    30,    31,   118,   131,   111,   112,   113,
-      47,   132,   302,    40,   658,   132,    43,    44,   139,   132,
-      47,    48,   739,   127,   128,   129,   135,   118,   137,    27,
-     133,   132,    30,    31,   135,   138,   132,   132,   139,   135,
-     135,   132,    40,   333,   139,    43,    44,    27,   338,    47,
-      30,    31,   123,    27,   344,    14,    30,    31,   775,   776,
-      40,    74,   352,    43,    44,    14,    40,    47,    48,    43,
-      44,   132,   362,    47,   135,   132,   488,   148,   139,   150,
-     151,   132,   494,   495,    14,   133,   133,   132,   139,    10,
-      11,   138,   504,    14,   139,   132,   132,   509,   770,   170,
-     132,   172,   139,   393,   132,   132,   396,   139,   122,   123,
-     132,   139,   139,   132,   526,    10,    11,   139,   530,    14,
-     139,   533,   133,   535,   132,   537,    14,   138,   132,   541,
-     542,   139,    10,   850,   132,   139,   132,   135,   132,   210,
-     135,   139,   137,   139,   135,   139,   137,   559,   132,    70,
-      71,    72,   132,    27,   118,   139,    30,    31,   132,   139,
-     132,   135,   574,   125,   126,   139,    40,   139,    27,    43,
-      44,    30,    31,    47,    48,    70,    71,    72,   135,   132,
-     132,    40,   118,   595,    43,    44,   139,   139,    47,   906,
-     907,   481,   132,   132,   132,   135,   138,   132,   132,   489,
-     139,   139,   614,   493,   139,   139,   496,   619,   620,   621,
-     135,   501,   137,   503,   992,   627,   628,   995,   630,   631,
-      58,   633,   634,   635,   636,   637,   638,   639,   640,    27,
-     132,   903,    30,    31,   132,    27,   132,   139,    30,    31,
-     132,   139,    40,   139,   138,    43,    44,   139,    40,    47,
-     132,    43,    44,   133,   544,    47,    48,   139,   132,   132,
-     672,   673,   674,   553,   132,   139,   139,   135,   138,   681,
-     132,    27,   132,   132,    30,    31,   135,   139,   132,   139,
-     139,   139,   694,   695,    40,   139,   132,    43,    44,   701,
-     132,    47,    48,   139,   139,   101,   708,   103,   104,   105,
-     106,   107,   108,   109,   132,   132,  1084,   135,    86,    87,
-      88,    89,   118,   725,   385,   135,   132,   137,    96,    97,
-      98,   132,   734,   139,    14,   131,   121,   133,   139,   741,
-     742,   743,   132,    23,   132,    25,    26,   135,   132,   139,
-     132,   753,   120,   121,    34,    35,    43,    44,   132,    39,
-     132,   132,   132,   765,   133,    45,    46,   139,   139,   139,
-     132,   132,   132,    53,    54,    55,    56,   139,   139,   659,
-     133,   661,   132,    63,   132,   138,   132,   667,   790,   791,
-     792,   793,   794,   795,    14,    82,    83,    84,   133,    86,
-      87,    88,    89,    90,    91,    92,    93,    94,    95,    96,
-      97,    98,   132,   693,   132,   102,   135,   132,   137,   139,
-     135,   139,    14,   110,   111,   112,   113,   114,   115,   116,
-     117,   132,   834,   120,   121,   122,   123,   124,   139,   132,
-     127,   128,   129,   132,   131,    14,   139,   132,   132,   132,
-     139,   135,   135,   132,   139,   103,   104,   105,   106,   107,
-     108,   109,   118,   865,    90,    91,    92,    93,    94,    95,
-     118,   132,   132,   118,   135,   135,   102,   879,   880,   881,
-     882,   883,   884,   885,   886,   133,   134,   135,   114,    10,
-     132,   132,   894,   135,   135,    14,   557,   558,    17,   132,
-     561,   562,   563,    14,    23,   132,    25,    26,   135,   132,
-     912,    14,   135,   574,    28,    34,    35,   115,   116,    10,
-      39,    10,    13,    14,    15,    16,    45,    46,   589,   590,
-     591,    10,    11,    12,    53,    54,    55,    56,     7,     8,
-       9,   134,   135,   945,    14,   132,    10,   949,   950,    13,
-     132,    15,    16,    23,   132,    25,    26,   837,   132,   247,
-     248,   249,   134,   135,    34,    35,   968,   847,   132,    39,
-     972,   973,   974,   132,   133,    45,    46,   135,   139,   137,
-     134,   135,   133,    53,    54,    55,    56,   989,   125,   126,
-     134,   135,   134,   135,   993,   134,   135,   133,  1000,   134,
-     135,   118,   101,  1005,   103,   104,   105,   106,   107,   108,
-     109,   103,   104,   105,   106,   107,   108,   109,    10,   118,
-    1022,  1023,   134,   135,   134,   135,   118,   134,   135,    28,
-      29,   118,   131,   913,   133,   132,   134,   135,   134,   135,
-    1042,   133,   230,   231,   232,   233,   234,   235,   132,   237,
-     238,   239,   240,   241,   242,   243,   244,   134,   135,  1061,
-     134,   135,   134,   135,   114,   726,   134,   135,   134,   135,
-     132,   951,   132,  1075,   133,   955,   134,   135,  1080,   134,
-     135,   134,   135,   134,   135,   134,   135,   134,   135,   134,
-     135,   134,   135,   754,   134,   135,   134,   135,    99,  1101,
-     134,   135,    28,    29,  1106,  1107,  1108,   134,   135,   134,
-     135,   134,   135,   134,   135,   134,   135,   132,     3,     4,
-       5,     6,   134,   135,   132,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,   132,  1140,  1141,
-    1142,  1143,  1144,  1145,  1146,  1147,   132,    32,    33,   134,
-     135,   134,   135,   132,    39,    28,    29,  1159,  1160,  1161,
-      45,   134,   135,   134,   135,   134,   135,   132,    53,    54,
-      55,    56,    28,    29,    59,   134,   135,   134,   135,   134,
-     135,    46,    47,    68,    69,   132,   253,   254,   132,    74,
-     255,   256,   132,   132,   132,   856,   132,   124,    14,   860,
-     861,   862,   133,   118,   118,   118,   139,    82,   133,   121,
-     132,   132,   132,   118,   132,   132,   132,    14,   103,   104,
-     121,   132,   132,   132,   132,   132,   132,   888,   132,   121,
-     132,   892,   132,   132,   119,   138,   132,   132,   135,   118,
-     125,   126,   132,   132,    14,   139,   139,    14,   133,   134,
-     132,   136,   132,   138,   137,   140,     3,     4,     5,     6,
-     137,    82,    14,    10,    11,    12,    13,    14,    15,    16,
-      17,    18,    19,    20,    21,   132,    10,   132,   132,   132,
-      10,    10,    14,   118,    10,    32,    33,    10,   132,   132,
-      28,   132,    39,    61,    14,    14,    14,   139,    45,   960,
-     961,   132,   132,   132,   132,   132,    53,    54,    55,    56,
-     134,   133,    59,   132,   132,   132,    82,    82,   132,   139,
-     132,    68,    69,   132,     7,     7,     7,    74,   118,   118,
-     132,   118,     3,     4,     5,     6,    14,    10,    10,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,   134,    77,    14,    14,   132,   103,   104,    14,    14,
-     132,    32,    33,   132,   139,   138,    14,    14,    39,   132,
-     134,   132,   119,   132,    45,   132,   132,   139,   125,   126,
-      14,   132,    53,    54,    55,    56,   133,   134,    59,   136,
-     132,   138,   132,   140,    14,   132,  1057,    68,    69,   132,
-    1061,   132,    29,    74,   139,   132,   134,   530,     3,     4,
-       5,     6,  1101,   246,   605,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,   132,   132,   132,
-     132,   132,   103,   104,  1095,   132,   142,    32,    33,   252,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,   119,    -1,
-      45,    -1,    -1,    -1,   125,   126,    -1,    -1,    53,    54,
-      55,    56,   133,   134,    59,   136,    -1,   138,    -1,   140,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
+       2,     0,   266,   237,   728,   564,   392,    15,    14,   507,
+      11,    27,    10,    11,    16,   513,    14,   323,    32,    24,
+      14,    23,    24,    25,    26,    27,    14,   903,    30,    31,
+      32,    10,    11,    35,    36,    14,    24,    39,    40,    10,
+      11,    12,    28,    14,    86,    47,    48,    55,    86,    51,
+      28,   133,    28,    61,    62,    63,    28,    24,   140,    14,
+      28,    14,    33,    65,    66,    10,    11,    38,    83,    14,
+      48,    24,    48,    71,    72,    73,    48,    10,    11,   134,
+      48,    14,     5,   125,   139,     0,    28,   125,    14,    14,
+      28,    14,    71,    72,    73,    42,    43,    86,    28,    24,
+     102,   103,   104,   105,   106,   107,    48,    33,   110,   111,
+      48,   113,   114,    68,   119,   134,   133,   132,    48,   134,
+     139,    74,   124,   140,    86,   139,    71,    72,    73,   131,
+     132,   132,   134,   134,    28,   141,   119,   135,    71,    72,
+      73,   865,   144,  1019,   146,   139,   148,   136,   150,    74,
+     139,   139,   119,   139,    48,   133,   135,   133,   136,   545,
+     136,   133,   140,   134,   140,   133,   119,    14,   170,   667,
+     172,    10,   140,   175,   136,   177,   178,   139,   180,   181,
+     133,   183,   184,   185,   186,   187,    12,    28,  1064,   133,
+     135,   133,  1068,   140,   119,   133,   140,    10,    11,    84,
+      85,    14,   135,   133,    84,    85,   136,    48,   133,   211,
+     212,   213,   214,   215,   216,   217,   218,   219,    12,   221,
+     222,   223,   224,   225,   226,   227,   228,   139,   230,   615,
+     616,   119,   104,   105,  1110,   251,   252,    76,    77,   133,
+     125,    28,  1118,    10,    11,   125,   140,    14,   139,   137,
+     258,   259,   260,   261,   262,   263,   264,  1133,    71,    72,
+      73,    48,   134,    10,    11,    28,    83,    14,    31,    32,
+      62,    63,   578,    14,    66,   277,    14,    18,    41,    10,
+      14,    44,    45,   121,    10,    48,    24,  1163,    28,    28,
+      24,   293,   133,   295,   296,   297,   298,   299,   300,   301,
+     302,   139,    14,   862,    71,    72,    73,   613,    48,    48,
+      14,   313,   314,   134,   316,   132,   318,   134,   139,    14,
+    1044,    10,   135,    64,    71,    72,    73,   329,   330,   331,
+     332,   333,   334,   335,   350,   351,    74,   339,   340,     2,
+      74,    62,    63,   119,    28,    66,   133,    83,   140,   136,
+      76,    77,   111,   140,   353,   357,   358,   133,   360,   361,
+     133,   363,   364,   136,    48,    28,    29,   369,   135,   371,
+     133,   121,   109,   136,   376,   377,   119,   140,    41,    42,
+     117,   119,    14,   385,   119,   119,    49,    50,   135,   139,
+      78,   134,   121,   133,   133,   133,   118,   134,   121,   133,
+     140,   140,   137,    31,   710,   407,   408,   409,   410,    28,
+     139,    28,    31,    32,    31,    32,   139,   133,   119,   140,
+     136,    49,    41,   119,    41,    44,    45,    44,    45,    48,
+     664,    48,    49,    80,    81,    82,   137,    28,   134,   745,
+      31,    32,    10,    11,   121,   119,    14,   132,    28,   133,
+      41,    31,    32,    44,    45,    14,   140,    48,    49,   133,
+     123,    41,   139,   119,    44,    45,   133,    28,    48,    49,
+      31,    32,   133,   140,   132,   781,   782,   133,    28,   140,
+      41,    31,    32,    44,    45,   119,   149,    48,   151,   152,
+     492,    41,    14,   140,    44,    45,   498,   499,    48,   133,
+     133,   137,   133,    71,    72,    73,   508,   140,   171,   140,
+     173,   513,   776,   119,   133,    28,   133,   136,    31,    32,
+     133,   140,   133,   140,   119,   136,   133,   133,    41,   140,
+     532,    44,    45,   140,   536,    48,    49,   539,   133,   541,
+     133,   543,   133,    14,    15,   547,   548,   140,   211,   140,
+     856,    10,   133,   133,    13,    14,   134,    16,    17,   140,
+     140,   139,   133,   565,    28,   134,   303,    31,    32,   140,
+     139,   134,   133,   126,   127,   136,   139,    41,   580,   140,
+      44,    45,   133,   133,    48,    49,   136,    10,    11,   140,
+     133,    14,    87,    88,    89,    90,   132,   140,   134,   601,
+     337,   133,    97,    98,    99,   342,   912,   913,   140,    14,
+      10,   348,   998,    13,   133,  1001,    16,    17,   620,   356,
+     133,   140,    10,   625,   626,   627,   121,   122,   119,   366,
+     133,   633,   634,   136,   636,   637,   119,   639,   640,   641,
+     642,   643,   644,   645,   646,   909,   123,   124,    71,    72,
+      73,   102,   136,   104,   105,   106,   107,   108,   109,   110,
+     397,   116,   117,   400,   133,   133,   133,   133,   119,   133,
+     136,   140,   140,   140,    14,   133,   678,   679,   680,   135,
+     136,   132,   140,   134,    24,   687,    26,    27,   104,   105,
+     106,   107,   108,   109,   110,    35,    36,   139,   700,   701,
+      40,   133,    75,   119,  1090,   707,    46,    47,   140,    14,
+     135,   136,   714,    18,    54,    55,    56,    57,   134,    24,
+     133,    26,    27,    59,    64,   133,   389,   140,   139,   731,
+      35,    36,   140,   135,   136,    40,   133,   133,   740,   133,
+     134,    46,    47,   140,   140,   747,   748,   749,   485,    54,
+      55,    56,    57,   134,   133,   133,   493,   759,   133,   133,
+     497,   140,   140,   500,   133,   140,   140,   136,   505,   771,
+     507,   104,   105,   106,   107,   108,   109,   110,   133,    10,
+      44,    45,   139,    14,   133,   140,   119,   136,    91,    92,
+      93,    94,    95,    96,   796,   797,   798,   799,   800,   801,
+     103,   134,   135,   136,   133,   126,   127,   133,   133,   133,
+     133,   140,   115,   550,   140,   140,   140,   140,   140,    83,
+      84,    85,   559,    87,    88,    89,    90,    91,    92,    93,
+      94,    95,    96,    97,    98,    99,   133,   133,   840,   103,
+     133,    10,   133,   140,   140,    14,   133,   111,   112,   113,
+     114,   115,   116,   117,   118,   133,   133,   121,   122,   123,
+     124,   125,   140,   140,   128,   129,   130,   133,   132,   871,
+     133,   133,   133,   133,   140,   133,   133,   140,   140,   140,
+     140,    14,   140,   885,   886,   887,   888,   889,   890,   891,
+     892,    24,   133,    26,    27,   136,   133,   133,   900,   136,
+     563,   564,    35,    36,   567,   568,   569,    40,   133,   112,
+     113,   114,   122,    46,    47,   133,   918,   580,   136,   135,
+     136,    54,    55,    56,    57,   128,   129,   130,   665,   136,
+     667,   138,   595,   596,   597,   102,   673,   104,   105,   106,
+     107,   108,   109,   110,   133,   133,   140,   136,   136,   951,
+     135,   136,   119,   955,   956,   133,   133,   133,   136,   136,
+     136,   136,   699,   138,   136,   132,   138,   134,    10,    11,
+      12,   133,   974,     7,     8,     9,   978,   979,   980,   248,
+     249,   250,   136,   136,   138,   138,   136,   136,   138,   138,
+     136,   134,   138,   995,   135,   136,   135,   136,   135,   136,
+     999,   135,   136,    14,  1006,   135,   136,    29,    30,  1011,
+     231,   232,   233,   234,   235,   236,   134,   238,   239,   240,
+     241,   242,   243,   244,   245,    14,  1028,  1029,   135,   136,
+     135,   136,   135,   136,   135,   136,   135,   136,   135,   136,
+     135,   136,   135,   136,   135,   136,  1048,   135,   136,   135,
+     136,   135,   136,   135,   136,   135,   136,   135,   136,   135,
+     136,   135,   136,   135,   136,  1067,    29,    30,    14,   732,
+     135,   136,   135,   136,   135,   136,   135,   136,    10,  1081,
+     135,   136,   135,   136,  1086,   135,   136,   135,   136,    29,
+      30,   135,   136,   133,   135,   136,   119,   760,   135,   136,
+      29,    30,   135,   136,   133,  1107,   843,   135,   136,   133,
+    1112,  1113,  1114,   119,   135,   136,   853,   133,    46,    47,
+     256,   257,   254,   255,     3,     4,     5,     6,    14,    14,
+      29,    10,    11,    12,    13,    14,    10,    16,    17,    18,
+      19,    20,    21,    22,  1146,  1147,  1148,  1149,  1150,  1151,
+    1152,  1153,   133,   133,    33,    34,   133,   133,   133,   119,
+     134,    40,   140,  1165,  1166,  1167,   134,    46,    10,   119,
+     100,   133,   133,   115,   133,    54,    55,    56,    57,   133,
+     133,    60,   919,   134,   133,   133,   133,    14,   133,   133,
+      69,    70,   133,   119,   133,   133,    75,   133,   133,   862,
+     133,   125,   119,   866,   867,   868,   119,   134,   122,   134,
+      83,   133,   133,   133,   119,   133,    14,   140,   133,    14,
+     957,   133,   133,   133,   961,   104,   105,   133,   136,   133,
+     133,   894,   133,   133,   122,   898,   133,   139,   133,   133,
+     133,   120,   133,   119,   140,   122,   133,   126,   127,   133,
+     140,    14,   133,   133,    83,   134,   135,    14,   137,    10,
+     139,   133,   141,     3,     4,     5,     6,   138,   138,   133,
+      10,    11,    12,    13,    14,   133,    16,    17,    18,    19,
+      20,    21,    22,   133,    10,    10,    14,   119,    10,    10,
+     133,    29,   133,    33,    34,   133,    62,    14,    14,    14,
+      40,   140,   133,   966,   967,   133,    46,   133,   133,   133,
+      83,   133,   135,   134,    54,    55,    56,    57,    83,   133,
+      60,   133,   140,   133,   133,   133,     7,     7,     7,    69,
+      70,   119,   119,   133,   119,    75,    14,    10,    10,     3,
+       4,     5,     6,   135,    78,    14,    10,    11,    12,    13,
+      14,    14,    16,    17,    18,    19,    20,    21,    22,   133,
+      14,    14,   133,   133,   104,   105,   133,   135,   140,    33,
+      34,   133,   133,   133,    14,   139,    40,   133,   133,   133,
+     120,   140,    46,   133,   133,    14,   126,   127,   133,    14,
+      54,    55,    56,    57,   134,   135,    60,   137,    14,   139,
+    1063,   141,   133,   140,  1067,    69,    70,  1107,   135,   133,
+     133,    75,    29,   133,   133,     3,     4,     5,     6,   133,
+     133,   133,    10,    11,    12,    13,    14,   611,    16,    17,
+      18,    19,    20,    21,    22,   143,   536,   253,  1101,    -1,
+     104,   105,   247,    -1,    -1,    33,    34,    -1,    -1,    -1,
+      -1,    -1,    40,    -1,    -1,    -1,   120,    -1,    46,    -1,
+      -1,    -1,   126,   127,    -1,    -1,    54,    55,    56,    57,
+     134,   135,    60,   137,    -1,   139,    -1,   141,    -1,    -1,
+      -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,  1158,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
+      -1,  1164,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,   119,    -1,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    -1,    -1,    -1,    -1,    -1,   133,    -1,
-      -1,   136,    -1,   138,    -1,   140,     3,     4,     5,     6,
-      -1,    -1,    -1,    10,    11,    12,    13,    14,    15,    16,
-      17,    18,    19,    20,    21,    22,    23,    24,    25,    26,
-      27,    -1,    -1,    30,    31,    32,    33,    34,    35,    36,
-      37,    38,    39,    40,    -1,    -1,    -1,    -1,    45,    46,
-      47,    48,    49,    50,    51,    52,    53,    54,    55,    56,
-      57,    58,    59,    60,    -1,    -1,    -1,    64,    65,    -1,
-      -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,
-      -1,    78,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,   120,    -1,    -1,    -1,    -1,    -1,   126,   127,
+      -1,    -1,    -1,    -1,    -1,    -1,   134,    -1,    -1,   137,
+      -1,   139,    -1,   141,     3,     4,     5,     6,    -1,    -1,
+      -1,    10,    11,    12,    13,    14,    -1,    16,    17,    18,
+      19,    20,    21,    22,    23,    24,    25,    26,    27,    28,
+      -1,    -1,    31,    32,    33,    34,    35,    36,    37,    38,
+      39,    40,    41,    -1,    -1,    -1,    -1,    46,    47,    48,
+      49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
+      59,    60,    61,    -1,    -1,    -1,    65,    66,    -1,    -1,
+      69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,
+      79,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,   119,    -1,    -1,    -1,    -1,    -1,   125,   126,
-      -1,    -1,    -1,    -1,    -1,   132,   133,    -1,    -1,   136,
-      -1,   138,   139,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    22,    23,    24,    25,    26,    27,    -1,    -1,
-      30,    31,    32,    33,    34,    35,    36,    37,    38,    39,
-      40,    -1,    -1,    -1,    -1,    45,    46,    47,    48,    49,
-      50,    51,    52,    53,    54,    55,    56,    57,    58,    59,
-      60,    -1,    -1,    -1,    64,    65,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,    78,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,   119,
-      -1,    -1,    -1,    -1,    -1,   125,   126,    -1,    -1,    -1,
-      -1,    -1,   132,   133,    -1,    -1,   136,    -1,   138,   139,
-       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
-      13,    14,    15,    16,    17,    18,    19,    20,    21,    22,
-      23,    24,    25,    26,    27,    -1,    -1,    30,    31,    32,
-      33,    34,    35,    36,    37,    38,    39,    40,    -1,    -1,
-      -1,    -1,    45,    46,    47,    48,    49,    50,    51,    52,
-      53,    54,    55,    56,    57,    58,    59,    60,    -1,    -1,
-      -1,    64,    65,    -1,    -1,    68,    69,    -1,    -1,    -1,
-      -1,    74,    -1,    -1,    -1,    78,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,     3,     4,     5,     6,    -1,
-     103,   104,    10,    11,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    -1,    -1,   119,    -1,    -1,    -1,
-      -1,    -1,   125,   126,    32,    33,    -1,    -1,    -1,   132,
-     133,    39,    -1,   136,    -1,   138,   139,    45,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    53,    54,    55,    56,    -1,
-      -1,    59,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,
-       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
-      13,    14,    15,    16,    17,    18,    19,    20,    21,    -1,
-      -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,    32,
-      33,    -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,
-      -1,   119,    45,    -1,    -1,    -1,    -1,   125,   126,    -1,
-      53,    54,    55,    56,   132,   133,    59,    -1,   136,    -1,
-     138,   139,    -1,    -1,    -1,    68,    69,    -1,    -1,    -1,
-      -1,    74,    -1,    -1,    -1,     3,     4,     5,     6,    -1,
-      -1,    -1,    10,    11,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    -1,    -1,    -1,    -1,    -1,    -1,
-     103,   104,    -1,    -1,    32,    33,    -1,    -1,    -1,    -1,
-      -1,    39,    -1,    -1,    -1,    -1,   119,    45,    -1,    -1,
-      -1,    -1,   125,   126,    -1,    53,    54,    55,    56,   132,
-     133,    59,    -1,   136,    -1,   138,   139,    -1,    -1,    -1,
-      68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,   119,    -1,    -1,    -1,    -1,    -1,   125,   126,    -1,
-      -1,    -1,    -1,    -1,   132,   133,    -1,    -1,   136,    -1,
-     138,   139,     3,     4,     5,     6,    -1,    -1,    -1,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    22,    23,    24,    25,    26,    27,    -1,    -1,    30,
+      -1,   120,    -1,    -1,    -1,    -1,    -1,   126,   127,    -1,
+      -1,    -1,    -1,    -1,   133,   134,    -1,    -1,   137,    -1,
+     139,   140,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    23,    24,    25,    26,    27,    28,    -1,    -1,
       31,    32,    33,    34,    35,    36,    37,    38,    39,    40,
-      -1,    -1,    -1,    -1,    45,    46,    47,    48,    49,    50,
+      41,    -1,    -1,    -1,    -1,    46,    47,    48,    49,    50,
       51,    52,    53,    54,    55,    56,    57,    58,    59,    60,
-      -1,    -1,    -1,    64,    65,    -1,    -1,    68,    69,    -1,
-      -1,    -1,    -1,    74,    -1,    -1,    -1,    78,    -1,    -1,
+      61,    -1,    -1,    -1,    65,    66,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,    79,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,     3,     4,     5,
-       6,    -1,   103,   104,    10,    11,    12,    13,    14,    15,
-      16,    17,    18,    19,    20,    21,    -1,    -1,   119,    -1,
-      -1,    -1,    -1,    -1,   125,   126,    32,    33,    -1,    -1,
-      -1,   132,   133,    39,    -1,   136,    -1,   138,    -1,    45,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    53,    54,    55,
-      56,    -1,    -1,    59,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,
-      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,
-      -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,
-      -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,   125,
-     126,    -1,    53,    54,    55,    56,    -1,   133,    59,    -1,
-     136,   137,   138,    -1,    -1,    -1,    -1,    68,    69,    -1,
-      -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,     5,
-       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    15,
-      16,    17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,
-      -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,    -1,
-      -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,    45,
-      -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,    55,
-      56,   132,   133,    59,    -1,   136,    -1,   138,    -1,    -1,
-      -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,
-      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,
-      -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,
-      -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,   125,
-     126,    -1,    53,    54,    55,    56,   132,   133,    59,    -1,
-     136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,    -1,
-      -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,     5,
-       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    15,
-      16,    17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,
-      -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,    -1,
-      -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,    45,
-      -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,    55,
-      56,   132,   133,    59,    -1,   136,    -1,   138,    -1,    -1,
-      -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,   119,    -1,    45,    -1,    -1,    -1,   125,
-     126,    -1,    -1,    53,    54,    55,    56,   133,   134,    59,
-     136,    -1,   138,    -1,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,   137,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,
-      -1,    10,    11,    12,    13,    14,    15,    16,    17,    18,
-      19,    20,    21,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,
-      39,    -1,    -1,    -1,   119,    -1,    45,    -1,    -1,    -1,
-     125,   126,    -1,    -1,    53,    54,    55,    56,   133,   134,
-      59,   136,    -1,   138,    -1,    -1,    -1,    -1,    -1,    68,
-      69,    -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,
-       4,     5,     6,    -1,    -1,    -1,    10,    11,    12,    13,
-      14,    15,    16,    17,    18,    19,    20,    21,    -1,    -1,
-      -1,    -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,
-      -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,
-     119,    45,    -1,    -1,    -1,    -1,   125,   126,   127,    53,
-      54,    55,    56,    -1,   133,    59,    -1,   136,    -1,   138,
-      -1,    -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,
-      74,    -1,    -1,    -1,    -1,     3,     4,     5,     6,    -1,
-      -1,    -1,    10,    11,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    -1,    -1,    -1,    -1,    -1,   103,
-     104,    -1,    -1,    -1,    32,    33,    -1,    -1,    -1,    -1,
-      -1,    39,    -1,    -1,    -1,   119,    -1,    45,    -1,    -1,
-      -1,   125,   126,    -1,    -1,    53,    54,    55,    56,   133,
-     134,    59,   136,    -1,   138,    -1,    -1,    -1,    -1,    -1,
-      68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,
-      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
-      12,    13,    14,    15,    16,    17,    18,    19,    20,    21,
-      -1,    -1,    24,    -1,    -1,   103,   104,    -1,    -1,    -1,
-      32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,
-      -1,   119,    -1,    45,    -1,    -1,    -1,   125,   126,    -1,
-      -1,    53,    54,    55,    56,   133,   134,    59,   136,    -1,
-     138,    -1,    -1,    -1,    -1,    -1,    68,    69,    -1,    -1,
-      -1,    -1,    74,    -1,    -1,    -1,     3,     4,     5,     6,
-      -1,    -1,    -1,    10,    11,    12,    13,    14,    15,    16,
-      17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,    -1,
-      -1,   103,   104,    -1,    -1,    32,    33,    -1,    -1,    -1,
-      -1,    -1,    39,    -1,    -1,    -1,    -1,   119,    45,    -1,
-      -1,    -1,    -1,   125,   126,    -1,    53,    54,    55,    56,
-      -1,   133,    59,    -1,   136,    -1,   138,    -1,    -1,    -1,
-      -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,
-      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
-      12,    13,    14,    15,    16,    17,    18,    19,    20,    21,
-      -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,
-      32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,
-      -1,    -1,   119,    45,    -1,    -1,    -1,    -1,   125,   126,
-      -1,    53,    54,    55,    56,    -1,   133,    59,   135,   136,
-      -1,   138,    -1,    -1,    -1,    -1,    68,    69,    -1,    -1,
-      -1,    -1,    74,    -1,    -1,    77,     3,     4,     5,     6,
-      -1,    -1,    -1,    10,    11,    12,    13,    14,    15,    16,
-      17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,    -1,
-      -1,   103,   104,    -1,    -1,    32,    33,    -1,    -1,    -1,
-      -1,    -1,    39,    -1,    -1,    -1,    -1,   119,    45,    -1,
-      -1,    -1,    -1,   125,   126,    -1,    53,    54,    55,    56,
-      -1,   133,    59,    -1,   136,    -1,   138,    -1,    -1,    -1,
-      -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,
-      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
-      12,    13,    14,    15,    16,    17,    18,    19,    20,    21,
-      -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,
-      32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,
-      -1,    -1,   119,    45,    -1,    -1,    -1,    -1,   125,   126,
-      -1,    53,    54,    55,    56,    -1,   133,    59,    -1,   136,
-     137,   138,    -1,    -1,    -1,    -1,    68,    69,    -1,    -1,
-      -1,    -1,    74,    -1,    -1,    -1,    -1,     3,     4,     5,
-       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    15,
-      16,    17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,
-      -1,   103,   104,    -1,    -1,    -1,    32,    33,    -1,    -1,
-      -1,    -1,    -1,    39,    -1,    -1,    -1,   119,    -1,    45,
-      -1,    -1,    -1,   125,   126,    -1,    -1,    53,    54,    55,
-      56,   133,   134,    59,   136,    -1,   138,    -1,    -1,    -1,
-      -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,
-      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,
-      -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,
-      -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,   125,
-     126,    -1,    53,    54,    55,    56,    -1,   133,    59,    -1,
-     136,   137,   138,    -1,    -1,    -1,    -1,    68,    69,    -1,
-      -1,    -1,    -1,    74,    -1,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,   103,   104,    -1,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,   119,    -1,
-      45,    -1,    -1,    -1,   125,   126,    -1,    -1,    53,    54,
-      55,    56,   133,   134,    59,   136,    -1,   138,    -1,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,
-      -1,    10,    11,    12,    13,    14,    15,    16,    17,    18,
-      19,    20,    21,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,
-      39,    -1,    -1,    -1,   119,    -1,    45,    -1,    -1,    -1,
-     125,   126,    -1,    -1,    53,    54,    55,    56,   133,   134,
-      59,   136,    -1,   138,    -1,    -1,    -1,    -1,    -1,    68,
-      69,    -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,   120,
+      -1,    -1,    -1,    -1,    -1,   126,   127,    -1,    -1,    -1,
+      -1,    -1,   133,   134,    -1,    -1,   137,    -1,   139,   140,
        3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
-      13,    14,    15,    16,    17,    18,    19,    20,    21,    -1,
-      -1,    -1,    -1,    -1,   103,   104,    -1,    -1,    -1,    32,
-      33,    -1,    -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,
-     119,    -1,    45,    -1,    -1,    -1,   125,   126,    -1,    -1,
-      53,    54,    55,    56,   133,   134,    59,   136,    -1,   138,
-      -1,    -1,    -1,    -1,    -1,    68,    69,    -1,    -1,    -1,
-      -1,    74,    -1,    -1,    -1,    -1,     3,     4,     5,     6,
-      -1,    -1,    -1,    10,    11,    12,    13,    14,    15,    16,
-      17,    18,    19,    20,    21,    -1,    -1,    -1,    -1,    -1,
-     103,   104,    -1,    -1,    -1,    32,    33,    -1,    -1,    -1,
-      -1,    -1,    39,    -1,    -1,    -1,   119,    -1,    45,    -1,
-      -1,    -1,   125,   126,    -1,    -1,    53,    54,    55,    56,
-     133,   134,    59,   136,    -1,   138,    -1,    -1,    -1,    -1,
-      -1,    68,    69,    -1,    -1,    -1,    -1,    74,    -1,    -1,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      23,    24,    25,    26,    27,    28,    -1,    -1,    31,    32,
+      33,    34,    35,    36,    37,    38,    39,    40,    41,    -1,
+      -1,    -1,    -1,    46,    47,    48,    49,    50,    51,    52,
+      53,    54,    55,    56,    57,    58,    59,    60,    61,    -1,
+      -1,    -1,    65,    66,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,    -1,    79,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,     3,     4,     5,     6,
+      -1,   104,   105,    10,    11,    12,    13,    14,    -1,    16,
+      17,    18,    19,    20,    21,    22,    -1,   120,    -1,    -1,
+      -1,    -1,    -1,   126,   127,    -1,    33,    34,    -1,    -1,
+     133,   134,    -1,    40,   137,    -1,   139,   140,    -1,    46,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    54,    55,    56,
+      57,    -1,    -1,    60,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,
+      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
+      12,    13,    14,    -1,    16,    17,    18,    19,    20,    21,
+      22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,
+      -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,
+      -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,   126,
+     127,    -1,    54,    55,    56,    57,   133,   134,    60,    -1,
+     137,    -1,   139,   140,    -1,    -1,    -1,    69,    70,    -1,
+      -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,     6,
+      -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,    16,
+      17,    18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,
+      -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,    46,
+      -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,    56,
+      57,   133,   134,    60,    -1,   137,    -1,   139,   140,    -1,
+      -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,   120,    -1,    -1,    -1,    -1,    -1,   126,
+     127,    -1,    -1,    -1,    -1,    -1,   133,   134,    -1,    -1,
+     137,    -1,   139,   140,     3,     4,     5,     6,    -1,    -1,
+      -1,    10,    11,    12,    13,    14,    -1,    16,    17,    18,
+      19,    20,    21,    22,    23,    24,    25,    26,    27,    28,
+      -1,    -1,    31,    32,    33,    34,    35,    36,    37,    38,
+      39,    40,    41,    -1,    -1,    -1,    -1,    46,    47,    48,
+      49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
+      59,    60,    61,    -1,    -1,    -1,    65,    66,    -1,    -1,
+      69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,
+      79,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+       3,     4,     5,     6,    -1,   104,   105,    10,    11,    12,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      -1,   120,    -1,    -1,    -1,    -1,    -1,   126,   127,    -1,
+      33,    34,    -1,    -1,   133,   134,    -1,    40,   137,    -1,
+     139,    -1,    -1,    46,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    54,    55,    56,    57,    -1,    -1,    60,    -1,    -1,
+      -1,    -1,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,     3,     4,     5,     6,    -1,
+      -1,    -1,    10,    11,    12,    13,    14,    -1,    16,    17,
+      18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,    -1,
+      -1,   104,   105,    -1,    -1,    33,    34,    -1,    -1,    -1,
+      -1,    -1,    40,    -1,    -1,    -1,    -1,   120,    46,    -1,
+      -1,    -1,    -1,   126,   127,    -1,    54,    55,    56,    57,
+      -1,   134,    60,    -1,   137,   138,   139,    -1,    -1,    -1,
+      -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,
+       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,
+      33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,
+      -1,    -1,   120,    46,    -1,    -1,    -1,    -1,   126,   127,
+      -1,    54,    55,    56,    57,   133,   134,    60,    -1,   137,
+      -1,   139,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,     3,     4,     5,     6,    -1,
+      -1,    -1,    10,    11,    12,    13,    14,    -1,    16,    17,
+      18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,    -1,
+      -1,   104,   105,    -1,    -1,    33,    34,    -1,    -1,    -1,
+      -1,    -1,    40,    -1,    -1,    -1,    -1,   120,    46,    -1,
+      -1,    -1,    -1,   126,   127,    -1,    54,    55,    56,    57,
+     133,   134,    60,    -1,   137,    -1,   139,    -1,    -1,    -1,
+      -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,
+       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,
+      33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,
+      -1,    -1,   120,    46,    -1,    -1,    -1,    -1,   126,   127,
+      -1,    54,    55,    56,    57,   133,   134,    60,    -1,   137,
+      -1,   139,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,    -1,     3,     4,     5,     6,
+      -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,    16,
+      17,    18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,
+      -1,   104,   105,    -1,    -1,    -1,    33,    34,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,   120,    -1,    46,
+      -1,    -1,    -1,   126,   127,    -1,    -1,    54,    55,    56,
+      57,   134,   135,    60,   137,    -1,   139,    -1,    -1,    -1,
+      -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,
+      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
+      12,    13,    14,    -1,    16,    17,    18,    19,    20,    21,
+      22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,
+      -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,
+      -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,   126,
+     127,    -1,    54,    55,    56,    57,    -1,   134,    60,    -1,
+     137,   138,   139,    -1,    -1,    -1,    -1,    69,    70,    -1,
+      -1,    -1,    -1,    75,    -1,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,   104,   105,    -1,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,   120,    -1,
+      46,    -1,    -1,    -1,   126,   127,    -1,    -1,    54,    55,
+      56,    57,   134,   135,    60,   137,    -1,   139,    -1,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
       -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
-      11,    12,    13,    14,    15,    16,    17,    18,    19,    20,
-      21,    -1,    -1,    -1,    -1,    -1,   103,   104,    -1,    -1,
-      -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,    -1,
-      -1,    -1,   119,    -1,    45,    -1,    -1,    -1,   125,   126,
-      -1,    -1,    53,    54,    55,    56,   133,   134,    59,   136,
-      -1,   138,    -1,    -1,    -1,    -1,    -1,    68,    69,    -1,
-      -1,    -1,    -1,    74,    -1,    -1,    -1,    -1,     3,     4,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,   128,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,     3,     4,
        5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,   103,   104,    -1,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,   119,    -1,
-      45,    -1,    -1,    -1,   125,   126,    -1,    -1,    53,    54,
-      55,    56,   133,   134,    59,   136,    -1,   138,    -1,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
+      -1,    16,    17,    18,    19,    20,    21,    22,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    -1,    33,    34,
+      -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,   120,
+      -1,    46,    -1,    -1,    -1,   126,   127,    -1,    -1,    54,
+      55,    56,    57,   134,   135,    60,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,
+      75,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
+      10,    11,    12,    13,    14,    -1,    16,    17,    18,    19,
+      20,    21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,
+     105,    -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,
+      40,    -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,
+      -1,   126,   127,    -1,    54,    55,    56,    57,   133,   134,
+      60,    -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,
+      70,    -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,
        5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
+      -1,    16,    17,    18,    19,    20,    21,    22,    -1,    -1,
+      -1,    -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,
+      -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,
+     120,    46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,
+      55,    56,    57,   133,   134,    60,    -1,   137,    -1,   139,
+      -1,    -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,
+      75,    -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,
+      -1,    10,    11,    12,    13,    14,    -1,    16,    17,    18,
+      19,    20,    21,    22,    -1,    -1,    25,    -1,    -1,   104,
+     105,    -1,    -1,    -1,    33,    34,    -1,    -1,    -1,    -1,
+      -1,    40,    -1,    -1,    -1,   120,    -1,    46,    -1,    -1,
+      -1,   126,   127,    -1,    -1,    54,    55,    56,    57,   134,
+     135,    60,   137,    -1,   139,    -1,    -1,    -1,    -1,    -1,
+      69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,     3,
+       4,     5,     6,    -1,    -1,    -1,    10,    11,    12,    13,
+      14,    -1,    16,    17,    18,    19,    20,    21,    22,    -1,
+      -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,    33,
+      34,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,
+      -1,   120,    46,    -1,    -1,    -1,    -1,   126,   127,    -1,
+      54,    55,    56,    57,    -1,   134,    60,    -1,   137,    -1,
+     139,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,    -1,
+      -1,    75,    -1,    -1,     3,     4,     5,     6,    -1,    -1,
+      -1,    10,    11,    12,    13,    14,    -1,    16,    17,    18,
+      19,    20,    21,    22,    -1,    -1,    -1,    -1,    -1,    -1,
+     104,   105,    -1,    -1,    33,    34,    -1,    -1,    -1,    -1,
+      -1,    40,    -1,    -1,    -1,    -1,   120,    46,    -1,    -1,
+      -1,    -1,   126,   127,    -1,    54,    55,    56,    57,    -1,
+     134,    60,   136,   137,    -1,   139,    -1,    -1,    -1,    -1,
+      69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,    78,
+       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,    -1,
+      33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,
+      -1,   120,    -1,    46,    -1,    -1,    -1,   126,   127,    -1,
+      -1,    54,    55,    56,    57,   134,    -1,    60,   137,    -1,
+     139,    -1,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,     3,     4,     5,     6,    -1,
+      -1,    -1,    10,    11,    12,    13,    14,    -1,    16,    17,
+      18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,    -1,
+      -1,   104,   105,    -1,    -1,    33,    34,    -1,    -1,    -1,
+      -1,    -1,    40,    -1,    -1,    -1,    -1,   120,    46,    -1,
+      -1,    -1,    -1,   126,   127,    -1,    54,    55,    56,    57,
+      -1,   134,    60,    -1,   137,   138,   139,    -1,    -1,    -1,
+      -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,
+      -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,    11,
+      12,    13,    14,    -1,    16,    17,    18,    19,    20,    21,
+      22,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,
+      -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,
+      -1,    -1,   120,    -1,    46,    -1,    -1,    -1,   126,   127,
+      -1,    -1,    54,    55,    56,    57,   134,   135,    60,   137,
+      -1,   139,    -1,    -1,    -1,    -1,    -1,    69,    70,    -1,
+      -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,     6,
+      -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,    16,
+      17,    18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,
+      -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,    46,
+      -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,    56,
+      57,    -1,   134,    60,    -1,   137,   138,   139,    -1,    -1,
+      -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,   120,    -1,    46,    -1,    -1,    -1,   126,
+     127,    -1,    -1,    54,    55,    56,    57,   134,   135,    60,
+     137,    -1,   139,    -1,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,     3,     4,
        5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    33,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,     3,     4,
-       5,     6,    -1,    -1,    -1,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19,    20,    21,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    32,    33,    -1,
-      -1,    -1,    -1,    -1,    39,    -1,    -1,    -1,    -1,   119,
-      45,    -1,    -1,    -1,    -1,   125,   126,    -1,    53,    54,
-      55,    56,    -1,   133,    59,    -1,   136,    -1,   138,    -1,
-      -1,    -1,    -1,    68,    69,    -1,    -1,    -1,    -1,    74,
-      -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    -1,    -1,    -1,    -1,    -1,    -1,   103,   104,
-      -1,    -1,    32,    -1,    -1,    -1,    -1,    -1,    -1,    39,
-      -1,    -1,    -1,    -1,   119,    45,    -1,    -1,    -1,    -1,
-     125,   126,    -1,    53,    54,    55,    56,    -1,   133,    59,
-      -1,   136,    -1,   138,    -1,    -1,    -1,    -1,    68,    69,
-      -1,    -1,    -1,    -1,    74,    -1,    -1,    -1,    -1,    -1,
+      -1,    16,    17,    18,    19,    20,    21,    22,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    -1,    33,    34,
+      -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,   120,
+      -1,    46,    -1,    -1,    -1,   126,   127,    -1,    -1,    54,
+      55,    56,    57,   134,   135,    60,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,
+      75,    -1,    -1,    -1,     3,     4,     5,     6,    -1,    -1,
+      -1,    10,    11,    12,    13,    14,    -1,    16,    17,    18,
+      19,    20,    21,    22,    -1,    -1,    -1,    -1,    -1,   104,
+     105,    -1,    -1,    -1,    33,    34,    -1,    -1,    -1,    -1,
+      -1,    40,    -1,    -1,    -1,   120,    -1,    46,    -1,    -1,
+      -1,   126,   127,    -1,    -1,    54,    55,    56,    57,   134,
+     135,    60,   137,    -1,   139,    -1,    -1,    -1,    -1,    -1,
+      69,    70,    -1,    -1,    -1,    -1,    75,    -1,    -1,    -1,
+       3,     4,     5,     6,    -1,    -1,    -1,    10,    11,    12,
+      13,    14,    -1,    16,    17,    18,    19,    20,    21,    22,
+      -1,    -1,    -1,    -1,    -1,   104,   105,    -1,    -1,    -1,
+      33,    34,    -1,    -1,    -1,    -1,    -1,    40,    -1,    -1,
+      -1,   120,    -1,    46,    -1,    -1,    -1,   126,   127,    -1,
+      -1,    54,    55,    56,    57,   134,   135,    60,   137,    -1,
+     139,    -1,    -1,    -1,    -1,    -1,    69,    70,    -1,    -1,
+      -1,    -1,    75,    -1,    -1,    -1,     3,     4,     5,     6,
+      -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,    16,
+      17,    18,    19,    20,    21,    22,    -1,    -1,    -1,    -1,
+      -1,   104,   105,    -1,    -1,    -1,    33,    34,    -1,    -1,
+      -1,    -1,    -1,    40,    -1,    -1,    -1,   120,    -1,    46,
+      -1,    -1,    -1,   126,   127,    -1,    -1,    54,    55,    56,
+      57,   134,   135,    60,   137,    -1,   139,    -1,    -1,    -1,
+      -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,    -1,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,   104,   105,    -1,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,   120,    -1,    46,    -1,    -1,    -1,   126,
+     127,    -1,    -1,    54,    55,    56,    57,   134,   135,    60,
+     137,    -1,   139,    -1,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    34,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
+      -1,    -1,     3,     4,     5,     6,    -1,    -1,    -1,    10,
+      11,    12,    13,    14,    -1,    16,    17,    18,    19,    20,
+      21,    22,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    33,    34,    -1,    -1,    -1,    -1,    -1,    40,
+      -1,    -1,    -1,    -1,   120,    46,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    54,    55,    56,    57,    -1,   134,    60,
+      -1,   137,    -1,   139,    -1,    -1,    -1,    -1,    69,    70,
+      -1,    -1,    -1,    -1,    75,    -1,    -1,     3,     4,     5,
+       6,    -1,    -1,    -1,    10,    11,    12,    13,    14,    -1,
+      16,    17,    18,    19,    20,    21,    22,    -1,    -1,    -1,
+      -1,    -1,    -1,   104,   105,    -1,    -1,    33,    -1,    -1,
+      -1,    -1,    -1,    -1,    40,    -1,    -1,    -1,    -1,   120,
+      46,    -1,    -1,    -1,    -1,   126,   127,    -1,    54,    55,
+      56,    57,    -1,   134,    60,    -1,   137,    -1,   139,    -1,
+      -1,    -1,    -1,    69,    70,    -1,    -1,    -1,    -1,    75,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,   103,   104,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,   119,
-      -1,    -1,    -1,    -1,    -1,   125,   126,    -1,    -1,    -1,
-      -1,    -1,    -1,   133,    -1,    -1,   136,    -1,   138
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,   104,   105,
+      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
+      -1,    -1,    -1,    -1,   120,    -1,    -1,    -1,    -1,    -1,
+     126,   127,    -1,    -1,    -1,    -1,    -1,    -1,   134,    -1,
+      -1,   137,    -1,   139
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_uint8 yystos[] =
 {
-       0,   142,   143,     0,     3,     4,     5,     6,    10,    11,
-      12,    13,    14,    15,    16,    17,    18,    19,    20,    21,
-      22,    23,    24,    25,    26,    27,    30,    31,    32,    33,
-      34,    35,    36,    37,    38,    39,    40,    45,    46,    47,
-      48,    49,    50,    51,    52,    53,    54,    55,    56,    57,
-      58,    59,    60,    64,    65,    68,    69,    74,    78,   103,
-     104,   119,   125,   126,   132,   133,   136,   138,   144,   145,
-     147,   148,   149,   150,   151,   153,   154,   156,   157,   160,
-     161,   164,   169,   171,   172,   173,   174,   175,   176,   177,
-     178,   179,   180,   181,   182,   183,   186,   187,   189,   101,
-     103,   104,   105,   106,   107,   108,   109,   118,   131,   133,
-     118,   136,   120,   138,   118,    11,   131,   133,    10,    11,
-      12,    13,    14,    32,   133,   169,   182,    10,    11,   137,
-     171,    14,   132,   133,   171,   188,    10,    11,    12,    14,
-      32,    37,   133,   133,   171,   133,   171,   133,   171,   133,
-     171,   171,   178,    14,   169,   153,   169,   171,   132,   171,
-     132,   171,    10,    14,    14,   171,   171,    12,    12,   133,
-     171,   133,   171,   169,   133,   169,    27,    47,   132,    27,
-      47,   132,   138,   170,   170,   138,   170,   171,   171,   169,
-     169,   171,    14,    14,    14,    32,   182,    14,    10,    10,
-     182,   182,   182,    10,   134,   171,   184,   137,   171,    77,
-     143,    27,    30,    31,    40,    43,    44,    47,    48,   132,
-      27,    30,    31,    40,    43,    44,    47,    48,   132,    82,
-      86,    87,    88,    89,    96,    97,    98,   120,   121,    90,
-      91,    92,    93,    94,    95,   102,   114,   122,   123,   110,
-      83,    84,   124,   115,   116,   125,   126,   111,   112,   113,
-     127,   128,   129,   117,   131,   131,    14,   171,   171,   171,
-     171,   171,   171,    14,   134,   188,   133,   171,   127,   171,
-      14,   171,   171,   132,    14,    17,    63,    14,   134,   140,
-     166,   188,   136,   120,   138,   105,   106,   107,   108,   109,
-     118,   118,   135,   137,   132,   134,   171,   188,   132,   135,
-     118,   132,   118,   132,   118,   132,    10,    11,    12,    14,
-      10,    14,    10,   184,   171,    27,    30,    31,    40,    43,
-      44,    47,   132,   135,   171,    27,    47,   132,   135,   171,
-     169,   171,   169,    85,   135,   169,    83,    84,   133,   138,
-     158,   132,   135,    27,    47,   132,    27,    47,   132,   118,
-     118,    74,   135,   138,   120,   138,   120,   138,   171,   169,
-     171,   169,    30,    48,    24,   171,   171,   171,   171,   171,
-     171,   135,   171,   171,   171,    58,   162,   138,   133,    14,
-      67,   138,   134,   135,   134,   135,   135,   137,   139,    10,
-      11,    12,    13,    25,    26,    34,    35,    51,    52,   139,
-     171,   171,   171,   171,   171,   171,   171,   171,   171,   171,
-     171,   171,   171,   171,   171,   171,   171,   171,   174,   174,
-     174,   174,   174,   174,   172,   174,   174,   174,   174,   174,
-     174,   174,   174,     7,     8,     9,   175,   177,   177,   177,
-     178,   178,   179,   180,   180,   181,   181,   182,   182,   182,
-     182,   182,   182,   182,    14,    23,    25,    26,    34,    35,
-      39,    45,    46,    53,    54,    55,    56,   185,    17,   185,
-     132,   133,   132,   132,   132,   132,   132,   132,   118,   133,
-     134,   171,   132,   135,   125,   126,   135,   137,   121,   139,
-     132,   133,    14,   133,    82,    14,   134,   135,   134,   135,
-     171,    14,   171,   171,   171,   171,   171,   171,   171,   171,
-     137,   188,   132,   134,   171,   171,   133,   171,     5,    14,
-     133,   167,   171,   118,   132,   118,   132,   118,   132,   133,
-     158,   118,   118,   134,   135,   171,   171,   171,   171,   171,
-     171,   171,   188,   135,   171,   171,   188,   134,    28,    29,
-     146,   134,    10,   188,   178,   178,    10,    11,    14,    70,
-      71,    72,   134,   168,   143,   188,   171,   171,   171,   171,
-     171,   171,   132,   188,   155,    14,   171,    14,   171,   134,
-      28,   134,   171,   171,    10,   132,   132,   132,   132,   132,
-     139,   171,   169,    14,    23,   138,   163,   134,   168,   133,
-     133,   165,   134,   188,   118,    10,   137,   188,   131,   136,
-     138,   118,   171,   171,   171,   139,   171,    27,    47,   139,
-      27,    47,   139,    27,    30,    31,    40,    43,    44,    47,
-      48,   139,   132,   132,   132,   132,   132,   132,   132,   132,
-     132,   132,   132,   132,   132,   132,   132,   132,    99,   133,
-      14,   133,   134,   188,   171,   134,   188,   135,   188,   171,
-     171,   188,   118,   118,   118,   134,   188,   134,   166,   188,
-     171,   133,    14,   140,   166,   137,   121,   139,   137,   132,
-     132,   171,   132,   135,    82,    82,   167,   132,   135,   132,
-     171,   133,   171,   171,   134,   168,   171,   171,   118,   188,
-     132,   132,   132,   132,   132,   132,   132,   132,   188,   132,
-     132,   132,   169,   145,   169,   133,   171,   169,   169,    85,
-     169,    85,    85,    23,   118,    10,    75,    76,   158,   134,
-     135,    25,    26,    35,   139,   171,   132,   132,   132,   132,
-     132,   132,   132,    41,    42,   139,   121,   139,   121,   139,
-     169,   169,   169,   132,   132,   118,   171,    14,    14,   163,
-      61,    62,    65,   139,   158,   134,   134,   168,   168,    79,
-      80,    81,   139,   134,   171,   137,    14,   171,   171,   171,
-      27,    31,    40,    43,    44,    47,   139,   139,   139,   139,
-     171,   171,   171,   171,   171,   171,   171,   171,   171,   171,
-     171,   171,   172,   134,   188,   134,   166,   188,   132,   134,
-     132,   134,   188,   132,   137,   137,   137,   171,   171,   171,
-     134,   134,   134,   171,    82,    14,   134,   135,   188,   171,
-     171,   134,     5,    14,   132,   171,   132,   135,   132,   158,
-     134,   132,   132,   171,   134,   134,    28,   146,   171,   169,
-      10,    10,    10,    14,   171,   118,    10,    10,   158,    10,
-      11,    14,    70,    71,    72,   171,   171,   139,   171,    27,
-      30,    31,    40,    43,    44,    47,    48,   139,   171,   169,
-     132,   132,    28,   171,   132,   139,    63,   185,    10,    13,
-      14,    15,    16,    61,   158,   158,   134,   134,    14,    14,
-      14,   132,   118,   133,   137,   139,   139,   171,   171,   171,
-     171,   171,   171,   139,   139,   139,   139,   139,   139,   139,
-     139,   139,   139,   139,   139,   134,   134,   134,   132,   134,
-     132,   132,   132,   134,   171,   133,   188,   132,   132,    82,
-      82,   135,   188,   158,   132,   135,   132,   132,   145,   169,
-     134,    28,   146,   169,   169,   169,   171,    23,   118,    10,
-      75,    76,    27,    31,    47,   139,   139,   139,   171,   171,
-     171,   171,   171,   171,   171,   171,   169,   139,   169,   132,
-     152,   171,   133,   138,   159,   133,   159,    14,    23,    73,
-     118,   132,    14,    23,    73,   118,   132,    10,    13,    15,
-      16,   132,   132,   185,   158,   158,     7,     7,     7,   171,
-     134,   188,   118,   118,   139,   139,   139,   139,   139,   139,
-     132,   171,   134,   171,   171,   188,   132,   188,   169,   169,
-      14,   171,   118,    10,    10,   171,   171,   171,   139,   139,
-     139,   139,   139,   139,   139,   139,   171,   134,   134,   168,
-      77,   143,   134,   168,    14,    14,   132,   171,    14,    14,
-     132,   171,    14,    23,    73,   118,   132,    14,    23,    73,
-     118,   132,   132,   132,   133,   159,   139,   139,   134,   171,
-     171,   134,   132,   134,   132,    28,   146,   171,   139,   139,
-     139,   132,   169,   159,   134,   139,    25,    26,    35,   139,
-     171,   159,   134,   132,   132,   132,   132,   132,   132,    14,
-      14,   132,   171,    14,    14,   132,   171,   134,   168,   139,
-     139,   139,   132,   169,   152,   159,   171,   171,   139,   171,
-      27,    30,    31,    40,    43,    44,    47,    48,   139,   159,
-     132,   132,   132,   132,   132,   132,   159,   134,   134,    27,
-      31,    47,   139,   139,   139,   171,   171,   171,   171,   171,
-     171,   171,   171,   159,   169,   171,   171,   171,   139,   139,
-     139,   139,   139,   139,   139,   139,   139,   139,   139
+       0,   143,   144,     0,     3,     4,     5,     6,    10,    11,
+      12,    13,    14,    16,    17,    18,    19,    20,    21,    22,
+      23,    24,    25,    26,    27,    28,    31,    32,    33,    34,
+      35,    36,    37,    38,    39,    40,    41,    46,    47,    48,
+      49,    50,    51,    52,    53,    54,    55,    56,    57,    58,
+      59,    60,    61,    65,    66,    69,    70,    75,    79,   104,
+     105,   120,   126,   127,   133,   134,   137,   139,   145,   146,
+     148,   149,   150,   151,   152,   154,   155,   157,   158,   161,
+     162,   165,   170,   172,   173,   174,   175,   176,   177,   178,
+     179,   180,   181,   182,   183,   184,   187,   188,   190,   102,
+     104,   105,   106,   107,   108,   109,   110,   119,   132,   134,
+     119,   137,   121,   139,   119,    11,   132,   134,    10,    11,
+      12,    13,    14,    33,   134,   170,   183,    10,    11,   138,
+     172,    14,    15,   133,   134,   172,   189,    10,    11,    12,
+      14,    33,    38,   134,   134,   172,   134,   172,   134,   172,
+     134,   172,   172,   179,    14,   170,   154,   170,   172,   133,
+     172,   133,   172,    10,    14,    14,   172,   172,    12,    12,
+     134,   172,   134,   172,   170,   134,   170,    28,    48,   133,
+      28,    48,   133,   139,   171,   171,   139,   171,   172,   172,
+     170,   170,   172,    14,    14,    14,    33,   183,    14,    10,
+      10,   183,   183,   183,    10,   135,   172,   185,   138,   172,
+      78,   144,    28,    31,    32,    41,    44,    45,    48,    49,
+     133,    28,    31,    32,    41,    44,    45,    48,    49,   133,
+      83,    87,    88,    89,    90,    97,    98,    99,   121,   122,
+      91,    92,    93,    94,    95,    96,   103,   115,   123,   124,
+     111,    84,    85,   125,   116,   117,   126,   127,   112,   113,
+     114,   128,   129,   130,   118,   132,   132,    14,   172,   172,
+     172,   172,   172,   172,    14,   135,   189,   134,   172,   128,
+     172,    14,   172,   172,   133,    14,    18,    64,    14,   135,
+     141,   167,   189,   137,   121,   139,   106,   107,   108,   109,
+     110,   119,   119,   136,   138,   133,   172,   133,   172,   135,
+     172,   189,   133,   136,   119,   133,   119,   133,   119,   133,
+      10,    11,    12,    14,    10,    14,    10,   185,   172,    28,
+      31,    32,    41,    44,    45,    48,   133,   136,   172,    28,
+      48,   133,   136,   172,   170,   172,   170,    86,   136,   170,
+      84,    85,   134,   139,   159,   133,   136,    28,    48,   133,
+      28,    48,   133,   119,   119,    75,   136,   139,   121,   139,
+     121,   139,   172,   170,   172,   170,    31,    49,    25,   172,
+     172,   172,   172,   172,   172,   136,   172,   172,   172,    59,
+     163,   139,   134,    14,    68,   139,   135,   136,   135,   136,
+     136,   138,   140,    10,    11,    12,    13,    26,    27,    35,
+      36,    52,    53,   140,   172,   172,   172,   172,   172,   172,
+     172,   172,   172,   172,   172,   172,   172,   172,   172,   172,
+     172,   172,   175,   175,   175,   175,   175,   175,   173,   175,
+     175,   175,   175,   175,   175,   175,   175,     7,     8,     9,
+     176,   178,   178,   178,   179,   179,   180,   181,   181,   182,
+     182,   183,   183,   183,   183,   183,   183,   183,    14,    24,
+      26,    27,    35,    36,    40,    46,    47,    54,    55,    56,
+      57,   186,    18,   186,   133,   134,   133,   133,   133,   133,
+     133,   133,   119,   134,   135,   172,   133,   136,   126,   127,
+     136,   138,   122,   140,   133,   134,    14,   134,    83,    14,
+     135,   136,   135,   136,   172,    14,   172,   172,   172,   172,
+     172,   172,   172,   172,   138,   189,   133,   133,   133,   135,
+     172,   172,   134,   172,     5,    14,   134,   168,   172,   119,
+     133,   119,   133,   119,   133,   134,   159,   119,   119,   135,
+     136,   172,   172,   172,   172,   172,   172,   172,   189,   136,
+     172,   172,   189,   135,    29,    30,   147,   135,    10,   189,
+     179,   179,    10,    11,    14,    71,    72,    73,   135,   169,
+     144,   189,   172,   172,   172,   172,   172,   172,   133,   189,
+     156,    14,   172,    14,   172,   135,    29,   135,   172,   172,
+      10,   133,   133,   133,   133,   133,   140,   172,   170,    14,
+      24,   139,   164,   135,   169,   134,   134,   166,   135,   189,
+     119,    10,   138,   189,   132,   137,   139,   119,   172,   172,
+     172,   140,   172,    28,    48,   140,    28,    48,   140,    28,
+      31,    32,    41,    44,    45,    48,    49,   140,   133,   133,
+     133,   133,   133,   133,   133,   133,   133,   133,   133,   133,
+     133,   133,   133,   133,   100,   134,    14,   134,   135,   189,
+     172,   135,   189,   136,   189,   172,   172,   189,   119,   119,
+     119,   135,   189,   135,   167,   189,   172,   134,    14,   141,
+     167,   138,   122,   140,   138,   133,   133,   172,   133,   136,
+      83,    83,   168,   133,   136,   133,   172,   134,   172,   172,
+     135,   169,   172,   172,   119,   189,   133,   133,   133,   133,
+     133,   133,   133,   133,   189,   133,   133,   133,   170,   146,
+     170,   134,   172,   170,   170,    86,   170,    86,    86,    24,
+     119,    10,    76,    77,   159,   135,   136,    26,    27,    36,
+     140,   172,   133,   133,   133,   133,   133,   133,   133,    42,
+      43,   140,   122,   140,   122,   140,   170,   170,   170,   133,
+     133,   119,   172,    14,    14,   164,    62,    63,    66,   140,
+     159,   135,   135,   169,   169,    80,    81,    82,   140,   135,
+     172,   138,    14,   172,   172,   172,    28,    32,    41,    44,
+      45,    48,   140,   140,   140,   140,   172,   172,   172,   172,
+     172,   172,   172,   172,   172,   172,   172,   172,   173,   135,
+     189,   135,   167,   189,   133,   135,   133,   135,   189,   133,
+     138,   138,   138,   172,   172,   172,   135,   135,   135,   172,
+      83,    14,   135,   136,   189,   172,   172,   135,     5,    14,
+     133,   172,   133,   136,   133,   159,   135,   133,   133,   172,
+     135,   135,    29,   147,   172,   170,    10,    10,    10,    14,
+     172,   119,    10,    10,   159,    10,    11,    14,    71,    72,
+      73,   172,   172,   140,   172,    28,    31,    32,    41,    44,
+      45,    48,    49,   140,   172,   170,   133,   133,    29,   172,
+     133,   140,    64,   186,    10,    13,    14,    16,    17,    62,
+     159,   159,   135,   135,    14,    14,    14,   133,   119,   134,
+     138,   140,   140,   172,   172,   172,   172,   172,   172,   140,
+     140,   140,   140,   140,   140,   140,   140,   140,   140,   140,
+     140,   135,   135,   135,   133,   135,   133,   133,   133,   135,
+     172,   134,   189,   133,   133,    83,    83,   136,   189,   159,
+     133,   136,   133,   133,   146,   170,   135,    29,   147,   170,
+     170,   170,   172,    24,   119,    10,    76,    77,    28,    32,
+      48,   140,   140,   140,   172,   172,   172,   172,   172,   172,
+     172,   172,   170,   140,   170,   133,   153,   172,   134,   139,
+     160,   134,   160,    14,    24,    74,   119,   133,    14,    24,
+      74,   119,   133,    10,    13,    16,    17,   133,   133,   186,
+     159,   159,     7,     7,     7,   172,   135,   189,   119,   119,
+     140,   140,   140,   140,   140,   140,   133,   172,   135,   172,
+     172,   189,   133,   189,   170,   170,    14,   172,   119,    10,
+      10,   172,   172,   172,   140,   140,   140,   140,   140,   140,
+     140,   140,   172,   135,   135,   169,    78,   144,   135,   169,
+      14,    14,   133,   172,    14,    14,   133,   172,    14,    24,
+      74,   119,   133,    14,    24,    74,   119,   133,   133,   133,
+     134,   160,   140,   140,   135,   172,   172,   135,   133,   135,
+     133,    29,   147,   172,   140,   140,   140,   133,   170,   160,
+     135,   140,    26,    27,    36,   140,   172,   160,   135,   133,
+     133,   133,   133,   133,   133,    14,    14,   133,   172,    14,
+      14,   133,   172,   135,   169,   140,   140,   140,   133,   170,
+     153,   160,   172,   172,   140,   172,    28,    31,    32,    41,
+      44,    45,    48,    49,   140,   160,   133,   133,   133,   133,
+     133,   133,   160,   135,   135,    28,    32,    48,   140,   140,
+     140,   172,   172,   172,   172,   172,   172,   172,   172,   160,
+     170,   172,   172,   172,   140,   140,   140,   140,   140,   140,
+     140,   140,   140,   140,   140
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_uint8 yyr1[] =
 {
-       0,   141,   142,   143,   143,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   144,   144,   144,   144,   144,   144,   144,   144,
-     144,   144,   145,   145,   145,   145,   145,   145,   145,   145,
-     146,   146,   146,   146,   146,   146,   147,   147,   148,   148,
-     148,   148,   149,   149,   150,   150,   150,   151,   151,   151,
-     152,   153,   153,   153,   153,   153,   153,   154,   154,   155,
-     155,   156,   156,   156,   156,   156,   156,   156,   156,   156,
-     156,   156,   157,   157,   158,   158,   158,   158,   158,   158,
-     158,   158,   158,   158,   158,   158,   158,   158,   158,   158,
-     158,   159,   159,   159,   159,   159,   159,   159,   159,   159,
-     159,   159,   159,   159,   159,   159,   159,   159,   159,   160,
-     161,   162,   162,   162,   163,   163,   163,   163,   163,   163,
-     163,   163,   163,   163,   163,   163,   163,   163,   163,   163,
-     163,   163,   163,   163,   163,   163,   163,   163,   163,   163,
-     163,   163,   163,   163,   163,   163,   163,   163,   164,   165,
-     165,   165,   165,   166,   166,   166,   166,   167,   167,   167,
-     167,   168,   168,   168,   168,   168,   168,   168,   168,   168,
-     168,   168,   168,   168,   168,   168,   168,   168,   168,   168,
-     168,   168,   168,   169,   169,   169,   169,   169,   169,   169,
+       0,   142,   143,   144,   144,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   145,   145,   145,   145,   145,
+     145,   145,   145,   145,   145,   146,   146,   146,   146,   146,
+     146,   146,   146,   147,   147,   147,   147,   147,   147,   148,
+     148,   149,   149,   149,   149,   150,   150,   151,   151,   151,
+     152,   152,   152,   153,   154,   154,   154,   154,   154,   154,
+     155,   155,   156,   156,   157,   157,   157,   157,   157,   157,
+     157,   157,   157,   157,   157,   158,   158,   159,   159,   159,
+     159,   159,   159,   159,   159,   159,   159,   159,   159,   159,
+     159,   159,   159,   159,   160,   160,   160,   160,   160,   160,
+     160,   160,   160,   160,   160,   160,   160,   160,   160,   160,
+     160,   160,   161,   162,   163,   163,   163,   164,   164,   164,
+     164,   164,   164,   164,   164,   164,   164,   164,   164,   164,
+     164,   164,   164,   164,   164,   164,   164,   164,   164,   164,
+     164,   164,   164,   164,   164,   164,   164,   164,   164,   164,
+     164,   165,   166,   166,   166,   166,   167,   167,   167,   167,
+     168,   168,   168,   168,   169,   169,   169,   169,   169,   169,
      169,   169,   169,   169,   169,   169,   169,   169,   169,   169,
-     169,   169,   169,   169,   169,   169,   169,   169,   169,   169,
-     169,   169,   169,   169,   169,   169,   169,   170,   171,   171,
-     171,   171,   171,   171,   171,   171,   171,   171,   171,   172,
-     172,   173,   173,   173,   173,   173,   173,   173,   173,   173,
-     173,   173,   173,   173,   173,   173,   173,   173,   173,   174,
-     174,   175,   175,   175,   176,   176,   177,   177,   177,   178,
-     178,   179,   179,   179,   180,   180,   180,   181,   181,   181,
-     181,   181,   181,   181,   182,   182,   182,   182,   182,   182,
-     183,   183,   184,   184,   185,   185,   185,   185,   185,   185,
-     185,   185,   185,   185,   185,   185,   185,   186,   187,   187,
-     187,   187,   187,   187,   187,   187,   187,   187,   187,   187,
-     187,   187,   187,   187,   187,   187,   187,   187,   187,   187,
-     187,   187,   187,   187,   187,   187,   187,   187,   187,   188,
-     188,   188,   189,   189,   189,   189,   189,   189,   189,   189,
-     189,   189,   189,   189,   189,   189,   189,   189,   189,   189,
-     189,   189,   189,   189,   189,   189,   189,   189,   189,   189,
-     189,   189,   189,   189,   189,   189,   189,   189,   189,   189,
-     189,   189,   189,   189
+     169,   169,   169,   169,   169,   169,   170,   170,   170,   170,
+     170,   170,   170,   170,   170,   170,   170,   170,   170,   170,
+     170,   170,   170,   170,   170,   170,   170,   170,   170,   170,
+     170,   170,   170,   170,   170,   170,   170,   170,   170,   170,
+     171,   172,   172,   172,   172,   172,   172,   172,   172,   172,
+     172,   172,   173,   173,   174,   174,   174,   174,   174,   174,
+     174,   174,   174,   174,   174,   174,   174,   174,   174,   174,
+     174,   174,   175,   175,   176,   176,   176,   177,   177,   178,
+     178,   178,   179,   179,   180,   180,   180,   181,   181,   181,
+     182,   182,   182,   182,   182,   182,   182,   183,   183,   183,
+     183,   183,   183,   184,   184,   185,   185,   186,   186,   186,
+     186,   186,   186,   186,   186,   186,   186,   186,   186,   186,
+     187,   188,   188,   188,   188,   188,   188,   188,   188,   188,
+     188,   188,   188,   188,   188,   188,   188,   188,   188,   188,
+     188,   188,   188,   188,   188,   188,   188,   188,   188,   188,
+     188,   188,   189,   189,   189,   190,   190,   190,   190,   190,
+     190,   190,   190,   190,   190,   190,   190,   190,   190,   190,
+     190,   190,   190,   190,   190,   190,   190,   190,   190,   190,
+     190,   190,   190,   190,   190,   190,   190,   190,   190,   190,
+     190,   190,   190,   190,   190,   190,   190
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -2696,51 +2734,51 @@ static const yytype_int8 yyr2[] =
        0,     2,     1,     0,     2,     5,     3,     7,     9,     6,
        3,     3,     5,     7,     9,     4,     6,     8,     5,     5,
        7,     6,     6,     8,    10,     6,     4,     4,     4,     3,
-       5,     5,     6,     6,     4,     2,     5,     4,     3,     3,
-       3,     5,     7,     3,     5,     7,     3,     5,     3,     2,
-       5,     5,     3,     2,     5,     5,     4,     7,     6,     4,
-       6,     4,     2,     4,     4,     4,     4,     4,     4,     4,
-       4,     7,     7,     7,     6,     6,     4,     4,     4,     4,
-       4,     4,     4,     4,     5,     5,     5,     5,     5,     5,
-       5,     5,     5,     4,     4,     4,     4,     4,     2,     1,
-       1,     1,     1,     1,     2,     4,     2,     1,     1,     1,
-       1,     1,     2,     2,     4,     4,     4,     4,     1,     1,
-       1,     1,     5,     7,     7,     3,     5,     5,     4,     6,
-       3,     5,     5,     7,     4,     6,     5,     3,     5,     7,
-       3,     5,     5,     3,     2,     5,     5,     2,    12,     9,
-       1,     7,     7,     5,     7,     5,     3,     5,     7,     0,
-       4,     6,     5,     3,     7,     6,     4,     7,     6,     7,
-       6,     5,     6,     5,     3,     4,     5,     4,     5,     5,
-       6,     6,     6,     6,     6,     6,     6,     6,     7,     7,
-       7,     3,     3,     4,     5,     4,     5,     5,     6,     6,
-       6,     6,     6,     6,     6,     6,     7,     7,     7,     6,
-       5,     0,     3,     3,     0,     4,     4,     4,     5,     5,
-       4,     5,     5,     6,     6,     7,     7,     6,     6,     6,
-       6,     5,     5,     6,     6,     7,     7,     7,     7,     7,
-       6,     4,     7,     6,     4,     8,     7,     5,     5,     0,
-       4,     4,     4,     3,     5,     5,     7,     3,     3,     5,
-       5,     1,     3,     5,     1,     3,     2,     3,     3,     3,
-       4,     5,     5,     3,     5,     4,     6,     1,     3,     1,
-       3,     1,     3,     3,     3,     4,     6,     6,     6,     6,
-       6,     6,     6,     6,     5,     7,     7,     7,     7,     7,
-       7,     5,     9,     8,     8,     6,     9,     9,     5,     5,
-       4,     4,     4,     6,     6,     6,     6,     3,     3,     3,
-       3,     3,     3,     3,     3,     2,     2,     3,     1,     5,
-       1,     3,     3,     3,     3,     3,     3,     3,     3,     3,
-       3,     3,     3,     3,     3,     3,     3,     3,     1,     3,
-       1,     3,     3,     1,     3,     1,     3,     3,     1,     3,
-       1,     3,     3,     1,     3,     3,     1,     3,     3,     3,
-       3,     3,     3,     1,     2,     2,     2,     2,     2,     1,
-       3,     1,     1,     3,     1,     1,     1,     1,     1,     1,
-       1,     1,     1,     1,     1,     1,     1,     1,     4,     4,
-       3,     4,     6,     4,     3,     6,     6,     5,     3,     3,
-       6,     5,     4,     4,     6,     6,     5,     3,     6,     5,
-       3,     2,     3,     4,     3,     2,     3,     2,     1,     1,
-       3,     2,     1,     1,     1,     1,     1,     1,     2,     2,
-       2,     2,     1,     1,     1,     1,     1,     4,     6,     6,
-       6,     1,     4,     4,     5,     5,     1,     1,     1,     1,
-       2,     3,     4,     5,     2,     3,     4,     5,     2,     3,
-       4,     5,     1,     2
+       4,     3,     4,     5,     5,     6,     6,     4,     2,     5,
+       4,     3,     3,     3,     5,     7,     3,     5,     7,     3,
+       5,     3,     2,     5,     5,     3,     2,     5,     5,     4,
+       7,     6,     4,     6,     4,     2,     4,     4,     4,     4,
+       4,     4,     4,     4,     7,     7,     7,     6,     6,     4,
+       4,     4,     4,     4,     4,     4,     4,     5,     5,     5,
+       5,     5,     5,     5,     5,     5,     4,     4,     4,     4,
+       4,     2,     1,     1,     1,     1,     1,     2,     4,     2,
+       1,     1,     1,     1,     1,     2,     2,     4,     4,     4,
+       4,     1,     1,     1,     1,     5,     7,     7,     3,     5,
+       5,     4,     6,     3,     5,     5,     7,     4,     6,     5,
+       3,     5,     7,     3,     5,     5,     3,     2,     5,     5,
+       2,    12,     9,     1,     7,     7,     5,     7,     5,     3,
+       5,     7,     0,     4,     6,     5,     3,     7,     6,     4,
+       7,     6,     7,     6,     5,     6,     5,     3,     4,     5,
+       4,     5,     5,     6,     6,     6,     6,     6,     6,     6,
+       6,     7,     7,     7,     3,     3,     4,     5,     4,     5,
+       5,     6,     6,     6,     6,     6,     6,     6,     6,     7,
+       7,     7,     6,     5,     0,     3,     3,     0,     4,     4,
+       4,     5,     5,     4,     5,     5,     6,     6,     7,     7,
+       6,     6,     6,     6,     5,     5,     6,     6,     7,     7,
+       7,     7,     7,     6,     4,     7,     6,     4,     8,     7,
+       5,     5,     0,     4,     4,     4,     3,     5,     5,     7,
+       3,     3,     5,     5,     1,     3,     5,     1,     3,     2,
+       3,     3,     3,     4,     5,     5,     3,     5,     4,     6,
+       1,     3,     1,     3,     1,     3,     3,     3,     4,     6,
+       6,     6,     6,     6,     6,     6,     6,     5,     7,     7,
+       7,     7,     7,     7,     5,     9,     8,     8,     6,     9,
+       9,     5,     5,     4,     4,     4,     6,     6,     6,     6,
+       3,     3,     3,     3,     3,     3,     3,     3,     2,     2,
+       3,     1,     5,     1,     3,     3,     3,     3,     3,     3,
+       3,     3,     3,     3,     3,     3,     3,     3,     3,     3,
+       3,     1,     3,     1,     3,     3,     1,     3,     1,     3,
+       3,     1,     3,     1,     3,     3,     1,     3,     3,     1,
+       3,     3,     3,     3,     3,     3,     1,     2,     2,     2,
+       2,     2,     1,     3,     1,     1,     3,     1,     1,     1,
+       1,     1,     1,     1,     1,     1,     1,     1,     1,     1,
+       1,     4,     4,     3,     4,     6,     4,     3,     6,     6,
+       5,     3,     3,     6,     5,     4,     4,     6,     6,     5,
+       3,     6,     5,     3,     2,     3,     4,     3,     2,     3,
+       2,     1,     1,     3,     2,     1,     1,     1,     1,     1,
+       1,     2,     2,     2,     2,     1,     1,     1,     1,     1,
+       4,     6,     6,     6,     1,     4,     4,     5,     5,     1,
+       1,     1,     1,     2,     3,     4,     5,     2,     3,     4,
+       5,     2,     3,     4,     5,     1,     2
 };
 
 
@@ -3204,7 +3242,7 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* program: stmt_list  */
-#line 508 "raku.y"
+#line 509 "raku.y"
         {
             ExprList *all = (yyvsp[0].list);
             if (all) {
@@ -3213,211 +3251,229 @@ yyreduce:
                 exprlist_free(all);
             }
         }
-#line 3217 "raku.tab.c"
-    break;
-
-  case 3: /* stmt_list: %empty  */
-#line 518 "raku.y"
-         { (yyval.list) = exprlist_new(); }
-#line 3223 "raku.tab.c"
-    break;
-
-  case 4: /* stmt_list: stmt_list stmt  */
-#line 519 "raku.y"
-                     { (yyval.list) = exprlist_append((yyvsp[-1].list), (yyvsp[0].node)); }
-#line 3229 "raku.tab.c"
-    break;
-
-  case 5: /* stmt: KW_MY VAR_SCALAR '=' expr ';'  */
-#line 523 "raku.y"
-        { rk_mark_arrlit_scalar(strip_sigil((yyvsp[-3].sval)), (yyvsp[-1].node)); (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), rk_scalar_rhs((yyvsp[-1].node))); }
-#line 3235 "raku.tab.c"
-    break;
-
-  case 6: /* stmt: KW_MY VAR_SCALAR ';'  */
-#line 525 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), ast_node_new(TT_NUL)); }
-#line 3241 "raku.tab.c"
-    break;
-
-  case 7: /* stmt: KW_MY '(' scalar_list ')' '=' expr ';'  */
-#line 527 "raku.y"
-        { (yyval.node) = rk_destructure((yyvsp[-4].list), (yyvsp[-1].node)); }
-#line 3247 "raku.tab.c"
-    break;
-
-  case 8: /* stmt: KW_MY '(' scalar_list ')' '=' expr ',' arg_list ';'  */
-#line 529 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          (yyval.node) = rk_destructure((yyvsp[-6].list), call); }
 #line 3255 "raku.tab.c"
     break;
 
-  case 9: /* stmt: '(' scalar_list ')' '=' expr ';'  */
-#line 533 "raku.y"
-        { (yyval.node) = rk_destructure((yyvsp[-4].list), (yyvsp[-1].node)); }
+  case 3: /* stmt_list: %empty  */
+#line 519 "raku.y"
+         { (yyval.list) = exprlist_new(); }
 #line 3261 "raku.tab.c"
     break;
 
-  case 10: /* stmt: KW_MY VAR_ARRAY ';'  */
-#line 535 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), make_call("__rk_undef")); }
+  case 4: /* stmt_list: stmt_list stmt  */
+#line 520 "raku.y"
+                     { (yyval.list) = exprlist_append((yyvsp[-1].list), (yyvsp[0].node)); }
 #line 3267 "raku.tab.c"
     break;
 
-  case 11: /* stmt: KW_MY VAR_HASH ';'  */
-#line 537 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), make_call("__rk_undef")); }
+  case 5: /* stmt: KW_MY VAR_SCALAR '=' expr ';'  */
+#line 524 "raku.y"
+        { rk_mark_arrlit_scalar(strip_sigil((yyvsp[-3].sval)), (yyvsp[-1].node)); (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), rk_scalar_rhs((yyvsp[-1].node))); }
 #line 3273 "raku.tab.c"
     break;
 
-  case 12: /* stmt: KW_MY VAR_ARRAY '=' expr ';'  */
-#line 539 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), rk_arr_rhs((yyvsp[-1].node))); }
+  case 6: /* stmt: KW_MY VAR_SCALAR ';'  */
+#line 526 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), ast_node_new(TT_NUL)); }
 #line 3279 "raku.tab.c"
     break;
 
-  case 13: /* stmt: KW_MY VAR_ARRAY '=' expr ',' arg_list ';'  */
-#line 541 "raku.y"
+  case 7: /* stmt: KW_MY '(' scalar_list ')' '=' expr ';'  */
+#line 528 "raku.y"
+        { (yyval.node) = rk_destructure((yyvsp[-4].list), (yyvsp[-1].node)); }
+#line 3285 "raku.tab.c"
+    break;
+
+  case 8: /* stmt: KW_MY '(' scalar_list ')' '=' expr ',' arg_list ';'  */
+#line 530 "raku.y"
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
           ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), call); }
-#line 3287 "raku.tab.c"
+          (yyval.node) = rk_destructure((yyvsp[-6].list), call); }
+#line 3293 "raku.tab.c"
     break;
 
-  case 14: /* stmt: KW_MY VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
-#line 545 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
-          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-7].sval)), call); }
-#line 3295 "raku.tab.c"
+  case 9: /* stmt: '(' scalar_list ')' '=' expr ';'  */
+#line 534 "raku.y"
+        { (yyval.node) = rk_destructure((yyvsp[-4].list), (yyvsp[-1].node)); }
+#line 3299 "raku.tab.c"
     break;
 
-  case 15: /* stmt: VAR_ARRAY '=' expr ';'  */
-#line 549 "raku.y"
+  case 10: /* stmt: KW_MY VAR_ARRAY ';'  */
+#line 536 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), make_call("__rk_undef")); }
+#line 3305 "raku.tab.c"
+    break;
+
+  case 11: /* stmt: KW_MY VAR_HASH ';'  */
+#line 538 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-1].sval)), make_call("__rk_undef")); }
+#line 3311 "raku.tab.c"
+    break;
+
+  case 12: /* stmt: KW_MY VAR_ARRAY '=' expr ';'  */
+#line 540 "raku.y"
         { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), rk_arr_rhs((yyvsp[-1].node))); }
-#line 3301 "raku.tab.c"
-    break;
-
-  case 16: /* stmt: VAR_ARRAY '=' expr ',' arg_list ';'  */
-#line 551 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), call); }
-#line 3309 "raku.tab.c"
-    break;
-
-  case 17: /* stmt: VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
-#line 555 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
-          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-7].sval)), call); }
 #line 3317 "raku.tab.c"
     break;
 
-  case 18: /* stmt: KW_MY VAR_HASH '=' expr ';'  */
-#line 559 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); }
-#line 3323 "raku.tab.c"
+  case 13: /* stmt: KW_MY VAR_ARRAY '=' expr ',' arg_list ';'  */
+#line 542 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), call); }
+#line 3325 "raku.tab.c"
     break;
 
-  case 19: /* stmt: KW_MY VAR_HASH '=' pair_list ';'  */
-#line 561 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); }
-#line 3329 "raku.tab.c"
+  case 14: /* stmt: KW_MY VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
+#line 546 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
+          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-7].sval)), call); }
+#line 3333 "raku.tab.c"
     break;
 
-  case 20: /* stmt: KW_MY VAR_HASH '=' '(' pair_list ')' ';'  */
-#line 563 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), (yyvsp[-2].node)); }
-#line 3335 "raku.tab.c"
+  case 15: /* stmt: VAR_ARRAY '=' expr ';'  */
+#line 550 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), rk_arr_rhs((yyvsp[-1].node))); }
+#line 3339 "raku.tab.c"
     break;
 
-  case 21: /* stmt: KW_MY IDENT VAR_SCALAR '=' expr ';'  */
-#line 565 "raku.y"
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-4].sval))); free((yyvsp[-4].sval)); ast_push(e,var_node((yyvsp[-3].sval))); ast_push(e,(yyvsp[-1].node)); (yyval.node)=e; }
-#line 3341 "raku.tab.c"
-    break;
-
-  case 22: /* stmt: KW_MY IDENT VAR_ARRAY '=' expr ';'  */
-#line 567 "raku.y"
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-4].sval))); free((yyvsp[-4].sval)); ast_push(e,var_node((yyvsp[-3].sval))); ast_push(e,rk_arr_rhs((yyvsp[-1].node))); (yyval.node)=e; }
+  case 16: /* stmt: VAR_ARRAY '=' expr ',' arg_list ';'  */
+#line 552 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), call); }
 #line 3347 "raku.tab.c"
     break;
 
-  case 23: /* stmt: KW_MY IDENT VAR_ARRAY '=' expr ',' arg_list ';'  */
-#line 569 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-6].sval))); free((yyvsp[-6].sval)); ast_push(e,var_node((yyvsp[-5].sval))); ast_push(e,call); (yyval.node)=e; }
+  case 17: /* stmt: VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
+#line 556 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
+          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-7].sval)), call); }
 #line 3355 "raku.tab.c"
     break;
 
-  case 24: /* stmt: KW_MY IDENT VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
-#line 573 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
-          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
-          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-8].sval))); free((yyvsp[-8].sval)); ast_push(e,var_node((yyvsp[-7].sval))); ast_push(e,call); (yyval.node)=e; }
-#line 3363 "raku.tab.c"
+  case 18: /* stmt: KW_MY VAR_HASH '=' expr ';'  */
+#line 560 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); }
+#line 3361 "raku.tab.c"
     break;
 
-  case 25: /* stmt: KW_MY IDENT VAR_HASH '=' expr ';'  */
-#line 577 "raku.y"
+  case 19: /* stmt: KW_MY VAR_HASH '=' pair_list ';'  */
+#line 562 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); }
+#line 3367 "raku.tab.c"
+    break;
+
+  case 20: /* stmt: KW_MY VAR_HASH '=' '(' pair_list ')' ';'  */
+#line 564 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-5].sval)), (yyvsp[-2].node)); }
+#line 3373 "raku.tab.c"
+    break;
+
+  case 21: /* stmt: KW_MY IDENT VAR_SCALAR '=' expr ';'  */
+#line 566 "raku.y"
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-4].sval))); free((yyvsp[-4].sval)); ast_push(e,var_node((yyvsp[-3].sval))); ast_push(e,(yyvsp[-1].node)); (yyval.node)=e; }
-#line 3369 "raku.tab.c"
+#line 3379 "raku.tab.c"
     break;
 
-  case 26: /* stmt: KW_MY IDENT VAR_SCALAR ';'  */
-#line 579 "raku.y"
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
-#line 3375 "raku.tab.c"
+  case 22: /* stmt: KW_MY IDENT VAR_ARRAY '=' expr ';'  */
+#line 568 "raku.y"
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-4].sval))); free((yyvsp[-4].sval)); ast_push(e,var_node((yyvsp[-3].sval))); ast_push(e,rk_arr_rhs((yyvsp[-1].node))); (yyval.node)=e; }
+#line 3385 "raku.tab.c"
     break;
 
-  case 27: /* stmt: KW_MY IDENT VAR_ARRAY ';'  */
-#line 581 "raku.y"
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
-#line 3381 "raku.tab.c"
-    break;
-
-  case 28: /* stmt: KW_MY IDENT VAR_HASH ';'  */
-#line 583 "raku.y"
-        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
-#line 3387 "raku.tab.c"
-    break;
-
-  case 29: /* stmt: KW_USE IDENT ';'  */
-#line 585 "raku.y"
-        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern((yyvsp[-1].sval)); free((yyvsp[-1].sval)); (yyval.node)=u; }
+  case 23: /* stmt: KW_MY IDENT VAR_ARRAY '=' expr ',' arg_list ';'  */
+#line 570 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *args=(yyvsp[-1].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-6].sval))); free((yyvsp[-6].sval)); ast_push(e,var_node((yyvsp[-5].sval))); ast_push(e,call); (yyval.node)=e; }
 #line 3393 "raku.tab.c"
     break;
 
-  case 30: /* stmt: KW_CONSTANT IDENT '=' expr ';'  */
-#line 587 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
-#line 3399 "raku.tab.c"
+  case 24: /* stmt: KW_MY IDENT VAR_ARRAY '=' '(' expr ',' arg_list ')' ';'  */
+#line 574 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-4].node));
+          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
+          tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-8].sval))); free((yyvsp[-8].sval)); ast_push(e,var_node((yyvsp[-7].sval))); ast_push(e,call); (yyval.node)=e; }
+#line 3401 "raku.tab.c"
     break;
 
-  case 31: /* stmt: KW_CONSTANT VAR_SCALAR '=' expr ';'  */
-#line 589 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
-#line 3405 "raku.tab.c"
+  case 25: /* stmt: KW_MY IDENT VAR_HASH '=' expr ';'  */
+#line 578 "raku.y"
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-4].sval))); free((yyvsp[-4].sval)); ast_push(e,var_node((yyvsp[-3].sval))); ast_push(e,(yyvsp[-1].node)); (yyval.node)=e; }
+#line 3407 "raku.tab.c"
     break;
 
-  case 32: /* stmt: KW_MY KW_CONSTANT IDENT '=' expr ';'  */
-#line 591 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
-#line 3411 "raku.tab.c"
+  case 26: /* stmt: KW_MY IDENT VAR_SCALAR ';'  */
+#line 580 "raku.y"
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
+#line 3413 "raku.tab.c"
     break;
 
-  case 33: /* stmt: KW_MY KW_CONSTANT VAR_SCALAR '=' expr ';'  */
-#line 593 "raku.y"
-        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
-#line 3417 "raku.tab.c"
+  case 27: /* stmt: KW_MY IDENT VAR_ARRAY ';'  */
+#line 582 "raku.y"
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
+#line 3419 "raku.tab.c"
     break;
 
-  case 34: /* stmt: KW_ENUM IDENT WORDLIST ';'  */
-#line 595 "raku.y"
+  case 28: /* stmt: KW_MY IDENT VAR_HASH ';'  */
+#line 584 "raku.y"
+        { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); ast_push(e,var_node((yyvsp[-1].sval))); (yyval.node)=e; }
+#line 3425 "raku.tab.c"
+    break;
+
+  case 29: /* stmt: KW_USE IDENT ';'  */
+#line 586 "raku.y"
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern((yyvsp[-1].sval)); free((yyvsp[-1].sval)); (yyval.node)=u; }
+#line 3431 "raku.tab.c"
+    break;
+
+  case 30: /* stmt: KW_USE IDENT expr ';'  */
+#line 588 "raku.y"
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern((yyvsp[-2].sval)); free((yyvsp[-2].sval)); ast_push(u,(yyvsp[-1].node)); (yyval.node)=u; }
+#line 3437 "raku.tab.c"
+    break;
+
+  case 31: /* stmt: KW_USE QIDENT ';'  */
+#line 590 "raku.y"
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern((yyvsp[-1].sval)); free((yyvsp[-1].sval)); (yyval.node)=u; }
+#line 3443 "raku.tab.c"
+    break;
+
+  case 32: /* stmt: KW_USE QIDENT expr ';'  */
+#line 592 "raku.y"
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern((yyvsp[-2].sval)); free((yyvsp[-2].sval)); ast_push(u,(yyvsp[-1].node)); (yyval.node)=u; }
+#line 3449 "raku.tab.c"
+    break;
+
+  case 33: /* stmt: KW_CONSTANT IDENT '=' expr ';'  */
+#line 594 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
+#line 3455 "raku.tab.c"
+    break;
+
+  case 34: /* stmt: KW_CONSTANT VAR_SCALAR '=' expr ';'  */
+#line 596 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
+#line 3461 "raku.tab.c"
+    break;
+
+  case 35: /* stmt: KW_MY KW_CONSTANT IDENT '=' expr ';'  */
+#line 598 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
+#line 3467 "raku.tab.c"
+    break;
+
+  case 36: /* stmt: KW_MY KW_CONSTANT VAR_SCALAR '=' expr ';'  */
+#line 600 "raku.y"
+        { (yyval.node) = expr_binary(TT_ASSIGN, var_node((yyvsp[-3].sval)), (yyvsp[-1].node)); free((yyvsp[-3].sval)); }
+#line 3473 "raku.tab.c"
+    break;
+
+  case 37: /* stmt: KW_ENUM IDENT WORDLIST ';'  */
+#line 602 "raku.y"
         { ExprList *l=exprlist_new(); char *s=(yyvsp[-1].sval); int idx=0;
           while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
             while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1);
@@ -3425,804 +3481,804 @@ yyreduce:
             tree_t *val=ast_node_new(TT_ILIT); val->v.ival=idx++;
             exprlist_append(l, expr_binary(TT_ASSIGN, var_node(tok), val)); free(tok); }
           free((yyvsp[-2].sval)); free((yyvsp[-1].sval)); (yyval.node) = make_seq(l); }
-#line 3429 "raku.tab.c"
-    break;
-
-  case 35: /* stmt: TESTOP ';'  */
-#line 603 "raku.y"
-        { (yyval.node)=make_call(testop_rt((yyvsp[-1].sval))); free((yyvsp[-1].sval)); }
-#line 3435 "raku.tab.c"
-    break;
-
-  case 36: /* stmt: TESTOP '(' arg_list ')' ';'  */
-#line 605 "raku.y"
-        { tree_t *c=make_call(testop_rt((yyvsp[-4].sval))); free((yyvsp[-4].sval)); ExprList *a=(yyvsp[-2].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3441 "raku.tab.c"
-    break;
-
-  case 37: /* stmt: TESTOP '(' ')' ';'  */
-#line 607 "raku.y"
-        { (yyval.node)=make_call(testop_rt((yyvsp[-3].sval))); free((yyvsp[-3].sval)); }
-#line 3447 "raku.tab.c"
-    break;
-
-  case 38: /* stmt: TESTOP arg_list ';'  */
-#line 609 "raku.y"
-        { tree_t *c=make_call(testop_rt((yyvsp[-2].sval))); free((yyvsp[-2].sval)); ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3453 "raku.tab.c"
-    break;
-
-  case 39: /* stmt: IDENT VAR_ARRAY ';'  */
-#line 611 "raku.y"
-        { tree_t *c=make_call((yyvsp[-2].sval)); free((yyvsp[-2].sval)); expr_add_child(c,var_node((yyvsp[-1].sval))); (yyval.node)=c; }
-#line 3459 "raku.tab.c"
-    break;
-
-  case 40: /* stmt: KW_SAY expr ';'  */
-#line 613 "raku.y"
-        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 3465 "raku.tab.c"
-    break;
-
-  case 41: /* stmt: KW_SAY expr ',' arg_list ';'  */
-#line 615 "raku.y"
-        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-3].node));
-          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3472 "raku.tab.c"
-    break;
-
-  case 42: /* stmt: KW_SAY '(' expr ',' arg_list ')' ';'  */
-#line 618 "raku.y"
-        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-4].node));
-          ExprList *a=(yyvsp[-2].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3479 "raku.tab.c"
-    break;
-
-  case 43: /* stmt: KW_PRINT expr ';'  */
-#line 621 "raku.y"
-        { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,(yyvsp[-1].node)); (yyval.node)=c; }
 #line 3485 "raku.tab.c"
     break;
 
-  case 44: /* stmt: KW_PRINT expr ',' arg_list ';'  */
-#line 623 "raku.y"
+  case 38: /* stmt: TESTOP ';'  */
+#line 610 "raku.y"
+        { (yyval.node)=make_call(testop_rt((yyvsp[-1].sval))); free((yyvsp[-1].sval)); }
+#line 3491 "raku.tab.c"
+    break;
+
+  case 39: /* stmt: TESTOP '(' arg_list ')' ';'  */
+#line 612 "raku.y"
+        { tree_t *c=make_call(testop_rt((yyvsp[-4].sval))); free((yyvsp[-4].sval)); ExprList *a=(yyvsp[-2].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
+#line 3497 "raku.tab.c"
+    break;
+
+  case 40: /* stmt: TESTOP '(' ')' ';'  */
+#line 614 "raku.y"
+        { (yyval.node)=make_call(testop_rt((yyvsp[-3].sval))); free((yyvsp[-3].sval)); }
+#line 3503 "raku.tab.c"
+    break;
+
+  case 41: /* stmt: TESTOP arg_list ';'  */
+#line 616 "raku.y"
+        { tree_t *c=make_call(testop_rt((yyvsp[-2].sval))); free((yyvsp[-2].sval)); ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
+#line 3509 "raku.tab.c"
+    break;
+
+  case 42: /* stmt: IDENT VAR_ARRAY ';'  */
+#line 618 "raku.y"
+        { tree_t *c=make_call((yyvsp[-2].sval)); free((yyvsp[-2].sval)); expr_add_child(c,var_node((yyvsp[-1].sval))); (yyval.node)=c; }
+#line 3515 "raku.tab.c"
+    break;
+
+  case 43: /* stmt: KW_SAY expr ';'  */
+#line 620 "raku.y"
+        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 3521 "raku.tab.c"
+    break;
+
+  case 44: /* stmt: KW_SAY expr ',' arg_list ';'  */
+#line 622 "raku.y"
+        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-3].node));
+          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
+#line 3528 "raku.tab.c"
+    break;
+
+  case 45: /* stmt: KW_SAY '(' expr ',' arg_list ')' ';'  */
+#line 625 "raku.y"
+        { tree_t *c=ast_node_new(TT_SAY); expr_add_child(c,(yyvsp[-4].node));
+          ExprList *a=(yyvsp[-2].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
+#line 3535 "raku.tab.c"
+    break;
+
+  case 46: /* stmt: KW_PRINT expr ';'  */
+#line 628 "raku.y"
+        { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 3541 "raku.tab.c"
+    break;
+
+  case 47: /* stmt: KW_PRINT expr ',' arg_list ';'  */
+#line 630 "raku.y"
         { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,(yyvsp[-3].node));
           ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3492 "raku.tab.c"
+#line 3548 "raku.tab.c"
     break;
 
-  case 45: /* stmt: KW_PRINT '(' expr ',' arg_list ')' ';'  */
-#line 626 "raku.y"
+  case 48: /* stmt: KW_PRINT '(' expr ',' arg_list ')' ';'  */
+#line 633 "raku.y"
         { tree_t *c=ast_node_new(TT_PRINT); expr_add_child(c,(yyvsp[-4].node));
           ExprList *a=(yyvsp[-2].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } (yyval.node)=c; }
-#line 3499 "raku.tab.c"
+#line 3555 "raku.tab.c"
     break;
 
-  case 46: /* stmt: KW_TAKE expr ';'  */
-#line 629 "raku.y"
+  case 49: /* stmt: KW_TAKE expr ';'  */
+#line 636 "raku.y"
         { (yyval.node)=expr_unary(TT_SUSPEND,(yyvsp[-1].node)); }
-#line 3505 "raku.tab.c"
+#line 3561 "raku.tab.c"
     break;
 
-  case 47: /* stmt: KW_TAKE expr ',' arg_list ';'  */
-#line 631 "raku.y"
+  case 50: /* stmt: KW_TAKE expr ',' arg_list ';'  */
+#line 638 "raku.y"
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
           ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); }
           (yyval.node)=expr_unary(TT_SUSPEND,call); }
-#line 3513 "raku.tab.c"
+#line 3569 "raku.tab.c"
     break;
 
-  case 48: /* stmt: KW_RETURN expr ';'  */
-#line 635 "raku.y"
+  case 51: /* stmt: KW_RETURN expr ';'  */
+#line 642 "raku.y"
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node)); (yyval.node)=r; }
-#line 3519 "raku.tab.c"
+#line 3575 "raku.tab.c"
     break;
 
-  case 49: /* stmt: KW_RETURN ';'  */
-#line 637 "raku.y"
+  case 52: /* stmt: KW_RETURN ';'  */
+#line 644 "raku.y"
         { (yyval.node)=ast_node_new(TT_RETURN); }
-#line 3525 "raku.tab.c"
+#line 3581 "raku.tab.c"
     break;
 
-  case 50: /* stmt: KW_RETURN expr KW_IF expr ';'  */
-#line 639 "raku.y"
+  case 53: /* stmt: KW_RETURN expr KW_IF expr ';'  */
+#line 646 "raku.y"
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(r)); (yyval.node)=e; }
-#line 3532 "raku.tab.c"
+#line 3588 "raku.tab.c"
     break;
 
-  case 51: /* stmt: KW_RETURN expr KW_UNLESS expr ';'  */
-#line 642 "raku.y"
+  case 54: /* stmt: KW_RETURN expr KW_UNLESS expr ';'  */
+#line 649 "raku.y"
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(r)); (yyval.node)=e; }
-#line 3539 "raku.tab.c"
+#line 3595 "raku.tab.c"
     break;
 
-  case 52: /* stmt: KW_EXIT expr ';'  */
-#line 645 "raku.y"
+  case 55: /* stmt: KW_EXIT expr ';'  */
+#line 652 "raku.y"
         { tree_t *c=make_call("__rk_exit"); expr_add_child(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 3545 "raku.tab.c"
+#line 3601 "raku.tab.c"
     break;
 
-  case 53: /* stmt: KW_EXIT ';'  */
-#line 647 "raku.y"
+  case 56: /* stmt: KW_EXIT ';'  */
+#line 654 "raku.y"
         { tree_t *c=make_call("__rk_exit"); tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0;
           expr_add_child(c,z); (yyval.node)=c; }
-#line 3552 "raku.tab.c"
+#line 3608 "raku.tab.c"
     break;
 
-  case 54: /* stmt: KW_EXIT expr KW_IF expr ';'  */
-#line 650 "raku.y"
+  case 57: /* stmt: KW_EXIT expr KW_IF expr ';'  */
+#line 657 "raku.y"
         { tree_t *c=make_call("__rk_exit"); expr_add_child(c,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(c)); (yyval.node)=e; }
-#line 3559 "raku.tab.c"
+#line 3615 "raku.tab.c"
     break;
 
-  case 55: /* stmt: KW_EXIT expr KW_UNLESS expr ';'  */
-#line 653 "raku.y"
+  case 58: /* stmt: KW_EXIT expr KW_UNLESS expr ';'  */
+#line 660 "raku.y"
         { tree_t *c=make_call("__rk_exit"); expr_add_child(c,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(c)); (yyval.node)=e; }
-#line 3566 "raku.tab.c"
+#line 3622 "raku.tab.c"
     break;
 
-  case 56: /* stmt: VAR_SCALAR '=' expr ';'  */
-#line 656 "raku.y"
+  case 59: /* stmt: VAR_SCALAR '=' expr ';'  */
+#line 663 "raku.y"
         { rk_mark_arrlit_scalar(strip_sigil((yyvsp[-3].sval)), (yyvsp[-1].node)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),rk_scalar_rhs((yyvsp[-1].node))); }
-#line 3572 "raku.tab.c"
+#line 3628 "raku.tab.c"
     break;
 
-  case 57: /* stmt: VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'  */
-#line 658 "raku.y"
+  case 60: /* stmt: VAR_SCALAR OP_DOTEQ IDENT '(' arg_list ')' ';'  */
+#line 665 "raku.y"
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node((yyvsp[-6].sval))); ast_push(mc,leaf_sval(TT_QLIT,(yyvsp[-4].sval))); free((yyvsp[-4].sval));
           ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) ast_push(mc,args->items[i]); exprlist_free(args); }
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-6].sval)),mc); }
-#line 3581 "raku.tab.c"
+#line 3637 "raku.tab.c"
     break;
 
-  case 58: /* stmt: VAR_SCALAR OP_DOTEQ IDENT '(' ')' ';'  */
-#line 663 "raku.y"
+  case 61: /* stmt: VAR_SCALAR OP_DOTEQ IDENT '(' ')' ';'  */
+#line 670 "raku.y"
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node((yyvsp[-5].sval))); ast_push(mc,leaf_sval(TT_QLIT,(yyvsp[-3].sval))); free((yyvsp[-3].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-5].sval)),mc); }
-#line 3589 "raku.tab.c"
+#line 3645 "raku.tab.c"
     break;
 
-  case 59: /* stmt: VAR_SCALAR OP_DOTEQ IDENT ';'  */
-#line 667 "raku.y"
+  case 62: /* stmt: VAR_SCALAR OP_DOTEQ IDENT ';'  */
+#line 674 "raku.y"
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node((yyvsp[-3].sval))); ast_push(mc,leaf_sval(TT_QLIT,(yyvsp[-1].sval))); free((yyvsp[-1].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),mc); }
-#line 3597 "raku.tab.c"
+#line 3653 "raku.tab.c"
     break;
 
-  case 60: /* stmt: VAR_SCALAR '.' IDENT '=' expr ';'  */
-#line 671 "raku.y"
+  case 63: /* stmt: VAR_SCALAR '.' IDENT '=' expr ';'  */
+#line 678 "raku.y"
         { tree_t *fe=ast_node_new(TT_FIELD);
           fe->v.sval=(char*)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval));
           expr_add_child(fe,var_node((yyvsp[-5].sval)));
           (yyval.node)=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); }
-#line 3606 "raku.tab.c"
+#line 3662 "raku.tab.c"
     break;
 
-  case 61: /* stmt: VAR_TWIGIL '=' expr ';'  */
-#line 676 "raku.y"
+  case 64: /* stmt: VAR_TWIGIL '=' expr ';'  */
+#line 683 "raku.y"
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval=(char*)intern(rk_tw_bare((yyvsp[-3].sval))); free((yyvsp[-3].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); }
-#line 3614 "raku.tab.c"
+#line 3670 "raku.tab.c"
     break;
 
-  case 62: /* stmt: scalar_methcall ';'  */
-#line 679 "raku.y"
+  case 65: /* stmt: scalar_methcall ';'  */
+#line 686 "raku.y"
                                                  { (yyval.node)=(yyvsp[-1].node); }
-#line 3620 "raku.tab.c"
-    break;
-
-  case 63: /* stmt: scalar_methcall KW_IF expr ';'  */
-#line 681 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3626 "raku.tab.c"
-    break;
-
-  case 64: /* stmt: scalar_methcall KW_UNLESS expr ';'  */
-#line 683 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3632 "raku.tab.c"
-    break;
-
-  case 65: /* stmt: scalar_methcall KW_WHILE expr ';'  */
-#line 685 "raku.y"
-        { (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); }
-#line 3638 "raku.tab.c"
-    break;
-
-  case 66: /* stmt: scalar_methcall KW_UNTIL expr ';'  */
-#line 687 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3644 "raku.tab.c"
-    break;
-
-  case 67: /* stmt: scalar_methcall KW_FOR expr ';'  */
-#line 689 "raku.y"
-        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
-          (yyval.node)=expr_binary(TT_EVERY, gen, seq1((yyvsp[-3].node))); }
-#line 3651 "raku.tab.c"
-    break;
-
-  case 68: /* stmt: scalar_methcall KW_WITH expr ';'  */
-#line 692 "raku.y"
-        { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); }
-#line 3657 "raku.tab.c"
-    break;
-
-  case 69: /* stmt: scalar_methcall KW_WITHOUT expr ';'  */
-#line 694 "raku.y"
-        { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); }
-#line 3663 "raku.tab.c"
-    break;
-
-  case 70: /* stmt: scalar_methcall KW_GIVEN expr ';'  */
-#line 696 "raku.y"
-        { (yyval.node)=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); }
-#line 3669 "raku.tab.c"
-    break;
-
-  case 71: /* stmt: VAR_ARRAY '[' expr ']' '=' expr ';'  */
-#line 698 "raku.y"
-        { tree_t *c=ast_node_new(TT_ARR_SET);
-          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
 #line 3676 "raku.tab.c"
     break;
 
-  case 72: /* stmt: VAR_HASH '<' IDENT '>' '=' expr ';'  */
-#line 701 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_SET);
-          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-4].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 3683 "raku.tab.c"
-    break;
-
-  case 73: /* stmt: VAR_HASH '{' expr '}' '=' expr ';'  */
-#line 704 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_SET);
-          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 3690 "raku.tab.c"
-    break;
-
-  case 74: /* stmt: KW_DELETE VAR_HASH '<' IDENT '>' ';'  */
-#line 707 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_DELETE);
-          ast_push(c,var_node((yyvsp[-4].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); (yyval.node)=c; }
-#line 3697 "raku.tab.c"
-    break;
-
-  case 75: /* stmt: KW_DELETE VAR_HASH '{' expr '}' ';'  */
-#line 710 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_DELETE);
-          ast_push(c,var_node((yyvsp[-4].sval))); ast_push(c,(yyvsp[-2].node)); (yyval.node)=c; }
-#line 3704 "raku.tab.c"
-    break;
-
-  case 76: /* stmt: expr KW_IF expr ';'  */
-#line 713 "raku.y"
+  case 66: /* stmt: scalar_methcall KW_IF expr ';'  */
+#line 688 "raku.y"
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3710 "raku.tab.c"
+#line 3682 "raku.tab.c"
     break;
 
-  case 77: /* stmt: expr KW_UNLESS expr ';'  */
-#line 715 "raku.y"
+  case 67: /* stmt: scalar_methcall KW_UNLESS expr ';'  */
+#line 690 "raku.y"
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3716 "raku.tab.c"
+#line 3688 "raku.tab.c"
     break;
 
-  case 78: /* stmt: expr KW_WHILE expr ';'  */
-#line 717 "raku.y"
+  case 68: /* stmt: scalar_methcall KW_WHILE expr ';'  */
+#line 692 "raku.y"
         { (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); }
-#line 3722 "raku.tab.c"
+#line 3694 "raku.tab.c"
     break;
 
-  case 79: /* stmt: expr KW_UNTIL expr ';'  */
-#line 719 "raku.y"
+  case 69: /* stmt: scalar_methcall KW_UNTIL expr ';'  */
+#line 694 "raku.y"
         { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
-#line 3728 "raku.tab.c"
+#line 3700 "raku.tab.c"
     break;
 
-  case 80: /* stmt: expr KW_FOR expr ';'  */
-#line 721 "raku.y"
+  case 70: /* stmt: scalar_methcall KW_FOR expr ';'  */
+#line 696 "raku.y"
         { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
           (yyval.node)=expr_binary(TT_EVERY, gen, seq1((yyvsp[-3].node))); }
-#line 3735 "raku.tab.c"
+#line 3707 "raku.tab.c"
     break;
 
-  case 81: /* stmt: expr KW_WITH expr ';'  */
-#line 724 "raku.y"
+  case 71: /* stmt: scalar_methcall KW_WITH expr ';'  */
+#line 699 "raku.y"
         { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); }
-#line 3741 "raku.tab.c"
+#line 3713 "raku.tab.c"
     break;
 
-  case 82: /* stmt: expr KW_WITHOUT expr ';'  */
-#line 726 "raku.y"
+  case 72: /* stmt: scalar_methcall KW_WITHOUT expr ';'  */
+#line 701 "raku.y"
         { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); }
-#line 3747 "raku.tab.c"
+#line 3719 "raku.tab.c"
     break;
 
-  case 83: /* stmt: expr KW_GIVEN expr ';'  */
-#line 728 "raku.y"
+  case 73: /* stmt: scalar_methcall KW_GIVEN expr ';'  */
+#line 703 "raku.y"
         { (yyval.node)=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); }
+#line 3725 "raku.tab.c"
+    break;
+
+  case 74: /* stmt: VAR_ARRAY '[' expr ']' '=' expr ';'  */
+#line 705 "raku.y"
+        { tree_t *c=ast_node_new(TT_ARR_SET);
+          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 3732 "raku.tab.c"
+    break;
+
+  case 75: /* stmt: VAR_HASH '<' IDENT '>' '=' expr ';'  */
+#line 708 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_SET);
+          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-4].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 3739 "raku.tab.c"
+    break;
+
+  case 76: /* stmt: VAR_HASH '{' expr '}' '=' expr ';'  */
+#line 711 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_SET);
+          ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 3746 "raku.tab.c"
+    break;
+
+  case 77: /* stmt: KW_DELETE VAR_HASH '<' IDENT '>' ';'  */
+#line 714 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_DELETE);
+          ast_push(c,var_node((yyvsp[-4].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); (yyval.node)=c; }
 #line 3753 "raku.tab.c"
     break;
 
-  case 84: /* stmt: KW_SAY expr KW_IF expr ';'  */
-#line 730 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); (yyval.node)=e; }
+  case 78: /* stmt: KW_DELETE VAR_HASH '{' expr '}' ';'  */
+#line 717 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_DELETE);
+          ast_push(c,var_node((yyvsp[-4].sval))); ast_push(c,(yyvsp[-2].node)); (yyval.node)=c; }
 #line 3760 "raku.tab.c"
     break;
 
-  case 85: /* stmt: KW_SAY expr KW_UNLESS expr ';'  */
-#line 733 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); (yyval.node)=e; }
-#line 3767 "raku.tab.c"
+  case 79: /* stmt: expr KW_IF expr ';'  */
+#line 720 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
+#line 3766 "raku.tab.c"
     break;
 
-  case 86: /* stmt: KW_SAY expr KW_FOR expr ';'  */
-#line 736 "raku.y"
+  case 80: /* stmt: expr KW_UNLESS expr ';'  */
+#line 722 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
+#line 3772 "raku.tab.c"
+    break;
+
+  case 81: /* stmt: expr KW_WHILE expr ';'  */
+#line 724 "raku.y"
+        { (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); }
+#line 3778 "raku.tab.c"
+    break;
+
+  case 82: /* stmt: expr KW_UNTIL expr ';'  */
+#line 726 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); (yyval.node)=e; }
+#line 3784 "raku.tab.c"
+    break;
+
+  case 83: /* stmt: expr KW_FOR expr ';'  */
+#line 728 "raku.y"
+        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
+          (yyval.node)=expr_binary(TT_EVERY, gen, seq1((yyvsp[-3].node))); }
+#line 3791 "raku.tab.c"
+    break;
+
+  case 84: /* stmt: expr KW_WITH expr ';'  */
+#line 731 "raku.y"
+        { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); }
+#line 3797 "raku.tab.c"
+    break;
+
+  case 85: /* stmt: expr KW_WITHOUT expr ';'  */
+#line 733 "raku.y"
+        { (yyval.node)=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); }
+#line 3803 "raku.tab.c"
+    break;
+
+  case 86: /* stmt: expr KW_GIVEN expr ';'  */
+#line 735 "raku.y"
+        { (yyval.node)=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); }
+#line 3809 "raku.tab.c"
+    break;
+
+  case 87: /* stmt: KW_SAY expr KW_IF expr ';'  */
+#line 737 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); (yyval.node)=e; }
+#line 3816 "raku.tab.c"
+    break;
+
+  case 88: /* stmt: KW_SAY expr KW_UNLESS expr ';'  */
+#line 740 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); (yyval.node)=e; }
+#line 3823 "raku.tab.c"
+    break;
+
+  case 89: /* stmt: KW_SAY expr KW_FOR expr ';'  */
+#line 743 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
           tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
           (yyval.node)=expr_binary(TT_EVERY, gen, seq1(s)); }
-#line 3775 "raku.tab.c"
+#line 3831 "raku.tab.c"
     break;
 
-  case 87: /* stmt: KW_SAY expr KW_WHILE expr ';'  */
-#line 740 "raku.y"
+  case 90: /* stmt: KW_SAY expr KW_WHILE expr ';'  */
+#line 747 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
           (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1(s)); }
-#line 3782 "raku.tab.c"
+#line 3838 "raku.tab.c"
     break;
 
-  case 88: /* stmt: KW_SAY expr KW_WITH expr ';'  */
-#line 743 "raku.y"
+  case 91: /* stmt: KW_SAY expr KW_WITH expr ';'  */
+#line 750 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node)); (yyval.node)=rk_with_mod(s,(yyvsp[-1].node),0); }
-#line 3788 "raku.tab.c"
+#line 3844 "raku.tab.c"
     break;
 
-  case 89: /* stmt: KW_SAY expr KW_WITHOUT expr ';'  */
-#line 745 "raku.y"
+  case 92: /* stmt: KW_SAY expr KW_WITHOUT expr ';'  */
+#line 752 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node)); (yyval.node)=rk_with_mod(s,(yyvsp[-1].node),1); }
-#line 3794 "raku.tab.c"
+#line 3850 "raku.tab.c"
     break;
 
-  case 90: /* stmt: KW_SAY expr KW_GIVEN expr ';'  */
-#line 747 "raku.y"
+  case 93: /* stmt: KW_SAY expr KW_GIVEN expr ';'  */
+#line 754 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node)); (yyval.node)=rk_given_mod(s,(yyvsp[-1].node)); }
-#line 3800 "raku.tab.c"
+#line 3856 "raku.tab.c"
     break;
 
-  case 91: /* stmt: KW_PRINT expr KW_IF expr ';'  */
-#line 749 "raku.y"
+  case 94: /* stmt: KW_PRINT expr KW_IF expr ';'  */
+#line 756 "raku.y"
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(p)); (yyval.node)=e; }
-#line 3807 "raku.tab.c"
+#line 3863 "raku.tab.c"
     break;
 
-  case 92: /* stmt: KW_PRINT expr KW_UNLESS expr ';'  */
-#line 752 "raku.y"
+  case 95: /* stmt: KW_PRINT expr KW_UNLESS expr ';'  */
+#line 759 "raku.y"
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-3].node));
           tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(p)); (yyval.node)=e; }
-#line 3814 "raku.tab.c"
+#line 3870 "raku.tab.c"
     break;
 
-  case 93: /* stmt: VAR_SCALAR OP_ADD_EQ expr ';'  */
-#line 755 "raku.y"
+  case 96: /* stmt: VAR_SCALAR OP_ADD_EQ expr ';'  */
+#line 762 "raku.y"
         { tree_t *v=var_node((yyvsp[-3].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_ADD,v,(yyvsp[-1].node))); }
-#line 3821 "raku.tab.c"
+#line 3877 "raku.tab.c"
     break;
 
-  case 94: /* stmt: VAR_SCALAR OP_SUB_EQ expr ';'  */
-#line 758 "raku.y"
+  case 97: /* stmt: VAR_SCALAR OP_SUB_EQ expr ';'  */
+#line 765 "raku.y"
         { tree_t *v=var_node((yyvsp[-3].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_SUB,v,(yyvsp[-1].node))); }
-#line 3828 "raku.tab.c"
+#line 3884 "raku.tab.c"
     break;
 
-  case 95: /* stmt: VAR_SCALAR OP_MUL_EQ expr ';'  */
-#line 761 "raku.y"
+  case 98: /* stmt: VAR_SCALAR OP_MUL_EQ expr ';'  */
+#line 768 "raku.y"
         { tree_t *v=var_node((yyvsp[-3].sval));
           (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_MUL,v,(yyvsp[-1].node))); }
-#line 3835 "raku.tab.c"
-    break;
-
-  case 96: /* stmt: VAR_SCALAR OP_DIV_EQ expr ';'  */
-#line 764 "raku.y"
-        { tree_t *v=var_node((yyvsp[-3].sval));
-          (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_DIV,v,(yyvsp[-1].node))); }
-#line 3842 "raku.tab.c"
-    break;
-
-  case 97: /* stmt: VAR_SCALAR OP_CAT_EQ expr ';'  */
-#line 767 "raku.y"
-        { tree_t *v=var_node((yyvsp[-3].sval));
-          (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_CAT,v,(yyvsp[-1].node))); }
-#line 3849 "raku.tab.c"
-    break;
-
-  case 98: /* stmt: expr ';'  */
-#line 769 "raku.y"
-               { (yyval.node)=(yyvsp[-1].node); }
-#line 3855 "raku.tab.c"
-    break;
-
-  case 99: /* stmt: ';'  */
-#line 770 "raku.y"
-          { (yyval.node)=make_seq(exprlist_new()); }
-#line 3861 "raku.tab.c"
-    break;
-
-  case 100: /* stmt: if_stmt  */
-#line 771 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3867 "raku.tab.c"
-    break;
-
-  case 101: /* stmt: while_stmt  */
-#line 772 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3873 "raku.tab.c"
-    break;
-
-  case 102: /* stmt: for_stmt  */
-#line 773 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3879 "raku.tab.c"
-    break;
-
-  case 103: /* stmt: given_stmt  */
-#line 774 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3885 "raku.tab.c"
-    break;
-
-  case 104: /* stmt: KW_TRY block  */
-#line 776 "raku.y"
-        { tree_t *e=ast_node_new(TT_TRY); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
 #line 3891 "raku.tab.c"
     break;
 
-  case 105: /* stmt: KW_TRY block KW_CATCH block  */
+  case 99: /* stmt: VAR_SCALAR OP_DIV_EQ expr ';'  */
+#line 771 "raku.y"
+        { tree_t *v=var_node((yyvsp[-3].sval));
+          (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_DIV,v,(yyvsp[-1].node))); }
+#line 3898 "raku.tab.c"
+    break;
+
+  case 100: /* stmt: VAR_SCALAR OP_CAT_EQ expr ';'  */
+#line 774 "raku.y"
+        { tree_t *v=var_node((yyvsp[-3].sval));
+          (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-3].sval)),expr_binary(TT_CAT,v,(yyvsp[-1].node))); }
+#line 3905 "raku.tab.c"
+    break;
+
+  case 101: /* stmt: expr ';'  */
+#line 776 "raku.y"
+               { (yyval.node)=(yyvsp[-1].node); }
+#line 3911 "raku.tab.c"
+    break;
+
+  case 102: /* stmt: ';'  */
+#line 777 "raku.y"
+          { (yyval.node)=make_seq(exprlist_new()); }
+#line 3917 "raku.tab.c"
+    break;
+
+  case 103: /* stmt: if_stmt  */
 #line 778 "raku.y"
-        { tree_t *e=ast_node_new(TT_TRY); ast_push(e,(yyvsp[-2].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 3897 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3923 "raku.tab.c"
     break;
 
-  case 106: /* stmt: KW_CATCH block  */
+  case 104: /* stmt: while_stmt  */
+#line 779 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3929 "raku.tab.c"
+    break;
+
+  case 105: /* stmt: for_stmt  */
 #line 780 "raku.y"
-        { tree_t *e=ast_node_new(TT_CATCH); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 3903 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3935 "raku.tab.c"
     break;
 
-  case 107: /* stmt: block  */
-#line 782 "raku.y"
-        { (yyval.node)=(yyvsp[0].node); }
-#line 3909 "raku.tab.c"
+  case 106: /* stmt: given_stmt  */
+#line 781 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3941 "raku.tab.c"
     break;
 
-  case 108: /* stmt: unless_stmt  */
+  case 107: /* stmt: KW_TRY block  */
 #line 783 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3915 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_TRY); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 3947 "raku.tab.c"
     break;
 
-  case 109: /* stmt: until_stmt  */
-#line 784 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3921 "raku.tab.c"
-    break;
-
-  case 110: /* stmt: repeat_stmt  */
+  case 108: /* stmt: KW_TRY block KW_CATCH block  */
 #line 785 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3927 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_TRY); ast_push(e,(yyvsp[-2].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 3953 "raku.tab.c"
     break;
 
-  case 111: /* stmt: loop_stmt  */
-#line 786 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3933 "raku.tab.c"
-    break;
-
-  case 112: /* stmt: KW_LAST ';'  */
+  case 109: /* stmt: KW_CATCH block  */
 #line 787 "raku.y"
-                        { (yyval.node)=ast_node_new(TT_LOOP_BREAK); }
-#line 3939 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_CATCH); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 3959 "raku.tab.c"
     break;
 
-  case 113: /* stmt: KW_NEXT ';'  */
-#line 788 "raku.y"
-                        { (yyval.node)=ast_node_new(TT_LOOP_NEXT); }
-#line 3945 "raku.tab.c"
+  case 110: /* stmt: block  */
+#line 789 "raku.y"
+        { (yyval.node)=(yyvsp[0].node); }
+#line 3965 "raku.tab.c"
     break;
 
-  case 114: /* stmt: KW_LAST KW_IF expr ';'  */
+  case 111: /* stmt: unless_stmt  */
 #line 790 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); (yyval.node)=e; }
-#line 3951 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3971 "raku.tab.c"
     break;
 
-  case 115: /* stmt: KW_LAST KW_UNLESS expr ';'  */
+  case 112: /* stmt: until_stmt  */
+#line 791 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3977 "raku.tab.c"
+    break;
+
+  case 113: /* stmt: repeat_stmt  */
 #line 792 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); (yyval.node)=e; }
-#line 3957 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3983 "raku.tab.c"
     break;
 
-  case 116: /* stmt: KW_NEXT KW_IF expr ';'  */
+  case 114: /* stmt: loop_stmt  */
+#line 793 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 3989 "raku.tab.c"
+    break;
+
+  case 115: /* stmt: KW_LAST ';'  */
 #line 794 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); (yyval.node)=e; }
-#line 3963 "raku.tab.c"
+                        { (yyval.node)=ast_node_new(TT_LOOP_BREAK); }
+#line 3995 "raku.tab.c"
     break;
 
-  case 117: /* stmt: KW_NEXT KW_UNLESS expr ';'  */
-#line 796 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); (yyval.node)=e; }
-#line 3969 "raku.tab.c"
+  case 116: /* stmt: KW_NEXT ';'  */
+#line 795 "raku.y"
+                        { (yyval.node)=ast_node_new(TT_LOOP_NEXT); }
+#line 4001 "raku.tab.c"
     break;
 
-  case 118: /* stmt: sub_decl  */
+  case 117: /* stmt: KW_LAST KW_IF expr ';'  */
 #line 797 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3975 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); (yyval.node)=e; }
+#line 4007 "raku.tab.c"
     break;
 
-  case 119: /* stmt: class_decl  */
-#line 798 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3981 "raku.tab.c"
-    break;
-
-  case 120: /* stmt: role_decl  */
+  case 118: /* stmt: KW_LAST KW_UNLESS expr ';'  */
 #line 799 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3987 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); (yyval.node)=e; }
+#line 4013 "raku.tab.c"
     break;
 
-  case 121: /* stmt: grammar_decl  */
-#line 800 "raku.y"
-                        { (yyval.node)=(yyvsp[0].node); }
-#line 3993 "raku.tab.c"
+  case 119: /* stmt: KW_NEXT KW_IF expr ';'  */
+#line 801 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); (yyval.node)=e; }
+#line 4019 "raku.tab.c"
     break;
 
-  case 122: /* if_stmt: KW_IF '(' expr ')' block  */
+  case 120: /* stmt: KW_NEXT KW_UNLESS expr ';'  */
+#line 803 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); (yyval.node)=e; }
+#line 4025 "raku.tab.c"
+    break;
+
+  case 121: /* stmt: sub_decl  */
 #line 804 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 3999 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 4031 "raku.tab.c"
     break;
 
-  case 123: /* if_stmt: KW_IF '(' expr ')' block KW_ELSE block  */
+  case 122: /* stmt: class_decl  */
+#line 805 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 4037 "raku.tab.c"
+    break;
+
+  case 123: /* stmt: role_decl  */
 #line 806 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-4].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4005 "raku.tab.c"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 4043 "raku.tab.c"
     break;
 
-  case 124: /* if_stmt: KW_IF '(' expr ')' block KW_ELSE if_stmt  */
-#line 808 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-4].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4011 "raku.tab.c"
+  case 124: /* stmt: grammar_decl  */
+#line 807 "raku.y"
+                        { (yyval.node)=(yyvsp[0].node); }
+#line 4049 "raku.tab.c"
     break;
 
-  case 125: /* if_stmt: KW_IF expr block  */
-#line 810 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4017 "raku.tab.c"
-    break;
-
-  case 126: /* if_stmt: KW_IF expr block KW_ELSE block  */
-#line 812 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4023 "raku.tab.c"
-    break;
-
-  case 127: /* if_stmt: KW_IF expr block KW_ELSE if_stmt  */
-#line 814 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4029 "raku.tab.c"
-    break;
-
-  case 128: /* if_stmt: KW_IF expr block elsif_tail  */
-#line 816 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4035 "raku.tab.c"
-    break;
-
-  case 129: /* if_stmt: KW_IF '(' expr ')' block elsif_tail  */
-#line 818 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4041 "raku.tab.c"
-    break;
-
-  case 130: /* elsif_tail: KW_ELSIF expr block  */
-#line 822 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4047 "raku.tab.c"
-    break;
-
-  case 131: /* elsif_tail: KW_ELSIF '(' expr ')' block  */
-#line 824 "raku.y"
+  case 125: /* if_stmt: KW_IF '(' expr ')' block  */
+#line 811 "raku.y"
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4053 "raku.tab.c"
+#line 4055 "raku.tab.c"
     break;
 
-  case 132: /* elsif_tail: KW_ELSIF expr block KW_ELSE block  */
-#line 826 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4059 "raku.tab.c"
-    break;
-
-  case 133: /* elsif_tail: KW_ELSIF '(' expr ')' block KW_ELSE block  */
-#line 828 "raku.y"
+  case 126: /* if_stmt: KW_IF '(' expr ')' block KW_ELSE block  */
+#line 813 "raku.y"
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-4].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4065 "raku.tab.c"
+#line 4061 "raku.tab.c"
     break;
 
-  case 134: /* elsif_tail: KW_ELSIF expr block elsif_tail  */
-#line 830 "raku.y"
+  case 127: /* if_stmt: KW_IF '(' expr ')' block KW_ELSE if_stmt  */
+#line 815 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-4].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4067 "raku.tab.c"
+    break;
+
+  case 128: /* if_stmt: KW_IF expr block  */
+#line 817 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4073 "raku.tab.c"
+    break;
+
+  case 129: /* if_stmt: KW_IF expr block KW_ELSE block  */
+#line 819 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4079 "raku.tab.c"
+    break;
+
+  case 130: /* if_stmt: KW_IF expr block KW_ELSE if_stmt  */
+#line 821 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4085 "raku.tab.c"
+    break;
+
+  case 131: /* if_stmt: KW_IF expr block elsif_tail  */
+#line 823 "raku.y"
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4071 "raku.tab.c"
+#line 4091 "raku.tab.c"
     break;
 
-  case 135: /* elsif_tail: KW_ELSIF '(' expr ')' block elsif_tail  */
-#line 832 "raku.y"
+  case 132: /* if_stmt: KW_IF '(' expr ')' block elsif_tail  */
+#line 825 "raku.y"
         { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4077 "raku.tab.c"
+#line 4097 "raku.tab.c"
     break;
 
-  case 136: /* while_stmt: KW_WHILE '(' expr ')' block  */
-#line 836 "raku.y"
+  case 133: /* elsif_tail: KW_ELSIF expr block  */
+#line 829 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4103 "raku.tab.c"
+    break;
+
+  case 134: /* elsif_tail: KW_ELSIF '(' expr ')' block  */
+#line 831 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4109 "raku.tab.c"
+    break;
+
+  case 135: /* elsif_tail: KW_ELSIF expr block KW_ELSE block  */
+#line 833 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4115 "raku.tab.c"
+    break;
+
+  case 136: /* elsif_tail: KW_ELSIF '(' expr ')' block KW_ELSE block  */
+#line 835 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-4].node)); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4121 "raku.tab.c"
+    break;
+
+  case 137: /* elsif_tail: KW_ELSIF expr block elsif_tail  */
+#line 837 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4127 "raku.tab.c"
+    break;
+
+  case 138: /* elsif_tail: KW_ELSIF '(' expr ')' block elsif_tail  */
+#line 839 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
+#line 4133 "raku.tab.c"
+    break;
+
+  case 139: /* while_stmt: KW_WHILE '(' expr ')' block  */
+#line 843 "raku.y"
         { (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 4083 "raku.tab.c"
+#line 4139 "raku.tab.c"
     break;
 
-  case 137: /* while_stmt: KW_WHILE expr block  */
-#line 838 "raku.y"
+  case 140: /* while_stmt: KW_WHILE expr block  */
+#line 845 "raku.y"
         { (yyval.node)=expr_binary(TT_WHILE,(yyvsp[-1].node),(yyvsp[0].node)); }
-#line 4089 "raku.tab.c"
+#line 4145 "raku.tab.c"
     break;
 
-  case 138: /* unless_stmt: KW_UNLESS '(' expr ')' block  */
-#line 842 "raku.y"
+  case 141: /* unless_stmt: KW_UNLESS '(' expr ')' block  */
+#line 849 "raku.y"
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-2].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4095 "raku.tab.c"
+#line 4151 "raku.tab.c"
     break;
 
-  case 139: /* unless_stmt: KW_UNLESS '(' expr ')' block KW_ELSE block  */
-#line 844 "raku.y"
+  case 142: /* unless_stmt: KW_UNLESS '(' expr ')' block KW_ELSE block  */
+#line 851 "raku.y"
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-4].node)); ast_push(e,(yyvsp[-2].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4101 "raku.tab.c"
+#line 4157 "raku.tab.c"
     break;
 
-  case 140: /* unless_stmt: KW_UNLESS expr block  */
-#line 846 "raku.y"
+  case 143: /* unless_stmt: KW_UNLESS expr block  */
+#line 853 "raku.y"
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4107 "raku.tab.c"
+#line 4163 "raku.tab.c"
     break;
 
-  case 141: /* unless_stmt: KW_UNLESS expr block KW_ELSE block  */
-#line 848 "raku.y"
+  case 144: /* unless_stmt: KW_UNLESS expr block KW_ELSE block  */
+#line 855 "raku.y"
         { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-3].node)); ast_push(e,(yyvsp[-2].node)); ast_push(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4113 "raku.tab.c"
+#line 4169 "raku.tab.c"
     break;
 
-  case 142: /* until_stmt: KW_UNTIL '(' expr ')' block  */
-#line 852 "raku.y"
+  case 145: /* until_stmt: KW_UNTIL '(' expr ')' block  */
+#line 859 "raku.y"
         { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-2].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4119 "raku.tab.c"
+#line 4175 "raku.tab.c"
     break;
 
-  case 143: /* until_stmt: KW_UNTIL expr block  */
-#line 854 "raku.y"
+  case 146: /* until_stmt: KW_UNTIL expr block  */
+#line 861 "raku.y"
         { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,(yyvsp[0].node)); (yyval.node)=e; }
-#line 4125 "raku.tab.c"
+#line 4181 "raku.tab.c"
     break;
 
-  case 144: /* repeat_stmt: KW_REPEAT block  */
-#line 858 "raku.y"
+  case 147: /* repeat_stmt: KW_REPEAT block  */
+#line 865 "raku.y"
         { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,(yyvsp[0].node)); e->v.ival=0; (yyval.node)=e; }
-#line 4131 "raku.tab.c"
+#line 4187 "raku.tab.c"
     break;
 
-  case 145: /* repeat_stmt: KW_REPEAT block KW_WHILE expr ';'  */
-#line 860 "raku.y"
+  case 148: /* repeat_stmt: KW_REPEAT block KW_WHILE expr ';'  */
+#line 867 "raku.y"
         { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-1].node)); e->v.ival=1; (yyval.node)=e; }
-#line 4137 "raku.tab.c"
+#line 4193 "raku.tab.c"
     break;
 
-  case 146: /* repeat_stmt: KW_REPEAT block KW_UNTIL expr ';'  */
-#line 862 "raku.y"
+  case 149: /* repeat_stmt: KW_REPEAT block KW_UNTIL expr ';'  */
+#line 869 "raku.y"
         { tree_t *e=ast_node_new(TT_REPEAT); expr_add_child(e,(yyvsp[-3].node)); expr_add_child(e,(yyvsp[-1].node)); e->v.ival=2; (yyval.node)=e; }
-#line 4143 "raku.tab.c"
+#line 4199 "raku.tab.c"
     break;
 
-  case 147: /* loop_stmt: KW_LOOP block  */
-#line 866 "raku.y"
-        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; (yyval.node)=expr_binary(TT_WHILE,one,(yyvsp[0].node)); }
-#line 4149 "raku.tab.c"
-    break;
-
-  case 148: /* loop_stmt: KW_LOOP '(' KW_MY VAR_SCALAR '=' expr ';' expr ';' loop_incr ')' block  */
-#line 868 "raku.y"
-        { (yyval.node)=rk_cstyle_loop(expr_binary(TT_ASSIGN,var_node((yyvsp[-8].sval)),(yyvsp[-6].node)),(yyvsp[-4].node),(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 4155 "raku.tab.c"
-    break;
-
-  case 149: /* loop_stmt: KW_LOOP '(' expr ';' expr ';' loop_incr ')' block  */
-#line 870 "raku.y"
-        { (yyval.node)=rk_cstyle_loop((yyvsp[-6].node),(yyvsp[-4].node),(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 4161 "raku.tab.c"
-    break;
-
-  case 150: /* loop_incr: expr  */
+  case 150: /* loop_stmt: KW_LOOP block  */
 #line 873 "raku.y"
-                          { (yyval.node)=(yyvsp[0].node); }
-#line 4167 "raku.tab.c"
+        { tree_t *one=ast_node_new(TT_ILIT); one->v.ival=1; (yyval.node)=expr_binary(TT_WHILE,one,(yyvsp[0].node)); }
+#line 4205 "raku.tab.c"
     break;
 
-  case 151: /* for_stmt: KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block  */
+  case 151: /* loop_stmt: KW_LOOP '(' KW_MY VAR_SCALAR '=' expr ';' expr ';' loop_incr ')' block  */
+#line 875 "raku.y"
+        { (yyval.node)=rk_cstyle_loop(expr_binary(TT_ASSIGN,var_node((yyvsp[-8].sval)),(yyvsp[-6].node)),(yyvsp[-4].node),(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 4211 "raku.tab.c"
+    break;
+
+  case 152: /* loop_stmt: KW_LOOP '(' expr ';' expr ';' loop_incr ')' block  */
 #line 877 "raku.y"
+        { (yyval.node)=rk_cstyle_loop((yyvsp[-6].node),(yyvsp[-4].node),(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 4217 "raku.tab.c"
+    break;
+
+  case 153: /* loop_incr: expr  */
+#line 880 "raku.y"
+                          { (yyval.node)=(yyvsp[0].node); }
+#line 4223 "raku.tab.c"
+    break;
+
+  case 154: /* for_stmt: KW_FOR add_expr OP_RANGE add_expr OP_ARROW VAR_SCALAR block  */
+#line 884 "raku.y"
         { const char *vn = intern(strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, (yyvsp[-5].node)); ast_push(r, (yyvsp[-3].node)); ast_push(r, (yyvsp[0].node));
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
           (yyval.node) = r; }
-#line 4177 "raku.tab.c"
+#line 4233 "raku.tab.c"
     break;
 
-  case 152: /* for_stmt: KW_FOR add_expr OP_RANGE_EX add_expr OP_ARROW VAR_SCALAR block  */
-#line 883 "raku.y"
+  case 155: /* for_stmt: KW_FOR add_expr OP_RANGE_EX add_expr OP_ARROW VAR_SCALAR block  */
+#line 890 "raku.y"
         { const char *vn = intern(strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
           tree_t *r = ast_node_new(TT_FOR_RANGE);
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, (yyvsp[-5].node)); ast_push(r, rk_dec((yyvsp[-3].node))); ast_push(r, (yyvsp[0].node));
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
           (yyval.node) = r; }
-#line 4187 "raku.tab.c"
+#line 4243 "raku.tab.c"
     break;
 
-  case 153: /* for_stmt: KW_FOR expr OP_ARROW VAR_SCALAR block  */
-#line 889 "raku.y"
+  case 156: /* for_stmt: KW_FOR expr OP_ARROW VAR_SCALAR block  */
+#line 896 "raku.y"
         { const char *vn = intern(strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
           tree_t *gen = expr_unary(TT_ITERATE, (yyvsp[-3].node));
           gen->v.sval = (char *)vn;
           (yyval.node) = expr_binary(TT_EVERY, gen, (yyvsp[0].node)); }
-#line 4196 "raku.tab.c"
+#line 4252 "raku.tab.c"
     break;
 
-  case 154: /* for_stmt: KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block  */
-#line 894 "raku.y"
+  case 157: /* for_stmt: KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block  */
+#line 901 "raku.y"
         { const char *vn = intern(strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
           tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,(yyvsp[-5].node));
           ExprList *a=(yyvsp[-3].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
           tree_t *gen = expr_unary(TT_ITERATE, lst); gen->v.sval = (char *)vn;
           (yyval.node) = expr_binary(TT_EVERY, gen, (yyvsp[0].node)); }
-#line 4206 "raku.tab.c"
+#line 4262 "raku.tab.c"
     break;
 
-  case 155: /* for_stmt: KW_FOR expr ',' arg_list block  */
-#line 900 "raku.y"
+  case 158: /* for_stmt: KW_FOR expr ',' arg_list block  */
+#line 907 "raku.y"
         { tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,(yyvsp[-3].node));
           ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(lst,a->items[i]); exprlist_free(a); }
           tree_t *gen = expr_unary(TT_ITERATE, lst);
           (yyval.node) = expr_binary(TT_EVERY, gen, (yyvsp[0].node)); }
-#line 4215 "raku.tab.c"
+#line 4271 "raku.tab.c"
     break;
 
-  case 156: /* for_stmt: KW_FOR expr block  */
-#line 905 "raku.y"
+  case 159: /* for_stmt: KW_FOR expr block  */
+#line 912 "raku.y"
         { tree_t *gen = expr_unary(TT_ITERATE, (yyvsp[-1].node));
           (yyval.node) = expr_binary(TT_EVERY, gen, (yyvsp[0].node)); }
-#line 4222 "raku.tab.c"
+#line 4278 "raku.tab.c"
     break;
 
-  case 157: /* given_stmt: KW_GIVEN expr '{' when_list '}'  */
-#line 910 "raku.y"
+  case 160: /* given_stmt: KW_GIVEN expr '{' when_list '}'  */
+#line 917 "raku.y"
         {
           tree_t *ec=ast_node_new(TT_CASE);
           expr_add_child(ec,(yyvsp[-3].node));
@@ -4230,11 +4286,11 @@ yyreduce:
           for(int i=0;i<whens->count;i++) expr_add_child(ec,whens->items[i]);
           exprlist_free(whens);
           (yyval.node)=ec; }
-#line 4234 "raku.tab.c"
+#line 4290 "raku.tab.c"
     break;
 
-  case 158: /* given_stmt: KW_GIVEN expr '{' when_list KW_DEFAULT block '}'  */
-#line 918 "raku.y"
+  case 161: /* given_stmt: KW_GIVEN expr '{' when_list KW_DEFAULT block '}'  */
+#line 925 "raku.y"
         {
           tree_t *ec=ast_node_new(TT_CASE);
           expr_add_child(ec,(yyvsp[-5].node));
@@ -4243,25 +4299,25 @@ yyreduce:
           exprlist_free(whens);
           expr_add_child(ec,ast_node_new(TT_NUL)); expr_add_child(ec,(yyvsp[-1].node));
           (yyval.node)=ec; }
-#line 4247 "raku.tab.c"
+#line 4303 "raku.tab.c"
     break;
 
-  case 159: /* when_list: %empty  */
-#line 928 "raku.y"
+  case 162: /* when_list: %empty  */
+#line 935 "raku.y"
        { (yyval.list)=exprlist_new(); }
-#line 4253 "raku.tab.c"
+#line 4309 "raku.tab.c"
     break;
 
-  case 160: /* when_list: when_list KW_WHEN expr block  */
-#line 930 "raku.y"
+  case 163: /* when_list: when_list KW_WHEN expr block  */
+#line 937 "raku.y"
         {
           exprlist_append((yyvsp[-3].list),(yyvsp[-1].node)); exprlist_append((yyvsp[-3].list),(yyvsp[0].node));
           (yyval.list)=(yyvsp[-3].list); }
-#line 4261 "raku.tab.c"
+#line 4317 "raku.tab.c"
     break;
 
-  case 161: /* sub_decl: KW_SUB IDENT '(' param_list ')' sub_body  */
-#line 936 "raku.y"
+  case 164: /* sub_decl: KW_SUB IDENT '(' param_list ')' sub_body  */
+#line 943 "raku.y"
         { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
           tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-4].sval)); e->v.ival=(long long)np;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-4].sval)); expr_add_child(e,nn);
@@ -4269,368 +4325,368 @@ yyreduce:
           tree_t *body=rkbody;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           (yyval.node)=e; }
-#line 4273 "raku.tab.c"
+#line 4329 "raku.tab.c"
     break;
 
-  case 162: /* sub_decl: KW_SUB IDENT '(' ')' sub_body  */
-#line 944 "raku.y"
+  case 165: /* sub_decl: KW_SUB IDENT '(' ')' sub_body  */
+#line 951 "raku.y"
         { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-3].sval)); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-3].sval)); expr_add_child(e,nn);
           tree_t *body=(yyvsp[0].node);
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           (yyval.node)=e; }
-#line 4283 "raku.tab.c"
+#line 4339 "raku.tab.c"
     break;
 
-  case 163: /* sub_decl: KW_SUB IDENT sub_body  */
-#line 950 "raku.y"
+  case 166: /* sub_decl: KW_SUB IDENT sub_body  */
+#line 957 "raku.y"
         { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-1].sval)); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-1].sval)); expr_add_child(e,nn);
           tree_t *body=(yyvsp[0].node);
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           (yyval.node)=e; }
-#line 4293 "raku.tab.c"
-    break;
-
-  case 164: /* sub_decl: KW_MY KW_SUB IDENT '(' param_list ')' sub_body  */
-#line 956 "raku.y"
-        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
-          tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-4].sval)); e->v.ival=(long long)np;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-4].sval)); expr_add_child(e,nn);
-          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=rkbody;
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          (yyval.node)=e; }
-#line 4305 "raku.tab.c"
-    break;
-
-  case 165: /* sub_decl: KW_MY KW_SUB IDENT '(' ')' sub_body  */
-#line 964 "raku.y"
-        { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-3].sval)); e->v.ival=(long long)0;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-3].sval)); expr_add_child(e,nn);
-          tree_t *body=(yyvsp[0].node);
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          (yyval.node)=e; }
-#line 4315 "raku.tab.c"
-    break;
-
-  case 166: /* sub_decl: KW_MY KW_SUB IDENT sub_body  */
-#line 970 "raku.y"
-        { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-1].sval)); e->v.ival=(long long)0;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-1].sval)); expr_add_child(e,nn);
-          tree_t *body=(yyvsp[0].node);
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          (yyval.node)=e; }
-#line 4325 "raku.tab.c"
-    break;
-
-  case 167: /* sub_decl: KW_MULTI KW_SUB IDENT '(' param_list ')' sub_body  */
-#line 976 "raku.y"
-        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
-          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
-          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
-          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=rkbody;
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free((yyvsp[-4].sval)); (yyval.node)=e; }
-#line 4338 "raku.tab.c"
-    break;
-
-  case 168: /* sub_decl: KW_MULTI KW_SUB IDENT '(' ')' sub_body  */
-#line 985 "raku.y"
-        { const char *mname=rk_multi_mangle((yyvsp[-3].sval),NULL);
-          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
-          tree_t *body=(yyvsp[0].node);
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free((yyvsp[-3].sval)); (yyval.node)=e; }
 #line 4349 "raku.tab.c"
     break;
 
-  case 169: /* sub_decl: KW_MULTI KW_SUB OP_NAME '(' param_list ')' sub_body  */
+  case 167: /* sub_decl: KW_MY KW_SUB IDENT '(' param_list ')' sub_body  */
+#line 963 "raku.y"
+        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
+          tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-4].sval)); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-4].sval)); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          (yyval.node)=e; }
+#line 4361 "raku.tab.c"
+    break;
+
+  case 168: /* sub_decl: KW_MY KW_SUB IDENT '(' ')' sub_body  */
+#line 971 "raku.y"
+        { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-3].sval)); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-3].sval)); expr_add_child(e,nn);
+          tree_t *body=(yyvsp[0].node);
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          (yyval.node)=e; }
+#line 4371 "raku.tab.c"
+    break;
+
+  case 169: /* sub_decl: KW_MY KW_SUB IDENT sub_body  */
+#line 977 "raku.y"
+        { tree_t *e=leaf_sval(TT_SUB_DECL,(yyvsp[-1].sval)); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern((yyvsp[-1].sval)); expr_add_child(e,nn);
+          tree_t *body=(yyvsp[0].node);
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          (yyval.node)=e; }
+#line 4381 "raku.tab.c"
+    break;
+
+  case 170: /* sub_decl: KW_MULTI KW_SUB IDENT '(' param_list ')' sub_body  */
+#line 983 "raku.y"
+        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
+          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free((yyvsp[-4].sval)); (yyval.node)=e; }
+#line 4394 "raku.tab.c"
+    break;
+
+  case 171: /* sub_decl: KW_MULTI KW_SUB IDENT '(' ')' sub_body  */
 #line 992 "raku.y"
-        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
-          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
-          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
-          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=rkbody;
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free((yyvsp[-4].sval)); (yyval.node)=e; }
-#line 4362 "raku.tab.c"
-    break;
-
-  case 170: /* sub_decl: KW_MULTI IDENT '(' param_list ')' sub_body  */
-#line 1001 "raku.y"
-        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
-          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
-          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
-          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
-          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
-          tree_t *body=rkbody;
-          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
-          free((yyvsp[-4].sval)); (yyval.node)=e; }
-#line 4375 "raku.tab.c"
-    break;
-
-  case 171: /* sub_decl: KW_MULTI IDENT '(' ')' sub_body  */
-#line 1010 "raku.y"
         { const char *mname=rk_multi_mangle((yyvsp[-3].sval),NULL);
           tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
           tree_t *body=(yyvsp[0].node);
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free((yyvsp[-3].sval)); (yyval.node)=e; }
-#line 4386 "raku.tab.c"
+#line 4405 "raku.tab.c"
     break;
 
-  case 172: /* scalar_methcall: VAR_SCALAR '.' IDENT '(' arg_list ')'  */
-#line 1019 "raku.y"
+  case 172: /* sub_decl: KW_MULTI KW_SUB OP_NAME '(' param_list ')' sub_body  */
+#line 999 "raku.y"
+        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
+          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free((yyvsp[-4].sval)); (yyval.node)=e; }
+#line 4418 "raku.tab.c"
+    break;
+
+  case 173: /* sub_decl: KW_MULTI IDENT '(' param_list ')' sub_body  */
+#line 1008 "raku.y"
+        { ExprList *params=(yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np=params?params->count:0;
+          const char *mname=rk_multi_mangle((yyvsp[-4].sval),params);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free((yyvsp[-4].sval)); (yyval.node)=e; }
+#line 4431 "raku.tab.c"
+    break;
+
+  case 174: /* sub_decl: KW_MULTI IDENT '(' ')' sub_body  */
+#line 1017 "raku.y"
+        { const char *mname=rk_multi_mangle((yyvsp[-3].sval),NULL);
+          tree_t *e=leaf_sval(TT_SUB_DECL,mname); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern(mname); expr_add_child(e,nn);
+          tree_t *body=(yyvsp[0].node);
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          free((yyvsp[-3].sval)); (yyval.node)=e; }
+#line 4442 "raku.tab.c"
+    break;
+
+  case 175: /* scalar_methcall: VAR_SCALAR '.' IDENT '(' arg_list ')'  */
+#line 1026 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-5].sval)));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
           ExprList *args = (yyvsp[-1].list);
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           (yyval.node) = c; }
-#line 4397 "raku.tab.c"
+#line 4453 "raku.tab.c"
     break;
 
-  case 173: /* scalar_methcall: VAR_SCALAR '.' IDENT '(' ')'  */
-#line 1026 "raku.y"
+  case 176: /* scalar_methcall: VAR_SCALAR '.' IDENT '(' ')'  */
+#line 1033 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-4].sval)));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
           (yyval.node) = c; }
-#line 4406 "raku.tab.c"
-    break;
-
-  case 174: /* sub_body: '{' stmt_list '}'  */
-#line 1032 "raku.y"
-                                 { (yyval.node)=make_seq((yyvsp[-1].list)); }
-#line 4412 "raku.tab.c"
-    break;
-
-  case 175: /* sub_body: '{' stmt_list expr '}'  */
-#line 1034 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4419 "raku.tab.c"
-    break;
-
-  case 176: /* sub_body: '{' stmt_list KW_RETURN expr '}'  */
-#line 1037 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4426 "raku.tab.c"
-    break;
-
-  case 177: /* sub_body: '{' stmt_list KW_RETURN '}'  */
-#line 1040 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4432 "raku.tab.c"
-    break;
-
-  case 178: /* sub_body: '{' stmt_list KW_SAY expr '}'  */
-#line 1042 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
-#line 4438 "raku.tab.c"
-    break;
-
-  case 179: /* sub_body: '{' stmt_list KW_PRINT expr '}'  */
-#line 1044 "raku.y"
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
-#line 4444 "raku.tab.c"
-    break;
-
-  case 180: /* sub_body: '{' stmt_list expr KW_IF expr '}'  */
-#line 1046 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4450 "raku.tab.c"
-    break;
-
-  case 181: /* sub_body: '{' stmt_list expr KW_UNLESS expr '}'  */
-#line 1048 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4456 "raku.tab.c"
-    break;
-
-  case 182: /* sub_body: '{' stmt_list expr KW_WHILE expr '}'  */
-#line 1050 "raku.y"
-        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
 #line 4462 "raku.tab.c"
     break;
 
-  case 183: /* sub_body: '{' stmt_list expr KW_UNTIL expr '}'  */
-#line 1052 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 177: /* sub_body: '{' stmt_list '}'  */
+#line 1039 "raku.y"
+                                 { (yyval.node)=make_seq((yyvsp[-1].list)); }
 #line 4468 "raku.tab.c"
     break;
 
-  case 184: /* sub_body: '{' stmt_list expr KW_FOR expr '}'  */
-#line 1054 "raku.y"
-        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 178: /* sub_body: '{' stmt_list expr '}'  */
+#line 1041 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
 #line 4475 "raku.tab.c"
     break;
 
-  case 185: /* sub_body: '{' stmt_list expr KW_WITH expr '}'  */
-#line 1057 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4481 "raku.tab.c"
+  case 179: /* sub_body: '{' stmt_list KW_RETURN expr '}'  */
+#line 1044 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 4482 "raku.tab.c"
     break;
 
-  case 186: /* sub_body: '{' stmt_list expr KW_WITHOUT expr '}'  */
-#line 1059 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4487 "raku.tab.c"
+  case 180: /* sub_body: '{' stmt_list KW_RETURN '}'  */
+#line 1047 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 4488 "raku.tab.c"
     break;
 
-  case 187: /* sub_body: '{' stmt_list expr KW_GIVEN expr '}'  */
-#line 1061 "raku.y"
-        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4493 "raku.tab.c"
+  case 181: /* sub_body: '{' stmt_list KW_SAY expr '}'  */
+#line 1049 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
+#line 4494 "raku.tab.c"
     break;
 
-  case 188: /* sub_body: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
-#line 1063 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 182: /* sub_body: '{' stmt_list KW_PRINT expr '}'  */
+#line 1051 "raku.y"
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
 #line 4500 "raku.tab.c"
     break;
 
-  case 189: /* sub_body: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
-#line 1066 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4507 "raku.tab.c"
+  case 183: /* sub_body: '{' stmt_list expr KW_IF expr '}'  */
+#line 1053 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4506 "raku.tab.c"
     break;
 
-  case 190: /* sub_body: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
-#line 1069 "raku.y"
+  case 184: /* sub_body: '{' stmt_list expr KW_UNLESS expr '}'  */
+#line 1055 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4512 "raku.tab.c"
+    break;
+
+  case 185: /* sub_body: '{' stmt_list expr KW_WHILE expr '}'  */
+#line 1057 "raku.y"
+        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4518 "raku.tab.c"
+    break;
+
+  case 186: /* sub_body: '{' stmt_list expr KW_UNTIL expr '}'  */
+#line 1059 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4524 "raku.tab.c"
+    break;
+
+  case 187: /* sub_body: '{' stmt_list expr KW_FOR expr '}'  */
+#line 1061 "raku.y"
+        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4531 "raku.tab.c"
+    break;
+
+  case 188: /* sub_body: '{' stmt_list expr KW_WITH expr '}'  */
+#line 1064 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4537 "raku.tab.c"
+    break;
+
+  case 189: /* sub_body: '{' stmt_list expr KW_WITHOUT expr '}'  */
+#line 1066 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4543 "raku.tab.c"
+    break;
+
+  case 190: /* sub_body: '{' stmt_list expr KW_GIVEN expr '}'  */
+#line 1068 "raku.y"
+        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4549 "raku.tab.c"
+    break;
+
+  case 191: /* sub_body: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
+#line 1070 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4556 "raku.tab.c"
+    break;
+
+  case 192: /* sub_body: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
+#line 1073 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4563 "raku.tab.c"
+    break;
+
+  case 193: /* sub_body: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
+#line 1076 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
           tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
           tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4515 "raku.tab.c"
-    break;
-
-  case 191: /* method_body: '{' stmt_list '}'  */
-#line 1074 "raku.y"
-                                 { (yyval.node)=make_seq((yyvsp[-1].list)); }
-#line 4521 "raku.tab.c"
-    break;
-
-  case 192: /* method_body: '{' YADA '}'  */
-#line 1075 "raku.y"
-                                 { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); (yyval.node)=make_seq(l); }
-#line 4527 "raku.tab.c"
-    break;
-
-  case 193: /* method_body: '{' stmt_list expr '}'  */
-#line 1077 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4534 "raku.tab.c"
-    break;
-
-  case 194: /* method_body: '{' stmt_list KW_RETURN expr '}'  */
-#line 1080 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4541 "raku.tab.c"
-    break;
-
-  case 195: /* method_body: '{' stmt_list KW_RETURN '}'  */
-#line 1083 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 4547 "raku.tab.c"
-    break;
-
-  case 196: /* method_body: '{' stmt_list KW_SAY expr '}'  */
-#line 1085 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
-#line 4553 "raku.tab.c"
-    break;
-
-  case 197: /* method_body: '{' stmt_list KW_PRINT expr '}'  */
-#line 1087 "raku.y"
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
-#line 4559 "raku.tab.c"
-    break;
-
-  case 198: /* method_body: '{' stmt_list expr KW_IF expr '}'  */
-#line 1089 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4565 "raku.tab.c"
-    break;
-
-  case 199: /* method_body: '{' stmt_list expr KW_UNLESS expr '}'  */
-#line 1091 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
 #line 4571 "raku.tab.c"
     break;
 
-  case 200: /* method_body: '{' stmt_list expr KW_WHILE expr '}'  */
-#line 1093 "raku.y"
-        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 194: /* method_body: '{' stmt_list '}'  */
+#line 1081 "raku.y"
+                                 { (yyval.node)=make_seq((yyvsp[-1].list)); }
 #line 4577 "raku.tab.c"
     break;
 
-  case 201: /* method_body: '{' stmt_list expr KW_UNTIL expr '}'  */
-#line 1095 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 195: /* method_body: '{' YADA '}'  */
+#line 1082 "raku.y"
+                                 { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); (yyval.node)=make_seq(l); }
 #line 4583 "raku.tab.c"
     break;
 
-  case 202: /* method_body: '{' stmt_list expr KW_FOR expr '}'  */
-#line 1097 "raku.y"
-        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 196: /* method_body: '{' stmt_list expr '}'  */
+#line 1084 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
 #line 4590 "raku.tab.c"
     break;
 
-  case 203: /* method_body: '{' stmt_list expr KW_WITH expr '}'  */
-#line 1100 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4596 "raku.tab.c"
+  case 197: /* method_body: '{' stmt_list KW_RETURN expr '}'  */
+#line 1087 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 4597 "raku.tab.c"
     break;
 
-  case 204: /* method_body: '{' stmt_list expr KW_WITHOUT expr '}'  */
-#line 1102 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4602 "raku.tab.c"
+  case 198: /* method_body: '{' stmt_list KW_RETURN '}'  */
+#line 1090 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 4603 "raku.tab.c"
     break;
 
-  case 205: /* method_body: '{' stmt_list expr KW_GIVEN expr '}'  */
-#line 1104 "raku.y"
-        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4608 "raku.tab.c"
+  case 199: /* method_body: '{' stmt_list KW_SAY expr '}'  */
+#line 1092 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
+#line 4609 "raku.tab.c"
     break;
 
-  case 206: /* method_body: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
-#line 1106 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 200: /* method_body: '{' stmt_list KW_PRINT expr '}'  */
+#line 1094 "raku.y"
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
 #line 4615 "raku.tab.c"
     break;
 
-  case 207: /* method_body: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
-#line 1109 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4622 "raku.tab.c"
+  case 201: /* method_body: '{' stmt_list expr KW_IF expr '}'  */
+#line 1096 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4621 "raku.tab.c"
     break;
 
-  case 208: /* method_body: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
-#line 1112 "raku.y"
+  case 202: /* method_body: '{' stmt_list expr KW_UNLESS expr '}'  */
+#line 1098 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4627 "raku.tab.c"
+    break;
+
+  case 203: /* method_body: '{' stmt_list expr KW_WHILE expr '}'  */
+#line 1100 "raku.y"
+        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4633 "raku.tab.c"
+    break;
+
+  case 204: /* method_body: '{' stmt_list expr KW_UNTIL expr '}'  */
+#line 1102 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4639 "raku.tab.c"
+    break;
+
+  case 205: /* method_body: '{' stmt_list expr KW_FOR expr '}'  */
+#line 1104 "raku.y"
+        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4646 "raku.tab.c"
+    break;
+
+  case 206: /* method_body: '{' stmt_list expr KW_WITH expr '}'  */
+#line 1107 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4652 "raku.tab.c"
+    break;
+
+  case 207: /* method_body: '{' stmt_list expr KW_WITHOUT expr '}'  */
+#line 1109 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4658 "raku.tab.c"
+    break;
+
+  case 208: /* method_body: '{' stmt_list expr KW_GIVEN expr '}'  */
+#line 1111 "raku.y"
+        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4664 "raku.tab.c"
+    break;
+
+  case 209: /* method_body: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
+#line 1113 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4671 "raku.tab.c"
+    break;
+
+  case 210: /* method_body: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
+#line 1116 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 4678 "raku.tab.c"
+    break;
+
+  case 211: /* method_body: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
+#line 1119 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
           tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
           tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 4630 "raku.tab.c"
+#line 4686 "raku.tab.c"
     break;
 
-  case 209: /* class_decl: KW_CLASS IDENT is_clauses '{' class_body_list '}'  */
-#line 1118 "raku.y"
+  case 212: /* class_decl: KW_CLASS IDENT is_clauses '{' class_body_list '}'  */
+#line 1125 "raku.y"
         {
             const char *cname = intern((yyvsp[-4].sval)); free((yyvsp[-4].sval));
             ExprList *body = (yyvsp[-1].list);
@@ -4644,11 +4700,11 @@ yyreduce:
             }
             (yyval.node) = cd;
         }
-#line 4648 "raku.tab.c"
+#line 4704 "raku.tab.c"
     break;
 
-  case 210: /* role_decl: KW_ROLE IDENT '{' class_body_list '}'  */
-#line 1134 "raku.y"
+  case 213: /* role_decl: KW_ROLE IDENT '{' class_body_list '}'  */
+#line 1141 "raku.y"
         {
             const char *rname = intern((yyvsp[-3].sval)); free((yyvsp[-3].sval));
             ExprList *body = (yyvsp[-1].list);
@@ -4661,17 +4717,17 @@ yyreduce:
             }
             (yyval.node) = rd;
         }
-#line 4665 "raku.tab.c"
+#line 4721 "raku.tab.c"
     break;
 
-  case 211: /* is_clauses: %empty  */
-#line 1148 "raku.y"
+  case 214: /* is_clauses: %empty  */
+#line 1155 "raku.y"
        { (yyval.sval) = (char *)0; }
-#line 4671 "raku.tab.c"
+#line 4727 "raku.tab.c"
     break;
 
-  case 212: /* is_clauses: is_clauses IDENT IDENT  */
-#line 1150 "raku.y"
+  case 215: /* is_clauses: is_clauses IDENT IDENT  */
+#line 1157 "raku.y"
         {
             char tag = 0;
             if ((yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "is")) tag = 'i';
@@ -4683,11 +4739,11 @@ yyreduce:
             } else { (yyval.sval) = (yyvsp[-2].sval); }
             free((yyvsp[-1].sval)); free((yyvsp[0].sval));
         }
-#line 4687 "raku.tab.c"
+#line 4743 "raku.tab.c"
     break;
 
-  case 213: /* is_clauses: is_clauses TESTOP IDENT  */
-#line 1162 "raku.y"
+  case 216: /* is_clauses: is_clauses TESTOP IDENT  */
+#line 1169 "raku.y"
         {
             char tag = 0;
             if ((yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "is")) tag = 'i';
@@ -4699,111 +4755,100 @@ yyreduce:
             } else { (yyval.sval) = (yyvsp[-2].sval); }
             free((yyvsp[-1].sval)); free((yyvsp[0].sval));
         }
-#line 4703 "raku.tab.c"
+#line 4759 "raku.tab.c"
     break;
 
-  case 214: /* class_body_list: %empty  */
-#line 1175 "raku.y"
+  case 217: /* class_body_list: %empty  */
+#line 1182 "raku.y"
        { (yyval.list) = exprlist_new(); }
-#line 4709 "raku.tab.c"
-    break;
-
-  case 215: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL ';'  */
-#line 1177 "raku.y"
-        { tree_t *fv = leaf_sval(TT_VAR, (yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
-#line 4716 "raku.tab.c"
-    break;
-
-  case 216: /* class_body_list: class_body_list KW_HAS VAR_ARRAY_TWIGIL ';'  */
-#line 1180 "raku.y"
-        { tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
-#line 4723 "raku.tab.c"
-    break;
-
-  case 217: /* class_body_list: class_body_list KW_HAS VAR_HASH_TWIGIL ';'  */
-#line 1183 "raku.y"
-        { tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
-#line 4730 "raku.tab.c"
-    break;
-
-  case 218: /* class_body_list: class_body_list KW_HAS IDENT VAR_ARRAY_TWIGIL ';'  */
-#line 1186 "raku.y"
-        { free((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
-#line 4737 "raku.tab.c"
-    break;
-
-  case 219: /* class_body_list: class_body_list KW_HAS IDENT VAR_HASH_TWIGIL ';'  */
-#line 1189 "raku.y"
-        { free((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
-#line 4744 "raku.tab.c"
-    break;
-
-  case 220: /* class_body_list: class_body_list KW_HAS VAR_SCALAR ';'  */
-#line 1192 "raku.y"
-        { tree_t *fv = leaf_sval(TT_VAR, strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
-#line 4751 "raku.tab.c"
-    break;
-
-  case 221: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL ';'  */
-#line 1195 "raku.y"
-        { free((yyvsp[-2].sval)); tree_t *fv = leaf_sval(TT_VAR, (yyvsp[-1].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
-#line 4758 "raku.tab.c"
-    break;
-
-  case 222: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR ';'  */
-#line 1198 "raku.y"
-        { free((yyvsp[-2].sval)); tree_t *fv = leaf_sval(TT_VAR, strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
 #line 4765 "raku.tab.c"
     break;
 
-  case 223: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL '=' expr ';'  */
-#line 1201 "raku.y"
-        { tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
-          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
+  case 218: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL ';'  */
+#line 1184 "raku.y"
+        { tree_t *fv = leaf_sval(TT_VAR, (yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
 #line 4772 "raku.tab.c"
     break;
 
-  case 224: /* class_body_list: class_body_list KW_HAS VAR_SCALAR '=' expr ';'  */
-#line 1204 "raku.y"
-        { const char *fn = strip_sigil((yyvsp[-3].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
-          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
+  case 219: /* class_body_list: class_body_list KW_HAS VAR_ARRAY_TWIGIL ';'  */
+#line 1187 "raku.y"
+        { tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
 #line 4779 "raku.tab.c"
     break;
 
-  case 225: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL '=' expr ';'  */
-#line 1207 "raku.y"
-        { free((yyvsp[-4].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
-          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
+  case 220: /* class_body_list: class_body_list KW_HAS VAR_HASH_TWIGIL ';'  */
+#line 1190 "raku.y"
+        { tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
 #line 4786 "raku.tab.c"
     break;
 
-  case 226: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR '=' expr ';'  */
-#line 1210 "raku.y"
-        { free((yyvsp[-4].sval)); const char *fn = strip_sigil((yyvsp[-3].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
-          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
+  case 221: /* class_body_list: class_body_list KW_HAS IDENT VAR_ARRAY_TWIGIL ';'  */
+#line 1193 "raku.y"
+        { free((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_ARR_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
 #line 4793 "raku.tab.c"
     break;
 
-  case 227: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL IDENT IDENT ';'  */
-#line 1213 "raku.y"
-        { tree_t *fv;
-          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
-          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
-          else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
-          free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4804 "raku.tab.c"
+  case 222: /* class_body_list: class_body_list KW_HAS IDENT VAR_HASH_TWIGIL ';'  */
+#line 1196 "raku.y"
+        { free((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_HASH_DECL); fv->v.sval = (char *)intern((yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
+#line 4800 "raku.tab.c"
     break;
 
-  case 228: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT ';'  */
+  case 223: /* class_body_list: class_body_list KW_HAS VAR_SCALAR ';'  */
+#line 1199 "raku.y"
+        { tree_t *fv = leaf_sval(TT_VAR, strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-3].list), fv); }
+#line 4807 "raku.tab.c"
+    break;
+
+  case 224: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL ';'  */
+#line 1202 "raku.y"
+        { free((yyvsp[-2].sval)); tree_t *fv = leaf_sval(TT_VAR, (yyvsp[-1].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
+#line 4814 "raku.tab.c"
+    break;
+
+  case 225: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR ';'  */
+#line 1205 "raku.y"
+        { free((yyvsp[-2].sval)); tree_t *fv = leaf_sval(TT_VAR, strip_sigil((yyvsp[-1].sval))); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
+#line 4821 "raku.tab.c"
+    break;
+
+  case 226: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL '=' expr ';'  */
+#line 1208 "raku.y"
+        { tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
+          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
+#line 4828 "raku.tab.c"
+    break;
+
+  case 227: /* class_body_list: class_body_list KW_HAS VAR_SCALAR '=' expr ';'  */
+#line 1211 "raku.y"
+        { const char *fn = strip_sigil((yyvsp[-3].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
+          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
+#line 4835 "raku.tab.c"
+    break;
+
+  case 228: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL '=' expr ';'  */
+#line 1214 "raku.y"
+        { free((yyvsp[-4].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
+          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
+#line 4842 "raku.tab.c"
+    break;
+
+  case 229: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR '=' expr ';'  */
+#line 1217 "raku.y"
+        { free((yyvsp[-4].sval)); const char *fn = strip_sigil((yyvsp[-3].sval)); tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); free((yyvsp[-3].sval)); expr_add_child(fv, (yyvsp[-1].node));
+          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
+#line 4849 "raku.tab.c"
+    break;
+
+  case 230: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL IDENT IDENT ';'  */
 #line 1220 "raku.y"
         { tree_t *fv;
           if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
@@ -4811,21 +4856,21 @@ yyreduce:
           else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
           free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4815 "raku.tab.c"
+#line 4860 "raku.tab.c"
     break;
 
-  case 229: /* class_body_list: class_body_list KW_HAS VAR_SCALAR IDENT IDENT ';'  */
+  case 231: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT ';'  */
 #line 1227 "raku.y"
-        { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
-          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
-          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
-          else fv = leaf_sval(TT_VAR, fn);
+        { tree_t *fv;
+          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
+          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
+          else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
           free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4826 "raku.tab.c"
+#line 4871 "raku.tab.c"
     break;
 
-  case 230: /* class_body_list: class_body_list KW_HAS VAR_SCALAR TESTOP IDENT ';'  */
+  case 232: /* class_body_list: class_body_list KW_HAS VAR_SCALAR IDENT IDENT ';'  */
 #line 1234 "raku.y"
         { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
           if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
@@ -4833,53 +4878,53 @@ yyreduce:
           else fv = leaf_sval(TT_VAR, fn);
           free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4837 "raku.tab.c"
+#line 4882 "raku.tab.c"
     break;
 
-  case 231: /* class_body_list: class_body_list KW_HAS VAR_SCALAR KW_HANDLES ';'  */
+  case 233: /* class_body_list: class_body_list KW_HAS VAR_SCALAR TESTOP IDENT ';'  */
 #line 1241 "raku.y"
+        { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
+          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
+#line 4893 "raku.tab.c"
+    break;
+
+  case 234: /* class_body_list: class_body_list KW_HAS VAR_SCALAR KW_HANDLES ';'  */
+#line 1248 "raku.y"
         { const char *fn = strip_sigil((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
           expr_add_child(fv, leaf_sval(TT_QLIT, (yyvsp[-1].sval))); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
-#line 4845 "raku.tab.c"
+#line 4901 "raku.tab.c"
     break;
 
-  case 232: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL KW_HANDLES ';'  */
-#line 1245 "raku.y"
+  case 235: /* class_body_list: class_body_list KW_HAS VAR_TWIGIL KW_HANDLES ';'  */
+#line 1252 "raku.y"
         { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern((yyvsp[-2].sval));
           expr_add_child(fv, leaf_sval(TT_QLIT, (yyvsp[-1].sval))); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-4].list), fv); }
-#line 4853 "raku.tab.c"
+#line 4909 "raku.tab.c"
     break;
 
-  case 233: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR KW_HANDLES ';'  */
-#line 1249 "raku.y"
+  case 236: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR KW_HANDLES ';'  */
+#line 1256 "raku.y"
         { const char *fn = strip_sigil((yyvsp[-2].sval)); tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern(fn);
           expr_add_child(fv, leaf_sval(TT_QLIT, (yyvsp[-1].sval))); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4861 "raku.tab.c"
+#line 4917 "raku.tab.c"
     break;
 
-  case 234: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL KW_HANDLES ';'  */
-#line 1253 "raku.y"
+  case 237: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL KW_HANDLES ';'  */
+#line 1260 "raku.y"
         { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *)intern((yyvsp[-2].sval));
           expr_add_child(fv, leaf_sval(TT_QLIT, (yyvsp[-1].sval))); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), fv); }
-#line 4869 "raku.tab.c"
+#line 4925 "raku.tab.c"
     break;
 
-  case 235: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL IDENT IDENT ';'  */
-#line 1257 "raku.y"
-        { tree_t *fv;
-          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
-          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
-          else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
-          free((yyvsp[-4].sval)); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
-          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
-#line 4880 "raku.tab.c"
-    break;
-
-  case 236: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL TESTOP IDENT ';'  */
+  case 238: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL IDENT IDENT ';'  */
 #line 1264 "raku.y"
         { tree_t *fv;
           if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
@@ -4887,21 +4932,21 @@ yyreduce:
           else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
           free((yyvsp[-4].sval)); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
-#line 4891 "raku.tab.c"
+#line 4936 "raku.tab.c"
     break;
 
-  case 237: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR IDENT IDENT ';'  */
+  case 239: /* class_body_list: class_body_list KW_HAS IDENT VAR_TWIGIL TESTOP IDENT ';'  */
 #line 1271 "raku.y"
-        { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
-          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
-          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
-          else fv = leaf_sval(TT_VAR, fn);
+        { tree_t *fv;
+          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
+          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern((yyvsp[-3].sval)); }
+          else fv = leaf_sval(TT_VAR, (yyvsp[-3].sval));
           free((yyvsp[-4].sval)); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
-#line 4902 "raku.tab.c"
+#line 4947 "raku.tab.c"
     break;
 
-  case 238: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR TESTOP IDENT ';'  */
+  case 240: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR IDENT IDENT ';'  */
 #line 1278 "raku.y"
         { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
           if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
@@ -4909,11 +4954,22 @@ yyreduce:
           else fv = leaf_sval(TT_VAR, fn);
           free((yyvsp[-4].sval)); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
-#line 4913 "raku.tab.c"
+#line 4958 "raku.tab.c"
     break;
 
-  case 239: /* class_body_list: class_body_list KW_METHOD meth_name '(' param_list ')' method_body  */
+  case 241: /* class_body_list: class_body_list KW_HAS IDENT VAR_SCALAR TESTOP IDENT ';'  */
 #line 1285 "raku.y"
+        { tree_t *fv; const char *fn = strip_sigil((yyvsp[-3].sval));
+          if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern(fn); }
+          else if ((yyvsp[-2].sval) && !strcmp((yyvsp[-2].sval), "is") && (yyvsp[-1].sval) && !strcmp((yyvsp[-1].sval), "rw")) { fv = ast_node_new(TT_RW_DECL); fv->v.sval = (char *)intern(fn); }
+          else fv = leaf_sval(TT_VAR, fn);
+          free((yyvsp[-4].sval)); free((yyvsp[-3].sval)); free((yyvsp[-2].sval)); free((yyvsp[-1].sval));
+          (yyval.list) = exprlist_append((yyvsp[-6].list), fv); }
+#line 4969 "raku.tab.c"
+    break;
+
+  case 242: /* class_body_list: class_body_list KW_METHOD meth_name '(' param_list ')' method_body  */
+#line 1292 "raku.y"
         { ExprList *params = (yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(np + 1);
@@ -4923,11 +4979,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-4].sval));
           (yyval.list) = exprlist_append((yyvsp[-6].list), e); }
-#line 4927 "raku.tab.c"
+#line 4983 "raku.tab.c"
     break;
 
-  case 240: /* class_body_list: class_body_list KW_METHOD meth_name '(' ')' method_body  */
-#line 1295 "raku.y"
+  case 243: /* class_body_list: class_body_list KW_METHOD meth_name '(' ')' method_body  */
+#line 1302 "raku.y"
         { tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern((yyvsp[-3].sval)); expr_add_child(e, nn);
@@ -4935,11 +4991,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-3].sval));
           (yyval.list) = exprlist_append((yyvsp[-5].list), e); }
-#line 4939 "raku.tab.c"
+#line 4995 "raku.tab.c"
     break;
 
-  case 241: /* class_body_list: class_body_list KW_METHOD meth_name method_body  */
-#line 1303 "raku.y"
+  case 244: /* class_body_list: class_body_list KW_METHOD meth_name method_body  */
+#line 1310 "raku.y"
         { tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern((yyvsp[-1].sval)); expr_add_child(e, nn);
@@ -4947,11 +5003,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-3].list), e); }
-#line 4951 "raku.tab.c"
+#line 5007 "raku.tab.c"
     break;
 
-  case 242: /* class_body_list: class_body_list KW_METHOD KW_NEW '(' param_list ')' method_body  */
-#line 1311 "raku.y"
+  case 245: /* class_body_list: class_body_list KW_METHOD KW_NEW '(' param_list ')' method_body  */
+#line 1318 "raku.y"
         { ExprList *params = (yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np = params ? params->count : 0;
           tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(np + 1);
@@ -4960,33 +5016,33 @@ yyreduce:
           tree_t *body=rkbody;
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           (yyval.list) = exprlist_append((yyvsp[-6].list), e); }
-#line 4964 "raku.tab.c"
+#line 5020 "raku.tab.c"
     break;
 
-  case 243: /* class_body_list: class_body_list KW_METHOD KW_NEW '(' ')' method_body  */
-#line 1320 "raku.y"
-        { tree_t *e = ast_node_new(TT_SUB_DECL);
-          e->v.ival = (long long)(1);
-          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
-          tree_t *body = (yyvsp[0].node);
-          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          (yyval.list) = exprlist_append((yyvsp[-5].list), e); }
-#line 4975 "raku.tab.c"
-    break;
-
-  case 244: /* class_body_list: class_body_list KW_METHOD KW_NEW method_body  */
+  case 246: /* class_body_list: class_body_list KW_METHOD KW_NEW '(' ')' method_body  */
 #line 1327 "raku.y"
         { tree_t *e = ast_node_new(TT_SUB_DECL);
           e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
           tree_t *body = (yyvsp[0].node);
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
-          (yyval.list) = exprlist_append((yyvsp[-3].list), e); }
-#line 4986 "raku.tab.c"
+          (yyval.list) = exprlist_append((yyvsp[-5].list), e); }
+#line 5031 "raku.tab.c"
     break;
 
-  case 245: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name '(' param_list ')' method_body  */
+  case 247: /* class_body_list: class_body_list KW_METHOD KW_NEW method_body  */
 #line 1334 "raku.y"
+        { tree_t *e = ast_node_new(TT_SUB_DECL);
+          e->v.ival = (long long)(1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern("new"); expr_add_child(e, nn);
+          tree_t *body = (yyvsp[0].node);
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          (yyval.list) = exprlist_append((yyvsp[-3].list), e); }
+#line 5042 "raku.tab.c"
+    break;
+
+  case 248: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name '(' param_list ')' method_body  */
+#line 1341 "raku.y"
         { ExprList *params = (yyvsp[-2].list); tree_t *rkbody=rk_defaults_prologue(params,(yyvsp[0].node)); int np = params ? params->count : 0;
           const char *mname = rk_multi_mangle((yyvsp[-4].sval), params);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(np + 1);
@@ -4996,11 +5052,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-4].sval));
           (yyval.list) = exprlist_append((yyvsp[-7].list), e); }
-#line 5000 "raku.tab.c"
+#line 5056 "raku.tab.c"
     break;
 
-  case 246: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name '(' ')' method_body  */
-#line 1344 "raku.y"
+  case 249: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name '(' ')' method_body  */
+#line 1351 "raku.y"
         { const char *mname = rk_multi_mangle((yyvsp[-3].sval), NULL);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
@@ -5008,11 +5064,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-3].sval));
           (yyval.list) = exprlist_append((yyvsp[-6].list), e); }
-#line 5012 "raku.tab.c"
+#line 5068 "raku.tab.c"
     break;
 
-  case 247: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name method_body  */
-#line 1352 "raku.y"
+  case 250: /* class_body_list: class_body_list KW_MULTI KW_METHOD meth_name method_body  */
+#line 1359 "raku.y"
         { const char *mname = rk_multi_mangle((yyvsp[-1].sval), NULL);
           tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(1);
           tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
@@ -5020,11 +5076,11 @@ yyreduce:
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free((yyvsp[-1].sval));
           (yyval.list) = exprlist_append((yyvsp[-4].list), e); }
-#line 5024 "raku.tab.c"
+#line 5080 "raku.tab.c"
     break;
 
-  case 248: /* grammar_decl: KW_GRAMMAR IDENT '{' grammar_body_list '}'  */
-#line 1362 "raku.y"
+  case 251: /* grammar_decl: KW_GRAMMAR IDENT '{' grammar_body_list '}'  */
+#line 1369 "raku.y"
         {
             const char *gname = intern((yyvsp[-3].sval)); free((yyvsp[-3].sval));
             ExprList *body = (yyvsp[-1].list);
@@ -5037,1250 +5093,1250 @@ yyreduce:
             }
             (yyval.node) = gd;
         }
-#line 5041 "raku.tab.c"
+#line 5097 "raku.tab.c"
     break;
 
-  case 249: /* grammar_body_list: %empty  */
-#line 1376 "raku.y"
+  case 252: /* grammar_body_list: %empty  */
+#line 1383 "raku.y"
        { (yyval.list) = exprlist_new(); }
-#line 5047 "raku.tab.c"
+#line 5103 "raku.tab.c"
     break;
 
-  case 250: /* grammar_body_list: grammar_body_list KW_TOKEN IDENT LIT_REGEX  */
-#line 1378 "raku.y"
+  case 253: /* grammar_body_list: grammar_body_list KW_TOKEN IDENT LIT_REGEX  */
+#line 1385 "raku.y"
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 0;
           ast_push(rd, leaf_sval(TT_VAR, intern((yyvsp[-1].sval)))); free((yyvsp[-1].sval));
           ast_push(rd, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           (yyval.list) = exprlist_append((yyvsp[-3].list), rd); }
-#line 5056 "raku.tab.c"
+#line 5112 "raku.tab.c"
     break;
 
-  case 251: /* grammar_body_list: grammar_body_list KW_RULE IDENT LIT_REGEX  */
-#line 1383 "raku.y"
+  case 254: /* grammar_body_list: grammar_body_list KW_RULE IDENT LIT_REGEX  */
+#line 1390 "raku.y"
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 1;
           ast_push(rd, leaf_sval(TT_VAR, intern((yyvsp[-1].sval)))); free((yyvsp[-1].sval));
           ast_push(rd, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           (yyval.list) = exprlist_append((yyvsp[-3].list), rd); }
-#line 5065 "raku.tab.c"
+#line 5121 "raku.tab.c"
     break;
 
-  case 252: /* grammar_body_list: grammar_body_list KW_REGEX IDENT LIT_REGEX  */
-#line 1388 "raku.y"
+  case 255: /* grammar_body_list: grammar_body_list KW_REGEX IDENT LIT_REGEX  */
+#line 1395 "raku.y"
         { tree_t *rd = ast_node_new(TT_REGEX_DECL); rd->v.ival = 2;
           ast_push(rd, leaf_sval(TT_VAR, intern((yyvsp[-1].sval)))); free((yyvsp[-1].sval));
           ast_push(rd, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           (yyval.list) = exprlist_append((yyvsp[-3].list), rd); }
-#line 5074 "raku.tab.c"
-    break;
-
-  case 253: /* named_arg_list: IDENT OP_FATARROW expr  */
-#line 1395 "raku.y"
-        { (yyval.list) = exprlist_new();
-          exprlist_append((yyval.list), leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
-          exprlist_append((yyval.list), (yyvsp[0].node)); }
-#line 5082 "raku.tab.c"
-    break;
-
-  case 254: /* named_arg_list: ':' IDENT '(' expr ')'  */
-#line 1399 "raku.y"
-        { (yyval.list) = exprlist_new();
-          exprlist_append((yyval.list), leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
-          exprlist_append((yyval.list), (yyvsp[-1].node)); }
-#line 5090 "raku.tab.c"
-    break;
-
-  case 255: /* named_arg_list: named_arg_list ',' IDENT OP_FATARROW expr  */
-#line 1403 "raku.y"
-        { exprlist_append((yyvsp[-4].list), leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
-          exprlist_append((yyvsp[-4].list), (yyvsp[0].node));
-          (yyval.list) = (yyvsp[-4].list); }
-#line 5098 "raku.tab.c"
-    break;
-
-  case 256: /* named_arg_list: named_arg_list ',' ':' IDENT '(' expr ')'  */
-#line 1407 "raku.y"
-        { exprlist_append((yyvsp[-6].list), leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
-          exprlist_append((yyvsp[-6].list), (yyvsp[-1].node));
-          (yyval.list) = (yyvsp[-6].list); }
-#line 5106 "raku.tab.c"
-    break;
-
-  case 257: /* pair_list: IDENT OP_FATARROW expr  */
-#line 1413 "raku.y"
-        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
-#line 5112 "raku.tab.c"
-    break;
-
-  case 258: /* pair_list: LIT_STR OP_FATARROW expr  */
-#line 1415 "raku.y"
-        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
-#line 5118 "raku.tab.c"
-    break;
-
-  case 259: /* pair_list: pair_list ',' IDENT OP_FATARROW expr  */
-#line 1417 "raku.y"
-        { expr_add_child((yyvsp[-4].node),leaf_sval(TT_QLIT,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); expr_add_child((yyvsp[-4].node),(yyvsp[0].node)); (yyval.node)=(yyvsp[-4].node); }
-#line 5124 "raku.tab.c"
-    break;
-
-  case 260: /* pair_list: pair_list ',' LIT_STR OP_FATARROW expr  */
-#line 1419 "raku.y"
-        { expr_add_child((yyvsp[-4].node),leaf_sval(TT_QLIT,(yyvsp[-2].sval))); expr_add_child((yyvsp[-4].node),(yyvsp[0].node)); (yyval.node)=(yyvsp[-4].node); }
 #line 5130 "raku.tab.c"
     break;
 
-  case 261: /* param_list: VAR_SCALAR  */
-#line 1422 "raku.y"
-                             { (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[0].sval))); }
-#line 5136 "raku.tab.c"
+  case 256: /* named_arg_list: IDENT OP_FATARROW expr  */
+#line 1402 "raku.y"
+        { (yyval.list) = exprlist_new();
+          exprlist_append((yyval.list), leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
+          exprlist_append((yyval.list), (yyvsp[0].node)); }
+#line 5138 "raku.tab.c"
     break;
 
-  case 262: /* param_list: VAR_SCALAR TESTOP IDENT  */
-#line 1423 "raku.y"
-                              { free((yyvsp[-1].sval)); free((yyvsp[0].sval)); (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[-2].sval))); }
-#line 5142 "raku.tab.c"
+  case 257: /* named_arg_list: ':' IDENT '(' expr ')'  */
+#line 1406 "raku.y"
+        { (yyval.list) = exprlist_new();
+          exprlist_append((yyval.list), leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
+          exprlist_append((yyval.list), (yyvsp[-1].node)); }
+#line 5146 "raku.tab.c"
     break;
 
-  case 263: /* param_list: param_list ',' VAR_SCALAR TESTOP IDENT  */
-#line 1424 "raku.y"
-                                             { free((yyvsp[-1].sval)); free((yyvsp[0].sval)); (yyval.list)=exprlist_append((yyvsp[-4].list),var_node((yyvsp[-2].sval))); }
-#line 5148 "raku.tab.c"
-    break;
-
-  case 264: /* param_list: VAR_ARRAY  */
-#line 1425 "raku.y"
-                              { (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[0].sval))); }
+  case 258: /* named_arg_list: named_arg_list ',' IDENT OP_FATARROW expr  */
+#line 1410 "raku.y"
+        { exprlist_append((yyvsp[-4].list), leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
+          exprlist_append((yyvsp[-4].list), (yyvsp[0].node));
+          (yyval.list) = (yyvsp[-4].list); }
 #line 5154 "raku.tab.c"
     break;
 
-  case 265: /* param_list: param_list ',' VAR_ARRAY  */
+  case 259: /* named_arg_list: named_arg_list ',' ':' IDENT '(' expr ')'  */
+#line 1414 "raku.y"
+        { exprlist_append((yyvsp[-6].list), leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
+          exprlist_append((yyvsp[-6].list), (yyvsp[-1].node));
+          (yyval.list) = (yyvsp[-6].list); }
+#line 5162 "raku.tab.c"
+    break;
+
+  case 260: /* pair_list: IDENT OP_FATARROW expr  */
+#line 1420 "raku.y"
+        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
+#line 5168 "raku.tab.c"
+    break;
+
+  case 261: /* pair_list: LIT_STR OP_FATARROW expr  */
+#line 1422 "raku.y"
+        { tree_t *c=make_call("__rk_hash"); expr_add_child(c,leaf_sval(TT_QLIT,(yyvsp[-2].sval))); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
+#line 5174 "raku.tab.c"
+    break;
+
+  case 262: /* pair_list: pair_list ',' IDENT OP_FATARROW expr  */
+#line 1424 "raku.y"
+        { expr_add_child((yyvsp[-4].node),leaf_sval(TT_QLIT,(yyvsp[-2].sval))); free((yyvsp[-2].sval)); expr_add_child((yyvsp[-4].node),(yyvsp[0].node)); (yyval.node)=(yyvsp[-4].node); }
+#line 5180 "raku.tab.c"
+    break;
+
+  case 263: /* pair_list: pair_list ',' LIT_STR OP_FATARROW expr  */
 #line 1426 "raku.y"
-                               { (yyval.list)=exprlist_append((yyvsp[-2].list),var_node((yyvsp[0].sval))); }
-#line 5160 "raku.tab.c"
+        { expr_add_child((yyvsp[-4].node),leaf_sval(TT_QLIT,(yyvsp[-2].sval))); expr_add_child((yyvsp[-4].node),(yyvsp[0].node)); (yyval.node)=(yyvsp[-4].node); }
+#line 5186 "raku.tab.c"
     break;
 
-  case 266: /* param_list: IDENT VAR_SCALAR  */
-#line 1427 "raku.y"
-                             { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_param((yyvsp[-1].sval),(yyvsp[0].sval))); free((yyvsp[-1].sval)); }
-#line 5166 "raku.tab.c"
-    break;
-
-  case 267: /* param_list: IDENT OP_COLON_D VAR_SCALAR  */
-#line 1428 "raku.y"
-                                  { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_def_param((yyvsp[-2].sval),":D",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
-#line 5172 "raku.tab.c"
-    break;
-
-  case 268: /* param_list: IDENT OP_COLON_U VAR_SCALAR  */
+  case 264: /* param_list: VAR_SCALAR  */
 #line 1429 "raku.y"
-                                  { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_def_param((yyvsp[-2].sval),":U",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
-#line 5178 "raku.tab.c"
+                             { (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[0].sval))); }
+#line 5192 "raku.tab.c"
     break;
 
-  case 269: /* param_list: param_list ',' VAR_SCALAR  */
+  case 265: /* param_list: VAR_SCALAR TESTOP IDENT  */
 #line 1430 "raku.y"
-                                { (yyval.list)=exprlist_append((yyvsp[-2].list),var_node((yyvsp[0].sval))); }
-#line 5184 "raku.tab.c"
+                              { free((yyvsp[-1].sval)); free((yyvsp[0].sval)); (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[-2].sval))); }
+#line 5198 "raku.tab.c"
     break;
 
-  case 270: /* param_list: param_list ',' IDENT VAR_SCALAR  */
+  case 266: /* param_list: param_list ',' VAR_SCALAR TESTOP IDENT  */
 #line 1431 "raku.y"
-                                      { (yyval.list)=exprlist_append((yyvsp[-3].list),rk_typed_param((yyvsp[-1].sval),(yyvsp[0].sval))); free((yyvsp[-1].sval)); }
-#line 5190 "raku.tab.c"
+                                             { free((yyvsp[-1].sval)); free((yyvsp[0].sval)); (yyval.list)=exprlist_append((yyvsp[-4].list),var_node((yyvsp[-2].sval))); }
+#line 5204 "raku.tab.c"
     break;
 
-  case 271: /* param_list: param_list ',' IDENT OP_COLON_D VAR_SCALAR  */
+  case 267: /* param_list: VAR_ARRAY  */
 #line 1432 "raku.y"
-                                                 { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_typed_def_param((yyvsp[-2].sval),":D",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
-#line 5196 "raku.tab.c"
+                              { (yyval.list)=exprlist_append(exprlist_new(),var_node((yyvsp[0].sval))); }
+#line 5210 "raku.tab.c"
     break;
 
-  case 272: /* param_list: param_list ',' IDENT OP_COLON_U VAR_SCALAR  */
+  case 268: /* param_list: param_list ',' VAR_ARRAY  */
 #line 1433 "raku.y"
-                                                 { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_typed_def_param((yyvsp[-2].sval),":U",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
-#line 5202 "raku.tab.c"
+                               { (yyval.list)=exprlist_append((yyvsp[-2].list),var_node((yyvsp[0].sval))); }
+#line 5216 "raku.tab.c"
     break;
 
-  case 273: /* param_list: VAR_SCALAR '=' expr  */
+  case 269: /* param_list: IDENT VAR_SCALAR  */
 #line 1434 "raku.y"
-                             { (yyval.list)=exprlist_append(exprlist_new(),rk_param_default(var_node((yyvsp[-2].sval)),(yyvsp[0].node))); }
-#line 5208 "raku.tab.c"
+                             { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_param((yyvsp[-1].sval),(yyvsp[0].sval))); free((yyvsp[-1].sval)); }
+#line 5222 "raku.tab.c"
     break;
 
-  case 274: /* param_list: param_list ',' VAR_SCALAR '=' expr  */
+  case 270: /* param_list: IDENT OP_COLON_D VAR_SCALAR  */
 #line 1435 "raku.y"
-                                         { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_param_default(var_node((yyvsp[-2].sval)),(yyvsp[0].node))); }
-#line 5214 "raku.tab.c"
+                                  { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_def_param((yyvsp[-2].sval),":D",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
+#line 5228 "raku.tab.c"
     break;
 
-  case 275: /* param_list: IDENT VAR_SCALAR '=' expr  */
+  case 271: /* param_list: IDENT OP_COLON_U VAR_SCALAR  */
 #line 1436 "raku.y"
-                                { (yyval.list)=exprlist_append(exprlist_new(),rk_param_default(rk_typed_param((yyvsp[-3].sval),(yyvsp[-2].sval)),(yyvsp[0].node))); free((yyvsp[-3].sval)); }
-#line 5220 "raku.tab.c"
+                                  { (yyval.list)=exprlist_append(exprlist_new(),rk_typed_def_param((yyvsp[-2].sval),":U",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
+#line 5234 "raku.tab.c"
     break;
 
-  case 276: /* param_list: param_list ',' IDENT VAR_SCALAR '=' expr  */
+  case 272: /* param_list: param_list ',' VAR_SCALAR  */
 #line 1437 "raku.y"
-                                               { (yyval.list)=exprlist_append((yyvsp[-5].list),rk_param_default(rk_typed_param((yyvsp[-3].sval),(yyvsp[-2].sval)),(yyvsp[0].node))); free((yyvsp[-3].sval)); }
-#line 5226 "raku.tab.c"
+                                { (yyval.list)=exprlist_append((yyvsp[-2].list),var_node((yyvsp[0].sval))); }
+#line 5240 "raku.tab.c"
     break;
 
-  case 277: /* param_list: SLURPY_POS  */
+  case 273: /* param_list: param_list ',' IDENT VAR_SCALAR  */
 #line 1438 "raku.y"
-                             { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_param((yyvsp[0].sval))); }
-#line 5232 "raku.tab.c"
+                                      { (yyval.list)=exprlist_append((yyvsp[-3].list),rk_typed_param((yyvsp[-1].sval),(yyvsp[0].sval))); free((yyvsp[-1].sval)); }
+#line 5246 "raku.tab.c"
     break;
 
-  case 278: /* param_list: param_list ',' SLURPY_POS  */
+  case 274: /* param_list: param_list ',' IDENT OP_COLON_D VAR_SCALAR  */
 #line 1439 "raku.y"
-                                { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_param((yyvsp[0].sval))); }
-#line 5238 "raku.tab.c"
+                                                 { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_typed_def_param((yyvsp[-2].sval),":D",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
+#line 5252 "raku.tab.c"
     break;
 
-  case 279: /* param_list: SLURPY_LOL  */
+  case 275: /* param_list: param_list ',' IDENT OP_COLON_U VAR_SCALAR  */
 #line 1440 "raku.y"
-                             { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_lol_param((yyvsp[0].sval))); }
-#line 5244 "raku.tab.c"
+                                                 { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_typed_def_param((yyvsp[-2].sval),":U",(yyvsp[0].sval))); free((yyvsp[-2].sval)); }
+#line 5258 "raku.tab.c"
     break;
 
-  case 280: /* param_list: param_list ',' SLURPY_LOL  */
+  case 276: /* param_list: VAR_SCALAR '=' expr  */
 #line 1441 "raku.y"
-                                { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_lol_param((yyvsp[0].sval))); }
-#line 5250 "raku.tab.c"
+                             { (yyval.list)=exprlist_append(exprlist_new(),rk_param_default(var_node((yyvsp[-2].sval)),(yyvsp[0].node))); }
+#line 5264 "raku.tab.c"
     break;
 
-  case 281: /* param_list: SLURPY_NAMED  */
+  case 277: /* param_list: param_list ',' VAR_SCALAR '=' expr  */
 #line 1442 "raku.y"
-                               { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_named_param((yyvsp[0].sval))); }
-#line 5256 "raku.tab.c"
+                                         { (yyval.list)=exprlist_append((yyvsp[-4].list),rk_param_default(var_node((yyvsp[-2].sval)),(yyvsp[0].node))); }
+#line 5270 "raku.tab.c"
     break;
 
-  case 282: /* param_list: param_list ',' SLURPY_NAMED  */
+  case 278: /* param_list: IDENT VAR_SCALAR '=' expr  */
 #line 1443 "raku.y"
-                                  { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_named_param((yyvsp[0].sval))); }
-#line 5262 "raku.tab.c"
+                                { (yyval.list)=exprlist_append(exprlist_new(),rk_param_default(rk_typed_param((yyvsp[-3].sval),(yyvsp[-2].sval)),(yyvsp[0].node))); free((yyvsp[-3].sval)); }
+#line 5276 "raku.tab.c"
     break;
 
-  case 283: /* block: '{' stmt_list '}'  */
+  case 279: /* param_list: param_list ',' IDENT VAR_SCALAR '=' expr  */
+#line 1444 "raku.y"
+                                               { (yyval.list)=exprlist_append((yyvsp[-5].list),rk_param_default(rk_typed_param((yyvsp[-3].sval),(yyvsp[-2].sval)),(yyvsp[0].node))); free((yyvsp[-3].sval)); }
+#line 5282 "raku.tab.c"
+    break;
+
+  case 280: /* param_list: SLURPY_POS  */
+#line 1445 "raku.y"
+                             { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_param((yyvsp[0].sval))); }
+#line 5288 "raku.tab.c"
+    break;
+
+  case 281: /* param_list: param_list ',' SLURPY_POS  */
 #line 1446 "raku.y"
-                         { (yyval.node)=make_seq((yyvsp[-1].list)); }
-#line 5268 "raku.tab.c"
+                                { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_param((yyvsp[0].sval))); }
+#line 5294 "raku.tab.c"
     break;
 
-  case 284: /* block: '{' YADA '}'  */
+  case 282: /* param_list: SLURPY_LOL  */
 #line 1447 "raku.y"
-                         { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); (yyval.node)=make_seq(l); }
-#line 5274 "raku.tab.c"
+                             { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_lol_param((yyvsp[0].sval))); }
+#line 5300 "raku.tab.c"
     break;
 
-  case 285: /* block: '{' stmt_list expr '}'  */
+  case 283: /* param_list: param_list ',' SLURPY_LOL  */
+#line 1448 "raku.y"
+                                { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_lol_param((yyvsp[0].sval))); }
+#line 5306 "raku.tab.c"
+    break;
+
+  case 284: /* param_list: SLURPY_NAMED  */
 #line 1449 "raku.y"
-        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,(yyvsp[-1].node)); (yyval.node)=make_seq(l); }
-#line 5280 "raku.tab.c"
+                               { (yyval.list)=exprlist_append(exprlist_new(),rk_slurpy_named_param((yyvsp[0].sval))); }
+#line 5312 "raku.tab.c"
     break;
 
-  case 286: /* block: '{' stmt_list expr KW_IF expr '}'  */
-#line 1451 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5286 "raku.tab.c"
+  case 285: /* param_list: param_list ',' SLURPY_NAMED  */
+#line 1450 "raku.y"
+                                  { (yyval.list)=exprlist_append((yyvsp[-2].list),rk_slurpy_named_param((yyvsp[0].sval))); }
+#line 5318 "raku.tab.c"
     break;
 
-  case 287: /* block: '{' stmt_list expr KW_UNLESS expr '}'  */
+  case 286: /* block: '{' stmt_list '}'  */
 #line 1453 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5292 "raku.tab.c"
+                         { (yyval.node)=make_seq((yyvsp[-1].list)); }
+#line 5324 "raku.tab.c"
     break;
 
-  case 288: /* block: '{' stmt_list expr KW_WHILE expr '}'  */
-#line 1455 "raku.y"
-        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5298 "raku.tab.c"
+  case 287: /* block: '{' YADA '}'  */
+#line 1454 "raku.y"
+                         { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); (yyval.node)=make_seq(l); }
+#line 5330 "raku.tab.c"
     break;
 
-  case 289: /* block: '{' stmt_list expr KW_UNTIL expr '}'  */
-#line 1457 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5304 "raku.tab.c"
+  case 288: /* block: '{' stmt_list expr '}'  */
+#line 1456 "raku.y"
+        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,(yyvsp[-1].node)); (yyval.node)=make_seq(l); }
+#line 5336 "raku.tab.c"
     break;
 
-  case 290: /* block: '{' stmt_list expr KW_FOR expr '}'  */
-#line 1459 "raku.y"
-        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
-          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5311 "raku.tab.c"
-    break;
-
-  case 291: /* block: '{' stmt_list expr KW_WITH expr '}'  */
-#line 1462 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5317 "raku.tab.c"
-    break;
-
-  case 292: /* block: '{' stmt_list expr KW_WITHOUT expr '}'  */
-#line 1464 "raku.y"
-        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5323 "raku.tab.c"
-    break;
-
-  case 293: /* block: '{' stmt_list expr KW_GIVEN expr '}'  */
-#line 1466 "raku.y"
-        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5329 "raku.tab.c"
-    break;
-
-  case 294: /* block: '{' stmt_list KW_SAY expr '}'  */
-#line 1468 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
-#line 5335 "raku.tab.c"
-    break;
-
-  case 295: /* block: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
-#line 1470 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 289: /* block: '{' stmt_list expr KW_IF expr '}'  */
+#line 1458 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
 #line 5342 "raku.tab.c"
     break;
 
-  case 296: /* block: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
-#line 1473 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5349 "raku.tab.c"
+  case 290: /* block: '{' stmt_list expr KW_UNLESS expr '}'  */
+#line 1460 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5348 "raku.tab.c"
     break;
 
-  case 297: /* block: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
-#line 1476 "raku.y"
+  case 291: /* block: '{' stmt_list expr KW_WHILE expr '}'  */
+#line 1462 "raku.y"
+        { tree_t *e=expr_binary(TT_WHILE,(yyvsp[-1].node),seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5354 "raku.tab.c"
+    break;
+
+  case 292: /* block: '{' stmt_list expr KW_UNTIL expr '}'  */
+#line 1464 "raku.y"
+        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5360 "raku.tab.c"
+    break;
+
+  case 293: /* block: '{' stmt_list expr KW_FOR expr '}'  */
+#line 1466 "raku.y"
+        { tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
+          tree_t *e=expr_binary(TT_EVERY,gen,seq1((yyvsp[-3].node))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5367 "raku.tab.c"
+    break;
+
+  case 294: /* block: '{' stmt_list expr KW_WITH expr '}'  */
+#line 1469 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),0); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5373 "raku.tab.c"
+    break;
+
+  case 295: /* block: '{' stmt_list expr KW_WITHOUT expr '}'  */
+#line 1471 "raku.y"
+        { tree_t *e=rk_with_mod((yyvsp[-3].node),(yyvsp[-1].node),1); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5379 "raku.tab.c"
+    break;
+
+  case 296: /* block: '{' stmt_list expr KW_GIVEN expr '}'  */
+#line 1473 "raku.y"
+        { tree_t *e=rk_given_mod((yyvsp[-3].node),(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5385 "raku.tab.c"
+    break;
+
+  case 297: /* block: '{' stmt_list KW_SAY expr '}'  */
+#line 1475 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,s); (yyval.node)=make_seq(l); }
+#line 5391 "raku.tab.c"
+    break;
+
+  case 298: /* block: '{' stmt_list KW_SAY expr KW_IF expr '}'  */
+#line 1477 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5398 "raku.tab.c"
+    break;
+
+  case 299: /* block: '{' stmt_list KW_SAY expr KW_UNLESS expr '}'  */
+#line 1480 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5405 "raku.tab.c"
+    break;
+
+  case 300: /* block: '{' stmt_list KW_SAY expr KW_FOR expr '}'  */
+#line 1483 "raku.y"
         { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
           tree_t *gen=expr_unary(TT_ITERATE,(yyvsp[-1].node)); gen->v.sval=(char*)intern("_");
           tree_t *e=expr_binary(TT_EVERY,gen,seq1(s)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5357 "raku.tab.c"
-    break;
-
-  case 298: /* block: '{' stmt_list KW_SAY expr KW_WITH expr '}'  */
-#line 1480 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=rk_with_mod(s,(yyvsp[-1].node),0); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5364 "raku.tab.c"
-    break;
-
-  case 299: /* block: '{' stmt_list KW_SAY expr KW_WITHOUT expr '}'  */
-#line 1483 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=rk_with_mod(s,(yyvsp[-1].node),1); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5371 "raku.tab.c"
-    break;
-
-  case 300: /* block: '{' stmt_list KW_SAY expr KW_GIVEN expr '}'  */
-#line 1486 "raku.y"
-        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
-          tree_t *e=rk_given_mod(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5378 "raku.tab.c"
-    break;
-
-  case 301: /* block: '{' stmt_list KW_PRINT expr '}'  */
-#line 1489 "raku.y"
-        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
-#line 5384 "raku.tab.c"
-    break;
-
-  case 302: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '(' arg_list ')' '}'  */
-#line 1491 "raku.y"
-        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-4].sval))); free((yyvsp[-4].sval));
-          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) ast_push(c,args->items[i]); exprlist_free(args); }
-          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
-#line 5392 "raku.tab.c"
-    break;
-
-  case 303: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '(' ')' '}'  */
-#line 1495 "raku.y"
-        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node((yyvsp[-5].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-3].sval))); free((yyvsp[-3].sval));
-          ExprList *l=(yyvsp[-6].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
-#line 5399 "raku.tab.c"
-    break;
-
-  case 304: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '=' expr '}'  */
-#line 1498 "raku.y"
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fe,var_node((yyvsp[-5].sval)));
-          tree_t *a=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); ExprList *l=(yyvsp[-6].list); exprlist_append(l,a); (yyval.node)=make_seq(l); }
-#line 5406 "raku.tab.c"
-    break;
-
-  case 305: /* block: '{' stmt_list VAR_TWIGIL '=' expr '}'  */
-#line 1501 "raku.y"
-        { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare((yyvsp[-3].sval))); free((yyvsp[-3].sval));
-          tree_t *a=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,a); (yyval.node)=make_seq(l); }
 #line 5413 "raku.tab.c"
     break;
 
-  case 306: /* block: '{' stmt_list VAR_ARRAY '[' expr ']' '=' expr '}'  */
-#line 1504 "raku.y"
-        { tree_t *c=ast_node_new(TT_ARR_SET); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+  case 301: /* block: '{' stmt_list KW_SAY expr KW_WITH expr '}'  */
+#line 1487 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=rk_with_mod(s,(yyvsp[-1].node),0); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
 #line 5420 "raku.tab.c"
     break;
 
-  case 307: /* block: '{' stmt_list VAR_HASH '{' expr '}' '=' expr '}'  */
-#line 1507 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_SET); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node));
-          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+  case 302: /* block: '{' stmt_list KW_SAY expr KW_WITHOUT expr '}'  */
+#line 1490 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=rk_with_mod(s,(yyvsp[-1].node),1); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
 #line 5427 "raku.tab.c"
     break;
 
-  case 308: /* block: '{' stmt_list KW_TAKE expr '}'  */
-#line 1510 "raku.y"
-        { tree_t *t=expr_unary(TT_SUSPEND,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,t); (yyval.node)=make_seq(l); }
-#line 5433 "raku.tab.c"
+  case 303: /* block: '{' stmt_list KW_SAY expr KW_GIVEN expr '}'  */
+#line 1493 "raku.y"
+        { tree_t *s=ast_node_new(TT_SAY); expr_add_child(s,(yyvsp[-3].node));
+          tree_t *e=rk_given_mod(s,(yyvsp[-1].node)); ExprList *l=(yyvsp[-5].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5434 "raku.tab.c"
     break;
 
-  case 309: /* block: '{' stmt_list KW_RETURN expr '}'  */
-#line 1512 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 5439 "raku.tab.c"
+  case 304: /* block: '{' stmt_list KW_PRINT expr '}'  */
+#line 1496 "raku.y"
+        { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,p); (yyval.node)=make_seq(l); }
+#line 5440 "raku.tab.c"
     break;
 
-  case 310: /* block: '{' stmt_list KW_RETURN '}'  */
-#line 1514 "raku.y"
-        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
-#line 5445 "raku.tab.c"
+  case 305: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '(' arg_list ')' '}'  */
+#line 1498 "raku.y"
+        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-4].sval))); free((yyvsp[-4].sval));
+          ExprList *args=(yyvsp[-2].list); if(args){ for(int i=0;i<args->count;i++) ast_push(c,args->items[i]); exprlist_free(args); }
+          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+#line 5448 "raku.tab.c"
     break;
 
-  case 311: /* block: '{' stmt_list KW_LAST '}'  */
-#line 1516 "raku.y"
-        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,ast_node_new(TT_LOOP_BREAK)); (yyval.node)=make_seq(l); }
-#line 5451 "raku.tab.c"
+  case 306: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '(' ')' '}'  */
+#line 1502 "raku.y"
+        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node((yyvsp[-5].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-3].sval))); free((yyvsp[-3].sval));
+          ExprList *l=(yyvsp[-6].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+#line 5455 "raku.tab.c"
     break;
 
-  case 312: /* block: '{' stmt_list KW_NEXT '}'  */
-#line 1518 "raku.y"
-        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,ast_node_new(TT_LOOP_NEXT)); (yyval.node)=make_seq(l); }
-#line 5457 "raku.tab.c"
+  case 307: /* block: '{' stmt_list VAR_SCALAR '.' IDENT '=' expr '}'  */
+#line 1505 "raku.y"
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern((yyvsp[-3].sval)); free((yyvsp[-3].sval)); expr_add_child(fe,var_node((yyvsp[-5].sval)));
+          tree_t *a=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); ExprList *l=(yyvsp[-6].list); exprlist_append(l,a); (yyval.node)=make_seq(l); }
+#line 5462 "raku.tab.c"
     break;
 
-  case 313: /* block: '{' stmt_list KW_LAST KW_IF expr '}'  */
-#line 1520 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5463 "raku.tab.c"
-    break;
-
-  case 314: /* block: '{' stmt_list KW_LAST KW_UNLESS expr '}'  */
-#line 1522 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+  case 308: /* block: '{' stmt_list VAR_TWIGIL '=' expr '}'  */
+#line 1508 "raku.y"
+        { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare((yyvsp[-3].sval))); free((yyvsp[-3].sval));
+          tree_t *a=expr_binary(TT_ASSIGN,fe,(yyvsp[-1].node)); ExprList *l=(yyvsp[-4].list); exprlist_append(l,a); (yyval.node)=make_seq(l); }
 #line 5469 "raku.tab.c"
     break;
 
-  case 315: /* block: '{' stmt_list KW_NEXT KW_IF expr '}'  */
-#line 1524 "raku.y"
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5475 "raku.tab.c"
+  case 309: /* block: '{' stmt_list VAR_ARRAY '[' expr ']' '=' expr '}'  */
+#line 1511 "raku.y"
+        { tree_t *c=ast_node_new(TT_ARR_SET); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+#line 5476 "raku.tab.c"
     break;
 
-  case 316: /* block: '{' stmt_list KW_NEXT KW_UNLESS expr '}'  */
-#line 1526 "raku.y"
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
-#line 5481 "raku.tab.c"
+  case 310: /* block: '{' stmt_list VAR_HASH '{' expr '}' '=' expr '}'  */
+#line 1514 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_SET); ast_push(c,var_node((yyvsp[-6].sval))); ast_push(c,(yyvsp[-4].node)); ast_push(c,(yyvsp[-1].node));
+          ExprList *l=(yyvsp[-7].list); exprlist_append(l,c); (yyval.node)=make_seq(l); }
+#line 5483 "raku.tab.c"
     break;
 
-  case 317: /* closure: '{' expr '}'  */
+  case 311: /* block: '{' stmt_list KW_TAKE expr '}'  */
+#line 1517 "raku.y"
+        { tree_t *t=expr_unary(TT_SUSPEND,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,t); (yyval.node)=make_seq(l); }
+#line 5489 "raku.tab.c"
+    break;
+
+  case 312: /* block: '{' stmt_list KW_RETURN expr '}'  */
+#line 1519 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,(yyvsp[-1].node)); ExprList *l=(yyvsp[-3].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 5495 "raku.tab.c"
+    break;
+
+  case 313: /* block: '{' stmt_list KW_RETURN '}'  */
+#line 1521 "raku.y"
+        { tree_t *r=ast_node_new(TT_RETURN); ExprList *l=(yyvsp[-2].list); exprlist_append(l,r); (yyval.node)=make_seq(l); }
+#line 5501 "raku.tab.c"
+    break;
+
+  case 314: /* block: '{' stmt_list KW_LAST '}'  */
+#line 1523 "raku.y"
+        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,ast_node_new(TT_LOOP_BREAK)); (yyval.node)=make_seq(l); }
+#line 5507 "raku.tab.c"
+    break;
+
+  case 315: /* block: '{' stmt_list KW_NEXT '}'  */
+#line 1525 "raku.y"
+        { ExprList *l=(yyvsp[-2].list); exprlist_append(l,ast_node_new(TT_LOOP_NEXT)); (yyval.node)=make_seq(l); }
+#line 5513 "raku.tab.c"
+    break;
+
+  case 316: /* block: '{' stmt_list KW_LAST KW_IF expr '}'  */
+#line 1527 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5519 "raku.tab.c"
+    break;
+
+  case 317: /* block: '{' stmt_list KW_LAST KW_UNLESS expr '}'  */
 #line 1529 "raku.y"
-                    { (yyval.node)=(yyvsp[-1].node); }
-#line 5487 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_BREAK))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5525 "raku.tab.c"
     break;
 
-  case 318: /* expr: VAR_SCALAR '=' expr  */
-#line 1532 "raku.y"
-                           { (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),(yyvsp[0].node)); }
-#line 5493 "raku.tab.c"
+  case 318: /* block: '{' stmt_list KW_NEXT KW_IF expr '}'  */
+#line 1531 "raku.y"
+        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,(yyvsp[-1].node)); expr_add_child(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5531 "raku.tab.c"
     break;
 
-  case 319: /* expr: VAR_ARRAY '=' expr  */
+  case 319: /* block: '{' stmt_list KW_NEXT KW_UNLESS expr '}'  */
 #line 1533 "raku.y"
-                           { (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),rk_arr_rhs((yyvsp[0].node))); }
-#line 5499 "raku.tab.c"
+        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,(yyvsp[-1].node)); ast_push(e,seq1(ast_node_new(TT_LOOP_NEXT))); ExprList *l=(yyvsp[-4].list); exprlist_append(l,e); (yyval.node)=make_seq(l); }
+#line 5537 "raku.tab.c"
     break;
 
-  case 320: /* expr: VAR_SCALAR OP_ADD_EQ expr  */
-#line 1534 "raku.y"
-                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_ADD,v,(yyvsp[0].node))); }
-#line 5505 "raku.tab.c"
-    break;
-
-  case 321: /* expr: VAR_SCALAR OP_SUB_EQ expr  */
-#line 1535 "raku.y"
-                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_SUB,v,(yyvsp[0].node))); }
-#line 5511 "raku.tab.c"
-    break;
-
-  case 322: /* expr: VAR_SCALAR OP_MUL_EQ expr  */
+  case 320: /* closure: '{' expr '}'  */
 #line 1536 "raku.y"
-                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_MUL,v,(yyvsp[0].node))); }
-#line 5517 "raku.tab.c"
+                    { (yyval.node)=(yyvsp[-1].node); }
+#line 5543 "raku.tab.c"
     break;
 
-  case 323: /* expr: VAR_SCALAR OP_DIV_EQ expr  */
-#line 1537 "raku.y"
-                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_DIV,v,(yyvsp[0].node))); }
-#line 5523 "raku.tab.c"
-    break;
-
-  case 324: /* expr: VAR_SCALAR OP_CAT_EQ expr  */
-#line 1538 "raku.y"
-                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_CAT,v,(yyvsp[0].node))); }
-#line 5529 "raku.tab.c"
-    break;
-
-  case 325: /* expr: KW_GATHER block  */
+  case 321: /* expr: VAR_SCALAR '=' expr  */
 #line 1539 "raku.y"
-                           {
-          tree_t *g = ast_node_new(TT_GATHER);
-          expr_add_child(g, (yyvsp[0].node));
-          (yyval.node) = g;
-      }
-#line 5539 "raku.tab.c"
-    break;
-
-  case 326: /* expr: KW_GATHER for_stmt  */
-#line 1544 "raku.y"
-                           {
-          tree_t *g = ast_node_new(TT_GATHER);
-          expr_add_child(g, (yyvsp[0].node));
-          (yyval.node) = g;
-      }
+                           { (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),(yyvsp[0].node)); }
 #line 5549 "raku.tab.c"
     break;
 
-  case 327: /* expr: tern_expr OP_FATARROW expr  */
-#line 1550 "raku.y"
-        { tree_t *c = make_call("__rk_pair"); expr_add_child(c, (yyvsp[-2].node)); expr_add_child(c, (yyvsp[0].node)); (yyval.node) = c; }
+  case 322: /* expr: VAR_ARRAY '=' expr  */
+#line 1540 "raku.y"
+                           { (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),rk_arr_rhs((yyvsp[0].node))); }
 #line 5555 "raku.tab.c"
     break;
 
-  case 328: /* expr: tern_expr  */
-#line 1551 "raku.y"
-                           { (yyval.node)=(yyvsp[0].node); }
+  case 323: /* expr: VAR_SCALAR OP_ADD_EQ expr  */
+#line 1541 "raku.y"
+                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_ADD,v,(yyvsp[0].node))); }
 #line 5561 "raku.tab.c"
     break;
 
-  case 329: /* tern_expr: cmp_expr OP_TERNARY1 tern_expr OP_TERNARY2 tern_expr  */
-#line 1555 "raku.y"
-        { tree_t *c = ast_node_new(TT_TERNARY); ast_push(c, (yyvsp[-4].node)); ast_push(c, (yyvsp[-2].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+  case 324: /* expr: VAR_SCALAR OP_SUB_EQ expr  */
+#line 1542 "raku.y"
+                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_SUB,v,(yyvsp[0].node))); }
 #line 5567 "raku.tab.c"
     break;
 
-  case 330: /* tern_expr: cmp_expr  */
-#line 1556 "raku.y"
-                           { (yyval.node)=(yyvsp[0].node); }
+  case 325: /* expr: VAR_SCALAR OP_MUL_EQ expr  */
+#line 1543 "raku.y"
+                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_MUL,v,(yyvsp[0].node))); }
 #line 5573 "raku.tab.c"
     break;
 
-  case 331: /* cmp_expr: cmp_expr OP_AND divis_expr  */
-#line 1559 "raku.y"
-                                  { (yyval.node)=expr_binary(TT_SEQ,(yyvsp[-2].node),(yyvsp[0].node)); }
+  case 326: /* expr: VAR_SCALAR OP_DIV_EQ expr  */
+#line 1544 "raku.y"
+                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_DIV,v,(yyvsp[0].node))); }
 #line 5579 "raku.tab.c"
     break;
 
-  case 332: /* cmp_expr: cmp_expr OP_OR divis_expr  */
-#line 1560 "raku.y"
-                                  { (yyval.node)=expr_binary(TT_ALT,(yyvsp[-2].node),(yyvsp[0].node)); }
+  case 327: /* expr: VAR_SCALAR OP_CAT_EQ expr  */
+#line 1545 "raku.y"
+                                { tree_t *v=var_node((yyvsp[-2].sval)); (yyval.node)=expr_binary(TT_ASSIGN,var_node((yyvsp[-2].sval)),expr_binary(TT_CAT,v,(yyvsp[0].node))); }
 #line 5585 "raku.tab.c"
     break;
 
-  case 333: /* cmp_expr: cmp_expr OP_EQ divis_expr  */
-#line 1561 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_EQ,(yyvsp[0].node)); }
-#line 5591 "raku.tab.c"
+  case 328: /* expr: KW_GATHER block  */
+#line 1546 "raku.y"
+                           {
+          tree_t *g = ast_node_new(TT_GATHER);
+          expr_add_child(g, (yyvsp[0].node));
+          (yyval.node) = g;
+      }
+#line 5595 "raku.tab.c"
     break;
 
-  case 334: /* cmp_expr: cmp_expr OP_NE divis_expr  */
+  case 329: /* expr: KW_GATHER for_stmt  */
+#line 1551 "raku.y"
+                           {
+          tree_t *g = ast_node_new(TT_GATHER);
+          expr_add_child(g, (yyvsp[0].node));
+          (yyval.node) = g;
+      }
+#line 5605 "raku.tab.c"
+    break;
+
+  case 330: /* expr: tern_expr OP_FATARROW expr  */
+#line 1557 "raku.y"
+        { tree_t *c = make_call("__rk_pair"); expr_add_child(c, (yyvsp[-2].node)); expr_add_child(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 5611 "raku.tab.c"
+    break;
+
+  case 331: /* expr: tern_expr  */
+#line 1558 "raku.y"
+                           { (yyval.node)=(yyvsp[0].node); }
+#line 5617 "raku.tab.c"
+    break;
+
+  case 332: /* tern_expr: cmp_expr OP_TERNARY1 tern_expr OP_TERNARY2 tern_expr  */
 #line 1562 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_NE,(yyvsp[0].node)); }
-#line 5597 "raku.tab.c"
+        { tree_t *c = ast_node_new(TT_TERNARY); ast_push(c, (yyvsp[-4].node)); ast_push(c, (yyvsp[-2].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 5623 "raku.tab.c"
     break;
 
-  case 335: /* cmp_expr: cmp_expr '<' divis_expr  */
+  case 333: /* tern_expr: cmp_expr  */
 #line 1563 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_LT,(yyvsp[0].node)); }
-#line 5603 "raku.tab.c"
+                           { (yyval.node)=(yyvsp[0].node); }
+#line 5629 "raku.tab.c"
     break;
 
-  case 336: /* cmp_expr: cmp_expr '>' divis_expr  */
-#line 1564 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_GT,(yyvsp[0].node)); }
-#line 5609 "raku.tab.c"
-    break;
-
-  case 337: /* cmp_expr: cmp_expr OP_LE divis_expr  */
-#line 1565 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_LE,(yyvsp[0].node)); }
-#line 5615 "raku.tab.c"
-    break;
-
-  case 338: /* cmp_expr: cmp_expr OP_GE divis_expr  */
+  case 334: /* cmp_expr: cmp_expr OP_AND divis_expr  */
 #line 1566 "raku.y"
-                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_GE,(yyvsp[0].node)); }
-#line 5621 "raku.tab.c"
+                                  { (yyval.node)=expr_binary(TT_SEQ,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5635 "raku.tab.c"
     break;
 
-  case 339: /* cmp_expr: divis_expr OP_SEQ divis_expr  */
+  case 335: /* cmp_expr: cmp_expr OP_OR divis_expr  */
 #line 1567 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LEQ,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5627 "raku.tab.c"
+                                  { (yyval.node)=expr_binary(TT_ALT,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5641 "raku.tab.c"
     break;
 
-  case 340: /* cmp_expr: divis_expr OP_SNE divis_expr  */
+  case 336: /* cmp_expr: cmp_expr OP_EQ divis_expr  */
 #line 1568 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LNE,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5633 "raku.tab.c"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_EQ,(yyvsp[0].node)); }
+#line 5647 "raku.tab.c"
     break;
 
-  case 341: /* cmp_expr: divis_expr OP_SLT divis_expr  */
+  case 337: /* cmp_expr: cmp_expr OP_NE divis_expr  */
 #line 1569 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LLT,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5639 "raku.tab.c"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_NE,(yyvsp[0].node)); }
+#line 5653 "raku.tab.c"
     break;
 
-  case 342: /* cmp_expr: divis_expr OP_SLE divis_expr  */
+  case 338: /* cmp_expr: cmp_expr '<' divis_expr  */
 #line 1570 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LLE,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5645 "raku.tab.c"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_LT,(yyvsp[0].node)); }
+#line 5659 "raku.tab.c"
     break;
 
-  case 343: /* cmp_expr: divis_expr OP_SGT divis_expr  */
+  case 339: /* cmp_expr: cmp_expr '>' divis_expr  */
 #line 1571 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LGT,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5651 "raku.tab.c"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_GT,(yyvsp[0].node)); }
+#line 5665 "raku.tab.c"
     break;
 
-  case 344: /* cmp_expr: divis_expr OP_SGE divis_expr  */
+  case 340: /* cmp_expr: cmp_expr OP_LE divis_expr  */
 #line 1572 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_LGE,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5657 "raku.tab.c"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_LE,(yyvsp[0].node)); }
+#line 5671 "raku.tab.c"
     break;
 
-  case 345: /* cmp_expr: divis_expr OP_SMATCH LIT_REGEX  */
+  case 341: /* cmp_expr: cmp_expr OP_GE divis_expr  */
+#line 1573 "raku.y"
+                                  { (yyval.node)=rk_chain_cmp((yyvsp[-2].node),TT_GE,(yyvsp[0].node)); }
+#line 5677 "raku.tab.c"
+    break;
+
+  case 342: /* cmp_expr: divis_expr OP_SEQ divis_expr  */
 #line 1574 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LEQ,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5683 "raku.tab.c"
+    break;
+
+  case 343: /* cmp_expr: divis_expr OP_SNE divis_expr  */
+#line 1575 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LNE,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5689 "raku.tab.c"
+    break;
+
+  case 344: /* cmp_expr: divis_expr OP_SLT divis_expr  */
+#line 1576 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LLT,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5695 "raku.tab.c"
+    break;
+
+  case 345: /* cmp_expr: divis_expr OP_SLE divis_expr  */
+#line 1577 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LLE,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5701 "raku.tab.c"
+    break;
+
+  case 346: /* cmp_expr: divis_expr OP_SGT divis_expr  */
+#line 1578 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LGT,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5707 "raku.tab.c"
+    break;
+
+  case 347: /* cmp_expr: divis_expr OP_SGE divis_expr  */
+#line 1579 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_LGE,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5713 "raku.tab.c"
+    break;
+
+  case 348: /* cmp_expr: divis_expr OP_SMATCH LIT_REGEX  */
+#line 1581 "raku.y"
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, (yyvsp[-2].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           ast_push(c, leaf_sval(TT_QLIT, "match"));
           (yyval.node) = c; }
-#line 5667 "raku.tab.c"
+#line 5723 "raku.tab.c"
     break;
 
-  case 346: /* cmp_expr: divis_expr OP_SMATCH LIT_MATCH_GLOBAL  */
-#line 1580 "raku.y"
+  case 349: /* cmp_expr: divis_expr OP_SMATCH LIT_MATCH_GLOBAL  */
+#line 1587 "raku.y"
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, (yyvsp[-2].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           ast_push(c, leaf_sval(TT_QLIT, "match_global"));
           (yyval.node) = c; }
-#line 5677 "raku.tab.c"
+#line 5733 "raku.tab.c"
     break;
 
-  case 347: /* cmp_expr: divis_expr OP_SMATCH LIT_SUBST  */
-#line 1586 "raku.y"
+  case 350: /* cmp_expr: divis_expr OP_SMATCH LIT_SUBST  */
+#line 1593 "raku.y"
         { tree_t *c = ast_node_new(TT_SMATCH);
           ast_push(c, (yyvsp[-2].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval)));
           ast_push(c, leaf_sval(TT_QLIT, "subst"));
           (yyval.node) = c; }
-#line 5687 "raku.tab.c"
+#line 5743 "raku.tab.c"
     break;
 
-  case 348: /* cmp_expr: divis_expr  */
-#line 1591 "raku.y"
-                                 { (yyval.node)=(yyvsp[0].node); }
-#line 5693 "raku.tab.c"
-    break;
-
-  case 349: /* divis_expr: divis_expr OP_DIVIS jct_expr  */
-#line 1594 "raku.y"
-                                    { (yyval.node)=expr_binary(TT_DIVIS,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5699 "raku.tab.c"
-    break;
-
-  case 350: /* divis_expr: jct_expr  */
-#line 1595 "raku.y"
-                               { (yyval.node)=(yyvsp[0].node); }
-#line 5705 "raku.tab.c"
-    break;
-
-  case 351: /* jct_expr: jct_expr '|' range_expr  */
+  case 351: /* cmp_expr: divis_expr  */
 #line 1598 "raku.y"
-                               { (yyval.node)=mk_junction("any",(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5711 "raku.tab.c"
+                                 { (yyval.node)=(yyvsp[0].node); }
+#line 5749 "raku.tab.c"
     break;
 
-  case 352: /* jct_expr: jct_expr '&' range_expr  */
-#line 1599 "raku.y"
-                               { (yyval.node)=mk_junction("all",(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5717 "raku.tab.c"
+  case 352: /* divis_expr: divis_expr OP_DIVIS jct_expr  */
+#line 1601 "raku.y"
+                                    { (yyval.node)=expr_binary(TT_DIVIS,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5755 "raku.tab.c"
     break;
 
-  case 353: /* jct_expr: dor_expr  */
-#line 1600 "raku.y"
+  case 353: /* divis_expr: jct_expr  */
+#line 1602 "raku.y"
                                { (yyval.node)=(yyvsp[0].node); }
-#line 5723 "raku.tab.c"
+#line 5761 "raku.tab.c"
     break;
 
-  case 354: /* dor_expr: dor_expr OP_DOR range_expr  */
-#line 1604 "raku.y"
-        { tree_t *c=make_call("__rk_dor"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
-#line 5729 "raku.tab.c"
-    break;
-
-  case 355: /* dor_expr: range_expr  */
+  case 354: /* jct_expr: jct_expr '|' range_expr  */
 #line 1605 "raku.y"
+                               { (yyval.node)=mk_junction("any",(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5767 "raku.tab.c"
+    break;
+
+  case 355: /* jct_expr: jct_expr '&' range_expr  */
+#line 1606 "raku.y"
+                               { (yyval.node)=mk_junction("all",(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5773 "raku.tab.c"
+    break;
+
+  case 356: /* jct_expr: dor_expr  */
+#line 1607 "raku.y"
                                { (yyval.node)=(yyvsp[0].node); }
-#line 5735 "raku.tab.c"
+#line 5779 "raku.tab.c"
     break;
 
-  case 356: /* range_expr: add_expr OP_RANGE add_expr  */
-#line 1608 "raku.y"
+  case 357: /* dor_expr: dor_expr OP_DOR range_expr  */
+#line 1611 "raku.y"
+        { tree_t *c=make_call("__rk_dor"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
+#line 5785 "raku.tab.c"
+    break;
+
+  case 358: /* dor_expr: range_expr  */
+#line 1612 "raku.y"
+                               { (yyval.node)=(yyvsp[0].node); }
+#line 5791 "raku.tab.c"
+    break;
+
+  case 359: /* range_expr: add_expr OP_RANGE add_expr  */
+#line 1615 "raku.y"
                                     { (yyval.node)=expr_binary(TT_TO,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5741 "raku.tab.c"
+#line 5797 "raku.tab.c"
     break;
 
-  case 357: /* range_expr: add_expr OP_RANGE_EX add_expr  */
-#line 1609 "raku.y"
+  case 360: /* range_expr: add_expr OP_RANGE_EX add_expr  */
+#line 1616 "raku.y"
                                     { (yyval.node)=rk_range_ex((yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5747 "raku.tab.c"
+#line 5803 "raku.tab.c"
     break;
 
-  case 358: /* range_expr: add_expr  */
-#line 1610 "raku.y"
-                                    { (yyval.node)=(yyvsp[0].node); }
-#line 5753 "raku.tab.c"
-    break;
-
-  case 359: /* add_expr: add_expr '~' repl_expr  */
-#line 1613 "raku.y"
-                              { (yyval.node)=expr_binary(TT_CAT,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5759 "raku.tab.c"
-    break;
-
-  case 360: /* add_expr: repl_expr  */
-#line 1614 "raku.y"
-                              { (yyval.node)=(yyvsp[0].node); }
-#line 5765 "raku.tab.c"
-    break;
-
-  case 361: /* repl_expr: repl_expr OP_REP_X addsub_expr  */
+  case 361: /* range_expr: add_expr  */
 #line 1617 "raku.y"
-                                      { (yyval.node)=expr_binary(TT_XREP,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5771 "raku.tab.c"
+                                    { (yyval.node)=(yyvsp[0].node); }
+#line 5809 "raku.tab.c"
     break;
 
-  case 362: /* repl_expr: repl_expr OP_REP_XX addsub_expr  */
-#line 1618 "raku.y"
-                                      { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,(yyvsp[-2].node)); expr_add_child(call,(yyvsp[0].node)); (yyval.node)=call; }
-#line 5777 "raku.tab.c"
+  case 362: /* add_expr: add_expr '~' repl_expr  */
+#line 1620 "raku.y"
+                              { (yyval.node)=expr_binary(TT_CAT,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5815 "raku.tab.c"
     break;
 
-  case 363: /* repl_expr: addsub_expr  */
-#line 1619 "raku.y"
-                                      { (yyval.node)=(yyvsp[0].node); }
-#line 5783 "raku.tab.c"
+  case 363: /* add_expr: repl_expr  */
+#line 1621 "raku.y"
+                              { (yyval.node)=(yyvsp[0].node); }
+#line 5821 "raku.tab.c"
     break;
 
-  case 364: /* addsub_expr: addsub_expr '+' mul_expr  */
-#line 1622 "raku.y"
-                                { (yyval.node)=expr_binary(TT_ADD,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5789 "raku.tab.c"
-    break;
-
-  case 365: /* addsub_expr: addsub_expr '-' mul_expr  */
-#line 1623 "raku.y"
-                                { (yyval.node)=expr_binary(TT_SUB,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5795 "raku.tab.c"
-    break;
-
-  case 366: /* addsub_expr: mul_expr  */
+  case 364: /* repl_expr: repl_expr OP_REP_X addsub_expr  */
 #line 1624 "raku.y"
-                                { (yyval.node)=(yyvsp[0].node); }
-#line 5801 "raku.tab.c"
+                                      { (yyval.node)=expr_binary(TT_XREP,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5827 "raku.tab.c"
     break;
 
-  case 367: /* mul_expr: mul_expr '*' unary_expr  */
-#line 1627 "raku.y"
-                                   { (yyval.node)=expr_binary(TT_MUL,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5807 "raku.tab.c"
+  case 365: /* repl_expr: repl_expr OP_REP_XX addsub_expr  */
+#line 1625 "raku.y"
+                                      { tree_t *call=make_call("__rk_arr_xx"); expr_add_child(call,(yyvsp[-2].node)); expr_add_child(call,(yyvsp[0].node)); (yyval.node)=call; }
+#line 5833 "raku.tab.c"
     break;
 
-  case 368: /* mul_expr: mul_expr '/' unary_expr  */
-#line 1628 "raku.y"
-                                   { (yyval.node)=expr_binary(TT_DIV,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5813 "raku.tab.c"
+  case 366: /* repl_expr: addsub_expr  */
+#line 1626 "raku.y"
+                                      { (yyval.node)=(yyvsp[0].node); }
+#line 5839 "raku.tab.c"
     break;
 
-  case 369: /* mul_expr: mul_expr '%' unary_expr  */
+  case 367: /* addsub_expr: addsub_expr '+' mul_expr  */
 #line 1629 "raku.y"
-                                   { (yyval.node)=expr_binary(TT_MOD,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5819 "raku.tab.c"
+                                { (yyval.node)=expr_binary(TT_ADD,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5845 "raku.tab.c"
     break;
 
-  case 370: /* mul_expr: mul_expr OP_DIV unary_expr  */
+  case 368: /* addsub_expr: addsub_expr '-' mul_expr  */
 #line 1630 "raku.y"
-                                   { (yyval.node)=expr_binary(TT_DIV,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5825 "raku.tab.c"
+                                { (yyval.node)=expr_binary(TT_SUB,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5851 "raku.tab.c"
     break;
 
-  case 371: /* mul_expr: mul_expr OP_BAND unary_expr  */
-#line 1632 "raku.y"
-        { tree_t *c=make_call("iand"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
-#line 5831 "raku.tab.c"
+  case 369: /* addsub_expr: mul_expr  */
+#line 1631 "raku.y"
+                                { (yyval.node)=(yyvsp[0].node); }
+#line 5857 "raku.tab.c"
     break;
 
-  case 372: /* mul_expr: mul_expr OP_SHL unary_expr  */
+  case 370: /* mul_expr: mul_expr '*' unary_expr  */
 #line 1634 "raku.y"
-        { tree_t *c=make_call("ishift"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
-#line 5837 "raku.tab.c"
+                                   { (yyval.node)=expr_binary(TT_MUL,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5863 "raku.tab.c"
     break;
 
-  case 373: /* mul_expr: unary_expr  */
+  case 371: /* mul_expr: mul_expr '/' unary_expr  */
 #line 1635 "raku.y"
-                                   { (yyval.node)=(yyvsp[0].node); }
-#line 5843 "raku.tab.c"
+                                   { (yyval.node)=expr_binary(TT_DIV,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5869 "raku.tab.c"
     break;
 
-  case 374: /* unary_expr: '-' unary_expr  */
-#line 1638 "raku.y"
-                                   { (yyval.node)=expr_unary(TT_MNS,(yyvsp[0].node)); }
-#line 5849 "raku.tab.c"
+  case 372: /* mul_expr: mul_expr '%' unary_expr  */
+#line 1636 "raku.y"
+                                   { (yyval.node)=expr_binary(TT_MOD,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5875 "raku.tab.c"
     break;
 
-  case 375: /* unary_expr: '+' unary_expr  */
+  case 373: /* mul_expr: mul_expr OP_DIV unary_expr  */
+#line 1637 "raku.y"
+                                   { (yyval.node)=expr_binary(TT_DIV,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5881 "raku.tab.c"
+    break;
+
+  case 374: /* mul_expr: mul_expr OP_BAND unary_expr  */
 #line 1639 "raku.y"
-                                   { (yyval.node)=rk_numeric_ctx((yyvsp[0].node)); }
-#line 5855 "raku.tab.c"
+        { tree_t *c=make_call("iand"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
+#line 5887 "raku.tab.c"
     break;
 
-  case 376: /* unary_expr: '!' unary_expr  */
-#line 1640 "raku.y"
-                                   { (yyval.node)=expr_unary(TT_NOT,(yyvsp[0].node)); }
-#line 5861 "raku.tab.c"
-    break;
-
-  case 377: /* unary_expr: CARET unary_expr  */
+  case 375: /* mul_expr: mul_expr OP_SHL unary_expr  */
 #line 1641 "raku.y"
-                                   { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; (yyval.node)=rk_range_ex(z,(yyvsp[0].node)); }
-#line 5867 "raku.tab.c"
+        { tree_t *c=make_call("ishift"); expr_add_child(c,(yyvsp[-2].node)); expr_add_child(c,(yyvsp[0].node)); (yyval.node)=c; }
+#line 5893 "raku.tab.c"
     break;
 
-  case 378: /* unary_expr: OP_REDUCE unary_expr  */
-#line 1643 "raku.y"
+  case 376: /* mul_expr: unary_expr  */
+#line 1642 "raku.y"
+                                   { (yyval.node)=(yyvsp[0].node); }
+#line 5899 "raku.tab.c"
+    break;
+
+  case 377: /* unary_expr: '-' unary_expr  */
+#line 1645 "raku.y"
+                                   { (yyval.node)=expr_unary(TT_MNS,(yyvsp[0].node)); }
+#line 5905 "raku.tab.c"
+    break;
+
+  case 378: /* unary_expr: '+' unary_expr  */
+#line 1646 "raku.y"
+                                   { (yyval.node)=rk_numeric_ctx((yyvsp[0].node)); }
+#line 5911 "raku.tab.c"
+    break;
+
+  case 379: /* unary_expr: '!' unary_expr  */
+#line 1647 "raku.y"
+                                   { (yyval.node)=expr_unary(TT_NOT,(yyvsp[0].node)); }
+#line 5917 "raku.tab.c"
+    break;
+
+  case 380: /* unary_expr: CARET unary_expr  */
+#line 1648 "raku.y"
+                                   { tree_t *z=ast_node_new(TT_ILIT); z->v.ival=0; (yyval.node)=rk_range_ex(z,(yyvsp[0].node)); }
+#line 5923 "raku.tab.c"
+    break;
+
+  case 381: /* unary_expr: OP_REDUCE unary_expr  */
+#line 1650 "raku.y"
         { const char *rop = !strcmp((yyvsp[-1].sval),"+") ? "__rk_reduce_add" : !strcmp((yyvsp[-1].sval),"-") ? "__rk_reduce_sub"
                           : !strcmp((yyvsp[-1].sval),"*") ? "__rk_reduce_mul" : !strcmp((yyvsp[-1].sval),"~") ? "__rk_reduce_cat"
                           : !strcmp((yyvsp[-1].sval),"min") ? "__rk_reduce_min" : "__rk_reduce_max";
           tree_t *e=make_call(rop); expr_add_child(e,(yyvsp[0].node)); free((yyvsp[-1].sval)); (yyval.node)=e; }
-#line 5876 "raku.tab.c"
+#line 5932 "raku.tab.c"
     break;
 
-  case 379: /* unary_expr: pow_expr  */
-#line 1647 "raku.y"
-                                   { (yyval.node)=(yyvsp[0].node); }
-#line 5882 "raku.tab.c"
-    break;
-
-  case 380: /* pow_expr: postfix_expr OP_POW unary_expr  */
-#line 1650 "raku.y"
-                                      { (yyval.node)=expr_binary(TT_POW,(yyvsp[-2].node),(yyvsp[0].node)); }
-#line 5888 "raku.tab.c"
-    break;
-
-  case 381: /* pow_expr: postfix_expr  */
-#line 1651 "raku.y"
-                                      { (yyval.node)=(yyvsp[0].node); }
-#line 5894 "raku.tab.c"
-    break;
-
-  case 382: /* scalar_list: VAR_SCALAR  */
+  case 382: /* unary_expr: pow_expr  */
 #line 1654 "raku.y"
-                                    { (yyval.list) = exprlist_append(exprlist_new(), var_node((yyvsp[0].sval))); free((yyvsp[0].sval)); }
-#line 5900 "raku.tab.c"
+                                   { (yyval.node)=(yyvsp[0].node); }
+#line 5938 "raku.tab.c"
     break;
 
-  case 383: /* scalar_list: scalar_list ',' VAR_SCALAR  */
-#line 1655 "raku.y"
-                                    { (yyval.list) = exprlist_append((yyvsp[-2].list), var_node((yyvsp[0].sval))); free((yyvsp[0].sval)); }
-#line 5906 "raku.tab.c"
+  case 383: /* pow_expr: postfix_expr OP_POW unary_expr  */
+#line 1657 "raku.y"
+                                      { (yyval.node)=expr_binary(TT_POW,(yyvsp[-2].node),(yyvsp[0].node)); }
+#line 5944 "raku.tab.c"
     break;
 
-  case 384: /* meth_name: IDENT  */
+  case 384: /* pow_expr: postfix_expr  */
 #line 1658 "raku.y"
-                 { (yyval.sval)=(yyvsp[0].sval); }
-#line 5912 "raku.tab.c"
+                                      { (yyval.node)=(yyvsp[0].node); }
+#line 5950 "raku.tab.c"
     break;
 
-  case 385: /* meth_name: KW_SORT  */
-#line 1659 "raku.y"
-                 { (yyval.sval)=strdup("sort"); }
-#line 5918 "raku.tab.c"
-    break;
-
-  case 386: /* meth_name: KW_REVERSE  */
-#line 1660 "raku.y"
-                 { (yyval.sval)=strdup("reverse"); }
-#line 5924 "raku.tab.c"
-    break;
-
-  case 387: /* meth_name: KW_MAP  */
+  case 385: /* scalar_list: VAR_SCALAR  */
 #line 1661 "raku.y"
-                 { (yyval.sval)=strdup("map"); }
-#line 5930 "raku.tab.c"
+                                    { (yyval.list) = exprlist_append(exprlist_new(), var_node((yyvsp[0].sval))); free((yyvsp[0].sval)); }
+#line 5956 "raku.tab.c"
     break;
 
-  case 388: /* meth_name: KW_GREP  */
+  case 386: /* scalar_list: scalar_list ',' VAR_SCALAR  */
 #line 1662 "raku.y"
-                 { (yyval.sval)=strdup("grep"); }
-#line 5936 "raku.tab.c"
+                                    { (yyval.list) = exprlist_append((yyvsp[-2].list), var_node((yyvsp[0].sval))); free((yyvsp[0].sval)); }
+#line 5962 "raku.tab.c"
     break;
 
-  case 389: /* meth_name: KW_SAY  */
-#line 1663 "raku.y"
-                 { (yyval.sval)=strdup("say"); }
-#line 5942 "raku.tab.c"
-    break;
-
-  case 390: /* meth_name: KW_PRINT  */
-#line 1664 "raku.y"
-                 { (yyval.sval)=strdup("print"); }
-#line 5948 "raku.tab.c"
-    break;
-
-  case 391: /* meth_name: KW_TAKE  */
+  case 387: /* meth_name: IDENT  */
 #line 1665 "raku.y"
-                 { (yyval.sval)=strdup("take"); }
-#line 5954 "raku.tab.c"
-    break;
-
-  case 392: /* meth_name: KW_RETURN  */
-#line 1666 "raku.y"
-                 { (yyval.sval)=strdup("return"); }
-#line 5960 "raku.tab.c"
-    break;
-
-  case 393: /* meth_name: KW_EXISTS  */
-#line 1667 "raku.y"
-                 { (yyval.sval)=strdup("exists"); }
-#line 5966 "raku.tab.c"
-    break;
-
-  case 394: /* meth_name: KW_DELETE  */
-#line 1668 "raku.y"
-                 { (yyval.sval)=strdup("delete"); }
-#line 5972 "raku.tab.c"
-    break;
-
-  case 395: /* meth_name: KW_JOIN  */
-#line 1669 "raku.y"
-                 { (yyval.sval)=strdup("join"); }
-#line 5978 "raku.tab.c"
-    break;
-
-  case 396: /* meth_name: TESTOP  */
-#line 1670 "raku.y"
                  { (yyval.sval)=(yyvsp[0].sval); }
-#line 5984 "raku.tab.c"
+#line 5968 "raku.tab.c"
     break;
 
-  case 397: /* postfix_expr: call_expr  */
+  case 388: /* meth_name: KW_SORT  */
+#line 1666 "raku.y"
+                 { (yyval.sval)=strdup("sort"); }
+#line 5974 "raku.tab.c"
+    break;
+
+  case 389: /* meth_name: KW_REVERSE  */
+#line 1667 "raku.y"
+                 { (yyval.sval)=strdup("reverse"); }
+#line 5980 "raku.tab.c"
+    break;
+
+  case 390: /* meth_name: KW_MAP  */
+#line 1668 "raku.y"
+                 { (yyval.sval)=strdup("map"); }
+#line 5986 "raku.tab.c"
+    break;
+
+  case 391: /* meth_name: KW_GREP  */
+#line 1669 "raku.y"
+                 { (yyval.sval)=strdup("grep"); }
+#line 5992 "raku.tab.c"
+    break;
+
+  case 392: /* meth_name: KW_SAY  */
+#line 1670 "raku.y"
+                 { (yyval.sval)=strdup("say"); }
+#line 5998 "raku.tab.c"
+    break;
+
+  case 393: /* meth_name: KW_PRINT  */
+#line 1671 "raku.y"
+                 { (yyval.sval)=strdup("print"); }
+#line 6004 "raku.tab.c"
+    break;
+
+  case 394: /* meth_name: KW_TAKE  */
 #line 1672 "raku.y"
-                         { (yyval.node)=(yyvsp[0].node); }
-#line 5990 "raku.tab.c"
+                 { (yyval.sval)=strdup("take"); }
+#line 6010 "raku.tab.c"
     break;
 
-  case 398: /* call_expr: KW_JOIN expr ',' arg_list  */
+  case 395: /* meth_name: KW_RETURN  */
+#line 1673 "raku.y"
+                 { (yyval.sval)=strdup("return"); }
+#line 6016 "raku.tab.c"
+    break;
+
+  case 396: /* meth_name: KW_EXISTS  */
+#line 1674 "raku.y"
+                 { (yyval.sval)=strdup("exists"); }
+#line 6022 "raku.tab.c"
+    break;
+
+  case 397: /* meth_name: KW_DELETE  */
 #line 1675 "raku.y"
+                 { (yyval.sval)=strdup("delete"); }
+#line 6028 "raku.tab.c"
+    break;
+
+  case 398: /* meth_name: KW_JOIN  */
+#line 1676 "raku.y"
+                 { (yyval.sval)=strdup("join"); }
+#line 6034 "raku.tab.c"
+    break;
+
+  case 399: /* meth_name: TESTOP  */
+#line 1677 "raku.y"
+                 { (yyval.sval)=(yyvsp[0].sval); }
+#line 6040 "raku.tab.c"
+    break;
+
+  case 400: /* postfix_expr: call_expr  */
+#line 1679 "raku.y"
+                         { (yyval.node)=(yyvsp[0].node); }
+#line 6046 "raku.tab.c"
+    break;
+
+  case 401: /* call_expr: KW_JOIN expr ',' arg_list  */
+#line 1682 "raku.y"
         { tree_t *e=make_call("join");
           expr_add_child(e, (yyvsp[-2].node));
           ExprList *args=(yyvsp[0].list);
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
           (yyval.node)=e; }
-#line 6000 "raku.tab.c"
+#line 6056 "raku.tab.c"
     break;
 
-  case 399: /* call_expr: IDENT '(' arg_list ')'  */
-#line 1681 "raku.y"
+  case 402: /* call_expr: IDENT '(' arg_list ')'  */
+#line 1688 "raku.y"
         { tree_t *e=make_call((yyvsp[-3].sval));
           ExprList *args=(yyvsp[-1].list);
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
           (yyval.node)=e; }
-#line 6009 "raku.tab.c"
+#line 6065 "raku.tab.c"
     break;
 
-  case 400: /* call_expr: IDENT '(' ')'  */
-#line 1685 "raku.y"
+  case 403: /* call_expr: IDENT '(' ')'  */
+#line 1692 "raku.y"
                      { (yyval.node)=make_call((yyvsp[-2].sval)); }
-#line 6015 "raku.tab.c"
+#line 6071 "raku.tab.c"
     break;
 
-  case 401: /* call_expr: IDENT '(' named_arg_list ')'  */
-#line 1687 "raku.y"
+  case 404: /* call_expr: IDENT '(' named_arg_list ')'  */
+#line 1694 "raku.y"
         { (yyval.node) = rk_named_call((yyvsp[-3].sval), NULL, (yyvsp[-1].list)); free((yyvsp[-3].sval)); }
-#line 6021 "raku.tab.c"
+#line 6077 "raku.tab.c"
     break;
 
-  case 402: /* call_expr: IDENT '(' arg_list ',' named_arg_list ')'  */
-#line 1689 "raku.y"
+  case 405: /* call_expr: IDENT '(' arg_list ',' named_arg_list ')'  */
+#line 1696 "raku.y"
         { (yyval.node) = rk_named_call((yyvsp[-5].sval), (yyvsp[-3].list), (yyvsp[-1].list)); free((yyvsp[-5].sval)); }
-#line 6027 "raku.tab.c"
+#line 6083 "raku.tab.c"
     break;
 
-  case 403: /* call_expr: VAR_SCALAR '(' arg_list ')'  */
-#line 1691 "raku.y"
+  case 406: /* call_expr: VAR_SCALAR '(' arg_list ')'  */
+#line 1698 "raku.y"
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node((yyvsp[-3].sval)));
           ExprList *args=(yyvsp[-1].list);
           if(args){ for(int i=0;i<args->count;i++) expr_add_child(e,args->items[i]); exprlist_free(args); }
           (yyval.node)=e; }
-#line 6036 "raku.tab.c"
+#line 6092 "raku.tab.c"
     break;
 
-  case 404: /* call_expr: VAR_SCALAR '(' ')'  */
-#line 1696 "raku.y"
+  case 407: /* call_expr: VAR_SCALAR '(' ')'  */
+#line 1703 "raku.y"
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node((yyvsp[-2].sval))); (yyval.node)=e; }
-#line 6042 "raku.tab.c"
+#line 6098 "raku.tab.c"
     break;
 
-  case 405: /* call_expr: IDENT '.' KW_NEW '(' named_arg_list ')'  */
-#line 1698 "raku.y"
+  case 408: /* call_expr: IDENT '.' KW_NEW '(' named_arg_list ')'  */
+#line 1705 "raku.y"
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-5].sval))); free((yyvsp[-5].sval));
           ExprList *nargs = (yyvsp[-1].list);
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           (yyval.node) = c; }
-#line 6052 "raku.tab.c"
+#line 6108 "raku.tab.c"
     break;
 
-  case 406: /* call_expr: IDENT '.' KW_NEW '(' arg_list ')'  */
-#line 1704 "raku.y"
+  case 409: /* call_expr: IDENT '.' KW_NEW '(' arg_list ')'  */
+#line 1711 "raku.y"
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-5].sval))); free((yyvsp[-5].sval));
           ExprList *args = (yyvsp[-1].list);
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           (yyval.node) = c; }
-#line 6062 "raku.tab.c"
+#line 6118 "raku.tab.c"
     break;
 
-  case 407: /* call_expr: IDENT '.' KW_NEW '(' ')'  */
-#line 1710 "raku.y"
+  case 410: /* call_expr: IDENT '.' KW_NEW '(' ')'  */
+#line 1717 "raku.y"
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-4].sval))); free((yyvsp[-4].sval));
           (yyval.node) = c; }
-#line 6070 "raku.tab.c"
+#line 6126 "raku.tab.c"
     break;
 
-  case 408: /* call_expr: IDENT '.' KW_NEW  */
-#line 1714 "raku.y"
+  case 411: /* call_expr: IDENT '.' KW_NEW  */
+#line 1721 "raku.y"
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
           (yyval.node) = c; }
-#line 6078 "raku.tab.c"
+#line 6134 "raku.tab.c"
     break;
 
-  case 409: /* call_expr: IDENT '.' IDENT  */
-#line 1718 "raku.y"
+  case 412: /* call_expr: IDENT '.' IDENT  */
+#line 1725 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-2].sval))); free((yyvsp[-2].sval));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval))); free((yyvsp[0].sval));
           (yyval.node) = c; }
-#line 6087 "raku.tab.c"
+#line 6143 "raku.tab.c"
     break;
 
-  case 410: /* call_expr: IDENT '.' IDENT '(' arg_list ')'  */
-#line 1723 "raku.y"
+  case 413: /* call_expr: IDENT '.' IDENT '(' arg_list ')'  */
+#line 1730 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-5].sval))); free((yyvsp[-5].sval));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
           ExprList *args = (yyvsp[-1].list);
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           (yyval.node) = c; }
-#line 6098 "raku.tab.c"
+#line 6154 "raku.tab.c"
     break;
 
-  case 411: /* call_expr: IDENT '.' IDENT '(' ')'  */
-#line 1730 "raku.y"
+  case 414: /* call_expr: IDENT '.' IDENT '(' ')'  */
+#line 1737 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-4].sval))); free((yyvsp[-4].sval));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
           (yyval.node) = c; }
-#line 6107 "raku.tab.c"
+#line 6163 "raku.tab.c"
     break;
 
-  case 412: /* call_expr: IDENT '.' CARET IDENT  */
-#line 1735 "raku.y"
+  case 415: /* call_expr: IDENT '.' CARET IDENT  */
+#line 1742 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, var_node((yyvsp[-3].sval))); free((yyvsp[-3].sval));
           { size_t _l = strlen((yyvsp[0].sval)); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,(yyvsp[0].sval),_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
           free((yyvsp[0].sval));
           (yyval.node) = c; }
-#line 6117 "raku.tab.c"
+#line 6173 "raku.tab.c"
     break;
 
-  case 413: /* call_expr: atom '.' CARET IDENT  */
-#line 1741 "raku.y"
+  case 416: /* call_expr: atom '.' CARET IDENT  */
+#line 1748 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-3].node));
           { size_t _l = strlen((yyvsp[0].sval)); char *_m = (char*)malloc(_l+2); _m[0]='^'; memcpy(_m+1,(yyvsp[0].sval),_l); _m[_l+1]='\0'; ast_push(c, leaf_sval(TT_QLIT, _m)); free(_m); }
           free((yyvsp[0].sval));
           (yyval.node) = c; }
-#line 6127 "raku.tab.c"
+#line 6183 "raku.tab.c"
     break;
 
-  case 414: /* call_expr: atom '.' meth_name '(' arg_list ')'  */
-#line 1747 "raku.y"
+  case 417: /* call_expr: atom '.' meth_name '(' arg_list ')'  */
+#line 1754 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-5].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
           ExprList *args = (yyvsp[-1].list);
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           (yyval.node) = c; }
-#line 6138 "raku.tab.c"
+#line 6194 "raku.tab.c"
     break;
 
-  case 415: /* call_expr: atom '.' meth_name '(' named_arg_list ')'  */
-#line 1754 "raku.y"
+  case 418: /* call_expr: atom '.' meth_name '(' named_arg_list ')'  */
+#line 1761 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-5].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
           ExprList *nargs = (yyvsp[-1].list);
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
           (yyval.node) = c; }
-#line 6149 "raku.tab.c"
+#line 6205 "raku.tab.c"
     break;
 
-  case 416: /* call_expr: atom '.' meth_name '(' ')'  */
-#line 1761 "raku.y"
+  case 419: /* call_expr: atom '.' meth_name '(' ')'  */
+#line 1768 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-4].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
           (yyval.node) = c; }
-#line 6158 "raku.tab.c"
+#line 6214 "raku.tab.c"
     break;
 
-  case 417: /* call_expr: atom '.' meth_name  */
-#line 1766 "raku.y"
+  case 420: /* call_expr: atom '.' meth_name  */
+#line 1773 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-2].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval))); free((yyvsp[0].sval));
           (yyval.node) = c; }
-#line 6167 "raku.tab.c"
+#line 6223 "raku.tab.c"
     break;
 
-  case 418: /* call_expr: call_expr '.' meth_name '(' arg_list ')'  */
-#line 1771 "raku.y"
+  case 421: /* call_expr: call_expr '.' meth_name '(' arg_list ')'  */
+#line 1778 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-5].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-3].sval))); free((yyvsp[-3].sval));
           ExprList *args = (yyvsp[-1].list);
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           (yyval.node) = c; }
-#line 6178 "raku.tab.c"
+#line 6234 "raku.tab.c"
     break;
 
-  case 419: /* call_expr: call_expr '.' meth_name '(' ')'  */
-#line 1778 "raku.y"
+  case 422: /* call_expr: call_expr '.' meth_name '(' ')'  */
+#line 1785 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-4].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[-2].sval))); free((yyvsp[-2].sval));
           (yyval.node) = c; }
-#line 6187 "raku.tab.c"
+#line 6243 "raku.tab.c"
     break;
 
-  case 420: /* call_expr: call_expr '.' meth_name  */
-#line 1783 "raku.y"
+  case 423: /* call_expr: call_expr '.' meth_name  */
+#line 1790 "raku.y"
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, (yyvsp[-2].node));
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval))); free((yyvsp[0].sval));
           (yyval.node) = c; }
-#line 6196 "raku.tab.c"
+#line 6252 "raku.tab.c"
     break;
 
-  case 421: /* call_expr: KW_DIE expr  */
-#line 1788 "raku.y"
+  case 424: /* call_expr: KW_DIE expr  */
+#line 1795 "raku.y"
         { tree_t *d=ast_node_new(TT_DIE); expr_add_child(d,(yyvsp[0].node)); (yyval.node)=d; }
-#line 6202 "raku.tab.c"
+#line 6258 "raku.tab.c"
     break;
 
-  case 422: /* call_expr: KW_MAP closure expr  */
-#line 1790 "raku.y"
+  case 425: /* call_expr: KW_MAP closure expr  */
+#line 1797 "raku.y"
         { tree_t *c = ast_node_new(TT_MAP);  ast_push(c, (yyvsp[-1].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6208 "raku.tab.c"
+#line 6264 "raku.tab.c"
     break;
 
-  case 423: /* call_expr: KW_MAP closure ',' expr  */
-#line 1792 "raku.y"
+  case 426: /* call_expr: KW_MAP closure ',' expr  */
+#line 1799 "raku.y"
         { tree_t *c = ast_node_new(TT_MAP);  ast_push(c, (yyvsp[-2].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6214 "raku.tab.c"
+#line 6270 "raku.tab.c"
     break;
 
-  case 424: /* call_expr: KW_GREP closure expr  */
-#line 1794 "raku.y"
-        { tree_t *c = ast_node_new(TT_GREP); ast_push(c, (yyvsp[-1].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6220 "raku.tab.c"
-    break;
-
-  case 425: /* call_expr: KW_SORT expr  */
-#line 1796 "raku.y"
-        { tree_t *c = ast_node_new(TT_SORT); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6226 "raku.tab.c"
-    break;
-
-  case 426: /* call_expr: KW_SORT closure expr  */
-#line 1798 "raku.y"
-        { tree_t *c = ast_node_new(TT_SORT); ast_push(c, (yyvsp[-1].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6232 "raku.tab.c"
-    break;
-
-  case 427: /* call_expr: KW_REVERSE expr  */
-#line 1800 "raku.y"
-        { tree_t *c = ast_node_new(TT_REVERSE); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
-#line 6238 "raku.tab.c"
-    break;
-
-  case 428: /* call_expr: atom  */
+  case 427: /* call_expr: KW_GREP closure expr  */
 #line 1801 "raku.y"
-                     { (yyval.node)=(yyvsp[0].node); }
-#line 6244 "raku.tab.c"
+        { tree_t *c = ast_node_new(TT_GREP); ast_push(c, (yyvsp[-1].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 6276 "raku.tab.c"
     break;
 
-  case 429: /* arg_list: expr  */
-#line 1804 "raku.y"
-                        { (yyval.list)=exprlist_append(exprlist_new(),(yyvsp[0].node)); }
-#line 6250 "raku.tab.c"
+  case 428: /* call_expr: KW_SORT expr  */
+#line 1803 "raku.y"
+        { tree_t *c = ast_node_new(TT_SORT); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 6282 "raku.tab.c"
     break;
 
-  case 430: /* arg_list: arg_list ',' expr  */
+  case 429: /* call_expr: KW_SORT closure expr  */
 #line 1805 "raku.y"
-                        { (yyval.list)=exprlist_append((yyvsp[-2].list),(yyvsp[0].node)); }
-#line 6256 "raku.tab.c"
+        { tree_t *c = ast_node_new(TT_SORT); ast_push(c, (yyvsp[-1].node)); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 6288 "raku.tab.c"
     break;
 
-  case 431: /* arg_list: arg_list ','  */
-#line 1806 "raku.y"
-                        { (yyval.list)=(yyvsp[-1].list); }
-#line 6262 "raku.tab.c"
+  case 430: /* call_expr: KW_REVERSE expr  */
+#line 1807 "raku.y"
+        { tree_t *c = ast_node_new(TT_REVERSE); ast_push(c, (yyvsp[0].node)); (yyval.node) = c; }
+#line 6294 "raku.tab.c"
     break;
 
-  case 432: /* atom: LIT_INT  */
-#line 1809 "raku.y"
-                      { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=(yyvsp[0].ival); (yyval.node)=e; }
-#line 6268 "raku.tab.c"
+  case 431: /* call_expr: atom  */
+#line 1808 "raku.y"
+                     { (yyval.node)=(yyvsp[0].node); }
+#line 6300 "raku.tab.c"
     break;
 
-  case 433: /* atom: LIT_FLOAT  */
-#line 1810 "raku.y"
-                      { tree_t *e=ast_node_new(TT_FLIT); e->v.dval=(yyvsp[0].dval); (yyval.node)=e; }
-#line 6274 "raku.tab.c"
-    break;
-
-  case 434: /* atom: LIT_STR  */
+  case 432: /* arg_list: expr  */
 #line 1811 "raku.y"
-                      { (yyval.node)=leaf_sval(TT_QLIT,(yyvsp[0].sval)); }
-#line 6280 "raku.tab.c"
+                        { (yyval.list)=exprlist_append(exprlist_new(),(yyvsp[0].node)); }
+#line 6306 "raku.tab.c"
     break;
 
-  case 435: /* atom: WORDLIST  */
+  case 433: /* arg_list: arg_list ',' expr  */
+#line 1812 "raku.y"
+                        { (yyval.list)=exprlist_append((yyvsp[-2].list),(yyvsp[0].node)); }
+#line 6312 "raku.tab.c"
+    break;
+
+  case 434: /* arg_list: arg_list ','  */
 #line 1813 "raku.y"
+                        { (yyval.list)=(yyvsp[-1].list); }
+#line 6318 "raku.tab.c"
+    break;
+
+  case 435: /* atom: LIT_INT  */
+#line 1816 "raku.y"
+                      { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=(yyvsp[0].ival); (yyval.node)=e; }
+#line 6324 "raku.tab.c"
+    break;
+
+  case 436: /* atom: LIT_FLOAT  */
+#line 1817 "raku.y"
+                      { tree_t *e=ast_node_new(TT_FLIT); e->v.dval=(yyvsp[0].dval); (yyval.node)=e; }
+#line 6330 "raku.tab.c"
+    break;
+
+  case 437: /* atom: LIT_STR  */
+#line 1818 "raku.y"
+                      { (yyval.node)=leaf_sval(TT_QLIT,(yyvsp[0].sval)); }
+#line 6336 "raku.tab.c"
+    break;
+
+  case 438: /* atom: WORDLIST  */
+#line 1820 "raku.y"
         { tree_t *call=make_call("__rk_arr"); char *s=(yyvsp[0].sval); int wc=0;
           while(*s){ while(*s==' '||*s=='\t')s++; if(!*s)break; char *w=s;
             while(*s&&*s!=' '&&*s!='\t')s++; int L=(int)(s-w); char *tok=(char*)malloc(L+1); int ti=0;
@@ -6289,253 +6345,253 @@ yyreduce:
           free((yyvsp[0].sval));
           if(wc==1){ tree_t *only=call->c[0]; call->c[0]=NULL; call->n=0; (yyval.node)=only; }
           else { (yyval.node)=call; } }
-#line 6293 "raku.tab.c"
-    break;
-
-  case 436: /* atom: LIT_INTERP_STR  */
-#line 1821 "raku.y"
-                      { (yyval.node)=lower_interp_str((yyvsp[0].sval)); }
-#line 6299 "raku.tab.c"
-    break;
-
-  case 437: /* atom: VAR_SCALAR  */
-#line 1822 "raku.y"
-                      { (yyval.node)=var_node((yyvsp[0].sval)); }
-#line 6305 "raku.tab.c"
-    break;
-
-  case 438: /* atom: OP_INC VAR_SCALAR  */
-#line 1823 "raku.y"
-                        { (yyval.node)=rk_incdec((yyvsp[0].sval),1); }
-#line 6311 "raku.tab.c"
-    break;
-
-  case 439: /* atom: OP_DEC VAR_SCALAR  */
-#line 1824 "raku.y"
-                        { (yyval.node)=rk_incdec((yyvsp[0].sval),0); }
-#line 6317 "raku.tab.c"
-    break;
-
-  case 440: /* atom: VAR_SCALAR OP_INC  */
-#line 1825 "raku.y"
-                        { (yyval.node)=rk_post_incdec((yyvsp[-1].sval),1); }
-#line 6323 "raku.tab.c"
-    break;
-
-  case 441: /* atom: VAR_SCALAR OP_DEC  */
-#line 1826 "raku.y"
-                        { (yyval.node)=rk_post_incdec((yyvsp[-1].sval),0); }
-#line 6329 "raku.tab.c"
-    break;
-
-  case 442: /* atom: VAR_ARRAY  */
-#line 1827 "raku.y"
-                      { (yyval.node)=var_node((yyvsp[0].sval)); }
-#line 6335 "raku.tab.c"
-    break;
-
-  case 443: /* atom: VAR_HASH  */
-#line 1828 "raku.y"
-                      { (yyval.node)=var_node((yyvsp[0].sval)); }
-#line 6341 "raku.tab.c"
-    break;
-
-  case 444: /* atom: VAR_CAPTURE  */
-#line 1830 "raku.y"
-        { tree_t *c = ast_node_new(TT_CAPTURE);
-          tree_t *idx = ast_node_new(TT_ILIT); idx->v.ival = (yyvsp[0].ival);
-          ast_push(c, idx); (yyval.node) = c; }
 #line 6349 "raku.tab.c"
     break;
 
-  case 445: /* atom: VAR_FH  */
+  case 439: /* atom: LIT_INTERP_STR  */
+#line 1828 "raku.y"
+                      { (yyval.node)=lower_interp_str((yyvsp[0].sval)); }
+#line 6355 "raku.tab.c"
+    break;
+
+  case 440: /* atom: VAR_SCALAR  */
+#line 1829 "raku.y"
+                      { (yyval.node)=var_node((yyvsp[0].sval)); }
+#line 6361 "raku.tab.c"
+    break;
+
+  case 441: /* atom: OP_INC VAR_SCALAR  */
+#line 1830 "raku.y"
+                        { (yyval.node)=rk_incdec((yyvsp[0].sval),1); }
+#line 6367 "raku.tab.c"
+    break;
+
+  case 442: /* atom: OP_DEC VAR_SCALAR  */
+#line 1831 "raku.y"
+                        { (yyval.node)=rk_incdec((yyvsp[0].sval),0); }
+#line 6373 "raku.tab.c"
+    break;
+
+  case 443: /* atom: VAR_SCALAR OP_INC  */
+#line 1832 "raku.y"
+                        { (yyval.node)=rk_post_incdec((yyvsp[-1].sval),1); }
+#line 6379 "raku.tab.c"
+    break;
+
+  case 444: /* atom: VAR_SCALAR OP_DEC  */
+#line 1833 "raku.y"
+                        { (yyval.node)=rk_post_incdec((yyvsp[-1].sval),0); }
+#line 6385 "raku.tab.c"
+    break;
+
+  case 445: /* atom: VAR_ARRAY  */
 #line 1834 "raku.y"
+                      { (yyval.node)=var_node((yyvsp[0].sval)); }
+#line 6391 "raku.tab.c"
+    break;
+
+  case 446: /* atom: VAR_HASH  */
+#line 1835 "raku.y"
+                      { (yyval.node)=var_node((yyvsp[0].sval)); }
+#line 6397 "raku.tab.c"
+    break;
+
+  case 447: /* atom: VAR_CAPTURE  */
+#line 1837 "raku.y"
+        { tree_t *c = ast_node_new(TT_CAPTURE);
+          tree_t *idx = ast_node_new(TT_ILIT); idx->v.ival = (yyvsp[0].ival);
+          ast_push(c, idx); (yyval.node) = c; }
+#line 6405 "raku.tab.c"
+    break;
+
+  case 448: /* atom: VAR_FH  */
+#line 1841 "raku.y"
         { tree_t *c = ast_node_new(TT_FH_CAPTURE);
           tree_t *idx = ast_node_new(TT_ILIT); idx->v.ival = (yyvsp[0].ival);
           ast_push(c, idx); (yyval.node) = c; }
-#line 6357 "raku.tab.c"
+#line 6413 "raku.tab.c"
     break;
 
-  case 446: /* atom: VAR_NAMED_CAPTURE  */
-#line 1838 "raku.y"
+  case 449: /* atom: VAR_NAMED_CAPTURE  */
+#line 1845 "raku.y"
         { tree_t *c = ast_node_new(TT_NAMED_CAPTURE);
           ast_push(c, leaf_sval(TT_QLIT, (yyvsp[0].sval))); (yyval.node) = c; }
-#line 6364 "raku.tab.c"
+#line 6420 "raku.tab.c"
     break;
 
-  case 447: /* atom: VAR_ARRAY '[' expr ']'  */
-#line 1841 "raku.y"
+  case 450: /* atom: VAR_ARRAY '[' expr ']'  */
+#line 1848 "raku.y"
         { (yyval.node) = rk_arr_index((yyvsp[-3].sval), (yyvsp[-1].node)); }
-#line 6370 "raku.tab.c"
+#line 6426 "raku.tab.c"
     break;
 
-  case 448: /* atom: VAR_ARRAY '[' expr ',' arg_list ']'  */
-#line 1843 "raku.y"
+  case 451: /* atom: VAR_ARRAY '[' expr ',' arg_list ']'  */
+#line 1850 "raku.y"
         { (yyval.node) = rk_arr_pick((yyvsp[-5].sval), (yyvsp[-3].node), (yyvsp[-1].list)); }
-#line 6376 "raku.tab.c"
-    break;
-
-  case 449: /* atom: VAR_ARRAY '[' '*' '-' expr ']'  */
-#line 1845 "raku.y"
-        { (yyval.node) = rk_arr_end_index((yyvsp[-5].sval), (yyvsp[-1].node), TT_SUB); }
-#line 6382 "raku.tab.c"
-    break;
-
-  case 450: /* atom: VAR_ARRAY '[' '*' '+' expr ']'  */
-#line 1847 "raku.y"
-        { (yyval.node) = rk_arr_end_index((yyvsp[-5].sval), (yyvsp[-1].node), TT_ADD); }
-#line 6388 "raku.tab.c"
-    break;
-
-  case 451: /* atom: ARR_ALL_SLICE  */
-#line 1849 "raku.y"
-        { (yyval.node) = rk_arr_all((yyvsp[0].sval)); }
-#line 6394 "raku.tab.c"
-    break;
-
-  case 452: /* atom: VAR_HASH '<' IDENT '>'  */
-#line 1851 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-1].sval))); (yyval.node)=c; }
-#line 6400 "raku.tab.c"
-    break;
-
-  case 453: /* atom: VAR_HASH '{' expr '}'  */
-#line 1853 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 6406 "raku.tab.c"
-    break;
-
-  case 454: /* atom: KW_EXISTS VAR_HASH '<' IDENT '>'  */
-#line 1855 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-1].sval))); (yyval.node)=c; }
-#line 6412 "raku.tab.c"
-    break;
-
-  case 455: /* atom: KW_EXISTS VAR_HASH '{' expr '}'  */
-#line 1857 "raku.y"
-        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
-#line 6418 "raku.tab.c"
-    break;
-
-  case 456: /* atom: IDENT  */
-#line 1858 "raku.y"
-                      { (yyval.node)=var_node((yyvsp[0].sval)); }
-#line 6424 "raku.tab.c"
-    break;
-
-  case 457: /* atom: VAR_TWIGIL  */
-#line 1860 "raku.y"
-        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern(rk_tw_bare((yyvsp[0].sval))); free((yyvsp[0].sval));
-          (yyval.node) = fe; }
 #line 6432 "raku.tab.c"
     break;
 
-  case 458: /* atom: VAR_ARRAY_TWIGIL  */
+  case 452: /* atom: VAR_ARRAY '[' '*' '-' expr ']'  */
+#line 1852 "raku.y"
+        { (yyval.node) = rk_arr_end_index((yyvsp[-5].sval), (yyvsp[-1].node), TT_SUB); }
+#line 6438 "raku.tab.c"
+    break;
+
+  case 453: /* atom: VAR_ARRAY '[' '*' '+' expr ']'  */
+#line 1854 "raku.y"
+        { (yyval.node) = rk_arr_end_index((yyvsp[-5].sval), (yyvsp[-1].node), TT_ADD); }
+#line 6444 "raku.tab.c"
+    break;
+
+  case 454: /* atom: ARR_ALL_SLICE  */
+#line 1856 "raku.y"
+        { (yyval.node) = rk_arr_all((yyvsp[0].sval)); }
+#line 6450 "raku.tab.c"
+    break;
+
+  case 455: /* atom: VAR_HASH '<' IDENT '>'  */
+#line 1858 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-1].sval))); (yyval.node)=c; }
+#line 6456 "raku.tab.c"
+    break;
+
+  case 456: /* atom: VAR_HASH '{' expr '}'  */
+#line 1860 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_GET); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 6462 "raku.tab.c"
+    break;
+
+  case 457: /* atom: KW_EXISTS VAR_HASH '<' IDENT '>'  */
+#line 1862 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,leaf_sval(TT_QLIT,(yyvsp[-1].sval))); (yyval.node)=c; }
+#line 6468 "raku.tab.c"
+    break;
+
+  case 458: /* atom: KW_EXISTS VAR_HASH '{' expr '}'  */
 #line 1864 "raku.y"
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node((yyvsp[-3].sval))); ast_push(c,(yyvsp[-1].node)); (yyval.node)=c; }
+#line 6474 "raku.tab.c"
+    break;
+
+  case 459: /* atom: IDENT  */
+#line 1865 "raku.y"
+                      { (yyval.node)=var_node((yyvsp[0].sval)); }
+#line 6480 "raku.tab.c"
+    break;
+
+  case 460: /* atom: VAR_TWIGIL  */
+#line 1867 "raku.y"
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval = (char *)intern(rk_tw_bare((yyvsp[0].sval))); free((yyvsp[0].sval));
           (yyval.node) = fe; }
-#line 6440 "raku.tab.c"
+#line 6488 "raku.tab.c"
     break;
 
-  case 459: /* atom: VAR_HASH_TWIGIL  */
-#line 1868 "raku.y"
-        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
-          fe->v.sval = (char *)intern(rk_tw_bare((yyvsp[0].sval))); free((yyvsp[0].sval));
-          (yyval.node) = fe; }
-#line 6448 "raku.tab.c"
-    break;
-
-  case 460: /* atom: '[' ']'  */
+  case 461: /* atom: VAR_ARRAY_TWIGIL  */
 #line 1871 "raku.y"
-                      { (yyval.node)=make_call("__rk_arr_lit"); }
-#line 6454 "raku.tab.c"
+        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
+          fe->v.sval = (char *)intern(rk_tw_bare((yyvsp[0].sval))); free((yyvsp[0].sval));
+          (yyval.node) = fe; }
+#line 6496 "raku.tab.c"
     break;
 
-  case 461: /* atom: '[' expr ']'  */
-#line 1873 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
-#line 6460 "raku.tab.c"
-    break;
-
-  case 462: /* atom: '[' expr ',' ']'  */
+  case 462: /* atom: VAR_HASH_TWIGIL  */
 #line 1875 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
-#line 6466 "raku.tab.c"
-    break;
-
-  case 463: /* atom: '[' expr ',' arg_list ']'  */
-#line 1877 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
-#line 6473 "raku.tab.c"
-    break;
-
-  case 464: /* atom: DOLLAR_LBRACKET ']'  */
-#line 1879 "raku.y"
-                           { (yyval.node)=make_call("__rk_arr_lit"); }
-#line 6479 "raku.tab.c"
-    break;
-
-  case 465: /* atom: DOLLAR_LBRACKET expr ']'  */
-#line 1881 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
-#line 6485 "raku.tab.c"
-    break;
-
-  case 466: /* atom: DOLLAR_LBRACKET expr ',' ']'  */
-#line 1883 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
-#line 6491 "raku.tab.c"
-    break;
-
-  case 467: /* atom: DOLLAR_LBRACKET expr ',' arg_list ']'  */
-#line 1885 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
-#line 6498 "raku.tab.c"
-    break;
-
-  case 468: /* atom: '(' ')'  */
-#line 1887 "raku.y"
-                      { (yyval.node)=make_call("__rk_arr"); }
+        { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);
+          fe->v.sval = (char *)intern(rk_tw_bare((yyvsp[0].sval))); free((yyvsp[0].sval));
+          (yyval.node) = fe; }
 #line 6504 "raku.tab.c"
     break;
 
-  case 469: /* atom: '(' expr ')'  */
-#line 1888 "raku.y"
-                      { (yyval.node)=(yyvsp[-1].node); }
+  case 463: /* atom: '[' ']'  */
+#line 1878 "raku.y"
+                      { (yyval.node)=make_call("__rk_arr_lit"); }
 #line 6510 "raku.tab.c"
     break;
 
-  case 470: /* atom: '(' expr ',' ')'  */
-#line 1890 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
+  case 464: /* atom: '[' expr ']'  */
+#line 1880 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
 #line 6516 "raku.tab.c"
     break;
 
-  case 471: /* atom: '(' expr ',' arg_list ')'  */
-#line 1892 "raku.y"
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
-          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
-#line 6523 "raku.tab.c"
+  case 465: /* atom: '[' expr ',' ']'  */
+#line 1882 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
+#line 6522 "raku.tab.c"
     break;
 
-  case 472: /* atom: block  */
-#line 1894 "raku.y"
-                      { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,(yyvsp[0].node)); (yyval.node)=b; }
+  case 466: /* atom: '[' expr ',' arg_list ']'  */
+#line 1884 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
 #line 6529 "raku.tab.c"
     break;
 
-  case 473: /* atom: KW_SUB block  */
-#line 1895 "raku.y"
-                      { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,(yyvsp[0].node)); (yyval.node)=b; }
+  case 467: /* atom: DOLLAR_LBRACKET ']'  */
+#line 1886 "raku.y"
+                           { (yyval.node)=make_call("__rk_arr_lit"); }
 #line 6535 "raku.tab.c"
     break;
 
+  case 468: /* atom: DOLLAR_LBRACKET expr ']'  */
+#line 1888 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
+#line 6541 "raku.tab.c"
+    break;
 
-#line 6539 "raku.tab.c"
+  case 469: /* atom: DOLLAR_LBRACKET expr ',' ']'  */
+#line 1890 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
+#line 6547 "raku.tab.c"
+    break;
+
+  case 470: /* atom: DOLLAR_LBRACKET expr ',' arg_list ']'  */
+#line 1892 "raku.y"
+        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
+#line 6554 "raku.tab.c"
+    break;
+
+  case 471: /* atom: '(' ')'  */
+#line 1894 "raku.y"
+                      { (yyval.node)=make_call("__rk_arr"); }
+#line 6560 "raku.tab.c"
+    break;
+
+  case 472: /* atom: '(' expr ')'  */
+#line 1895 "raku.y"
+                      { (yyval.node)=(yyvsp[-1].node); }
+#line 6566 "raku.tab.c"
+    break;
+
+  case 473: /* atom: '(' expr ',' ')'  */
+#line 1897 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
+#line 6572 "raku.tab.c"
+    break;
+
+  case 474: /* atom: '(' expr ',' arg_list ')'  */
+#line 1899 "raku.y"
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,(yyvsp[-3].node));
+          ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
+#line 6579 "raku.tab.c"
+    break;
+
+  case 475: /* atom: block  */
+#line 1901 "raku.y"
+                      { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,(yyvsp[0].node)); (yyval.node)=b; }
+#line 6585 "raku.tab.c"
+    break;
+
+  case 476: /* atom: KW_SUB block  */
+#line 1902 "raku.y"
+                      { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,(yyvsp[0].node)); (yyval.node)=b; }
+#line 6591 "raku.tab.c"
+    break;
+
+
+#line 6595 "raku.tab.c"
 
       default: break;
     }
@@ -6728,7 +6784,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 1897 "raku.y"
+#line 1904 "raku.y"
 
 extern void *raku_yy_scan_string(const char *);
 extern void  raku_yy_delete_buffer(void *);

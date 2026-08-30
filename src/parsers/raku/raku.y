@@ -428,6 +428,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
+%token <sval> QIDENT
 %token <sval> VAR_ARRAY_TWIGIL VAR_HASH_TWIGIL
 %token CARET
 %token DOLLAR_LBRACKET
@@ -583,6 +584,12 @@ stmt
         { tree_t *e=ast_node_new(TT_DECL); ast_push(e,leaf_sval(TT_VAR,$2)); free($2); ast_push(e,var_node($3)); $$=e; }
     | KW_USE IDENT ';'
         { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
+    | KW_USE IDENT expr ';'
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); ast_push(u,$3); $$=u; }
+    | KW_USE QIDENT ';'
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
+    | KW_USE QIDENT expr ';'
+        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); ast_push(u,$3); $$=u; }
     | KW_CONSTANT IDENT '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); free($2); }
     | KW_CONSTANT VAR_SCALAR '=' expr ';'
