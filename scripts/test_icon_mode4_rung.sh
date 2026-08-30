@@ -127,6 +127,23 @@ else
 fi
 
 echo "--- Icon --compile/x86: PASS=$PASS FAIL=$FAIL SKIP=$SKIP TOTAL=$((PASS+FAIL+SKIP)) ---"
+# ⛔⭐ ZERO-TOTAL IS ANNOUNCED, NOT SILENT (hq_B 2026-08-30, row graders-denominator-audit-six-families).
+# MEASURED: with no --rung, the default seed set below is a HARDCODED list of five rung01_paper_*.icn
+# files, and all five were consolidated away -- each `[ -f "$icn" ] || continue` skipped, TOTAL landed
+# at 0, and the script printed a tidy summary and exited 0. All five are present in tests/icon/ALL.csv
+# by `origin`, so the programs were renamed, not deleted.
+# ⛔ THE exit 0 BELOW IS DELIBERATE AND IS LEFT ALONE: the ICN-G-1 contract states it, and that contract
+# is not this row's to overturn. But that reason was written for a run that GRADES and does not pass --
+# "informational, not a build break" -- and it does not cover a run that graded NOTHING because its
+# inputs moved. Those are different states and only one of them was argued for. So the exit code is
+# untouched and the silence is not: a zero total now says so, loudly, on stderr.
+if [ $((PASS+FAIL+SKIP)) -eq 0 ]; then
+    echo "⛔ GRADED ZERO PROGRAMS -- not a pass, and not what the ICN-G-1 exit-0 contract was argued for." >&2
+    echo "   With no --rung, the default seed set is a hardcoded rung01_paper_* list whose files were" >&2
+    echo "   consolidated away; all five survive in corpus/tests/icon/ALL.csv under the 'origin' column." >&2
+    echo "   Pass --rung <name>, or re-point the seed set at the flat ALL.* set. rc is left at 0 by the" >&2
+    echo "   ICN-G-1 contract only -- read this line, not the exit code." >&2
+fi
 # ICN-G-1 contract: the gate must run to completion (rc 0 here) so it can be
 # wired into Session Setup before any rung passes. Emitter rungs assert PASS>=1
 # separately. Until then, a non-passing run is informational, not a build break.
