@@ -232,6 +232,15 @@ struct IR_graph_t {
     int            zframe_graph;
     int            icn_cells_graph;
     int            pl_cells_graph;
+    int            runtime_fragment_graph;   /* row eval-code-end-terminates-m4 (seat06 2026-08-29, Lon-approved): set by
+        runtime_eval.c's code() on the graph it just lowered for a CODE() fragment. flat_jmp_entry (set unconditionally for
+        every chain-compiled graph by emit_jmp_entry_for_chain) conflated two populations that need OPPOSITE outer-exit
+        conventions: pattern/generator jmp-entry sub-graphs are entered via a real activation and must `ret` to their
+        caller, but a CODE() fragment is entered via bb_goto_deferred.cpp's bare tail-jmp (no `call`, nothing pushed) and
+        its own :(END) reaching bb_glue_outer_γ/ω's `ret` arm read whatever garbage happened to sit at [rsp] as a return
+        address -- SIGSEGV rip=0x0, both modes, gdb-confirmed. This flag lets bb_glue_outer_γ/ω force the same
+        unconditionally-safe call-exit() arm a non-jmp-entry (whole-program) graph already uses, without touching
+        flat_jmp_entry itself (still needed for this graph's own RBP-relative operand/frame layout). */
     int            is_variadic;
     int            rest_kind;
     int            pl_zf_trail_mark_off;

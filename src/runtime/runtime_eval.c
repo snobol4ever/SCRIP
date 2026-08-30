@@ -392,12 +392,23 @@ DESCR_t code(const char *src)
         if (k == 0 || (lbl && lbl[0])) {
             IR_graph_t *g = sno_lower_fragment_at(prog, k);
             if (!g) return FAILDESCR;
+            g->runtime_fragment_graph = 1;   /* row eval-code-end-terminates-m4: this graph is entered via a bare
+                tail-jmp (bb_goto_deferred.cpp), never a `call` -- its own outer-exit must not `ret` (see IR.h) */
             extern IR_graph_t *g_emit_cfg;
             IR_graph_t *cfg_sv = g_emit_cfg; g_emit_cfg = g;
             int fa = g_frame_active; g_frame_active = 1;
+            int rfe_sv = g_rt_fragment_emit; g_rt_fragment_emit = 1;   /* row eval-code-end-terminates-m4: every OTHER
+                not-main-program-flow compile (eval_thunks_emit_from's user-DEFINE loop above, the sibling runtime-
+                pattern-fragment compiler) already sets this to route around xa_flat_chain_epilogue_sig's class-C
+                handling (main-program-only machinery: RETURN/NRETURN label wiring that a bare fragment never has).
+                code()'s own fragment-entry compile was simply never given the same treatment -- confirmed via
+                emit.cpp diagnostic: this graph hit xa_c_pred=1 rt_frag_emit=0, taking xa_flat_chain_epilogue_sig
+                instead of ever reaching bb_glue_outer_γ/ω, which is why runtime_fragment_graph's fix there was
+                unreachable until this line landed alongside it. */
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
             emit_jmp_entry_clear();
+            g_rt_fragment_emit = rfe_sv;
             g_frame_active = fa; g_emit_cfg = cfg_sv;
             if (!fn) return FAILDESCR;
             if (k == 0) first = fn;
