@@ -251,7 +251,8 @@ points at the GC/allocator as the next lever.
 
 **beauty self-host × vs SPITBOL** (2026-08-30, wall clock, best of 5 sets of 10 runs,
 outputs byte-verified identical on both arms — the beautifier formatting its own
-618-line source): **0.18x** (21.6 ms vs 3.8 ms per run). Profiling attributes the gap
+618-line source): **0.18x** (19.0 ms vs 3.4 ms per run, re-measured on the current
+tree the same day). Profiling attributes the gap
 mostly to name-lookup and pattern machinery inside the runtime — measured, bounded,
 and being worked — not to the compiled code itself.
 
@@ -312,8 +313,26 @@ Prolog-to-WAM compiler): 45 compile as library modules; 15 carry entry points an
 run against real `gprolog` — **6 match, 9 differ**; 2 fail to parse
 (`scripts/test_prolog_gnu_suite.sh`, 2026-08-30).
 
-**Benchmarks.** The rivals grid (× vs `gprolog` and `swipl`) is not yet measured;
-it gets published here when it is.
+**Benchmarks.** First grid, measured 2026-08-30 on the classic van Roy kernels
+(vendored under `corpus/benchmarks/prolog/`; whole-program wall clock including
+startup, best of 5, every timed arm's output byte-verified against the reference
+first). Arms: SCRIP mode-4 binary · GNU Prolog compiled native (`gplc`) · SWI-Prolog
+(`swipl -q -s … -t halt`). At these 3–50 ms totals interpreter startup is a real part
+of the SWI column — that is the nature of a totals basis, stated rather than hidden:
+
+| kernel | × vs gplc | × vs swipl | kernel | × vs gplc | × vs swipl |
+|---|:---:|:---:|---|:---:|:---:|
+| deriv | **1.32x** | **3.11x** | log10 | 0.91x | **2.53x** |
+| divide10 | **1.13x** | **3.87x** | times10 | 0.87x | **2.87x** |
+| derive | 0.95x | **2.77x** | cal | 0.86x | **2.71x** |
+| ops8 | 0.83x | **2.57x** | sendmore | 0.45x | **1.36x** |
+| tak | 0.40x | **1.89x** | fib | 0.36x | **1.29x** |
+
+The reading: ahead of SWI-Prolog on all ten, and trading blows with GNU Prolog's
+native compiler — near parity on the term-rewriting kernels, behind on the deep-
+recursion ones (fib, tak, sendmore), which names the next lever. Twelve further
+kernels in the set are not timed because SCRIP's output does not yet match the
+reference — a wrong answer is never timed.
 
 ### Raku
 
