@@ -16,7 +16,12 @@ row() {
     printf "%-16s %-8s %s\n" "$name" "$val" "$note"
 }
 
-d_crosscheck()  { find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | wc -l; }
+# ⛔ corpus/crosscheck/ is GONE -- converted into tests/snobol4/ALL.{sno,ref,csv} (corpus da0987478
+# lineage, row dead-suite-path-consumer-sweep). `find` on the dead path prints nothing and exits 0, so
+# this silently returned "0" -- a wrong-but-plausible-looking count, not a loud failure. Counts by
+# origin-family prefix via the master CSV instead, same idiom already used by d_probebb/d_beauty_total
+# below (ONE AUTHORITY for the suite grammar, never a second parser of it).
+d_crosscheck()  { awk -F, 'NR>1 && $4 ~ /^crosscheck_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }
 # library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
 # conversion) -- counts its entries via the harness (ONE AUTHORITY for the suite grammar) instead
 # of a loose-file find, since the suite text file is no longer one file per test.
@@ -40,6 +45,13 @@ d_broad336()    {
     # don't just change the number. Until then: THE SCRIPT'S OWN PRINTED "(N total)" LINE IS AUTHORITATIVE,
     # not this arm — this arm exists to give a number without waiting ~4 minutes for the full sweep to run,
     # not to replace it.
+    # ⛔ row dead-suite-path-consumer-sweep: this function's own `find "$CORPUS/crosscheck"` below is
+    # now ALSO a dead path (see d_crosscheck() above) and silently returns xc=0, compounding with the
+    # already-flagged off-by-2 mystery above rather than fixing it. NOT repaired here deliberately --
+    # this function exists to MIRROR test_broad_corpus_snobol4.sh's OWN internal logic verbatim for
+    # comparison, so fixing it in isolation would make it mirror nothing; if that script gets its own
+    # crosscheck-path fix (it is not on this row's own worked list), update this comment and formula
+    # together, not the `find` alone.
     local xc; xc=$(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | while read -r f; do
         [ -f "${f%.sno}.ref" ] && echo "$f"; done | wc -l)
     local bd; bd=$(d_beauty_drivers)
@@ -59,7 +71,7 @@ case "$SEL" in
     "")
         printf "%-16s %-8s %s\n" SUITE COUNT NOTE
         printf '%.0s-' {1..60}; echo
-        row crosscheck      "$(d_crosscheck)"       "xc318 = this number"
+        row crosscheck      "$(d_crosscheck)"       "master-CSV origin-family count (crosscheck_*) since corpus/crosscheck/ itself no longer exists"
         row probe_bb        "$(d_probebb)"          "moves on any BOARD mint — re-check every session"
         row demo            "$(d_demo)"             "top-level only; recursive find OVERCOUNTS (subdirs not board members)"
         row demo15          "$(d_demo15)"            "the 15-board is a FIXED named set (board_sno15_ident.sh's own for-loop), not a corpus count — will not drift with corpus size"
