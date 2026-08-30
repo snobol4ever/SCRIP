@@ -44,7 +44,6 @@ extern int exec_stmt(const char *subj_name, DESCR_t *subj_var, DESCR_t pat, DESC
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;
-#define SUSPEND_COLLECT_MAX 65536
 typedef struct { DESCR_t * items; int count; int cap; int active; } SuspendBuf;
 static SuspendBuf g_suspend_buf;
 typedef struct { DESCR_t * items; int count; } SuspendList;

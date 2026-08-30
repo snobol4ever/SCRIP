@@ -57,9 +57,7 @@ RTX_GATE_DEF(icnrel)
 
 /* BinopKind ordinals, src/runtime/builtins/gen.h. Kept as literals with the names beside them so a
  * renumbering of that enum is a visible diff here rather than a silent miscompare. */
-#define OP_LT    5
 #define OP_LE    6
-#define OP_GT    7
 #define OP_GE    8
 #define OP_EQ    9
 #define OP_NE   10

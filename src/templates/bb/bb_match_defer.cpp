@@ -28,7 +28,7 @@ extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
-#define dswap() (x86_zc_frame() == ZC_FRAME_RSP)
+#define dswap() (1)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
 static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }
@@ -72,11 +72,11 @@ std::string bb_match_defer() {
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && emit_defer_rbp(),
                x86("comment", "THREE ZETAS ζ-FRAME (s85): *P DEFER establishes its own RBP activation frame at alpha -- the SECOND and LAST operator-BB (with MATCH_BEGIN/ζ-STANDING) permitted to push rbp.  Replaces the s137 rsp-watermark save (FRQ(op_off)=rsp, restored rsp-relatively at every exit): that save/restore pair is Defect C -- both ends compute [rsp#+op_off] against WHATEVER rsp happens to be AT THAT POINT, sound only if the deferred target's own body never carves stack without self-releasing before jumping back through the wire, which the non-popping ζ-SPINE law (committed growth released only by bracket whacks) guarantees it does NOT.  rbp does not move across the jmp-entry wire transfer (the callee's own carves are rsp-relative, never touch our rbp), so a push here is immune by construction -- the exact argument bb_match_capture.cpp's s81/s83 activation-frame arm already uses for the SAVE/IMM-or-COND capture-family crossing.  No slot registration for spine-only BBs is added here: the frame exists so THEY can register into it (ARBNO's chained-K0/K16-defer bodies, per bb_match_arbno.cpp's own op_frame_need consultation), not so this box owns extra state of its own -- op_off is unused on this arm; the WHOLE FRAME is the watermark.")
              + x86("push", "rbp")
              + x86("mov",  "rbp", "rsp"))
-         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && !emit_defer_rbp(),
                x86("comment", "s137 SEALED defer: fence-demarked sync point (watermark in defer.pad)")
              + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(ci >= 0,
@@ -271,9 +271,9 @@ std::string bb_match_defer() {
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
          + bb_glue_wire_land()
-         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
-         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
                x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
@@ -283,9 +283,9 @@ std::string bb_match_defer() {
          + x86_gamma()
          + x86("def",  L(5))
          + bb_glue_wire_land()
-         + IF(dfrm() && x86_port_cstack() && emit_defer_rbp(),
+         + IF(dfrm() && emit_defer_rbp(),
                x86("mov", "rsp", "rbp") + x86("pop", "rbp"))
-         + IF(dfrm() && x86_port_cstack() && !emit_defer_rbp(),
+         + IF(dfrm() && !emit_defer_rbp(),
                x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
@@ -390,9 +390,9 @@ std::string bb_match_defer() {
              + rspd_snap(&g_rspd_g6, "g_rspd_g6")
              + x86_omega())
          + x86_beta()
-         + ((_.op_seal == 1 && x86_port_cstack())
+         + ((_.op_seal == 1)
               ? ((emit_defer_rbp() ? (x86("mov", "rsp", "rbp") + x86("pop", "rbp")) : x86("mov", "rsp", FRQ(_.op_off))) + x86_omega())
-              : (IF(dfrm() && _.op_seal != 1 && x86_port_cstack() && emit_defer_rbp(),
+              : (IF(dfrm() && _.op_seal != 1 && emit_defer_rbp(),
                       x86("comment", "s139 UNSEALED CARVE-DEFER beta: RESTORE THE FRAME, THEN RESUME THE RECORD")
                     + x86("mov", "rsp", "rbp")
                     + x86("pop", "rbp"))

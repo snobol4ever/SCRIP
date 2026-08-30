@@ -8,8 +8,6 @@
 #include "SM.h"
 #include "stage2.h"
 #define FRAME_SLOT_MAX        STAGE2_FRAME_SLOT_MAX
-#define CORO_STACK_SZ         (1024 * 1024)
-#define PROC_TABLE_MAX        STAGE2_PROC_TABLE_MAX
 #define FRAME_DEPTH_MAX         16
 #define FRAME_STACK_MAX      256
 #define EVERY_GEN_SLOT_MAX    16

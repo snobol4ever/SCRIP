@@ -1446,7 +1446,7 @@ int main(int argc, char **argv)
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
-            /* see the sibling emission's comment (same file, ~line 1543): ZC_FRAME_RSP's activation-tier
+            /* see the sibling emission's comment (same file, ~line 1543): the activation-tier
                offsets collide with the kernel-placed envp/argv block a few hundred bytes above entry rsp
                without this guard (pascal-m4-intermittent-segv-layout-sensitive). +65536 matches the other
                frame modes' own guard band a few lines down; 65544 keeps the same post-sub alignment. */
@@ -1463,14 +1463,7 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) {
-                if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
-            } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n");
-            if (bbg->nparams >= 1)
-                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
-                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
-            }
+            if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
@@ -1635,7 +1628,7 @@ int main(int argc, char **argv)
             }
             int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
-            /* ZC_FRAME_RSP's activation-tier slots are addressed at fixed positive offsets from this
+            /* The activation-tier slots are addressed at fixed positive offsets from this
                entry rsp (up into the 100s-1000s of bytes for a nontrivial "main"), with no subsequent
                reservation of that range -- on a real exec() stack that range collides with the kernel-
                placed envp/argv block a few hundred bytes above entry rsp (pascal-m4-intermittent-segv-
@@ -1652,14 +1645,7 @@ int main(int argc, char **argv)
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
             { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
-            if (rt_zc_frame_live() == ZC_FRAME_RSP) {
-                if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
-            } else {
-            emit_textf("  sub rsp, 65536\n  mov rdi, rsp\n  mov ecx, 8192\n  xor eax, eax\n  rep stosq\n  mov rdi, rsp\n");
-            if (sbbg->nparams >= 1)
-                emit_textf("  push rdi\n  sub rsp, 8\n  mov rdi, qword ptr [rsp + 65552]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 65560]\n  sub esi, 1\n  call rt_args_list_from@PLT\n  add rsp, 8\n  pop rdi\n"
-                       "  mov qword ptr [rdi + 16], rax\n  mov qword ptr [rdi + 24], rdx\n");
-            }
+            if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             emit_textf("  mov r12, qword ptr [0x70000000]\n");
             emit_textf("  xor esi, esi\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
@@ -1892,8 +1878,6 @@ int main(int argc, char **argv)
             int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->icn_cells_graph, _icn_zframe_gen = bbg->icn_zframe_gen;
             ir_delete_all(s2);
             void *mf = NULL;
-            if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); }
-            if (mf && _nparams >= 1) { extern DESCR_t rt_args_list_from(char **v, int n); *(DESCR_t *)((char *)mf + 16) = rt_args_list_from(g_prog_argv, g_prog_argc); }
             if (_nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
@@ -1993,7 +1977,6 @@ int main(int argc, char **argv)
                 ir_delete_all(s2);
                 if (fn) {
                     void *mf = NULL;
-                    if (rt_zc_frame_live() != ZC_FRAME_RSP) { mf = alloca(65536); memset(mf, 0, 65536); }
                     if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
                     { extern void bbprof_start(void); bbprof_start(); }
                     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }

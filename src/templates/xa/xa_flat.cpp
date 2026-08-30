@@ -7,7 +7,6 @@ extern "C" {
 #include "xa_template_common.h"
 #include "../emitter/emit.h"
 }
-#define ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_pl_zf_resume_clear(void);

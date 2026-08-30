@@ -8,7 +8,6 @@
 #include "parsers/icon/icon_lex.h"
 #include "zeta_choices.h"
 #include "snobol4_system_fns.h"
-int rt_zeta_port_mode(void);
 int rt_kw_index(const char * kw);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -1; }
@@ -1940,7 +1939,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     {
         int fp_stmt = 0; int fc_lin = (sno_in_arbno == 0) && fc_walk_range(g, before_pat, g->n, 1, &fp_stmt);
         if (fc_lin) { extern void fc_head_register(const IR_t *, int); fc_head_register(head, fp_stmt); }
-        if (!fc_lin && rt_zc_frame_live() == ZC_FRAME_RSP) {
+        if (!fc_lin) {
             int tail_ok = 0;
             const char * tl_why = (cx->npre != 0) ? "npre" : has_repl ? "repl" : "gate";
             if (cx->npre == 0 && !has_repl) {

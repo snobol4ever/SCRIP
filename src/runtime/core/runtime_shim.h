@@ -22,7 +22,6 @@ static inline DESCR_t _str_impl(const char *s) {
 static inline DESCR_t _kw_impl(const char *name) { return NV_GET_fn(name); }
 static inline void   _kw_set_impl(const char *name, DESCR_t v) { NV_SET_fn(name, v); }
 #define kw(name)         _kw_impl(name)
-#define kw_set(name, v)  _kw_set_impl(name, v)
 #ifdef CONCAT_fn
 #undef CONCAT_fn
 #endif
@@ -42,7 +41,6 @@ static inline void _iset_impl(DESCR_t nameVal, DESCR_t v) {
     if (name && *name) NV_SET_fn(name, v);
 }
 #define deref(nv)       _deref_impl(nv)
-#define iset(nv, v)     _iset_impl(nv, v)
 #define assign_expr(lvar, x)  ((lvar) = (x))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _aref_impl(DESCR_t arr, DESCR_t *keys, int n) {
@@ -76,19 +74,10 @@ static inline void _aset_impl(DESCR_t arr, DESCR_t *keys, int n, DESCR_t v) {
 static inline DESCR_t _index_impl(DESCR_t base, DESCR_t *keys, int n) {
     return _aref_impl(base, keys, n);
 }
-#undef aref
-#undef aset
-#undef INDEX_fn
-#define aref   _aref_impl
-#define aset   _aset_impl
-#define INDEX_fn  _index_impl
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _snoc_cursor_get(const char *varname) {
     (void)varname; return NULVCL;
 }
-#define cursor_get(n)   _snoc_cursor_get(n)
-#define pat_break(chars)    pat_break_((chars))
-#define pat_any(chars)      pat_any_cs((chars))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _snoc_pat_var(const char *name) { return pat_ref(name); }
 static inline DESCR_t _snoc_pat_val(DESCR_t v)          { return var_as_pattern(v); }
@@ -101,11 +90,6 @@ static inline DESCR_t _snoc_pat_cond(DESCR_t child, const char *var) {
 static inline DESCR_t _snoc_pat_imm(DESCR_t child, const char *var) {
     return pat_assign_imm(child, STRVAL((char *)var));
 }
-#define pat_var(name)           _snoc_pat_var(name)
-#define pat_val(v)              _snoc_pat_val(v)
-#define pat_deref(v)            _snoc_pat_deref(v)
-#define pat_cond(child, var)    _snoc_pat_cond(child, var)
-#define pat_imm(child, var)     _snoc_pat_imm(child, var)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void INIT_fn(void)    { core_lib_init(); extern void inc_init(void); inc_init(); }
 static inline void finish(void)  { }
@@ -136,7 +120,4 @@ static inline void ABORT_fn(int lineno) {
     fprintf(stderr, "ABORT at line %d\n", lineno);
     exit(1);
 }
-#define ABRT_GUARD_DECL   jmp_buf _stmt_jmp;
-#define ABRT_GUARD_SET    (push_abort_handler(&_stmt_jmp), setjmp(_stmt_jmp))
-#define ABRT_GUARD_POP    pop_abort_handler()
 #endif

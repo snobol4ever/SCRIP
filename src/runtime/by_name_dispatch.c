@@ -168,8 +168,6 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
 DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
-typedef struct { int m; unsigned bm; } plw_zhpair_t;
-static plw_zhpair_t *g_plw_zhp = 0; static int g_plw_zhp_n = 0, g_plw_zhp_cap = 0;
 typedef struct { int m; arena_mark_t am; } plw_cwpair_t;
 static plw_cwpair_t *g_plw_cwp = 0; static int g_plw_cwp_n = 0, g_plw_cwp_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -188,22 +186,9 @@ static void plw_cw_kill_to(int m) {
     if (g_plw_cwp_n > 0 && g_plw_cwp[g_plw_cwp_n - 1].m == m) rt_pl_cellws_release(g_plw_cwp[g_plw_cwp_n - 1].am);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plw_zh_mark_push(int m) {
-    extern int rt_zeta_mode(void); extern unsigned rt_zh_birthmark(void);
-    plw_cw_mark_push(m);
-    if (rt_zeta_mode() != 2) return;
-    while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m >= m) g_plw_zhp_n--;
-    if (g_plw_zhp_n >= g_plw_zhp_cap) { g_plw_zhp_cap = g_plw_zhp_cap ? g_plw_zhp_cap * 2 : 64; g_plw_zhp = (plw_zhpair_t *)realloc(g_plw_zhp, (size_t)g_plw_zhp_cap * sizeof(plw_zhpair_t)); if (!g_plw_zhp) abort(); }
-    g_plw_zhp[g_plw_zhp_n].m = m; g_plw_zhp[g_plw_zhp_n].bm = rt_zh_birthmark(); g_plw_zhp_n++;
-}
+static void plw_zh_mark_push(int m) { plw_cw_mark_push(m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plw_zh_kill_to(int m) {
-    extern int rt_zeta_mode(void); extern void rt_zh_kill_since(unsigned);
-    plw_cw_kill_to(m);
-    if (rt_zeta_mode() != 2) return;
-    while (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m > m) g_plw_zhp_n--;
-    if (g_plw_zhp_n > 0 && g_plw_zhp[g_plw_zhp_n - 1].m == m) rt_zh_kill_since(g_plw_zhp[g_plw_zhp_n - 1].bm);
-}
+static void plw_zh_kill_to(int m) { plw_cw_kill_to(m); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_builtin_is_known(const char *name)
 {

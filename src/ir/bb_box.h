@@ -16,7 +16,6 @@ static inline DESCR_t descr_bool(int ok) {
 }
 static const int α = 0;
 static const int β = 1;
-#define BB_ALPHA_DEFINED 1
 extern const char * Σ;
 extern int          Δ;
 extern int          Ω;
@@ -30,7 +29,6 @@ static inline void * bb_enter(void ** ζζ, size_t size) {
     }
     return ζ;
 }
-#define BB_ENTER(ref, T)  ((T *)bb_enter((void **)(ref), sizeof(T)))
 typedef DESCR_t (*bb_box_fn)(void * zeta, int entry);
 typedef struct { bb_box_fn fn; void * ζ; size_t ζ_size; } bb_node_t;
 typedef struct { int n; }                             len_t;

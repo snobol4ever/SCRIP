@@ -12,7 +12,7 @@ void   rt_zls_release_to(void *mark);
 extern "C" long *rt_anchor_ptr(void);
 }
 #include "x86_asm.h"
-#define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
+#define hfc() (_.op_fc_wbytes > 0)
 #define subjc() (_.op_subj_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int hpin(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_HEAD_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }

@@ -67,7 +67,6 @@ const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
 #include "driver.h"
-#define LABEL_MAX STAGE2_LABEL_MAX
 #define CALL_STACK_MAX 256
 #define SHADOW_MAX 32
 typedef struct { char name[64]; DESCR_t val; } ShadowEntry;

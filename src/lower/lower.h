@@ -13,7 +13,6 @@
 extern int g_postfix_resume;
 #define T0(t) ((t)->n > 0 ? (t)->c[0] : NULL)
 #define T1(t) ((t)->n > 1 ? (t)->c[1] : NULL)
-#define T2(t) ((t)->n > 2 ? (t)->c[2] : NULL)
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
 void lc_γ_to_β(IR_t *nd, IR_t *t);

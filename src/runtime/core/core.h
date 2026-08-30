@@ -44,7 +44,6 @@ static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
 #define CSETVAL(s_) ((DESCR_t){ .v = DT_S, .slen = 0xFFFFFFFFu, .s = (s_) })
 #define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
 #define NAMEVAL(s_)  ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
-#define STYPE(v_)    ((v_).v)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int IS_NULL_fn(DESCR_t v)  { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
 static inline int IS_STR_fn(DESCR_t v)   { return v.v == DT_S || v.v == DT_SNUL; }
@@ -195,7 +194,6 @@ typedef struct _TBBLK_t {
   no longer compiles, which is deliberate: it is how every one of the twelve former chain walks was found.  Entries
   are dense in slot[0..len-1] (delete compacts), so the null test doubles as the loop bound.  Caller declares e_. */
 #define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
-#define TBL_BUCKET_FOREACH(t_, b_, e_) if ((t_)->buckets[b_]) for (unsigned _ts = 0; _ts < (t_)->buckets[b_]->len && ((e_) = &(t_)->buckets[b_]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
@@ -281,13 +279,8 @@ const char *FUNC_PARAM_fn(const char *fname, int i);
 const char *FUNC_LOCAL_fn(const char *fname, int i);
 const char *FUNC_ENTRY_fn(const char *fname);
 int     FUNC_IS_ENTRY_LABEL(const char *label);
-#define RETCODE_SUCCEED  0
-#define RETCODE_CONCEDE  1
-#define SGOTO     2
-#define SRETURN   3
 #define FRETURN  4
 #define NRETURN  5
-#define RETCODE_END  6
 DESCR_t SIZE_fn(DESCR_t s);
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n);
 DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to);

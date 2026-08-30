@@ -5,10 +5,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "ast.h"
-#define expr_left(e)     ((e) && (e)->n >= 1 ? (e)->c[0] : NULL)
 #define expr_right(e)    ((e) && (e)->n >= 2 ? (e)->c[1] : NULL)
-#define expr_arg(e, i)   ((e) && (i) >= 0 && (i) < (e)->n ? (e)->c[(i)] : NULL)
-#define expr_nargs(e)    ((e) ? (e)->n : 0)
 typedef struct STMT_t STMT_t;
 struct STMT_t {
     char    *label;

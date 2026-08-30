@@ -16,8 +16,8 @@ extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
 extern "C" long zvo_owner_dout(int cur_head);
 extern "C" long rt_match_end_all(const char *mark, const char *top, const char *subj, const uint64_t *outer);
 #include "x86_asm.h"
-#define rfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_disp >= 0)
-#define hfc() (x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0)
+#define rfc() (_.op_fc_disp >= 0)
+#define hfc() (_.op_fc_wbytes > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int one_end(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_END"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int oscap_l(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OS_CAP"); v = (e && *e == '0') ? 0 : 1; } return v; }

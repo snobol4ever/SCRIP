@@ -452,17 +452,8 @@ inline std::string x86_jcc(const char * mnem, int port) {
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
 }
-extern "C" int rt_zeta_port_mode(void);
-extern "C" int rt_zc_frame_live(void);
-extern "C" int rt_zeta_storage_get(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_zc_frame() { return rt_zc_frame_live(); }
-inline int x86_zstorage() { return rt_zeta_storage_get(); }
-extern "C" void *rt_zh_bump_slow(long bytes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline void *rt_zh_bump_slow_addr() { return (void *)rt_zh_bump_slow; }
-inline int x86_port_mode() { return rt_zeta_port_mode(); }
-inline int x86_port_cstack() { return 1; }
 inline int x86_fc_on()       { return _.op_fc_bytes > 0; }
 inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
 inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [off %d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }
@@ -494,9 +485,7 @@ inline const char * x86_fb()         { return "rsp"; }
 inline int          x86_fb_num()     { return x86_fb_data() ? 5 : 4; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
-extern "C" int rt_zeta_mode(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_zeta_mode() { return rt_zeta_mode(); }
 inline std::string x86_sub(const char * reg, long imm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_align_assert_on(void) {
@@ -2085,8 +2074,6 @@ inline std::string x86_port_hook(int site, int port) {
     }
     if (site == X86H_JMP && port == X86P_GAMMA && _.op_zgpop != 0) s += x86_add("rsp", (long)_.op_zgpop);
     if (site == X86H_JMP && port == X86P_OMEGA && _.op_wpop != 0) s += x86_add("rsp", (long)_.op_wpop);
-    if (site == X86H_DEF && port == X86P_ALPHA && _.op_zls2_bytes > 0 && _.op_zls2_ops == 0 && x86_port_mode() == ZC_PORT_ALLOC)
-        s += x86_sub(x86_zr(), _.op_zls2_bytes);
     if (site == X86H_DEF && port == X86P_ALPHA) {
         static int on = -1;
         if (on < 0) { const char *e = getenv("SCRIP_RBX_FIELD_TRACE"); on = (e && *e == '1') ? 1 : 0; }
@@ -2126,7 +2113,7 @@ inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = g
 inline int x86_zdp_rbp_frames() {
     if (!_.op_zdp_rbp) return 0;
     if (_.op_node_kind == (int)IR_MATCH_BEGIN) return emit_match_rbp();
-    if (_.op_node_kind == (int)IR_MATCH_DEFER) return (((_.op_seal == 1) || emit_defer_carve_rbp()) && x86_port_cstack() && emit_defer_rbp()) ? 1 : 0;
+    if (_.op_node_kind == (int)IR_MATCH_DEFER) return (((_.op_seal == 1) || emit_defer_carve_rbp()) && emit_defer_rbp()) ? 1 : 0;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

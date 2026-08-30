@@ -23,7 +23,7 @@ static void rt_zls_report(void)
     long depth = 0; void *it = g_zls_cur; while (it) { depth += 1; it = ((void **)((char *)it - ZLS_HDR))[0]; }
     if (!getenv("SCRIP_ZETA_TELEM") && !getenv("SCRIP_ZLS_LIFO_PROBE")) return;
     fprintf(stderr, "[ZLS] chain_depth=%ld live=%ld %s\n", depth, g_zls_allocs - g_zls_releases, depth == (g_zls_allocs - g_zls_releases) ? "COHERENT" : "ORPHANED");
-    fprintf(stderr, "[ZLS] ZC_INIT=%d ZC_POISON=%d zblock=%ldKB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n", (int)ZC_INIT, (int)ZC_POISON,
+    fprintf(stderr, "[ZLS] zblock=%ldKB allocs=%ld releases=%ld live=%ld nonhead=%ld bytes=%ld\n",
             (long)ZC_ZBLOCK_KB, g_zls_allocs, g_zls_releases, g_zls_allocs - g_zls_releases, g_zls_nonhead, g_zls_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -55,7 +55,7 @@ void *rt_zls_alloc(long bytes)
 void *rt_zls_frames_head(void) { return g_zls_cur; }
 void *rt_zls_frame_prev(void *fb) { return fb ? ((void **)((char *)fb - ZLS_HDR))[0] : (void *)0; }
 long rt_zls_frame_size(void *fb) { return fb ? (((long *)((char *)fb - ZLS_HDR))[1] & ~15L) : 0L; }
-static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
+static int rt_zls_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS_POISON"); p = e ? (atoi(e) != 0) : 1; } return p; }
 static int rt_zls_reltrace(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ZLS_RELEASE_TRACE") != NULL; return p; }
 static int rt_zls_arbtrace(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ARBNO_STEP1_TRACE") != NULL; return p; }
 static int rt_zls2_tron(void) { static int p = -1; if (p < 0) p = getenv("SCRIP_ZLS2_TRACE") != NULL; return p; }
@@ -115,7 +115,7 @@ void *rt_zls2_push(long k)
     return (void *)g_zls2_cur;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_zls2_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS2_POISON"); p = e ? (atoi(e) != 0) : (ZC_POISON == ZC_POISON_FILL); } return p; }
+static int rt_zls2_poison(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_ZLS2_POISON"); p = e ? (atoi(e) != 0) : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_zls2_pop(long k)
 {
@@ -144,12 +144,4 @@ void rt_zls2_release_to(void *mark)
 }
 int g_zeta_mode = (int)ZC_ZETA;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int  rt_zeta_mode(void) { return (int)ZC_ZETA; }
-int  rt_zeta_port_mode(void) { return (int)ZC_PORT; }
-int  rt_zeta_storage_get(void) { return (int)ZC_STORAGE; }
-int  rt_zc_frame_live(void) { return ZC_FRAME; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_zeta_cstack(void)
-{
-    return 1;
-}

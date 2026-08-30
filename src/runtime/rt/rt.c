@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "zeta_alloc.h"
-#include "zeta_heap.h"
 #include "zeta_choices.h"
 extern const char *Σ;
 extern int Σlen;
@@ -64,7 +63,6 @@ __asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
 #include <string.h>
 #include <math.h>
 extern void    core_lib_init(void);
-extern int     rt_zeta_cstack(void);
 extern int     exec_stmt(const char *subj_name, DESCR_t *subj_var,
                          DESCR_t pat, DESCR_t *repl, int has_repl);
 extern DESCR_t NV_GET_fn(const char *name);
@@ -1130,22 +1128,6 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     long total = 16L + (long)fbytes;
-    if (rt_zeta_mode() == ZC_ZETA_ZH) {
-        void *ub = (void *)0; unsigned h = rt_zh_alloc(total, &ub);
-        char *base = (char *)ub; char *fb = base + 16;
-        ((void **)base)[0] = (void *)p->fn;
-        ((long *)base)[1] = total;
-        { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; }
-        if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
-        rt_frame_bind_args(fb, p, nargs);
-        if (hout) *hout = (void *)(uintptr_t)h;
-        rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
-        fb = (char *)rt_zh_deref(h) + 16;
-        DESCR_t result = *(DESCR_t *)(fb + 0);
-        rt_zh_unpin(h);
-        if (IS_FAIL(result)) { if (hout) *hout = (void *)0; rt_zh_mark_dead(h); }
-        return result;
-    }
     char *base = (char *)rt_zls_alloc(total);
     char *fb = base + 16;
     ((void **)base)[0] = (void *)p->fn;
@@ -1186,19 +1168,6 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
           rt_k_level--;
           return rt_genp_triage(g, ok, out2, hslot);
       } }
-    if (rt_zeta_mode() == ZC_ZETA_ZH) {
-        unsigned h = (unsigned)(uintptr_t)frame;
-        rt_zh_pin(h);
-        char *fb = (char *)rt_zh_deref(h) + 16;
-        bb_box_fn fn = (bb_box_fn)((void **)(fb - 16))[0];
-        if (!fn) { rt_zh_unpin(h); return FAILDESCR; }
-        rt_k_level++; (void)fn((void *)fb, 1); rt_k_level--;
-        fb = (char *)rt_zh_deref(h) + 16;
-        DESCR_t result = *(DESCR_t *)(fb + 0);
-        rt_zh_unpin(h);
-        if (IS_FAIL(result)) { rt_zh_mark_dead(h); *hslot = (void *)0; }
-        return result;
-    }
     DESCR_t result = rt_proc_resume_frame(frame);
     if (IS_FAIL(result) && hslot) *hslot = (void *)0;
     return result;
@@ -2064,7 +2033,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     int save_base = g_name_save_top;
     rt_name_save_push(&name, &p->rcell, (DESCR_t *)0, 0, 1);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    void *fb; if (rt_zeta_cstack()) fb = alloca((size_t)fbytes); else fb = rt_zls2_push((long)fbytes);
+    void *fb = alloca((size_t)fbytes);
     ((void **)fb)[0] = sl;
     DESCR_t *slots = (DESCR_t *)((char *)fb + 16);
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
@@ -2072,7 +2041,6 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     if (g_monitor_bin) mon_emit_call_bin(name);
     rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
     Σ = save_Σ; Σlen = save_Σlen;
-    if (!rt_zeta_cstack()) rt_zls2_release_to((void *)((char *)fb + fbytes));
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
     if (g_monitor_bin) mon_emit_return_bin(name, result);

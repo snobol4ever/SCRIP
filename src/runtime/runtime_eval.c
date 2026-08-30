@@ -331,7 +331,6 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) return g_lbl_tab[i].fn;
     return NULL;
 }
-#define GOTO_FRAME_BYTES (64 * 1024)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_goto_resolve(const char *name)
 {

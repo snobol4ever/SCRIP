@@ -19,7 +19,6 @@ extern "C" {
 #define RTCC_SLOT_R9    6
 #define RTCC_SLOT_R10   7
 #define RTCC_SLOT_R11   8
-#define RTCC_MBC_QUAD  31
 #ifndef RTCC_GLOBAL_R8_ANCHOR
 #define RTCC_GLOBAL_R8_ANCHOR   1
 #endif

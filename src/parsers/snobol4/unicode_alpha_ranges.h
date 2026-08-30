@@ -658,4 +658,3 @@ static const uint32_t unicode_alpha_ranges[][2] = {
     {0x30000u, 0x3134Au},
     {0x31350u, 0x323AFu},
 };
-#define UNICODE_ALPHA_RANGES_N 657

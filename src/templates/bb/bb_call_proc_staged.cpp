@@ -159,7 +159,7 @@ static int bcps_result_slot() {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int c2farm() { return x86_port_mode() == ZC_PORT_FORTH && _.op_fc_wbytes > 0; }
+static inline int c2farm() { return _.op_fc_wbytes > 0; }
 static int bcps_fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
@@ -209,7 +209,7 @@ static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
-    if (x86_zc_frame() == ZC_FRAME_RSP && fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && (!g_monitor_bin || getenv("SCRIP_MON_SCC")) && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
+    if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && (!g_monitor_bin || getenv("SCRIP_MON_SCC")) && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
         np = rt_proc_nparams(fname);
         if (np >= 0 && np <= 60 && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
@@ -266,7 +266,7 @@ static std::string bcps_det_arm() {
         int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
         int det_nA_z = (int)_.op_ival;
-        int det_fuse_z = (det_idx_z >= 0 && x86_zc_frame() == ZC_FRAME_RSP && det_nA_z >= 0 && det_nA_z <= 4);
+        int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[280]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
@@ -474,7 +474,7 @@ static std::string bcps_det_arm() {
     { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
     static const char *detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP && det_nA >= 0 && det_nA <= 4);
+    int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
@@ -638,7 +638,7 @@ static std::string bcps_det_arm() {
             ? x86("mov32", "edi", det_idx)
             + FOR(0, det_nA, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i); return x86("lea", detN_argreg[i], FRQ(slot)); })
             + x86("call", detN_nm[det_nA], detN_fp[det_nA])
-            : det_idx >= 0 && x86_zc_frame() == ZC_FRAME_RSP
+            : det_idx >= 0
             ? x86("mov32", "edi", (long)det_idx)
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp)
@@ -648,8 +648,7 @@ static std::string bcps_det_arm() {
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
          + (dc ? std::string("")
-            : (x86_zc_frame() == ZC_FRAME_RSP)
-            ? (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+            : (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
             + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_on() && _sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
             + bcps_wire_cross(3, 4)
             + x86("def", L(3))
@@ -659,41 +658,6 @@ static std::string bcps_det_arm() {
             + x86("def", L(4))
             + bcps_wire_land(_.op_sval)
             + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
-            + x86("jmp", L(2))
-            : is_dyn
-            ? x86("call", "rt_proc_open_fn", openfn_fp)
-            + x86("push", "r12")
-            + x86("sub", "rsp", 8L)
-            + x86("mov", "r12", "rsp")
-            + bcps_wire_cross(3, 4)
-            + x86("def", L(3))
-            + x86("comment", "is_dyn arm: no landing release here -- mov rsp,r12 below already discards the pushed pair (r12 was captured pre-push); an add here would shift the [rax+8] value read")
-            + x86("mov", "rax", "rsp")
-            + x86("mov", "rax", RDQ("rax", 8))
-            + x86("mov", "rdi", RDQ("rax", 0))
-            + x86("mov", "rsi", RDQ("rax", 8))
-            + x86("mov", "rsp", "r12")
-            + x86("add", "rsp", 8L)
-            + x86("pop", "r12")
-            + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
-            + x86("jmp", L(2))
-            + x86("def", L(4))
-            + x86("mov", "rsp", "r12")
-            + x86("add", "rsp", 8L)
-            + x86("pop", "r12")
-            + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
-            + x86("jmp", L(2))
-            : x86_frame_sink()
-            + x86_frame_base("rdi")
-            + x86("mov", "rsi", "rax")
-            + x86("call", "rt_frame_prep", prep_fp)
-            + x86_frame_base("rdi")
-            + x86("xor", "esi", "esi")
-            + x86("call", "rax")
-            + x86("mov", "rdi", "rax")
-            + x86("mov", "rsi", "rdx")
-            + x86_frame_unsink()
-            + x86("call", "rt_proc_call_epilogue_ret", epir_fp)
             + x86("jmp", L(2)))
          + IF(!dc, x86("def", L(1))
          + bcps_undef_fallback(undef_fp))

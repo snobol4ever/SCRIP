@@ -608,7 +608,6 @@ DESCR_t eval_ast_pat(tree_t *e) {
     abort();
 }
 #define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
-#define RT_CAS_CAPX_MAX     (1 << 16)
 #define RT_CAS_DFX_MAX      (1 << 14)
 #define RT_CAS_DCF_MAX      (1 << 14)
 #define RT_CAS_SPK_MAX      256

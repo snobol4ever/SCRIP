@@ -62,7 +62,6 @@
  * pointers again, an empty bucket is NULL and allocates nothing, and len now
  * shares a cache line with ent[0] instead of sitting in a separate 4 KB vector. */
 #define TBBUCK_LEN        0       /* TBBUCK_t.len   (unsigned)      */
-#define TBBUCK_CAP        4       /* TBBUCK_t.cap   (unsigned)      */
 #define TBBUCK_ENT        8       /* TBBUCK_t.ent[] (TBPAIR_t [])   */
 /* ⛔ THE BUCKET COUNT IS NO LONGER A COMPILE-TIME CONSTANT.  It is sized per table
  * from the program's own TABLE(n) estimate (SPITBOL: Arg1 is the estimated entry

@@ -3,7 +3,6 @@
 #define GC_HEAP_H
 #include <stdint.h>
 #define HB_ZCOL  200
-#define HB_ZPROM 201
 #define HB_FILL  202
 #define HB_WS    203
 #define HB_ZBLK  204

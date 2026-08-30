@@ -15,8 +15,8 @@ static std::string ma_line1() {
 std::string bb_match_arb() {
     x86_begin();
     if (getenv("SCRIP_ARB_DIAG"))
-        fprintf(stderr, "[ARB] AFTER-LINE1 x86_scratch_off=%d op_fc_bytes=%ld op_fc_base=%ld op_zdepth=%d op_fb_data=%d zstorage=%d fc_on=%d fc_hit0=%d regime0=%d emitted_tail=%s\n",
-                _.x86_scratch_off, (long)_.op_fc_bytes, (long)_.op_fc_base, _.op_zdepth, x86_fb_data(), (int)x86_zstorage(), x86_fc_on(), x86_fc_hit(_.x86_scratch_off),
+        fprintf(stderr, "[ARB] AFTER-LINE1 x86_scratch_off=%d op_fc_bytes=%ld op_fc_base=%ld op_zdepth=%d op_fb_data=%d fc_on=%d fc_hit0=%d regime0=%d emitted_tail=%s\n",
+                _.x86_scratch_off, (long)_.op_fc_bytes, (long)_.op_fc_base, _.op_zdepth, x86_fb_data(), x86_fc_on(), x86_fc_hit(_.x86_scratch_off),
                 x86_zop_regime(_.x86_scratch_off), ma_line1().substr(ma_line1().size() > 80 ? ma_line1().size() - 80 : 0).c_str());
     return ma_line1()
          + x86("mov",    "eax", "r14d")

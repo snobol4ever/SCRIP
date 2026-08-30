@@ -1,72 +1,10 @@
 #include <stdlib.h>
 #pragma once
-#define ZW_FRAME_K       56L
-#define ZW_FRAME_TOTAL   64L
-#define REX_W            0x48
-#define REX_WR           0x4C
-#define REX_B            0x41
-#define REX_WB           0x49
-#define MOV_EAX_IMM32    0xB8
-#define MOV_ECX_IMM32    0xB9
-#define MOV_EDX_IMM32    0xBA
-#define MOV_ESI_IMM32    0xBE
-#define MOV_EDI_IMM32    0xBF
-#define MOV_RM_R         0x89
-#define MOV_R_RM         0x8B
-#define MODRM_ECX_EAX    0xC1
-#define MODRM_EAX_ECX    0xC8
-#define MODRM_RDI_RAX    0xC7
-#define MODRM_RSP_FB5    0xEC
-#define MODRM_R10_INDIR  0x02
-#define MODRM_RCX_INDIR  0x01
-#define MODRM_R10D_EAX   0x02
-#define LEA              0x8D
-#define MODRM_RAX_RAXRCX 0x04
-#define SIB_RAX_RCX      0x08
-#define ESC              0x0F
-#define MOVZX_R_RM8      0xB6
-#define MODRM_EAX_EDI7   0x47
-#define MOVSXD_R_RM      0x63
-#define MODRM_RCX_R10    0x0A
-#define CMP_RM_IMM8      0x83
-#define CMP_RM_IMM32     0x81
-#define MODRM_CMP_ESI    0xFE
-#define CMP_EAX_IMM32    0x3D
-#define CMP_AL_IMM8      0x3C
-#define CMP_R_RM         0x3B
-#define CMP_RM_R         0x39
-#define MODRM_CMP_RSP    0xC4
-#define ADD_EAX_IMM32    0x05
-#define SUB_EAX_IMM32    0x2D
-#define XOR_RM_R         0x31
-#define MODRM_EAX_EAX    0xC0
-#define TEST_RM_R        0x85
-#define MODRM_RAX_RAX    0xC0
-#define INC_CALL_FF      0xFF
-#define MODRM_CALL_RAX   0xD0
-#define MODRM_INC_R13D   0x45
-#define REX_B_PUSH_R12   0x54
-#define REX_B_POP_R12    0x5C
-#define REX_B_PUSH_R10   0x52
-#define REX_B_POP_R10    0x5A
-#define JMP_REL8         0xEB
-#define JMP_REL32        0xE9
-#define JL_REL8          0x7C
-#define JGE_REL8         0x7D
-#define JE_REL8          0x74
-#define JNE_REL8         0x75
-#define JNE_REL32_X      0x85
-#define JE_REL32_X       0x84
-#define JL_REL32_X       0x8C
-#define JGE_REL32_X      0x8D
-#define JG_REL32_X       0x8F
 #define RET              0xC3
-#define NOP              0x90
 #ifdef __cplusplus
 extern "C" {
 #endif
 #define TEXT_MODE_INVOCATION  0
-#define TEXT_MODE_DEFINITION  1
 #include "rt/rt_arena.h"
 #include "bb_pool.h"
 #include "IR.h"
@@ -84,7 +22,6 @@ typedef enum {
     EMIT_NET              = 7,
     EMIT_WASM             = 8
 } bb_emit_mode_t;
-#define EMIT_BINARY     EMIT_BINARY_WIRED
 typedef enum {
     BB_MEDIUM_TEXT      = 0,
     BB_MEDIUM_BINARY    = 1,
@@ -97,18 +34,12 @@ extern int             g_use_bb_macros;
 #define MEDIUM_TEXT      (g_medium == BB_MEDIUM_TEXT)
 #define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
 #define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)
-#define USE_SM_MACROS  (g_use_sm_macros)
-#define USE_BB_MACROS  (g_use_bb_macros)
 #define BB_LABEL_NAME_MAX   80
 #define BB_LABEL_UNRESOLVED (-1)
-#define EMIT_UNRESOLVED     BB_LABEL_UNRESOLVED
-#define EMIT_LABEL_MAX      BB_LABEL_NAME_MAX
 typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label_t;
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
-#define emit_label_ok(l)       bb_label_defined(l)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
 #define BB_PATCH_MAX   65536
-#define EMIT_PATCH_MAX BB_PATCH_MAX
 typedef enum { PATCH_REL8, PATCH_REL32, PATCH_ABS64 } bb_patch_kind_t;
 typedef struct { int site; bb_label_t * label; bb_patch_kind_t kind; } bb_patch_t;
 typedef int emitter_t;
@@ -190,17 +121,6 @@ typedef struct { IR_graph_t ** bodies; int nbodies; int cur; int mark; void * sa
                  long * idx_key;
                  int idx_ok;
                } bb_choice_state_t;
-#define RESOLVE_IDX_VAR    0L
-#define RESOLVE_IDX_NOKEY  (-1L)
-#define RESOLVE_IDX_CLS_ATOM (1L << 60)
-#define RESOLVE_IDX_CLS_INT  (2L << 60)
-#define RESOLVE_IDX_CLS_FLT  (3L << 60)
-#define RESOLVE_IDX_CLS_CMP  (4L << 60)
-#define RESOLVE_IDX_PAYLOAD_MASK ((1L << 60) - 1L)
-#define RESOLVE_IDX_ATOM(id)        (RESOLVE_IDX_CLS_ATOM | ((long)(id) & RESOLVE_IDX_PAYLOAD_MASK))
-#define RESOLVE_IDX_INT(v)          (RESOLVE_IDX_CLS_INT  | ((long)(v)  & RESOLVE_IDX_PAYLOAD_MASK))
-#define RESOLVE_IDX_FLT             (RESOLVE_IDX_CLS_FLT)
-#define RESOLVE_IDX_CMP(fn,ar)      (RESOLVE_IDX_CLS_CMP  | ((((long)(fn) << 16) | ((long)(ar) & 0xFFFF)) & RESOLVE_IDX_PAYLOAD_MASK))
 typedef struct { IR_t ** args; int nargs; const char * callee; int arity; void * cs; } bb_goal_state_t;
 typedef struct { int nclauses; int arity; int mark_slot; IR_t ** args; IR_t ** consts; } pl_gz_choice_state_t;
 typedef struct { void * graph_key; int base; int arity; int nlocals; int mark_slot; IR_t * body_head; IR_t * frame_node; void * lblA; void * lblB; int nchild;
@@ -277,7 +197,6 @@ static inline bb_label_t bb_label_from_name(const char *name) {
     if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
     return lbl;
 }
-#define bb_flat_set_intern_str(fn)        lower_flat_set_intern_str(fn)
 #ifdef __cplusplus
 }
 #endif
@@ -296,7 +215,6 @@ int     emitter_end            (void);
 extern int g_is_text;
 extern int g_emit_text_mode;
 #define TEXT_MODE_INVOCATION  0
-#define TEXT_MODE_DEFINITION  1
 void emit_banner              (const char * text);
 void emit_bb_dispatch_jne_jmp (bb_label_t * lbl_γ, bb_label_t * lbl_ω);
 void emit_bb_zeta_rdi         (uint64_t ptr, const char * sym);
@@ -616,7 +534,6 @@ static inline int emit_pl_gamma_retain(void) { static int r = -1; if (r < 0) { c
 static inline int          emit_rec_fb_num(void) { return 4; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
 static inline int emit_rec_rsp_arm(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; } return on && g_emit.flat_pat && !emit_jmp_pin_legacy(); }
-#define REC_SLOT_FROM_CELL (-24)
 int emit_match_begin_stfh_k(void);
 int emit_match_rbp(void);
 int emit_arbno_rbp(void);
@@ -638,7 +555,6 @@ extern int         Σlen;
 extern int         Δ;
 #define TEMPLATE_ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 #define TEMPLATE_ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
-#define TEMPLATE_ADDR_DELTA   ((uint64_t)(uintptr_t)&Δ)
 #ifdef __cplusplus
 }
 #endif

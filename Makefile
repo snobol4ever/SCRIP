@@ -123,7 +123,6 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \
     $(RT)/rt/zeta_alloc.c \
-    $(RT)/rt/zeta_heap.c \
     $(RT)/rt/gc_heap.c \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \

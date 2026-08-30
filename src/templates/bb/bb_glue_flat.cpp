@@ -7,11 +7,11 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_enter() {
-    return IF((x86_zstorage() == ZC_STORAGE_CELL_STACK || x86_zstorage() == ZC_STORAGE_CELL_HEAP) && _.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
+    return IF(_.op_fc_bytes > 0, x86("sub", "rsp", _.op_fc_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_flat_leave() {
-    return IF((x86_zstorage() == ZC_STORAGE_CELL_STACK || x86_zstorage() == ZC_STORAGE_CELL_HEAP) && _.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
+    return IF(_.op_fc_bytes > 0, x86("add", "rsp", _.op_fc_bytes));
 }
 int g_glue_entered = 0;
 int g_glue_o_sup = 0;

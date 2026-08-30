@@ -134,7 +134,6 @@ static inline tree_t * ast_node_new(tree_e kind) {
     e->t = kind;
     return e;
 }
-#define FIELD_NAME(e) ((e)->n >= 2 && (e)->c[1] ? (e)->c[1]->v.sval : NULL)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void ast_tree_free(tree_t *p) {
     if (!p) return;
