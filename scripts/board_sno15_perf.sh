@@ -20,7 +20,7 @@ SBL=${SBL:-$(sbl_clean_bin)}   # BENCHMARK oracle (s255) -- x64/bin/sbl is instr
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited
 R=${R:-3}; TMO=${TMO:-300}; MIN_MS=${MIN_MS:-800}
-inp_for() { case $1 in claws5*) echo "$D/CLAWS5inTASA.dat";; treebank*) echo "$D/VBGinTASA.dat";;
+inp_for() { case $1 in claws5*) echo "$D/snobol4/claws5/CLAWS5inTASA.dat";; treebank*) echo "$D/snobol4/treebank/VBGinTASA.dat";;
   json*) echo "$D/twitter.json";; calculator*) echo "$D/calculator.input";; *) echo "";; esac; }
 xf_for()  { case $1 in treebank*) echo "-s256m";; *) echo "";; esac; }
 med() { python3 -c "import sys,statistics;v=[int(x) for x in sys.argv[1:] if x];print(int(statistics.median(v)) if v else 0)" "$@"; }

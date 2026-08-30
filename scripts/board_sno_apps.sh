@@ -46,8 +46,8 @@ run() {
   [ $ok4 = 1 ] && { m4=$(med "${t4[@]}"); r4=$(rat "$m4" "$msb"); }
   printf '%-18s %4s %8s %8s %8s %8s %8s\n' "$nm" "$xn" "$msb" "$m3" "$m4" "$r3" "$r4"
 }
-run claws5         "${XN_CLAWS5:-20}"   "$D/CLAWS5inTASA.dat" ""
-run treebank       "${XN_TBL:-6}"       "$D/VBGinTASA.dat"    "-s256m"
+run claws5         "${XN_CLAWS5:-20}"   "$D/snobol4/claws5/CLAWS5inTASA.dat" ""
+run treebank       "${XN_TBL:-6}"       "$D/snobol4/treebank/VBGinTASA.dat"    "-s256m"
 run calculator-1   "${XN_C1:-10}"       "$D/calculator.input" ""
 run calculator-2   "${XN_C2:-48}"       "$D/calculator.input" ""
 printf '%.0s-' {1..66}; echo
