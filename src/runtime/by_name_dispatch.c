@@ -922,7 +922,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (!nm) return FAILDESCR;
     if (rt_proc_is_registered(nm) || !strcmp(nm, "main")) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k];
+        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_call_proc_descr(nm, n);
     }
     return rt_call_arr(nm, argv, n);
@@ -936,7 +936,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!nm) return FAILDESCR;
     if (rt_proc_is_registered(nm)) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
-        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k];
+        for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_proc_call_gen_h(nm, n, hslot);
     }
     return rt_call_value(callee, argv, n);
@@ -963,7 +963,7 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }   /* N-2 (ceo s283h): bb_call_value's spine transfer pushes only the wire pair, so a region-resident callee would read garbage at [rsp+16] (seat10's apply-call SIGSEGV). Route N-2 generators through rt_proc_call_gen_h's coexpr window, whose n2 entry shim supplies a real region; the direct spine fast path for apply is its own follow-on row. */
-    { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; }
+    { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }
     if (!rt_proc_call_open(nm, n)) return (void *)0;
     return rt_proc_fn(nm);
 }
