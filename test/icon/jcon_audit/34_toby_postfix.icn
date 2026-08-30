@@ -1,1 +1,0 @@
-procedure main(); every write(1 to 7 by 2); end

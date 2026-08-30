@@ -58,11 +58,11 @@ echo "=== --monitor all-language smoke (IM-12) ==="
 
 # --- SNOBOL4 ---
 run_expect_agree "snobol4: arith_add" \
-    "$ROOT/test/snobol4/arith_new/023_arith_add.sno"
+    "$ROOT/../corpus/tests/scrip_test/snobol4/arith_new/023_arith_add.sno"
 
 # --- Icon ---
 run_expect_agree "icon: hello" \
-    "$ROOT/test/icon/hello.icn"
+    "$ROOT/../corpus/tests/scrip_test/icon/hello.icn"
 
 # --- Snocone ---
 run_expect_agree "snocone: fence" \

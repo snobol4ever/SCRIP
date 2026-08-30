@@ -1,1 +1,0 @@
-procedure main(); x := 9; case x of { 1 : write("one"); default : write("d") }; end

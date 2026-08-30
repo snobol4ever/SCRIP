@@ -10,13 +10,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="${SCRIP:-$HERE/../s
 # conversion): library/probe_reference/bb no longer holds loose .sno files, so the two witnesses this gate hardcodes by
 # exact path are materialized here via the harness's `extract` (ONE AUTHORITY for the suite grammar,
 # same as every other suite consumer) into a scratch dir, then used exactly as the old standalone files were.
-SUITE_SNO="${SUITE_SNO:-$HERE/../../corpus/tests/snobol4/probe/bb.sno}"
-SUITE_REF="${SUITE_REF:-$HERE/../../corpus/tests/snobol4/probe/bb.ref}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # re-pointed to THE MASTER by origin (zero-subfolders cutover, ceo s283h)
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT; fail=0
 S1="$W/test_sno_call2bb_1.sno"; S2="$W/test_sno_call2bb_2.sno"
-python3 "$HERE/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" test_sno_call2bb_1 "$S1" || { echo "SETUP: extract test_sno_call2bb_1 failed"; exit 2; }
-python3 "$HERE/corpus_suite_harness.py" extract "$SUITE_SNO" "$SUITE_REF" test_sno_call2bb_2 "$S2" || { echo "SETUP: extract test_sno_call2bb_2 failed"; exit 2; }
+master_extract_origin probe_bb__test_sno_call2bb_1 "$S1" || { echo "SETUP: extract test_sno_call2bb_1 failed"; exit 2; }
+master_extract_origin probe_bb__test_sno_call2bb_2 "$S2" || { echo "SETUP: extract test_sno_call2bb_2 failed"; exit 2; }
 ck() { [ "$2" = "$3" ] && echo "PASS $1" || { echo "FAIL $1: got [$2] want [$3]"; fail=1; }; }
 ck "m3 default  dbl" "$(timeout 8 "$SCRIP" --run "$S1" </dev/null 2>&1 | tr '\n' ' ')" "10 42 "
 ck "m3 gated    dbl" "$(SCRIP_STMT_FRAME=1 SCRIP_CALL2BB=1 timeout 8 "$SCRIP" --run "$S1" </dev/null 2>&1 | tr '\n' ' ')" "10 42 "

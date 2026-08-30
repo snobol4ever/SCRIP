@@ -1,1 +1,0 @@
-procedure main(); i := 0; until i >= 3 do i +:= 1; write(i); end

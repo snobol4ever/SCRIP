@@ -31,7 +31,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP_CC="$ROOT/scrip"
 CORPUS="${CORPUS:-$(cd "$ROOT/../corpus" 2>/dev/null && pwd || echo "")}"
-BASELINE="$ROOT/test/emit_baseline"
+BASELINE="$ROOT/../corpus/tests/scrip_test/emit_baseline"
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; RESET='\033[0m'
 ok()   { echo -e "${GREEN}  OK${RESET}  $*"; }
@@ -158,13 +158,13 @@ echo ""
 # Generate baseline if all three backends work in multi-file mode, else use xargs
 echo -e "${BOLD}BASELINE — generating $BASELINE${RESET}"
 info "This writes one .s/.j/.il per corpus file — commit the result."
-bash "$ROOT/test/run_emit_check.sh" --update 2>&1
+bash "$ROOT/../corpus/tests/scrip_test/run_emit_check.sh" --update 2>&1
 echo ""
 
 # Run the check to confirm baseline matches current output
 echo -e "${BOLD}CHECK — diffing against baseline${RESET}"
 START=$(date +%s%N 2>/dev/null || date +%s)
-bash "$ROOT/test/run_emit_check.sh" --verbose 2>&1
+bash "$ROOT/../corpus/tests/scrip_test/run_emit_check.sh" --verbose 2>&1
 END=$(date +%s%N 2>/dev/null || date +%s)
 WALL=$(( (END - START) / 1000000 ))
 echo ""
@@ -206,14 +206,14 @@ echo -e "${BOLD}═════════════════════�
 #
 # Quick test that Icon multi-file works today:
 echo -e "${BOLD}BONUS — verify Icon/Prolog multi-file (should work already)${RESET}"
-ICN_FILES=$(find "$ROOT/test/parser/icon/corpus" -name "*.icn" 2>/dev/null | head -10 | tr '\n' ' ')
+ICN_FILES=$(find "$ROOT/../corpus/tests/scrip_test/parser/icon/corpus" -name "*.icn" 2>/dev/null | head -10 | tr '\n' ' ')
 if [[ -n "$ICN_FILES" ]]; then
   eval "$SCRIP_CC -x86 $ICN_FILES" > /dev/null 2>&1 && ok "Icon x86 multi-file: OK" || fail "Icon x86 multi-file: CRASH"
-  find "$ROOT/test/parser/icon/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
+  find "$ROOT/../corpus/tests/scrip_test/parser/icon/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
 fi
-PRO_FILES=$(find "$ROOT/test/parser/prolog/corpus" -name "*.pro" -o -name "*.pl" 2>/dev/null | head -10 | tr '\n' ' ')
+PRO_FILES=$(find "$ROOT/../corpus/tests/scrip_test/parser/prolog/corpus" -name "*.pro" -o -name "*.pl" 2>/dev/null | head -10 | tr '\n' ' ')
 if [[ -n "$PRO_FILES" ]]; then
   eval "$SCRIP_CC -x86 $PRO_FILES" > /dev/null 2>&1 && ok "Prolog x86 multi-file: OK" || fail "Prolog x86 multi-file: CRASH"
-  find "$ROOT/test/parser/prolog/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
+  find "$ROOT/../corpus/tests/scrip_test/parser/prolog/corpus" -name "*.s" | xargs rm -f 2>/dev/null || true
 fi
 echo ""

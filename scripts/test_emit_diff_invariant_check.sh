@@ -40,10 +40,10 @@ if [[ -n "${CORPUS:-}" ]]; then
   TEST_PRO="$CORPUS/tests/prolog"
   TEST_REB="$CORPUS/tests/rebus"
 else
-  TEST_SNO="$ROOT/test/snobol4"
-  TEST_ICN="$ROOT/test/icon"
-  TEST_PRO="$ROOT/test/prolog"
-  TEST_REB="$ROOT/test/rebus"
+  TEST_SNO="$ROOT/../corpus/tests/scrip_test/snobol4"
+  TEST_ICN="$ROOT/../corpus/tests/scrip_test/icon"
+  TEST_PRO="$ROOT/../corpus/tests/scrip_test/prolog"
+  TEST_REB="$ROOT/../corpus/tests/scrip_test/rebus"
 fi
 
 UPDATE=0; VERBOSE=0

@@ -1,1 +1,0 @@
-procedure main(); write(*'abc'); end

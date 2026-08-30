@@ -1,6 +1,0 @@
-procedure main()
-  t := table(7);
-  write(t["absent"]);
-  t["real"] := 1;
-  write(t["real"]);
-end

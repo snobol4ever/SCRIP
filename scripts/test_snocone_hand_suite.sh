@@ -8,7 +8,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-TESTDIR="$HERE/../test/snocone"
+TESTDIR="$HERE/../../corpus/tests/scrip_test/snocone"
 TIMEOUT="${TIMEOUT:-8}"
 GREEN='\033[0;32m'; RED='\033[0;31m'; RESET='\033[0m'
 

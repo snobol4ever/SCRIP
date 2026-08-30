@@ -57,7 +57,7 @@ run_sno() {
 while IFS= read -r sno; do run_sno "$sno"; done < <(
     find "$CORPUS/snobol4" "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort | head -300
 )
-[ -f "$HERE/../test/snobol4/beauty.sno" ] && run_sno "$HERE/../test/snobol4/beauty.sno"
+[ -f "$HERE/../../corpus/tests/scrip_test/snobol4/beauty.sno" ] && run_sno "$HERE/../../corpus/tests/scrip_test/snobol4/beauty.sno"
 
 T_M4=$((SECONDS-T0))
 echo ""

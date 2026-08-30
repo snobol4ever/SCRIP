@@ -1,1 +1,0 @@
-procedure main(); x := [1] ||| [2, 3]; write(*x); write(x[3]); end

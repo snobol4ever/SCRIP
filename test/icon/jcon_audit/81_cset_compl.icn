@@ -1,9 +1,0 @@
-procedure main()
-  c := ~'abc';
-  if any(c, "d") then write("y1");
-  if any(c, "a") then write("bad") else write("y2");
-  write(*~~'xyz');
-  e := ~'ab' ** ~'bc';
-  if any(e, "z") then write("y4");
-  if any(e, "b") then write("bad") else write("y5")
-end

@@ -3,7 +3,7 @@
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="$ROOT/scrip"
-TESTS="$ROOT/test/raku"
+TESTS="$ROOT/../corpus/tests/scrip_test/raku"
 pass=0; fail=0
 
 run_test() {

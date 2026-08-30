@@ -4,7 +4,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 SCRIP="$HERE/../scrip"
 SAME=0; DIFF=0; SKIP=0
 DIFFLIST=""
-for f in $(find "$HERE/../test/snobol4" -name "*.sno" | sort); do
+for f in $(find "$HERE/../../corpus/tests/scrip_test/snobol4" -name "*.sno" | sort); do
   rel="${f#$HERE/../}"
   old_raw=$(SCRIP_NL=0 timeout 15s "$SCRIP" --run "$f" < /dev/null 2>&1); old_rc=$?
   new_raw=$(SCRIP_NL=1 timeout 15s "$SCRIP" --run "$f" < /dev/null 2>&1); new_rc=$?

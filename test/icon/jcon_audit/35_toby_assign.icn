@@ -1,1 +1,0 @@
-procedure main(); every x := 7 to 9 do write(x); end

@@ -160,7 +160,7 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort)
 # ⛔ So crosscheck gets the same refusal, conditioned on the distinguisher the other two do not need: absence of
 # the loose tree is acceptable ONLY when the converted families are actually present to be graded instead.
 if [ ! -d "$CORPUS/crosscheck" ]; then
-    _cc_master="$CORPUS/tests/snobol4/master/ALL.csv"
+    _cc_master="$CORPUS/tests/snobol4/ALL.csv"
     if [ -f "$_cc_master" ] && grep -q ',crosscheck_' "$_cc_master"; then
         echo "note: loose crosscheck tree is absent and its entries live in the MASTER suite (one-flat-suite ruling) — graded by the master block below, not skipped."
     else
@@ -181,17 +181,17 @@ fi
 # ── THE ONE FLAT SUITE (Lon 2026-08-29: "one big *.sno and one big *.ref ... Not 10's of folders and 100's of files") ──
 # Replaces the three per-family discovery blocks that lived here (crosscheck / probe / top-level-misc --
 # each with its own floor): every absorbed family's entries are graded through the ONE master pair, with
-# per-entry provenance in master/ALL.csv's origin column and levels as rank prefixes. The un-absorbable
+# per-entry provenance in ALL.csv's origin column and levels as rank prefixes. The un-absorbable
 # residue (beauty_suite drivers, rtx_func_11, linker, probe_loose, stdin classes) is listed LOUDLY in
-# master/ALL.excluded.txt and still graded by its own blocks below (beauty) or its own instruments.
+# ALL.excluded.txt and still graded by its own blocks below (beauty) or its own instruments.
 # Counter folding is byte-identical to the retired blocks': fail+crash -> FAIL, hang/unproven -> TMOUT
 # (measured-nothing, never a verdict), m4 compile/link skip -> SKIP4. XFAIL entries are graded separately
 # by the harness (a pre-existing red never inflates FAIL); XPASS is echoed loudly -- a cured bug whose
 # marker nobody promoted is actionable in the opposite direction.
 HARNESS="$HERE/corpus_suite_harness.py"
-MASTER_SNO="$CORPUS/tests/snobol4/master/ALL.sno"
-MASTER_REF="$CORPUS/tests/snobol4/master/ALL.ref"
-MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1495}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
+MASTER_SNO="$CORPUS/tests/snobol4/ALL.sno"
+MASTER_REF="$CORPUS/tests/snobol4/ALL.ref"
+MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
 if [ ! -f "$HARNESS" ]; then
     echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
 fi
@@ -212,8 +212,8 @@ m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m
 m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip); m4x=$(field m4_xfail); m4xp=$(field m4_xpass)
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
-[ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: master/ALL.csv)\n"
-[ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: master/ALL.csv)\n"
+[ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: ALL.csv)\n"
+[ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: ALL.csv)\n"
 echo "master: total=$mt · m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp"
 [ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted -- as actionable as a failure, in the opposite direction (names: python3 $HARNESS run ... | grep XPASS)"
 if [ "$mt" -lt "$MASTER_ENTRY_FLOOR" ]; then
@@ -222,8 +222,8 @@ if [ "$mt" -lt "$MASTER_ENTRY_FLOOR" ]; then
 fi
 
 # ── Beauty library drivers: RETIRED INTO THE MASTER (one-flat-suite cutover 2026-08-29) ──
-# The 13 *_driver.sno/.ref pairs and their .inc companions were absorbed into master/ALL.* (origins
-# beauty_suite__*, see master/ALL.csv) and the loose pairs deleted; the master block above grades them.
+# The 13 *_driver.sno/.ref pairs and their .inc companions were absorbed into ALL.* (origins
+# beauty_suite__*, see ALL.csv) and the loose pairs deleted; the master block above grades them.
 
 # ── Demo programs ─────────────────────────────────────────────────────────────
 # Coverage audit (demo-corpus-coverage-audit, 2026-08-22): wordcount's ref/input were
@@ -253,7 +253,7 @@ run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "
 # associated variable was silently discarded in BOTH modes (rc=0, ordinary output intact), because
 # _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
 # than -f2 because this harness compares stdout; the defect was never fd2-specific.
-# feat_io_fd_assoc: retired hardcoded row (one-flat-suite cutover) -- absorbed into the master (origin feat_f21_io_fd_assoc... see master/ALL.csv), graded there; the loose pair is deleted.
+# feat_io_fd_assoc: retired hardcoded row (one-flat-suite cutover) -- absorbed into the master (origin feat_f21_io_fd_assoc... see ALL.csv), graded there; the loose pair is deleted.
 # k41: the IMMEDIATE pattern lambda, the arm that is LANDED (row lang-lambda-pattern-primitives).
 # ⛔ NOT k40. k40 is the row's INSTRUMENT, authored before the cure and RED ON PURPOSE until the
 # whole feature lands (conditional lambda, backtrack-unqueue, stored-pattern round trip are all

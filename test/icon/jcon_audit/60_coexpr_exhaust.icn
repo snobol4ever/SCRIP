@@ -1,1 +1,0 @@
-procedure main(); c := create (1 to 2); while x := @c do write(x); write("done"); end

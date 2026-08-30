@@ -1,1 +1,0 @@
-procedure main(); "aabbcc" ? write(tab(many('ab'))); end

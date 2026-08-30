@@ -1,9 +1,0 @@
-procedure main()
-  local i;
-  i := 0;
-  while (i := i + 1) <= 2 do write(|1);
-  i := 0;
-  until (i := i + 1) > 2 do write(|2);
-  i := 0;
-  repeat { i := i + 1; write(|3); if i >= 2 then break };
-end

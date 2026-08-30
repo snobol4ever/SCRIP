@@ -1,6 +1,0 @@
-procedure main()
-  local Q, S, q, a;
-  Q := ["x","y"];
-  S := [0,1];
-  every q := !Q & a := !S do write(q, a);
-end

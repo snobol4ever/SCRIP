@@ -20,14 +20,14 @@ d_crosscheck()  { find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | wc -l; }
 # library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
 # conversion) -- counts its entries via the harness (ONE AUTHORITY for the suite grammar) instead
 # of a loose-file find, since the suite text file is no longer one file per test.
-d_probebb()     { python3 "$S4E/SCRIP/scripts/corpus_suite_harness.py" list "$CORPUS/tests/snobol4/probe/bb_probes.sno" "$CORPUS/tests/snobol4/probe/bb_probes.ref" 2>/dev/null | wc -l; }
+d_probebb()     { awk -F, 'NR>1 && $4=="probe_bb_probes"' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # counts master entries by origin-family (zero-subfolders cutover)
 d_demo()        { find "$CORPUS/demo" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)
-d_beauty_total(){ find "$CORPUS/tests/snobol4/beauty_suite" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
-d_beauty_drivers(){ find "$CORPUS/tests/snobol4/beauty_suite" -maxdepth 1 -name "*.ref" 2>/dev/null | wc -l; }
-d_earn0()       { { python3 "$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py" list "$CORPUS/tests/snobol4/probe/earn0.sno" "$CORPUS/tests/snobol4/probe/earn0.ref" 2>/dev/null; python3 "$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py" list "$CORPUS/tests/snobol4/probe/earn02.sno" "$CORPUS/tests/snobol4/probe/earn02.ref" 2>/dev/null; } | wc -l; }   # re-pointed (ceo s283h): probe/earn0 is gone, the denominator is the earn0+earn02 SUITE entry count
+d_beauty_total(){ awk -F, 'NR>1 && $4 ~ /^beauty_suite_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # beauty drivers absorbed into the master (one per family)
+d_beauty_drivers(){ d_beauty_total; }
+d_earn0()       { awk -F, 'NR>1 && ($4=="probe_earn0" || $4=="probe_earn02")' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # master origin-family count (zero-subfolders cutover)
 d_broad336()    {
     # Mirrors test_broad_corpus_snobol4.sh's OWN LOGIC verbatim (crosscheck-with-ref via the exact same
     # while-loop guard, + beauty *_driver.sno files with a .ref, + 4 named demos hardcoded in the script).

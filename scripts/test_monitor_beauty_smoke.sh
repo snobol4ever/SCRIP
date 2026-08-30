@@ -23,7 +23,7 @@ S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-TEST="$ROOT/test/snobol4"
+TEST="$ROOT/../corpus/tests/scrip_test/snobol4"
 
 # Use scrip-monitor (WITH_CSNOBOL4 build); fall back to scrip for IR/SM/native codegen only
 SCRIP_MONITOR="${SCRIP_MONITOR:-$ROOT/scrip-monitor}"

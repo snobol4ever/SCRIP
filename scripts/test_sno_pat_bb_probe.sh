@@ -7,7 +7,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
-SRC="$ROOT/test/snobol4/pat_bb"
+SRC="$ROOT/../corpus/tests/scrip_test/snobol4/pat_bb"
 OUT="$ROOT/out"
 INC=(-I "$ROOT/src" -I "$ROOT/src/include" -I "$ROOT/src/contracts" -I "$ROOT/src/lower" -I "$ROOT/src/machine" -I "$ROOT/src/interp"
      -I "$ROOT/src/emitter" -I "$ROOT/src/runtime/core" -I "$ROOT/src/runtime" -I "$ROOT/src/runtime/rt"

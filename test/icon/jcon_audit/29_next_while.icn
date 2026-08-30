@@ -1,1 +1,0 @@
-procedure main(); i := 0; while (i +:= 1) <= 4 do { if i = 2 then next; write(i) }; end

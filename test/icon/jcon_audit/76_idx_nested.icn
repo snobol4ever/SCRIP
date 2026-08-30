@@ -1,6 +1,0 @@
-procedure main()
-  x := [[1,2],[3,4]];
-  write(x[2][1]);
-  x[1][2] := 55;
-  write(x[1][2]);
-end

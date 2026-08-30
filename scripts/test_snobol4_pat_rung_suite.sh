@@ -5,7 +5,7 @@
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
-PATDIR="$HERE/../test/snobol4/patterns"
+PATDIR="$HERE/../../corpus/tests/scrip_test/snobol4/patterns"
 TIMEOUT="${TIMEOUT:-10}"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi

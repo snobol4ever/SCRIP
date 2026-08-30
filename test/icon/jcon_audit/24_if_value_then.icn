@@ -1,1 +1,0 @@
-procedure main(); write(if 1 < 2 then "a" else "b"); end

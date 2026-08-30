@@ -238,10 +238,8 @@ def attrs_for_text(text, lang="snobol4"):
 
 def discover_pairs(ROOT, OUTDIR, EXT):
     pairs, excluded = [], []
+    seen_excl_prefix = set()
     for dirpath, dirnames, filenames in os.walk(ROOT):
-        if os.path.abspath(dirpath) == os.path.abspath(OUTDIR):
-            dirnames[:] = []
-            continue
         rel_dir = os.path.relpath(dirpath, ROOT)
         top = rel_dir.split(os.sep)[0] if rel_dir != "." else ""
         if top in EXCLUDE_DIRS:
@@ -253,6 +251,12 @@ def discover_pairs(ROOT, OUTDIR, EXT):
         for fn in sorted(filenames):
             if not fn.endswith(EXT):
                 continue
+            if fn.startswith("ALL"):
+                continue  # the master pair itself is never a source
+            # ⭐ (Lon 2026-08-29, "take all those *.sno"): the former excluded classes (probe_loose_*, linker_*,
+            # rtx_func_11_*) absorb like everything else -- auto-XFAIL by source verdict keeps documented reds
+            # from inflating FAIL, and runtime companions resolve from the config/ subfolder both at source
+            # grading and from the master (the harness searches <dir>/config since this commit).
             sno = os.path.join(dirpath, fn)
             ref = sno[:-len(EXT)] + ".ref"
             if not os.path.isfile(ref):
@@ -282,7 +286,7 @@ def main():
     _CO = h.LANG_CONFIGS[lang]["comment_open"] if lang in h.LANG_CONFIGS else "*"
     _CC = h.LANG_CONFIGS[lang].get("comment_close", "") if lang in h.LANG_CONFIGS else ""
     ROOT = os.path.join(S4E, "corpus", "tests", lang)
-    OUTDIR = os.path.join(ROOT, "master")
+    OUTDIR = ROOT   # ⭐ ZERO SUBFOLDERS (Lon 2026-08-29): the master lives FLAT beside the residue -- ALL.* side by side, no master/ dir
     if not os.path.isdir(ROOT):
         sys.stderr.write("REFUSED: no corpus tree at %s -- nothing to build from.\n" % ROOT)
         raise SystemExit(2)
@@ -295,10 +299,33 @@ def main():
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
     pairs, excluded = discover_pairs(ROOT, OUTDIR, EXT)
+    # ⛔⭐ MERGE, NEVER REPLACE (measured the hard way: an incremental run on a post-retirement tree rebuilt the
+    # master from ONLY the new pairs and overwrote 1495 entries with 98 -- caught and restored from the index).
+    # If a master already exists, its entries are the BASE: loaded with their names KEPT (names are stable
+    # identifiers), origins re-attached from the CSV, and new absorptions appended with counters seeded PAST
+    # the existing names so nothing collides. No new pairs + an existing master = "current", clean exit.
+    master_sno_path = os.path.join(OUTDIR, "ALL" + EXT)
+    master_csv_path = os.path.join(OUTDIR, "ALL.csv")
+    base_entries = []
+    if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
+        if lang == "snobol4":
+            base_entries = h.read_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"),
+                                        in_path=h.sidecar_in_path(master_sno_path), x_path=h.sidecar_xfail_path(master_sno_path))
+        else:
+            base_entries = h.read_block_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"), h.banner_re_for(_CO, _CC),
+                                              in_path=h.sidecar_in_path(master_sno_path), x_path=h.sidecar_xfail_path(master_sno_path))
+        _csv_origin = {}
+        if os.path.isfile(master_csv_path):
+            for _row in csv.DictReader(open(master_csv_path)):
+                _csv_origin[_row["entry"]] = _row.get("origin", "")
+        for e in base_entries:
+            e.origin = _csv_origin.get(e.name) or ("master__%s" % e.name)
+            e.src_mode = "base"
     if not pairs:
-        sys.stderr.write("REFUSED: zero absorbable pairs under %s -- after the retirement commit the MASTER IS THE SOURCE"
-                         " (rebuilds happen only on a tree that still carries per-family files; edit master/ALL%s directly"
-                         " or extract/convert through the harness).\n" % (ROOT, EXT))
+        if base_entries:
+            print("MASTER CURRENT: %d entries, zero new absorbable pairs under %s -- nothing to do." % (len(base_entries), ROOT), file=sys.stderr)
+            raise SystemExit(0)
+        sys.stderr.write("REFUSED: zero absorbable pairs under %s and no master present -- nothing to build from.\n" % ROOT)
         raise SystemExit(2)
     for fam, sno, ref, dir_companions in pairs:
         entries = None
@@ -315,13 +342,25 @@ def main():
                 entries = None
             if entries is None:  # plain program: ONE format-B block entry, body and ref VERBATIM
                 mode = "plain"
-                if os.path.isfile(sno[:-len(EXT)] + ".input"):
+                if os.path.isfile(sno[:-len(EXT)] + ".input") or os.path.isfile(os.path.join(os.path.dirname(sno), "config", os.path.basename(sno)[:-len(EXT)] + ".input")):
                     excluded.append((fam, "stdin sidecar (.input) -- stays as files until the stdin-sections format extension lands (hq_C row)"))
                     continue
                 sno_text = open(sno).read().splitlines()
                 ref_text = open(ref).read().splitlines()
                 if not sno_text:
                     excluded.append((fam, "empty source"))
+                    continue
+                if any(k in ln for ln in sno_text for k in ("&FILE", "&LASTFILE", "&LASTLINE", "&LASTNO")):
+                    excluded.append((fam, "source-identity-sensitive keyword (&FILE/&LASTFILE/...) -- output depends on the source FILENAME, which absorption renames; stays as files (measured: k09/k11/k30/k32 went red in the master while green loose)"))
+                    continue
+                if os.path.basename(sno).startswith("probe_loose_fuzz_"):
+                    excluded.append((fam, "fuzz nondeterministic-crash class -- a captured ref is one sample of a distribution; util_fuzz_witness_stability.sh owns these, stays as files"))
+                    continue
+                if any("../" in ln for ln in sno_text):
+                    excluded.append((fam, "scratch-escaping relative reference (../) -- semantics cannot survive isolated-entry grading; stays as files"))
+                    continue
+                if any(h._is_entry_start(ln) for ln in sno_text):
+                    excluded.append((fam, "plain body carries suite-format markers (banner or ';* tag' line) -- a block would split on re-read; quarantined class, stays as files"))
                     continue
                 # auto-XFAIL by source verdict -- convert_one's own law applied to plain absorption: a documented-red
                 # witness never inflates the master's FAIL count, and XPASS polices the marker the day the bug is cured.
@@ -373,10 +412,18 @@ def main():
                 companion_copies[cf] = srcf
     # feature scan first (names are DERIVED from features), then the descriptive rename with numbered uniqueness
     counters = {}
+    all_entries = base_entries + all_entries
+    for e in base_entries:  # seed the counters PAST every existing name so new names never collide
+        m = re.fullmatch(r"(.*)_(\d+)", e.name)
+        if m:
+            counters[m.group(1)] = max(counters.get(m.group(1), 0), int(m.group(2)))
     rows = []
     for e in all_entries:
         text = "\n".join(e.sno_lines)
         flags = {c: fn(text) for c, fn in COLS}   # == attrs_for_text(text, lang); COLS is the same table, rebound by main()
+        if getattr(e, "src_mode", "") == "base":
+            rows.append((e, flags, text))   # a BASE entry keeps its name -- names are stable identifiers (merge-never-replace)
+            continue
         base = descriptive_name(text, flags)
         counters[base] = counters.get(base, 0) + 1
         new = "%s_%d" % (base, counters[base])

@@ -1,1 +1,0 @@
-procedure main(); "abc" ? { move(1); write(&pos) }; end

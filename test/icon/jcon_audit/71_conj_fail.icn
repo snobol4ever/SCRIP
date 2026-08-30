@@ -1,4 +1,0 @@
-procedure main()
-  if (2 > 3) & 1 then write("y1") else write("n1");
-  if 1 & (2 > 3) then write("y2") else write("n2");
-end

@@ -39,14 +39,9 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # An explicit FZ override (a caller's own standalone witness dir) is used AS-IS, exactly as before --
 # extraction only runs on the default path, so override semantics are unchanged.
 if [ -z "${FZ:-}" ]; then
-    FZ_SUITE_SNO="${FZ_SUITE_SNO:-$S4E/corpus/tests/snobol4/probe/fz.sno}"
-    FZ_SUITE_REF="${FZ_SUITE_REF:-$S4E/corpus/tests/snobol4/probe/fz.ref}"
+    . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # re-pointed to THE MASTER (zero-subfolders cutover, ceo s283h): family probe_fz
     FZ="$WORK/fz_src"; mkdir -p "$FZ"
-    if [ -f "$FZ_SUITE_SNO" ] && [ -f "$FZ_SUITE_REF" ]; then
-        while IFS= read -r name; do
-            python3 "$HERE/corpus_suite_harness.py" extract "$FZ_SUITE_SNO" "$FZ_SUITE_REF" "$name" "$FZ/$name.sno" --out-ref "$FZ/$name.ref" >/dev/null 2>&1
-        done < <(python3 "$HERE/corpus_suite_harness.py" list "$FZ_SUITE_SNO" "$FZ_SUITE_REF" 2>/dev/null)
-    fi
+    master_extract_family probe_fz "$FZ" || true
 fi
 [ -d "$FZ" ] && [ -n "$(ls -A "$FZ" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $FZ (suite missing or extraction failed)"; exit 2; }
 rc=0

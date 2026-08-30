@@ -99,7 +99,7 @@ EOF
 # ── Icon ─────────────────────────────────────────────────────────────────────
 echo "=== Icon ==="
 
-file_test "ICN: hello" "$ROOT/test/icon/hello.icn" "Hello, World!"
+file_test "ICN: hello" "$ROOT/../corpus/tests/scrip_test/icon/hello.icn" "Hello, World!"
 
 icn "ICN: 1 to 5" "$(printf '1\n2\n3\n4\n5')" << 'EOF'
 procedure main()
@@ -115,7 +115,7 @@ EOF
 
 echo "  SKIP ICN: user proc suspend (AST_FNC coroutine — post-U-17, wired in U-18)"
 
-file_test "ICN: palindrome" "$ROOT/test/icon/palindrome.icn" "$(printf 'yes\nno\nyes')"
+file_test "ICN: palindrome" "$ROOT/../corpus/tests/scrip_test/icon/palindrome.icn" "$(printf 'yes\nno\nyes')"
 
 if [ -f "$ICN_CORPUS/rung01_paper_compound.icn" ]; then
     expected=$(cat "$ICN_CORPUS/rung01_paper_compound.expected" 2>/dev/null)
@@ -127,7 +127,7 @@ fi
 # ── Prolog ───────────────────────────────────────────────────────────────────
 echo "=== Prolog ==="
 
-file_test "PL: hello" "$ROOT/test/prolog/hello.pl" "Hello, World!"
+file_test "PL: hello" "$ROOT/../corpus/tests/scrip_test/prolog/hello.pl" "Hello, World!"
 
 pl "PL: fact" "bob" << 'EOF'
 :- initialization(main).
@@ -183,8 +183,8 @@ sub main() {
 EOF
 
 # RK-7: polyglot gather smoke test (ref-file based)
-RAKU_SCRIP="$ROOT/test/raku_gather.scrip"
-RAKU_REF="$ROOT/test/raku_gather.ref"
+RAKU_SCRIP="$ROOT/../corpus/tests/scrip_test/raku_gather.scrip"
+RAKU_REF="$ROOT/../corpus/tests/scrip_test/raku_gather.ref"
 if [ -f "$RAKU_SCRIP" ] && [ -f "$RAKU_REF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$RAKU_SCRIP" < /dev/null 2>/dev/null)
     expected=$(cat "$RAKU_REF")
@@ -204,8 +204,8 @@ fi
 # ── Cross-language polyglot (U-19) ───────────────────────────────────────────
 echo "=== Cross-language polyglot (U-19) ==="
 
-CROSS="$ROOT/test/cross_lang.scrip"
-REF="$ROOT/test/cross_lang.ref"
+CROSS="$ROOT/../corpus/tests/scrip_test/cross_lang.scrip"
+REF="$ROOT/../corpus/tests/scrip_test/cross_lang.ref"
 if [ -f "$CROSS" ] && [ -f "$REF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$CROSS" < /dev/null 2>/dev/null)
     expected=$(cat "$REF")
@@ -225,8 +225,8 @@ fi
 # ── Shared NV store (U-23) ───────────────────────────────────────────────────
 echo "=== Shared NV store (U-23) ==="
 
-SHARED="$ROOT/test/test_shared_nv.scrip"
-SREF="$ROOT/test/test_shared_nv.ref"
+SHARED="$ROOT/../corpus/tests/scrip_test/test_shared_nv.scrip"
+SREF="$ROOT/../corpus/tests/scrip_test/test_shared_nv.ref"
 if [ -f "$SHARED" ] && [ -f "$SREF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$SHARED" < /dev/null 2>/dev/null)
     expected=$(cat "$SREF")
@@ -254,8 +254,8 @@ FAIL=$((FAIL + RAKU_FAIL))
 
 # ── OE-12: --run polyglot smoke test ──────────────────────────────────────
 echo "=== --run polyglot (OE-12) ==="
-SMRUN_FILE="$ROOT/test/test_shared_nv.scrip"
-SMRUN_REF="$ROOT/test/test_shared_nv.ref"
+SMRUN_FILE="$ROOT/../corpus/tests/scrip_test/test_shared_nv.scrip"
+SMRUN_REF="$ROOT/../corpus/tests/scrip_test/test_shared_nv.ref"
 if [ -f "$SMRUN_FILE" ] && [ -f "$SMRUN_REF" ]; then
     actual=$(timeout 8 "$SCRIP" --run "$SMRUN_FILE" 2>/dev/null)
     expected=$(cat "$SMRUN_REF")

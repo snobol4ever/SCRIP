@@ -1,8 +1,0 @@
-procedure main()
-  local x;
-  x := &null;
-  if \x then write("a") else write("b");
-  x := 5;
-  if /x then write("c") else write("d");
-  if \x then write("e") else write("f");
-end

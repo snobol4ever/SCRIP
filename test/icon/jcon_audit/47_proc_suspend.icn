@@ -1,2 +1,0 @@
-procedure g(); suspend 1; suspend 2; end
-procedure main(); every write(g()); end

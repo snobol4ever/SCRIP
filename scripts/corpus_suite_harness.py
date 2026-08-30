@@ -995,6 +995,11 @@ def _copy_companions(text, companion_dir, dest_dir):
     # the two guards below, each hardened by a real prior failure -- never drifts between them.
     if not companion_dir:
         return
+    # ⭐ config/ SUBFOLDER (Lon 2026-08-29 zero-subfolders + "make a config folder for those files"): the flat
+    # test dir keeps ONLY test sources; runtime companions (includes, .dat/.in data, tracepoint .conf) live in
+    # <dir>/config. Search BOTH -- a name found in the flat dir wins (older layouts unchanged).
+    _cfg = Path(companion_dir) / "config"
+    companion_dirs = [Path(companion_dir)] + ([_cfg] if _cfg.is_dir() else [])
     import shutil
     for name in _companion_files(text):
         # an ABSOLUTE reference is the program's own scratch path (e.g. /tmp/rung37_fh_test.txt),
@@ -1008,17 +1013,17 @@ def _copy_companions(text, companion_dir, dest_dir):
         # holding runtime companions (.inc/.dat/.in/.conf) and docs. Once a family's own directory is gone,
         # its companions live there and NOWHERE ELSE, so a copier that only looks beside the suite file finds
         # nothing and the entry fails as an ordinary missing-dependency error -- indistinguishable from a real
-        # defect. ⛔ THE ORDER MATTERS AND SO DOES THE DIRECTION: the flat layout cannot be adopted until this
-        # search exists, or every companion-using entry breaks the moment its directory is removed. Additive
-        # and beside-first, so a tree that has NOT flattened yet behaves exactly as before.
-        src_companion = Path(companion_dir) / name
-        if not src_companion.is_file():
-            _cfg = Path(companion_dir) / "config" / name
-            if _cfg.is_file():
-                src_companion = _cfg
-        dst_companion = Path(dest_dir) / name
-        if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
-            shutil.copy(src_companion, dst_companion)
+        # defect. Additive and beside-first (the loop breaks on the first hit), so a tree that has NOT
+        # flattened yet behaves exactly as before. (merged: hq's config search + ceo's ..-guard/mkdir/loop)
+        if ".." in Path(name).parts:
+            continue  # a scratch-escaping relative reference (e.g. ../../benchmarks/x.inc) cannot be a companion of an isolated entry; the entry's own run surfaces the miss
+        for _cd in companion_dirs:
+            src_companion = _cd / name
+            dst_companion = Path(dest_dir) / name
+            if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
+                dst_companion.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(src_companion, dst_companion)
+                break
 
 
 def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=None):

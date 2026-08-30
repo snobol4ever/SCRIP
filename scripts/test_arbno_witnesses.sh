@@ -17,14 +17,15 @@ W=/tmp/arbw.$TAG; mkdir -p "$W"
 # tests/snobol4/probe/bb_probes.{sno,ref} -- the last from probe-consolidate-bb, concurrent this same
 # day; tests/snobol4/probe/arb1.{sno,ref} converted 2026-08-29, seat12) -- this tool needs each as a
 # standalone file to feed sbl/scrip directly, so extract() materializes one per run into $W.
-extract() { python3 "$ROOT/scripts/corpus_suite_harness.py" extract "$1" "$2" "$3" "$W/$3.sno" >/dev/null 2>&1; }
-extract "$CORPUS/tests/snobol4/crosscheck/patterns.sno" "$CORPUS/tests/snobol4/crosscheck/patterns.ref" 181_pat_arbno_defer_tail_stressors
-extract "$CORPUS/tests/snobol4/probe/earn0.sno" "$CORPUS/tests/snobol4/probe/earn0.ref" earn0_disc_arbno_star_fence_positive
-extract "$CORPUS/tests/snobol4/probe/earn0.sno" "$CORPUS/tests/snobol4/probe/earn0.ref" earn0_disc_arbno_star_fence_poisoned
-extract "$CORPUS/tests/snobol4/probe/arb1.sno" "$CORPUS/tests/snobol4/probe/arb1.ref" arb1
+extract() { master_extract_origin "$1__$2" "$W/$2.sno"; }   # re-pointed to THE MASTER by origin (zero-subfolders cutover, ceo s283h)
+. "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
+extract crosscheck_patterns 181_pat_arbno_defer_tail_stressors
+extract probe_earn0 earn0_disc_arbno_star_fence_positive
+extract probe_earn0 earn0_disc_arbno_star_fence_poisoned
+extract probe_arb1 arb1
 FILES="$W/arb1.sno $W/181_pat_arbno_defer_tail_stressors.sno"
 for n in 22 23 24 25 26 27 28 29 30 31 32 33; do
-    extract "$CORPUS/tests/snobol4/probe/bb_probes.sno" "$CORPUS/tests/snobol4/probe/bb_probes.ref" "N$n"
+    extract probe_bb_probes "N$n"
     FILES="$FILES $W/N$n.sno"
 done
 FILES="$FILES $W/earn0_disc_arbno_star_fence_positive.sno $W/earn0_disc_arbno_star_fence_poisoned.sno"

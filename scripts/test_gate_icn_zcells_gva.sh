@@ -21,8 +21,8 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
-WITNESS="$HERE/../test/icon/zk5_global_cells_zero.icn"
-EXPECTED="$HERE/../test/icon/zk5_global_cells_zero.expected"
+WITNESS="$HERE/../../corpus/tests/scrip_test/icon/zk5_global_cells_zero.icn"
+EXPECTED="$HERE/../../corpus/tests/scrip_test/icon/zk5_global_cells_zero.expected"
 FAIL=0
 
 [ -x "$SCRIP" ] || { echo "GATE SKIP: scrip not built at $SCRIP"; exit 0; }

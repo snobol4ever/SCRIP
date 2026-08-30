@@ -1,2 +1,0 @@
-invocable all
-procedure main(); write("ok"); end

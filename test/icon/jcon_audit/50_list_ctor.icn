@@ -1,1 +1,0 @@
-procedure main(); x := [10, 20, 30]; write(x[2]); write(*x); end

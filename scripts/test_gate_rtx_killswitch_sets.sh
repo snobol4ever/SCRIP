@@ -59,7 +59,7 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FAM="${1:?usage: test_gate_rtx_killswitch_sets.sh <FAMILY> [dir] [N] [m3|m4|both]}"
-DIR="${2:-$ROOT/test/snobol4}"
+DIR="${2:-$ROOT/../corpus/tests/scrip_test/snobol4}"
 N="${3:-4}"
 MODE="${4:-both}"
 # EXT added s223-PL: this gate was hardcoded to *.sno, so it had NO PROLOG OR ICON ARM AT ALL while three

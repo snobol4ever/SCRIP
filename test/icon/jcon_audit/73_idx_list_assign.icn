@@ -1,6 +1,0 @@
-procedure main()
-  x := [1, 2, 3];
-  x[2] := 99;
-  write(x[2]);
-  write(x[1]);
-end

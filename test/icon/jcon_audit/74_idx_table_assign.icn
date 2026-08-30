@@ -1,8 +1,0 @@
-procedure main()
-  t := table();
-  t["k"] := 5;
-  write(t["k"]);
-  u := table();
-  u[3] := 30;
-  write(u[3]);
-end

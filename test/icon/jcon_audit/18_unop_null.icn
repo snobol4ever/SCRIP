@@ -1,1 +1,0 @@
-procedure main(); x := &null; if /x then write("n"); end

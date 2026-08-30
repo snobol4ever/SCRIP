@@ -55,7 +55,7 @@ if ! have nasm; then
     echo -e "${YELLOW}SKIP${RESET} x86 section (nasm not found)"
     SKIP=$((SKIP+1))
 else
-    bash "$ROOT/test/crosscheck/run_crosscheck_x86_rung.sh" "$CORPUS/crosscheck/patterns" \
+    bash "$ROOT/../corpus/tests/scrip_test/crosscheck/run_crosscheck_x86_rung.sh" "$CORPUS/crosscheck/patterns" \
          "$CORPUS/crosscheck/assign" "$CORPUS/crosscheck/arith_new" \
          "$CORPUS/crosscheck/control_new" 2>/dev/null | tail -3
 fi
@@ -66,7 +66,7 @@ if ! have java || [ ! -f "$JASMIN" ]; then
     echo -e "${YELLOW}SKIP${RESET} JVM section (java or jasmin not found)"
     SKIP=$((SKIP+1))
 else
-    bash "$ROOT/test/crosscheck/run_crosscheck_jvm_rung.sh" "$CORPUS/crosscheck/patterns" \
+    bash "$ROOT/../corpus/tests/scrip_test/crosscheck/run_crosscheck_jvm_rung.sh" "$CORPUS/crosscheck/patterns" \
          "$CORPUS/crosscheck/assign" "$CORPUS/crosscheck/arith_new" 2>/dev/null | tail -3
 fi
 
@@ -76,7 +76,7 @@ if ! have mono && ! have dotnet; then
     echo -e "${YELLOW}SKIP${RESET} NET section (mono/dotnet not found)"
     SKIP=$((SKIP+1))
 else
-    bash "$ROOT/test/crosscheck/run_crosscheck_net_rung.sh" "$CORPUS/crosscheck/patterns" \
+    bash "$ROOT/../corpus/tests/scrip_test/crosscheck/run_crosscheck_net_rung.sh" "$CORPUS/crosscheck/patterns" \
          "$CORPUS/crosscheck/assign" 2>/dev/null | tail -3
 fi
 
@@ -86,7 +86,7 @@ if ! have wasm-interp && ! have wasmtime; then
     echo -e "${YELLOW}SKIP${RESET} WASM section (wasm runtime not found)"
     SKIP=$((SKIP+1))
 else
-    bash "$ROOT/test/run_wasm_corpus_rung.sh" 2>/dev/null | tail -3
+    bash "$ROOT/../corpus/tests/scrip_test/run_wasm_corpus_rung.sh" 2>/dev/null | tail -3
 fi
 
 echo ""

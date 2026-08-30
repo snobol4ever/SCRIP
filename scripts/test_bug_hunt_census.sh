@@ -21,7 +21,7 @@ LISTF=/tmp/bug_hunt_list.$$
 # regression; pass CENSUS_LIST to include tests/snobol4/probe/bb*.sno entries (materialize via
 # corpus_suite_harness.py extract first -- suite files are not standalone-runnable .sno programs).
 if [ -n "${CENSUS_LIST:-}" ]; then cp "$CENSUS_LIST" "$LISTF"
-else { find $S4E/corpus/library/probe_reference/bb -name '*.sno' 2>/dev/null; find "$ROOT/demo" "$ROOT/test/demo" -name '*.sno' 2>/dev/null; find $S4E/corpus -path '*demo*' -name '*.sno' 2>/dev/null; } | sort -u > "$LISTF"; fi
+else { find $S4E/corpus/library/probe_reference/bb -name '*.sno' 2>/dev/null; find "$ROOT/demo" "$ROOT/../corpus/tests/scrip_test/demo" -name '*.sno' 2>/dev/null; find $S4E/corpus -path '*demo*' -name '*.sno' 2>/dev/null; } | sort -u > "$LISTF"; fi
 CLS=/tmp/bug_hunt_cls.$$
 SWEEP_LIST="$LISTF" SWEEP_JOBS="${SWEEP_JOBS:-4}" bash "$ROOT/scripts/test_rsp_descent_sweep.sh" "$CLS" >/dev/null 2>&1
 : > "$OUT"

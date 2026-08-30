@@ -1,1 +1,0 @@
-procedure main(); x := 5; every x := 1 to 3; write(x); end

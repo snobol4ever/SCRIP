@@ -1,2 +1,0 @@
-record pt(x, y)
-procedure main(); p := pt(1, 2); write(p.x); write(p.y); end

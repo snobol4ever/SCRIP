@@ -1,1 +1,0 @@
-procedure main(); if 2 < 1 then write("t") else write("f"); end

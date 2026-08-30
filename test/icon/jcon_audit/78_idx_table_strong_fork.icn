@@ -1,8 +1,0 @@
-procedure main()
-  local t
-  t := table(99);
-  write(t["ghost"]);
-  write(*t);
-  t["real"] := 1;
-  write(*t)
-end

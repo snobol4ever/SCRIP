@@ -104,7 +104,7 @@ fi
 if [[ $_needs_jvm -eq 1 ]]; then
   _need "java"        "$(command -v java  &>/dev/null && echo 1 || echo 0)"
   _need "javac"       "$(command -v javac &>/dev/null && echo 1 || echo 0)"
-  _need "SnoHarness"  "$([[ -f "$ROOT/test/jvm/SnoHarness.class" ]] && echo 1 || echo 0)"
+  _need "SnoHarness"  "$([[ -f "$ROOT/../corpus/tests/scrip_test/jvm/SnoHarness.class" ]] && echo 1 || echo 0)"
 fi
 if [[ $_needs_wasm -eq 1 ]]; then
   _need "wat2wasm"  "$(command -v wat2wasm &>/dev/null && echo 1 || echo 0)"
@@ -206,7 +206,7 @@ ensure_prolog_archive() {
 
 # Compile harness classes once per session
 ensure_sno_harness() {
-  local HARNESS_DIR="$ROOT/test/jvm"
+  local HARNESS_DIR="$ROOT/../corpus/tests/scrip_test/jvm"
   local W="$1"
   if [[ ! -f "$HARNESS_DIR/SnoHarness.class" ]]; then
     javac "$HARNESS_DIR/SnoRuntime.java" "$HARNESS_DIR/SnoHarness.java" -d "$HARNESS_DIR" 2>/dev/null || return 1
@@ -296,7 +296,7 @@ run_snobol4_wasm() {
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
   local W="$WORK/$cell"; mkdir -p "$W"
-  local WASM_RUNNER="$ROOT/test/wasm/run_wasm.js"
+  local WASM_RUNNER="$ROOT/../corpus/tests/scrip_test/wasm/run_wasm.js"
   if [[ ! -f "$WASM_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -347,7 +347,7 @@ run_snobol4_js() {
   if ! command -v node &>/dev/null; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
-  local JS_RUNNER="$ROOT/test/js/run_js.js"
+  local JS_RUNNER="$ROOT/../corpus/tests/scrip_test/js/run_js.js"
   if [[ ! -f "$JS_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -509,7 +509,7 @@ run_snobol4_net() {
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
   local result pass=0 fail=0
-  result=$(bash "$ROOT/test/crosscheck/run_crosscheck_net.sh" 2>/dev/null | grep "Results:" | tail -1) || true
+  result=$(bash "$ROOT/../corpus/tests/scrip_test/crosscheck/run_crosscheck_net.sh" 2>/dev/null | grep "Results:" | tail -1) || true
   pass=$(echo "$result" | grep -o '[0-9]* passed' | grep -o '[0-9]*' || echo 0)
   fail=$(echo "$result" | grep -o '[0-9]* failed' | grep -o '[0-9]*' || echo 0)
   echo "$pass" > "$RESULTS/${cell}_pass"
@@ -641,7 +641,7 @@ run_icon_wasm() {
   if ! command -v wat2wasm &>/dev/null || ! command -v node &>/dev/null; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
-  local WASM_RUNNER="$ROOT/test/wasm/run_wasm.js"
+  local WASM_RUNNER="$ROOT/../corpus/tests/scrip_test/wasm/run_wasm.js"
   if [[ ! -f "$WASM_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return
   fi
@@ -871,7 +871,7 @@ run_prolog_wasm() {
   fi
   local W="$WORK/$cell"; mkdir -p "$W"
   local PL_CORPUS="${CORPUS:-$ROOT/../corpus}/prolog"
-  local PL_RUNNER="$ROOT/test/wasm/pl_run_wasm.js"
+  local PL_RUNNER="$ROOT/../corpus/tests/scrip_test/wasm/pl_run_wasm.js"
   local PL_RUNTIME="$ROOT/miscellaneous/runtimes/wasm/pl_runtime.wasm"
   if [[ ! -f "$PL_RUNNER" ]]; then
     echo "SKIP" > "$RESULTS/${cell}_status"; return

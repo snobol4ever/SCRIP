@@ -11,13 +11,9 @@ SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
 # verb into an assembled dir, so the board's per-witness loop below is unchanged. EARN0= still overrides.
 if [ -z "${EARN0:-}" ]; then
   _EA="$(mktemp -d)"; trap 'rm -rf "$_EA"' EXIT
-  for _sfx in earn0 earn02; do
-    _ss="$S4E/corpus/tests/snobol4/probe/$_sfx.sno"; _sr="$S4E/corpus/tests/snobol4/probe/$_sfx.ref"
-    [ -f "$_ss" ] || continue
-    python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" list "$_ss" "$_sr" 2>/dev/null | while IFS= read -r _n; do
-      python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" extract "$_ss" "$_sr" "$_n" "$_EA/$_n.sno" --out-ref "$_EA/$_n.ref" >/dev/null 2>&1
-    done
-  done
+  . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: materialize the earn0 families out of THE MASTER
+  master_extract_family probe_earn0 "$_EA" || true
+  master_extract_family probe_earn02 "$_EA" || true
   EARN0="$_EA"
 fi
 MODE="${1:-m3}"

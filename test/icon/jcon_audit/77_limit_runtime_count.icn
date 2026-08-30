@@ -1,5 +1,0 @@
-procedure main()
-  local k
-  k := 2;
-  every write((1 to 5) \ k)
-end

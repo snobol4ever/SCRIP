@@ -17,11 +17,12 @@ SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # per hq_C's permanent stdin ruling and are copied in beside them, so this gate's witness population
 # is UNCHANGED (15) and the .dat-stdin arm below still exercises what it always did.
 KW_ASSEMBLED="$(mktemp -d)"
-KW_SUITE_SNO="$S4E/corpus/tests/snobol4/probe/kw.sno"; KW_SUITE_REF="$S4E/corpus/tests/snobol4/probe/kw.ref"
-if [[ -f "$KW_SUITE_SNO" ]]; then
-    while IFS= read -r _n; do python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" extract "$KW_SUITE_SNO" "$KW_SUITE_REF" "$_n" "$KW_ASSEMBLED/$_n.sno" --out-ref "$KW_ASSEMBLED/$_n.ref" >/dev/null 2>&1; done < <(python3 "$SCRIP_DIR/scripts/corpus_suite_harness.py" list "$KW_SUITE_SNO" "$KW_SUITE_REF")
-fi
-cp "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.sno "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.ref "$S4E/corpus/tests/snobol4/probe_loose/kw/"*.dat "$KW_ASSEMBLED/" 2>/dev/null
+. "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: the kw suite lives IN the master; loose stdin pair is flat-prefixed
+master_extract_family probe_kw "$KW_ASSEMBLED" || true
+for f in "$S4E/corpus/tests/snobol4/"probe_loose_kw_*; do
+    [ -f "$f" ] || continue
+    b="$(basename "$f")"; cp "$f" "$KW_ASSEMBLED/${b#probe_loose_kw_}"
+done
 PROBE_DIR="${KW_PROBE_DIR:-$KW_ASSEMBLED}"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
 MODE="both"; VERBOSE=0

@@ -1,2 +1,0 @@
-procedure add(a, b); local s; s := a + b; return s; end
-procedure main(); write(add(2, 3)); end

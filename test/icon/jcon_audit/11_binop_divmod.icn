@@ -1,1 +1,0 @@
-procedure main(); write(7 / 2); write(7 % 2); end

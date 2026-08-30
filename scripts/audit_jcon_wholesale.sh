@@ -19,7 +19,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
-SCRIP="$ROOT/scrip"; RT="$ROOT/out"; DIR="$ROOT/test/icon/jcon_audit"
+SCRIP="$ROOT/scrip"; RT="$ROOT/out"; DIR="$ROOT/../corpus/tests/scrip_test/icon/jcon_audit"
 FILTER="${1:-}"
 ICONT="${ICONT:-}"
 if [ -z "$ICONT" ]; then for c in $S4A/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi

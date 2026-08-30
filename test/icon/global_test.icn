@@ -1,2 +1,0 @@
-global counter, message, total;
-procedure main(); counter := 0; message := "hello"; total := 42; counter := counter + 1; write(counter); write(message); write(total); end

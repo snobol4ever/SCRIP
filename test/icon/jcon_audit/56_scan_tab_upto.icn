@@ -1,1 +1,0 @@
-procedure main(); "abcdef" ? { tab(upto("c")); write(move(1)) }; end
