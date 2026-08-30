@@ -1,5 +1,6 @@
 #include "by_name_dispatch.h"
 #include <unistd.h>
+#include <setjmp.h>
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) size_t sv_len(DESCR_t arg, const char *coerced) {
@@ -1486,13 +1487,13 @@ int   g_plw_floor_bypass = 0;
 void  rt_plw_floor_bypass_on(void) { g_plw_floor_bypass = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
-    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
     { extern int g_plw_floor_bypass; if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0); }
     if (g_core_errjmp_n >= 64) { rt_gc_point_arr(args, nargs, (const char **)0); body(args, nargs, &out); g_plw_unwind_floor = fl; return out; }
     int my = g_core_errjmp_n;
-    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
@@ -4757,14 +4758,14 @@ DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_a
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* ⭐ bidlen is the emitter's pre-resolved (strlen(fn) << 16) | bid_of(fn,len); NEGATIVE means "resolve it yourself" -- see the note on try_call_builtin_by_name_bl. */
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
-    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n;
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
     char *fl = g_plw_unwind_floor;
     g_plw_unwind_floor = (char *)__builtin_frame_address(0);
     if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen); g_plw_unwind_floor = fl; return r0; }
     int my = g_core_errjmp_n;
-    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_plw_unwind_floor = fl; return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen);
     g_core_errjmp_n = my;
@@ -4914,10 +4915,10 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
-    extern void *g_core_errjmp_stk[64][5]; extern int g_core_errjmp_n;
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (g_core_errjmp_n >= 64) return rt_jct_relop_impl(lhs, rhs, op);
     int my = g_core_errjmp_n;
-    if (__builtin_setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return 0; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return 0; }
     g_core_errjmp_n = my + 1;
     int r = rt_jct_relop_impl(lhs, rhs, op);
     g_core_errjmp_n = my;
@@ -5446,7 +5447,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
        case arm in the _fl>=2&&_fl<=8 switch below calls bn_sno_name directly with no dtx4/dtx5 call) -- every
        $-indirection call was paying this whole cache-probe machinery for a slot that can never hit. STEP 1 verified:
        (a) bn_sno_name -> rt_sno_indirect_name CAN reach core_runtime_error (core.c, via kwb_error(239,...) when the
-       indirect operand is not a name) -> __builtin_longjmp(g_core_errjmp_stk[...]) under Icon &error trapping, the SAME hazard
+       indirect operand is not a name) -> longjmp(g_core_errjmp_stk[...]) under Icon &error trapping, the SAME hazard
        class as bn_remdr above; safe for the identical reason -- this fast path never leaves
        try_call_builtin_by_name_bl, itself reached only from inside rt_call_arr_bl's setjmp-protected region, so the
        longjmp still targets THIS call's own frame. (b) runs after the SAME DT_DATA block above, unchanged. ⛔ UNLIKE
