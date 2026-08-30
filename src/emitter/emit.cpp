@@ -1241,7 +1241,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_disjunction()); return 0; }
                                                   bb_emit_x86(bb_indirect_goto()); } return 0;
-    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = 0; g_emit.op_off = nd_slot(_en); g_emit.op_sa = _bv ? nd_slot(_bv) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = (nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0); /* sb=2: a suspend-crossing leave (slice 3, operands {enter, NULL, β-target}) — its β must refresh the enter slot's banked outer-δ from the mirror before re-entering, because the outer scan MOVED between yield and resume (the enter-slot banking assumes single-threaded nesting, which suspension breaks) */ g_emit.op_off = nd_slot(_en); g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? nd_slot(_bv) : -1); g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
@@ -3183,7 +3183,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                shared by SNOBOL4/Prolog/Raku) - same gap as the IR_SUSPEND dobody check just above, same local fix:
                widen the check at this Icon-only IR_SCAN site rather than the shared classifier. */
             if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
-            if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; for (int k = 0; k < n; k++) if (nodes[k] == bb2) { g_scan_body_beta = betas[k]; break; } }
+            if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
+                for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {   /* a folded continuation (GOTO elided from the drive array) resolves through its γ target — chase until a node the array carries (suspend_scan: the CENT was op-21-folded and found_k was -1, leaving the β arm unemitted and resume re-yielding forever) */
+                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = betas[k] ? betas[k] : lbls[k]; break; }
+                    if (_fk < 0) bb2 = bb2->γ.node;
+                }
+                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d -> t0=%s\n", i, _fk, g_scan_body_beta ? g_scan_body_beta->name : "-"); }   /* α fallback: a non-resumable resume target (a continuation GOTO) has no β block — betas[k] NULL left the sb=2 β arm unemitted and resume fell through to re-yield forever (suspend_scan's measured spin); the pre-slice contract jumped to the continuation's ENTRY, which is lbls[k] */
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];

@@ -124,6 +124,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scanalt.entry δ save (+16 from box base, 4B r14d) + dcap height (+20, 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanalt.alt_i live-alternative index (+24, 4B; α=0, na_f ++; β dispatches) (+28 pad)", nd); return 2;
     case IR_SCAN:
+        if (nd && nd->n_operands > 2 && !nd->operands[1]) { zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.suspend-leave inner-δ bank (icon-scan-env-value-residue slice 3: per-activation env round-trip across suspension — the shared scan_saved stack cannot carry it, +1 leak per exhaustion-through-scan measured)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.suspend-leave pad (unused)", nd); return 1; }
         return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;

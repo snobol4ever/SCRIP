@@ -88,6 +88,12 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
     scan_pos  = (int)outer_delta + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta) {
+    if (scan_depth > 0) scan_depth--;
+    scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
+    scan_pos  = (int)outer_delta + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_reenter(void) {
     ScanSubjRegs r; r.ptr = 0; r.len = 0;
     if (scan_saved_depth <= 0) return r;

@@ -594,8 +594,24 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
         if (t->n > 0 && t->c[0]) { e_entry = lower(cx, t->c[0], sn, ω, &ev); if (is_resumable(t->c[0])) eβ = cx->beta; }
         ir_operand_push(sn, ev);
-        if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; IR_t * d_entry = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); ir_operand_push(sn, d_entry); }
-        else ir_operand_push(sn, eβ ? eβ : γ);
+        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); }
+        else rrt = eβ ? eβ : γ;
+        if (cx->scan_sp > 0) {   /* icon-scan-env-value-residue slice 3 (ceo): a suspend INSIDE scan envs opened by this body must LEAVE them on the yield edge (rt_scan_leave banks each onto the runtime's scan_saved stack and restores the caller's Σ/δ/Δ from the enter's own slots) and RE-ENTER them on resume (bb_gen_scan's β arm: rt_scan_reenter pops LIFO — outer first — then jmps inward via the operand[2] target, the slice-1 mechanism). Without this the caller scans the generator's subject after the first yield (measured: scan2's "non-local" hunk reads z/x from foo's "zxc" where q/w from "qwerty" is expected). Exit chain innermost-first between sn's γ and the yield target; resume chain outermost-first ending at the original resume target. operands: [0]=enter, [1]=NULL (never a value), [2]=the β-jmp target. Explicit lc_ links — IR_SCAN is generator-kind. */
+            IR_t * ytgt = cx->psucc ? cx->psucc : γ;
+            IR_t * lvs[16]; int nlv = 0;
+            for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {   /* build innermost-first: the γ-exit chain leaves the innermost env first */
+                IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
+                IR_LIT(cx->scan_stk_enter[_k]).dval = 3.0;   /* stamp the crossed enter: its OWN leave nodes must become no-push (sb=3) — after a fresh re-enter, the ordinary leave_fail's scan_saved push is the +1-per-exhaustion leak that corrupted later same-statement scans (measured: scan2's ="abc" section read 2,3 for 4,5) */
+                ir_operand_push(lv, cx->scan_stk_enter[_k]); ir_operand_push(lv, NULL); ir_operand_push(lv, NULL);
+                if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
+                lvs[nlv++] = lv;
+            }
+            lc_γ_to(lvs[nlv - 1], ytgt); lc_ω_to(lvs[nlv - 1], ytgt);
+            for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;   /* β jmp targets walk INWARD: lvs[nlv-1]=outermost (resume entry; scan_saved's LIFO top is the outer env) → … → lvs[0]=innermost → the original resume target */
+            lc_γ_to(sn, lvs[0]);
+            rrt = lvs[nlv - 1];
+        }
+        ir_operand_push(sn, rrt);
         *res = sn; return e_entry; }
     case TT_CASE: {
         if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -741,6 +757,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
         cx->scan_sp--;
+        if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }   /* a suspend crossed this scan: its leaves go no-push (sb=3) — the suspend chain's fresh re-enter never pops, so an ordinary push here leaks one scan_saved entry per exhaustion */
         IR_t * body_beta = cx->beta;   /* a loop body publishes its break-expression's resume chain here (loop_break_beta); captured BEFORE the subject reset so it can cross the scan boundary */
         for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
         if (bv) ir_operand_push(leave_succ, bv);
