@@ -541,6 +541,21 @@ def main():
     # Same shape as the dedupe/clobber pair: ONE AXIS, a correct point in the middle, BOTH ENDS SHIPPING
     # SILENTLY -- too many entries (accumulation) and too few (collapse) each read as an ordinary success.
     # A predicate that tests only one end of an axis is half a guard.
+    # ⭐⭐ ORDER MATTERS AND IT IS THE WHOLE FIX (hq_P 2026-08-30, on seat06's measurement): ZERO PAIRS OVER A
+    # HEALTHY MASTER IS THE *SUCCESS* STATE OF CONSOLIDATION, not a collapse. Every lane reaches it the moment
+    # its last loose pair is absorbed and deleted -- i.e. exactly when the all-hands work succeeds. With the
+    # collapse test first, `0 * 4 < 97` refused raku, prolog and eventually every language, and the message
+    # told them not to delete ALL.* -- correct advice for a disaster, addressed to a success.
+    # ⛔ The two states ARE distinguishable and the discriminator is not a ratio: with ZERO pairs the builder
+    # has nothing to write FROM, so it cannot produce a smaller master -- `not pairs` exits without writing a
+    # byte. The dangerous case is strictly `0 < pairs << base_entries`: something to write, far too little of
+    # it. So the benign branch is checked FIRST and the collapse test now only ever sees pairs > 0.
+    if not pairs:
+        if base_entries:
+            print("MASTER CURRENT: %d entries, zero new absorbable pairs under %s -- nothing to do." % (len(base_entries), ROOT), file=sys.stderr)
+            raise SystemExit(0)
+        sys.stderr.write("REFUSED: zero absorbable pairs under %s and no master present -- nothing to build from.\n" % ROOT)
+        raise SystemExit(2)
     if base_entries and len(pairs) * 4 < len(base_entries):
         sys.stderr.write(
             "\u26d4 REFUSED: this rebuild would absorb only %d pair(s) over an existing master of %d entries.\n"
@@ -549,12 +564,6 @@ def main():
             "   Nothing has been written; the existing master is untouched.\n"
             "   \u26d4 Do NOT fix this by deleting ALL.* and re-running -- on a cut-over language that\n"
             "      deletes the only copy. Rebuild in a scratch copy first if you truly mean it.\n" % (len(pairs), len(base_entries)))
-        raise SystemExit(2)
-    if not pairs:
-        if base_entries:
-            print("MASTER CURRENT: %d entries, zero new absorbable pairs under %s -- nothing to do." % (len(base_entries), ROOT), file=sys.stderr)
-            raise SystemExit(0)
-        sys.stderr.write("REFUSED: zero absorbable pairs under %s and no master present -- nothing to build from.\n" % ROOT)
         raise SystemExit(2)
     # ⛔⛔ DEDUPE BY ORIGIN AT MERGE TIME (hq_B, measured on rebus: every rebuild DOUBLED the master, 174->348,
     # every origin exactly twice -- the exact opposite failure of the clobber merge-mode was added to fix, and the
