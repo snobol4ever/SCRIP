@@ -750,7 +750,6 @@ int zls_g_resume_by_name(const char *name) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zls_g_icn_zframe_gen_by_name(const char *name) { if (!name) return 0; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].g ? zg[i].g->icn_zframe_gen : 0; return 0; }
 void zls_g_set_pl_trail_mark(const IR_graph_t *g, int off) { if (!g) return; for (int i = 0; i < zg_n; i++) if (zg[i].g == g) { zg[i].pl_trail_mark_off = off; return; } }
 int zls_g_pl_zf_trail_mark_off_by_name(const char *name) { if (!name) return 0; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].pl_trail_mark_off > 0 ? zg[i].pl_trail_mark_off : 0; return 0; }
 int zls_g_pl_trail_mark_by_name(const char *name) { if (!name) return -1; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].pl_trail_mark_off; return -1; }

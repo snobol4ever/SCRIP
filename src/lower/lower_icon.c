@@ -1187,7 +1187,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         succ = entry; fail = entry;
     }
     g->entry = succ;
-    { static int _ic = -1; if (_ic < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic = (e && *e == '1') ? 1 : 0; } else _ic = 1; } if (_ic) g->icn_cells_graph = 1; }
+    g->icn_cells_graph = 1;
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1260,7 +1260,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; } return g; }
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
-    { static int _ic2 = -1; if (_ic2 < 0) { const char * l = getenv("SCRIP_ICN_LEGACY"); if (l && *l == '1') { const char * e = getenv("SCRIP_ICN_CELLS"); _ic2 = (e && *e == '1') ? 1 : 0; } else _ic2 = 1; } if (_ic2) g->icn_cells_graph = 1; }
+    g->icn_cells_graph = 1;
     return g;
 }
 #include "bb_program.h"
@@ -1383,9 +1383,6 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
         }
     }
     lower_icon_resolve_call_kinds();
-    { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_ICN_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
-      if (_zf) for (int _gi = _icn_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && !g_stage2.bbp.table[_gi]->icn_cells_graph) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
-    { for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) { int _bi = g_stage2.proc_table[_pi].bb_idx; if (_bi >= 0 && g_stage2.proc_table[_pi].is_generator && g_stage2.bbp.table[_bi] && g_stage2.bbp.table[_bi]->zframe_graph) g_stage2.bbp.table[_bi]->icn_zframe_gen = 1; } }
     return &g_stage2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

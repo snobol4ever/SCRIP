@@ -29,10 +29,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
-void   *rt_gen_get_fb(void);
-void   *rt_gen_get_cont(void *gen____);
 int     zls_g_resume_by_name(const char *name);
-int     zls_g_icn_zframe_gen_by_name(const char *name);
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);
 int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);
 int  rt_proc_is_generator(const char *name);
@@ -690,10 +687,8 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t getfb_fp; { void *(*fp)(void) = rt_gen_get_fb; getfb_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int  zf_cont_off = (g_emit.zframe_graph && _.op_sval) ? ([]() { extern int zls_g_resume_by_name(const char *); return zls_g_resume_by_name(_.op_sval); })() : -1;
-    bool zf_resume   = g_emit.zframe_graph && (zf_cont_off >= 0) && zls_g_icn_zframe_gen_by_name(_.op_sval);
-    bool pl_zf_resume = g_emit.zframe_graph && !zf_resume && (zf_cont_off >= 0) && !zls_g_icn_zframe_gen_by_name(_.op_sval);
+    bool pl_zf_resume = g_emit.zframe_graph && (zf_cont_off >= 0);
     int  pl_tm_off = pl_zf_resume ? zls_g_pl_zf_trail_mark_off_by_name(_.op_sval) : 0;
     int   gi_off; { static int c = -1; if (c < 0) { const char *e = getenv("SCRIP_NO_GENIDX"); c = (e && *e == '1') ? 1 : 0; } gi_off = c; }
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
@@ -727,8 +722,7 @@ static std::string bcps_spine_gen_arm() {
         int slot = bcps_arg_slot(_.node, argblks, i);
         return stage_arg_inline(i, slot, stage_fp);
     })
-         + (zf_resume ? std::string("")
-            : (icn_gen_regime() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
+         + ((icn_gen_regime() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
               ? x86("comment", "row icon-n2-recursive-generator-per-activation-storage: repurpose the pad slot (same 8 bytes, same rsp math as the PL-CALL-ALIGN pad below) to carry the bounded-self-recursion depth instead of leaving it uninitialized. Only reached when the CALLEE is a direct-self-recursive generator and SCRIP_ICN_N2_SELFREC=1 additionally arms it.")
                 + ((g_emit.flat_gen && g_emit.flat_fam && !strcmp(_.op_sval, g_emit.flat_fam))
                    ? x86("comment", "I am the recursive call: read MY OWN depth from the free header slot H+40 (rbp==H for a flat_gen host), bound it against N2_SELFREC_SLOTS, refuse LOUDLY (never silently reuse/corrupt an in-use slot) rather than pass an out-of-range depth forward.")
@@ -776,10 +770,8 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
             : bcps_wire_land(_.op_sval)
-              + (zf_resume
-                 ? x86("mov", FRQ(act + 8), "rax")
-                 : x86("mov", FRQ(act + 8), "rsp")
-                   + x86("add", "rsp", 16L)))
+              + (x86("mov", FRQ(act + 8), "rsp")
+                 + x86("add", "rsp", 16L)))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -791,7 +783,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("jmp", L(2))
          + x86("def", L(4))
          + bcps_wire_land(_.op_sval)
-         + IF(!zf_resume, x86("add", "rsp", 16L))
+         + x86("add", "rsp", 16L)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(6))
@@ -815,19 +807,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_beta()
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
-         + (zf_resume
-            ? ( [&]() -> std::string {
-                uint64_t _gc_fp; { void *(*_f)(void *) = rt_gen_get_cont; _gc_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                return x86("mov", "rax", FRQ(act + 8))
-                     + x86("mov", "rdi", "rax")
-                     + x86("call", "rt_gen_get_cont", _gc_fp)
-                     + x86("mov", "r8", "rax")
-                     + x86("mov", "rax", FRQ(act + 8))
-                     + std::string("")
-                     + x86("mov", "rsp", "rax")
-                     + x86("jmp", "r8");
-              })()
-            : pl_zf_resume
+         + (pl_zf_resume
             ? ( [&]() -> std::string {
                 uint64_t _pop3_fp; { void *(*_f)(long *, long *) = rt_pl_cp_pop3; _pop3_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 uint64_t _set_fp; { void (*_f)(void *, long, long, int, int) = rt_pl_zf_resume_set; _set_fp = (uint64_t)(uintptr_t)(void *)_f; }

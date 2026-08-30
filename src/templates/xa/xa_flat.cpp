@@ -12,9 +12,6 @@ extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_pl_zf_resume_clear(void);
 extern "C" void *g_pl_zf_pending_cursor;
 extern "C" void rt_main_args_fetch(void);
-extern "C" void rt_gen_save_wires(void *gen_fb, void *gw, void *ww);
-extern "C" void *rt_gen_get_gamma_wire(void *gen_fb);
-extern "C" void *rt_gen_get_omega_wire(void *gen_fb);
 extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
 extern int g_rt_fragment_emit;
@@ -233,13 +230,6 @@ static std::string xa_flat_zframe_prologue_str(void) {
                    + x86("mov32", "edx", 0L)
                    + x86("call_bare", "rt_icn_zframe_args_install", _args_fp);
             }
-            if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
-                uint64_t _sw_fp;  { void (*_f)(void *, void *, void *) = rt_gen_save_wires;      _sw_fp  = (uint64_t)(uintptr_t)(void *)_f; }
-                                s += x86("mov", "rdi", "rsp")
-                   + x86("mov", "rsi", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
-                   + x86("mov", "rdx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
-                   + x86("call", "rt_gen_save_wires", _sw_fp);
-            }
         }
     } else {
         if (kt > 48) {
@@ -375,19 +365,7 @@ static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
-        uint64_t _ggw_fp; { void *(*_f)(void *) = rt_gen_get_gamma_wire; _ggw_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        return x86("comment", "ICN-FR-5 no-unwind epilogue-γ: r14=gen____; get γ-wire(r14)→r15; get caller____(r14)→___ (rsp stays at gen____); rdi:rsi=[r14+0/8]; rax=gen____; jmp r15")
-             + x86("mov", "r14", "rsp")
-             + x86("mov", "rdi", "r14")
-             + x86("call", "rt_gen_get_gamma_wire", _ggw_fp)
-             + x86("mov", "r15", "rax")
-             + x86("mov", "rdi", "[r14 + 0]")
-             + x86("mov", "rsi", "[r14 + 8]")
-             + x86("mov", "rax", "r14")
-             + x86("jmp", "r15");
-    }
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_zframe_gen && g_emit_cfg->resume_slot > 0) {
+    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && g_emit_cfg->resume_slot > 0) {
         extern void *g_pl_zf_pending_cursor;
         extern void rt_pl_zf_resume_clear(void);
         uint64_t _clear_fp; { void (*_f)(void) = rt_pl_zf_resume_clear; _clear_fp = (uint64_t)(uintptr_t)(void *)_f; }
@@ -459,20 +437,6 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen) {
-        uint64_t _gow_fp; { void *(*_f)(void *) = rt_gen_get_omega_wire; _gow_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        uint64_t _sw_fp;  { void  (*_f)(void *, void *, void *) = rt_gen_save_wires; _sw_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        return x86("comment", "ICN-FR-5 no-unwind epilogue-ω: r14=gen____; get ω-wire→r15; get caller____→rbx; pop gen state stack; ___=rbx; jmp r15")
-             + x86("mov", "r14", "rsp")
-             + x86("mov", "rdi", "r14")
-             + x86("call", "rt_gen_get_omega_wire", _gow_fp)
-             + x86("mov", "r15", "rax")
-             + x86("mov", "rdi", "r14")
-             + x86("xor", "esi", "esi")
-             + x86("xor", "edx", "edx")
-             + x86("call", "rt_gen_save_wires", _sw_fp)
-             + x86("jmp", "r15");
-    }
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
              + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): same decrement as epilogue-γ, twin arm -- see that comment for the full rationale, the confirmed register-preservation bug this rax save/restore fixes, and what is still owed (the entry-side increment).")

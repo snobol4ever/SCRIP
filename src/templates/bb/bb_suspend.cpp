@@ -6,7 +6,6 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-extern "C" void rt_gen_save_cont(void *gen_fb, void *cont);
 extern "C" void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont);
 extern "C" void *g_pl_zf_pending_cursor;
 extern "C" int   g_pl_zf_target_pcall_top;
@@ -18,11 +17,7 @@ std::string bb_suspend() {
     if (_.op_sa < 0 && !_.op_zres) return x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
     return x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
          + x86_alpha()
-         + IF(g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p,
-                x86("mov", "rdi", "rsp")
-              + x86_lea_tgt("rsi", X86T_TGT1)
-              + x86("call", "rt_gen_save_cont", (uint64_t)(uintptr_t)(void *)rt_gen_save_cont))
-         + IF(g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p && _.op_sa >= 0
+         + IF(g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && _.op_sb >= 0 && _.lbl_t1_p && _.op_sa >= 0
                 && _.op_sb == g_emit_cfg->resume_slot,
                 x86("mov", "rax", FRQ(0))
               + x86("test", "rax", "rax")

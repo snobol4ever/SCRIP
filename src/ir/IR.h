@@ -234,7 +234,6 @@ struct IR_graph_t {
     int            pl_cells_graph;
     int            is_variadic;
     int            rest_kind;
-    int            icn_zframe_gen;
     int            pl_zf_trail_mark_off;
     IR_t         * ab_nodes[32];
     int            ab_n;

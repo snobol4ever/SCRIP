@@ -4,7 +4,6 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-void rt_gen_save_cont(void *);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -24,15 +23,9 @@ std::string bb_return() {
         s += x86_gamma();
         return s;
     }
-    std::string ret_cont_save;
-    if (_.op_dval != 2.0 && _.flat_gen && g_emit_cfg && g_emit_cfg->icn_zframe_gen && _.op_sb >= 0 && _.lbl_t1_p) {
-        uint64_t _sc_fp; { void (*_f)(void *) = rt_gen_save_cont; _sc_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        ret_cont_save = x86_lea_tgt("rdi", X86T_TGT1) + x86("call", "rt_gen_save_cont", _sc_fp);
-    }
     return x86("comment", "IR_RETURN")
          + x86_alpha()
          + (_.op_dval != 2.0 && _.flat_gen && _.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
-         + ret_cont_save
          + IF(_.op_sa >= 0,
                x86("mov", "rax", FRQ(_.op_sa))
              + x86("mov", "rdx", FRQ(_.op_sa + 8))
