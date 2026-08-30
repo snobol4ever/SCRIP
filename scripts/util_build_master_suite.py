@@ -30,8 +30,25 @@ success. hq_P's phrasing is the one to remember: CLOBBER-BY-GUARD-REBUILD IS CLO
   HOW TO RE-VERIFY A GUARD CHANGE ON A CUT-OVER LANGUAGE:
     1. cp -r corpus/tests/<lang> into a scratch tree; point S4E_HOME at its parent.
     2. Rebuild THERE. The real master is never opened for writing.
-    3. DIFF scratch against live -- entry sets by name, then the five-file artifact (Law 2).
+    3. ⛔ DIFF WITH util_master_content_diff.py -- NOT with `diff`. See the correction below.
     4. Bring differences across SURGICALLY, by the language owner. Never adopt a scratch tree wholesale.
+  ⛔⛔ CORRECTION TO STEP 3, 2026-08-30, AND IT IS A REPAIR TO THIS PROCEDURE'S OWN AUTHOR (hq_C).
+  Step 3 originally said "DIFF scratch against live". THAT CANNOT BE EXECUTED AS WRITTEN. Measured on
+  snobol4 at corpus 5a48a5d5, scratch rebuild vs committed master: ALL.sno 1438 changed lines, ALL.csv
+  2632, ALL.xfail 152 -- and the CONTENT WAS IDENTICAL (1726 entries both sides, 0 lost, 0 gained, 0
+  bodies differing, xfail 77/77 with 76 reasons each).
+  ⭐ CAUSE: `seq` is a POSITIONAL index and the rebuild's ordering differs from the committed file's.
+  `code_eval_replace_1` sits at seq 1659 committed and 987 rebuilt; 694 of 1726 entries shift by exactly
+  +1 to accommodate, rewriting their banners and CSV rows. Banner counts identical, 908/908. So
+  build(read(X)) == X in CONTENT and != X in ORDER.
+  ⛔ THEREFORE A BYTE DIFF OF A MASTER IS ~3000 LINES OF PURE RENUMBERING AND A REAL CHANGE IS INVISIBLE
+  INSIDE IT -- the procedure was asking for a needle in a haystack it generated itself. hq_P predicted
+  this ("a 3154-line diff that would bury any real change") before the mechanism was known.
+  ✅ Use `python3 scripts/util_master_content_diff.py <live> <scratch> [--lang L]`: it compares what the
+  grader reads -- name, body, ref, stdin, xfail, reason, want_rc -- and IGNORES seq and file order, which
+  carry no meaning any grader consults. rc=0 identical, rc=1 real differences (named), rc=2 cannot measure.
+  ⛔ AND DO NOT COMMIT A REBUILD WHOSE ONLY CHANGE IS THAT REORDERING: it buries the next real diff for
+  no gain. A regen is worth committing when the CONTENT diff is non-empty, not when the byte diff is.
   ⭐ The shrink refusal below is the automated floor under this procedure, not a replacement for it: it stops
   the catastrophic case (0 < pairs << base), but a rebuild that shrinks the master by a NON-dramatic amount
   still passes the ratio and still loses entries. The scratch diff is what sees those.
