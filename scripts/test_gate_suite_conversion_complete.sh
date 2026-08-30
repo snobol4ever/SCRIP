@@ -192,6 +192,34 @@ gate_reachable() {   # <abs-path> -> rc 0 if some runner reaches it
       | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
     grep -rlF --include='*.sh' --include='*.py' -e "$_reldir/" "$S4E/SCRIP/scripts" 2>/dev/null \
       | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
+    # ⛔⭐⭐ AN ANCESTOR + A RECURSIVE SWEEP REACHES THIS FILE, AND THE CHECK ABOVE CANNOT SEE IT. Measured
+    # 2026-08-30 (hq_B): tests/prolog/coverage/coverage_net_gaps.pl was reported DARK -- "declared against a
+    # live row, and executed by nothing" -- and it is file #2 of the 45 that test_corpus_prolog_parser.sh
+    # sweeps, which is GREEN and is the manifest's own GATED harness for tests/prolog. That runner names only
+    # the TREE ROOT ("$S4E/corpus/tests/prolog") and reaches every subdirectory via `find`. Nothing in the
+    # file's own basename, relative path, or own directory appears in any script, so all three greps missed.
+    # ⭐ THE GATE WAS RIGHT ABOUT THE POPULATION AND WRONG ABOUT THE MEMBER, WHICH IS THE EXPENSIVE DIRECTION:
+    # a false DARK fails a row's DONE-WHEN on a file that is genuinely executed, so the row can never close
+    # and the message tells its owner to go fix something that is not broken.
+    # ⛔ AND `find` CO-OCCURRENCE IS REQUIRED, not just the ancestor name. A script naming an ancestor and
+    # then globbing `"$DIR"/*.pl` at ONE level does NOT reach a subdirectory, and clearing on the name alone
+    # would trade a false DARK for a false CLEAR -- the dangerous direction, since a file wrongly declared
+    # reachable is exactly the untested-but-managed state this whole check exists to expose.
+    # ⚠️ HONEST LIMIT, stated because the next reader will otherwise assume more: this is still TEXTUAL. It
+    # proves a script names an ancestor and does recursive discovery somewhere in its body; it does not prove
+    # that particular `find` is rooted at that particular ancestor, nor that its -name filter matches this
+    # file. Reachability is only truly answerable by asking the runners what they ran. This narrows a
+    # measured false positive; it does not make the question sound.
+    local _anc="$_reldir"
+    while [ -n "$_anc" ] && [ "$_anc" != "." ] && [ "$_anc" != "corpus" ]; do
+        _anc="$(dirname "$_anc")"
+        [ "$_anc" = "." ] && break
+        while IFS= read -r _cand; do
+            [ -n "$_cand" ] || continue
+            grep -qE '(^|[^[:alnum:]_])find[[:space:]]' "$_cand" 2>/dev/null && return 0
+        done < <(grep -rlF --include='*.sh' --include='*.py' -e "$_anc" "$S4E/SCRIP/scripts" 2>/dev/null \
+                 | grep -v 'test_gate_suite_conversion_complete\.sh')
+    done
     return 1
 }
 
