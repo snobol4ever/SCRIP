@@ -31,11 +31,28 @@ REPS="${REPS:-20}"
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SELF_DIR/.." && pwd)"
 CORPUS="$(cd "$ROOT/../corpus" 2>/dev/null && pwd)" || { echo "⛔ REFUSES (rc=2): no sibling corpus/ beside $ROOT"; exit 2; }
-PROBE="$CORPUS/probe/vlist_select"
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 [ -x "$SCRIP" ]                 || { echo "⛔ REFUSES (rc=2): $SCRIP not built. Run make first -- this is NOT a pass."; exit 2; }
 command -v valgrind >/dev/null  || { echo "⛔ REFUSES (rc=2): valgrind absent; the deterministic arm cannot run, so no verdict is possible."; exit 2; }
+# ⭐⭐ RE-POINTED TO THE MASTER (hq_P 2026-08-30; ceo RULING `defect-c-gate-answer`). The loose tree
+# corpus/probe/vlist_select is GONE -- probe/ was deleted in the total conversion -- and this gate had been
+# REFUSING rc=2 ever since. It refused rather than passing, which is the only reason the ladder was not
+# silently green while grading nothing.
+# ⛔ NO STANDALONE DUPLICATE IS KEPT. ceo ruled the re-point goes through lib_master_extract.sh:
+# master_extract_family materializes all eight entries as separately-compilable, separately-runnable
+# standalone .sno/.ref pairs in a scratch dir, and everything below this line then does EXACTLY what it
+# always did, per witness -- own .s, own binary, REPS x `env -i`, own valgrind arm.
+# ⭐ THE PROPERTY THIS PRESERVES IS SHAPE, NOT CONTENT, AND THAT DISTINCTION IS THE WHOLE POINT: Defect C is
+# environment-SIZE sensitive, so the detector needs PER-WITNESS PROCESS ISOLATION. A consolidated suite is
+# one program, one process, one environment, one verdict -- byte-identical content that still cannot
+# attribute a fault per witness. Extraction restores the shape the instrument depends on.
+# (The general law, adopted beside byte-equal-or-no-delete: the conversion guard protects CONTENT and
+# nothing protected SHAPE -- ask whether every instrument that graded a file can still do what it did.)
+PROBE="$W/witnesses"
+. "$SELF_DIR/lib_master_extract.sh"
+master_extract_family probe_vlist_select "$PROBE" \
+    || { echo "⛔ REFUSES (rc=2): could not extract probe_vlist_select from the master pair at $MASTER_DIR."; exit 2; }
 [ -d "$PROBE" ]                 || { echo "⛔ REFUSES (rc=2): witness dir $PROBE does not resolve."; exit 2; }
 NAMES="$(cd "$PROBE" && ls *.sno 2>/dev/null | sed 's/\.sno$//' | sort)"
 [ -n "$NAMES" ]                 || { echo "⛔ REFUSES (rc=2): zero witnesses in $PROBE -- an empty ladder is not a green one."; exit 2; }
