@@ -9,13 +9,13 @@ extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
-#define ZLS_MAX_ENTRIES 65536
+#define ZLS_MAX_ENTRIES 262144
 #define ZLS_FC_SYNTH    0x7F000
-#define ZLS_MAX_FIELDS  131072
-#define ZLS_MAX_SCOPES  4096
-#define ZLS_MAX_GRAPHS  4096
-#define ZLS_MAX_VSLOTS  4096
-#define ZLS_MAX_MARKS   65536
+#define ZLS_MAX_FIELDS  524288
+#define ZLS_MAX_SCOPES  16384
+#define ZLS_MAX_GRAPHS  16384
+#define ZLS_MAX_VSLOTS  16384
+#define ZLS_MAX_MARKS   262144
 typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;

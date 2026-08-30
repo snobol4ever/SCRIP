@@ -304,14 +304,20 @@ generators (in flight as its own row). When the first lands, classes flow.
 
 ### Prolog
 
-**Coverage** (third-party): GNU Prolog's vendored test tree holds 62 files, of which
-56 depend on the gprolog library/build machinery and 4 are self-contained gradable
-programs — **3 of those 4 pass** (2 more are rejected by a documented parse-hang
-class). SWI-Prolog's test suite is vendored but its extraction harness currently
-grades nothing (a tracked defect — the suite's subdirectories are invisible to it),
-so no SWI number is quoted until the instrument measures. Both denominators are
-honest and small; growing them is the coverage work. Prolog structure rides the same
-Byrd-box engine as everything else — no separate term interpreter.
+**Coverage** (third-party): the **SWI-Prolog plunit conformance suite**, vendored and
+run whole under SCRIP's own plunit shim (`scripts/test_prolog_swi_suite.sh`,
+2026-08-30): **PASS=92 FAIL=22 of 114 suite-verdict lines — 80%**, the runner's own
+gate threshold, met. That number was 0/114 the same morning: SCRIP dropped every
+load-time directive whenever a program carried an initialization goal, so plunit
+registered zero tests — the cure (each directive and initialization goal now runs
+independently, warning by name on failure and continuing, as the reference does) is
+in `lower_prolog.c` and lifted the suite in one change. The **GNU Prolog vendored
+tree** (62 files — gprolog's own builtin-library and Prolog-to-WAM compiler source)
+grades three ways: 45 compile as library modules, **15 carry entry points and
+run-grade against real `gprolog` — 6 pass, 9 fail** (the run-gradable population
+itself grew 4 → 15 with the directive cure; every fail is a named defect lead), and
+2 hit a documented parse-hang class. Prolog structure rides the same Byrd-box engine
+as everything else — no separate term interpreter.
 
 **Benchmarks.** The rivals grid (× vs `gprolog` and `swipl`, both installed; kernel
 coverage gate green) is the frontier — it gets published here the same way, measured
