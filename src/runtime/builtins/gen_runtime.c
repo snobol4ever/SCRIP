@@ -136,7 +136,11 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     DESCR_t rv = replp ? *replp : sv;
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
-    int64_t rlen = (int64_t)strlen(rs);
+    /* ⛔ LENGTH AUTHORITY (beauty self-host regression, slice-captures): a slice descriptor carries no
+       terminator, so strlen on a slice replacement reads PAST it into the parent subject's bytes and the
+       rebuilt string carries trailing garbage.  Same consumer class as rt_parse_num_d/rt_coerce_int_d,
+       missed here because REPLACEMENT-value was not on the poison board's path. */
+    int64_t rlen = (rv.v == DT_S && rv.slen && rs == rv.s) ? (int64_t)rv.slen : (int64_t)strlen(rs);
     int64_t raw_start = start, raw_end = end;
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
     { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }

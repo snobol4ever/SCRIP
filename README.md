@@ -249,6 +249,13 @@ The reading: pure-match arms can crush (calculator-1-match at 7.44x), json is wi
 of SPITBOL on totals, and the worst full program (treebank, allocation-heavy at 0.50x)
 points at the GC/allocator as the next lever.
 
+**beauty self-host × vs SPITBOL** (2026-08-30, wall clock, best of 5 sets of 10 runs,
+outputs byte-verified identical on both arms — the beautifier formatting its own
+618-line source): **0.18x** (21.6 ms vs 3.8 ms per run). Beauty leans on exactly the
+deferred-evaluation and capture machinery the pipeline numbers above show as the weak
+joint, and it currently runs with that machinery's fastest path disabled for safety —
+the number is expected to move as that work lands.
+
 ### Icon
 
 **Coverage** (third-party): the two official vendor suites — Arizona's own test set

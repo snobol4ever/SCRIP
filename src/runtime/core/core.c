@@ -1701,11 +1701,18 @@ extern DESCR_t pat_arbno(DESCR_t);
 extern DESCR_t pat_fence(void);
 extern DESCR_t pat_fence_p(DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(VARVAL_fn(a[0]))    : FAILDESCR; }
-static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(VARVAL_fn(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n)  { return n>=1 ? pat_breakx(VARVAL_fn(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_ANY_(DESCR_t *a, int n)     { return n>=1 ? pat_any_cs(VARVAL_fn(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_NOTANY_(DESCR_t *a, int n)  { return n>=1 ? pat_notany(VARVAL_fn(a[0]))  : FAILDESCR; }
+/* ⛔ LENGTH AUTHORITY (beauty self-host regression, bisected to the slice-captures commit and then to
+   the exact capture: `&ALPHABET POS(10) LEN(1) . nl` in global.inc mints a 1-byte SLICE, and beauty then
+   builds `BREAK(' ' tab nl ';')`).  These wrappers flattened the descriptor to a bare char* with
+   VARVAL_fn, and pat_break_/pat_span/... then take strlen -- so an unterminated slice turned the whole
+   remainder of &ALPHABET into break/span characters and beauty's label parse died on its own first label.
+   rt_cstr_d is the routed cure (hq_P's length-authority idiom): free when the string is already
+   terminated, materializes only when it is not.  Fix the consumer, never the helper. */
+static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
+static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n)  { return n>=1 ? pat_breakx(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_ANY_(DESCR_t *a, int n)     { return n>=1 ? pat_any_cs(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_NOTANY_(DESCR_t *a, int n)  { return n>=1 ? pat_notany(rt_cstr_d(a[0]))  : FAILDESCR; }
 static DESCR_t _PAT_LEN_(DESCR_t *a, int n)     { return n>=1 ? pat_len(to_int(a[0]))   : FAILDESCR; }
 static DESCR_t _PAT_POS_(DESCR_t *a, int n)     { return n>=1 ? pat_pos(to_int(a[0]))   : FAILDESCR; }
 static DESCR_t _PAT_RPOS_(DESCR_t *a, int n)    { return n>=1 ? pat_rpos(to_int(a[0]))  : FAILDESCR; }

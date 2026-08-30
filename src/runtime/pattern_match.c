@@ -64,9 +64,18 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
     tree_t *t = ast_stmt_new((tree_e)r->tt);
     switch (r->tt) {
-    case TT_QLIT: t->v.sval = (char *)(r->s ? r->s : ""); break;
+    /* ⛔ LENGTH AUTHORITY (beauty self-host regression): r->s may be an UNTERMINATED SLICE into a live
+       subject (global.inc's `&ALPHABET POS(10) LEN(1) . nl` reaches here through a stored pattern), and
+       this tree is what the deferred-eval path (*Parse) recompiles -- tree consumers strlen sval.  Hand
+       the tree a terminated copy of exactly r->slen bytes; this path runs at pattern (re)construction,
+       never per match step. */
+    case TT_QLIT: { uint32_t L = r->slen; const char *sp = r->s ? r->s : "";
+        if (sp[0] && (!L ? 0 : sp[L] != '\0')) { char *cp = rt_str_alloc((long)L); if (cp) { memcpy(cp, sp, L); cp[L] = '\0'; sp = cp; } }
+        t->v.sval = (char *)sp; break; }
     case TT_SEQ: case TT_ALT: ast_push(t, dtp_rcp_tree(r->l, self)); ast_push(t, dtp_rcp_tree(r->r, self)); break;
-    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: { tree_t *c = ast_stmt_new(TT_QLIT); c->v.sval = (char *)(r->s ? r->s : ""); ast_push(t, c); break; }
+    case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: { tree_t *c = ast_stmt_new(TT_QLIT); uint32_t L = r->slen; const char *sp = r->s ? r->s : "";
+        if (sp[0] && (!L ? 0 : sp[L] != '\0')) { char *cp = rt_str_alloc((long)L); if (cp) { memcpy(cp, sp, L); cp[L] = '\0'; sp = cp; } }
+        c->v.sval = (char *)sp; ast_push(t, c); break; }
     case TT_LEN: case TT_TAB: case TT_RTAB: case TT_POS: case TT_RPOS: { tree_t *c = ast_stmt_new(TT_ILIT); c->v.ival = r->ival; ast_push(t, c); break; }
     case TT_ARBNO: {
         static int arb_uid = 0; char nb[24]; snprintf(nb, sizeof nb, "ARB$%d", arb_uid++);
@@ -764,6 +773,22 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
        are all runtime-internal.  Cost on the hot path is one test of a register-resident local in place of a cross-TU call. */
     int _cva = comm_var_active();
     int _prev_star = 0;
+    /* ⛔⭐ A FRAME THAT CARRIES USER CODE NEVER HANDS OUT SLICES (beauty self-host regression, bisected to
+       89571dd7's slice-captures).  A THUNK entry runs arbitrary user SNOBOL mid-pump -- it can re-match,
+       reassign, extend, or read input -- and any slice minted from THIS frame's subject before or after it
+       can go stale while the program still holds it.  beauty's one-line witness: the input `START` alone
+       parses to `Parse Error` with slices on and correctly with them off; its parse frames interleave
+       deferred evaluation thunks with plain captures.  So the frame is scanned once here: any thunk entry
+       demotes every capture in the frame to the alloc+memcpy path (which is what all captures used before
+       the optimization).  Pure capture frames -- string_pattern's BREAK trio, the +110% witness -- carry no
+       thunks and keep the slice.  One pass over entries already resident in cache, at pump entry only. */
+    int _frame_has_thunk = 0;
+    { const char *_p = c->cur;
+      while (_p + sizeof(rt_dcap_e) <= c->top) {
+          const rt_dcap_e *_e = (const rt_dcap_e *)(const void *)_p;
+          if (_e->len == RT_DCAP_E_THUNK) { _frame_has_thunk = 1; break; }
+          _p += sizeof(rt_dcap_e);
+      } }
     while (c->cur < c->top) {
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
@@ -815,9 +840,27 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                wrong offset -- a wrong answer, not a crash.  Breaking the owner costs one compare and one store.
            ⛔ len == 0 IS NEVER A SLICE: descr_slen reads slen 0 as "ask strlen", so a zero-length slice would report
            the whole remainder of the subject.  The empty capture keeps the allocated path, where its terminator is
-           real. */
+           real.
+           ⛔⭐ A DEFERRED '*' ARM NEVER TAKES THE SLICE (beauty self-host regression, bisected to this commit's
+           original form).  The star arm below runs USER SNOBOL CODE with this descriptor as input, and that code can
+           start its own matches, reassign the source variable, or read further input -- each of which can move or
+           rewrite the bytes this slice points into while user code still holds it.  beauty's `Src POS(0) *Parse
+           *Space RPOS(0)` line handed *Parse a slice of Src, Parse's own body then re-matched and reassigned, and
+           the slice went stale mid-thunk: `Parse Error` on the first -INCLUDE line, output 618 -> 10 lines.  Plain
+           captures (BREAK/SPAN into a variable, no user code between mint and use) keep the slice and its measured
+           +110%; the star arm pays one alloc+memcpy, which it always did before the optimization. */
         DESCR_t d;
-        if (len > 0 && c->subj && rt_cap_slice_on()) { rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
+        int _star_arm = (e->varname && e->varname[0] == '*');
+        /* bisection instrument for the beauty regression: SCRIP_CAP_SLICE_MAX=N lets only the first N
+           mints slice (rest copy); SCRIP_CAP_SLICE_TRACE=1 names each sliced mint with its index. */
+        static long _slice_budget = -2; static int _slice_trace = -1; static long _slice_idx = 0;
+        if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
+        if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
+        int _budget_ok = (_slice_budget < 0) || (_slice_idx < _slice_budget);
+        if (len > 0 && c->subj && !_star_arm && !_frame_has_thunk && _budget_ok && rt_cap_slice_on()) {
+            if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
+            _slice_idx++;
+            rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
         else {
             char *copy = rt_str_alloc(len);
             if (copy) { if (len > 0 && c->subj) memcpy(copy, c->subj + e->saved_delta, (size_t)len); copy[len] = (char)(len > 0 ? rt_cap_poison() : 0); }
