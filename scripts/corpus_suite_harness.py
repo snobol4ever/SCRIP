@@ -86,6 +86,12 @@ from pathlib import Path
 BANNER_WIDTH = 80
 ONE_LINE_CAP = 200
 BANNER_RE = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)(?P<xfail> XFAIL)?$")
+# ⭐ DIALECT-BLIND BANNER SNIFFER -- "does this file LOOK like a suite sidecar", asked without knowing
+# which language wrote it. banner_re_for() needs the comment syntax up front; this one is for the single
+# question loose_stdin_companion() has to answer about a file it found by NAME, before any language is
+# known. Deliberately loose on the left (any run of comment-open punctuation) and strict on the right
+# (dashes, seq, name) -- the shape no real stdin content has, which is the whole point.
+ANY_BANNER_RE = re.compile(r"^[*#%{/][*#%{/ ]*-{3,} \d+ \S+")
 
 # ============================================================ language configs ===
 # Per-language config for the format-(B)-ONLY (banner-block) conversion path -- convert_blocks
@@ -191,9 +197,11 @@ def resolve_oracle_bin(paths, lang=""):
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon so far)")
 
 
-def run_oracle(oracle_bin, flags, sno_path, timeout):
-    """One live oracle invocation, `< /dev/null` like every other scrip/oracle call in this file
-    and in test_one_witness.sh (whose exact contract this mirrors: stdout text AND returncode both
+def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None):
+    """One live oracle invocation. stdin is `/dev/null` unless the caller passes stdin_text -- the
+    one caller that does is cmd_capture_oracle_refs, feeding a loose companion resolved by
+    loose_stdin_companion(); every other oracle/scrip call in this file
+    and in test_one_witness.sh is unfed (whose exact contract this mirrors: stdout text AND returncode both
     matter -- a witness testing a deliberate error exit is not 'wrong' for exiting non-zero, it is
     wrong only if scrip's rc/text pair disagrees with the oracle's).
     ⛔⭐ ARGV IS THE BARE BASENAME, CWD IS THE FILE'S OWN DIRECTORY (row suite-harness-argv-echoes-a-
@@ -204,7 +212,7 @@ def run_oracle(oracle_bin, flags, sno_path, timeout):
     that echoed text reproducible and comparable to a frozen .ref at all."""
     sno_path = Path(sno_path)
     argv = [oracle_bin] + flags.split() + [sno_path.name]
-    kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent))
+    kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
     return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
 
 
@@ -500,8 +508,18 @@ def has_comment_lines(text):
     return any(line[:1] == "*" for line in text.splitlines())
 
 
-def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=None):
-    """Returns (Entry, report_dict). report_dict always has "ok": bool and "reason": str."""
+def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=None, stdin_text=None):
+    """Returns (Entry, report_dict). report_dict always has "ok": bool and "reason": str.
+    ⛔⭐⭐ stdin_text IS NOT OPTIONAL POLISH -- WITHOUT IT A GREEN WITNESS IS LAUNDERED INTO A PERMANENT
+    XFAIL AND THE RUN STILL PRINTS ✅ (measured 2026-08-30, hq_B, on a two-entry scratch family).
+    A loose stem with a stdin companion whose .ref was minted FED, re-run here UNFED, produces empty
+    output, so orig_green goes False -- and convert does not refuse a non-green original by design
+    (probe/passthru's deliberately-red witnesses). It converts it verbatim as XFAIL, the candidate is
+    ALSO unfed so it reproduces the same empty output, byte-equal-or-no-delete is satisfied, and the
+    command exits "✅ ON-DISK RE-VALIDATION PASSED ... Safe to delete the originals" -- including the
+    .input file that was the entry's whole meaning. ⭐ Every individual check behaved exactly as
+    specified; the defect is that all of them were asked about the same unfed program. Feeding is what
+    makes them questions about the real witness."""
     name = sno_path.stem
     original_text = sno_path.read_text()
     # ⛔⭐ CONVERT MUST BE IDEMPOTENT — STRIP OUR OWN `;* <name>` SENTINEL BEFORE RE-PROCESSING.
@@ -521,7 +539,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     expected_text = ref_path.read_text()
     statements = parse_statements(original_text)
 
-    orig_verdicts = run_all_modes(paths, sno_path, expected_text, tmp_root, modes)
+    orig_verdicts = run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=stdin_text)
     orig_green = all(v.kind == "PASS" for v in orig_verdicts.values())
     # ⛔ A non-green original is NOT refused. probe/passthru's law-0d witnesses are DELIBERATELY red
     # ("a red row is never denied" -- board_passthru_combo.sh's own header, ARCH-PASSTHRU.md): this
@@ -532,7 +550,11 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     # holds in full: the candidate must reproduce the ORIGINAL's verdict exactly, whatever it is, never
     # just "PASS" -- see corpus-crosscheck-probe-total-conversion.task.md's xfail/xpass extension and
     # cmd_run's XFAIL/XPASS bucketing, which keeps a pre-existing red from inflating a caller's FAIL count.
-    force_verbatim = has_comment_lines(original_text) or not orig_green
+    # ⛔ A STDIN-BEARING ENTRY IS BLOCK-ONLY, and that is the suite format's rule, not a preference here:
+    # write_stdin_sidecar() keys every stdin block by banner, and a format-(A) one-liner has no banner to
+    # key on -- it raises rather than dropping the stdin silently. Forcing the block form at the point the
+    # stdin is known keeps that from ever becoming a late crash after a whole family has converted.
+    force_verbatim = has_comment_lines(original_text) or not orig_green or stdin_text is not None
 
     # --- attempt (A): one-line join --- skipped for a comment-bearing or non-green original: comments
     # have no one-line syntax to survive in, and a red witness is safest preserved byte-for-byte rather
@@ -551,7 +573,7 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
                 cand = Path(td) / f"{name}.sno"
                 cand.write_text(one_line + "\n")
                 _copy_companions(one_line + "\n", companion_dir, Path(td))
-                cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
+                cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes, stdin_text=stdin_text)
             if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 entry = Entry("line", seq, name, [one_line], expected_text.rstrip("\n"))
                 return entry, {"ok": True, "reason": "one-line", "len": len(one_line)}
@@ -568,10 +590,10 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
         block_text = "\n".join(block_lines) + "\n"
         cand.write_text(block_text)
         _copy_companions(block_text, companion_dir, Path(td))
-        cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes)
+        cand_verdicts = run_all_modes(paths, cand, expected_text, Path(td), modes, stdin_text=stdin_text)
     if all(cand_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
         entry = Entry("block", seq, name, block_lines, expected_text.rstrip("\n").splitlines(),
-                       xfail=not orig_green)
+                       stdin=stdin_text, xfail=not orig_green)
         if not orig_green:
             reason = "multi-line-block-verbatim(XFAIL: original already non-green)"
         elif force_verbatim:
@@ -598,8 +620,12 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
 
 
 # ========================================================== suite writer ===
-def write_suite(entries, out_sno, out_ref):
-    """⛔⭐ FORMAT-(B) BLOCKS ARE EMITTED LAST, ALWAYS — THIS ORDERING IS A CORRECTNESS INVARIANT, NOT A STYLE CHOICE.
+def write_suite(entries, out_sno, out_ref, out_in=None):
+    """Returns True iff a stdin sidecar was written (out_in given AND at least one entry carries stdin) --
+    same contract and same write_stdin_sidecar() call as write_block_suite(), which had this parameter from
+    the start while this SNOBOL4 twin did not: a stdin-bearing snobol4 family had nowhere to put its input,
+    so the loose companion was simply stranded by conversion (hq_B 2026-08-30).
+    ⛔⭐ FORMAT-(B) BLOCKS ARE EMITTED LAST, ALWAYS — THIS ORDERING IS A CORRECTNESS INVARIANT, NOT A STYLE CHOICE.
     A banner block ends only at the NEXT BANNER OR EOF (see read_suite()'s scanner). So any format-(A) one-line entry
     written AFTER a block is silently swallowed into that block's body: the file stops round-tripping, and the swallowed
     entries either vanish or come back duplicated. MEASURED (hq_C 2026-08-28, on seat02's convert-corrupts-eval report):
@@ -611,6 +637,13 @@ def write_suite(entries, out_sno, out_ref):
     blocks = [e for e in entries if e.kind != "line"]
     sno_lines, ref_lines = [], []
     for seq, e in enumerate(lines + blocks, 1):
+        # ⛔ RENUMBER THE ENTRY ITSELF, not just the banner being printed. This writer reorders
+        # (lines then blocks) AND renumbers, while write_stdin_sidecar() banners its blocks from
+        # e.seq -- so leaving e.seq at its pre-reorder value writes a .in banner numbered
+        # differently from the .sno banner naming the same entry. read_stdin_sidecar attaches BY
+        # NAME and would still work, which is precisely why the inconsistency could sit there
+        # unnoticed and confuse the next person to read the two files side by side.
+        e.seq = seq
         if e.kind == "line":
             sno_lines.append(e.sno_lines[0])
             ref_lines.append(e.ref.replace("\n", "\\n"))
@@ -629,6 +662,13 @@ def write_suite(entries, out_sno, out_ref):
     if len(back) != len(entries) or [e.name for e in back] != [e.name for e in lines + blocks]:
         raise ValueError(f"⛔ SUITE DID NOT ROUND-TRIP: wrote {len(entries)} entries, read back {len(back)}. "
                          f"wrote={[e.name for e in lines + blocks]!r} read={[e.name for e in back]!r}")
+    # ⛔ AFTER the round-trip check, and keyed by the SAME seq the banners just got: write_suite reorders
+    # (lines then blocks) and renumbers, so a sidecar written from the pre-reorder seq would banner its
+    # blocks with numbers that no longer name the same entries.
+    wrote_in = False
+    if out_in is not None:
+        wrote_in = write_stdin_sidecar(lines + blocks, out_in, "*", "")
+    return wrote_in
 
 
 def write_block_suite(entries, out_src, out_ref, comment_open, comment_close, out_in=None, out_x=None):
@@ -678,6 +718,58 @@ def sidecar_in_path(src_path):
     None -> /dev/null, identical to pre-stdin behaviour."""
     cand = Path(src_path).with_suffix(".in")
     return str(cand) if cand.is_file() else None
+
+
+# ⛔⭐⭐ ONE RESOLVER FOR THE LOOSE PER-STEM COMPANION -- THERE WERE THREE, AND THEY DISAGREED ABOUT
+# WHICH SPELLINGS EXIST (measured 2026-08-30, hq_B, while feeding capture-oracle-refs):
+#     sidecar_in_path()        suite level, knew .in and .input, NOT .stdin
+#     cmd_convert_blocks()     loose level, knew .stdin ONLY -- a loose .in/.input never reached an entry
+#     cmd_capture_oracle_refs() loose level, knew all three, but only in order to REFUSE on them
+# All three spellings are LIVE in the corpus (corpus/tests/icon/rung36_jcon_*.stdin, and .input under
+# demos/, benchmarks/, packages/), so each resolver was blind to real files the others could see.
+# ⭐ AND A PARTIAL RESOLVER NEVER SAYS SO. It resolves to None, None means /dev/null, and the program
+# then runs WITH THE WRONG INPUT while its output is graded as a genuine verdict -- a wrong answer
+# wearing a verdict, exactly the class sidecar_in_path's own `.input` amendment records. The cure is
+# not a fourth list: it is that there is only ever one list, here.
+def loose_stdin_companion(src):
+    """stdin companion for a LOOSE corpus file: <stem>.stdin / <stem>.in / <stem>.input beside it.
+    Returns (text, path, refusal); at most one of text/refusal is ever meaningful --
+        (None, None, None)     no companion -> stdin is /dev/null, identical to pre-stdin behaviour
+        (str,  Path, None)     feed this text to EVERY arm
+        (None, Path|None, str) cannot feed faithfully -- the caller REFUSES, never guesses
+    ⛔ AMBIGUITY IS A REFUSAL, NOT A PRECEDENCE RULE. Two companions beside one stem means nobody can
+    say which is the program's input, and picking the first is the vacuous-ref failure with one extra
+    step: it mints a ref that LOOKS fed and then grades that file against the wrong bytes forever.
+    ⛔ NON-UTF-8 IS A REFUSAL TOO. This path feeds text; a byte sequence it cannot carry faithfully
+    must stop the mint rather than be lossily re-encoded into a permanent .ref."""
+    cands = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"))
+             if c.is_file()]
+    if not cands:
+        return None, None, None
+    if len(cands) > 1:
+        return None, None, ("AMBIGUOUS stdin companion -- %s all exist beside %s; which one is the "
+                            "program's input cannot be decided here, keep exactly one"
+                            % (", ".join(c.name for c in cands), src.name))
+    try:
+        text = cands[0].read_bytes().decode("utf-8")
+    except UnicodeDecodeError as e:
+        return None, cands[0], ("stdin companion %s is not valid UTF-8 (%s) -- this path feeds text and "
+                                "will not lossily re-encode a program's own input into a permanent .ref"
+                                % (cands[0].name, e))
+    # ⛔⭐ A SUITE SIDECAR IS NOT A LOOSE COMPANION, AND THE TWO SPELL THEMSELVES IDENTICALLY. <family>.in
+    # beside <family>.sno is the CONVERTED suite's banner-keyed sidecar (sidecar_in_path); <stem>.in beside
+    # <stem>.sno is one loose program's raw stdin. Same name shape, same directory, completely different
+    # file -- and 6 of them are live in the corpus right now (tests/{snobol4,icon,snocone}/ALL.in,
+    # icon/rung36_all.in, icon/rung27_read.in, snocone/crosscheck_rungA14.in).
+    # ⭐ Feeding one as raw stdin would not error -- it would quietly push banner lines into the program
+    # and grade whatever came out. So the check is on the CONTENT, not the name: real stdin does not open
+    # with a banner. Refusing here also says something true and useful, which "wrong output" never would.
+    _first = next((ln for ln in text.splitlines() if ln.strip()), "")
+    if ANY_BANNER_RE.match(_first):
+        return None, cands[0], ("%s is a SUITE .in SIDECAR (its first line is an entry banner), not this "
+                                "stem's raw stdin -- feeding it would push banner lines into the program; "
+                                "read it with read_stdin_sidecar(), never as loose stdin" % cands[0].name)
+    return text, cands[0], None
 
 
 def read_stdin_sidecar(in_path, banner_re, entries):
@@ -1097,28 +1189,95 @@ def cmd_capture_oracle_refs(args):
         if ref_path.is_file() and not args.force:
             print(f"[{i}/{len(srcs)}] {src.stem}: SKIP (already has a .ref)", file=sys.stderr)
             continue
-        ora_text, ora_rc, ora_kind = run_oracle(oracle_bin, flags, src, paths["timeout"])
+        # ⛔⭐⭐ THE STDIN COMPANION IS FED TO ALL THREE ARMS -- IT USED TO BE A FLAT REFUSAL, AND THE REASON
+        # THE REFUSAL EXISTED IS THE REASON THE FEED HAS TO BE PROVEN (ceo freeze 2026-08-30 on hq_P's catch;
+        # freeze lifted with this one edge, cured here). This gate's whole safety argument is THREE-WAY
+        # AGREEMENT -- m3, m4 and the oracle producing the same bytes. That argument COLLAPSES when the
+        # disagreement-producing input is missing from all three arms at once: rung36_jcon_recogn ran with no
+        # stdin, ALL THREE ARMS AGREED ON EMPTY, and a 1-byte vacuous oracle was minted that would have passed
+        # forever (withdrawn, corpus 705cd7ad1).
+        # ⭐ THE GENERAL FORM, AND IT IS WHY N ARMS DID NOT HELP: AGREEMENT IS ONLY EVIDENCE WHEN THE ARMS CAN
+        # DISAGREE. Three instruments sharing one missing input are one instrument reported three times, and
+        # the unanimity reads as MORE confidence rather than less. A fourth arm would not have helped.
+        # ⛔ SO FEEDING IS NOT ENOUGH -- AN UNPROVEN FEED IS THE SAME DEFECT WITH BETTER MANNERS. If the text
+        # never reaches the program (a plumbing regression here, a dialect whose runner drops stdin, a
+        # companion that is really a by-name data file), all three arms are once again sharing one missing
+        # input and once again agreeing. The unfed control run below is what makes the feed FALSIFIABLE, and
+        # it is the only part of this block that can detect a future regression in the feed itself.
+        # ⛔ The old REFUSAL survives, unchanged in spirit, for every path that CANNOT feed -- see
+        # loose_stdin_companion(): ambiguity and non-UTF-8 mint nothing and say why. A vacuous ref is worse
+        # than a missing one: a missing ref leaves a file ungraded and VISIBLE, while a vacuous ref grades it
+        # against nothing forever and reads as coverage.
+        stdin_text, stdin_path, stdin_refusal = loose_stdin_companion(src)
+        if stdin_refusal:
+            red.append((src.stem, "REFUSED: " + stdin_refusal))
+            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED ({stdin_refusal.split(' -- ')[0]})", file=sys.stderr)
+            continue
+        ora_text, ora_rc, ora_kind = run_oracle(oracle_bin, flags, src, paths["timeout"], stdin_text=stdin_text)
         if ora_kind != "RAN":
             red.append((src.stem, f"oracle itself {ora_kind}"))
             print(f"[{i}/{len(srcs)}] {src.stem}: RED (oracle {ora_kind})", file=sys.stderr)
             continue
+        # ⭐ THE CONTROL ARM (format Law 4: agreement only counts when the arms CAN disagree). One extra
+        # oracle run, unfed, on stdin-bearing stems only -- rare, so the cost is noise. If feeding the
+        # companion changes NOTHING about the oracle's kind/text/rc, then this stem's stdin is not reaching
+        # the program and the three-way agreement about to be computed is agreement on a shared missing
+        # input all over again. Two real causes, one signature: the feed is broken, or the file named
+        # <stem>.in/.input is not stdin at all but a by-name data file that merely collides with the stdin
+        # spelling. ⛔ Both want a human, and neither wants a minted ref. A HANG or a different rc counts as
+        # a difference -- a program that blocks unfed and runs fed is exactly a stem that IS stdin-dependent.
+        if stdin_text is not None:
+            unfed_text, unfed_rc, unfed_kind = run_oracle(oracle_bin, flags, src, paths["timeout"])
+            if (unfed_kind, unfed_text, unfed_rc) == (ora_kind, ora_text, ora_rc):
+                red.append((src.stem, "REFUSED: feeding %s changed NOTHING in the oracle (same kind/text/rc "
+                                      "fed and unfed) -- either stdin is not reaching this program or that "
+                                      "file is a by-name data companion, not stdin; agreement here would "
+                                      "again be agreement on a shared missing input" % stdin_path.name))
+                print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (feeding {stdin_path.name} changed nothing)", file=sys.stderr)
+                continue
         agreements = []
         all_agree = True
         for m in modes:
             if m == "m3":
-                v = run_m3(paths, src, ora_text)
+                v = run_m3(paths, src, ora_text, stdin_text=stdin_text)
             elif m == "m4":
                 with tempfile.TemporaryDirectory() as td:
-                    v = run_m4(paths, src, ora_text, Path(td))
+                    v = run_m4(paths, src, ora_text, Path(td), stdin_text=stdin_text)
             else:
                 refuse(f"unknown mode {m!r} (this command supports m3/m4 only, never ast)")
             agree = (v.kind == "PASS") and (v.returncode == ora_rc)
             agreements.append(f"{m}={'AGREE' if agree else f'{v.kind}(rc={v.returncode} vs oracle {ora_rc})'}")
             all_agree = all_agree and agree
+        # ⛔⭐⭐ REFUSE TO MINT AN EMPTY REF, WHATEVER THE REASON. Two independent routes to the same failure
+        # were found on 2026-08-30, hours apart, by two different seats:
+        #   hq_P  -- rung36_jcon_recogn ran with NO STDIN; all three arms agreed on empty.
+        #   seat05 -- swipl's `-g halt` fires before/instead of a `:- initialization(main,main)` goal, so the
+        #             ORACLE produces empty for a whole class of prolog programs that run fine bare.
+        # Different causes, IDENTICAL SIGNATURE: every arm agrees, and what they agree on is NOTHING.
+        # ⭐ So the guard belongs on the SIGNATURE, not on either cause. An existence check for a stdin
+        # companion cannot see seat05's case (there is no companion), and a swipl-flag fix cannot see hq_P's.
+        # Empty-agreement is the observable both share, and it will be the observable of the third route
+        # nobody has found yet. It is ALSO the backstop for the feed above: if a future change breaks the
+        # plumbing on a path the unfed control does not cover, this is what still refuses to write the ref.
+        # ⛔ A legitimately-silent program is the acceptable cost: its ref is one line to author deliberately,
+        # whereas a vacuous ref grades its file against nothing FOREVER and reads as coverage. Refusing costs
+        # a human a minute; minting costs a suite its meaning, silently and permanently.
+        # ⛔⭐ RESTORED 2026-08-30 (hq_B) AFTER BEING DELETED WITH NO REPLACEMENT by d67c0f6c, whose subject
+        # and body describe three unrelated builder fixes and never mention removing a guard. It came back
+        # only because a rebase conflict one hunk ABOVE forced someone to read this function -- the deletion
+        # itself merged perfectly clean. ⭐ That is the durable lesson: a removed check has no failing test
+        # to announce it. Nothing goes red, the tool gets quieter, and the loss is only visible to a reader
+        # who already knew the check was supposed to be here.
+        if all_agree and not ora_text.strip():
+            red.append((src.stem, "REFUSED: all arms agreed on EMPTY output -- agreement on nothing is not "
+                                  "agreement; mint a ref by hand if this program is genuinely silent"))
+            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (all arms agree, but on EMPTY output)", file=sys.stderr)
+            continue
         if all_agree:
             ref_path.write_text(ora_text + "\n")
             green.append(src.stem)
-            print(f"[{i}/{len(srcs)}] {src.stem}: GREEN ({' '.join(agreements)}) -- .ref written", file=sys.stderr)
+            _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
+            print(f"[{i}/{len(srcs)}] {src.stem}: GREEN ({' '.join(agreements)}){_fed} -- .ref written", file=sys.stderr)
         else:
             red.append((src.stem, " ".join(agreements)))
             print(f"[{i}/{len(srcs)}] {src.stem}: RED ({' '.join(agreements)})", file=sys.stderr)
@@ -1127,7 +1286,17 @@ def cmd_capture_oracle_refs(args):
           file=sys.stderr)
     for name, reason in red:
         print(f"   RED {name}: {reason}", file=sys.stderr)
-    sys.exit(0)
+    # ⛔⭐⭐ ANY RED EXITS NON-ZERO. This printed a full RED summary and exited 0 until 2026-08-30 (measured by
+    # ceo on a scratch family; hq_B's row capture-feed-stdin-and-red-exit) -- which is format Law 3's exact
+    # two-audiences shape, "could not measure" and "measured fine" sharing one exit code, sitting on the very
+    # tool that carries Law 4. ⭐ A HUMAN reading the terminal sees the ⛔ lines and is fine; a SCRIPT sees
+    # rc=0 and marches on, and `capture-oracle-refs D && convert D ...` then converts a family whose refusals
+    # it never learned about. The two audiences do not read the same channel, so the channel BOTH read -- the
+    # exit code -- is the one that has to carry the verdict.
+    # rc=1 -- ran fine, some stems are RED and were left untouched. rc=3 (refuse()) stays what it has always
+    # been: could not measure AT ALL. Distinct on purpose; a caller can tell "no refs for these" from
+    # "the oracle/tree is not usable".
+    sys.exit(1 if red else 0)
 
 
 def cmd_convert(args):
@@ -1159,10 +1328,23 @@ def cmd_convert(args):
 
     entries = []
     failures = []
+    # ⭐ Resolved ONCE, up front, through the single loose-companion authority -- and kept, because the
+    # same text has to reach three separate places that would otherwise each re-derive it: convert_one's
+    # original+candidate runs, the .in sidecar, and the on-disk re-validation below.
+    stdin_by_stem = {}
+    for sno, _ref in pairs:
+        _text, _path, _refusal = loose_stdin_companion(sno)
+        if _refusal:
+            refuse(f"{sno.name}: {_refusal}")
+        stdin_by_stem[sno.stem] = _text
+    _fed_n = sum(1 for v in stdin_by_stem.values() if v is not None)
+    if _fed_n:
+        print(f"{_fed_n} of {len(pairs)} pairs carry a stdin companion -- fed to every arm and written to the .in sidecar", file=sys.stderr)
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_"))
     try:
         for seq, (sno, ref) in enumerate(pairs, start=1):
-            entry, report = convert_one(paths, sno, ref, seq, tmp_root, modes, companion_dir=sno.parent)
+            entry, report = convert_one(paths, sno, ref, seq, tmp_root, modes, companion_dir=sno.parent,
+                                        stdin_text=stdin_by_stem[sno.stem])
             status = "OK" if report["ok"] else "FAIL"
             print(f"[{seq}/{len(pairs)}] {sno.stem}: {status} ({report['reason'][:80]})", file=sys.stderr)
             if entry is not None:
@@ -1181,8 +1363,12 @@ def cmd_convert(args):
 
     one_line_n = sum(1 for e in entries if e.kind == "line")
     block_n = sum(1 for e in entries if e.kind == "block")
-    write_suite(entries, args.out_sno, args.out_ref)
-    print(f"✅ wrote {args.out_sno} / {args.out_ref}: {len(entries)} entries "
+    # out_in is DERIVED, never a flag -- sidecar_in_path()'s own doctrine: every downstream consumer
+    # (boards, gates, cmd_run) discovers <family>.in by convention, so a suite cannot silently run
+    # without its input just because one caller was not taught a new argv.
+    out_in = str(Path(args.out_sno).with_suffix(".in"))
+    wrote_in = write_suite(entries, args.out_sno, args.out_ref, out_in=out_in)
+    print(f"✅ wrote {args.out_sno} / {args.out_ref}{' / ' + out_in if wrote_in else ''}: {len(entries)} entries "
           f"({one_line_n} one-line, {block_n} multi-line-block)", file=sys.stderr)
 
     # close the loop: re-read the WRITTEN files and re-validate every entry against the originals
@@ -1195,14 +1381,19 @@ def cmd_convert(args):
     # third entry's kind shuffled the read-back order. Confirmed on a 3-entry repro (fence_arbno_top
     # [line], ident_differ_inline [block], os1_runtime_k [line] -- discovery order != reread order,
     # and the loop below used to compare ident's own orig output against os1's suite output).
-    reread = read_suite(args.out_sno, args.out_ref)
+    # ⛔ READ THE .in BACK TOO (sidecar_in_path, not out_in: if no entry carried stdin the file was never
+    # created and is_file() correctly degrades to None -> /dev/null). Re-validating without it would run
+    # every suite entry unfed against a ref minted fed -- the re-validation would then be measuring a
+    # different program than the one just written, which is the whole failure this parameter closes.
+    reread = read_suite(args.out_sno, args.out_ref, in_path=sidecar_in_path(args.out_sno))
     by_name = {e.name: e for e in reread}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_verify_"))
     mismatches = []
     try:
         for sno, ref in pairs:
             written = by_name[sno.stem]
-            orig_verdicts = run_all_modes(paths, sno, ref.read_text(), tmp_root, modes)
+            orig_verdicts = run_all_modes(paths, sno, ref.read_text(), tmp_root, modes,
+                                           stdin_text=stdin_by_stem[sno.stem])
             suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, companion_dir=sno.parent)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
                 mismatches.append((sno.stem, orig_verdicts, suite_verdicts))
@@ -1217,8 +1408,15 @@ def cmd_convert(args):
             print(f"   {name}: orig={o} suite={s}", file=sys.stderr)
         sys.exit(1)
 
+    # ⛔ THE COUNT NAMES THE COMPANIONS TOO. A stdin-bearing stem is THREE loose files, not two, and its
+    # companion's content is only safe to delete because it now lives in the .in sidecar just written and
+    # re-validated. Saying "N*2" while a third file sits there is how a companion gets left behind as
+    # orphaned litter -- or, worse, read as still-load-bearing and the conversion reverted.
     print(f"✅ ON-DISK RE-VALIDATION PASSED: all {len(entries)} entries byte-equal, both directions, "
-          f"modes={modes}. Safe to delete the {len(pairs)*2} original files.", file=sys.stderr)
+          f"modes={modes}. Safe to delete the {len(pairs)*2 + _fed_n} original files "
+          f"({len(pairs)} .sno + {len(pairs)} .ref"
+          f"{f' + {_fed_n} stdin companion(s), now carried by ' + Path(out_in).name if _fed_n else ''}).",
+          file=sys.stderr)
     sys.exit(0)
 
 
@@ -1279,8 +1477,12 @@ def cmd_convert_blocks(args):
             # the family-level .in sidecar this same content becomes once written (write_block_suite's
             # out_in= below) -- discovered by convention, never a flag, same principle as
             # sidecar_in_path(). Absent file -> None -> /dev/null, identical to pre-stdin behaviour.
-            stdin_path = src.with_suffix(".stdin")
-            stdin_text = stdin_path.read_text() if stdin_path.is_file() else None
+            # ⛔ THROUGH THE ONE RESOLVER (hq_B 2026-08-30). This read `.stdin` and only `.stdin`, so a
+            # loose `.in`/`.input` -- the spelling the snobol4 corpus actually uses -- resolved to None,
+            # ran the entry against /dev/null, and scored the result as a genuine verdict.
+            stdin_text, stdin_path, _stdin_refusal = loose_stdin_companion(src)
+            if _stdin_refusal:
+                refuse(f"{src.name}: {_stdin_refusal}")
             orig = run_all_modes(paths, src, expected_text, tmp_root, modes, stdin_text=stdin_text)
             orig_green = all(v.kind == "PASS" for v in orig.values())
             want_xfail = name in xfail_names
@@ -1337,8 +1539,17 @@ def cmd_convert_blocks(args):
             # stdin independently from its own loose .stdin sidecar (not from `written.stdin`), so a
             # round-trip that silently lost or corrupted the sidecar produces a genuine behavioral
             # mismatch here instead of two coincidentally-identical verdicts.
-            orig_stdin_path = src.with_suffix(".stdin")
-            orig_stdin_text = orig_stdin_path.read_text() if orig_stdin_path.is_file() else None
+            # ⛔ THE FOURTH COPY OF THE SPELLING LIST LIVED HERE, AND ONLY A CONTROL FOUND IT (hq_B
+            # 2026-08-30). This re-derivation is deliberately independent of `written.stdin` -- that is
+            # hq_C's design above and it is kept exactly -- but it knew `.stdin` alone, so a `.input`-bearing
+            # entry converted correctly, wrote a correct .in sidecar, and was then re-validated against an
+            # UNFED original: orig FAIL vs suite PASS, reported as "the written suite diverges" when the
+            # written suite was right and the check was wrong. ⭐ A false ⛔ is not the harmless direction of
+            # this bug -- it tells a seat to distrust a good conversion and go re-derive a correct .ref.
+            # Independence is preserved by reading the loose file FRESH, not by keeping a private list.
+            orig_stdin_text, _osp, _osr = loose_stdin_companion(src)
+            if _osr:
+                refuse(f"{src.name}: {_osr}")
             orig_verdicts = run_all_modes(paths, src, ref.read_text(), tmp_root, modes, stdin_text=orig_stdin_text)
             suite_verdicts = run_suite_entry(paths, written, tmp_root, modes, ext=ext, companion_dir=src.parent)
             if not all(suite_verdicts[m].behaviorally_equal(orig_verdicts[m]) for m in modes):
@@ -1354,8 +1565,11 @@ def cmd_convert_blocks(args):
             print(f"   {name}: orig={o} suite={s}", file=sys.stderr)
         sys.exit(1)
 
+    _fed_n = sum(1 for e in entries if e.stdin is not None)
     print(f"✅ ON-DISK RE-VALIDATION PASSED: all {len(entries)} entries byte-equal, both directions, "
-          f"modes={modes}. Safe to delete the {len(pairs) * 2} original files "
+          f"modes={modes}. Safe to delete the {len(pairs) * 2 + _fed_n} original files "
+          f"({len(pairs)} {ext} + {len(pairs)} .ref"
+          f"{f' + {_fed_n} stdin companion(s), now carried by ' + Path(out_in).name if _fed_n else ''}) "
           f"({len(failures)} left as loose, not green, not deleted).", file=sys.stderr)
     sys.exit(0)
 
