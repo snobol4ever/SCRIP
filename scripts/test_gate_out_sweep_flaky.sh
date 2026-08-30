@@ -25,8 +25,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SC="$(cd "$HERE/.." && pwd
 REAL="${SCRIP:-$SC/scrip}"; CORPUS="${CORPUS:-$S4E/corpus}"; SWEEP="${SWEEP:-$HERE/util_out_sweep.sh}"   # overridable so the gate can be pointed at a DEFENCE-REMOVED copy and proven to go RED (see the meta-test in the FINDING)
 [ -x "$REAL" ] || { echo "GATE RED: no scrip binary at $REAL (make -j4 scrip)"; exit 1; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-FLAKY="$CORPUS/crosscheck/patterns/141_pat_eval_double_fn_arbno.sno"; MOVED="$CORPUS/crosscheck/patterns/140_pat_eval_double_fn_trick.sno"; STABLE="$CORPUS/crosscheck/patterns/038_pat_literal.sno"
-for f in "$FLAKY" "$MOVED" "$STABLE"; do [ -f "$f" ] || { echo "GATE RED: missing witness $f"; exit 1; }; done
+# ⛔ crosscheck/patterns/ is GONE -- converted into the tests/snobol4/ALL.{sno,ref,csv} master
+# (corpus da0987478 lineage). Extract by ORIGIN (never re-point at a surviving directory -- that
+# would grade a different population and look green either way, hq_P's FINDING-2026-08-30 on this
+# exact class). Origins confirmed against ALL.csv's own family/origin columns before use.
+source "$HERE/lib_master_extract.sh" || { echo "GATE RED: could not load lib_master_extract.sh"; exit 1; }
+FLAKY="$W/141_pat_eval_double_fn_arbno.sno"; MOVED="$W/140_pat_eval_double_fn_trick.sno"; STABLE="$W/038_pat_literal.sno"
+master_extract_origin crosscheck_patterns__141_pat_eval_double_fn_arbno "$FLAKY" || { echo "GATE RED: could not extract 141_pat_eval_double_fn_arbno from the master"; exit 1; }
+master_extract_origin crosscheck_patterns__140_pat_eval_double_fn_trick "$MOVED" || { echo "GATE RED: could not extract 140_pat_eval_double_fn_trick from the master"; exit 1; }
+master_extract_origin crosscheck_patterns__038_pat_literal "$STABLE" || { echo "GATE RED: could not extract 038_pat_literal from the master"; exit 1; }
 printf '%s\n%s\n%s\n' "$FLAKY" "$MOVED" "$STABLE" | sort > "$W/list"
 cat > "$W/arm" <<'ARMEOF'
 #!/usr/bin/env bash
