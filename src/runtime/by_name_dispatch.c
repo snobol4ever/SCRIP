@@ -6567,7 +6567,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t td = args[0];
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
-        DESCR_t vd = (nargs >= 3) ? args[2] : ((td.tbl && td.tbl->is_set) ? kd : NULVCL);
+        DESCR_t vd = (td.tbl && td.tbl->is_set) ? kd : ((nargs >= 3) ? args[2] : NULVCL);
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         table_set_descr_d(td.tbl, kd, vd);
         *out = td; return 1;
