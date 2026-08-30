@@ -10,7 +10,7 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;   /* ceo s283g: the LAST break-expression's resume chain inside the loop being lowered -- the loop publishes it as ITS beta so `every` resumes INTO the suspended break expression (iconx semantics), not around the loop; single-break corpus reality, last-lowered wins on multiples */ IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp;   /* loop_fail: the innermost loop's OWN failure continuation (its ω param) — a break-expression that fails or exhausts fails THE LOOP (iconx), never the exit/read path (ceo s283g: stale-value infinite yield otherwise) */
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp;   /* scan_stk_enter/scan_sp (ceo, icon-scan-env-value-residue slice 2): the LIVE stack of IR_SCAN_ENTER nodes enclosing the point being lowered — a non-local exit crossing k scan levels must chain through k SCAN leave nodes (outer Σ/δ/Δ restore + rt_scan_leave), or the register scan env (r13/r14/r15) survives the jump; loop_next_ssp = the innermost loop's scan depth at entry, the pop-to target for `next`. */ /* loop_fail: the innermost loop's OWN failure continuation (its ω param) — a break-expression that fails or exhausts fails THE LOOP (iconx), never the exit/read path (ceo s283g: stale-value infinite yield otherwise) */
 } icx_t;
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -572,7 +572,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             *res = en; return en;
         }
     }
-    case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+    case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd;
+        if (ln && cx->scan_sp > cx->loop_next_ssp) {   /* icon-scan-env-value-residue slice 2 (ceo): `next` crossing scan boundaries must run each level's SCAN leave, innermost first — a bare GOTO left r13/r14/r15 holding the inner subject (measured: "98765" ? { every 1 do { "mnbv" ? next }; write(move(2)) } printed "mn"). Chain built outermost-deepest so the entry node leaves the innermost env. Explicit lc_ links: IR_SCAN is generator-kind and build()'s γ/ω redirect would wire the chain to β. */
+            for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, ln); lc_ω_to(lv, ln); ln = lv; }
+            nd = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(nd, ln); lc_ω_to(nd, ln);
+        } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
+        *res = nd; return nd; }
     case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_INITIAL: {
         IR_t * ini = build(cx, IR_INITIAL, NULL, γ);
@@ -733,7 +738,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
         IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
         int scan_body_lo = cx->g->n;
+        if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
+        cx->scan_sp--;
         IR_t * body_beta = cx->beta;   /* a loop body publishes its break-expression's resume chain here (loop_break_beta); captured BEFORE the subject reset so it can cross the scan boundary */
         for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
         if (bv) ir_operand_push(leave_succ, bv);
@@ -916,16 +923,16 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
-    cx->loop_next = CENT;
+    cx->loop_next = CENT; cx->loop_next_ssp = cx->scan_sp;
     if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, CENT, CENT, &bval);
     cx->loop_sp--;
     lc_γ_to(cval, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
     *res = bres; return centry;
 }
@@ -934,14 +941,14 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
-    cx->loop_next = CENT;
+    cx->loop_next = CENT; cx->loop_next_ssp = cx->scan_sp;
     IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, CENT, CENT, &bval); cx->loop_sp--; } else b_entry = CENT;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
     *res = bres; return centry;
 }
@@ -949,13 +956,13 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
-    cx->loop_exit = bres; cx->loop_next = H;
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    cx->loop_exit = bres; cx->loop_next = H; cx->loop_next_ssp = cx->scan_sp;
     if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
     cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }   /* generation-resume: a break with a resumable expr makes the LOOP resumable -- publish the break-expr's beta so a consuming call/every resumes INTO the suspended expr (iconx), not back around its own alpha (ceo s283g half two) */
     cx->beta = γ; *res = bres; return H;
 }
@@ -1156,13 +1163,13 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
        A private GOTO(ω,ω) trampoline keeps E's γ off the shared node while still reaching ω either way; the
        trampoline's own both-ports-same-target shape is the existing φ (fail-conduit) special case, never σ. */
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; cx->loop_exit = ω; cx->loop_next = gen_beta; cx->loop_fail = ω;
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = ω; cx->loop_next = gen_beta; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
         IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
         ir_operand_push(unmk, mark);
-        cx->loop_next = unmk;
+        cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
         if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
         b_entry = lower(cx, B, unmk, unmk, &bval);
         cx->loop_sp--;
@@ -1170,7 +1177,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
         b_entry = mark;
     }
     else { b_entry = gen_beta; }
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf;
+    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);   /* ⛔ N-2 loop cure (ceo s283): an IR_SUSPEND's γ IS ITS YIELD EDGE (psucc → the graph's γ port), and it is SELF-ITERATING — its resume operand already re-enters the generator expression's β. Redirecting its γ into the drive loop, as this line does for every ordinary expression, deleted the yield entirely: `every suspend 1 to 3` emitted suspend_α → to_β with no gen_γ anywhere, a silent no-output spin (measured, suspend_loop witness). Ordinary expressions keep the redirect — that is what makes `every` drive them. ⚠ `every suspend E do B` still redirects nothing extra for B; the do-clause-over-suspend interaction is untested and inherits today's behavior. */
     cx->beta = ω; *res = NULL; return e_entry;
 }
