@@ -32,7 +32,7 @@ run() {
     local base="$CORPUS/$1"
     [ -f "${base}.xfail" ] && { echo "  XFAIL $1"; XFAIL=$((XFAIL+1)); return; }
     [ -f "${base}.expected" ] || { echo "  SKIP  $1 (no .expected)"; return; }
-    local stdin_f="${base}.stdin"
+    local stdin_f="${base}.stdin"; [ -f "$stdin_f" ] || stdin_f="$(dirname "$base")/config/$(basename "$base").stdin"
     local got want
     # ⛔⭐ A CORPUS PROGRAM RUNS IN ITS OWN DIRECTORY (seat06, 2026-08-29; same cure corpus_suite_harness.py
     # already carries as 022f3a00). This ran scrip from whatever cwd it inherited, so any program that opens a

@@ -113,7 +113,7 @@ run_one() {
     # only reinterprets the verdict below, it never skips measuring it.
     local is_xfail=0
     [ -f "${base}.xfail" ] && is_xfail=1
-    local stdin_file="${base}.stdin"
+    local stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
     local tdir tfn
     tdir=$(dirname "$icn"); tfn=$(basename "$icn")
     local got want rc=0 want_rc=0

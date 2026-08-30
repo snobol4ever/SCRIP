@@ -62,7 +62,7 @@ BAD=0
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
 run3() {
     local f="$1" TO="${2:-8}"
-    local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN=/dev/null
+    local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN="$(dirname "$f")/config/$(basename "$IN")"; [ -f "$IN" ] || IN=/dev/null
     local D; D="$(dirname "$f")"
     A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
     local e3; e3=$(mktemp)

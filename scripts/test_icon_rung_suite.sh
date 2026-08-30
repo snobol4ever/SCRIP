@@ -84,7 +84,7 @@ run_prog() {
     local base name s o bin stdin_file
     name=$(basename "$icn" .icn)
     base="${icn%.icn}"
-    stdin_file="${base}.stdin"
+    stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
     local IN=/dev/null
     [ -f "$stdin_file" ] && IN="$stdin_file"
     case "$mode" in

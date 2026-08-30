@@ -75,7 +75,7 @@ run_one() {
         SKIP=$((SKIP+1))
         return 0
     fi
-    local stdin_file="${base}.stdin"
+    local stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
     local s="$WORK/$name.s" o="$WORK/$name.o" bin="$WORK/${name}_bin"
 
     if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>/dev/null; then

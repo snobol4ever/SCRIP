@@ -10,7 +10,7 @@ for icn in "$RUNG_DIR"/rung27_read_*.icn; do
   ${1:-/tmp/scrip-cc} -jvm "$icn" -o /tmp/t27.j 2>/dev/null
   timeout 30 java -jar miscellaneous/jasmin.jar /tmp/t27.j -d /tmp/ 2>/dev/null
   cls=$(grep -m1 '\.class' /tmp/t27.j | awk '{print $NF}')
-  stdin_f="$base.stdin"
+  stdin_f="$base.stdin"; [ -f "$stdin_f" ] || stdin_f="$(dirname "$base")/config/$(basename "$base").stdin"
   if [ -f "$stdin_f" ]; then
     got=$(timeout 5 java -cp /tmp/ "$cls" < "$stdin_f" 2>/dev/null)
   else
