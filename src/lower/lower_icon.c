@@ -1238,6 +1238,16 @@ static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** man
     for (int i = 0; i < n->n; i++) icn_rename_statics_walk(n->c[i], names, mangled, cnt);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ g_icn_synth_excl -- names icn_statics_prepass SYNTHESIZES on the fly (mangled statics, INITFLAG once-
+   guards) and registers via global_register() with NO corresponding TT_GLOBAL node anywhere in the source
+   -- icn_collect_own_globals's AST scan structurally cannot see them. Reset per-procedure by lower_icon_proc,
+   populated here as each name is minted, read back by lower_icon_stage2 right after lower_icon_body returns
+   for that same proc (same static-scratch-vector pattern this file already uses for pnv/lnv). Without this,
+   icn_collect_implicit_locals wrongly adopts e.g. an INITFLAG as an implicit local -- graph_has_local()
+   becomes true for it, the once-guard gets a fresh LOCAL slot every call instead of the persistent GLOBAL
+   it must be, and `initial` silently stops being "run once" (measured regression: rung25_global's three
+   initial-using cases, caught by re-measuring against a stashed zero-touch baseline before calling this done). */
+static lc_vec g_icn_synth_excl;
 static void icn_statics_prepass(tree_t * body, const char * pname) {
     if (!body) return;
     const char * names[64]; char * mangled[64]; int cnt = 0; int inits = 0;
@@ -1248,6 +1258,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
                 names[cnt] = st->c[k]->v.sval;
                 char * m = malloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
                 { extern void global_register(const char *); global_register(m); }
+                { const char * mc = m; lc_vec_push(&g_icn_synth_excl, &mc); }
                 mangled[cnt] = m; cnt++;
             }
     }
@@ -1257,6 +1268,7 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
         if (st && st->t == TT_INITIAL) {
             char * f = malloc(strlen(pname) + 20); sprintf(f, "%s__INITFLAG__%d", pname, inits++);
             { extern void global_register(const char *); global_register(f); }
+            { const char * fc = f; lc_vec_push(&g_icn_synth_excl, &fc); }
             tree_t * fv = ast_node_new(TT_VAR); fv->v.sval = f;
             tree_t * nz = ast_node_new(TT_NULL); ast_push(nz, fv);
             tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
@@ -1269,7 +1281,36 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {   /* Icon's OWN `global` namespace, scanned directly from the AST -- deliberately NOT is_global(), which is the shared cross-language registry (see icn_collect_implicit_locals below for why that distinction is the whole fix). */
+    for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s) continue; if (s->t == TT_STMT) s = stmt_subj(s); if (!s) continue;
+        if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* icn_collect_implicit_locals -- Icon's own scoping default, verified against the canonical source before
+   writing this (refs/icon-master src/icont/lsym.c:173-190, putlocal's "implicit local" fallback): a bare
+   identifier reference inside a procedure body that is not a formal param, not an explicit local/static/
+   global, and not a known procedure/record/builtin name defaults to being an ordinary LOCAL of that
+   procedure. Excludes using ONLY Icon's own namespaces (the caller-supplied excl[] -- own globals, params,
+   explicit locals, mangled statics -- plus dat_find_type/icn_builtin_is_known) -- deliberately never
+   is_global(), the shared cross-language registry whose false positive on a co-compiled SNOBOL4/Pascal/Raku
+   variable of the same text name is this row's own bug: graph_has_local() couldn't see these names, so
+   zeta_storage.c's vslot builder silently dropped them the moment ANY other language happened to use the
+   same identifier anywhere in the polyglot unit (icon-nlocals-zero-when-snobol4-precedes-in-polyglot-compile). */
+static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
+    if (!n) return;
+    if (n->t == TT_PROC_DECL || n->t == TT_LOCAL || n->t == TT_STATIC_DECL || n->t == TT_GLOBAL) return;
+    if (n->t == TT_VAR && n->v.sval) {
+        const char * nm = n->v.sval; int found = 0;
+        for (int k = 0; k < nexcl && !found; k++) if (excl[k] && !strcmp(excl[k], nm)) found = 1;
+        for (int k = 0; k < out->n && !found; k++) if (!strcmp(LC_AT(out, const char *, k), nm)) found = 1;
+        if (!found) { extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
+            if (!icn_builtin_is_known(nm) && !dat_find_type(nm)) lc_vec_push(out, &nm); }
+    }
+    for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
+    lc_vec_init(&g_icn_synth_excl, (int) sizeof(const char *));
     static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
     icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
     static lc_vec lnv; lc_vec_init(&lnv, (int) sizeof(const char *)); lnv.n = 0;
@@ -1372,6 +1413,11 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
 stage2_t *lower_icon_stage2(const tree_t *prog) {
     int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);
+    lc_vec _icn_own_globals; lc_vec_init(&_icn_own_globals, (int) sizeof(const char *)); icn_collect_own_globals(prog, &_icn_own_globals);
+    /* ⭐ a bare procedure name (`p0` in `plist := [3, p0, p1]`, first-class-procedure-value idiom) is a
+       reference to Icon's OWN proc namespace, not an implicit local -- matches canonical glocate()'s
+       treatment of procedure names as pre-registered globals (refs/icon-master src/icont/tsym.c:101). */
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name) lc_vec_push(&_icn_own_globals, &g_stage2.proc_table[pi].name);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_PROC_DECL) continue;
@@ -1403,10 +1449,33 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
             { const tree_t *body = (proc->n > 2) ? proc->c[2] : NULL; int nl = 0;
               for (int i = 0; body && i < body->n; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
                   if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nl++; }
-              if (nl > 0) { const char ** _ln = (const char **)calloc((size_t)nl, sizeof(const char *)); int w = 0;
+              const char ** _ln = NULL; int w = 0;
+              if (nl > 0) { _ln = (const char **)calloc((size_t)nl, sizeof(const char *));
                   for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-                      if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); }
-                  if (_ln) { g_stage2.bbp.table[bb_idx]->lnames = _ln; g_stage2.bbp.table[bb_idx]->nlocals = w; } } }
+                      if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); } }
+              /* ⭐ icon-nlocals-zero-when-snobol4-precedes-in-polyglot-compile: `_ln` above only ever covered EXPLICIT
+                 `local` declarations -- Icon's IMPLICIT locals (assign-without-declare, the ordinary case: fibs()'s
+                 own `a`/`b`) were never fed into `g->lnames`, so `graph_has_local()` couldn't see them, and
+                 zeta_storage.c's vslot builder dropped them the instant any co-compiled SNOBOL4/Pascal/Raku section
+                 used the same text name anywhere (seat02's FINDING, root-caused three functions deep). Collect them
+                 here, scoped entirely to Icon's OWN namespaces (never is_global() -- see icn_collect_implicit_locals's
+                 own comment for why that's the load-bearing distinction). */
+              lc_vec _excl; lc_vec_init(&_excl, (int) sizeof(const char *));
+              for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&_excl, &LC_AT(&_icn_own_globals, const char *, k));
+              for (int k = 0; k < sc->n; k++) lc_vec_push(&_excl, &sc->e[k].name);
+              for (int k = 0; k < w; k++) lc_vec_push(&_excl, &_ln[k]);
+              /* g_icn_synth_excl (mangled statics + INITFLAG once-guards, see its own comment above) was populated by
+                 THIS proc's own lower_icon_body call a few lines up, in lower_icon_proc's call to icn_statics_prepass --
+                 captured there because by the time we get here the source AST is already rewritten (TT_INITIAL -> TT_IF)
+                 and the original names/order are no longer recoverable from a re-scan. */
+              for (int k = 0; k < g_icn_synth_excl.n; k++) lc_vec_push(&_excl, &LC_AT(&g_icn_synth_excl, const char *, k));
+              lc_vec _impl; lc_vec_init(&_impl, (int) sizeof(const char *));
+              icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);
+              if (w > 0 || _impl.n > 0) {
+                  int total = w + _impl.n;
+                  const char ** _all = (const char **)calloc((size_t)total, sizeof(const char *)); int a = 0;
+                  if (_all) { for (int k = 0; k < w; k++) _all[a++] = _ln[k]; for (int k = 0; k < _impl.n; k++) _all[a++] = LC_AT(&_impl, const char *, k);
+                      g_stage2.bbp.table[bb_idx]->lnames = _all; g_stage2.bbp.table[bb_idx]->nlocals = total; } } }
         }
     }
     lower_icon_resolve_call_kinds();
