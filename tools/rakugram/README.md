@@ -8,7 +8,7 @@ patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL pe
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
 · **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
-gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`).
+gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`).
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
@@ -18,6 +18,25 @@ gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: 
 python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
 bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
+
+## Rung 6 status — `ws` and the HLL layer exist
+
+`rk_hll.c` hand-writes what cannot be generated from Grammar.nqp: **`ws`** (25 callers — `rule`
+inserts it implicitly between every atom, so nothing parses until it exists; handles `#` comments and
+`=begin`/`=end` pod), **`ident`/`identifier`**, the four integer literal forms, **`before`/`after`**
+lookahead, and the 13 diagnostics as stubs. Gated with the rung-4 checks.
+
+⭐ **`<sym>` was 22 of the 48 "missing" names and every one was a false positive.** Inside
+`token infix:sym<*> { <sym> … }` it means *"match this candidate's own literal"* — per-declaration
+data the emitter already holds, not a shared rule. A single `rk_sym()` would have to match 516
+different literals with no way to know which. Now inlined: `rk_sym` is referenced **zero** times and
+the inherited set drops 77 → 61. Measured before relying on it: **385 of 385** declarations using
+`<sym>` carry a `:sym<>` value, and zero do not.
+
+⛔ The gate asserts the SUBTLE cases, because each misparses *plausibly*: that `a - b` does not lex as
+the identifier `a-b` (the hyphen needs a letter after it), that a leading `_` is not a number, and
+that lookahead restores the cursor. A lookahead that consumes is not a lookahead, and the parse simply
+continues from the wrong place.
 
 ## Rung 5 status — what actually has to be hand-written
 

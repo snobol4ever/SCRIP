@@ -8,7 +8,12 @@
 #   2. ASSOCIATIVITY  1 - 2 - 3 -> ((1-2)-3) left, 2 ** 3 ** 2 -> (2**(3**2)) right
 #      ⛔ Associativity is INVISIBLE to any syntax-only test: a parser that folds 1-2-3 as 1-(2-3)
 #         accepts exactly the same language. Only a shape assertion catches it.
-#   3. PARSE-TIME EXTENSION — install a new operator at a precedence BETWEEN two existing levels
+#   3. HLL LAYER    ws / identifier / int literals / lookahead -- the hand-written rules that cannot
+#                   be generated from Grammar.nqp at all (rung 6). Asserts the SUBTLE cases: that
+#                   `a - b` does not lex as the identifier `a-b`, that a leading underscore is not a
+#                   number, and that lookahead does not consume. Each of those misparses plausibly
+#                   and only shows up much later.
+#   4. PARSE-TIME EXTENSION — install a new operator at a precedence BETWEEN two existing levels
 #      while parsing, and see it bind correctly. This is the property that makes Raku non-LALR and
 #      the reason the bison grammar was retired (Lon 2026-08-30); a gate that did not exercise it
 #      would pass just as happily against a frozen table, which is the exact defect being avoided.
@@ -32,5 +37,14 @@ cp "$ROOT/tools/rakugram/prec_test.c" "$T/" || exit 2
 gcc -O0 -Wall -o "$T/prec_test" "$T/prec_test.c" -I"$T" 2> "$T/cc.log" || {
     echo "⛔ GATE FAIL: emitted Pratt parser does not compile"; sed -n '1,15p' "$T/cc.log"; exit 1; }
 "$T/prec_test"; rc=$?
-if [ "$rc" -eq 0 ]; then echo "✅ GATE OK: $nops operators, precedence + associativity + parse-time extension all verified."; else echo "⛔ GATE FAIL: see the FAIL rows above."; fi
+# ---- rung 6: the hand-written HLL::Grammar layer -------------------------------------------------
+echo
+cp "$ROOT/tools/rakugram/rk_hll.c" "$ROOT/tools/rakugram/rk_hll.h" "$ROOT/tools/rakugram/rk_hll_test.c" "$T/" || exit 2
+gcc -O0 -Wall -Wextra -o "$T/hll_test" "$T/rk_hll_test.c" "$T/rk_hll.c" -I"$T" 2> "$T/hcc.log" || {
+    echo "⛔ GATE FAIL: the hand-written HLL layer does not compile"; sed -n '1,15p' "$T/hcc.log"; exit 1; }
+"$T/hll_test" || rc=1
+if [ "$rc" -eq 0 ]; then
+    echo "✅ GATE OK: $nops operators (precedence + associativity + parse-time extension) and the"
+    echo "   hand-written HLL layer (ws, identifier, int literals, lookahead) all verified."
+else echo "⛔ GATE FAIL: see the FAIL rows above."; fi
 exit $rc

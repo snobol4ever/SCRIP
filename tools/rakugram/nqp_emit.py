@@ -31,7 +31,7 @@ def cname(s):
     return base
 
 class Emit:
-    def __init__(self): self.buf = []; self.tmp = 0; self.unimpl = False
+    def __init__(self, sym=None): self.buf = []; self.tmp = 0; self.unimpl = False; self.sym = sym
     def w(self, ind, s): self.buf.append('    ' * ind + s)
     def t(self): self.tmp += 1; return f"t{self.tmp}"
 
@@ -45,6 +45,18 @@ class Emit:
             self.w(ind, f'if (!rk_lit(c, {self.cstr(n.v)})) goto fail;')
         elif k == 'CALL':
             nm = n.v.split('(')[0]
+            if nm == 'sym':
+                # ⛔ `<sym>` is NOT an inherited rule to hand-write -- it is 22 of the 48 "missing"
+                # names and every one is a false positive. Inside `token infix:sym<*> { <sym> ... }`
+                # it means "match THIS candidate's own literal", so it is per-declaration data the
+                # emitter already holds. Emitting a call to a shared rk_sym() would be a single
+                # function that has to match 516 different literals and cannot know which.
+                if self.sym is not None:
+                    self.w(ind, f'if (!rk_lit(c, {self.cstr(self.sym)})) goto fail;')
+                    return
+                self.unimpl = True
+                self.w(ind, '/* <sym> outside a :sym<> candidate */ return RK_UNIMPL;')
+                return
             self.w(ind, f'if (!{cname(nm)}(c)) goto fail;')
         elif k == 'CCLASS':
             self.w(ind, f'if (!rk_cclass(c, {self.cstr(n.v)})) goto fail;')
@@ -143,7 +155,7 @@ def emit_all(path, out_c):
         nm = d['name'] + (('__' + re.sub(r'\W', '_', d['sym'])) if d['sym'] else '')
         if nm in seen: continue
         seen.add(nm)
-        e = Emit()
+        e = Emit(d['sym'])
         root = P(lex_body(d['body'])).parse()
         e.w(0, f'/* {d["kind"]} {d["name"]}' + (f':sym<{d["sym"]}>' if d['sym'] else '') + f'  (Grammar.nqp:{d["line"]}) */')
         e.w(0, f'static int {cname(nm)}(RkCur *c) {{')
@@ -182,7 +194,14 @@ def emit_all(path, out_c):
     called = set()
     for d in decls:
         for n in P(lex_body(d['body'])).parse().walk():
-            if n.k == 'CALL': called.add(n.v.split('(')[0].strip())
+            if n.k != 'CALL': continue
+            nm = n.v.split('(')[0].strip()
+            # `<sym>` is inlined as this candidate's own literal (see Emit.node), so it is never a
+            # call and must not appear in the inherited list. Measured: 385 of 385 declarations using
+            # <sym> carry a :sym<> value and ZERO do not, so the guard below never falls through --
+            # it is kept as an assertion of that, not as a fallback.
+            if nm == 'sym' and d['sym'] is not None: continue
+            called.add(nm)
     local = {cname(d['name'] + (('__' + re.sub(r'\W', '_', d['sym'])) if d['sym'] else ''))
              for d in decls if not d['proto']}
     local |= {cname(p) for p in protos}
