@@ -1107,6 +1107,25 @@ def cmd_capture_oracle_refs(args):
         if ref_path.is_file() and not args.force:
             print(f"[{i}/{len(srcs)}] {src.stem}: SKIP (already has a .ref)", file=sys.stderr)
             continue
+        # ⛔⭐⭐ REFUSE TO MINT FOR A SOURCE WITH AN UNFED STDIN COMPANION (ceo's freeze order, 2026-08-30, on
+        # hq_P's catch). This gate's whole safety argument is THREE-WAY AGREEMENT -- m3, m4 and the oracle all
+        # producing the same bytes. That argument COLLAPSES when the disagreement-producing input is missing
+        # from all three arms at once: rung36_jcon_recogn was run with no stdin, ALL THREE ARMS AGREED ON
+        # EMPTY OUTPUT, and a 1-byte vacuous oracle was minted that would have passed forever
+        # (withdrawn, corpus 705cd7ad1).
+        # ⭐ THE GENERAL FORM, AND IT IS WHY N ARMS DID NOT HELP: AGREEMENT IS ONLY EVIDENCE WHEN THE ARMS CAN
+        # DISAGREE. Three instruments sharing one missing input are one instrument reported three times, and
+        # the unanimity reads as MORE confidence rather than less. Adding a fourth arm would not have helped.
+        # ⛔ So: if a stdin companion exists and this path is not feeding it, mint NOTHING and say why. A
+        # vacuous ref is worse than a missing one -- a missing ref leaves a file ungraded and visible, while a
+        # vacuous ref grades it forever against nothing and reads as coverage.
+        _sc = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"))
+               if c.is_file()]
+        if _sc:
+            red.append((src.stem, "REFUSED: stdin companion %s exists and is NOT fed by this capture path -- "
+                                  "three-way agreement on empty output is not agreement" % _sc[0].name))
+            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (unfed stdin companion {_sc[0].name})", file=sys.stderr)
+            continue
         ora_text, ora_rc, ora_kind = run_oracle(oracle_bin, flags, src, paths["timeout"])
         if ora_kind != "RAN":
             red.append((src.stem, f"oracle itself {ora_kind}"))
