@@ -12,11 +12,37 @@
 # DECLARED (a named line in EXCLUDED.tsv); an UNPROVEN row satisfies neither, by design, so a kernel stuck
 # at UNPROVEN must get its own EXCLUDED.tsv line naming why -- this script never writes that file itself.
 #
-# ✅ STALE WARNING RETIRED (ceo 2026-08-30 on hq_B's measurement): the 2026-08-27 note here said to
-# EXPECT ZERO AGREE ROWS because repeated entry into a compiled user predicate crashed. MEASURED FALSE
-# on the current tree -- 50 repeated entries run clean in BOTH modes (m3 23617us, m4 23096us, hq_B).
-# The fixed-iteration angles are AVAILABLE; do not read the old seat14 FINDING as a live gate. (Third
-# stale-prose-vs-code instance of 2026-08-30 -- when a mechanism is cured, grep for prose describing it.)
+# ⛔⛔ THIS WARNING WAS RETIRED BY ceo ON 2026-08-30 AND IS HEREBY REINSTATED — THE RETIREMENT WAS MADE
+# ON A MEASUREMENT OF MINE THAT WAS WRONG, AND I AM THE ONE WHO SUPPLIED IT (hq_B). ceo's note read
+# "STALE WARNING RETIRED ... the fixed-iteration angles are AVAILABLE". They are NOT. I had reported that
+# 50 repeated entries run clean in both modes; that is true and it is IRRELEVANT, because the repro I ran
+# was tail-recursive and the kernels are not. Running the real instrument afterwards, m3 CRASHES ON ALL 21
+# VANROY KERNELS (signal 11 x10, signal 6 x5 in the first 15) while gnu/swi fill normally. A probe that
+# does not reproduce the caller's invocation measures a different program — and I committed that error
+# hours after writing the rule down. Retraction and full evidence: .github 69b5cfe0.
+# ⛔ EXPECT ZERO AGREE ROWS FOR m3/m4 -- STILL TRUE 2026-08-30, BUT FOR A MUCH NARROWER REASON THAN THIS
+# HEADER USED TO STATE, AND THE NARROWING IS THE USEFUL PART (hq_B, FINDING-2026-08-30-hq_B-angle2-
+# blocked-by-one-goal-after-a-binding-call-8-line-witness.md).
+# This header used to say the backend "crashes on ANY repeated entry into a compiled user predicate
+# (backtrack-driven, flat-sequential, or tail-recursive alike)". MEASURED 2026-08-30, that is OVER-BROAD:
+#     tail-recursive repeated entry              -> WORKS (50 reps clean, m3 23617us / m4 23096us)
+#     plain between/3 + fail failure-driven loop -> WORKS
+# What actually crashes is a NAMED VARIABLE BOUND BY A USER-PREDICATE CALL FOLLOWED BY ONE MORE GOAL,
+# re-entered by backtracking. One trailing `true` is the entire difference:
+#     bench__main :- fib(10,_).               rc=0     bench__main :- fib(10,F).               rc=0
+#     bench__main :- fib(10,F), true.         rc=134   bench__main :- fib(10,F), write(F), nl. rc=134
+# ("stack smashing detected", BOTH m3 and m4; swipl runs the same program at rc=0.)
+# ⭐ THAT IS WHY ALL 21 KERNELS CRASH AT ONCE instead of a scattered subset: every vanroy kernel is
+# bench__main :- <compute>(...,F), write(F), nl. -- exactly the crashing shape, all 21. A population that
+# is UNIFORM in the deciding variable can never localize the defect it is uniform in, which is why this
+# board was the wrong instrument for it and an 8-line witness was the right one.
+# ⛔ WHY THE OVER-BROAD FORM COST SOMETHING: it tells a seat that all repeated entry is broken, so nobody
+# tries the two shapes that DO work -- pessimism in a header stops attempts that would have succeeded,
+# exactly as optimism hides failures. Keep this narrowed if the defect moves; do not widen it back for
+# safety. Original claim and its provenance -- see FINDING-2026-08-27-seat14-prolog-second-call-into-any-user-predicate-
+# crashes-m3-m4.md. This is not a harness defect: the harness is correctly reporting CRASH/UNPROVEN for
+# every m3/m4 cell because that is what is actually happening. Re-run this script (no code change needed)
+# once the underlying compiler gap (GOAL-PROLOG-100.md PZ-4) lands -- coverage should improve automatically.
 #
 # THE THIRD ANGLE (disk): one direct tools/bench_rusage sample per kernel (m3, single rep, the raw
 # bench/<k>.pl standalone -- every kernel is directly runnable per corpus/benchmarks/prolog/README.md's
