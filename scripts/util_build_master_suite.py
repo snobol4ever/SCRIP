@@ -839,8 +839,23 @@ def main():
         reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC),
                                     in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
     import shutil
+    # ⭐⭐ COMPANIONS GO IN config/, NOT THE FLAT DIR (hq_P 2026-08-30, ceo routed the cure to the finder).
+    # Lon's end state is tests/<lang>/ FLAT with ALL.* plus ONE config/ folder holding runtime companions.
+    # The harness READ side already implements it -- _copy_companions searches <dir> AND <dir>/config
+    # (corpus_suite_harness.py:1105) -- but this WRITER still dropped them in OUTDIR, so the law was
+    # half-implemented and moving them by hand was undone by the next rebuild. Sixth instance this week of one
+    # half of a contract moving while the other stayed behind; the standing check (grep the other side of the
+    # pair in the same commit) is exactly what would have caught it.
+    # ⛔ MOVE semantics matter: the reader lets a name in the FLAT dir WIN over config/, so a stale top-level
+    # copy would silently shadow the config/ one. The build writes only to config/ and clears any flat twin.
+    _cfg = os.path.join(OUTDIR, "config")
+    if companion_copies:
+        os.makedirs(_cfg, exist_ok=True)
     for cf, srcf in sorted(companion_copies.items()):
-        shutil.copy2(srcf, os.path.join(OUTDIR, cf))
+        shutil.copy2(srcf, os.path.join(_cfg, cf))
+        _stale = os.path.join(OUTDIR, cf)
+        if os.path.isfile(_stale) and os.path.abspath(_stale) != os.path.abspath(srcf):
+            os.remove(_stale)
     if len(reread) != len(all_entries):
         h.refuse("re-read count %d != written %d -- NOT trusting the merge" % (len(reread), len(all_entries)))
     with open(os.path.join(OUTDIR, "ALL.csv"), "w", newline="") as f:
