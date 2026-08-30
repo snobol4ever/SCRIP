@@ -2027,6 +2027,20 @@ const char *rt_sno_indirect_name(DESCR_t v) {
         int refused = (s.v == DT_FAIL || s.v == DT_SNUL || (s.v == DT_S && n == 0));
         const char *ks = refused ? getenv("SCRIP_IND_NAME") : 0;
         if (refused && !(ks && *ks == '0')) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); return 0; }
+        /* ⭐⭐ LENGTH AUTHORITY (row slice-capture-aliasing-breaks-beauty-selfhost, hq_P 2026-08-30). This
+           function ALREADY computes `n` honouring s.slen two lines up -- and the `return VARVAL_fn(v)` below
+           THREW IT AWAY, handing back the bare pointer. Harmless while every DT_S was NUL-terminated; wrong
+           the moment slice-captures shipped (SCRIP 89571dd7), because a slice points INTO the subject and
+           carries no terminator of its own. bn_sno_name (by_name_dispatch.c:5316) then rt_ws_strdup's that
+           pointer, so `$cap` on a captured name looked up `START  TRAILINGJUNK` instead of `START`.
+           MEASURED, slices ON: `$cap` returned "" before this line, "labelvalue" after.
+           ⭐ rt_cstr_d costs NOTHING on the common path -- it returns s.s unchanged when s.s[s.slen] is
+           already NUL and materialises only when it is not. Same length-authority program 89571dd7 applied to
+           the numeric validators, extended to the name consumer it never reached.
+           ⛔ NOT fixed in VARVAL_fn itself: hot, ported to asm (rtx_str.s:312), and by_name_dispatch.c:5180
+           carries an exact asm/C equivalence argument an always-materialise change would silently invalidate,
+           plus an allocation on every string read. Fix the consumer, never the helper. */
+        if (s.v == DT_S && s.s) return rt_cstr_d(s);
     }
     return VARVAL_fn(v);
 }
