@@ -376,8 +376,10 @@ wall clock, best of 3, both arms' output byte-verified first; SCRIP mode-4 binar
 | point_class_add1 | 10.4 s | 4.25 s | 0.41x |
 | point_class_add | 12.1 s | 1.63 s | 0.14x |
 
-At string-escape's size Rakudo's column is mostly interpreter startup; the other
-three are seconds-scale and measure the engines. The split reads clean: loop-and-
+This grid is whole-program totals and awaits re-measurement on the two-number basis
+that just corrected the Prolog grid below — at string-escape's size Rakudo's column
+is mostly interpreter startup, so treat that multiple as a startup story, not an
+engine one; the three seconds-scale kernels measure the engines. The split reads clean: loop-and-
 integer work crushes, object/method-heavy work is behind. The other 14 kernels are
 not yet timed — each blocker is a named, diagnosed defect (a map/grep code-path gap
 covering four of them, array parameters passed by copy instead of aliased, rational-
