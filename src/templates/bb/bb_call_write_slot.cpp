@@ -18,45 +18,38 @@ static bb_label_t * bb_call_write_beta_target() {
             return g_emit.xa_bb_emit_pair_jmp[i];
     return _.lbl_ω_p;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcws_slot(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_alpha()
-         + x86_frame_load64("rdi", off)
-         + x86_frame_load64("rsi", off + 8)
-         + x86("call", "rt_write_any_nl", fptr)
-         + x86_gamma()
-         + x86_beta()
-         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
-}
+#define bcws_slot(off, beta_tgt) (x86_alpha() \
+     + x86("mov", "rdi", FRQ(off)) \
+     + x86("mov", "rsi", FRQ((off) + 8)) \
+     + x86("call", "rt_write_any_nl", (uint64_t)(uintptr_t)(void*)rt_write_any_nl) \
+     + x86_gamma() \
+     + x86_beta() \
+     + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_slot_str(IR_t * pBB) {
     return bcws_slot(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcws_binop_concat(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(DESCR_t) = rt_write_any_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_alpha()
-         + x86_frame_load64("rdi", off)
-         + x86_frame_load64("rsi", off + 8)
-         + x86("call", "rt_write_any_nl", fptr)
-         + x86_gamma()
-         + x86_beta()
-         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
-}
+#define bcws_binop_concat(off, beta_tgt) (x86_alpha() \
+     + x86("mov", "rdi", FRQ(off)) \
+     + x86("mov", "rsi", FRQ((off) + 8)) \
+     + x86("call", "rt_write_any_nl", (uint64_t)(uintptr_t)(void*)rt_write_any_nl) \
+     + x86_gamma() \
+     + x86_beta() \
+     + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcws_binop_int(int off, bb_label_t * beta_tgt) { uint64_t fptr; { void (*fp)(int64_t) = rt_write_int_nl; fptr = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86_alpha()
-         + x86_frame_load64("rdi", off)
-         + x86("call", "rt_write_int_nl", fptr)
-         + x86_gamma()
-         + x86_beta()
-         + (beta_tgt == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0));
-}
+#define bcws_binop_int(off, beta_tgt) (x86_alpha() \
+     + x86("mov", "rdi", FRQ(off)) \
+     + x86("call", "rt_write_int_nl", (uint64_t)(uintptr_t)(void*)rt_write_int_nl) \
+     + x86_gamma() \
+     + x86_beta() \
+     + ((beta_tgt) == _.lbl_ω_p ? x86_omega() : x86_pair_jmp(0)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_binop_str(IR_t * pBB) {
-    IR_t * a0 = ir_call_arg(_.node, 0);
-    int off = bb_slot_get(a0);
-    if (off < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }
-    return (a0->op == IR_BINOP && binop_is_concat((long)IR_LIT(a0).ival)) ? bcws_binop_concat(off, bb_call_write_beta_target()) : bcws_binop_int(off, bb_call_write_beta_target());
+    if (bb_slot_get(ir_call_arg(_.node, 0)) < 0) { fprintf(stderr, "[GZ-3] FATAL bb_call_write_binop: write(binop) — slot miss\n"); abort(); }
+    return (ir_call_arg(_.node, 0)->op == IR_BINOP && binop_is_concat((long)IR_LIT(ir_call_arg(_.node, 0)).ival))
+         ? bcws_binop_concat(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target())
+         : bcws_binop_int(bb_slot_get(ir_call_arg(_.node, 0)), bb_call_write_beta_target());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_write_legacy_str(IR_t * pBB, int arg_is_any) {
