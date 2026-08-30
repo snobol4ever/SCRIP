@@ -133,10 +133,24 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
    emission loop reads or writes a graph's fields again. ⛔ ONLY frame bytes (fb) and fp are computed; uniform is passed 0, not derived: its one
    reader, fct_defer_susp() (zeta_storage.c), only ever looks up names prefixed "PAT$" (SNOBOL4 deferred-pattern names) -- a namespace disjoint from
    Icon proc names -- so no entry this pre-pass writes is ever read through that field, and computing it correctly would need a non-static export of
-   emit.cpp's emit_graph_uniform() for a value nothing here consumes. fp mirrors the REAL per-emission registration (g_last_flat_fp =
-   zls_g_fp_total(g_emit_cfg), emit.cpp) but calls the same pure function directly against the callee's OWN graph, since no graph is "current" yet
-   at this window; the two calls agree once real emission reaches this proc and re-registers it (emit_patzeta_register overwrites in place, same
-   name -- scrip.c's other three call sites and runtime_eval.c:194), so a pre-pass value is never stale, only ever superseded by an identical one.
+   emit.cpp's emit_graph_uniform() for a value nothing here consumes. fp mirrors the REAL per-emission registration (g_last_flat_fp, emit.cpp:3639)
+   against the callee's OWN graph, since no graph is "current" yet at this window.
+   ⛔⭐ THE ORIGINAL CLAIM HERE -- "the two calls agree ... a pre-pass value is never stale, only ever superseded by an identical one" -- WAS TRUE WHEN
+   WRITTEN AND WENT FALSE UNDER A CURE LANDED ELSEWHERE (hq_B 2026-08-30, SCRIP 3fe34608): that commit gave the per-emission side a zframe arm
+   (fp=0, because xa_flat_zframe_prologue_str carves EXACTLY flat_frame_bytes) while this pre-pass kept registering the Icon-shaped (np+nl)*16 for
+   every is_generator proc -- and lower_prolog.c:1463 marks EVERY Prolog graph zframe_graph, so every Prolog predicate was registered here too.
+   MEASURED on fact/2 (np=2 nl=4): pre-pass ft=1328 vs per-emission ft=1232 vs the callee's own `sub rsp, 1232` -- over by exactly 96 == (np+nl)*16.
+   The disagreement is WINDOW-DEPENDENT, which is the hazard: a host emitted AFTER its callee reads the corrected 1232, a host emitted BEFORE it (the
+   forward reference this pre-pass exists to serve) reads 1328. The zframe arm below restores the agreement the paragraph asserts.
+   ⭐ A COMMENT CANNOT NOTICE THAT THE CODE IT DESCRIBES MOVED. This one asserted an invariant across two files, nothing read it, and the cure that
+   broke it was correct in its own file -- so the assertion decayed silently in the gap between them (hq_C 2026-08-30: a declared expectation nothing
+   reads is a comment, not a gate). If the two formulas ever diverge again, SCRIP_N2_FT_PROBE=1 prints both sides on one line each -- [N2-PREPASS]
+   here and [N2-FT] EMIT from emit.cpp -- so the check is one run, not a re-derivation.
+   ⛔ THE _zfA KEY IS LOAD-BEARING AND IS NOT A TUNING KNOB: it mirrors emit.cpp:3639 term for term, and the key is the α-SELECTION STATE
+   (zframe_graph && !icn_cells_graph), never the bare zframe_graph field -- a graph carrying BOTH flags takes an icn_cells α that DOES add
+   (np+nl)*16 back, so keying on the field alone would register a frame SILENTLY TOO SMALL, the exact silent-overflow direction ceo refused
+   worst-case reservation to avoid. Icon graphs never set zframe_graph at all (lower_prolog.c:1463, lower_raku.c:1141, lower_pascal.c:790 are
+   the only three writers), so this arm cannot reach an Icon proc -- measured, not assumed: Icon watermark unmoved, emitted .s byte-identical
    Only is_generator procs are registered -- the sole population icn_gen_host_reserve() ever queries by name -- leaving pz[]'s 512-slot table
    headroom untouched for the rest. ⭐ INERT ON THE UNARMED PATH BY CONSTRUCTION, NOT BY A GATE: pz[] registration already runs unconditionally today
    (all four real call sites carry no icn_genframe2() check), and every consumer of emit_patzeta_frame_reserve() is itself gated on icn_genframe2()
@@ -149,7 +163,10 @@ static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
         const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
         IR_graph_t *g = s2->bbp.table[gi];
-        emit_patzeta_register(pn, g->jcon_value_region, (g->nparams + g->nlocals) * 16, 0); } }   /* ⛔⛔ fp term = (np+nl)*16, MIRRORING the callee alpha's own frame_total = flat_frame_bytes + (np+nl)*16 (ceo s283d): the previous zls_g_fp_total(g) read 0 for every Icon generator (fct_fp_range knows zls FIELDS, not Icon params/locals), so the registry undersold frame_total by 16 per param+local -- the caller's landing then read the yielded value 16 low ([rdx-288] vs the suspend's write at [rbp-304], MEASURED on the w1 concat witness: every suspended value from a generator WITH a local arrived EMPTY -- seat15's concord one-empty-key table, seat02's garbage suspend-n) and the host reservation was one slot too small (silent slice overflow). Every proof witness to date had np=nl=0, where 0 was the right answer -- plausible-zero instance SIX on this rung. The reserve consumer's align16(32+fb)+fp+16 algebra equals flat_frame_bytes+fp exactly, so with this term the registry IS frame_total. */
+        { int _zfA = (g->zframe_graph && !g->icn_cells_graph); int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
+          if (getenv("SCRIP_N2_FT_PROBE")) fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n",
+                                                  pn, g->nparams, g->nlocals, _zfA, g->icn_cells_graph, g->jcon_value_region, _fp, ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
+          emit_patzeta_register(pn, g->jcon_value_region, _fp, 0); } } }   /* ⛔⛔ fp term = (np+nl)*16, MIRRORING the callee alpha's own frame_total = flat_frame_bytes + (np+nl)*16 (ceo s283d): the previous zls_g_fp_total(g) read 0 for every Icon generator (fct_fp_range knows zls FIELDS, not Icon params/locals), so the registry undersold frame_total by 16 per param+local -- the caller's landing then read the yielded value 16 low ([rdx-288] vs the suspend's write at [rbp-304], MEASURED on the w1 concat witness: every suspended value from a generator WITH a local arrived EMPTY -- seat15's concord one-empty-key table, seat02's garbage suspend-n) and the host reservation was one slot too small (silent slice overflow). Every proof witness to date had np=nl=0, where 0 was the right answer -- plausible-zero instance SIX on this rung. The reserve consumer's align16(32+fb)+fp+16 algebra equals flat_frame_bytes+fp exactly, so with this term the registry IS frame_total. ⛔ The _zfA arm is NOT a tuning knob -- see the zframe paragraph in the block comment above for why the key is the α-SELECTION STATE and never the bare field. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
