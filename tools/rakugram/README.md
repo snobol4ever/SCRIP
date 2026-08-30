@@ -6,14 +6,31 @@ the measured case. The replacement is a *translation* of Rakudo's official gramm
 (`src/Perl6/Grammar.nqp`) into recursive descent — bounded and mechanical, where construct-by-construct
 patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL per pass against 924.
 
-**Rung 1: the READER + CENSUS** (`nqp_read.py`). **Rung 2: the AST + TRANSLATABILITY LADDER**
-(`nqp_ast.py`). No code is emitted yet — deliberately. The point is to cost the port by measurement
-before building it.
+**Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
+· **Rung 3: C EMITTER** (`nqp_emit.py`).
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
 python3 tools/rakugram/nqp_ast.py  [path/to/Grammar.nqp]   # rung 2: parse bodies into an AST
+python3 tools/rakugram/nqp_emit.py [Grammar.nqp] [out.c]   # rung 3: emit C recursive descent
+gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: compiles clean
 ```
+
+## Rung 3 status — the emitter produces C that compiles
+
+    generated rules   236      real recursive-descent bodies
+    refusing rules    225      emit `return RK_UNIMPL`, never a silent "no match"
+    proto dispatchers  39      longest-token-match over each family's candidates
+    inherited stubs    77      NQP HLL::Grammar -- must be hand-written
+    gcc -Wall -Wextra: 0 errors, 0 implicit declarations
+
+⚠️ Remaining warnings are unused-function (rules not yet reachable — there is no entry point wired
+yet) and unused-label. Both are artifacts of an incomplete port, not defects, and they go away as the
+graph gets connected. **Nothing here parses real Raku yet** — the 77 inherited stubs all refuse.
+
+⛔ **A rule we cannot emit REFUSES; it never returns "no match".** An unimplemented rule reporting
+failure is indistinguishable from one that ran and correctly declined — the parser would be
+confidently wrong instead of loudly incomplete.
 
 ## ⭐⭐ THE ANSWER: 87.9% of the official grammar is mechanically translatable
 

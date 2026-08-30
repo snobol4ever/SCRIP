@@ -109,14 +109,27 @@ class P:
         return node
 
     def mkcall(self, v, capture):
-        m = re.match(r'([\w:<>«»-]+)?\s*(=)?\s*(\.)?([\w:<>«»-]+)?\s*(\((.*)\))?$', v, re.S)
-        name, args = v, None
-        am = re.match(r'([^(]*)\((.*)\)\s*$', v, re.S)
-        if am: name, args = am.group(1), am.group(2)
-        if '=' in name:
-            alias, name = name.split('=', 1)
-        name = name.lstrip('.')
-        return N('CALL', name.strip(), [], ok=True) if not args else N('CALL', name.strip() + '(...)', [], ok=True)
+        """Resolve `<...>` assertion text to the SUBRULE NAME it calls.
+
+        ⛔ Three argument spellings, and missing any one manufactures a phantom rule nobody can
+        implement: `<foo(args)>` parenthesised, `<foo: args>` colon-form (used by every diagnostic --
+        `<.typed_panic: 'X::Syntax::...'>`), and `<alias=.foo>` aliased. Measured: the colon form alone
+        produced 40 phantom C functions such as
+        rk_typed_panic___X__Syntax__Variable__IndirectDeclaration_ -- and each was an
+        IMPLICIT-DECLARATION WARNING, not an error, so the file compiled and would have linked
+        against nothing. A phantom that warns is worse than one that fails.
+        """
+        t = v.strip()
+        am = re.match(r'([^(]*)\((.*)\)\s*$', t, re.S)
+        if am: t = am.group(1)
+        cm = re.match(r'([^:\s]+(?:::[^:\s]+)*)\s*:\s.*$', t, re.S)
+        if cm: t = cm.group(1)
+        if '=' in t: t = t.split('=', 1)[1]
+        t = t.strip().lstrip('.')
+        m = re.match(r'^([A-Za-z_][A-Za-z0-9_:-]*)', t)
+        if not m:
+            return N('UNSUPPORTED', f'assertion:{v[:40]}', ok=False)
+        return N('CALL', m.group(1))
 
 def classify(root):
     kinds = collections.Counter()
