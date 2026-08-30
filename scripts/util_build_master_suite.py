@@ -577,15 +577,10 @@ def main():
             raise SystemExit(0)
         sys.stderr.write("REFUSED: zero absorbable pairs under %s and no master present -- nothing to build from.\n" % ROOT)
         raise SystemExit(2)
-    if base_entries and len(pairs) * 4 < len(base_entries):
-        sys.stderr.write(
-            "\u26d4 REFUSED: this rebuild would absorb only %d pair(s) over an existing master of %d entries.\n"
-            "   That is a COLLAPSE, not a rebuild -- almost certainly a cut-over language whose sources are\n"
-            "   retired, where the master IS the source and nothing on disk can rebuild it.\n"
-            "   Nothing has been written; the existing master is untouched.\n"
-            "   \u26d4 Do NOT fix this by deleting ALL.* and re-running -- on a cut-over language that\n"
-            "      deletes the only copy. Rebuild in a scratch copy first if you truly mean it.\n" % (len(pairs), len(base_entries)))
-        raise SystemExit(2)
+    # ⭐⭐ THE COLLAPSE TEST ITSELF MOVED DOWN, past the pair->entries materialization loop -- see the
+    # `len(all_entries) * 4 < len(base_entries)` check just before the base merge. It used to stand here
+    # and compare PAIRS to ENTRIES, which are different units (hq_B guard, seat06 found the false
+    # positive on raku, hq_P swept the rest and named the cause).
     # ⛔⛔ DEDUPE BY ORIGIN AT MERGE TIME (hq_B, measured on rebus: every rebuild DOUBLED the master, 174->348,
     # every origin exactly twice -- the exact opposite failure of the clobber merge-mode was added to fix, and the
     # more dangerous one: a bigger board reads as progress). An absorbed pair whose origins ALREADY exist in the
@@ -738,6 +733,46 @@ def main():
                     h.refuse("companion basename collision with different content: %s (from %s)" % (cf, src_dir))
                 companion_copies[cf] = srcf
     # feature scan first (names are DERIVED from features), then the descriptive rename with numbered uniqueness
+    # ⛔⭐⭐ THE COLLAPSE REFUSAL, AND IT COUNTS ENTRIES AGAINST ENTRIES. It lived ~150 lines up and read
+    # `len(pairs) * 4 < len(base_entries)` -- a PAIR count against an ENTRY count, two different units.
+    # ⭐ THE CALIBRATION, NOT THE BRANCH, WAS THE SNOBOL4-SPECIFIC PART (hq_P 2026-08-30, on seat06's
+    # raku measurement). SNOBOL4's one-liner-heavy tree runs about 1:1 pair-to-entry, so a pair count is a
+    # fine proxy THERE and nowhere else: in the banner-block format one pair legitimately carries a whole
+    # family. Measured false refusals -- raku 15 pairs / 97 entries, snocone 34 / 264; icon (208/434),
+    # pascal (58/149) and rebus (34/48) happened to sit above the 4x line and passed, which is luck, not
+    # correctness. A perfect 1:1 correspondence was reading as a collapse and refusing the rebuild.
+    # ⛔ NOT cured by exempting the block-format languages: that is a per-op filter over a shared node and
+    # would leave the identical latent bug for whatever format lands next. The unit is the fix.
+    # ⭐ The 4x ratio is unchanged and the direction of caution is unchanged: this guard is one end of an
+    # axis whose other end is the dedupe/accumulation check below, and BOTH ends ship silently otherwise.
+    # It is deliberately safer to false-refuse (costs a seat an hour) than to miss (cost: 1576 entries).
+    # ⛔ STILL DOES NOT COVER THE DELETE-FIRST PATH: `rm ALL.*` empties base_entries, so this is skipped
+    # entirely -- the guard reads the very thing a "clean rebuild" removes (hq_P, 2026-08-30; the builder
+    # owning its own --clean is row snobol4-master-guard-sync-and-builder-shrink-refusal, hq_C).
+    # ⛔⭐⭐ AND `all_entries` MUST BE NON-EMPTY FOR THIS TO BE A COLLAPSE AT ALL -- fixing only the unit
+    # trades one false refusal for another (measured 2026-08-30, hq_B, on a scratch copy of both trees):
+    # raku and snocone absorb 15 and 34 pairs into ZERO NEW ENTRIES, because every origin is already in
+    # the master. That is the IDEMPOTENT REBUILD -- the same state icon/rebus/pascal reach and report as
+    # "NOTHING NEW ABSORBED", exiting 0 -- and `0 * 4 < 97` refuses it just as `15 * 4 < 97` did.
+    # ⭐ The reasoning is already written down twenty lines up for `not pairs`, and it transfers exactly:
+    # with nothing NEW to append, `all_entries = base_entries + []` rewrites the master AS ITSELF, so the
+    # builder cannot produce a smaller master no matter what the ratio says. The dangerous case is still
+    # strictly `0 < new << base`: something to write, far too little of it.
+    # ⛔ NOTE WHY THE OLD PREDICATE LET icon/pascal/rebus THROUGH -- 208*4>434, 58*4>149, 34*4>48. They
+    # passed on their PAIR count and then took the idempotent exit anyway. A guard that admits the right
+    # cases for the wrong reason is not confirmed by their green: three languages agreeing meant only that
+    # three trees happened to sit above an arbitrary line.
+    if base_entries and all_entries and len(all_entries) * 4 < len(base_entries):
+        sys.stderr.write(
+            "\u26d4 REFUSED: this rebuild would absorb only %d entrie(s) (from %d pair(s)) over an existing\n"
+            "   master of %d entries.\n"
+            "   That is a COLLAPSE, not a rebuild -- almost certainly a cut-over language whose sources are\n"
+            "   retired, where the master IS the source and nothing on disk can rebuild it.\n"
+            "   Nothing has been written; the existing master is untouched.\n"
+            "   \u26d4 Do NOT fix this by deleting ALL.* and re-running -- on a cut-over language that\n"
+            "      deletes the only copy. Rebuild in a scratch copy first if you truly mean it.\n"
+            % (len(all_entries), len(pairs), len(base_entries)))
+        raise SystemExit(2)
     counters = {}
     all_entries = base_entries + all_entries
     for e in base_entries:  # seed the counters PAST every existing name so new names never collide
