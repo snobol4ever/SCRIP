@@ -145,12 +145,94 @@ RAKU_NAME_FEATURES = [
     ("junction", "junction"), ("smartmatch", "smartmatch"), ("feed_op", "feed"), ("range_op", "range"),
     ("sigil_hash", "hash"), ("sigil_array", "array"), ("say", "say"), ("try", "try"), ("die", "die"),
 ]
+# -- icon attributes: Icon's vocabulary is GENERATORS and STRING SCANNING, so the columns are built around
+# result sequences (every/suspend/alternation/element-generation) and the scanning environment (?/tab/move/&pos),
+# not around pattern primitives. Deliberately NOT the SNOBOL4 table: `ANY`/`TAB`/`POS` exist in both languages
+# with different meanings, and borrowing would make a cross-language profile read as agreement where there is none.
+ICON_COLS = [
+    ("write", LOW("write")), ("writes", LOW("writes")), ("read", LOW("read")), ("reads", LOW("reads")),
+    ("find", LOW("find")), ("match", LOW("match")), ("upto", LOW("upto")), ("many", LOW("many")),
+    ("any", LOW("any")), ("bal", LOW("bal")), ("tab", LOW("tab")), ("move", LOW("move")),
+    ("pos", LOW("pos")), ("stop", LOW("stop")), ("image", LOW("image")), ("type", LOW("type")),
+    ("sort", LOW("sort")), ("put", LOW("put")), ("push", LOW("push")), ("pop", LOW("pop")),
+    ("get", LOW("get")), ("insert", LOW("insert")), ("delete", LOW("delete")), ("member", LOW("member")),
+    ("list", LOW("list")), ("table", LOW("table")), ("set", LOW("set")), ("repl", LOW("repl")),
+    ("map", LOW("map")), ("trim", LOW("trim")), ("seq", LOW("seq")), ("integer", LOW("integer")),
+    # control and declaration keywords (bare words, Icon is lowercase and case-sensitive)
+    ("every", BARE("every")), ("suspend", BARE("suspend")), ("fail", BARE("fail")), ("return", BARE("return")),
+    ("while", BARE("while")), ("until", BARE("until")), ("repeat", BARE("repeat")), ("case", BARE("case")),
+    ("next", BARE("next")), ("break", BARE("break")), ("create", BARE("create")), ("record", BARE("record")),
+    ("procedure", BARE("procedure")), ("local", BARE("local")), ("static", BARE("static")), ("global", BARE("global")),
+    # constructs by syntax shape (lexical approximations)
+    ("scan", lambda t: 1 if re.search(r"\?\s*[A-Za-z_{(\"]", t) else 0),                  # expr ? expr -- scanning
+    ("alternation", lambda t: 1 if re.search(r"[^|]\|[^|]", t) else 0),                    # e1 | e2 -- result sequence
+    ("element_gen", lambda t: 1 if re.search(r"(^|[\s(,=])!\s*[A-Za-z_(\"]", t, re.M) else 0),  # !x
+    ("limitation", lambda t: 1 if re.search(r"\\\s*[0-9A-Za-z_(]", t) else 0),               # e \ n
+    ("to_by", lambda t: 1 if re.search(r"(?<![A-Za-z0-9_])to(?![A-Za-z0-9_])", t) else 0),  # i to j [by k]
+    ("assign", lambda t: 1 if ":=" in t else 0),
+    ("swap", lambda t: 1 if ":=:" in t else 0),
+    ("aug_assign", lambda t: 1 if re.search(r"[-+*/|&]:=", t) else 0),
+    ("coexpr_activate", lambda t: 1 if "@" in t else 0),
+    ("keyword_ref", lambda t: 1 if re.search(r"&[a-z]", t) else 0),
+    # named combinations
+    ("every_with_suspend", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])every(?![A-Za-z0-9_])", t) and re.search(r"(?<![A-Za-z0-9_])suspend(?![A-Za-z0-9_])", t)) else 0),
+    ("scan_with_tab", lambda t: 1 if (re.search(r"\?\s*[A-Za-z_{(\"]", t) and re.search(r"(?<![A-Za-z0-9_])tab\s*\(", t)) else 0),
+    ("gen_with_alternation", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])(every|suspend)(?![A-Za-z0-9_])", t) and re.search(r"[^|]\|[^|]", t)) else 0),
+]
+ICON_NAME_FEATURES = [
+    ("procedure", "procedure"), ("record", "record"), ("create", "coexpr"), ("every", "every"),
+    ("suspend", "suspend"), ("scan", "scan"), ("element_gen", "elemgen"), ("alternation", "alt"),
+    ("limitation", "limit"), ("to_by", "to"), ("swap", "swap"), ("coexpr_activate", "activate"),
+    ("case", "case"), ("while", "while"), ("until", "until"), ("repeat", "repeat"), ("fail", "fail"),
+    ("tab", "tab"), ("move", "move"), ("upto", "upto"), ("many", "many"), ("find", "find"), ("match", "match"),
+    ("bal", "bal"), ("sort", "sort"), ("table", "table"), ("list", "list"), ("set", "set"), ("map", "map"),
+    ("repl", "repl"), ("seq", "seq"), ("write", "write"), ("writes", "writes"), ("read", "read"),
+    ("keyword_ref", "keyword"), ("aug_assign", "augassign"), ("global", "global"), ("static", "static"),
+]
+# -- pascal attributes: ISO Pascal is CASE-INSENSITIVE, so every matcher here folds case (the corpus happens to
+# be lowercase throughout, but a table that only matched lowercase would silently under-report an upper-case
+# dialect file and read as "this program uses no constructs" rather than as a miss).
+PAS = lambda w: (lambda t: 1 if re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % w, t, re.I) else 0)
+PASCAL_COLS = [
+    ("program", PAS("program")), ("procedure", PAS("procedure")), ("function", PAS("function")),
+    ("var", PAS("var")), ("const", PAS("const")), ("type", PAS("type")), ("record", PAS("record")),
+    ("array", PAS("array")), ("set", PAS("set")), ("file", PAS("file")), ("packed", PAS("packed")),
+    ("label", PAS("label")), ("goto", PAS("goto")), ("with", PAS("with")), ("case", PAS("case")),
+    ("while", PAS("while")), ("repeat", PAS("repeat")), ("for", PAS("for")), ("downto", PAS("downto")),
+    ("forward", PAS("forward")), ("nil", PAS("nil")), ("div", PAS("div")), ("mod", PAS("mod")),
+    ("in", PAS("in")), ("writeln", PAS("writeln")), ("write", PAS("write")), ("readln", PAS("readln")),
+    ("read", PAS("read")), ("new", PAS("new")), ("dispose", PAS("dispose")), ("ord", PAS("ord")),
+    ("chr", PAS("chr")), ("succ", PAS("succ")), ("pred", PAS("pred")), ("abs", PAS("abs")),
+    ("sqr", PAS("sqr")), ("sqrt", PAS("sqrt")), ("trunc", PAS("trunc")), ("round", PAS("round")),
+    ("eof", PAS("eof")), ("eoln", PAS("eoln")), ("odd", PAS("odd")),
+    # constructs by syntax shape
+    ("assign", lambda t: 1 if ":=" in t else 0),
+    ("pointer", lambda t: 1 if re.search(r"\^\s*[A-Za-z_;)\]]", t) else 0),
+    ("set_literal", lambda t: 1 if re.search(r"\[[^\]]*\.\.[^\]]*\]", t) else 0),
+    ("subrange", lambda t: 1 if re.search(r"[0-9A-Za-z_'\)]\s*\.\.\s*[0-9A-Za-z_']", t) else 0),
+    ("nested_proc", lambda t: 1 if len(re.findall(r"(?<![A-Za-z0-9_])(procedure|function)(?![A-Za-z0-9_])", t, re.I)) > 1 else 0),
+    # named combinations
+    ("for_with_array", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])for(?![A-Za-z0-9_])", t, re.I) and re.search(r"(?<![A-Za-z0-9_])array(?![A-Za-z0-9_])", t, re.I)) else 0),
+    ("with_record", lambda t: 1 if (re.search(r"(?<![A-Za-z0-9_])with(?![A-Za-z0-9_])", t, re.I) and re.search(r"(?<![A-Za-z0-9_])record(?![A-Za-z0-9_])", t, re.I)) else 0),
+    ("pointer_with_new", lambda t: 1 if (re.search(r"\^", t) and re.search(r"(?<![A-Za-z0-9_])new\s*\(", t, re.I)) else 0),
+]
+PASCAL_NAME_FEATURES = [
+    ("program", "program"), ("function", "function"), ("procedure", "procedure"), ("record", "record"),
+    ("array", "array"), ("set", "set"), ("file", "file"), ("packed", "packed"), ("pointer", "pointer"),
+    ("with", "with"), ("case", "case"), ("while", "while"), ("repeat", "repeat"), ("for", "for"),
+    ("downto", "downto"), ("goto", "goto"), ("label", "label"), ("forward", "forward"),
+    ("nested_proc", "nested"), ("set_literal", "setlit"), ("subrange", "subrange"), ("div", "div"),
+    ("mod", "mod"), ("writeln", "writeln"), ("readln", "readln"), ("new", "new"), ("dispose", "dispose"),
+    ("sqrt", "sqrt"), ("trunc", "trunc"), ("round", "round"), ("eof", "eof"), ("odd", "odd"),
+]
 LANG_TABLES = {
     "snobol4": (COLS, NAME_FEATURES),   # unchanged -- byte-identity control arm
     "snocone": (COLS, NAME_FEATURES),   # SNOBOL-family: same pattern vocabulary, deliberately shared
     "rebus":   (COLS, NAME_FEATURES),   # SNOBOL-family: same pattern vocabulary, deliberately shared
     "prolog":  (PROLOG_COLS, PROLOG_NAME_FEATURES),
     "raku":    (RAKU_COLS, RAKU_NAME_FEATURES),
+    "icon":    (ICON_COLS, ICON_NAME_FEATURES),
+    "pascal":  (PASCAL_COLS, PASCAL_NAME_FEATURES),
 }
 
 
@@ -378,14 +460,32 @@ def main():
         else:
             # ⛔⭐ READ EACH SOURCE PAIR WITH ITS OWN DIALECT READER (hq_B, measured: read_suite on a .pl pair returns
             # the whole file as one entry whose body still contains %--- banners -- content that looks like structure).
+            # ⛔⭐ THE seqN DISCRIMINATOR ABOVE EXISTS FOR EXACTLY THIS CASE AND WAS SNOBOL4-ONLY, SO THE DIALECT
+            # PATH HIT THE VERY BUG ITS COMMENT DESCRIBES. The old fallback handed a BANNERLESS pair to
+            # `read_suite` -- SNOBOL4's LINE reader -- which split a 3-line Icon parser fixture into 3 one-line
+            # entries and graded each against one line of its AST ref. Measured before the fix: 203 of 472 icon
+            # entries carried n_lines=1 with bodies like `end`, and the master scored ast_pass=0/472.
+            # ⭐ Decide by whether the file HAS a banner, never by whether a reader happened to raise: SNOBOL4 is
+            # line-oriented so a bannerless .sno may legitimately be many one-line entries, but in every other
+            # dialect a program is inherently multi-line and a bannerless pair is ONE program.
+            _bre = h.banner_re_for(_CO, _CC)
             try:
-                try:
-                    entries = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC))
-                except Exception:
-                    entries = h.read_suite(sno, ref)   # a genuine one-line-dialect pair
+                _slines = open(sno, encoding="utf-8", errors="replace").read().splitlines()
+                _rlines = open(ref, encoding="utf-8", errors="replace").read().splitlines()
             except Exception as e:
                 excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
                 continue
+            if not any(_bre.match(_l) for _l in _slines):
+                mode = "plain"   # ⚠️ auto-XFAIL-by-source-verdict is NOT applied on this path yet, so a
+                                 # pre-existing red absorbs as a visible FAIL rather than a silent XFAIL --
+                                 # the loud direction, and a named follow-up rather than a silent difference.
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines)]
+            else:
+                try:
+                    entries = h.read_block_suite(sno, ref, _bre)
+                except Exception as e:
+                    excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
+                    continue
         for e in entries:
             e.origin = "%s__%s" % (fam, e.name)
             e.src_mode = mode
