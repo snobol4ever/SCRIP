@@ -47,3 +47,15 @@ if [ "$n" -gt 0 ]; then
 else
   printf '✅ POSTOFFICE [%s] -- inbox empty. That IS the acknowledgement; nothing owed.\n' "$ME"
 fi
+# ⭐ SAME DUTY-INTO-HARNESS CLASS AS THIS HOOK ITSELF (hq_B 2026-08-30, row
+# commit-trailer-hook-rejects-forbidden-trailers). Git hooks do NOT propagate through clone, so
+# the forbidden-trailer commit-msg hook has to be (re)installed per seat, per clone. The row's
+# brief offered `make setup` OR the session path; `make setup` runs $ROOT/setup.sh, which DOES
+# NOT EXIST in this tree, so it would have installed nothing forever -- the same
+# looks-wired-cannot-fire defect this fleet has now measured four times today. This is the live
+# path: it runs for every seat at every prompt, costs a cmp per repo, and says nothing unless it
+# actually installed something. Never allowed to break the inbox banner above it.
+if [ -x "$S4E/SCRIP/scripts/install_commit_msg_hook.sh" ]; then
+  _h="$(bash "$S4E/SCRIP/scripts/install_commit_msg_hook.sh" --quiet 2>/dev/null || true)"
+  [ -n "$_h" ] && printf '%s\n' "$_h"
+fi

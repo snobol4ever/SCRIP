@@ -47,7 +47,7 @@ NET_CACHE    := /tmp/scrip_net_cache
 JASMIN       := $(ROOT)/miscellaneous/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
-.PHONY: all scrip setup pristine pristine-all buildinfo FORCE \
+.PHONY: all scrip setup hooks pristine pristine-all buildinfo FORCE \
         test \
         native codegen-emit-test \
         monitor-ipc \
@@ -508,8 +508,22 @@ monitor-ipc:
 
 # ── Environment setup (idempotent) ────────────────────────────────────────────
 
-setup:
-	bash $(ROOT)/setup.sh
+# ── Git hooks ─────────────────────────────────────────────────────────────────
+# ⛔⭐ GIT HOOKS DO NOT PROPAGATE THROUGH CLONE, so every seat must install them locally. The
+# live path is the per-prompt session hook (scripts/s4e_inbox_hook.sh calls the installer
+# --quiet); this target is the explicit manual entry point and the one `make setup` runs.
+hooks:
+	@bash $(ROOT)/scripts/install_commit_msg_hook.sh
+
+# ⛔ MEASURED 2026-08-30 (hq_B): $(ROOT)/setup.sh DOES NOT EXIST in this tree, so `make setup`
+# was dying at the bash line having done nothing -- a target that looks like a bootstrap and
+# cannot be one. That is why hook installation was NOT wired here despite the row's brief
+# offering it: wiring into a dead path installs nothing, forever. `hooks` runs FIRST so the one
+# thing this target can actually do is done, and the missing script is now named out loud
+# instead of surfacing as a bare rc=127.
+setup: hooks
+	@if [ -f $(ROOT)/setup.sh ]; then bash $(ROOT)/setup.sh; \
+	else echo "⛔ setup.sh ABSENT at $(ROOT)/setup.sh -- this target has no bootstrap script in this tree. The hooks step above DID run. Fix or delete this target; it is not silently ignored."; exit 1; fi
 
 # ── Test targets ──────────────────────────────────────────────────────────────
 # (the old --run corpus runners were removed with the interpreter; the live
