@@ -100,8 +100,8 @@ for r in "${REPOS[@]}"; do
   printf "  %-22s %-10s local=%s origin=%s\n" "$name [$br]" "$st" "${lh:0:9}" "${oh:0:9}"
 done
 echo "------------------------------------------------------------"
-echo "=== .s ARTIFACT DRIFT (RULES.md handoff step 4) — WARN-ONLY, does not affect the verdict below ==="
-echo "    (ramp per row six-owed-verifier, 2026-08-24 s272 QA: BLOCK once the standing count below is cleared)"
+echo "=== .s ARTIFACT DRIFT (RULES.md handoff step 4) — BLOCKING since 2026-08-30 (ceo: the s272 ramp condition was met — hq_B drove the standing owed count to 0 and confirmed via this script) ==="
+echo "    (owed artifacts now BLOCK the handoff verdict; a verifier REFUSAL (rc=2, cannot measure) still only warns. If blocked and the debt is not yours: run the three regen scripts named in RULES.md handoff step 4 — earlier sessions' unregenerated codegen surfaces on whoever handoffs next, which is correct, not an accusation.)"
 if [ "${SKIP_S_ARTIFACT_CHECK:-0}" = "1" ]; then
   echo "  SKIPPED (SKIP_S_ARTIFACT_CHECK=1 set) — .s drift is UNVERIFIED this run."
 else
@@ -132,9 +132,13 @@ else
     if [ "$s_rc" -eq 0 ]; then
       printf '%s\n' "$s_out" | grep '^S-ARTIFACTS-' | sed 's/^/  /'
       echo "  CLEAN — benchmark/demo/prolog_bench/icon_bench all current, all checks actually ran."
-    else
-      echo "  ⛔⛔⛔ OWED/TROUBLE — see detail below. NOT a handoff blocker (WARN ramp, see banner above)."
+    elif [ "$s_rc" -eq 2 ]; then
+      echo "  ⛔ UNVERIFIED — the verifier REFUSED (rc=2, cannot measure; e.g. no built ./scrip). Not blocking, but this run proves nothing about .s drift."
       printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
+    else
+      echo "  ⛔⛔⛔ OWED — BLOCKS THE HANDOFF (ramp flipped 2026-08-30, condition met at standing count 0). Run the regen scripts; see the header note if the debt predates your session."
+      printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
+      blocked=1; reasons+=(".s artifacts OWED — regenerate (RULES.md handoff step 4); util_verify_s_artifacts_owed.sh rc=$s_rc")
     fi
   fi
 fi
