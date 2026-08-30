@@ -1368,7 +1368,8 @@ int main(int argc, char **argv)
             if (is_raku && !graph_native_emittable(s2)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
                                 "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
-                return 0;
+                /* ⛔⭐ 1, NOT 0 (hq_C verdict 2026-08-30, row smx-refusal-exits-zero). This returned 0, so "the compiler could not build this" and "the program ran and printed nothing" shared an exit code AND an empty stdout -- indistinguishable to any caller that checks either. The deciding evidence is nine lines below: the [IBB] FATAL neighbour already returns 1, so the driver ALREADY treats an inability-to-build as non-zero and this path was an inconsistency with its own neighbour rather than a considered refusal policy. ⛔ NOT rc=2: that is the GATE convention for cannot-measure; for a compiler "I cannot build this" is an ordinary build failure and 1 is the honest code. ⭐ Landed only after the exposed-consumer census hq_C required (FINDING-2026-08-30-hq_B-smx-rc0-exposed-population-is-empty-today): eight raku consumers, [SMX] seen by none -- the refusing programs are graded by corpus_suite_harness.py on OUTPUT vs a committed .ref, never on rc. ⚠️ Both sites are is_raku-gated, so today's blast radius is Raku-only; the refusal is the EMITTER's own not-covered path, so any frontend added to that predicate inherits this rc and the census must be re-run then. */
+                return 1;
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
                 fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
@@ -1796,7 +1797,8 @@ int main(int argc, char **argv)
             if (is_raku && !graph_native_emittable_mode(s2, 1)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
                                 "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
-                return 0;
+                /* ⛔⭐ 1, matching the MODE-4 site above -- and DELIBERATELY NOT this site's own neighbour. hq_C's verdict was "match the neighbour", which is unambiguous for mode 4 ([IBB] FATAL -> return 1) and ambiguous here: mode-3's own [IBB] FATAL at the bottom of this function calls abort(), not return 1. ⭐ abort() is for an INTERNAL INVARIANT THAT HAS BEEN VIOLATED -- the main BB graph missing after a successful build is a bug in us. "This feature is not implemented yet" is an ordinary build failure and is not a bug at all, so it takes 1 and not SIGABRT. Executing "match the neighbour" literally here would have given rc=134. */
+                return 1;
             }
             if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
