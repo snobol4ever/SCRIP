@@ -29,28 +29,45 @@ LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
 # ONE AUTHORITY per language for how to invoke its floor/smoke gate and how to read its verdict line.
 # Each entry's script is unmodified and unowned by this file -- this table only reads what it already
 # prints. A script's output format changing breaks its `pattern` match LOUDLY (UNPROVEN), never silently.
+_SNOBOL4_MASTER_RE = re.compile(r"master: total=(\d+) . m3 xfail=(\d+) xpass=(\d+) . m4 xfail=(\d+) xpass=(\d+)")
+
+
+def _fmt_snobol4(m, out):
+    base = "m3 %s/%s · m4 %s/%s SKIP=%s" % (m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))
+    mm = _SNOBOL4_MASTER_RE.search(out)
+    if not mm:
+        return base + " (master xfail/xpass line not found -- reported PER MODE would be needed here, never summed: see hq_C's simple_output_63 caution, an m4 SKIP is not an m4 XPASS)"
+    return base + (" · master total=%s xfail/xpass m3=%s/%s m4=%s/%s (PER MODE, never summed -- an XPASS in one mode "
+                   "can be a SKIP in the other, e.g. simple_output_63)" % (mm.group(1), mm.group(2), mm.group(3), mm.group(4), mm.group(5)))
+
+
+# ONE AUTHORITY per language for how to invoke its floor/smoke gate and how to read its verdict line.
+# Each entry's script is unmodified and unowned by this file -- this table only reads what it already
+# prints. A script's output format changing breaks its `pattern` match LOUDLY (UNPROVEN), never silently.
+# `format(m, out)` takes the matched pattern AND the gate's full raw output, so a format function can pull
+# a SECOND line out of the same run when useful (snobol4's xfail/xpass) without a second gate invocation.
 GATES = {
     "snobol4": {"script": "test_corpus_snobol4.sh", "args": [],
         "pattern": re.compile(r"GATE (OK|FAIL): m3 PASS=(\d+) FAIL=(\d+).*?m4 PASS=(\d+) FAIL=(\d+) SKIP=(\d+)", re.S),
-        "format": lambda m: "m3 %s/%s · m4 %s/%s SKIP=%s" % (m.group(2), m.group(3), m.group(4), m.group(5), m.group(6))},
+        "format": _fmt_snobol4},
     "icon": {"script": "test_icon_rung_suite.sh", "args": ["--mode", "interp"],
         "pattern": re.compile(r"--- Icon \(interp\): PASS=(\d+) FAIL=(\d+)(?: BADEXIT=(\d+))? XFAIL=(\d+)(?: REFUSED=(\d+))?(?: MISSING=(\d+))? TOTAL=(\d+)"),
-        "format": lambda m: "interp PASS=%s FAIL=%s XFAIL=%s TOTAL=%s" % (m.group(1), m.group(2), m.group(4), m.group(7))},
+        "format": lambda m, out: "interp PASS=%s FAIL=%s XFAIL=%s TOTAL=%s" % (m.group(1), m.group(2), m.group(4), m.group(7))},
     "prolog": {"script": "test_smoke_prolog.sh", "args": [],
         "pattern": re.compile(r"mode-2 \(--run\):\s+PASS=(\d+) FAIL=(\d+)\s*/\s*(\d+)"),
-        "format": lambda m: "m2 PASS=%s FAIL=%s / %s (HARD GATE)" % (m.group(1), m.group(2), m.group(3))},
+        "format": lambda m, out: "m2 PASS=%s FAIL=%s / %s (HARD GATE)" % (m.group(1), m.group(2), m.group(3))},
     "raku": {"script": "test_smoke_raku.sh", "args": [],
         "pattern": re.compile(r"mode-3 \(--run\):\s+PASS=(\d+) FAIL=(\d+) REFUSED=(\d+)\s*/\s*(\d+)"),
-        "format": lambda m: "m3 PASS=%s FAIL=%s REFUSED=%s / %s" % (m.group(1), m.group(2), m.group(3), m.group(4))},
+        "format": lambda m, out: "m3 PASS=%s FAIL=%s REFUSED=%s / %s" % (m.group(1), m.group(2), m.group(3), m.group(4))},
     "pascal": {"script": "test_gate_pascal_m3.sh", "args": [],
         "pattern": re.compile(r"M3: PASS=(\d+) FAIL=(\d+) NOREF=(\d+) XFAIL=(\d+)"),
-        "format": lambda m: "m3 PASS=%s FAIL=%s NOREF=%s XFAIL=%s" % (m.group(1), m.group(2), m.group(3), m.group(4))},
+        "format": lambda m, out: "m3 PASS=%s FAIL=%s NOREF=%s XFAIL=%s" % (m.group(1), m.group(2), m.group(3), m.group(4))},
     "snocone": {"script": "test_smoke_snocone.sh", "args": [],
         "pattern": re.compile(r"PASS=(\d+) FAIL=(\d+)"),
-        "format": lambda m: "PASS=%s FAIL=%s" % (m.group(1), m.group(2))},
+        "format": lambda m, out: "PASS=%s FAIL=%s" % (m.group(1), m.group(2))},
     "rebus": {"script": "test_smoke_rebus.sh", "args": [],
         "pattern": re.compile(r"PASS=(\d+) FAIL=(\d+)"),
-        "format": lambda m: "PASS=%s FAIL=%s" % (m.group(1), m.group(2))},
+        "format": lambda m, out: "PASS=%s FAIL=%s" % (m.group(1), m.group(2))},
 }
 
 
@@ -105,7 +122,7 @@ def run_gate(lang, fake_missing=False):
         first_line = next((ln.strip() for ln in out.splitlines() if ln.strip()), "")
         reason = (": %s" % first_line) if first_line else ""
         return "UNPROVEN(2): gate ran (rc=%d), output did not match the expected pattern%s" % (p.returncode, reason)
-    return g["format"](m)
+    return g["format"](m, out)
 
 
 def build_grid(langs):
