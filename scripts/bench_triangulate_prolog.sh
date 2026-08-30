@@ -12,12 +12,11 @@
 # DECLARED (a named line in EXCLUDED.tsv); an UNPROVEN row satisfies neither, by design, so a kernel stuck
 # at UNPROVEN must get its own EXCLUDED.tsv line naming why -- this script never writes that file itself.
 #
-# ⛔ AS OF THIS ROW'S FIRST RUN (2026-08-27), EXPECT ZERO AGREE ROWS FOR m3/m4: SCRIP's Prolog backend
-# crashes on ANY repeated entry into a compiled user predicate (backtrack-driven, flat-sequential, or
-# tail-recursive alike) -- see FINDING-2026-08-27-seat14-prolog-second-call-into-any-user-predicate-
-# crashes-m3-m4.md. This is not a harness defect: the harness is correctly reporting CRASH/UNPROVEN for
-# every m3/m4 cell because that is what is actually happening. Re-run this script (no code change needed)
-# once the underlying compiler gap (GOAL-PROLOG-100.md PZ-4) lands -- coverage should improve automatically.
+# ✅ STALE WARNING RETIRED (ceo 2026-08-30 on hq_B's measurement): the 2026-08-27 note here said to
+# EXPECT ZERO AGREE ROWS because repeated entry into a compiled user predicate crashed. MEASURED FALSE
+# on the current tree -- 50 repeated entries run clean in BOTH modes (m3 23617us, m4 23096us, hq_B).
+# The fixed-iteration angles are AVAILABLE; do not read the old seat14 FINDING as a live gate. (Third
+# stale-prose-vs-code instance of 2026-08-30 -- when a mechanism is cured, grep for prose describing it.)
 #
 # THE THIRD ANGLE (disk): one direct tools/bench_rusage sample per kernel (m3, single rep, the raw
 # bench/<k>.pl standalone -- every kernel is directly runnable per corpus/benchmarks/prolog/README.md's
