@@ -5770,7 +5770,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         char _cbuf[64];
         const char *raw;
         if (IS_INT_fn(av))       { snprintf(_cbuf,sizeof _cbuf,"%lld",(long long)av.i); raw=_cbuf; }
-        else if (IS_REAL_fn(av)) { real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; }
+        else if (IS_REAL_fn(av)) { icon_real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; }
         else { raw = VARVAL_fn(av); if (!raw) raw = ""; }
         *out = CSETVAL(cset_canonical(raw)); return 1;
     }
