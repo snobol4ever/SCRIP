@@ -44,6 +44,7 @@ import os
 import re
 import sys
 import csv
+import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -579,12 +580,40 @@ def main():
     # the write that destroyed them.
     # ⭐ A record that dies with its subject cannot testify about it. Loading it here, before any branch on
     # whether the suite pair still exists, is what lets the origin check below survive a partial deletion.
+    def _origins_from_csv_text(_text):
+        import io as _io
+        return {(_r.get("origin") or "").strip() for _r in csv.DictReader(_io.StringIO(_text))} - {""}
     csv_origins = set()
     if os.path.isfile(master_csv_path):
-        for _row in csv.DictReader(open(master_csv_path)):
-            _o = (_row.get("origin") or "").strip()
-            if _o:
-                csv_origins.add(_o)
+        csv_origins = _origins_from_csv_text(open(master_csv_path).read())
+    else:
+        # ⛔⭐⭐ THE THIRD RECORD, AND IT IS THE ONLY ONE THE DESTRUCTIVE COMMAND CANNOT REACH (ceo's routing
+        # on hq_P's report, 2026-08-30). The two records above -- the suite pair and ALL.csv -- both live INSIDE
+        # the tree being rebuilt, so `rm ALL.*` destroys BOTH IN ONE GESTURE and leaves nothing to compare
+        # against: measured, a full wipe rebuilt icon at 437 entries over a committed 534 and exited 0. Reading
+        # the committed CSV out of git closes exactly that case, because git's copy is not on the path the
+        # command deletes.
+        # ⭐ SAME PRINCIPLE AS READING ALL.csv UNCONDITIONALLY, TAKEN ONE STEP FURTHER: a record that dies with
+        # its subject cannot testify about it. The first two records die together; the third is outside the
+        # write path entirely, which is the whole reason it is worth a subprocess.
+        # ⛔ HEAD, DELIBERATELY, NOT origin/main: the question is "what am I about to destroy on THIS tree".
+        # A committed retirement is already reflected in HEAD, so an intentional removal produces no false
+        # refusal; an UNCOMMITTED deletion does, correctly, and --allow-drop-origin names it one by one.
+        # ⛔ Absent git, absent file in HEAD, or any git failure -> silently no third record. This arm can only
+        # ever ADD origins to KNOWN, so failing open leaves the previous behaviour exactly as it was.
+        try:
+            _top = subprocess.run(["git", "-C", OUTDIR, "rev-parse", "--show-toplevel"],
+                                  capture_output=True, text=True).stdout.strip()
+            if _top:
+                _rel = os.path.relpath(master_csv_path, _top)
+                _r = subprocess.run(["git", "-C", OUTDIR, "show", "HEAD:%s" % _rel],
+                                    capture_output=True, text=True)
+                if _r.returncode == 0 and _r.stdout.strip():
+                    csv_origins = _origins_from_csv_text(_r.stdout)
+                    print("NOTE: ALL.csv is absent from disk; recovered %d committed origin(s) from git HEAD "
+                          "as the collapse-check baseline." % len(csv_origins), file=sys.stderr)
+        except Exception:
+            pass
     if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
         if lang == "snobol4":
             base_entries = h.read_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"),
