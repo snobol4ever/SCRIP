@@ -2642,11 +2642,12 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
             if (f < 0) { w[wn].t = t; w[wn].d0 = d; w[wn].nd = 1; w[wn].multi = 0; wn++; }
             else { w[f].nd++; if (d != w[f].d0 && !w[f].multi) { w[f].multi = 1; walls++; } } } }
     for (int k = 0; k < wn; k++) { if (!w[k].multi) continue;
-        fprintf(stderr, "[ZD-DEPTH] WALL %s %s preds=%d first_depth=%d\n", prefix ? prefix : "?", bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0);
+        int _wi = -1; for (int q = 0; q < n; q++) if (nodes[q] == w[k].t) { _wi = q; break; }
+        fprintf(stderr, "[ZD-DEPTH] WALL %s i=%d %s preds=%d first_depth=%d gpop=%d zout=%d\n", prefix ? prefix : "?", _wi, bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0, _wi >= 0 ? zgpop[_wi] : -9999, _wi >= 0 ? zout[_wi] : -9999);
         for (int i = 0; i < n; i++) { if (!zon[i]) continue; int Kp = zd_k(nodes[i]);
             for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (t != w[k].t) continue;
                 int d = (p == 0) ? (zout[i] - zgpop[i]) : (zout[i] - Kp - zwpop[i]);
-                fprintf(stderr, "[ZD-DEPTH]   pred %s %-24s depth=%d%s\n", p == 0 ? "\xce\xb3" : "\xcf\x89", bb_op_name(nodes[i]->op) ? bb_op_name(nodes[i]->op) : "<unnamed>", d, d == w[k].d0 ? "" : "   <-- DISAGREES"); } } }
+                fprintf(stderr, "[ZD-DEPTH]   pred %s i=%d %-22s depth=%d gpop=%d%s\n", p == 0 ? "\xce\xb3" : "\xcf\x89", i, bb_op_name(nodes[i]->op) ? bb_op_name(nodes[i]->op) : "<unnamed>", d, zgpop[i], d == w[k].d0 ? "" : "   <-- DISAGREES"); } } }
     fprintf(stderr, "[ZD-DEPTH] %s n=%d armed=%d in_edges=%d joins=%d walls=%d\n", prefix ? prefix : "?", n, armed, edges, wn, walls);
     free(w);
 }
