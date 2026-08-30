@@ -810,17 +810,34 @@ def main():
         ok = True
         try:
             if lang == "snobol4" and mode == "plain":
+                # ⛔⭐⭐ A CHECK THAT DOES NOT CARRY EVERY FIELD THE GRADER READS IS NOT A CHECK (hq_C, 2026-08-30,
+                # from their own --split-write round trip which PASSED while dropping stdin for all 9
+                # stdin-bearing snobol4 entries -- it compared bodies only). This comparison authorizes
+                # DELETING the source, so a field it does not check is a field that can be silently lost
+                # forever. It compared sno_lines and ref only: an absorbed entry whose stdin or xfail was
+                # dropped verified CLEAN and its source became deletable.
+                # ⛔ AND rc CANNOT SUBSTITUTE FOR THE FIELD CHECK. hq_C measured snobol4
+                # arb_capture_alt_replace_branch_1: WITH stdin rc=0 and 9 bytes "cat/house"; WITHOUT stdin
+                # rc=0 and ZERO bytes. IDENTICAL EXIT CODE. A stdin-starved program exits perfectly cleanly
+                # and simply produces nothing, so only comparing the FIELD detects it.
                 e = by_origin.get("%s__%s" % (fam, os.path.basename(sno)[:-len(EXT)]))
+                _src_in = h.sidecar_in_path(sno)
+                _want_stdin = open(_src_in).read() if (_src_in and os.path.isfile(str(_src_in))) else None
                 ok = e is not None and e.sno_lines == open(sno).read().splitlines() and \
-                    (e.ref if isinstance(e.ref, list) else str(e.ref).split("\n")) == open(ref).read().splitlines()
+                    (e.ref if isinstance(e.ref, list) else str(e.ref).split("\n")) == open(ref).read().splitlines() and \
+                    (e.stdin or None) == (_want_stdin or None)
             else:
                 if lang == "snobol4":
                     reread = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 else:
+                    # ⛔ THE DIALECT RE-READ DROPPED THE SIDECARS TOO, so the `se.stdin` compared below was
+                    # always None and the stdin check downstream compared None to None and passed. Read them,
+                    # exactly as the snobol4 branch does -- the verification must load what the grader loads.
                     try:
-                        reread = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC))
+                        reread = h.read_block_suite(sno, ref, h.banner_re_for(_CO, _CC),
+                                                    in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                     except Exception:
-                        reread = h.read_suite(sno, ref)   # a genuine one-line-dialect pair, matching absorption's own fallback
+                        reread = h.read_suite(sno, ref, in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 for se in reread:
                     e = by_origin.get("%s__%s" % (fam, se.name))
                     if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
