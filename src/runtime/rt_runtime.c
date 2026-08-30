@@ -502,8 +502,9 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         return 0;
     }
     {
-        const char *s   = (obj.v == DT_S) ? obj.s : NULL;
-        int64_t     slen = !s ? 0 : (IS_CSET_fn(obj) ? (int64_t)strlen(s) : (int64_t)(obj.slen > 0 ? obj.slen : strlen(s)));
+        DESCR_t     sobj = (obj.v == DT_S) ? obj : descr_to_str_fracdigit(obj);
+        const char *s    = (sobj.v == DT_S) ? sobj.s : NULL;
+        int64_t     slen = !s ? 0 : (IS_CSET_fn(sobj) ? (int64_t)strlen(s) : (int64_t)(sobj.slen > 0 ? sobj.slen : strlen(s)));
         if (!s || idx >= slen) return 0;
         char *ch = rt_ws_alloc(2);
         ch[0] = s[idx];
