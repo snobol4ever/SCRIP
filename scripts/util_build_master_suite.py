@@ -878,7 +878,20 @@ def main():
     for fam, sno, ref, mode in absorbed_files:
         ok = True
         try:
-            if lang == "snobol4" and mode == "plain":
+            if mode == "plain":
+                # ⛔⭐ HALF-GENERALIZED CONTRACT, THE FOURTH INSTANCE (seat07 2026-08-30, on the task file's
+                # own newly-adopted law naming this exact class): this branch used to read
+                # `lang == "snobol4" and mode == "plain"`, but mode=="plain" stopped being SNOBOL4-only the
+                # moment hq_P's bannerless-dialect-as-ONE-entry fix landed (absorption above sets mode="plain"
+                # for ANY language's bannerless single-file family, not just SNOBOL4's own historic plain-file
+                # class) -- the ABSORPTION half of the contract generalized, the VERIFICATION half's language
+                # guard did not. MEASURED: a from-scratch rebus rebuild under this exact tree read "VERIFIED: 1
+                # families; UNVERIFIED: 33" -- every one of the 33 bannerless AST-drift stems fell through to
+                # the `else` branch below, which has no banner to find, so its read_block_suite/read_suite
+                # fallback fragmented each file into seqN one-line entries matching no origin in `by_origin`.
+                # The comparison body itself was ALREADY language-agnostic (EXT is already the resolved
+                # extension for whichever --lang is running, os.path.basename/sidecar_in_path assume nothing
+                # SNOBOL4-specific) -- only the gate needed to drop the language check.
                 # ⛔⭐⭐ A CHECK THAT DOES NOT CARRY EVERY FIELD THE GRADER READS IS NOT A CHECK (hq_C, 2026-08-30,
                 # from their own --split-write round trip which PASSED while dropping stdin for all 9
                 # stdin-bearing snobol4 entries -- it compared bodies only). This comparison authorizes

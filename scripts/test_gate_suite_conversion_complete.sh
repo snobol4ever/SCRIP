@@ -120,6 +120,18 @@ pending_row_of() { sed -n 's/^[[:space:]]*ROW:[[:space:]]*\([A-Za-z0-9_.-]\{1,\}
 pending_sections() { awk '/^##[[:space:]]+DEFERRED([[:space:]]|$)/{h=$0; sub(/^##[[:space:]]+DEFERRED[[:space:]]*/,"",h); gsub(/[[:space:]]+$/,"",h); row=h; f=1; next} /^##[[:space:]]/{f=0} f&&/^[[:space:]]*[-*][[:space:]]/{print (row==""?"@FILEROW@":row) "\t" $0}' "$1" 2>/dev/null; }
 pending_deferred_block() { pending_sections "$1" | cut -f2-; }
 mapfile -t KEEPFILES < <(find "$TREE" -type f -name 'KEEP.md' 2>/dev/null)
+# ⭐⭐ config/*KEEP.md ALSO DECLARES (seat07 2026-08-30, on the zero-subfolders end state going live for
+# real trees). The flat-layout ruling reserves tests/<lang>/config/ for exactly this kind of companion
+# (hq_C's MODES.tsv ruling names it explicitly), and SNOBOL4's own tree already carries a dozen
+# `<prefix>_KEEP.md` files there -- but this gate only ever looked for a literal per-ancestor-directory
+# `KEEP.md`, so config/ was invisible to it (MEASURED: `test_gate_suite_conversion_complete.sh snobol4`
+# itself reports 95 undeclared today, entirely because its own config/*_KEEP.md files are never read).
+# config/ is a FLAT junk-drawer, not a per-family ancestor directory the old walk's directory-scoping
+# logic was built for, so every *KEEP.md under it applies tree-wide -- the SAME delimited/unambiguous
+# match rule as an ordinary KEEP.md, just checked against every such file rather than one per directory
+# level.
+mapfile -t CONFIG_KEEPFILES < <(find "$TREE/config" -maxdepth 1 -type f -name '*KEEP.md' 2>/dev/null)
+KEEPFILES+=("${CONFIG_KEEPFILES[@]}")
 # ⛔⭐⭐ THE DECLARATION CHECK WAS A RAW SUBSTRING TEST OVER EVERY KEEP.md CONCATENATED, AND IT UNDER-COUNTED
 # (seat14 2026-08-29, measured; cured here by hq_P). The old form was:
 #     DECLARED=$(cat "${KEEPFILES[@]}"); case "$DECLARED" in *"$b"*) : ;; ... esac
@@ -204,6 +216,19 @@ for f in "${LOOSE[@]}"; do
         [ "$probe" = "$TREE" ] && break
         parent=$(dirname "$probe"); [ "$parent" = "$probe" ] && break; probe="$parent"
     done
+    # config/*KEEP.md applies tree-wide (see CONFIG_KEEPFILES above) -- checked only once the ordinary
+    # per-ancestor walk above found nothing, same delimited/unambiguous rule, relative to TREE (not to
+    # config/, since a config/ file describes files sitting flat in TREE, not itself).
+    if [ -z "$found" ]; then
+        rel=${f#$TREE/}; rre=${rel//./[.]}
+        for k in "${CONFIG_KEEPFILES[@]}"; do
+            if grep -qE "(^|[^A-Za-z0-9_./-])$rre([^A-Za-z0-9_-]|$)" "$k" 2>/dev/null; then found="$k"; via="path"; break; fi
+            if [ "${_BNC[$b]}" -eq 1 ]; then
+                bre=${b//./[.]}
+                if grep -qE "(^|[^A-Za-z0-9_./-])$bre([^A-Za-z0-9_-]|$)" "$k" 2>/dev/null; then found="$k"; via="name"; break; fi
+            fi
+        done
+    fi
     if [ -n "$found" ]; then DECLBY="$DECLBY\n     ${f#$TREE/}  <-  ${found#$TREE/} (by $via)"
     else
         # Not a keeper. Before calling it undeclared, ask whether a PENDING.md defers it to a live row --

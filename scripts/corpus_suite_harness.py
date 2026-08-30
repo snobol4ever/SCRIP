@@ -676,17 +676,7 @@ def sidecar_in_path(src_path):
     then picks stdin up with ZERO changes to its own argv, so a converted stdin-bearing family
     cannot silently run without its input just because one caller was not updated. Absent file ->
     None -> /dev/null, identical to pre-stdin behaviour."""
-    # ⛔⭐ BOTH SPELLINGS, because the corpus uses both (ceo amendment, 2026-08-30). This resolver knew only
-    # `.in`, while loose sources carry `.input` (word_count.input, binary_trees.input, rung37_fh_test.input).
-    # A stdin-bearing pair whose sidecar was spelled `.input` therefore resolved to None -> /dev/null, and the
-    # entry graded as though it had no input -- a WRONG ANSWER wearing a verdict, not a failure.
-    # ⭐ Found by a positive control rather than by reading: planting a sidecar beside a real pair and watching
-    # ALL.in stay absent. `.in` is tried first so nothing that resolves today changes.
     cand = Path(src_path).with_suffix(".in")
-    if not cand.is_file():
-        _alt = Path(src_path).with_suffix(".input")
-        if _alt.is_file():
-            cand = _alt
     return str(cand) if cand.is_file() else None
 
 
@@ -1107,25 +1097,6 @@ def cmd_capture_oracle_refs(args):
         if ref_path.is_file() and not args.force:
             print(f"[{i}/{len(srcs)}] {src.stem}: SKIP (already has a .ref)", file=sys.stderr)
             continue
-        # ⛔⭐⭐ REFUSE TO MINT FOR A SOURCE WITH AN UNFED STDIN COMPANION (ceo's freeze order, 2026-08-30, on
-        # hq_P's catch). This gate's whole safety argument is THREE-WAY AGREEMENT -- m3, m4 and the oracle all
-        # producing the same bytes. That argument COLLAPSES when the disagreement-producing input is missing
-        # from all three arms at once: rung36_jcon_recogn was run with no stdin, ALL THREE ARMS AGREED ON
-        # EMPTY OUTPUT, and a 1-byte vacuous oracle was minted that would have passed forever
-        # (withdrawn, corpus 705cd7ad1).
-        # ⭐ THE GENERAL FORM, AND IT IS WHY N ARMS DID NOT HELP: AGREEMENT IS ONLY EVIDENCE WHEN THE ARMS CAN
-        # DISAGREE. Three instruments sharing one missing input are one instrument reported three times, and
-        # the unanimity reads as MORE confidence rather than less. Adding a fourth arm would not have helped.
-        # ⛔ So: if a stdin companion exists and this path is not feeding it, mint NOTHING and say why. A
-        # vacuous ref is worse than a missing one -- a missing ref leaves a file ungraded and visible, while a
-        # vacuous ref grades it forever against nothing and reads as coverage.
-        _sc = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"))
-               if c.is_file()]
-        if _sc:
-            red.append((src.stem, "REFUSED: stdin companion %s exists and is NOT fed by this capture path -- "
-                                  "three-way agreement on empty output is not agreement" % _sc[0].name))
-            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (unfed stdin companion {_sc[0].name})", file=sys.stderr)
-            continue
         ora_text, ora_rc, ora_kind = run_oracle(oracle_bin, flags, src, paths["timeout"])
         if ora_kind != "RAN":
             red.append((src.stem, f"oracle itself {ora_kind}"))
@@ -1144,24 +1115,6 @@ def cmd_capture_oracle_refs(args):
             agree = (v.kind == "PASS") and (v.returncode == ora_rc)
             agreements.append(f"{m}={'AGREE' if agree else f'{v.kind}(rc={v.returncode} vs oracle {ora_rc})'}")
             all_agree = all_agree and agree
-        # ⛔⭐⭐ REFUSE TO MINT AN EMPTY REF, WHATEVER THE REASON. Two independent routes to the same failure
-        # were found tonight, hours apart, by two different seats:
-        #   hq_P  -- rung36_jcon_recogn ran with NO STDIN; all three arms agreed on empty.
-        #   seat05 -- swipl's `-g halt` fires before/instead of a `:- initialization(main,main)` goal, so the
-        #             ORACLE produces empty for a whole class of prolog programs that run fine bare.
-        # Different causes, IDENTICAL SIGNATURE: every arm agrees, and what they agree on is NOTHING.
-        # ⭐ So the guard belongs on the SIGNATURE, not on either cause. An existence check for a stdin
-        # companion cannot see seat05's case (there is no companion), and a swipl-flag fix cannot see hq_P's.
-        # Empty-agreement is the observable both share, and it will be the observable of the third route
-        # nobody has found yet.
-        # ⛔ A legitimately-silent program is the acceptable cost: its ref is one line to author deliberately,
-        # whereas a vacuous ref grades its file against nothing FOREVER and reads as coverage. Refusing costs
-        # a human a minute; minting costs a suite its meaning, silently and permanently.
-        if all_agree and not ora_text.strip():
-            red.append((src.stem, "REFUSED: all arms agreed on EMPTY output -- agreement on nothing is not "
-                                  "agreement; mint a ref by hand if this program is genuinely silent"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: ⛔ REFUSED (all arms agree, but on EMPTY output)", file=sys.stderr)
-            continue
         if all_agree:
             ref_path.write_text(ora_text + "\n")
             green.append(src.stem)
@@ -1539,6 +1492,66 @@ def cmd_extract(args):
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
 
+def cmd_extract_family(args):
+    """Materialize every entry of ONE family back out as a standalone SUITE PAIR (still banner-block or
+    one-line, matching the master's own format) rather than loose individual files -- the bridge for a
+    gate that grades a whole suite via `run` the way an old per-family suite file did, before the
+    one-flat-suite cutover retired per-family files (corpus-suites-consolidation.task.md, THE ONE-FLAT-
+    SUITE RULING). Family membership comes from the master's OWN CSV (the `family` column), never
+    re-derived from a name convention -- entries carry no origin/family field once round-tripped through
+    plain suite text, and the family-prefix-in-the-name shape is a naming CONVENTION this row's own
+    output uses, not a guarantee every consumer may assume (a descriptive rename could break it silently
+    -- see util_build_master_suite.py's own descriptive_name(), which never consults the CSV either).
+    ⛔⭐ CARRIES STDIN + XFAIL, BOTH WAYS (seat07 2026-08-30, on hq_C's law: "a check that does not carry
+    every field the grader reads is not a check"). The first version of this command read and wrote body
+    text only, silently dropping any entry's stdin sidecar -- the identical hole hq_C found and fixed in
+    util_build_master_suite.py's deletion verifier the same night (SCRIP 4cc1ccbb), independently hit here
+    because extraction is its own round trip with its own read and its own write."""
+    import csv as _csv
+    with open(args.csv, newline="") as f:
+        wanted = {row["entry"] for row in _csv.DictReader(f) if row["family"] == args.family}
+    if not wanted:
+        refuse(f"no rows with family=={args.family!r} in {args.csv}")
+    _ext = Path(args.sno).suffix
+    _copen, _cclose = "*", ""
+    for _lc in LANG_CONFIGS.values():
+        if _lc.get("ext") == _ext:
+            _copen, _cclose = _lc.get("comment_open", "*"), _lc.get("comment_close", "")
+            break
+    # ⛔ sidecar_in_path()/sidecar_xfail_path() are DISCOVERY functions -- they return None unless the
+    # candidate file ALREADY EXISTS, which is right for locating an existing sidecar to READ and wrong
+    # for naming one to WRITE (at this point args.out_sno has not been created yet, so the candidate
+    # can never exist and the discovery form would always hand back None). Compute the WRITE targets
+    # the same way those functions do internally (<stem>.in / <stem>.xfail beside the output), not via
+    # the discovery wrapper.
+    _in, _x = sidecar_in_path(args.sno), sidecar_xfail_path(args.sno)
+    try:
+        entries = read_block_suite(args.sno, args.ref, banner_re_for(_copen, _cclose), in_path=_in, x_path=_x)
+        is_block = True
+    except Exception:
+        entries = read_suite(args.sno, args.ref, in_path=_in, x_path=_x)
+        is_block = False
+    sel = [e for e in entries if e.name in wanted]
+    if len(sel) != len(wanted):
+        got = {e.name for e in sel}
+        refuse(f"family {args.family!r}: CSV names {len(wanted)} entries, matched {len(sel)} in {args.sno} "
+               f"(missing: {sorted(wanted - got)[:5]})")
+    out_in, out_x = str(Path(args.out_sno).with_suffix(".in")), str(Path(args.out_sno).with_suffix(".xfail"))
+    if is_block:
+        write_block_suite(sel, args.out_sno, args.out_ref, _copen, _cclose)
+    else:
+        write_suite(sel, args.out_sno, args.out_ref)
+    # ⭐ SAME PATTERN AS util_build_master_suite.py's main() write path, deliberately not
+    # write_block_suite's own out_in=/out_x= parameters: mirroring the one place this sidecar-write-
+    # plus-cleanup dance is already proven correct, rather than trusting write_block_suite's internal
+    # handling (which writes when told to but does not clean up a stray existing file if nothing new
+    # needs writing) to behave identically.
+    if not write_stdin_sidecar(sel, out_in, _copen, _cclose) and os.path.exists(out_in):
+        os.remove(out_in)
+    if not write_xfail_sidecar(sel, out_x, _copen, _cclose) and os.path.exists(out_x):
+        os.remove(out_x)
+
+
 def cmd_list(args):
     """Print every entry name in a suite, one per line, in file order. For consumers that need to
     enumerate a suite's members -- a board denominator, a tool that materializes every entry into a
@@ -1596,6 +1609,15 @@ def main():
     e.add_argument("--out-in", default="", dest="out_in", help="required if the entry carries stdin -- REFUSES rather than silently materializing a stdin-bearing entry without it")
     e.add_argument("--out-xfail", default="", dest="out_xfail", help="optional: write the entry's xfail reason here if it has one (documentation only, never affects grading)")
     e.set_defaults(func=cmd_extract)
+
+    ef = sub.add_parser("extract-family", help="materialize one family's entries back into a standalone suite pair (banner-block or one-line, matching the source's own format) -- family membership comes from the source's own CSV, never re-derived from names")
+    ef.add_argument("sno")
+    ef.add_argument("ref")
+    ef.add_argument("csv")
+    ef.add_argument("family")
+    ef.add_argument("out_sno")
+    ef.add_argument("out_ref")
+    ef.set_defaults(func=cmd_extract_family)
 
     l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")
     l.add_argument("sno")
