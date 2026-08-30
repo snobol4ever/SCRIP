@@ -998,6 +998,15 @@ def _copy_companions(text, companion_dir, dest_dir):
     # ⭐ config/ SUBFOLDER (Lon 2026-08-29 zero-subfolders + "make a config folder for those files"): the flat
     # test dir keeps ONLY test sources; runtime companions (includes, .dat/.in data, tracepoint .conf) live in
     # <dir>/config. Search BOTH -- a name found in the flat dir wins (older layouts unchanged).
+    # ⛔⭐⭐ AND THE FAILURE MODE OF GETTING THIS WRONG IS A HANG, NOT A RED ENTRY (hq_C, measured 2026-08-29).
+    # probe/csnobol4_triage/input_eof_hang.sno exits rc=0 cleanly with its .dat present; with the .dat ABSENT,
+    # INPUT() never signals failure and THE SAME PROGRAM HANGS. So a companion the search cannot find does not
+    # produce four red entries somebody notices -- it produces a board that STOPS, which reads as
+    # infrastructure trouble and sends the next person to the runner instead of to the corpus.
+    # ⭐ The measurement behind this branch is hq_C's controlled A/B on the snobol4 master, one variable
+    # (companion location): companions BESIDE -> m3 1421 pass / 0 fail; the same 16 in config/ WITHOUT this
+    # search -> 1417 / 4 fail; WITH it -> 1421 / 0, re-run independently by hq_B with the beside-arm
+    # reproducing 1421/0 first as the positive control for the experiment itself.
     _cfg = Path(companion_dir) / "config"
     companion_dirs = [Path(companion_dir)] + ([_cfg] if _cfg.is_dir() else [])
     import shutil
