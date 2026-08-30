@@ -162,8 +162,8 @@ that produced it. Summary, measured 2026-08-30:
 | Language | Third-party suite | mode 3 | mode 4 |
 |---|---|---|---|
 | SNOBOL4 | snoflake fixtures (180; CSNOBOL4 home dialect — see the controls) | PASS=77 FAIL=96 | PASS=77 FAIL=47 (50 skipped at the link step) |
-| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=38 FAIL=51 | PASS=39 FAIL=50 |
-| Icon | JCON test suite (81 gradable) | PASS=40 FAIL=25 CRASH=14 HANG=2 | PASS=38 FAIL=34 CRASH=7 HANG=2 |
+| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=39 FAIL=50 | PASS=40 FAIL=49 |
+| Icon | JCON test suite (81 gradable) | PASS=41 FAIL=25 CRASH=13 HANG=2 | PASS=39 FAIL=32 CRASH=8 HANG=2 |
 | Prolog | SWI-Prolog plunit suite (114) | PASS=92 FAIL=22 (80%) | — |
 | Prolog | GNU Prolog source tree (62 files) | 45 compile as libraries; 15 run: 6 match, 9 differ; 2 parse-fail | — |
 | Raku | Roast (official spec tests, 986 in-tier 6.c files) | PASS=3 FAIL=9 PARSE-FAIL=927 NO-TAP=4 CRASH=2 (41 missing) | — |
@@ -280,10 +280,10 @@ native modes:
 
 | suite | mode | PASS | FAIL | CRASH | HANG | of |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| Arizona Icon v9.5 `general/` | m3 | 38 | 51 | — | — | 89 |
-| Arizona Icon v9.5 `general/` | m4 | 39 | 50 | — | — | 89 |
-| JCON test suite | m3 | 40 | 25 | 14 | 2 | 81 |
-| JCON test suite | m4 | 38 | 34 | 7 | 2 | 81 |
+| Arizona Icon v9.5 `general/` | m3 | 39 | 50 | — | — | 89 |
+| Arizona Icon v9.5 `general/` | m4 | 40 | 49 | — | — | 89 |
+| JCON test suite | m3 | 41 | 25 | 13 | 2 | 81 |
+| JCON test suite | m4 | 39 | 32 | 8 | 2 | 81 |
 
 (One JCON file, `tpp`, is excluded by name: its reference output is preprocessor text
 over deliberately invalid Icon, ungradable by execution.)
