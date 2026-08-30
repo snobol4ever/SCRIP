@@ -18,6 +18,27 @@ Builds corpus/tests/snobol4/master/{ALL.sno, ALL.ref, ALL.csv} from EVERY suite 
  - Validation: the written pair is re-read and the entry count must equal the sum of the included families' counts, else REFUSE
    and write nothing. Grading is unchanged machinery: python3 scripts/corpus_suite_harness.py run ALL.sno ALL.ref --modes m3,m4.
 Stdlib only. Uses corpus_suite_harness's own read_suite/write_suite -- ONE authority for the suite grammar, never a second parser.
+
+⛔⛔ CUT-OVER LANGUAGES RE-VERIFY IN A SCRATCH TREE AND DIFF -- NEVER BY DELETING IN PLACE.
+(Law 2 AMENDED, ceo 2026-08-30, on hq_P + seat14 reproducing it independently; both reverted, origin intact.)
+Law 2 says a GUARD CHANGE REQUIRES A CLEAN REBUILD. That is correct for a language with live sources -- it
+cured icon's 14 false failures the same night -- and CATASTROPHIC for a CUT-OVER one, because "clean" means
+deleting ALL.* and on a cut-over language THE MASTER IS THE ONLY COPY. Measured on snobol4: rm ALL.* then
+rebuild yields TWO entries where 1576 stood, because only 2 loose pairs remain absorbable. The build reports
+success. hq_P's phrasing is the one to remember: CLOBBER-BY-GUARD-REBUILD IS CLOBBER WEARING THE LAW AS COVER.
+
+  HOW TO RE-VERIFY A GUARD CHANGE ON A CUT-OVER LANGUAGE:
+    1. cp -r corpus/tests/<lang> into a scratch tree; point S4E_HOME at its parent.
+    2. Rebuild THERE. The real master is never opened for writing.
+    3. DIFF scratch against live -- entry sets by name, then the five-file artifact (Law 2).
+    4. Bring differences across SURGICALLY, by the language owner. Never adopt a scratch tree wholesale.
+  ⭐ The shrink refusal below is the automated floor under this procedure, not a replacement for it: it stops
+  the catastrophic case (0 < pairs << base), but a rebuild that shrinks the master by a NON-dramatic amount
+  still passes the ratio and still loses entries. The scratch diff is what sees those.
+  ⛔ A language is CUT OVER when its sources have been retired and the master is the source. The tell is this
+  builder REFUSING with the collapse message -- if you see it, you are on a cut-over tree and step 1 applies.
+  Related shapes that write into the master and therefore need the same care: --split-write (emits a derived
+  pair, adopts nothing) and lib_master_extract.sh (materializes entries OUT, never in).
 """
 import os
 import re
