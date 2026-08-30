@@ -349,6 +349,130 @@ def discover_pairs(ROOT, OUTDIR, EXT):
     return pairs, excluded
 
 
+# ============================================================ master-to-master: kind split ===
+def split_write(OUTDIR, EXT, lang, _CO, _CC, do_write):
+    """⭐ --split-write: emit Lon's END STATE -- a ONE-LINERS file and a MULTI-LINERS file side by side.
+
+    Lon 2026-08-29/30 (routed by ceo): per language, one-liners and multi-liners live in SEPARATE files in
+    one flat dir. ceo ruled (2026-08-30) that the write half belongs HERE rather than in the verify-first
+    splitter, because this file already owns master writing; reading THE master as input is a
+    MASTER-TO-MASTER verb, distinct from the source rebuild whose zero-pairs refusal stays untouched.
+
+    ⛔⭐ THE SPLIT REMOVES A CORRECTNESS INVARIANT THAT IS CURRENTLY HELD BY CONVENTION, and this is the
+    strongest argument for the format rather than a side effect of it. write_suite()'s own docstring
+    records that format-(B) blocks MUST be emitted LAST: a banner block ends only at the next banner or
+    EOF, so any one-line entry written after a block is SILENTLY SWALLOWED into that block's body --
+    measured on probe/eval, 21 entries written and 22 read back, one duplicated. In separate files a
+    one-liner CANNOT be swallowed, because the one-liners file contains no blocks at all. The ordering
+    rule stops being something a writer must remember and becomes a property of the layout.
+
+    ⛔ IT DOES NOT ADOPT THE SPLIT. ALL.* is left exactly as it is; nothing re-points; no source is
+    deleted. ceo adopted the ordering law as stated: the split files land in one commit, ADOPTION is its
+    own commit gated on the per-entry named-set equality proof, never both together -- otherwise a moved
+    floor cannot be attributed to a converter defect or a real regression.
+
+    Verification before writing, and all three must hold (redundant on purpose -- a duplicate that
+    replaces a lost entry passes a count and fails a set):
+      1. PARTITION  every entry lands in exactly one side; union == input; intersection empty.
+      2. COUNT      len(one) + len(multi) == len(input), asserted separately from (1).
+      3. ROUNDTRIP  each emitted pair is re-read and must return its own entries, by name and by body.
+    """
+    src = os.path.join(OUTDIR, "ALL" + EXT)
+    ref = os.path.join(OUTDIR, "ALL.ref")
+    if not (os.path.isfile(src) and os.path.isfile(ref)):
+        sys.stderr.write("REFUSED: --split-write needs an existing master pair at %s / ALL.ref -- this is a\n"
+                         "  MASTER-TO-MASTER verb, not a rebuild. Build the master first.\n" % src)
+        raise SystemExit(2)
+    if lang == "snobol4":
+        entries = h.read_suite(src, ref, in_path=h.sidecar_in_path(src), x_path=h.sidecar_xfail_path(src))
+    else:
+        entries = h.read_block_suite(src, ref, h.banner_re_for(_CO, _CC),
+                                     in_path=h.sidecar_in_path(src), x_path=h.sidecar_xfail_path(src))
+    if not entries:
+        sys.stderr.write("REFUSED: master at %s read back ZERO entries -- an empty split is not a split you\n"
+                         "  can verify, and it would silently retire the whole floor.\n" % src)
+        raise SystemExit(2)
+    one   = [e for e in entries if e.kind == "line"]
+    multi = [e for e in entries if e.kind != "line"]
+    n_one, n_multi, n_all = len(one), len(multi), len(entries)
+    # (2) count, asserted independently of (1)
+    if n_one + n_multi != n_all:
+        sys.stderr.write("FAILED: count disagreement %d + %d != %d\n" % (n_one, n_multi, n_all))
+        raise SystemExit(1)
+    # (1) partition by NAME identity, not arithmetic
+    s_one, s_multi, s_all = {e.name for e in one}, {e.name for e in multi}, {e.name for e in entries}
+    if (s_one | s_multi) != s_all or (s_one & s_multi):
+        sys.stderr.write("FAILED: partition is not exact (union/intersection check)\n")
+        raise SystemExit(1)
+    print("master  : %s (%d entries)" % (src, n_all))
+    print("one-liners  (kind=line ) : %d" % n_one)
+    print("multi-liners(kind=block) : %d" % n_multi)
+    print("\u2705 partition exact, counts agree")
+    if not do_write:
+        print("\nVERIFY-ONLY. Nothing written. Add --write to emit the two pairs.")
+        return 0
+    out = []
+    for tag, subset in (("ONE", one), ("MULTI", multi)):
+        o_src = os.path.join(OUTDIR, tag + EXT)
+        o_ref = os.path.join(OUTDIR, tag + ".ref")
+        if lang == "snobol4":
+            # ⛔⭐ THE SIDECARS ARE NOT OPTIONAL, AND OMITTING THEM COST NINE ENTRIES ON THE FIRST RUN.
+            # write_suite() emits only .sno/.ref; stdin and xfail live in ALL.in / ALL.xfail and the
+            # master build writes them SEPARATELY (see the snobol4 branch of the main write). Dropping
+            # them here silently stripped stdin from every entry that had it -- MEASURED: the master
+            # carries exactly 9 stdin entries, ALL of them kind=block, and MULTI graded 666/10 against
+            # the combined master's contribution of 675/1. Nine entries in, nine entries lost.
+            h.write_suite(subset, o_src, o_ref)
+            # ⛔ sidecar_in_path()/sidecar_xfail_path() are DISCOVERY helpers -- they return the path
+            # only if the file ALREADY EXISTS, else None. They answer "where is the sidecar", and I
+            # used them as "where should the sidecar go": on a fresh output they return None and the
+            # write crashed with `stat: path should be string ... not NoneType`. The master build
+            # constructs these names directly (out_in = OUTDIR/ALL.in); do the same here.
+            _oi = os.path.join(OUTDIR, tag + ".in")
+            _ox = os.path.join(OUTDIR, tag + ".xfail")
+            if not h.write_stdin_sidecar(subset, _oi, "*", "") and os.path.exists(_oi):
+                os.remove(_oi)
+            if not h.write_xfail_sidecar(subset, _ox, "*", "") and os.path.exists(_ox):
+                os.remove(_ox)
+        else:
+            h.write_block_suite(subset, o_src, o_ref, _CO, _CC,
+                                out_in=h.sidecar_in_path(o_src), out_x=h.sidecar_xfail_path(o_src))
+        out.append((tag, o_src, o_ref, subset))
+    # (3) ROUNDTRIP -- re-read what was just written and require it back, by name AND by body.
+    for tag, o_src, o_ref, subset in out:
+        if lang == "snobol4":
+            back = h.read_suite(o_src, o_ref, in_path=h.sidecar_in_path(o_src), x_path=h.sidecar_xfail_path(o_src))
+        else:
+            back = h.read_block_suite(o_src, o_ref, h.banner_re_for(_CO, _CC),
+                                      in_path=h.sidecar_in_path(o_src), x_path=h.sidecar_xfail_path(o_src))
+        if len(back) != len(subset) or {e.name for e in back} != {e.name for e in subset}:
+            sys.stderr.write("FAILED: %s did not round-trip -- wrote %d, read %d\n" % (tag, len(subset), len(back)))
+            raise SystemExit(1)
+        by = {e.name: e for e in subset}
+        # ⛔⭐ COMPARE stdin AND xfail, NOT JUST THE BODY. The first version of this check compared
+        # sno_lines alone and PASSED while the writer above was silently dropping stdin -- the check
+        # tested a narrower property than the claim it was making, which is the exact defect class this
+        # tool exists to guard against, committed inside the guard. A round trip that does not carry
+        # every field the grader reads is not a round trip.
+        for e in back:
+            o = by[e.name]
+            if list(e.sno_lines) != list(o.sno_lines):
+                sys.stderr.write("FAILED: %s entry %s changed BODY across the round trip\n" % (tag, e.name))
+                raise SystemExit(1)
+            if (e.stdin or None) != (o.stdin or None):
+                sys.stderr.write("FAILED: %s entry %s LOST OR CHANGED STDIN across the round trip -- the\n"
+                                 "  .in sidecar was not carried. This silently turns a passing entry red.\n" % (tag, e.name))
+                raise SystemExit(1)
+            if bool(e.xfail) != bool(o.xfail):
+                sys.stderr.write("FAILED: %s entry %s changed XFAIL across the round trip\n" % (tag, e.name))
+                raise SystemExit(1)
+        print("\u2705 %-5s round-trips: %d entries, bodies byte-identical -> %s" % (tag, len(back), o_src))
+    print("\n\u26d4 WRITTEN, NOT ADOPTED. ALL.* is untouched and every consumer still reads it.")
+    print("   Adoption is a SEPARATE commit gated on the per-entry named-set equality proof")
+    print("   (row snobol4-floor-cutover-to-the-one-flat-suite-board-equality-first).")
+    return 0
+
+
 def main():
     # ⭐ --lang selects root, extension and attribute tables. Default snobol4 keeps the previous behaviour
     # exactly, so `util_build_master_suite.py` with no arguments rebuilds a byte-identical master.
@@ -377,6 +501,8 @@ def main():
     os.makedirs(OUTDIR, exist_ok=True)
     _modes_decl = read_modes_decl(ROOT)   # declared, never derived -- absent family => UNKNOWN
     delete_absorbed = "--delete-absorbed" in sys.argv[1:]
+    if "--split-write" in sys.argv[1:]:
+        raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, "--write" in sys.argv[1:]))
     included, all_entries, per_family = [], [], {}
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
