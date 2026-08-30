@@ -27,14 +27,39 @@ CORPUS="${CORPUS_DIR:-$S4E/corpus}"
 SCRIP="${SCRIP_DIR:-$S4E/SCRIP}"
 VERBOSE="${VERBOSE:-0}"
 
-CC_DIR="$CORPUS/crosscheck"
 BM_DIR="$CORPUS/benchmarks/snobol4"
 
+# ⛔⭐ crosscheck/**/*.s TEST-TREE ARTIFACTS WERE DELETED BY RULING, NOT MOVED (row
+# dead-suite-path-consumer-sweep -- ".s exists only beside benchmarks and demos", RULES.md handoff
+# step 4, .github 9b819998) -- there is nothing left under $CORPUS/crosscheck to find (the directory
+# itself is gone). Per this row's own "s-regeneration technique" (seat14's diagnosis, not attempted
+# by them): extract the .sno SOURCES by origin from the SNOBOL4 master and compile them fresh via
+# ./scrip --compile -- "to know what the compiler emits, sweep the compiler, never the artifacts" is
+# this project's own standing principle, and it is literally what this census needs anyway (a stale
+# committed .s would be exactly the "never wire .s byte-identity into it" trap line 16 already warns
+# against for a DIFFERENT reason). Families chosen to match test_crosscheck_all_backends.sh's own
+# existing scope (its x86 section names these same four) rather than an arbitrary new selection.
+CC_FAMILIES="crosscheck_patterns crosscheck_assign crosscheck_arith_new crosscheck_control_new"
+CC_WORK="$(mktemp -d)"
+trap 'rm -rf "$CC_WORK"' EXIT
+source "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
+CC_S_FILES=()
+for fam in $CC_FAMILIES; do
+    while IFS= read -r origin; do
+        [ -n "$origin" ] || continue
+        name=$(master_entry_for_origin "$origin") || continue
+        sno="$CC_WORK/${name}.sno"
+        master_extract_origin "$origin" "$sno" >/dev/null 2>&1 || continue
+        s="$CC_WORK/${name}.s"
+        "$SCRIP/scrip" --compile "$sno" -o "$s" < /dev/null >/dev/null 2>&1 && [ -s "$s" ] && CC_S_FILES+=("$s")
+    done < <(master_origins_of_family "$fam")
+done
+
 # ── gather .s files ──────────────────────────────────────────────────────────
-mapfile -t S_FILES < <(find "$CC_DIR" -name '*.s' | sort; ls "$BM_DIR"/*.s 2>/dev/null | sort)
+mapfile -t S_FILES < <(printf '%s\n' "${CC_S_FILES[@]:-}" | sed '/^$/d' | sort; ls "$BM_DIR"/*.s 2>/dev/null | sort)
 TOTAL_FILES=${#S_FILES[@]}
 if [ "$TOTAL_FILES" -eq 0 ]; then
-    echo "ERROR: no .s files found under $CC_DIR or $BM_DIR" >&2
+    echo "ERROR: zero .s files -- $CC_WORK extraction+compile produced nothing AND $BM_DIR is empty" >&2
     exit 1
 fi
 
