@@ -112,6 +112,34 @@ static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int fro
     if (res) *res = nd; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* lower_rcall1 -- exactly lower_rcall with a single, EXPLICIT-node argument (not a t->c[from..] range).
+   Needed because arr_init/arr_last/arr_tail/__rk_arr_first take exactly the receiver and nothing else,
+   and a no-arg method call's own tree_t has no child range that is "just the receiver" -- t->c[1] is
+   always the method-name literal sitting in the way. Row raku-silent-wrong-answers, seat15 2026-08-30. */
+static IR_t * lower_rcall1(rcx_t * cx, const tree_t * recv, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
+    IR_t * ar = NULL; IR_t * ae = lower_rv(cx, recv, nd, ω, &ar);
+    if (ar) ir_operand_push(nd, ar);
+    if (res) *res = nd; return ae;
+}
+/* lower_rcall_skip1 -- exactly lower_rcall(cx, t, nm, 0, ...) except it OMITS t->c[1] (the method-name
+   QLIT literal) from the argument list -- for push/unshift's method-call form, whose real arguments are
+   the receiver (c[0]) plus whatever the caller wrote (c[2..]), never the method name string itself. */
+static IR_t * lower_rcall_skip1(rcx_t * cx, const tree_t * t, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
+    int total = t->n - 1; IR_t * prev = NULL; IR_t * entry = nd; int k = 0;
+    for (int ci = 0; ci < t->n; ci++) {
+        if (ci == 1) continue;
+        IR_t * ar = NULL; IR_t * ae = lower_rv(cx, t->c[ci], (k == total - 1) ? nd : NULL, ω, &ar);
+        if (k == 0) entry = ae;
+        if (prev && ae) lc_γ_to(prev, ae);
+        prev = ar;
+        if (ar) ir_operand_push(nd, ar);
+        k++;
+    }
+    if (res) *res = nd; return entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_divis_desugar(const tree_t * t) {
     tree_t * md = ast_node_new(TT_MOD); ast_push(md, (tree_t *) t->c[0]); ast_push(md, (tree_t *) t->c[1]);
     tree_t * z = ast_node_new(TT_ILIT); z->v.ival = 0;
@@ -448,7 +476,35 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, γ, ω, res);
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, γ, ω, res);
     case TT_SEQ: case TT_PROGRAM: case TT_SEQ_EXPR: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
-    case TT_METHCALL: return lower_rcall(cx, t, "meth_call", 0, γ, ω, res);
+    case TT_METHCALL: {
+        /* ⭐ MUTATING ARRAY METHODS (row raku-silent-wrong-answers, seat15 2026-08-30): .push/.unshift/
+           .pop/.shift on a plain variable receiver, special-cased BEFORE the generic meth_call dispatch
+           below -- exactly mirroring the ALREADY-WORKING wiring this file uses for the FUNCTION-CALL
+           syntax forms push(@a,7)/pop(@a) (see the TT_FNC cases above), which method-call syntax never
+           reached. push_pure/arr_init/arr_last already existed and are correct; only arr_tail and
+           unshift_pure are new (by_name_dispatch.c), added to mirror arr_init and push_pure exactly. */
+        const char * mname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : NULL;
+        if (mname && t->c[0] && t->c[0]->t == TT_VAR) {
+            if (!strcmp(mname, "push") || !strcmp(mname, "unshift")) {
+                const char * fn = !strcmp(mname, "push") ? "push_pure" : "unshift_pure";
+                IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[0]->v.sval;
+                IR_t * r2 = NULL; IR_t * e = lower_rcall_skip1(cx, t, fn, as, ω, &r2); if (r2) ir_operand_push(as, r2);
+                *res = as; return e;
+            }
+            if (!strcmp(mname, "pop") || !strcmp(mname, "shift")) {
+                /* value-read executes FIRST (original, pre-mutation array), mutation-assign SECOND --
+                   same order as the existing $x = pop(@a) wiring above, for the same reason: the removed
+                   element must be read before the array shrinks. */
+                const char * mut_fn = !strcmp(mname, "pop") ? "arr_init" : "arr_tail";
+                const char * val_fn = !strcmp(mname, "pop") ? "arr_last" : "__rk_arr_first";
+                IR_t * asA = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asA).sval = t->c[0]->v.sval;
+                IR_t * rmut = NULL; IR_t * emut = lower_rcall1(cx, t->c[0], mut_fn, asA, ω, &rmut); if (rmut) ir_operand_push(asA, rmut);
+                IR_t * rval = NULL; IR_t * eval_ = lower_rcall1(cx, t->c[0], val_fn, emut, ω, &rval);
+                *res = rval; return eval_;
+            }
+        }
+        return lower_rcall(cx, t, "meth_call", 0, γ, ω, res);
+    }
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, γ, ω, res);
     case TT_TWIGIL_FIELD: {
         IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv;

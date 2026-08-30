@@ -281,7 +281,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_div", "rk_write", "rk_writes", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
-        "elems", "push_pure",
+        "elems", "push_pure", "unshift_pure", "arr_tail",
         "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
         "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
@@ -4023,6 +4023,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(acc); return 1;
     }
+    /* ⭐ unshift_pure -- row raku-silent-wrong-answers, seat15 2026-08-30. Same accumulation loop as
+       push_pure immediately above (new elements joined IN ORDER, exactly mirroring its style), just
+       built into its own buffer starting empty rather than from `cur`, then placed BEFORE the current
+       array content instead of after -- @a.unshift(4,5,6) on [1,2] yields [4,5,6,1,2], matching real
+       Raku (the new elements keep their own relative order; only their position moves). */
+    if (!strcmp(fn, "unshift_pure") && nargs >= 2) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        char *acc = rt_ws_strdup("");
+        for (int i = 1; i < nargs; i++) {
+            char rb[64]; const char *rv = to_cstring(args[i], rb, sizeof rb);
+            size_t ol = strlen(acc), rl = strlen(rv);
+            char *no = rt_ws_alloc(ol + rl + 2);
+            memcpy(no, acc, ol);
+            if (ol > 0) { no[ol] = SOH; memcpy(no + ol + 1, rv, rl); no[ol + 1 + rl] = '\0'; }
+            else        { memcpy(no, rv, rl); no[rl] = '\0'; }
+            acc = no;
+        }
+        if (!*cur) { *out = STRVAL(acc); return 1; }
+        size_t al = strlen(acc), cl = strlen(cur);
+        char *o = rt_ws_alloc(al + 1 + cl + 1);
+        memcpy(o, acc, al); o[al] = SOH; memcpy(o + al + 1, cur, cl); o[al + 1 + cl] = '\0';
+        *out = STRVAL(o); return 1;
+    }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; } b->data[i - b->lo] = args[2];
@@ -4076,6 +4099,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t nl = (size_t)(last - cur);
         char *o = rt_ws_alloc(nl + 1); memcpy(o, cur, nl); o[nl] = '\0';
         *out = STRVAL(o); return 1;
+    }
+    /* ⭐ arr_tail -- row raku-silent-wrong-answers, seat15 2026-08-30. arr_init's mirror image: everything
+       AFTER the first element instead of everything BEFORE the last -- the array-mutation half of
+       @a.shift (its "removed element" half reuses the already-existing __rk_arr_first, unmodified). */
+    if (!strcmp(fn, "arr_tail") && nargs == 1) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        const char *first = strchr(cur, SOH);
+        if (!first) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        *out = STRVAL(rt_ws_strdup_c(first + 1)); return 1;
     }
     if (!strcmp(fn, "hash_set_pure") && nargs >= 3) {
         extern char *script_hash_set_str(const char *h, const char *key, const char *val);
