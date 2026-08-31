@@ -57,6 +57,8 @@ if [ ! -d "$CORPUS" ]; then
 fi
 
 PASS=0; FAIL=0; XFAIL=0; XPASS=0; BADEXIT=0; MISSING=0
+ICN_SCRATCH=$(mktemp -d)
+trap 'rm -rf "$ICN_SCRATCH"' EXIT
 declare -a SUITE_FILES=()
 # converted-family discriminator (see header note): a .ref sibling with NO .expected sibling.
 is_suite_file() { [ -f "${1%.icn}.ref" ] && [ ! -f "${1%.icn}.expected" ]; }
@@ -115,7 +117,16 @@ run_one() {
     [ -f "${base}.xfail" ] && is_xfail=1
     local stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
     local tdir tfn
-    tdir=$(dirname "$icn"); tfn=$(basename "$icn")
+    # ⛔⭐ RUN FROM A SCRATCH CWD, NOT FROM THE CORPUS (hq_B 2026-08-30, hq_C's cure (1) on the tmp3
+    # recurrence). Icon tests legitimately do file I/O against RELATIVE paths -- rung36_jcon_io.icn opens
+    # tmp1/tmp2 "w" and rung36_jcon_iobig.icn testio()s tmp3/tmp4 -- and with cwd set to the corpus dir
+    # those writes land in the SOURCE TREE. tmp3 was committed by accident, ceo deleted it, and the next
+    # run of THIS SCRIPT put it straight back as an untracked file, which handoff_status.sh reads as a
+    # dirty corpus. ⭐ Fixing the cwd fixes every scratch-writing test at once, present and future, and
+    # needs no per-test knowledge -- unlike deleting the file (the writer survives) or ignoring the name
+    # (the symptom is silenced while a test still writes into the source tree).
+    # ⛔ The program is passed ABSOLUTE so nothing depends on cwd to FIND it; only what it WRITES moves.
+    tdir="$ICN_SCRATCH"; tfn="$icn"
     local got want rc=0 want_rc=0
     # ⛔ EXIT STATUS IS PART OF THE ANSWER (hq_P s272). This runner used to end both arms with `|| true`,
     # discarding rc entirely and grading stdout alone -- so a program that printed the right answer and then
