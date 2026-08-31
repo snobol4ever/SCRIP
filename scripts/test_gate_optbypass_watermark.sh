@@ -98,7 +98,6 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # outside the denominator. Promoting a cured marker made three pre-existing bypass failures VISIBLE FOR THE
 # FIRST TIME. The number got worse because the instrument got more honest -- never read that as drift.
 # Routed to hq_P/ceo per this gate's header, in the landing commit rather than after it.
-python3 "$HERE/util_census_optimizer_bypass.py" --gate \
 # ⚠⭐ APPENDED BY hq_P 2026-08-30 (rebase merge; hq_C's attribution block above is KEPT WHOLE and its numbers WIN -- mine were taken on the superseded population 1649, before the XFAIL promotion).
 # ⛔ I TRIED TO RAISE zd0 306 -> 307 IN THIS SLOT AND WITHDREW IT. The reason is worth keeping even though the number is gone: I read 307 once and reported it as caused by my landing (the loud
 # negative-mark refusal in pl_trail_unwind). That attribution was WRONG -- my arms were not comparable, 307 was PRISTINE against an INCREMENTAL 306 control. Six readings on population 1649 at
@@ -120,6 +119,11 @@ python3 "$HERE/util_census_optimizer_bypass.py" --gate \
 # ⚠️ THE REAL FIX IS ROUTED, NOT TAKEN: pin the STABLE SUBSET -- count only entries whose bypass verdict is reproducible across N runs,
 # and report the flapping set separately.  RULES.md's denominator law says every grader states its DENOMINATOR; the missing half is that
 # a grader summing NONDETERMINISTIC units must state its VARIANCE, or it cannot support the comparison it is asked to support.
+# ⛔⭐ THE COMMENT BLOCK BELOW SITS *ABOVE* THIS COMMAND ON PURPOSE. hq_C put it between the `--gate \` line and its continuation once, and
+# `bash -n` said "syntax ok" -- because the result IS valid bash: two commands instead of one. The pin arguments never reached python3, the
+# census fell back to its 1494 default and REFUSED, and line 123 ran as a command ("--pinned-population: command not found"). ⭐ bash -n answers
+# "is this parseable", NOT "is this what I meant" -- the command -v class, and a broken line-continuation is invisible to it. RUN THE GATE.
+python3 "$HERE/util_census_optimizer_bypass.py" --gate \
   --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 308
 rc=$?
 
