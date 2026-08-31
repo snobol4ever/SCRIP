@@ -185,16 +185,31 @@ its board is not yet published. And `beauty.sno`, the SNOBOL4 pretty-printer wri
 SNOBOL4, reproduces itself byte-for-byte in both modes — one program, individually
 checkable.
 
-**Benchmarks.** Measured 2026-08-27 (wall clock, scaled fixed work; output agreement
-verified per kernel before timing):
+**Benchmarks.** Every number below is cross-checked before publication: each kernel
+is timed two independent ways — a fixed time window counting iterations, and a fixed
+iteration count measuring time — and the two rates must agree within that kernel's
+measured noise tolerance; a process-level wrapper separately verifies that no disk
+activity leaks into the number, and startup is excluded by construction (the kernel
+times its own work). Where the two clocks disagree — as they do under machine load —
+the kernel is listed as unverified rather than published. Output is byte-verified
+against SPITBOL before any arm is timed.
 
-**SNOBOL4 × vs SPITBOL x64** (19/19 kernels output-identical; scaled trio):
+**SNOBOL4 kernels × vs SPITBOL x64** (work rate; cross-verified 2026-08-31, six of
+nineteen kernels passed the agreement gate on a shared machine — the rest below):
 
-| kernel | work | × vs SPITBOL |
-|---|---|:---:|
-| loopsum | 3M iterations | **2.25x** |
-| concat | 200k appends | **22.7x** — SPITBOL grows O(n²) here; an algorithmic-class win |
-| patmatch | 1M iterations | **0.55x** — the full match *pipeline*: see below |
+| kernel | m3 | m4 |
+|---|:---:|:---:|
+| op_dispatch | **3.40x** | **3.74x** |
+| string_concat | **2.89x** | **3.27x** |
+| fibonacci | **1.74x** | **1.56x** |
+| pattern_bt | **1.44x** | **1.63x** |
+| eval_fixed | 0.88x | 0.98x |
+| table_variety | 0.62x | 0.66x |
+
+The other thirteen kernels measured but did not pass the two-clock agreement gate on
+that run (concurrent load on the build machine; their unverified readings ranged
+0.30x–3.72x) and are withheld until a quiet re-run agrees — a disagreement is
+reported, never averaged away.
 
 **SNOBOL4 real-program workloads × vs SPITBOL** (callgrind instruction counts, fixed
 work, startup excluded — SCRIP mode 4, 2026-08-23):
@@ -205,25 +220,13 @@ work, startup excluded — SCRIP mode 4, 2026-08-23):
 | json — the deserializer, real 631 KB document | 0.422x |
 | claws5 grammar only (pattern engine alone, zero captures) | **1.628x** |
 
-These two pattern numbers are not a contradiction — they cut the same machine at
-different joints. The bare pattern **engine** — scanning, alternation, backtracking,
-zero captures — is compiled Byrd-box code and beats SPITBOL at **1.628x**. The full
-match **pipeline** — the same engine plus captures, deferred actions, and the runtime
-services they call out to — is behind (patmatch 0.55x, pattern_bt 0.45x,
-string_pattern 0.43x). The compiled part wins; the called-out part loses, which is
-why optimization targets the runtime services, not the code generation.
-
-**SNOBOL4 17-kernel grid × vs SPITBOL** (callgrind instructions per iteration,
-2026-08-22):
-
-| kernel | × | kernel | × | kernel | × |
-|---|:---:|---|:---:|---|:---:|
-| string_concat | **1.72x** | ident_call1 | 0.97x | string_pattern | 0.43x |
-| fibonacci | **1.67x** | ident_call2 | 0.93x | table_access | 0.43x |
-| var_access | **1.32x** | array_sum | 0.79x | indirect_dispatch | 0.43x |
-| func_call | **1.24x** | eval_fixed | 0.67x | string_manip | 0.37x |
-| op_dispatch | **1.19x** | pattern_bt | 0.45x | mixed_workload | 0.34x |
-| arith_loop | **1.03x** | | | roman | 0.20x |
+These numbers cut the same machine at different joints. The bare pattern **engine** —
+scanning, alternation, backtracking, zero captures — is compiled straight-line code
+and beats SPITBOL (claws5 grammar-only at **1.628x**; the verified pattern_bt kernel
+at **1.44x**). Real full programs — the same engine plus captures, tables, and the
+runtime services they call out to — still trail (claws5 0.734x, json 0.422x). The
+compiled part wins; the called-out part loses, which is why optimization targets the
+runtime services, not the code generation.
 
 **SNOBOL4 demos × vs SPITBOL** (2026-08-28, whole-program wall-clock totals, best of
 3 — a different basis, not comparable to the instruction-count grids above. Every arm's output is
@@ -247,7 +250,8 @@ the m3 column, so m4 is the like-for-like column against SPITBOL's precompiled r
 
 The reading: pure-match arms can crush (calculator-1-match at 7.44x), json is within 8%
 of SPITBOL on totals, and the worst full program (treebank, allocation-heavy at 0.50x)
-points at the GC/allocator as the next lever.
+points at the GC/allocator as the next lever. This demo grid is still totals-basis and
+awaits re-measurement under the cross-checked work-rate discipline above.
 
 **beauty self-host × vs SPITBOL** (2026-08-30, wall clock, best of 5 sets of 10 runs,
 outputs byte-verified identical on both arms — the beautifier formatting its own
@@ -262,7 +266,9 @@ and being worked — not to the compiled code itself.
 and JCON's. Their boards, and how far the JCON self-host gets, follow the benchmark
 grid below.
 
-**Benchmarks.** **× vs Arizona `iconx`** (10/10 kernels output-identical, 2026-08-27):
+**Benchmarks.** **× vs Arizona `iconx`** (10/10 kernels output-identical, 2026-08-27;
+whole-program wall clock — this grid predates the cross-checked work-rate discipline
+now used for SNOBOL4 and is queued for re-measurement on that basis):
 
 | kernel | × | kernel | × |
 |---|:---:|---|:---:|
@@ -317,7 +323,12 @@ run against real `gprolog` — **6 match, 9 differ**; 2 fail to parse
 BENCHMARK BASIS): each kernel self-times its **work** and reports it to `stderr`, so
 `stdout` stays byte-comparable and every arm's output is verified against the
 reference before it is timed at all. Startup/finish **overhead** is reported
-separately instead of being folded into the number. Best of 5.
+separately instead of being folded into the number. Best of 5. An independent
+cross-check of these numbers (the same kernel timed two more ways: fixed time
+counting iterations, and fixed iterations measuring time, the two rates required to
+agree) currently covers the SWI and GNU columns only: SCRIP's arms hit a known crash
+in repeated re-entry that is being fixed, and until they run, these SCRIP numbers
+stand as single-run measurements verified by output, not yet by triangulation.
 
 ⛔ **This grid replaces an earlier one that read the other way, and the correction is
 the point.** The previous grid timed **whole-program totals** and reported SCRIP ahead

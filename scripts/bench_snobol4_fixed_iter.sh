@@ -89,7 +89,10 @@ run1() {
   sys_us=$(echo "$rusage_line" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
   nivcsw=$(echo "$rusage_line" | grep -oE 'nivcsw=[0-9]+' | cut -d= -f2); nivcsw="${nivcsw:-0}"
   cpu_ms=$(awk -v u="${user_us:-0}" -v y="${sys_us:-0}" 'BEGIN{printf "%.1f", (u+y)/1000}')
-  echo "$cpu_ms $nivcsw $gc ${ck:-NOCHECK}"
+  # a twin that ran prints its own `check:` line; absence means the program never executed (bad
+  # path, instant abort) and rating N against that exit manufactures impossible rates -- REFUSE
+  [ -n "$ck" ] || { echo "- - - NO-CHECK-OUTPUT"; return; }
+  echo "$cpu_ms $nivcsw $gc $ck"
 }
 best() {
   local eng="$1" twin="$2" s="$3" bm="" bn=0 bg=0 ck="" r m n g c
@@ -114,7 +117,12 @@ for sno in "$B"/*.sno; do
   s=$(basename "${sno%.sno}"); ref="${sno%.sno}.ref"
   N=$(scale_n "$s")
   if [ -z "$N" ]; then UNSCALED="$UNSCALED $s"; continue; fi
-  if ! TWIN=$(bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" --mode=iter --n="$N" 2>&1); then
+  # ⛔ stderr stays OUT of the capture: bench_wrap stamps `stamp: CONTEXT ...` to stderr by design
+  # (sysperf attribution), and a 2>&1 here folded that stamp INTO the twin path -- every engine then
+  # ran a nonexistent file, and the sbl/m3 arms rated N against the ~2ms error exit (42G iters/s
+  # "SPITBOL"). Only m4's BUILD-ERR made the run visibly wrong (2026-08-31, ceo).
+  if ! TWIN=$(bash "$HERE/bench_wrap.sh" "$sno" -o "$W/$s.bench.sno" --mode=iter --n="$N" 2>"$W/wrap.err"); then
+    TWIN="$(cat "$W/wrap.err")"
     UNGRADED="$UNGRADED $s"; echo "  ⛔ $s: $TWIN" >&2; continue; fi
   declare -A R=(); declare -A C=(); declare -A G=(); declare -A NV=()
   for eng in $ENGINES; do
