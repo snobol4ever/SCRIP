@@ -54,8 +54,30 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # ⛔ THIS IS A WATERMARK, NOT A TARGET: it fails on REGRESSION above the pin, never on being below it, and it
 # must never become a permanently-red blocking gate (hq_P ruling, ceo ratified). The DEFAULT arm's 0 is the
 # only hard bar; the other two are drift detectors for an invariant that is currently unenforced, not enforced.
+# ⭐ RE-PINNED 2026-08-30 hq_C, and EVERY UNIT OF MOVEMENT IS ATTRIBUTED — none of it is drift (census
+# --out, SCRIP 115bcace + corpus b2a39fd4, wall 529s, load ~3.5-4.5/16):
+#   graded population 1654 (1726 entries - 72 xfail-marked) . DEFAULT-ARM CONTROL FAILURES: 0/1654 (unchanged, hard bar)
+#   SCRIP_OPT=0 190/1654 (11.49%)  was 187/1649 (11.34%)   -> +3, fully explained, see below
+#   SCRIP_ZD=0  303/1654 (18.32%)  was 306/1649 (18.56%)   -> -3, cured by SCRIP 115bcace
+#   overlap shared=52, opt0_only=138, zd0_only=251 -- still two largely independent populations
+# ⛔⭐ THE OPT0 RAISE IS NOT A RELAXATION AND IT IS NOT DRIFT: hq_C promoted 5 XFAIL markers cured by
+# 115bcace (corpus b2a39fd4), which ADMITTED them to the graded population, and the per-entry census CSV
+# names exactly which ones fail under the bypass -- arbno_fence_notany_replace_branch_1, _2 and
+# fence_arb_span_replace_branch_2 read opt0_changed=1 (the other two are clean in both arms, and all five
+# PASS in the DEFAULT arm). 187 + 3 = 190, exactly. The zd0 side is the same arithmetic in reverse: 303 was
+# already measured on this binary BEFORE the promotion, and the 5 admitted entries add 0, so 303 stands.
+# ⭐⭐ TWO INDEPENDENT PREDICTIONS, BOTH EXACT -- which is what licenses pinning through a census whose
+# failure-KIND breakdown moved a lot (opt0 HANG 0->17, zd0 HANG 4->33, with CRASH(-11) down by about as
+# much; entries sitting near the timeout boundary trade CRASH for HANG under load, per RULES.md on rc as a
+# duration proxy). The COUNTS are what this gate pins, and both landed on their predicted values to the
+# unit, so the kind churn is composition, not population.
+# ⛔⭐ AND THE HONEST READING OF THE OPT0 RISE IS THE ONE THIS FILE ALREADY TEACHES ONE PARAGRAPH UP: those
+# three programs were ALWAYS broken under SCRIP_OPT=0. They were invisible because they were XFAIL, i.e.
+# outside the denominator. Promoting a cured marker made three pre-existing bypass failures VISIBLE FOR THE
+# FIRST TIME. The number got worse because the instrument got more honest -- never read that as drift.
+# Routed to hq_P/ceo per this gate's header, in the landing commit rather than after it.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1649 --pinned-opt0-max 187 --pinned-zd0-max 306
+  --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 303
 rc=$?
 
 gate_stamp
