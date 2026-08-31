@@ -78,6 +78,13 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # Routed to hq_P/ceo per this gate's header, in the landing commit rather than after it.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
   --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 303
+# ⚠⭐ APPENDED BY hq_P 2026-08-30 (rebase merge; hq_C's attribution block above is KEPT WHOLE and its numbers WIN -- mine were taken on the superseded population 1649, before the XFAIL promotion).
+# ⛔ I TRIED TO RAISE zd0 306 -> 307 IN THIS SLOT AND WITHDREW IT. The reason is worth keeping even though the number is gone: I read 307 once and reported it as caused by my landing (the loud
+# negative-mark refusal in pl_trail_unwind). That attribution was WRONG -- my arms were not comparable, 307 was PRISTINE against an INCREMENTAL 306 control. Six readings on population 1649 at
+# load ~3.6-4.5/16 gave 303, 304, 304, 306, 306, 307: a +/-3 spread WITHIN an arm, so my change's effect was never resolvable against it and two of my three readings sat below the control.
+# ⭐ THE STANDING HAZARD, which hq_C's own note above independently confirms from the other side (opt0 HANG 0->17, zd0 HANG 4->33, CRASH(-11) down by about as much): entries near the timeout
+# boundary trade CRASH for HANG under load, so these counts track MACHINE LOAD, not only the world. A pin sitting inside that band fails INTERMITTENTLY -- the flaky-bound class, which gets blamed
+# on the box and survives for months, unlike a reliably-broken bound fixed on day one. ⛔ Before the next re-pin take MORE THAN ONE reading and record the spread, or the pin is a coin flip.
 rc=$?
 
 gate_stamp

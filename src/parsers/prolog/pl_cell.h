@@ -75,6 +75,9 @@ static inline int plc_dead_cstack(const void *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
+    if (mark < 0) { fprintf(stderr, "SCRIP FATAL: pl_trail_unwind refuses corrupt trail mark %d (top=%d, caller=%p): its PRODUCER handed over garbage.\n", mark, t->top, __builtin_return_address(0));
+                    fprintf(stderr, "SCRIP FATAL: unwinding it would index ents[-1] and write 16 bytes past the trail array. TRIPWIRE, not a cure.\n");
+                    fflush(stderr); abort(); }
     pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
     while (t->top > mark) {
         t->top--;
