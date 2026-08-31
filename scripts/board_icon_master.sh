@@ -14,7 +14,10 @@
 #
 # ⛔ THIS IS A WATERMARK CENSUS BOARD, NOT A FAIL=0 GATE, AND THAT IS DELIBERATE.
 # MEASURED at mint (pristine -O0, both modes): total=534 · m3 pass=393 fail=122 crash=16 hang=2 ·
-# m4 pass=393 fail=122 crash=1 hang=2 skip=15. Icon is nowhere near green on the whole set, so a
+# m4 pass=393 fail=122 crash=1 hang=2 skip=15.  RE-PINNED the same day to m3/m4 pass=398 (fail=120,
+# m3 crash=13, m4 skip=12) after Icon cures landed from other seats -- and the re-pin happened because
+# THIS BOARD'S OWN "WATERMARK MOVED UP" ARM SAID SO on the first re-run against a moved tree, which is
+# the arm earning its keep on day one. Icon is nowhere near green on the whole set, so a
 # FAIL=0 bar here would be a gate nobody can satisfy — and hq_P's standing ruling on exactly that
 # shape (test_gate_optbypass_watermark.sh) is that such a gate gets `|| true`-d within a week, and an
 # ignored gate is worse than no gate. So the verdict is a RATCHET: red only if the graded population
@@ -36,8 +39,8 @@ MASTER_ICN="$CORPUS/ALL.icn"
 MASTER_REF="$CORPUS/ALL.ref"
 MASTER_CSV="$CORPUS/ALL.csv"
 ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-393}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-393}"
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-398}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-398}"
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 — never skip-as-success (RULES.md). Each arm below names
 # what is missing, because "cannot enumerate" and "enumerated zero" are different facts and a single
