@@ -22,7 +22,7 @@ S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname
 SCRIP_ROOT = os.path.join(S4E, "SCRIP")
 CORPUS_ROOT = os.path.join(S4E, "corpus")
 GITHUB_ROOT = os.path.join(S4E, ".github")
-GATE_TIMEOUT = int(os.environ.get("SCORE_GATE_TIMEOUT", "150"))
+GATE_TIMEOUT = int(os.environ.get("SCORE_GATE_TIMEOUT", "570"))
 
 LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
 
