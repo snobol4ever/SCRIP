@@ -29,6 +29,12 @@
 # analysis, and refs that APPEAR are the change's own new exposure.  Quoting the raw count as a defect
 # count would be the over-claim this file exists to help avoid.
 #
+# ⛔ AND IT REPORTS ITS OWN BLIND SPOT IN THE SUMMARY LINE, DELIBERATELY: a program that will not
+# `--compile` standalone (an -INCLUDE resolved against a working directory, a missing companion) is
+# NOT SWEPT, and the count of those is printed beside the count of those that were.  Read "0 findings"
+# only together with that number -- the s188/beauty lesson is that an instrument run outside the
+# program's own directory reports a clean, plausible, entirely uninformative result.
+#
 # EXIT: 0 = swept, findings printed (a finding is NOT a failure — this is a census, not a gate) ·
 #       2 = REFUSE, could not sweep (no compiler, no programs).  Never silently reports an empty corpus.
 set -u
