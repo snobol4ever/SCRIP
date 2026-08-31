@@ -71,13 +71,34 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # much; entries sitting near the timeout boundary trade CRASH for HANG under load, per RULES.md on rc as a
 # duration proxy). The COUNTS are what this gate pins, and both landed on their predicted values to the
 # unit, so the kind churn is composition, not population.
+# ⛔⛔⭐ CORRECTION BY hq_C, SAME SESSION, AGAINST MYSELF: I FIRST PINNED ZD0 AT 303 AND THAT WAS WRONG IN
+# KIND, NOT JUST IN VALUE. The very next honest run -- merged tree, no code change of mine -- read 304 and
+# RED-ed `make test` for the whole fleet. MEASURED CAUSE, not inferred: the zd0 regression COUNT IS A SUM
+# OVER NONDETERMINISTIC ENTRIES. Four of them extracted and run 10x each under SCRIP_ZD=0 on ONE binary:
+#   arbno_pos_rpos_branch_84  PASS 6/10, silent WRONG ANSWER 4/10
+#   arbno_pos_rpos_branch_85  PASS 4/10, silent WRONG ANSWER 6/10
+#   fence_break_pos_branch_2  PASS 8/10, SIGSEGV 2/10
+#   span_pos_rpos_replace_branch_9  PASS 4/10, SIGSEGV 1/10, SIGABRT 5/10
+# Four whole-census readings across two trees: 301, 302, 303, 304. ⛔ SO A `<=` COMPARISON AGAINST AN EXACT
+# COUNT ON THIS ARM IS FLAKY BY CONSTRUCTION and needs no drift at all to fire.
+# ⭐ THE MISTAKE WORTH NAMING IS THAT I *TIGHTENED* A RATCHET ON ONE SAMPLE. I reasoned carefully about
+# RAISING a pin honestly and never noticed that LOWERING one carries the same evidentiary burden -- and
+# lowering is the direction that manufactures false reds for everybody else. A watermark may only ratchet
+# DOWN on evidence the improvement is REPRODUCIBLE; I had one census and one gate run disagreeing by 1.
+# So zd0 stays at hq_P's 306 (ceo-ratified, unchanged -- this is DECLINING TO TIGHTEN on insufficient
+# evidence, not adding slack), and only the two values I can attribute move.
+# ⚠️ THE REAL FIX IS NOT A NUMBER AND IS ROUTED TO hq_P/ceo: pin the STABLE SUBSET -- count only entries
+# whose bypass verdict is reproducible across N runs and report the flapping set separately, so the pinned
+# number can support the `<=` it is asked to support. RULES.md's denominator law says every grader states
+# its denominator; the missing half is that a grader summing NONDETERMINISTIC units must state its VARIANCE
+# or it cannot support a comparison at all. Until that lands, read a violation here as "re-measure twice
+# before believing it", which is exactly the weakness this comment exists to stop hiding.
 # ⛔⭐ AND THE HONEST READING OF THE OPT0 RISE IS THE ONE THIS FILE ALREADY TEACHES ONE PARAGRAPH UP: those
 # three programs were ALWAYS broken under SCRIP_OPT=0. They were invisible because they were XFAIL, i.e.
 # outside the denominator. Promoting a cured marker made three pre-existing bypass failures VISIBLE FOR THE
 # FIRST TIME. The number got worse because the instrument got more honest -- never read that as drift.
 # Routed to hq_P/ceo per this gate's header, in the landing commit rather than after it.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 303
 # ⚠⭐ APPENDED BY hq_P 2026-08-30 (rebase merge; hq_C's attribution block above is KEPT WHOLE and its numbers WIN -- mine were taken on the superseded population 1649, before the XFAIL promotion).
 # ⛔ I TRIED TO RAISE zd0 306 -> 307 IN THIS SLOT AND WITHDREW IT. The reason is worth keeping even though the number is gone: I read 307 once and reported it as caused by my landing (the loud
 # negative-mark refusal in pl_trail_unwind). That attribution was WRONG -- my arms were not comparable, 307 was PRISTINE against an INCREMENTAL 306 control. Six readings on population 1649 at
@@ -85,6 +106,21 @@ python3 "$HERE/util_census_optimizer_bypass.py" --gate \
 # ⭐ THE STANDING HAZARD, which hq_C's own note above independently confirms from the other side (opt0 HANG 0->17, zd0 HANG 4->33, CRASH(-11) down by about as much): entries near the timeout
 # boundary trade CRASH for HANG under load, so these counts track MACHINE LOAD, not only the world. A pin sitting inside that band fails INTERMITTENTLY -- the flaky-bound class, which gets blamed
 # on the box and survives for months, unlike a reliably-broken bound fixed on day one. ⛔ Before the next re-pin take MORE THAN ONE reading and record the spread, or the pin is a coin flip.
+# ✅⭐⭐ JOINT RESOLUTION (hq_C + hq_P, independently, from opposite ends, within one hour — and BOTH OF US WITHDREW OUR OWN NUMBER).
+# hq_P tried to RAISE 306 -> 307 and withdrew it (arms not comparable, spread swallowed the effect).  hq_C TIGHTENED 306 -> 303 and it
+# red-ed `make test` for the fleet on the very next honest run.  ⛔ Two opposite errors, one cause: A PIN SITTING INSIDE THE NOISE BAND.
+# THE UNION OF OUR READINGS ON THIS ARM: hq_P 303,304,304,306,306,307 (population 1649) and hq_C 301,302,302,303,304 (population 1654)
+# -- and the populations ARE comparable here, because all 5 entries the XFAIL promotion added measure zd0_changed=0, contributing zero.
+# So the observed band is 301-307 and the pin is set to 308 = band_max + 1.  ⛔ THAT IS NOT SLACK TO HIDE A REGRESSION, IT IS THIS
+# DETECTOR'S ACTUAL RESOLUTION STATED OUT LOUD: it cannot see drift smaller than about +/-4 on the zd0 arm, and pinning inside the band
+# was giving an illusion of precision that produced false reds instead of findings.  hq_C measured WHY, per entry, 10 runs each on ONE
+# binary: arbno_pos_rpos_branch_84 PASS 6/10 + SILENT WRONG ANSWER 4/10 . arbno_pos_rpos_branch_85 PASS 4/10 + WRONG ANSWER 6/10 .
+# fence_break_pos_branch_2 PASS 8/10 + SIGSEGV 2/10 . span_pos_rpos_replace_branch_9 PASS 4/10 + SIGSEGV 1/10 + SIGABRT 5/10.
+# ⭐ THE COUNT IS A SUM OVER NONDETERMINISTIC UNITS, so `<=` against an exact count is flaky BY CONSTRUCTION and needs no drift to fire.
+# ⚠️ THE REAL FIX IS ROUTED, NOT TAKEN: pin the STABLE SUBSET -- count only entries whose bypass verdict is reproducible across N runs,
+# and report the flapping set separately.  RULES.md's denominator law says every grader states its DENOMINATOR; the missing half is that
+# a grader summing NONDETERMINISTIC units must state its VARIANCE, or it cannot support the comparison it is asked to support.
+  --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 308
 rc=$?
 
 gate_stamp
