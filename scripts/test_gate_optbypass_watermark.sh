@@ -55,13 +55,13 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # must never become a permanently-red blocking gate (hq_P ruling, ceo ratified). The DEFAULT arm's 0 is the
 # only hard bar; the other two are drift detectors for an invariant that is currently unenforced, not enforced.
 # ⭐ RE-PINNED 2026-08-30 hq_C, and EVERY UNIT OF MOVEMENT IS ATTRIBUTED — none of it is drift (census
-# --out, SCRIP 115bcace + corpus b2a39fd4, wall 529s, load ~3.5-4.5/16):
+# --out, SCRIP 115bcace + corpus c487af7c, wall 529s, load ~3.5-4.5/16):
 #   graded population 1654 (1726 entries - 72 xfail-marked) . DEFAULT-ARM CONTROL FAILURES: 0/1654 (unchanged, hard bar)
 #   SCRIP_OPT=0 190/1654 (11.49%)  was 187/1649 (11.34%)   -> +3, fully explained, see below
 #   SCRIP_ZD=0  303/1654 (18.32%)  was 306/1649 (18.56%)   -> -3, cured by SCRIP 115bcace
 #   overlap shared=52, opt0_only=138, zd0_only=251 -- still two largely independent populations
 # ⛔⭐ THE OPT0 RAISE IS NOT A RELAXATION AND IT IS NOT DRIFT: hq_C promoted 5 XFAIL markers cured by
-# 115bcace (corpus b2a39fd4), which ADMITTED them to the graded population, and the per-entry census CSV
+# 115bcace (corpus c487af7c), which ADMITTED them to the graded population, and the per-entry census CSV
 # names exactly which ones fail under the bypass -- arbno_fence_notany_replace_branch_1, _2 and
 # fence_arb_span_replace_branch_2 read opt0_changed=1 (the other two are clean in both arms, and all five
 # PASS in the DEFAULT arm). 187 + 3 = 190, exactly. The zd0 side is the same arithmetic in reverse: 303 was
