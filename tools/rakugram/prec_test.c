@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-typedef struct { const char *src; int pos; int len; } RkCur;
+#include "rk_cur.h"
 struct RkNode { char buf[256]; };
 typedef struct RkNode RkNode;
 #include "rk_prec_gen.c"
@@ -26,7 +26,7 @@ RkNode *rk_mk_unop(const RkOp *o, RkNode *a) {
 }
 static int fails = 0;
 static void chk(const char *expr, const char *want) {
-    RkCur c = { expr, 0, (int)strlen(expr) };
+    RkCur c = { .src = expr, .pos = 0, .len = (int)strlen(expr) };
     RkNode *r = rk_EXPR(&c, "b=");
     const char *got = r ? r->buf : "<null>";
     int ok = !strcmp(got, want);
@@ -44,7 +44,7 @@ int main(void) {
     chk("1 - 2 - 3",  "((1 - 2) - 3)");        /* additive is LEFT */
     chk("2 ** 3 ** 2", "(2 ** (3 ** 2))");     /* exponentiation is RIGHT */
     printf("\nPARSE-TIME EXTENSION -- the property that makes Raku non-LALR:\n");
-    printf("  before install: "); { RkCur c={"1 fo 2",0,6}; RkNode*r=rk_EXPR(&c,"b="); printf("%-14s (stops at the unknown operator)\n", r?r->buf:"<null>"); }
+    printf("  before install: "); { RkCur c = { .src = "1 fo 2", .pos = 0, .len = 6 }; RkNode*r=rk_EXPR(&c,"b="); printf("%-14s (stops at the unknown operator)\n", r?r->buf:"<null>"); }
     rk_op_install("fo", RK_INFIX, "tA=", RK_LEFT, "user");   /* between additive t= and multiplicative u= */
     printf("  after  install: "); chk("1 + 2 fo 3", "(1 + (2 fo 3))");
     printf("\n%s\n", fails ? "SOME CHECKS FAILED" : "all checks passed");

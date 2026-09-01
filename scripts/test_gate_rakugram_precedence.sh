@@ -39,7 +39,7 @@ grep -q 'rk_ops_init_builtin' "$T/rk_prec_gen.c" || { echo "⛔ REFUSES rc=2: ge
 nops=$(grep -c 'rk_op_install(' "$T/rk_prec_gen.c")
 [ "$nops" -ge 150 ] || { echo "⛔ REFUSES rc=2: only $nops operators extracted (expected >=150) -- the"; \
     echo "   extractor silently matched nothing rather than failing; grading this would be vacuous."; exit 2; }
-cp "$ROOT/tools/rakugram/prec_test.c" "$T/" || exit 2
+cp "$ROOT/tools/rakugram/prec_test.c" "$ROOT/tools/rakugram/rk_cur.h" "$T/" || exit 2
 gcc -O0 -Wall -o "$T/prec_test" "$T/prec_test.c" -I"$T" 2> "$T/cc.log" || {
     echo "⛔ GATE FAIL: emitted Pratt parser does not compile"; sed -n '1,15p' "$T/cc.log"; exit 1; }
 "$T/prec_test"; rc=$?

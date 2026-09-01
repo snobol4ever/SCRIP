@@ -10,7 +10,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-typedef struct { const char *src; int pos; int len; } RkCur;
+#include "rk_cur.h"
 #include "rk_cc_rt.c"
 
 static int fails = 0;
@@ -20,7 +20,7 @@ static void ck(const char *what, int got, int want) {
 }
 /* run one class against one input; report match and how far the cursor moved */
 static int run(int mode, const RkCCItem *t, int n, const char *s, int *adv) {
-    RkCur c = { s, 0, (int)strlen(s) };
+    RkCur c = { .src = s, .pos = 0, .len = (int)strlen(s) };
     int r = rk_cc(&c, mode, t, n);
     if (adv) *adv = c.pos;
     return r;
@@ -82,7 +82,7 @@ int main(void) {
     ck("\\h REJECTS a newline",           run(0, cc_h, 1, "\n", 0), 0);
 
     printf("\nANCHORS -- ^^ / $$ constrain and never consume:\n");
-    { RkCur c = { "ab\ncd", 0, 5 };
+    { RkCur c = { .src = "ab\ncd", .pos = 0, .len = 5 };
       ck("^^ holds at position 0",        rk_anchor(&c, "^^"), 1);
       c.pos = 1; ck("^^ REJECTS mid-line", rk_anchor(&c, "^^"), 0);
       c.pos = 3; ck("^^ holds after a newline", rk_anchor(&c, "^^"), 1);
@@ -97,7 +97,7 @@ int main(void) {
       c.pos = 5; ck("$ holds at end of input",                  rk_anchor(&c, "$"), 1); }
 
     printf("\nWORD BOUNDARIES:\n");
-    { RkCur c = { "ab cd", 0, 5 };
+    { RkCur c = { .src = "ab cd", .pos = 0, .len = 5 };
       ck("<< holds at start of a word",   rk_wb(&c, 0), 1);
       c.pos = 1; ck("<< REJECTS inside a word", rk_wb(&c, 0), 0);
       c.pos = 2; ck(">> holds at end of a word", rk_wb(&c, 1), 1);

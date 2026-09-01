@@ -8,7 +8,7 @@ static void chk(const char *what, int got, int want) {
     if (got != want) { fails++; printf("  FAIL %-46s got %d want %d\n", what, got, want); }
     else               printf("  ok   %-46s %d\n", what, got);
 }
-static int pos_after(int (*r)(RkCur *), const char *s) { RkCur c = { s, 0, (int)strlen(s) }; r(&c); return c.pos; }
+static int pos_after(int (*r)(RkCur *), const char *s) { RkCur c = { .src = s, .pos = 0, .len = (int)strlen(s) }; r(&c); return c.pos; }
 int main(void) {
     printf("ws -- 25 callers; `rule` inserts it implicitly between every atom\n");
     chk("ws skips spaces/tabs/newlines",      pos_after(rk_ws, "  \t\n x"), 5);
@@ -36,9 +36,9 @@ int main(void) {
     chk("decint accepts 9, octint does not",  pos_after(rk_octint, "9"), 0);
 
     printf("\nlookahead -- must NOT consume\n");
-    { RkCur c = { "foo", 0, 3 }; int m = rk_before(&c, rk_ident);
+    { RkCur c = { .src = "foo", .pos = 0, .len = 3 }; int m = rk_before(&c, rk_ident);
       chk("before(ident) matches", m, 1); chk("before left pos at 0", c.pos, 0); }
-    { RkCur c = { "123", 0, 3 }; int m = rk_after(&c, rk_ident);
+    { RkCur c = { .src = "123", .pos = 0, .len = 3 }; int m = rk_after(&c, rk_ident);
       chk("after(ident) is negative lookahead", m, 1); chk("after left pos at 0", c.pos, 0); }
     printf("\n%s\n", fails ? "SOME CHECKS FAILED" : "all checks passed");
     return fails ? 1 : 0;
