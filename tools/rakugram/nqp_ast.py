@@ -56,6 +56,10 @@ def look_operand(inner):
         for _ in range(flips): node = N('NOT', None, [node])
         return node
     if t[0] == '{':
+        rv = langrev_node(t)
+        if rv is not None:
+            for _ in range(flips): rv = N('NOT', None, [rv])
+            return rv
         dr = dynread_node(t)
         if dr is not None:
             for _ in range(flips): dr = N('NOT', None, [dr])
@@ -149,6 +153,18 @@ def modelled_dynvars(decls):
     # in forms the assignment regex cannot see, so "every write is a literal" cannot be established for them.
     MODELLED_DYNVARS.update(n for n, ws in w.items() if n.startswith('$*') and ws and all(val is not None for _, val in ws))
     return set(MODELLED_DYNVARS)
+
+# The language revision is a COMPILER CONSTANT (6.c=1, 6.d=2, 6.e=3): `:my $rev := nqp::getcomp('Raku').language_revision`
+# and six direct `nqp::getcomp('Raku').language_revision <op> N` predicates. Modelled at generation time for the
+# revision this port targets (LANG_REV, 6.d); a predicate that combines it with anything else still refuses.
+LANG_REV = 2
+_LANGREV = re.compile(r"^\{\s*(?:\$rev|nqp::getcomp\('Raku'\)\.language_revision)\s*(<=|>=|==|!=|<|>)\s*(\d+)\s*\}$")
+def langrev_node(t):
+    m = _LANGREV.match(t.strip())
+    if not m: return None
+    op, n = m.group(1), int(m.group(2))
+    holds = {'<': LANG_REV < n, '<=': LANG_REV <= n, '>': LANG_REV > n, '>=': LANG_REV >= n, '==': LANG_REV == n, '!=': LANG_REV != n}[op]
+    return N('EMPTY') if holds else N('FAILN', f'language_revision {op} {n} is false at rev {LANG_REV}')
 
 _DYNREAD = re.compile(r'^\{\s*(!?)\s*([\$@%&]\*[\w-]+)\s*\}$')
 def dynread_node(t):
@@ -406,6 +422,10 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("!{ $*ARG_FLAT_OK := 0 }",                               ('FAILN', None)),   # value = what it assigns (the selftest reports kid-kind, not v)
     ("!!{ $/.clone_braid_from(self).set_pragma('fatal',1); }", ('EMPTY', None)),   # double-bang idiom, non-literal: always continue (over-accept)
     ("!{ $/.some_method() }",                                 None),               # single bang, non-literal: a real conditional -> refuses
+    ("?{ $rev < 3 }",                                         ('EMPTY', None)),    # language revision 2 (6.d): holds
+    ("?{ $rev >= 3 }",                                        ('FAILN', None)),    # ... and its complement fails
+    ("?{ nqp::getcomp('Raku').language_revision >= 3 }",      ('FAILN', None)),
+    ("?{ nqp::getcomp('Raku').language_revision == 1 || $*WHENEVER_COUNT >= 0 }", None),   # combined: refuses
     ("?{ $*IN_META := 'foo' }",                               ('EMPTY', None)),
     ("?",                                                     ('EMPTY', None)),       # <?>  always succeeds
     ("!",                                                     ('EMPTY', None)),       # <!>  the LOOK node's neg polarity makes it always FAIL

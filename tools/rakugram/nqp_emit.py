@@ -24,6 +24,7 @@ import nqp_cc
 DIAG_FAIL = re.compile(r'\b(panic|typed_panic|obs|malformed|missing|NYI|fail-terminator|die)\b')   # fail-terminator: unterminated quote (quibble/sibble/tribble); nqp::die
 
 PARAMS = {}              # rule name -> list of parameter names, e.g. {'scoped': ['$*SCOPE']} (filled by emit_all)
+PARAM_DEFAULTS = {}      # rule name -> [(param, literal default)] for $* params whose EVERY default is a literal
 
 _CC_TABLES = {}          # items-tuple -> C table name, so identical classes share one table
 def cc_table(items):
@@ -71,6 +72,16 @@ class Emit:
                 return
             args = getattr(n, 'args', None)
             ps = PARAMS.get(nm)
+            if ps and args is None and nm in PARAM_DEFAULTS:
+                # `<statementlist>` calling `rule statementlist($*statement_level = 0)`: a bare call binds the
+                # DEFAULT for the callee's activation, exactly as an explicit literal argument would.
+                self.uses_dyn = True
+                v = self.t()
+                self.w(ind, f'{{ int {v}_m = c->ndyn;')
+                for p, val in PARAM_DEFAULTS[nm]:
+                    self.w(ind + 1, f'if (!rk_dyn_push(c, {self.cstr(p)}, {self.cstr(val)})) goto fail;   /* {nm}({p} = default) */')
+                self.w(ind + 1, f'int {v}_r = {cname(nm)}(c); c->ndyn = {v}_m; if (!{v}_r) goto fail; }}')
+                return
             if ps and args is not None:
                 # `<scoped('my')>` calling `token scoped($*SCOPE)`: the argument BINDS the callee's $* parameter
                 # for that activation -- pushed here, unwound after the call whether it matched or not. Only
@@ -246,10 +257,14 @@ def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
     nall = len(decls)
     decls = in_grammar(decls, grammar)      # ⛔ one language: the grammar plus the roles it does (see nqp_read)
     md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
-    PARAMS.clear()
+    PARAMS.clear(); PARAM_DEFAULTS.clear()
     for d in decls:
         if d.get('params'):
-            PARAMS[d['name']] = [p.strip().split('=')[0].strip().lstrip(':') for p in d['params'].strip('()').split(',') if p.strip()]
+            parts = [p.strip() for p in d['params'].strip('()').split(',') if p.strip()]
+            PARAMS[d['name']] = [p.split('=')[0].strip().lstrip(':') for p in parts]
+            dflt = [(p.split('=')[0].strip(), const_value(p.split('=', 1)[1].strip())) for p in parts if '=' in p]
+            if dflt and all(p.startswith('$*') and v is not None for p, v in dflt) and len(dflt) == len(parts):
+                PARAM_DEFAULTS[d['name']] = dflt
     defined = collections.Counter()
     for d in decls: defined[d['name']] += 1
     # ⛔ a proto is a proto because it is DECLARED one, not because candidates exist: `proto token
