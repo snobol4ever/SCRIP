@@ -132,13 +132,29 @@ def lex_body(b):
             m = re.match(r':\w+(\([^)]*\))?', b[i:]); emit('MOD', m.group(0)); i += m.end(); continue
         # assertion / subrule  < ... >  (brace-aware for nested <>)
         if c == '<':
+            # ⛔ depth-count < > but SKIP quoted strings and [ ] character classes: a `>` inside `'=>'` or
+            # `'>>>>>>>'` is not a closer. Measured before this fix: 101 stray `>` tokens (33 rules refusing
+            # first on UNKNOWN:>) and every `?[` class truncated -- vcs-conflict, the `'=>'` lookaheads, …
             d, j = 0, i
             while j < n:
-                if b[j] == '<': d += 1
-                elif b[j] == '>':
+                ch = b[j]
+                if ch == '\\': j += 2; continue
+                if ch in "'\"":
+                    k = b.find(ch, j + 1)
+                    while k > 0 and b[k-1] == '\\': k = b.find(ch, k + 1)
+                    j = (k if k > 0 else n) + 1; continue
+                if ch == '[':
+                    bd = 1; j += 1
+                    while j < n and bd:
+                        if b[j] == '\\': j += 2; continue
+                        if b[j] == '[': bd += 1
+                        elif b[j] == ']': bd -= 1
+                        j += 1
+                    continue
+                if ch == '<': d += 1
+                elif ch == '>':
                     d -= 1
                     if d == 0: break
-                elif b[j] == '\\': j += 1
                 j += 1
             inner = b[i+1:j]
             if   re.match(r'[.+?!\-]?\[', inner): emit('CCLASS', inner)

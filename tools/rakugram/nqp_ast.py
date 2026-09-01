@@ -48,7 +48,12 @@ def look_operand(inner):
     while t[:1] == '!':                                 # <!!{ … }>: each extra ! flips the polarity
         flips += 1; t = t[1:].strip()
     if not t:
-        return None
+        # bare <?> and <!>: NQP's null assertion (always succeeds) and its negation (always FAILS) --
+        # `token starter { <!> }` is how a proto candidate declares "never matches unless a slang
+        # overrides me". 34 rules. Not a lexer artefact: a real construct with a constant value.
+        node = N('EMPTY')
+        for _ in range(flips): node = N('NOT', None, [node])
+        return node
     if t[0] == '{':
         dr = dynread_node(t)
         if dr is not None:
@@ -368,6 +373,8 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("!{ $*QSIGIL }",                                         None),                # STATE: stays refused (guard)
     ("?{ $*IN_DECL }",                                        None),
     ("!{ 0 }",                                                ('FAILN', None)),
+    ("?",                                                     ('EMPTY', None)),       # <?>  always succeeds
+    ("!",                                                     ('EMPTY', None)),       # <!>  the LOOK node's neg polarity makes it always FAIL
     ("?before 'x'",                                           ('LIT', None)),
 ]
 SELFTEST_MARK = [
