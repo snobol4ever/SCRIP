@@ -17,7 +17,7 @@ a rule that ran and correctly declined, and would make the parser confidently wr
 import sys, re, os, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nqp_read import scan_decls, lex_body
-from nqp_ast import P, N, look_operand, lowers
+from nqp_ast import P, N, look_operand, lowers, modelled_dynvars, const_value, _MYDECL, _ASSIGN, MODELLED_DYNVARS
 import nqp_cc
 
 # panic-class diagnostics inside a {…} block: these ABORT in NQP; here they fail the arm (see Emit.node).
@@ -41,7 +41,7 @@ def cname(s):
     return base
 
 class Emit:
-    def __init__(self, sym=None): self.buf = []; self.tmp = 0; self.unimpl = False; self.sym = sym
+    def __init__(self, sym=None): self.buf = []; self.tmp = 0; self.unimpl = False; self.sym = sym; self.uses_dyn = False
     def w(self, ind, s): self.buf.append('    ' * ind + s)
     def t(self): self.tmp += 1; return f"t{self.tmp}"
 
@@ -126,6 +126,12 @@ class Emit:
                 return
             while sub.k == 'NOT':                       # <!!{…}>: each extra ! flips the polarity
                 pos = not pos; sub = sub.kids[0]
+            if sub.k == 'DYNREAD':
+                name, neg = sub.v
+                want_true = (not neg) == pos          # <?{ $*X }> holds iff X true; <!{ $*X }> iff false; ! inside flips
+                v = self.t()
+                self.w(ind, f'{{ int {v} = rk_dyn_truthy(c, {self.cstr(name)}); if ({v} < 0) return rk_refuse(c, "read of unbound {name}"); if ({"!" if want_true else ""}{v}) goto fail; }}   /* <{"?" if pos else "!"}{{ {"!" if neg else ""}{name} }}> */')
+                return
             if sub.k == 'MARK':
                 op, name = sub.v
                 call = f'rk_mark_{"set" if op == "set" else "test"}(c, {self.cstr(name)})'
@@ -150,10 +156,15 @@ class Emit:
         elif k == 'FAILN':
             self.w(ind, f'/* {self.short(n.v)} */ goto fail;')
         elif k == 'MY':
-            # A parse-time local. For MATCHING it is a no-op: it consumes nothing and cannot fail. Its
-            # VALUE is un-modelled, so every READ of it still refuses (look_operand for <?{…}>, VAR for
-            # $*X, GOAL for <.stopper>) -- see the SEMANTIC comment in nqp_ast.py.
-            self.w(ind, f'/* :my {self.short(n.v)} -- parse-time local: no-op for matching; reads of it refuse */')
+            # A parse-time local consumes nothing and cannot fail. If EVERY write to it in the grammar is a
+            # literal (nqp_ast.modelled_dynvars), it is PUSHED here with its literal and unwound at every exit
+            # of this rule; otherwise it stays a no-op and every read of it refuses (the guard).
+            m = _MYDECL.match(str(n.v).strip())
+            if m and m.group(1) in MODELLED_DYNVARS:
+                self.uses_dyn = True
+                self.w(ind, f'if (!rk_dyn_push(c, {self.cstr(m.group(1))}, {self.cstr(const_value(m.group(2)))})) goto fail;   /* :my (modelled) */')
+            else:
+                self.w(ind, f'/* :my {self.short(n.v)} -- parse-time local: no-op for matching; reads of it refuse */')
         elif k == 'CODE':
             t = str(n.v)
             if DIAG_FAIL.search(t):
@@ -165,6 +176,9 @@ class Emit:
                 self.w(ind, f'/* {{code}} panic-class {self.short(t)} -- arm fails (rung-6 stub semantics) */ goto fail;')
             else:
                 self.w(ind, f'/* {{code}} {self.short(t)} -- action block: no-op for matching */')
+                for m in _ASSIGN.finditer(t):          # writes to MODELLED variables are real: set in place
+                    if m.group(1) in MODELLED_DYNVARS:
+                        self.w(ind, f'if (!rk_dyn_set(c, {self.cstr(m.group(1))}, {self.cstr(const_value(m.group(2)))})) goto fail;   /* {{code}} write to a modelled $* */')
         elif k == 'MOD':
             if str(n.v).lstrip().startswith(':dba'):
                 self.w(ind, f'/* {self.short(n.v)} -- diagnostic label, no-op */')
@@ -211,6 +225,7 @@ class Emit:
 def emit_all(path, out_c):
     decls = [d for d in scan_decls(open(path, encoding='utf-8', errors='replace').read())
              if not d.get('overrun')]
+    md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
     defined = collections.Counter()
     for d in decls: defined[d['name']] += 1
     protos = {d['name'] for d in decls if d['sym'] is not None}
@@ -230,12 +245,16 @@ def emit_all(path, out_c):
         e.w(0, f'static int {cname(nm)}(RkCur *c) {{')
         e.w(1, 'int start = c->pos;')
         e.node(root, 1)
-        e.w(1, 'return 1;')
+        if e.uses_dyn:                                   # dynamic scope ends with the rule, on BOTH exits
+            e.buf.insert(e.buf.index('    int start = c->pos;') + 1, '    int dyn_mark = c->ndyn;')
+            e.w(1, 'c->ndyn = dyn_mark; return 1;')
+        else:
+            e.w(1, 'return 1;')
         # Only emit the fail label if something can actually jump to it -- a rule with no failing
         # step (all-optional body) otherwise carries an unreachable label.
         if any('goto fail;' in ln for ln in e.buf):
             e.w(0, 'fail:')
-            e.w(1, 'c->pos = start; return 0;')
+            e.w(1, 'c->ndyn = dyn_mark; c->pos = start; return 0;' if e.uses_dyn else 'c->pos = start; return 0;')
         else:
             for i, ln in enumerate(e.buf):
                 if ln.strip() == 'int start = c->pos;':
@@ -319,6 +338,7 @@ def emit_all(path, out_c):
     print(f"  refusing rules   : {stats['UNIMPL']}   (return RK_UNIMPL, never a silent 'no match')")
     print(f"  proto dispatchers: {stats['PROTO']}")
     print(f"  character-class tables: {len(_CC_TABLES)}   (lowered by nqp_cc.py, no runtime guessing)")
+    print(f"  modelled parse-time variables: {len(md)}   (every write a literal) -> {', '.join(sorted(md))}")
     print(f"  inherited stubs needed (NQP HLL::Grammar, hand-written): {len(inherited)}")
     print(f"    {', '.join(inherited[:14])} ...")
 

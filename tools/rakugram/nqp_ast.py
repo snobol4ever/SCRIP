@@ -50,6 +50,10 @@ def look_operand(inner):
     if not t:
         return None
     if t[0] == '{':
+        dr = dynread_node(t)
+        if dr is not None:
+            for _ in range(flips): dr = N('NOT', None, [dr])
+            return dr
         # ⛔ A code assertion GATES the match on NQP we cannot evaluate -- EXCEPT the one idiom whose
         # value is a literal: a block whose LAST statement is `1` (or `0`). `<!!{ $*LANG := …; 1 }>` is
         # Grammar.nqp's way of running code mid-rule and always succeeding (8 sites, on statementlist,
@@ -78,6 +82,56 @@ def look_operand(inner):
     return N('CALL', m.group(1)) if m else None
 
 
+# ---- parse-time dynamic variables (rung 9d) ----------------------------------------------------------
+_CONST = re.compile(r"""^\s*(?:'([^']*)'|"([^"]*)"|(-?\d+))\s*;?\s*$""")
+_MYDECL = re.compile(r':my\s+([\$@%&]\*[\w-]+)\s*(?::=|=)?\s*(.*?);?\s*$', re.S)
+_ASSIGN = re.compile(r'([\$@%&]\*[\w-]+)\s*:=(?!=)\s*([^;]*)')
+MODELLED_DYNVARS = set()      # populated by modelled_dynvars(decls) before emitting or classifying
+
+def const_value(text):
+    """The literal a write assigns, as the string NQP would see -- or None if it is not a literal."""
+    t = (text or '').strip()
+    if t == '': return ''                    # `:my $*X;` -- undefined, false
+    m = _CONST.match(t)
+    if not m: return None
+    return next(g for g in m.groups() if g is not None)
+
+def dynvar_writes(decls):
+    """Every write to every $*var across the grammar: {name: [(kind, literal-or-None), …]}."""
+    out = collections.defaultdict(list)
+    for d in decls:
+        for k, v in lex_body(d['body']):
+            if k == 'MY':
+                m = _MYDECL.match(v.strip())
+                if m: out[m.group(1)].append(('my', const_value(m.group(2))))
+            elif k in ('CODE', 'LOOKP', 'LOOKN'):
+                # ⛔ writes inside code ASSERTIONS count too: `<!!{ $*LANG := $*LEAF := …; 1 }>` is a
+                # non-literal write hiding in a constant-true assertion. Scanning only CODE tokens
+                # listed $*LANG and $*LEAF as constant-written; they are not.
+                for m in _ASSIGN.finditer(v):
+                    out[m.group(1)].append(('code', const_value(m.group(2))))
+            elif k == 'VAR' and '<' in v:
+                pass
+    return out
+
+def modelled_dynvars(decls):
+    """The variables whose EVERY write is a literal constant -- the only ones a read may consult.
+    ⛔ THE GUARD IN ONE LINE: a variable with any non-literal write ($*IN_DECL := $d, $*IN_META := $in_meta)
+    is NOT modelled, its declarations stay no-ops, and every read of it keeps refusing."""
+    w = dynvar_writes(decls)
+    MODELLED_DYNVARS.clear()
+    # SCALARS ONLY: a %*hash or @*array is written by element (`%*RX<i> := 1`, `nqp::push(@*nibbles, …)`)
+    # in forms the assignment regex cannot see, so "every write is a literal" cannot be established for them.
+    MODELLED_DYNVARS.update(n for n, ws in w.items() if n.startswith('$*') and ws and all(val is not None for _, val in ws))
+    return set(MODELLED_DYNVARS)
+
+_DYNREAD = re.compile(r'^\{\s*(!?)\s*([\$@%&]\*[\w-]+)\s*\}$')
+def dynread_node(t):
+    """`{ $*X }` / `{ !$*X }` inside <?…>/<!…> -> N('DYNREAD', (name, negated)) IF X is modelled, else None."""
+    m = _DYNREAD.match(t.strip())
+    if not m or m.group(2) not in MODELLED_DYNVARS: return None
+    return N('DYNREAD', (m.group(2), m.group(1) == '!'))
+
 _MARK = re.compile(r"^\.?\s*(MARKER|MARKED)\s*\(\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\)\s*$")
 def mark_node(t):
     """`MARKER('n')` / `MARKED('n')` -> N('MARK', ('set'|'test', 'n')). NQP's per-name position memo:
@@ -105,7 +159,7 @@ def lowers(n):
     return True
 
 
-MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY','FAILN','NOT','MARK',
+MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY','FAILN','NOT','MARK','DYNREAD',
               'MY','CODE','MOD'}    # MY/CODE/MOD are mechanical only when lowers() says so (rung 8)
 # Constructs that need a hand-written runtime helper, but whose SHAPE is still mechanical.
 RUNTIME    = {'GOAL','SEP','CONJ'}
@@ -258,6 +312,7 @@ def classify(root):
 
 def main(path='/home/resources/rakudo-main/src/Perl6/Grammar.nqp'):
     decls = scan_decls(open(path, encoding='utf-8', errors='replace').read())
+    md = modelled_dynvars(decls)
     tot = collections.Counter(); nfull = nrt = nsem = 0
     per_sem = collections.Counter()
     rows = []
@@ -278,6 +333,7 @@ def main(path='/home/resources/rakudo-main/src/Perl6/Grammar.nqp'):
     n = len(rows)
     print(f"productions parsed into an AST : {n}  (of {len(decls)}; {len(decls)-n} skipped as contaminated)")
     print()
+    print(f"modelled parse-time variables (every write a literal): {len(md)} -> {sorted(md)}")
     print("TRANSLATABILITY -- the number that decides whether this port is mechanical:")
     print(f"  FULLY MECHANICAL (emit directly)          : {nfull}  ({100.0*nfull/n:.1f}%)")
     print(f"  + needs a runtime helper (goal/sep/conj)  : {nrt}  ({100.0*nrt/n:.1f}%)")
@@ -338,6 +394,10 @@ if __name__ == '__main__':
             got = None if n is None else (n.k, n.kids[0].k if n.kids else None)
             ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:38]!s:38}> -> {got}")
+        MODELLED_DYNVARS.update({'$*QSIGIL'})          # selftest fixture: QSIGIL modelled, IN_DECL not
+        for inner, want in [("!{ $*QSIGIL }", ('DYNREAD', ('$*QSIGIL', False))), ("?{ !$*QSIGIL }", ('DYNREAD', ('$*QSIGIL', True))), ("?{ $*IN_DECL }", None)]:
+            n = look_operand(inner); got = None if n is None else (n.k, n.v); ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} <{inner:20}> -> {got}   {'(guard: not modelled -> refuses)' if want is None else ''}")
         for inner, want in SELFTEST_MARK:
             n = look_operand(inner) if inner[:1] in '?!' else mark_node(inner)
             got = None if n is None else (n.k, n.v)
