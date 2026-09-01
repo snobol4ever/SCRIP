@@ -81,6 +81,25 @@ def scan_decls(src):
     for ln, line in enumerate(lines):
         m = DECL.match(line)
         if m: starts.append((ln, m))
+    # ⛔ EVERY DECLARATION HAS AN OWNER. Grammar.nqp holds FOUR grammars (Perl6::Grammar 625 decls, QGrammar 75,
+    # RegexGrammar 17, P5RegexGrammar 5) and the quote-language roles (startstops/startstop/stop) plus role STD,
+    # which Perl6::Grammar `does`. `stopper` is declared FIVE times across them; flattening the file made the
+    # quote role's `$stop1 | $stop2` win over STD's `<!>` for the main language and every program refused on
+    # it. The innermost enclosing header, by brace extent, is recorded here; the emitter filters on it.
+    # A COLUMN-0 header owns every line until the next column-0 header. Class extents are NOT brace-matched:
+    # a '{' or '}' literal inside a rule body closes a naive matcher early (measured: Perl6::Grammar's extent
+    # ended after 49 rules and the gate caught the mis-filter). A declaration indented deeper than a grammar
+    # member (4 spaces) sits inside a nested role/block and is marked nested.
+    HDR = re.compile(r'^(grammar|role|class)\s+([\w:]+(?:\[[^\]]*\])?)\s*([^{]*)\{')
+    hdrs = []
+    for ln, line in enumerate(lines):
+        hm = HDR.match(line)
+        if hm: hdrs.append((ln, hm.group(2), re.findall(r'does\s+([\w:]+)', hm.group(3))))
+    def owner_of(ln):
+        best = None
+        for hl, nm, does in hdrs:
+            if hl <= ln: best = (hl, nm, does)
+        return best
     out, disagree = [], 0
     for k, (ln, m) in enumerate(starts):
         obr = offs[ln] + m.end() - 1
@@ -93,13 +112,26 @@ def scan_decls(src):
         nm = m.group('name') or m.group('pname'); sym = None
         sm = re.match(r'([^:]+):sym[<«](.*)[>»]$', nm)
         if sm: nm, sym = sm.group(1), sm.group(2)
+        ow = owner_of(ln)
+        indent = len(lines[ln]) - len(lines[ln].lstrip(' '))
         out.append(dict(kind=m.group('kind'), name=nm, sym=sym, proto=bool(m.group('proto')),
-                        line=ln+1, endline=endln+1, body=body, overrun=(endln >= limit)))
+                        line=ln+1, endline=endln+1, body=body, overrun=(endln >= limit),
+                        owner=(ow[1] if ow else ''), owner_does=(ow[2] if ow else []), owner_nested=(indent > 4)))
     if disagree:
         print(f"⚠️  {disagree} production(s) whose brace-match ran past the next declaration "
               f"-- bodies may be contaminated; investigate before trusting per-production output.",
               file=sys.stderr)
     return out
+
+def in_grammar(decls, grammar='Perl6::Grammar'):
+    """The declarations that belong to `grammar`: its own (non-nested) plus those of the top-level roles it
+    `does` (STD for the main language). Other grammars and the quote-language roles are other languages --
+    reached only through LANG('Quote', …)/LANG('Regex', …), which refuse by name until they are ported."""
+    does = set()
+    for d in decls:
+        if d['owner'] == grammar: does.update(d['owner_does'])
+    keep = {grammar} | does
+    return [d for d in decls if d['owner'] in keep and not d['owner_nested']]
 
 # ---------------------------------------------------------------------------------------------
 # Body tokenizer for the nqp regex sublanguage.

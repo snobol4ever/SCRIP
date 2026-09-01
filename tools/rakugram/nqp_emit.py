@@ -16,7 +16,7 @@ a rule that ran and correctly declined, and would make the parser confidently wr
 """
 import sys, re, os, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from nqp_read import scan_decls, lex_body
+from nqp_read import scan_decls, lex_body, in_grammar
 from nqp_ast import P, N, look_operand, lowers, modelled_dynvars, const_value, _MYDECL, _ASSIGN, MODELLED_DYNVARS
 import nqp_cc
 
@@ -222,9 +222,11 @@ class Emit:
             else: out.append(ch)
         return '"' + ''.join(out) + '"'
 
-def emit_all(path, out_c, provided=()):
+def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
     decls = [d for d in scan_decls(open(path, encoding='utf-8', errors='replace').read())
              if not d.get('overrun')]
+    nall = len(decls)
+    decls = in_grammar(decls, grammar)      # ⛔ one language: the grammar plus the roles it does (see nqp_read)
     md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
     defined = collections.Counter()
     for d in decls: defined[d['name']] += 1
@@ -334,6 +336,7 @@ def emit_all(path, out_c, provided=()):
         f.write('\n\n'.join(fns))
         f.write('\n')
     print(f"emitted            : {out_c}")
+    print(f"  grammar          : {grammar} + roles it does -- {len(decls)} of {nall} declarations in the file")
     print(f"  generated rules  : {stats['EMITTED']}")
     print(f"  refusing rules   : {stats['UNIMPL']}   (return RK_UNIMPL, never a silent 'no match')")
     print(f"  proto dispatchers: {stats['PROTO']}")
@@ -367,9 +370,10 @@ static int rk_lit(RkCur *c, const char *s) {
 '''
 
 if __name__ == '__main__':
-    args = [x for x in sys.argv[1:] if not x.startswith('--provided=')]
+    args = [x for x in sys.argv[1:] if not x.startswith('--')]
     prov = [x[len('--provided='):] for x in sys.argv[1:] if x.startswith('--provided=')]
+    gram = [x[len('--grammar='):] for x in sys.argv[1:] if x.startswith('--grammar=')]
     provided = tuple(n for p in prov for n in p.split(',') if n)     # rules the glue / HLL layer define: no stub
     src = args[0] if len(args) > 0 else '/home/resources/rakudo-main/src/Perl6/Grammar.nqp'
     out = args[1] if len(args) > 1 else '/tmp/rk_grammar_gen.c'
-    emit_all(src, out, provided)
+    emit_all(src, out, provided, gram[-1] if gram else 'Perl6::Grammar')

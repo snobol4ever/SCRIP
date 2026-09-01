@@ -13,7 +13,7 @@ worse than one that refuses.
 """
 import sys, re, collections, json
 sys.path.insert(0, __import__('os').path.dirname(__file__))
-from nqp_read import scan_decls, lex_body
+from nqp_read import scan_decls, lex_body, in_grammar
 
 class N:
     __slots__ = ('k', 'v', 'kids', 'ok')
@@ -332,7 +332,7 @@ def classify(root):
     return kinds, hard, rt
 
 def main(path='/home/resources/rakudo-main/src/Perl6/Grammar.nqp'):
-    decls = scan_decls(open(path, encoding='utf-8', errors='replace').read())
+    decls = in_grammar(scan_decls(open(path, encoding='utf-8', errors='replace').read()))
     md = modelled_dynvars(decls)
     tot = collections.Counter(); nfull = nrt = nsem = 0
     per_sem = collections.Counter()
