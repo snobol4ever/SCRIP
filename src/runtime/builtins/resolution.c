@@ -9,7 +9,6 @@
 #include "../../parsers/prolog/prolog_atom.h"
 #include "../../parsers/prolog/prolog_builtin.h"
 extern void rt_trail_unwind(int mark);
-extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 #include "gen_value.h"
 #include <stdio.h>
 #include <stdlib.h>

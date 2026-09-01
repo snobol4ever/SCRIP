@@ -1226,7 +1226,6 @@ static void pl_det_classify_all(void) {
               { int bx = g_stage2.proc_table[pi].bb_idx; if (bx >= 0 && bx < g_stage2.bbp.count && g_stage2.bbp.table[bx]) g_stage2.bbp.table[bx]->deterministic = 1; } } }
       if (getenv("SCRIP_DET_REPORT")) { fprintf(stderr, "DET-CLASS preds=%d det=%d\n", g_pl_det_n, ndet); for (int i = 0; i < g_pl_det_n; i++) fprintf(stderr, "DET-CLASS %-6s %s\n", g_pl_det_v[i].state == 1 ? "DET" : "NONDET", g_pl_det_v[i].key); } }
 }
-extern tree_t *pl_assert_term(Term *t, int *functor_out, int *arity_out);
 static int pl_ll_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ll_collect_vars(const tree_t *t, int *order, int *norder, int cap) {
