@@ -32,6 +32,17 @@ CALL    = re.compile(r'^\s*call\b')
 JMP     = re.compile(r'^\s*jmp\b')
 RET     = re.compile(r'^\s*(ret|jmp\s+rcx)\b')
 XFER    = re.compile(r'^\s*(j[a-z]+)\s+([\w.$αβγω]+)\s*$')
+CALLEE  = re.compile(r'^\s*call\s+\**([A-Za-z_][\w.$]*)')
+# ⛔ THE CALL ARM IS AN ALLOW-LIST, NOT AN ASSUMPTION (seat03 2026-09-01).  It previously returned OK_CALL
+# for EVERY `call`, with a detail string that asserted "a DESCR-returning call" -- a cause the code never
+# tested.  Measured: 9 of the 10 OK_CALL transfers in the witness set call rt_relop_overload / rt_jct_relop,
+# both of which return `int` (arithmetic.c:58, by_name_dispatch.c:4951; rt_relop_overload delivers its DESCR
+# through an `out` pointer, not in rax).  Only rt_assign_var genuinely returns DESCR_t.  So the census's
+# RAW count was HALF the true population, and curing only the RAW sites would have turned this gate GREEN
+# with 9 contract violations still standing -- precisely the "fix the known instances and leave a fourth
+# waiting" outcome this row's DONE-WHEN exists to prevent.  The set is derived MECHANICALLY from the runtime
+# sources by the gate (never hand-maintained: a hand list is only as correct as the last person to edit it).
+DESCR_FNS = set()
 
 def parse(path):
     """-> list of (lineno, label_or_None, instruction_or_None); one entry per instruction."""
@@ -65,7 +76,11 @@ def rax_state_at(ins, idx):
             if crossed>8: return ("UNKNOWN","fall-through walk exceeded 8 blocks",n)
             i-=1; continue
         if CALL.match(ist):
-            return ("OK_CALL","rax:rdx from a DESCR-returning call: %s" % ist[:60], n)
+            m=CALLEE.search(ist)
+            who=m.group(1) if m else "?"
+            if who in DESCR_FNS:
+                return ("OK_CALL","rax:rdx from a DESCR-returning call: %s" % who, n)
+            return ("RAW","rax<-return of %s, which does NOT return DESCR_t: untagged value in the tag register" % who, n)
         if rdx_src is None:
             m=WRDX.match(ist)
             if m and m.group(3): rdx_src=(m.group(3), n)
@@ -104,5 +119,20 @@ def scan(path):
     return dict(file=path,exits=sorted(exits),findings=findings)
 
 if __name__=="__main__":
-    res=[scan(p) for p in sys.argv[1:]]
+    args=[a for a in sys.argv[1:]]
+    fns=[a.split("=",1)[1] for a in args if a.startswith("--descr-fns=")]
+    args=[a for a in args if not a.startswith("--descr-fns=")]
+    if not fns:
+        sys.stderr.write("port_exit_value_contract_scan: REFUSING -- --descr-fns=<file> is required.\n"
+                         "The call arm must know which runtime functions actually return DESCR_t; assuming\n"
+                         "every call does is what made this instrument report half the true count.\n")
+        sys.exit(2)
+    try: DESCR_FNS.update(w.strip() for w in open(fns[0]) if w.strip())
+    except OSError as e:
+        sys.stderr.write("port_exit_value_contract_scan: REFUSING -- cannot read %s: %s\n" % (fns[0], e)); sys.exit(2)
+    if not DESCR_FNS:
+        sys.stderr.write("port_exit_value_contract_scan: REFUSING -- %s is empty; a zero-symbol allow-list\n"
+                         "would reclassify every call as a violation and read as a catastrophe.\n" % fns[0])
+        sys.exit(2)
+    res=[scan(p) for p in args]
     print(json.dumps(res,ensure_ascii=False))

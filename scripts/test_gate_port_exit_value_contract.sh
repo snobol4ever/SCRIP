@@ -56,7 +56,21 @@ done
                         echo "    This is NOT a pass. 'measured and clean' and 'never ran' must not share an output."; gate_stamp; exit 2; }
 
 JSON="$WORK/scan.json"
-python3 "$SCAN" "${ASM[@]}" > "$JSON" 2>"$WORK/scan.err" || {
+# ⛔ THE CALL ARM'S ALLOW-LIST, DERIVED FROM SOURCE EVERY RUN (seat03 2026-09-01).  The scanner used to treat
+# every `call` as DESCR-returning; measured, 9 of 10 such transfers in this witness set call int-returning
+# runtime functions, so the reported violation count was half the real one.  Derived here rather than
+# hand-maintained, because a hand list decays and this gate's whole purpose is to not depend on a census
+# staying complete.  Fail-closed: the scanner REFUSES if this file is missing or empty.
+DFNS="$WORK/descr_fns.txt"
+grep -rhoE '\bDESCR_t[[:space:]]+\**[[:space:]]*(rt_|c_rt_|scrip_)[A-Za-z0-9_]+[[:space:]]*\(' \
+     "$ROOT/src/runtime/" "$ROOT/src/ir/" 2>/dev/null \
+  | sed -E 's/^DESCR_t[[:space:]]*\**[[:space:]]*//; s/[[:space:]]*\($//' | sort -u > "$DFNS"
+if [ ! -s "$DFNS" ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: could not derive the DESCR-returning symbol set from src/"
+    echo "    This is NOT a pass. With an empty allow-list every call reads as a violation."; gate_stamp; exit 2
+fi
+echo "   DESCR-returning runtime symbols in the call allow-list: $(wc -l < "$DFNS")"
+python3 "$SCAN" "--descr-fns=$DFNS" "${ASM[@]}" > "$JSON" 2>"$WORK/scan.err" || {
     echo "GATE UNPROVEN(2) [$GATE_NAME]: the scanner itself failed"; sed -n '1,10p' "$WORK/scan.err"; gate_stamp; exit 2; }
 
 read -r EXITS XFERS VIOL <<< "$(python3 - "$JSON" <<'PY'
