@@ -23,6 +23,8 @@ import nqp_cc
 # panic-class diagnostics inside a {…} block: these ABORT in NQP; here they fail the arm (see Emit.node).
 DIAG_FAIL = re.compile(r'\b(panic|typed_panic|obs|malformed|missing|NYI|fail-terminator|die)\b')   # fail-terminator: unterminated quote (quibble/sibble/tribble); nqp::die
 
+PARAMS = {}              # rule name -> list of parameter names, e.g. {'scoped': ['$*SCOPE']} (filled by emit_all)
+
 _CC_TABLES = {}          # items-tuple -> C table name, so identical classes share one table
 def cc_table(items):
     key = tuple(items)
@@ -67,6 +69,22 @@ class Emit:
                 self.unimpl = True
                 self.w(ind, '/* <sym> outside a :sym<> candidate */ return RK_UNIMPL;')
                 return
+            args = getattr(n, 'args', None)
+            ps = PARAMS.get(nm)
+            if ps and args is not None:
+                # `<scoped('my')>` calling `token scoped($*SCOPE)`: the argument BINDS the callee's $* parameter
+                # for that activation -- pushed here, unwound after the call whether it matched or not. Only
+                # literal arguments to $*-parameters are modelled; anything else (`qok($/)`, `routine_def($d)`
+                # with a lexical param) is a plain call and the body's reads refuse as they do today.
+                lits = [const_value(x.strip()) for x in re.split(r',(?![^(]*\))', args)] if args else []
+                if len(lits) == len(ps) and all(p.startswith('$*') and v is not None for p, v in zip(ps, lits)):
+                    self.uses_dyn = True
+                    v = self.t()
+                    self.w(ind, f'{{ int {v}_m = c->ndyn;')
+                    for p, val in zip(ps, lits):
+                        self.w(ind + 1, f'if (!rk_dyn_push(c, {self.cstr(p)}, {self.cstr(val)})) goto fail;   /* {nm}({p} := literal) */')
+                    self.w(ind + 1, f'int {v}_r = {cname(nm)}(c); c->ndyn = {v}_m; if (!{v}_r) goto fail; }}')
+                    return
             self.w(ind, f'if (!{cname(nm)}(c)) goto fail;')
         elif k in ('CCLASS', 'ESC'):
             # ⛔ Lowered at GENERATION time (nqp_cc.py). A spec that will not parse REFUSES here
@@ -228,6 +246,10 @@ def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
     nall = len(decls)
     decls = in_grammar(decls, grammar)      # ⛔ one language: the grammar plus the roles it does (see nqp_read)
     md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
+    PARAMS.clear()
+    for d in decls:
+        if d.get('params'):
+            PARAMS[d['name']] = [p.strip().split('=')[0].strip().lstrip(':') for p in d['params'].strip('()').split(',') if p.strip()]
     defined = collections.Counter()
     for d in decls: defined[d['name']] += 1
     # ⛔ a proto is a proto because it is DECLARED one, not because candidates exist: `proto token

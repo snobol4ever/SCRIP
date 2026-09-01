@@ -120,13 +120,15 @@ def scan_decls(src):
             else:
                 disagree += 1
         nm = m.group('name') or m.group('pname'); sym = None
+        params = (m.group('params') or '').strip()      # `token scoped($*SCOPE) {` -> name 'scoped', params '($*SCOPE)'
         sm = re.match(r'([^:]+):sym[<«](.*)[>»]$', nm)
         if sm: nm, sym = sm.group(1), sm.group(2)
         ow = owner_of(ln)
         indent = len(lines[ln]) - len(lines[ln].lstrip(' '))
         out.append(dict(kind=m.group('kind'), name=nm, sym=sym, proto=bool(m.group('proto')),
                         line=ln+1, endline=endln+1, body=body, overrun=(endln >= limit),
-                        owner=(ow[1] if ow else ''), owner_does=(ow[2] if ow else []), owner_nested=(indent > 4)))
+                        owner=(ow[1] if ow else ''), owner_does=(ow[2] if ow else []), owner_nested=(indent > 4),
+                        params=params))
     if disagree:
         print(f"⚠️  {disagree} production(s) whose brace-match ran past the next declaration "
               f"-- bodies may be contaminated; investigate before trusting per-production output.",

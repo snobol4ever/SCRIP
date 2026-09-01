@@ -16,9 +16,10 @@ sys.path.insert(0, __import__('os').path.dirname(__file__))
 from nqp_read import scan_decls, lex_body, in_grammar
 
 class N:
-    __slots__ = ('k', 'v', 'kids', 'ok')
+    __slots__ = ('k', 'v', 'kids', 'ok', 'args')
     def __init__(self, k, v=None, kids=None, ok=True):
         self.k, self.v, self.kids, self.ok = k, v, kids or [], ok
+        self.args = None                     # CALL only: the argument text (`scoped('my')` -> "'my'")
     def walk(self):
         yield self
         for c in self.kids: yield from c.walk()
@@ -330,7 +331,9 @@ class P:
         m = re.match(r'^([A-Za-z_][A-Za-z0-9_:-]*)', t)
         if not m:
             return N('UNSUPPORTED', f'assertion:{v[:40]}', ok=False)
-        return N('CALL', m.group(1))
+        node = N('CALL', m.group(1))
+        node.args = am.group(2).strip() if am else None        # `scoped('my')` -> "'my'"; bound by the emitter
+        return node
 
 def classify(root):
     kinds = collections.Counter()
